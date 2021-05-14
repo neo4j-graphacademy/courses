@@ -8,9 +8,7 @@ import profileRoutes from './routes/profile'
 import { apply404handler } from './middleware/404'
 import { Driver } from 'neo4j-driver'
 
-
-
-export function init(driver: Driver) {
+export default function initApp(driver: Driver) {
     const app = express()
 
     app.use((req, res, next) => {

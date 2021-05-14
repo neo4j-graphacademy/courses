@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import dotenv from 'dotenv'
-import { write, close } from '../modules/neo4j';
+import initNeo4j, { write, close } from '../modules/neo4j';
 import { ATTRIBUTE_CAPTION, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course } from '../domain/model/course';
 import { DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../constants'
 import { loadFile } from '../modules/asciidoc'
@@ -13,6 +13,12 @@ import { decode } from 'html-entities'
 dotenv.config()
 
 console.clear();
+
+const {
+    NEO4J_HOST,
+    NEO4J_USERNAME,
+    NEO4J_PASSWORD,
+} = process.env
 
 
 const loadCourses = (): Course[] => {
@@ -85,13 +91,8 @@ const loadLesson = (filepath: string): Lesson => {
     } as Lesson
 }
 
-Promise.all(loadCourses())
-    .then(courses => {
-        // @ts-ignore
-        console.log(courses.map(course => course.modules.map(module => module.lessons.map(lesson => lesson.verify))))
-
-        return courses
-    })
+initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
+    .then(() => Promise.all(loadCourses()))
     .then(courses => write(`
         UNWIND $courses AS course
         MERGE (c:Course {slug: course.slug })
@@ -105,11 +106,11 @@ Promise.all(loadCourses())
             c.updatedAt = datetime()
 
         // Detach old modules
-        FOREACH (c IN [ (c)-[:HAS_MODULE]->(m) | m ] |
+        FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] |
             SET m:DeletedModule
         )
 
-        FOREACH (c IN [ (c)-[r:HAS_MODULE]->() | r ] |
+        FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] |
             DELETE r
         )
 
@@ -124,16 +125,20 @@ Promise.all(loadCourses())
             m.status = 'active',
             m.duration = module.duration,
             m.updatedAt = datetime()
+
         REMOVE m:DeletedModule
 
         MERGE (c)-[:HAS_MODULE]->(m)
 
+        // Delete Next Module
+        FOREACH (r IN [ (m)-[r:NEXT_MODULE]->() | r ] | DELETE r)
+
         // Detach old lessons
-        FOREACH (c IN [ (m)-[:HAS_LESSON]->(l) | l ] |
-            SET m:DeletedLesson
+        FOREACH (l IN [ (m)-[:HAS_LESSON]->(l) | l ] |
+            SET l:DeletedLesson
         )
 
-        FOREACH (c IN [ (c)-[r:HAS_MODULE]->() | r ] |
+        FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] |
             DELETE r
         )
 
@@ -152,7 +157,9 @@ Promise.all(loadCourses())
             l.status = 'active',
             l.updatedAt = datetime()
 
-        REMOVE r:DeletedLesson
+        REMOVE l:DeletedLesson
+
+        FOREACH (r IN [ (l)-[r:NEXT_LESSON]->() | r ] | DELETE r)
 
         MERGE (m)-[:HAS_LESSON]->(l)
 
@@ -189,5 +196,5 @@ Promise.all(loadCourses())
 
         MERGE (last)-[:NEXT_LESSON]->(first)
     `, { courses }))
-        .then(res => console.log(res.summary))
+        .then(res => console.log(res))
         .then(() => close())
