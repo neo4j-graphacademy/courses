@@ -48,7 +48,7 @@ export async function writeTransaction(work: (tx: Transaction) => void, database
 }
 
 export async function close() {
-    return driver.close()
+    return driver && driver.close()
 }
 
 export default async function initNeo4j(host: string, username: string, password: string): Promise<Driver> {
