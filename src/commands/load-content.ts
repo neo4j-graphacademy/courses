@@ -138,7 +138,7 @@ initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
             SET l:DeletedLesson
         )
 
-        FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] |
+        FOREACH (r IN [ (m)-[r:HAS_LESSON]->() | r ] |
             DELETE r
         )
 
