@@ -5,7 +5,7 @@ import { registerLocals } from './middleware/locals'
 import homeRoutes from './routes/home'
 import courseRoutes from './routes/courses'
 import profileRoutes from './routes/profile'
-import {apply404handler} from './middleware/404'
+import { apply404handler } from './middleware/404'
 
 const app = express()
 

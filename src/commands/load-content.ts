@@ -104,6 +104,15 @@ Promise.all(loadCourses())
             c.usecase = course.usecase,
             c.updatedAt = datetime()
 
+        // Detach old modules
+        FOREACH (c IN [ (c)-[:HAS_MODULE]->(m) | m ] |
+            SET m:DeletedModule
+        )
+
+        FOREACH (c IN [ (c)-[r:HAS_MODULE]->() | r ] |
+            DELETE r
+        )
+
         WITH c, course
 
         UNWIND course.modules AS module
@@ -115,8 +124,18 @@ Promise.all(loadCourses())
             m.status = 'active',
             m.duration = module.duration,
             m.updatedAt = datetime()
+        REMOVE m:DeletedModule
 
         MERGE (c)-[:HAS_MODULE]->(m)
+
+        // Detach old lessons
+        FOREACH (c IN [ (m)-[:HAS_LESSON]->(l) | l ] |
+            SET m:DeletedLesson
+        )
+
+        FOREACH (c IN [ (c)-[r:HAS_MODULE]->() | r ] |
+            DELETE r
+        )
 
         WITH m, c, course, module
         UNWIND module.lessons AS lesson
@@ -133,11 +152,15 @@ Promise.all(loadCourses())
             l.status = 'active',
             l.updatedAt = datetime()
 
+        REMOVE r:DeletedLesson
+
         MERGE (m)-[:HAS_LESSON]->(l)
 
         WITH c, m, l ORDER BY m.order ASC, l.order ASC
         WITH c, m, collect(l) AS lessons
 
+
+        // Build Linked Lists
         WITH c, m, lessons, lessons[0] AS first, lessons[size(lessons)-1] AS last
         MERGE (m)-[:FIRST_LESSON]->(first)
         MERGE (m)-[:LAST_LESSON]->(last)
