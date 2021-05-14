@@ -1,3 +1,4 @@
+import { Transaction } from "neo4j-driver";
 import { getLessonOverview } from "../../modules/asciidoc";
 import { createDriver } from "../../modules/neo4j";
 import { getSandboxForUseCase } from "../../modules/sandbox";
@@ -29,11 +30,11 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const host = `${sandbox.scheme}://${sandbox.host}:${sandbox.boltPort}`
     const { username, password } = sandbox
 
-    const driver = createDriver(host, username, password)
+    const driver = await createDriver(host, username, password)
 
     const session = driver.session()
 
-    const res = await session.readTransaction(tx => tx.run(verify))
+    const res = await session.readTransaction((tx: Transaction) => tx.run(verify))
 
     console.log(res?.records[0]);
 

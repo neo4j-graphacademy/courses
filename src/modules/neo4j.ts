@@ -1,24 +1,19 @@
-import dotenv from 'dotenv'
-import neo4j, { Transaction } from 'neo4j-driver'
+import neo4j, { Driver, QueryResult, Result, Transaction } from 'neo4j-driver'
 
-dotenv.config()
-
-const {
-    NEO4J_HOST,
-    NEO4J_USERNAME,
-    NEO4J_PASSWORD,
-} = process.env
+let driver: Driver;
 
 
-const driver = createDriver(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
-
-export function createDriver(host: string, username: string, password: string) {
-    return neo4j.driver(host, neo4j.auth.basic(username, password), {
+export async function createDriver(host: string, username: string, password: string): Promise<Driver> {
+    const driver = neo4j.driver(host, neo4j.auth.basic(username, password), {
         disableLosslessIntegers: true
     })
+
+    await driver.verifyConnectivity()
+
+    return driver
 }
 
-export async function read(query: string, params?: Record<string, any>, database?: string) {
+export async function read(query: string, params?: Record<string, any>, database?: string): Promise<Result> {
     const session = driver.session({ database })
 
     const res = await session.readTransaction(tx => {
@@ -30,7 +25,7 @@ export async function read(query: string, params?: Record<string, any>, database
     return res
 }
 
-export async function write(query: string, params?: Record<string, any>, database?: string) {
+export async function write(query: string, params?: Record<string, any>, database?: string): Promise<Result> {
     const session = driver.session({ database })
 
     const res = await session.writeTransaction(tx => {
@@ -42,14 +37,22 @@ export async function write(query: string, params?: Record<string, any>, databas
     return res
 }
 
-export async function writeTransaction(work: (tx: Transaction) => void, database?: string) {
+export async function writeTransaction(work: (tx: Transaction) => void, database?: string): Promise<void> {
     const session = driver.session({ database, defaultAccessMode: 'WRITE' })
 
-    return session.writeTransaction(work)
-        .then(res => session.close().then(() => res))
+    const res = await session.writeTransaction(work)
 
+    await session.close()
+
+    return res
 }
 
 export async function close() {
     return driver.close()
+}
+
+export default async function initNeo4j(host: string, username: string, password: string): Promise<Driver> {
+    driver = await createDriver(host, username, password)
+
+    return driver
 }
