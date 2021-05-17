@@ -5,16 +5,18 @@ import { getSandboxForUseCase } from "../../modules/sandbox";
 import { ATTRIBUTE_USECASE } from "../model/course";
 import { ATTRIBUTE_VERIFY, LessonWithProgress } from "../model/lesson";
 import { User } from "../model/user";
+import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
 
 export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
     const document = await getLessonOverview(course, module, lesson)
-    const usecase = document.getAttribute(ATTRIBUTE_USECASE)
+    const progress = await getCourseWithProgress(course, user)
+    const usecase = progress.usecase
     const verify = document.getAttribute(ATTRIBUTE_VERIFY)
+    console.log(usecase, verify);
 
     // No usecase or verify?
     if ( usecase === undefined || verify === undefined ) {
-        console.log('no use case');
 
         return false
     }
@@ -23,11 +25,10 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const sandbox = await getSandboxForUseCase(token, usecase)
 
     if ( !sandbox ) {
-        console.log('no sandbox');
         return false
     }
 
-    const host = `${sandbox.scheme}://${sandbox.host}:${sandbox.boltPort}`
+    const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
     const { username, password } = sandbox
 
     const driver = await createDriver(host, username, password)
@@ -35,8 +36,6 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const session = driver.session()
 
     const res = await session.readTransaction((tx: Transaction) => tx.run(verify))
-
-    console.log(res?.records[0]);
 
     let correct = false
 

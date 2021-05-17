@@ -108,12 +108,8 @@ const generateQuestionId = (title: string): string => {
 
 const loadQuestion = (filepath: string): Question => {
     const file = loadFile(filepath)
-    if (!file.getTitle()) {
-        console.log(filepath);
 
-    }
-
-    const id = generateQuestionId(file.getTitle()!)
+    const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
     return {
         id,
@@ -125,7 +121,7 @@ const loadQuestion = (filepath: string): Question => {
 initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
     .then(() => Promise.all(loadCourses()))
     // .then(courses => {
-    //     console.log(JSON.stringify(courses[0].modules[0].lessons[0], null, 2));
+    //     console.log(JSON.stringify(courses[0].modules.find(m => m.slug === 'writing')?.lessons.find(l => l.slug === 'create-challenge'), null, 2));
     //     return courses
     // })
     .then(courses => write(`

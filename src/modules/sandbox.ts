@@ -9,6 +9,7 @@ export interface Sandbox {
     usecase: string;
 
     scheme: Neo4jScheme;
+    ip: string;
     host: string;
     boltPort: string;
     username: string;
@@ -35,18 +36,14 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
             }
         )
 
-        console.log(res.data);
-
-
         return res.data.map((row: Sandbox) => ({
             ...row,
             scheme: 'bolt+s',
+            username: 'neo4j',
             host: `${row.sandboxHashKey}.neo4jsandbox.com`,
         }))
     }
     catch (e) {
-        console.log(e.data);
-
         return []
     }
 }

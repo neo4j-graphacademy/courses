@@ -7,12 +7,9 @@ export function questionBlockExtension(registry: any) {
         self.named('question')
         // self.onContext('sect2')
         self.process((parent: any, reader: any) => {
-            // console.log(reader.getLines()[0]);
             var lines = reader.getLines().map(function (l:string) { return l.toUpperCase() })
-            console.log(lines);
 
             return self.createBlock(parent, 'paragraph', lines)
-
         })
     })
 

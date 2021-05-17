@@ -12,6 +12,7 @@ import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { User } from '../domain/model/user'
+import { markAsRead } from '../domain/services/mark-as-read'
 
 const router = Router()
 
@@ -100,17 +101,15 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
         // Check that user is enrolled
         const course = await getCourseWithProgress(req.params.course, user)
 
-
         // If not enrolled, send to course home
         if (course.enrolled === false) {
             return res.redirect(`/courses/${req.params.course}`)
         }
 
         // Check that a use case exists
+        // TODO: Specific 404
         if (!course.usecase) {
-            console.log('no use case');
-
-            return res.redirect(`/courses/${req.params.course}/`)
+            return next(new NotFoundError(`No use case for ${req.params.course}`))
         }
 
         // Check that the user has created a sandbox
@@ -118,7 +117,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
 
         // If sandbox doesn't exist then recreate it
         if (!sandbox) {
-            sandbox = await createSandbox(token, course.usecase)
+            sandbox = await createSandbox(token, course.usecase!)
         }
 
         // Pre-fill credentials and redirect to browser
@@ -247,6 +246,28 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         const token = await getToken(req)
 
         const outcome = await verifyCodeChallenge(user!, token, course, module, lesson)
+
+        res.json(outcome)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/:module/:lesson/read
+ *
+ * Mark a text-only page as completed
+ *
+ * input::read[type=button,class=btn,value=Mark as Read]
+ *
+ */
+router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, next) => {
+    try {
+        const { course, module, lesson } = req.params
+        const user = await getUser(req)
+
+        const outcome = await markAsRead(user!, course, module, lesson)
 
         res.json(outcome)
     }

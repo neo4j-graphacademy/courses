@@ -48,6 +48,8 @@ const OPTION_INCORRECT = 'question-option--incorrect'
 const COMMENT_SELECTOR = 'hljs-comment'
 const COMMENT_SELECTOR_PREFIX = '/*select:'
 
+const BUTTON_LOADING = 'btn--loading'
+
 const extractAnswersFromBlock = (div: Element): Option[] => {
     return Array.from(div.querySelectorAll('ul li'))
         .map((element: any) => ({
@@ -212,7 +214,6 @@ const handleResponse = (parent, button, res, showHint = false) => {
         .forEach(el => parent.removeChild(el))
 
     if (res.data.completed) {
-
         parent.removeChild(button)
 
         if (res.data.next) {
@@ -259,6 +260,23 @@ const handleResponse = (parent, button, res, showHint = false) => {
                 })
         }
     }
+}
+
+const handleError = (parent, button, error) => {
+    console.log('err');
+
+    parent.querySelectorAll('.question-outcome')
+        .forEach(el => parent.removeChild(el))
+
+        parent.appendChild(createElement('div', 'admonition admonition--danger question-outcome question-outcome--danger', [
+            createElement('h3', 'admonition-title', ['Error!']),
+            createElement('p', '', [
+                error.message,
+            ])
+        ]))
+
+    button.classList.remove()
+
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -372,16 +390,33 @@ window.addEventListener('DOMContentLoaded', () => {
             addHintListeners(element)
 
             const button = element.querySelector('input[type="button"]')
-            button?.addEventListener('click', (e) => {
+            button?.addEventListener('click', e => {
                 e.preventDefault()
 
-                button.classList.add('btn--loading')
+                button.classList.add(BUTTON_LOADING)
 
                 axios.post(`${document.location.pathname}/verify`)
                     .then(res => handleResponse(element.parentElement, element, res, true))
+                    .catch(e => handleError(element.parentElement, element, e))
                     .finally(() => {
-                        button.classList.remove('btn--loading')
+                        button.classList.remove(BUTTON_LOADING)
                     })
             })
         })
+})
+
+window.addEventListener('DOMContentLoaded', () => {
+    Array.from(document.querySelectorAll('input[name="read"]'))
+        .map((button: Element) => {
+            button.addEventListener('click', e => {
+                e.preventDefault()
+
+                axios.post(`${document.location.pathname}/read`)
+                .then(res => handleResponse(button.parentElement, button, res, true))
+                .catch(e => handleError(button.parentElement, button, e))
+                .finally(() => {
+                    button.classList.remove(BUTTON_LOADING)
+                })
+        })
+    })
 })

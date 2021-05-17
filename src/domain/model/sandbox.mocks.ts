@@ -18,6 +18,7 @@ export function devSandbox(): Sandbox {
         boltPort: SANDBOX_DEV_INSTANCE_PORT as string,
         host: SANDBOX_DEV_INSTANCE_HOST as string,
         port: SANDBOX_DEV_INSTANCE_PORT as string,
+        ip: SANDBOX_DEV_INSTANCE_HOST as string,
         username: SANDBOX_DEV_INSTANCE_USERNAME as string,
         password: SANDBOX_DEV_INSTANCE_PASSWORD as string,
         usecase: 'movies',

@@ -14,24 +14,27 @@ inputBlockProcessor(registry)
 browserBlockProcessor(registry)
 
 // Convert options
-const options: Asciidoctor.ProcessorOptions = {
+const baseOptions: Asciidoctor.ProcessorOptions = {
     safe: 'safe',
     backend: 'html5',
     template_dir: path.join(__dirname, '..', '..', '..', 'views', '_asciidoc'),
     extension_registry: registry,
 }
 
-export function loadFile(path: string): Asciidoctor.Document {
-    const file = doc.loadFile(path, options)
+export function loadFile(path: string, options: Record<string, any> = {}): Asciidoctor.Document {
+    const file = doc.loadFile(path, {
+        ...baseOptions,
+        ...options,
+    })
 
     return file
 }
 
-export function convert(document: Asciidoctor.Document, attributes = {}) {
+export function convert(document: Asciidoctor.Document, options: Record<string, any> = {}) {
     // TODO: Extend Options
     return document.convert({
+        ...baseOptions,
         ...options,
-        attributes,
     })
 }
 

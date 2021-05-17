@@ -8,8 +8,6 @@ class GraphAcademyTemplateConverter {
     }
 
     convert (node: any, transform: any, opts: any) {
-      console.log(transform, node.node_name);
-
         const template = this.templates[transform || node.node_name]
         if (template) {
           return template(node)
