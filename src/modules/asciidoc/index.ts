@@ -50,7 +50,7 @@ export async function convertModuleOverview(course: string, module: string) {
 }
 
 export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
-    const file = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses', course, 'modules', module, 'lessons', `${lesson}.adoc`)
+    const file = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses', course, 'modules', module, 'lessons', lesson, 'index.adoc')
     return loadFile(file)
 }
 

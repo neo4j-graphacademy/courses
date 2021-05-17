@@ -7,8 +7,12 @@ import { User } from "../model/user";
 export async function enrolInCourse(slug: string, user: User): Promise<Enrolment> {
     const res = await write(`
         MATCH (c:Course {slug: $slug})
-        MERGE (u:User {id: $user})
-        MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ $user)})
+        MERGE (u:User {oauthId: $user})
+        ON CREATE SET u.id = randomUuid(), u.createdAt = datetime(),
+            u.givenName = $givenName,
+            u.name = $name
+
+        MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.id)})
         ON CREATE SET e.createdAt = datetime()
 
         MERGE (u)-[:HAS_ENROLMENT]->(e)
@@ -22,11 +26,17 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
                 slug: c.slug,
                 usecase: c.usecase
             },
+            nextModule: [ (c)-[:FIRST_MODULE]->(m) | m {
+                .*,
+                link: '/courses/'+ c.slug +'/'+ m.slug
+            } ][0],
             createdAt: e.createdAt
         } AS enrolment
     `, {
         slug,
         user: user.user_id,
+        name: user.name,
+        givenName: user.name,
     })
 
     if ( res.records.length === 0 ) {

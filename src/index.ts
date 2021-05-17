@@ -13,7 +13,6 @@ const {
 
 console.log(`Connecting to ${NEO4J_HOST} as ${NEO4J_USERNAME}:${NEO4J_PASSWORD}`);
 
-
 initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
     .then((driver: Driver) => initApp(driver))
     .then((app: Express) => {

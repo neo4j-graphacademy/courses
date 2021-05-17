@@ -7,7 +7,7 @@ import { DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../constants'
 import { loadFile } from '../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../domain/model/module';
 import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_TEXT } from '../domain/model/lesson';
-import { ATTRIBUTE_ANSWER } from '../domain/model/question';
+import { ATTRIBUTE_ANSWER, Question } from '../domain/model/question';
 import { decode } from 'html-entities'
 
 dotenv.config()
@@ -57,7 +57,7 @@ const loadModule = (folder: string): Module => {
 
     const lessons = fs.existsSync(lessonsDir)
         ? fs.readdirSync(lessonsDir)
-            .filter(file => file.endsWith('.adoc'))
+            .filter(file => fs.lstatSync(path.join(lessonsDir, file)).isDirectory() && fs.existsSync(path.join(lessonsDir, file, 'index.adoc')))
             .map(filename => loadLesson(path.join(lessonsDir, filename)))
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
@@ -71,14 +71,21 @@ const loadModule = (folder: string): Module => {
     }
 }
 
-const loadLesson = (filepath: string): Lesson => {
-    const slug = <string> filepath.split('/').filter(a => !!a).pop()!.replace('.adoc', '')
-    const file = loadFile(filepath)
+const loadLesson = (folder: string): Lesson => {
+    const slug = <string> folder.split('/').filter(a => !!a).pop()!
+    const file = loadFile(path.join(folder, 'index.adoc'))
 
-    // TODO: Load questions and answers into database
+    // Load questions and answers into database
+
+    const questionsDir = path.join(folder, 'questions')
+    const questions = fs.existsSync( questionsDir ) ?
+        fs.readdirSync(questionsDir)
+            .filter(file => file.endsWith('.adoc'))
+            .map(filename => loadQuestion(path.join(questionsDir, filename)))
+        : []
 
     return {
-        path: filepath,
+        path: folder,
         slug,
         title: file.getTitle(),
         type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_TEXT),
@@ -88,11 +95,39 @@ const loadLesson = (filepath: string): Lesson => {
         cypher: decode(file.getAttribute(ATTRIBUTE_CYPHER)),
         answer: decode(file.getAttribute(ATTRIBUTE_ANSWER)),
         verify: decode(file.getAttribute(ATTRIBUTE_VERIFY)),
+        questions,
     } as Lesson
+}
+
+const generateQuestionId = (title: string): string => {
+    return '_'+ title.replace(/(<([^>]+)>)/gi, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/_+$/g, '')
+}
+
+const loadQuestion = (filepath: string): Question => {
+    const file = loadFile(filepath)
+    if (!file.getTitle()) {
+        console.log(filepath);
+
+    }
+
+    const id = generateQuestionId(file.getTitle()!)
+
+    return {
+        id,
+        text: file.getTitle(),
+    } as Question
+
 }
 
 initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
     .then(() => Promise.all(loadCourses()))
+    // .then(courses => {
+    //     console.log(JSON.stringify(courses[0].modules[0].lessons[0], null, 2));
+    //     return courses
+    // })
     .then(courses => write(`
         UNWIND $courses AS course
         MERGE (c:Course {slug: course.slug })
@@ -163,9 +198,24 @@ initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
 
         MERGE (m)-[:HAS_LESSON]->(l)
 
+        // Load Questions
+        FOREACH (q IN [(l)-[:HAS_QUESTION]->(q) | q] |
+            SET q:DeletedQuestion
+        )
+
+        FOREACH (r IN [(l)-[r:HAS_QUESTION]->() | r] |
+            DELETE r
+        )
+
+        FOREACH (question IN lesson.questions |
+            MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ question.id)})
+            SET q.slug = question.id, q.text = question.text
+            REMOVE q:DeletedQuestion
+            MERGE (l)-[:HAS_QUESTION]->(q)
+        )
+
         WITH c, m, l ORDER BY m.order ASC, l.order ASC
         WITH c, m, collect(l) AS lessons
-
 
         // Build Linked Lists
         WITH c, m, lessons, lessons[0] AS first, lessons[size(lessons)-1] AS last
@@ -196,5 +246,5 @@ initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
 
         MERGE (last)-[:NEXT_LESSON]->(first)
     `, { courses }))
-        .then(res => console.log(res))
+        // .then(res => console.log(res))
         .then(() => close())

@@ -7,7 +7,7 @@ export async function getCourseWithProgress(slug: string, user?: User): Promise<
     const res = await read(`
         MATCH (c:Course {slug: $slug})
 
-        ${user ? 'OPTIONAL MATCH (u:User {id: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
+        ${user ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
 
         RETURN c {
             .slug,

@@ -5,7 +5,7 @@ import { User } from "../model/user";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
     const res = await write(`
-        MATCH (u:User {id: $user})
+        MATCH (u:User {oauthId: $user})
         MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
         WHERE c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
@@ -31,7 +31,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             FOREACH (_ IN CASE WHEN row.correct = true THEN [1] ELSE [] END |
                 SET an:CorrectAnswer
             )
-            FOREACH (_ IN CASE WHEN row.correct = false THEN [] ELSE [1] END |
+            FOREACH (_ IN CASE WHEN row.correct = false THEN [1] ELSE [] END |
                 SET an:IncorrectAnswer
             )
 

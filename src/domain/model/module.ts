@@ -9,6 +9,7 @@ export interface Module {
     title: string;
     order: number;
     lessons: Lesson[];
+    link?: string;
 }
 
 export interface ModuleWithProgress extends Module {

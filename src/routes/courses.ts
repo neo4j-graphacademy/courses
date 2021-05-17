@@ -11,6 +11,7 @@ import { convertCourseOverview, convertLessonOverview, convertModuleOverview } f
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
+import { User } from '../domain/model/user'
 
 const router = Router()
 
@@ -32,7 +33,8 @@ router.get('/', (req, res, next) => {
  */
 router.get('/:course', async (req, res, next) => {
     try {
-        const user = getUser(req)
+        const user = await getUser(req)
+
         // TODO: Flash memory
         const interested = req.query.interested
 
@@ -70,16 +72,18 @@ router.get('/:course/badge', (req, res, next) => {
  * Create an :Enrolment node between the user and the course within the database
  */
 router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
-    const user = getUser(req)
-    const token = getToken(req)
+    const user = await getUser(req)
+    const token = await getToken(req)
 
-    const enrolment = await enrolInCourse(req.params.course, user)
+    const enrolment = await enrolInCourse(req.params.course, user!)
 
     if (enrolment.course.usecase) {
         await createSandbox(token, enrolment.course.usecase)
     }
 
-    res.redirect(`/courses/${enrolment.course.slug}/`)
+    const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
+
+    res.redirect(goTo)
 })
 
 /**
@@ -90,8 +94,8 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
  */
  router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
     try {
-        const token = getToken(req)
-        const user = getUser(req)
+        const token = await getToken(req)
+        const user = await getUser(req)
 
         // Check that user is enrolled
         const course = await getCourseWithProgress(req.params.course, user)
@@ -140,9 +144,9 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
  * If none of the routes matched above, this URL must be a module page.
  * Render index.adoc in the course root
  */
-router.get('/:course/:module', requiresAuth(), async (req, res, next) => {
+router.get('/:course/:module', async (req, res, next) => {
     try {
-        const user = getUser(req)
+        const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
         const module = course.modules.find(module => module.slug === req.params.module)
@@ -173,7 +177,7 @@ router.get('/:course/:module', requiresAuth(), async (req, res, next) => {
  */
 router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) => {
     try {
-        const user = getUser(req)
+        const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
         const module = course.modules.find(module => module.slug === req.params.module)
@@ -189,7 +193,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
         }
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, {
-            'name': user.given_name,
+            'name': user!.given_name,
         })
 
         res.render('course/lesson', {
@@ -218,8 +222,8 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
         const { course, module, lesson } = req.params
         const answers: Answer[] = req.body
 
-        const user = getUser(req)
-        const output = await saveLessonProgress(user, course, module, lesson, answers)
+        const user = await getUser(req)
+        const output = await saveLessonProgress(user!, course, module, lesson, answers)
 
         res.json(output)
     }
@@ -239,10 +243,10 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
 router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, next) => {
     try {
         const { course, module, lesson } = req.params
-        const user = getUser(req)
-        const token = getToken(req)
+        const user = await getUser(req)
+        const token = await getToken(req)
 
-        const outcome = await verifyCodeChallenge(user, token, course, module, lesson)
+        const outcome = await verifyCodeChallenge(user!, token, course, module, lesson)
 
         res.json(outcome)
     }

@@ -35,7 +35,14 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
             }
         )
 
-        return res.data
+        console.log(res.data);
+
+
+        return res.data.map((row: Sandbox) => ({
+            ...row,
+            scheme: 'bolt+s',
+            host: `${row.sandboxHashKey}.neo4jsandbox.com`,
+        }))
     }
     catch (e) {
         console.log(e.data);

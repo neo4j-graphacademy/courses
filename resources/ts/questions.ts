@@ -97,7 +97,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
     const multiple = options.filter(answer => answer.correct).length > 1
 
     options.map(answer => {
-        const input = createElement('input', 'question-option')
+        const input = createElement('input', '')
         input.setAttribute('id', `${id}--${answer.value}`)
         input.setAttribute('name', <string>id)
         input.setAttribute('value', answer.value)
@@ -122,6 +122,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
         }
 
         // Add the checkbox
+        answer.element.classList.add('question-option')
         answer.element.appendChild(
             label
         )

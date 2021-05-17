@@ -1,6 +1,7 @@
 import { Request, Response, Express } from 'express';
 import { auth } from 'express-openid-connect'
 import { User } from '../domain/model/user';
+import { read } from '../modules/neo4j';
 
 const config = {
     authRequired: false,
@@ -11,23 +12,33 @@ const config = {
     issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL
 };
 
-export function getToken(req: any): string {
+export async function getToken(req: any): Promise<string> {
     return req.oidc.idToken;
 }
 
-export function getUser(req: any): User {
-    return req.oidc.user
+export async function getUser(req: any): Promise<User | undefined> {
+    if ( !req.oidc.user ) return undefined;
+
+    const res = await read(`MATCH (u:User {oauthId: $user_id}) RETURN u`, { user_id: req.oidc.user.user_id })
+
+    let dbUser = res.records.length ? res.records[0].get('u').properties : {}
+
+    return {
+        ...req.oidc.user,
+        ...dbUser,
+    }
 }
 
 export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));
 
-    app.use((req: Request, res: Response, next: Function) => {
+    app.use(async (req: Request, res: Response, next: Function) => {
         // @ts-ignore
-        res.locals.user = getUser(req)
+        res.locals.user = await getUser(req)
         // @ts-ignore
         res.locals.BASE_URL = process.env.BASE_URL
+
         next()
     })
 }
