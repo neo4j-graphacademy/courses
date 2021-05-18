@@ -162,6 +162,9 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
         return el
     }))
 
+    // Insert blank item at the top
+    select.insertBefore(document.createElement('option'), select.children[0])
+
     select.setAttribute('id', id)
     select.setAttribute('name', <string>id)
 

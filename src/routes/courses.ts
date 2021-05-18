@@ -11,7 +11,6 @@ import { convertCourseOverview, convertLessonOverview, convertModuleOverview } f
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { User } from '../domain/model/user'
 import { markAsRead } from '../domain/services/mark-as-read'
 
 const router = Router()
@@ -73,18 +72,29 @@ router.get('/:course/badge', (req, res, next) => {
  * Create an :Enrolment node between the user and the course within the database
  */
 router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
-    const user = await getUser(req)
-    const token = await getToken(req)
+    try {
+        const user = await getUser(req)
+        const token = await getToken(req)
 
-    const enrolment = await enrolInCourse(req.params.course, user!)
+        const enrolment = await enrolInCourse(req.params.course, user!)
 
-    if (enrolment.course.usecase) {
-        await createSandbox(token, enrolment.course.usecase)
+        if (enrolment.course.usecase) {
+            try {
+            await createSandbox(token, enrolment.course.usecase)
+            }
+            catch(e) {
+                console.log('error creating sandbox', e);
+
+            }
+        }
+
+        const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
+
+        res.redirect(goTo)
     }
-
-    const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
-
-    res.redirect(goTo)
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -93,7 +103,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
- router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
+router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
@@ -153,6 +163,9 @@ router.get('/:course/:module', async (req, res, next) => {
         if (module === undefined) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
+
+        console.log(module);
+
 
         const doc = await convertModuleOverview(req.params.course, req.params.module)
 

@@ -30,3 +30,8 @@ export interface CourseWithProgress extends Course {
     completedPercentage: number;
     modules: ModuleWithProgress[];
 }
+
+
+export type CoursesByStatus = {
+    [key in CourseStatus]: Course[];
+}

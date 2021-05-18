@@ -1,5 +1,6 @@
 import NotFoundError from "../../errors/not-found.error"
 import { read } from "../../modules/neo4j"
+import { sortCourse } from "../../utils"
 import { CourseWithProgress } from "../model/course"
 import { User } from "../model/user"
 
@@ -19,6 +20,7 @@ export async function getCourseWithProgress(slug: string, user?: User): Promise<
             link: '/courses/'+ c.slug,
 
             ${user ? 'enrolled: e IS NOT NULL,' : ''}
+            ${user ? 'completed: e:CompletedEnrolment,' : ''}
 
             modules: [ (c)-[:HAS_MODULE]->(m) | m {
                 .*,
@@ -44,11 +46,7 @@ export async function getCourseWithProgress(slug: string, user?: User): Promise<
 
     const course = <CourseWithProgress> res.records[0].get('course')
 
-    // Sort items because we can't do this in a pattern comprehension
-    course.modules.map(module => {
-        module.lessons.sort((a, b) => a.order < b.order ? -1 : 1)
-    })
-    course.modules.sort((a, b) => a.order < b.order ? -1 : 1)
+    sortCourse(course)
 
     return course
 }

@@ -60,7 +60,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
         WITH c, m, l, e, size((c)-[:HAS_MODULE]->(l)) AS modules, size((e)-[:COMPLETED_MODULE]->(l)) as completed
 
         FOREACH (_ IN CASE WHEN modules = completed THEN [1] ELSE [] END |
-            SET e:Completed,
+            SET e:CompletedEnrolment,
                 e.completedAt = coalesce(e.completedAt, datetime())
         )
 
