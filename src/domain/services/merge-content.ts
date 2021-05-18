@@ -229,5 +229,5 @@ export async function mergeContent(): Promise<void> {
         MERGE (last)-[:NEXT_LESSON]->(first)
     `, { courses })
 
-    console.log('Courses merged into graph');
+    console.log('📚 Courses merged into graph');
 }

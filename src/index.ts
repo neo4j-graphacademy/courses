@@ -18,7 +18,7 @@ initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
     .then((driver: Driver) => initApp(driver))
     .then((app: Express) => {
         app.listen(PORT || 3000, () => {
-            console.log(`-\n🚀 Listening on http://localhost:3000\n\n`);
+            console.log(`\n\n--\n🚀 Listening on http://localhost:3000\n`);
         })
 
         mergeContent()
