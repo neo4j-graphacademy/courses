@@ -80,11 +80,10 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
 
         if (enrolment.course.usecase) {
             try {
-            await createSandbox(token, enrolment.course.usecase)
+                await createSandbox(token, enrolment.course.usecase)
             }
             catch(e) {
                 console.log('error creating sandbox', e);
-
             }
         }
 
@@ -163,9 +162,6 @@ router.get('/:course/:module', async (req, res, next) => {
         if (module === undefined) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
-
-        console.log(module);
-
 
         const doc = await convertModuleOverview(req.params.course, req.params.module)
 
