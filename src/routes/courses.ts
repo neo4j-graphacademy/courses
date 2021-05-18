@@ -157,6 +157,11 @@ router.get('/:course/:module', async (req, res, next) => {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            return res.redirect(`/courses/${req.params.course}`)
+        }
+
         const module = course.modules.find(module => module.slug === req.params.module)
 
         if (module === undefined) {
@@ -187,6 +192,11 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
     try {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
+
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            return res.redirect(`/courses/${req.params.course}`)
+        }
 
         const module = course.modules.find(module => module.slug === req.params.module)
 

@@ -163,7 +163,9 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
     }))
 
     // Insert blank item at the top
-    select.insertBefore(document.createElement('option'), select.children[0])
+    const blank = document.createElement('option')
+    blank.selected = true
+    select.insertBefore(blank, select.children[0])
 
     select.setAttribute('id', id)
     select.setAttribute('name', <string>id)
@@ -312,6 +314,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 else {
                     answers = <string[]>Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
                         .map(element => element.getAttribute('value'))
+                        .filter(value => !!value)
                 }
 
                 if (!answers.length) return

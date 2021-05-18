@@ -16,7 +16,6 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
 
     // No usecase or verify?
     if ( usecase === undefined || verify === undefined ) {
-
         return false
     }
 
