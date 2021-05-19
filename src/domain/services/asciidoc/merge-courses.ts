@@ -1,17 +1,16 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course } from '../model/course';
-import { DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../constants'
-import { loadFile } from '../../modules/asciidoc'
-import { ATTRIBUTE_ORDER, Module } from '../model/module';
-import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_TEXT } from '../model/lesson';
-import { ATTRIBUTE_ANSWER, Question } from '../model/question';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course } from '../../model/course';
+import { DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
+import { loadFile } from '../../../modules/asciidoc'
+import { ATTRIBUTE_ORDER, Module } from '../../model/module';
+import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_TEXT } from '../../model/lesson';
+import { ATTRIBUTE_ANSWER, Question } from '../../model/question';
 import { decode } from 'html-entities'
-import { Driver } from "neo4j-driver";
-import { write } from '../../modules/neo4j';
+import { write } from '../../../modules/neo4j';
 
 const loadCourses = (): Course[] => {
-    const folder = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses')
+    const folder = path.join(__dirname, '..', '..', '..', '..', 'asciidoc', 'courses')
     return fs.readdirSync( folder )
         .map(slug => loadCourse( path.join(folder, slug) ))
 }
@@ -27,6 +26,11 @@ const loadCourse = (folder: string): Course => {
             .map(slug => loadModule(path.join(folder, 'modules', slug)))
         : []
 
+    const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '').split(',').filter((e: string) => e !== '')
+
+
+    console.log(categories);
+
     return {
         slug,
         title: <string> file.getTitle(),
@@ -34,6 +38,7 @@ const loadCourse = (folder: string): Course => {
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
         caption: file.getAttribute(ATTRIBUTE_CAPTION),
         usecase: file.getAttribute(ATTRIBUTE_USECASE),
+        categories,
         modules,
     }
 }
@@ -107,7 +112,7 @@ const loadQuestion = (filepath: string): Question => {
 
 }
 
-export async function mergeContent(): Promise<void> {
+export async function mergeCourses(): Promise<void> {
     const courses = loadCourses()
 
     await write(`
@@ -121,6 +126,14 @@ export async function mergeContent(): Promise<void> {
             c.status = course.status,
             c.usecase = course.usecase,
             c.updatedAt = datetime()
+
+        // Assign Categories
+        FOREACH (r in [ (c)-[r:IN_CATEGORY]->() | r] | DELETE r)
+
+        FOREACH (category IN course.categories |
+            MERGE (ct:Category {id: apoc.text.base64Encode(category)})
+            MERGE (c)-[:IN_CATEGORY]->(ct)
+        )
 
         // Detach old modules
         FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] |
@@ -212,6 +225,9 @@ export async function mergeContent(): Promise<void> {
 
         WITH c, collect(distinct m) AS modules
         WITH c, modules, modules[0] AS first
+
+        FOREACH (r IN [(c)-[r:FIRST_MODULE]->() | r] | DELETE r)
+
         MERGE (c)-[:FIRST_MODULE]->(first)
 
         WITH c, modules
@@ -229,5 +245,5 @@ export async function mergeContent(): Promise<void> {
         MERGE (last)-[:NEXT_LESSON]->(first)
     `, { courses })
 
-    console.log('📚 Courses merged into graph');
+    console.log(`📚 ${courses.length} Courses merged into graph`);
 }

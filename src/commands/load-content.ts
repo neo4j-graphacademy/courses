@@ -1,9 +1,7 @@
-import fs from 'fs'
-import path from 'path'
 import dotenv from 'dotenv'
-import initNeo4j, { write, close } from '../modules/neo4j';
-import { mergeContent } from '../domain/services/merge-content';
-
+import initNeo4j from '../modules/neo4j';
+import { mergeCourses } from '../domain/services/asciidoc/merge-courses';
+import { mergeCategories } from '../domain/services/asciidoc/merge-categories';
 
 dotenv.config()
 
@@ -15,4 +13,5 @@ const {NEO4J_HOST,
 } = process.env
 
 initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
-    .then(() => mergeContent())
+    .then(() => mergeCourses())
+    .then(() => mergeCategories())

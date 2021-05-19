@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { getCourses } from '../domain/services/get-courses.service'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 
 const router = Router()
 
 router.get('/', (req, res, next) => {
-    getCourses()
-        .then(courses => res.render('home', { courses }))
+    getCoursesByCategory()
+        .then(categories => res.render('home', { categories }))
         .catch(e => next(e))
 })
 

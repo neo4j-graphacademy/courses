@@ -4,7 +4,6 @@ import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
-import { getCourses } from '../domain/services/get-courses.service'
 import { getToken, getUser } from '../middleware/auth'
 import { createSandbox, getSandboxForUseCase } from '../modules/sandbox'
 import { convertCourseOverview, convertLessonOverview, convertModuleOverview } from '../modules/asciidoc'
@@ -12,6 +11,7 @@ import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { markAsRead } from '../domain/services/mark-as-read'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 
 const router = Router()
 
@@ -21,8 +21,8 @@ const router = Router()
  * Display a list of available courses
  */
 router.get('/', (req, res, next) => {
-    getCourses()
-        .then(courses => res.render('home', { courses }))
+    getCoursesByCategory()
+        .then(categories => res.render('home', { categories }))
         .catch(e => next(e))
 })
 
