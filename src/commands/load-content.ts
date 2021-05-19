@@ -7,7 +7,8 @@ dotenv.config()
 
 console.clear();
 
-const {NEO4J_HOST,
+const {
+    NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD
 } = process.env

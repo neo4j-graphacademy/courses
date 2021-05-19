@@ -8,9 +8,7 @@ interface CategoryWithParent extends Category {
     parent?: string;
 }
 
-const loadCategories = () => {
-//: Category[] =>
-
+const loadCategories = (): Category[] => {
     const folder = path.join(__dirname, '..', '..', '..', '..', 'asciidoc', 'categories')
     return fs.readdirSync( folder )
         .map(slug => loadCategory( path.join(folder, slug) ))
