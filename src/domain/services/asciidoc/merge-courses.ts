@@ -115,8 +115,6 @@ const loadQuestion = (filepath: string): Question => {
 export async function mergeCourses(): Promise<void> {
     const courses = loadCourses()
 
-    console.log(JSON.stringify(courses, null, 2));
-
     await write(`
         UNWIND $courses AS course
         MERGE (c:Course {slug: course.slug })
