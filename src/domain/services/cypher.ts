@@ -7,9 +7,9 @@ export function courseCypher(enrolment?: string, course: string = 'c', module: s
             .caption,
             .status,
             .usecase,
-            link: '/courses/'+ c.slug,
+            .link,
             ${enrolment ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment,` : ''}
-            modules: [ (c)-[:HAS_MODULE]->(m) |
+            modules: [ (${course})-[:HAS_MODULE]->(${module}) |
                 ${moduleCypher(enrolment, course, module, lesson)}
             ]
         }
@@ -20,12 +20,12 @@ export function moduleCypher(enrolment?: string, course: string = 'c', module: s
     return `
                 ${module} {
                     .*,
-                    link: '/courses/'+ c.slug +'/'+ m.slug,
-                    next: [ (m)-[:FIRST_LESSON]->(next) |
-                        next { .slug, .title, link: '/courses/'+ c.slug + '/'+ m.slug +'/'+ next.slug }
+                    .link,
+                    next: [ (${module})-[:NEXT]->(next) |
+                        next { .slug, .title, .link }
                     ][0],
                     ${enrolment ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
-                    lessons: [ (m)-[:HAS_LESSON]->(l) |
+                    lessons: [ (${module})-[:HAS_LESSON]->(${lesson}) |
                         ${lessonCypher(enrolment, course, module, lesson)}
                     ]
                 }
@@ -37,12 +37,9 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
                         ${lesson} {
                             .*,
                             ${enrolment ? `completed: exists((${enrolment})-[:COMPLETED_LESSON]->(l)),` : ''}
-                            link: '/courses/'+ ${course}.slug +'/'+ ${module}.slug +'/'+ ${lesson}.slug,
-                            next: [ (${lesson})-[:NEXT_LESSON]->(next)<-[:HAS_LESSON]-(nm) | next {
-                                    .slug,
-                                    .title,
-                                    link: '/courses/'+ c.slug + '/'+ nm.slug +'/'+ next.slug
-                                }
+                            .link,
+                            next: [ (${lesson})-[:NEXT]->(next) |
+                                next { .slug, .title, .link }
                             ][0],
                             questions: [ (${lesson})-[:HAS_QUESTION]->(q) | q {
                                     .id,

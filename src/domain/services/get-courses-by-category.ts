@@ -16,7 +16,6 @@ export async function getCoursesByCategory(): Promise<Category[]> {
         WHERE c.status <> $disabled
         WITH collect(c {
             .*,
-            link: '/courses/'+ c.slug,
             categoryIds: [(c)-[:IN_CATEGORY]->(ct) | ct.id]
         }) AS courses
 

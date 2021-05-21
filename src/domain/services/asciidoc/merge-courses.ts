@@ -127,6 +127,7 @@ export async function mergeCourses(): Promise<void> {
             c.caption = course.caption,
             c.status = course.status,
             c.usecase = course.usecase,
+            c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()
 
         // Assign Categories
@@ -156,6 +157,7 @@ export async function mergeCourses(): Promise<void> {
             m.order = toInteger(module.order),
             m.status = 'active',
             m.duration = module.duration,
+            m.link = '/courses/'+ c.slug + '/'+ m.slug +'/',
             m.updatedAt = datetime()
 
         // Restore current modules
@@ -189,6 +191,7 @@ export async function mergeCourses(): Promise<void> {
             l.cypher = lesson.cypher,
             l.verify = lesson.verify,
             l.status = 'active',
+            l.link = '/courses/'+ c.slug + '/'+ m.slug +'/'+ l.slug +'/',
             l.updatedAt = datetime()
 
         REMOVE l:DeletedLesson
@@ -216,10 +219,11 @@ export async function mergeCourses(): Promise<void> {
 
         WITH c, m, l ORDER BY l.order ASC
         WITH c, m, collect(l) AS lessons
-        CALL apoc.nodes.link(lessons, 'NEXT_LESSON')
+        CALL apoc.nodes.link(lessons, 'NEXT')
 
         WITH c, m, lessons, lessons[0] as first, lessons[ size(lessons)-1 ] AS last
         MERGE (m)-[:FIRST_LESSON]->(first)
+        MERGE (m)-[:NEXT]->(first)
         MERGE (m)-[:LAST_LESSON]->(last)
 
         WITH c, m ORDER BY m.order ASC
@@ -230,10 +234,8 @@ export async function mergeCourses(): Promise<void> {
 
         WITH c
         MATCH (c)-[:HAS_MODULE]->(m)-[:LAST_LESSON]->(last),
-            (m)-[:NEXT_MODULE]->()-[:FIRST_LESSON]->(next)
-
-        MERGE (last)-[:NEXT_LESSON]->(next)
-
+            (m)-[:NEXT_MODULE]->(next)
+        MERGE (last)-[:NEXT]->(next)
 
 
         RETURN count(*) AS count

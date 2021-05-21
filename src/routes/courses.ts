@@ -1,5 +1,5 @@
 import path from 'path'
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
@@ -11,6 +11,7 @@ import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { ASCIIDOC_DIRECTORY } from '../constants'
 
 const router = Router()
 
@@ -163,7 +164,7 @@ router.get('/:course/:module', async (req, res, next) => {
 
         const module = course.modules.find(module => module.slug === req.params.module)
 
-        if (module === undefined) {
+        if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
@@ -183,6 +184,15 @@ router.get('/:course/:module', async (req, res, next) => {
 })
 
 /**
+ * Static routing for module images
+ */
+router.use('/:course/:module/images', (req, res, next) => {
+    const { course, module } = req.params
+
+    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
+})
+
+/**
  * @GET /:course/:module/:lesson
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
@@ -199,13 +209,13 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
 
         const module = course.modules.find(module => module.slug === req.params.module)
 
-        if (module === undefined) {
+        if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
         const lesson = module!.lessons.find(lesson => lesson.slug === req.params.lesson)
 
-        if (lesson === undefined) {
+        if (!lesson) {
             next(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
@@ -247,6 +257,15 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
     catch (e) {
         next(e)
     }
+})
+
+/**
+ * Static routing for module images
+ */
+ router.use('/:course/:module/:lesson/images', (req, res, next) => {
+    const { course, module, lesson } = req.params
+
+    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(req, res, next)
 })
 
 /**

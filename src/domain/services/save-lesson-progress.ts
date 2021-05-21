@@ -73,8 +73,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             ${lessonCypher('e')} AS lesson,
             m {
                 .*,
-                completed: exists((e)-[:COMPLETED_MODULE]->(m)),
-                link: '/courses/'+ c.slug +'/'+ m.slug
+                completed: exists((e)-[:COMPLETED_MODULE]->(m))
             } AS module
     `, {
         user: user.user_id,

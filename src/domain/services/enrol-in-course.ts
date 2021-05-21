@@ -28,8 +28,7 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
                 usecase: c.usecase
             },
             nextModule: [ (c)-[:FIRST_MODULE]->(m) | m {
-                .*,
-                link: '/courses/'+ c.slug +'/'+ m.slug
+                .*
             } ][0],
             createdAt: e.createdAt
         } AS enrolment

@@ -4,6 +4,7 @@ import { sortCourse } from "../../utils";
 import { CourseWithProgress } from "../model/course";
 import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED } from "../model/enrolment";
 import { Module } from "../model/module";
+import { courseCypher } from "./cypher";
 
 export async function getUserEnrolments(id: string): Promise<EnrolmentsByStatus> {
 
@@ -16,25 +17,7 @@ export async function getUserEnrolments(id: string): Promise<EnrolmentsByStatus>
         WITH
             u { .id, .name, .givenName } AS user,
 
-            c {
-                .*,
-                createdAt: e.createdAt,
-                completed: e:CompletedEnrolment,
-                completedAt: e.completedAt,
-                modules: [ (c)-[:HAS_MODULE]->(m) | m {
-                    .*,
-                    link: '/courses/'+ c.slug +'/'+ m.slug,
-                    completed: exists((e)-[:COMPLETED_MODULE]->(m)),
-                    lessons: [ (m)-[:HAS_LESSON]->(l) | l {
-                        .*,
-                        completed: exists((e)-[:COMPLETED_LESSON]->(l)),
-                        link: '/courses/'+ c.slug +'/'+ m.slug +'/'+ l.slug,
-                        previous: [ (l)<-[:NEXT_LESSON]-(prev)<-[:HAS_LESSON]-(pm) | prev { .slug, .title, link: '/courses/'+ c.slug + '/'+ pm.slug +'/'+ prev.slug} ][0],
-                        next: [ (l)-[:NEXT_LESSON]->(next)<-[:HAS_LESSON]-(nm) | next { .slug, .title, link: '/courses/'+ c.slug + '/'+ nm.slug +'/'+ next.slug } ][0],
-                        questions: [(l)-[:HAS_QUESTION]->(q) | q { .id, .slug }]
-                    } ]
-                } ]
-            } AS course,
+            ${courseCypher('e')} AS course,
             CASE WHEN e IS NULL THEN '${STATUS_AVAILABLE}'
                  WHEN e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
                  ELSE '${STATUS_ENROLLED}'
