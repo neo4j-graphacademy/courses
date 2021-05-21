@@ -12,14 +12,14 @@ import { write } from '../../../modules/neo4j';
 const loadCourses = (): Course[] => {
     const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
     return fs.readdirSync( folder )
-        .map(slug => loadCourse( path.join(folder, slug) ))
+        .map(slug => loadCourse( path.join('courses', slug) ))
 }
 
 const loadCourse = (folder: string): Course => {
     const slug = <string> folder.split('/').filter(a => !!a).pop()
     const file = loadFile(path.join(folder, 'overview.adoc'))
 
-    const moduleDir = path.join(folder, 'modules')
+    const moduleDir = path.join(ASCIIDOC_DIRECTORY, folder, 'modules')
     const modules = fs.existsSync(moduleDir)
         ? fs.readdirSync(moduleDir)
             .filter(slug => fs.existsSync(path.join(moduleDir, slug, 'overview.adoc')))
@@ -47,12 +47,14 @@ const loadModule = (folder: string): Module => {
     const slug = <string> folder.split('/').filter(a => !!a).pop()
     const file = loadFile(path.join(folder, 'overview.adoc'))
 
-    const lessonsDir = path.join(folder, 'lessons')
+    // console.log(file);
+
+    const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
     const lessons = fs.existsSync(lessonsDir)
         ? fs.readdirSync(lessonsDir)
             .filter(file => fs.lstatSync(path.join(lessonsDir, file)).isDirectory() && fs.existsSync(path.join(lessonsDir, file, 'index.adoc')))
-            .map(filename => loadLesson(path.join(lessonsDir, filename)))
+            .map(filename => loadLesson(path.join(folder, 'lessons', filename)))
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
 
@@ -71,11 +73,11 @@ const loadLesson = (folder: string): Lesson => {
 
     // Load questions and answers into database
 
-    const questionsDir = path.join(folder, 'questions')
+    const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')
     const questions = fs.existsSync( questionsDir ) ?
         fs.readdirSync(questionsDir)
             .filter(file => file.endsWith('.adoc'))
-            .map(filename => loadQuestion(path.join(questionsDir, filename)))
+            .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
     return {

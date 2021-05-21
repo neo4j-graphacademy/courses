@@ -12,7 +12,7 @@ interface CategoryWithParent extends Category {
 const loadCategories = (): Category[] => {
     const folder = path.join(ASCIIDOC_DIRECTORY, 'categories')
     return fs.readdirSync( folder )
-        .map(slug => loadCategory( path.join(folder, slug) ))
+        .map(slug => loadCategory( path.join('categories', slug) ))
 }
 
 const loadCategory = (filepath: string): CategoryWithParent => {

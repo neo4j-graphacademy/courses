@@ -21,6 +21,7 @@ export async function getCoursesByCategory(): Promise<Category[]> {
         }) AS courses
 
         MATCH (c:Category)
+        WHERE exists((c)<-[:IN_CATEGORY]-()) OR exists((c)-[:HAS_CHILD]->())
         RETURN courses,
             collect(c {
                 .*,

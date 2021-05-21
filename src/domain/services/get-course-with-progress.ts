@@ -6,14 +6,6 @@ import { User } from "../model/user"
 import { courseCypher, lessonCypher } from "./cypher"
 
 export async function getCourseWithProgress(slug: string, user?: User): Promise<CourseWithProgress> {
-
-    console.log(`
-    MATCH (c:Course {slug: $slug})
-    ${user ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
-
-    RETURN ${courseCypher(user ? 'e' : undefined)} AS course
-`);
-
     const res = await read(`
         MATCH (c:Course {slug: $slug})
         ${user ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
