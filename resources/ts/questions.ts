@@ -1,8 +1,8 @@
 
-// import { createElement } from "./modules/dom"
+// import { createElement } from './modules/dom'
 import axios from 'axios'
 
-function createElement(element: string, classes: string, children?: Array<Element | Text | string>) {
+export function createElement(element: string, classes: string, children?: Array<HTMLElement | Text | string>) {
     const output = document.createElement(element)
     output.setAttribute('class', classes)
 
@@ -238,11 +238,10 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
         else {
             // Course completed
-            // TODO: Certificate link
             parent.appendChild(createElement('div', 'admonition admonition--tip question-outcome question-outcome--success', [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
-                    'You have completed the course!',
+                    'You have completed this lesson!',
                 ])
             ]))
         }

@@ -1,7 +1,12 @@
+import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
+import { UserCompletedLesson } from "../events/UserCompletedLesson";
+import { UserCompletedModule } from "../events/UserCompletedModule";
 import { Answer } from "../model/answer";
 import { LessonWithProgress } from "../model/lesson";
+import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
+import { lessonCypher } from "./cypher";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
     const res = await write(`
@@ -64,13 +69,13 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 e.completedAt = coalesce(e.completedAt, datetime())
         )
 
-        RETURN l {
-            .*,
-            completed: exists((e)-[:COMPLETED_LESSON]->(l)),
-            link: '/courses/'+ c.slug +'/'+ m.slug +'/'+ l.slug,
-            next: [ (l)-[:NEXT_LESSON]->(next)<-[:HAS_LESSON]-(nm) | next { .slug, .title, link: '/courses/'+ c.slug + '/'+ nm.slug +'/'+ next.slug } ][0],
-            questions: [(l)-[:HAS_QUESTION]->(q) | q { .id, .slug }]
-        } AS l
+        RETURN
+            ${lessonCypher('e')} AS lesson,
+            m {
+                .*,
+                completed: exists((e)-[:COMPLETED_MODULE]->(m)),
+                link: '/courses/'+ c.slug +'/'+ m.slug
+            } AS module
     `, {
         user: user.user_id,
         course,
@@ -79,5 +84,20 @@ export async function saveLessonProgress(user: User, course: string, module: str
         answers,
     })
 
-    return res.records[0].get('l')
+    const output: LessonWithProgress = res.records[0].get('lesson')
+    const mod: ModuleWithProgress = res.records[0].get('module')
+
+    if ( output.completed ) {
+        emitter.emit(new UserCompletedLesson(user, output))
+    }
+
+    if ( mod.completed ) {
+        emitter.emit(new UserCompletedModule(user, mod))
+    }
+
+    // if ( mod.completed ) {
+    //     emitter.emit(EVENT_USER_COMPLETED_MODULE, mod)
+    // }
+
+    return output
 }

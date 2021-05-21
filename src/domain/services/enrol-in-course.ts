@@ -1,6 +1,7 @@
 import NotFoundError from "../../errors/not-found.error";
-import { emitter, EVENT_USER_ENROLLED } from "../../events";
+import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
+import { UserEnrolled } from "../events/UserEnrolled";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
 
@@ -45,8 +46,10 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
 
     const enrolment = res.records[0].get('enrolment')
 
+    const course = enrolment.course;
+
     // Emit event
-    emitter.emit<Enrolment>(EVENT_USER_ENROLLED, enrolment)
+    emitter.emit(new UserEnrolled(user, course))
 
     return enrolment
 }

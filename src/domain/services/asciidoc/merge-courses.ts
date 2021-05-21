@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course } from '../../model/course';
-import { DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
+import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
 import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_TEXT } from '../../model/lesson';
@@ -10,7 +10,7 @@ import { decode } from 'html-entities'
 import { write } from '../../../modules/neo4j';
 
 const loadCourses = (): Course[] => {
-    const folder = path.join(__dirname, '..', '..', '..', '..', 'asciidoc', 'courses')
+    const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
     return fs.readdirSync( folder )
         .map(slug => loadCourse( path.join(folder, slug) ))
 }
@@ -26,10 +26,10 @@ const loadCourse = (folder: string): Course => {
             .map(slug => loadModule(path.join(folder, 'modules', slug)))
         : []
 
-    const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '').split(',').filter((e: string) => e !== '')
-
-
-    console.log(categories);
+    const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
+        .split(',')
+        .filter((e: string) => e !== '')
+        .map((category: string) => category.trim())
 
     return {
         slug,
@@ -235,7 +235,6 @@ export async function mergeCourses(): Promise<void> {
 
 
         RETURN count(*) AS count
-
     `, { courses })
 
     console.log(`📚 ${courses.length} Courses merged into graph`);

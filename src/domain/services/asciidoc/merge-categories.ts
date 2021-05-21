@@ -3,13 +3,14 @@ import fs from 'fs'
 import { loadFile } from '../../../modules/asciidoc'
 import { write } from '../../../modules/neo4j';
 import { ATTRIBUTE_PARENT, Category } from '../../model/category';
+import { ASCIIDOC_DIRECTORY } from '../../../constants';
 
 interface CategoryWithParent extends Category {
     parent?: string;
 }
 
 const loadCategories = (): Category[] => {
-    const folder = path.join(__dirname, '..', '..', '..', '..', 'asciidoc', 'categories')
+    const folder = path.join(ASCIIDOC_DIRECTORY, 'categories')
     return fs.readdirSync( folder )
         .map(slug => loadCategory( path.join(folder, slug) ))
 }

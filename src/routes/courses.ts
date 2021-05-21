@@ -10,7 +10,6 @@ import { convertCourseOverview, convertLessonOverview, convertModuleOverview } f
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { markAsRead } from '../domain/services/mark-as-read'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 
 const router = Router()
@@ -286,7 +285,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         const { course, module, lesson } = req.params
         const user = await getUser(req)
 
-        const outcome = await markAsRead(user!, course, module, lesson)
+        const outcome = await saveLessonProgress(user!, course, module, lesson, [])
 
         res.json(outcome)
     }
@@ -294,5 +293,11 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         next(e)
     }
 })
+
+
+
+
+
+
 
 export default router
