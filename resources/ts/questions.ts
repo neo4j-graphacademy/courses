@@ -267,8 +267,6 @@ const handleResponse = (parent, button, res, showHint = false) => {
 }
 
 const handleError = (parent, button, error) => {
-    console.log('err');
-
     parent.querySelectorAll('.question-outcome')
         .forEach(el => parent.removeChild(el))
 

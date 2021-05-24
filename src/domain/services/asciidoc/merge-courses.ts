@@ -47,8 +47,6 @@ const loadModule = (folder: string): Module => {
     const slug = <string> folder.split('/').filter(a => !!a).pop()
     const file = loadFile(path.join(folder, 'overview.adoc'))
 
-    // console.log(file);
-
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
     const lessons = fs.existsSync(lessonsDir)
@@ -72,7 +70,6 @@ const loadLesson = (folder: string): Lesson => {
     const file = loadFile(path.join(folder, 'index.adoc'))
 
     // Load questions and answers into database
-
     const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')
     const questions = fs.existsSync( questionsDir ) ?
         fs.readdirSync(questionsDir)
