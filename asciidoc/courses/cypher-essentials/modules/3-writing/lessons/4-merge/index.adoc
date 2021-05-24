@@ -1,0 +1,134 @@
+= Merging Data
+:order: 4
+
+We can use the `MERGE` keyword to merge data into the database.
+
+`MERGE` operations work by first trying to find a pattern in the graph.
+If the pattern is found then the data is already exists.
+If the pattern is not found, then the data can be created.
+
+Let's look at some examples.
+
+== Merging nodes
+
+Merging data allows us to run two operations inside a single query.
+Neo4j will check for the existence and only create if the pattern doesn't exist.
+
+We take the query from the previous lesson and change the `CREATE` keyword to `MERGE`.
+The query processor first tries to find the  _Person_ node representing _Daniel Kaluuya_.
+It finds the node, so it does not create a new one.
+
+Run this Cypher code:
+
+[source,cypher]
+----
+MERGE (p:Person {name: "Daniel Kaluuya"})
+RETURN p
+----
+
+You can run this Cypher code multiple times. It will not create a new _Person_ node.
+
+=== Adding properties with `MERGE`
+
+Suppose we want to add the _born_ property to our existing _Person_ node for _Daniel Kaluuya_.
+
+This code *will not* work.
+
+Try running this Cypher code:
+
+[source,cypher]
+----
+MERGE (p:Person {name: 'Daniel Kaluuya', born: 1989})
+RETURN p
+----
+
+Do you get an error? You get the error because you are attempting to merge a node with an additional property, but the node already exists with the _name_ property.
+
+You handle this situation by using the ON MATCH clause as shown below.
+
+Run this Cypher code:
+
+[source,cypher]
+----
+MERGE (p:Person {name: 'Daniel Kaluuya'})
+ON MATCH SET p.born = 1989
+RETURN p
+----
+
+You can run this code multiple times. It first finds the node, then sets the _born_ property.
+
+== Customizing `MERGE` behavior
+
+You can also specify behavior at runtime that enables you to set properties when the node is created or when the node is found.
+We can use the `ON CREATE SET`, `ON MATCH SET` or `SET` keywords to set any additional properties.
+
+In this example, if the _Person_ node for _McKenna Grace_ does not exist, it is created and the _createdAt_ property is set.
+If the node is found, then the _updatedAt_ property is set.
+In both cases, the _born_ property is set.
+
+Run this Cypher code at least 2 times to observe what properties are set.
+
+[source,cypher]
+----
+// Find or create a person with this name
+MERGE (p:Person {name: 'McKenna Grace'})
+
+// Only set the `createdAt` property if the node is created during this query
+ON CREATE SET p.createdAt = datetime()
+
+// Only set the `updatedAt` property if the node was created previously
+ON MATCH SET p.updatedAt = datetime()
+
+// Set the `born` property regardless
+SET p.born = 2006
+
+RETURN p
+----
+
+== Merging Relationships
+
+Relationships can also be tricky.
+
+Say we want to create a Movie node to represent the movie, _Judas and the Black Messiah_.
+We might write the following query.
+
+Try running this Cypher code:
+
+[source,cypher]
+----
+MERGE (p:Person {name: 'Daniel Kaluuya'})-[:ACTED_IN]->(m:Movie {title: 'Judas and the Black Messiah'})
+RETURN p, m
+----
+
+Here is what happens in the query processor:
+
+1. Neo4j will attempt to find a _Person_ node with the name _Daniel Kaluuya_.
+2. Then, it will attempt to expand the `:ACTED_IN` relationships in the graph.
+3. For the nodes at the other end of the relationship, it will check for the _Daniel Kaluuya_ node.
+
+In the current database state, we have the `:Person` node *but we don't have* the `:Movie` node.
+So Neo4j will attempt to create the entire pattern; first creating a new `:Person` node, then the `:Movie` node, before creating the relationship between.
+
+This will cause an error to be thrown telling us that the unique constraint would be violated by this query.
+
+Instead, we can break down the query into three parts.  First merge the `:Person` node, then the `:Movie`, then the `:ACTED_IN` relationship between the two.
+
+Run this Cypher code:
+
+[source,cypher]
+----
+// Find or create a person with this name
+MERGE (p:Person {name: 'Daniel Kaluuya'})
+
+// Find or create a movie with this title
+MERGE (m:Movie {title: 'Judas and the Black Messiah'})
+
+// Find or create a relationship between the two nodes
+MERGE (p)-[:ACTED_IN]->(m)
+----
+
+This code creates the _Movie_ node and the relationship.
+
+
+
+input::read[type=button,class=btn,value=Mark as Read]
