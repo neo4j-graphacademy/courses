@@ -3,6 +3,7 @@ import asciidoctor, { Asciidoctor } from '@asciidoctor/core'
 import './converter'
 import { inputBlockProcessor } from './extensions/input-block-processor.extension'
 import { browserBlockProcessor } from './extensions/browser-block-processor.extension'
+import { ASCIIDOC_DIRECTORY } from '../../constants'
 
 // Reader
 const doc = asciidoctor()
@@ -21,8 +22,8 @@ const baseOptions: Asciidoctor.ProcessorOptions = {
     extension_registry: registry,
 }
 
-export function loadFile(path: string, options: Record<string, any> = {}): Asciidoctor.Document {
-    const file = doc.loadFile(path, {
+export function loadFile(filepath: string, options: Record<string, any> = {}): Asciidoctor.Document {
+    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), {
         ...baseOptions,
         ...options,
     })
@@ -39,21 +40,21 @@ export function convert(document: Asciidoctor.Document, options: Record<string, 
 }
 
 export async function convertCourseOverview(slug: string) {
-    const folder = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses', slug)
+    const folder = path.join('courses', slug)
     const document = loadFile(path.join(folder, 'overview.adoc'))
 
     return convert(document)
 }
 
 export async function convertModuleOverview(course: string, module: string) {
-    const folder = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses', course, 'modules', module)
+    const folder = path.join('courses', course, 'modules', module)
     const document = loadFile(path.join(folder, 'overview.adoc'))
 
     return convert(document)
 }
 
 export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
-    const file = path.join(__dirname, '..', '..', '..', 'asciidoc', 'courses', course, 'modules', module, 'lessons', lesson, 'index.adoc')
+    const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'index.adoc')
     return loadFile(file)
 }
 

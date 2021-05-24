@@ -5,6 +5,7 @@ import { registerLocals } from './middleware/locals'
 import homeRoutes from './routes/home'
 import courseRoutes from './routes/courses'
 import profileRoutes from './routes/profile'
+import publicProfileRoutes from './routes/public-profile'
 import { apply404handler } from './middleware/404'
 import { Driver } from 'neo4j-driver'
 
@@ -35,6 +36,7 @@ export default function initApp(driver: Driver) {
     app.use('/', homeRoutes)
     app.use('/courses', courseRoutes)
     app.use('/profile', profileRoutes)
+    app.use('/u', publicProfileRoutes)
     app.use('/browser', express.static( path.join(__dirname, '..', 'browser', 'dist') ))
 
     // 404 error handler

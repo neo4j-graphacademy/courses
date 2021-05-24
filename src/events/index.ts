@@ -1,13 +1,12 @@
 import { EventEmitter } from 'events'
+import { UserCompletedLesson } from '../domain/events/UserCompletedLesson'
+import { UserCompletedModule } from '../domain/events/UserCompletedModule'
+import { UserEnrolled } from '../domain/events/UserEnrolled'
+import { DomainEvent } from './domain-event'
 
 
-export const EVENT_USER_ENROLLED = 'USER_ENROLLED'
-export const EVENT_USER_COMPLETED_LESSON = 'USER_COMPLETED_LESSON'
-export const EVENT_TEST = 'TEST'
 
-export type Event = typeof EVENT_USER_ENROLLED | typeof EVENT_USER_COMPLETED_LESSON | typeof EVENT_TEST
-
-export interface Listener<T> {
+export interface Listener<T extends DomainEvent> {
     (event: T): void;
 }
 
@@ -19,16 +18,16 @@ class GraphAcademyEventEmitter {
 
     private emitter = new EventEmitter()
 
-    on<T>(event: Event, listener: Listener<T>): void {
-        this.emitter.on(event, listener)
+    on<T extends DomainEvent>(event: DomainEvent, listener: Listener<T>): void {
+        this.emitter.on(event.constructor.name, listener)
     }
 
-    off<T>(event: Event, listener: Listener<T>): void {
-        this.emitter.off(event, listener)
+    off<T extends DomainEvent>(event: DomainEvent, listener: Listener<T>): void {
+        this.emitter.off(event.constructor.name, listener)
     }
 
-    emit<T>(event: Event, payload: T) {
-        this.emitter.emit(event, payload)
+    emit(event: DomainEvent) {
+        this.emitter.emit(event.constructor.name, event)
     }
 
 }

@@ -1,12 +1,40 @@
 import { Router } from 'express'
-import { getCourses } from '../domain/services/get-courses.service'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { loadFile } from '../modules/asciidoc'
+import pug from 'pug'
+import path from 'path'
 
 const router = Router()
 
-router.get('/', (req, res, next) => {
-    getCourses()
-        .then(courses => res.render('home', { courses }))
-        .catch(e => next(e))
+router.get('/', async (req, res, next) => {
+    try {
+        // Get Courses
+        const categories = await getCoursesByCategory()
+
+        const courseTemplate = path.join(__dirname, '..', '..', 'views', 'partials', 'courses-by-category.pug')
+        const compileCourses = pug.compileFile(courseTemplate)
+
+        const catalogue = compileCourses({
+            categories,
+        })
+
+        // Render Doc
+        const home = loadFile('pages/home.adoc', {
+            attributes: {
+                catalogue,
+            }
+        })
+
+        const doc = home.getContent()
+
+
+        res.render('home', {
+            doc,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 export default router

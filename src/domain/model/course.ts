@@ -1,3 +1,4 @@
+import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
 
 // Status
@@ -12,6 +13,7 @@ export const ATTRIBUTE_STATUS = 'status'
 export const ATTRIBUTE_THUMBNAIL = 'thumbnail'
 export const ATTRIBUTE_CAPTION = 'caption'
 export const ATTRIBUTE_USECASE = 'usecase'
+export const ATTRIBUTE_CATEGORIES = 'categories'
 
 export interface Course {
     slug: string;
@@ -21,6 +23,7 @@ export interface Course {
     status: CourseStatus;
     usecase: string | undefined;
     modules: Module[];
+    categories: Category[];
 }
 
 export interface CourseWithProgress extends Course {
@@ -29,4 +32,9 @@ export interface CourseWithProgress extends Course {
     completedCount: number;
     completedPercentage: number;
     modules: ModuleWithProgress[];
+}
+
+
+export type CoursesByStatus = {
+    [key in CourseStatus]: Course[];
 }

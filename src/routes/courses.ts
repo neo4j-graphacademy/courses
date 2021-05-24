@@ -1,18 +1,17 @@
 import path from 'path'
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
-import { getCourses } from '../domain/services/get-courses.service'
 import { getToken, getUser } from '../middleware/auth'
 import { createSandbox, getSandboxForUseCase } from '../modules/sandbox'
 import { convertCourseOverview, convertLessonOverview, convertModuleOverview } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { User } from '../domain/model/user'
-import { markAsRead } from '../domain/services/mark-as-read'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { ASCIIDOC_DIRECTORY } from '../constants'
 
 const router = Router()
 
@@ -22,8 +21,8 @@ const router = Router()
  * Display a list of available courses
  */
 router.get('/', (req, res, next) => {
-    getCourses()
-        .then(courses => res.render('home', { courses }))
+    getCoursesByCategory()
+        .then(categories => res.render('home', { categories }))
         .catch(e => next(e))
 })
 
@@ -73,18 +72,28 @@ router.get('/:course/badge', (req, res, next) => {
  * Create an :Enrolment node between the user and the course within the database
  */
 router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
-    const user = await getUser(req)
-    const token = await getToken(req)
+    try {
+        const user = await getUser(req)
+        const token = await getToken(req)
 
-    const enrolment = await enrolInCourse(req.params.course, user!)
+        const enrolment = await enrolInCourse(req.params.course, user!)
 
-    if (enrolment.course.usecase) {
-        await createSandbox(token, enrolment.course.usecase)
+        if (enrolment.course.usecase) {
+            try {
+                await createSandbox(token, enrolment.course.usecase)
+            }
+            catch(e) {
+                console.log('error creating sandbox', e);
+            }
+        }
+
+        const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
+
+        res.redirect(goTo)
     }
-
-    const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
-
-    res.redirect(goTo)
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -93,7 +102,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
- router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
+router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
@@ -148,9 +157,14 @@ router.get('/:course/:module', async (req, res, next) => {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            return res.redirect(`/courses/${req.params.course}`)
+        }
+
         const module = course.modules.find(module => module.slug === req.params.module)
 
-        if (module === undefined) {
+        if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
@@ -170,6 +184,15 @@ router.get('/:course/:module', async (req, res, next) => {
 })
 
 /**
+ * Static routing for module images
+ */
+router.use('/:course/:module/images', (req, res, next) => {
+    const { course, module } = req.params
+
+    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
+})
+
+/**
  * @GET /:course/:module/:lesson
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
@@ -179,15 +202,20 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            return res.redirect(`/courses/${req.params.course}`)
+        }
+
         const module = course.modules.find(module => module.slug === req.params.module)
 
-        if (module === undefined) {
+        if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
         const lesson = module!.lessons.find(lesson => lesson.slug === req.params.lesson)
 
-        if (lesson === undefined) {
+        if (!lesson) {
             next(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
@@ -232,6 +260,15 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
 })
 
 /**
+ * Static routing for module images
+ */
+ router.use('/:course/:module/:lesson/images', (req, res, next) => {
+    const { course, module, lesson } = req.params
+
+    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(req, res, next)
+})
+
+/**
  * @GET /:course/:module/:lesson/verify
  *
  * Verify that the challenge has been completed in the database.
@@ -267,7 +304,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         const { course, module, lesson } = req.params
         const user = await getUser(req)
 
-        const outcome = await markAsRead(user!, course, module, lesson)
+        const outcome = await saveLessonProgress(user!, course, module, lesson, [])
 
         res.json(outcome)
     }
@@ -275,5 +312,11 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         next(e)
     }
 })
+
+
+
+
+
+
 
 export default router

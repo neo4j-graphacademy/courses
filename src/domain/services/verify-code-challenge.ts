@@ -13,11 +13,9 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const progress = await getCourseWithProgress(course, user)
     const usecase = progress.usecase
     const verify = document.getAttribute(ATTRIBUTE_VERIFY)
-    console.log(usecase, verify);
 
     // No usecase or verify?
     if ( usecase === undefined || verify === undefined ) {
-
         return false
     }
 

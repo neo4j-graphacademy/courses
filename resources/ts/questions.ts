@@ -1,8 +1,8 @@
 
-// import { createElement } from "./modules/dom"
+// import { createElement } from './modules/dom'
 import axios from 'axios'
 
-function createElement(element: string, classes: string, children?: Array<Element | Text | string>) {
+export function createElement(element: string, classes: string, children?: Array<HTMLElement | Text | string>) {
     const output = document.createElement(element)
     output.setAttribute('class', classes)
 
@@ -162,6 +162,11 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
         return el
     }))
 
+    // Insert blank item at the top
+    const blank = document.createElement('option')
+    blank.selected = true
+    select.insertBefore(blank, select.children[0])
+
     select.setAttribute('id', id)
     select.setAttribute('name', <string>id)
 
@@ -233,11 +238,10 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
         else {
             // Course completed
-            // TODO: Certificate link
             parent.appendChild(createElement('div', 'admonition admonition--tip question-outcome question-outcome--success', [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
-                    'You have completed the course!',
+                    'You have completed this lesson!',
                 ])
             ]))
         }
@@ -309,6 +313,7 @@ window.addEventListener('DOMContentLoaded', async () => {
                 else {
                     answers = <string[]>Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
                         .map(element => element.getAttribute('value'))
+                        .filter(value => !!value)
                 }
 
                 if (!answers.length) return
