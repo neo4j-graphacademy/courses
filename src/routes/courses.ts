@@ -174,6 +174,7 @@ router.get('/:course/:module', async (req, res, next) => {
             classes: `module ${req.params.course}-${req.params.module}`,
             ...module,
             path: req.originalUrl,
+            enrolled: course.enrolled,
             course,
             doc,
         })
@@ -228,6 +229,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             ...lesson,
             path: req.originalUrl,
             course,
+            enrolled: course.enrolled,
             module,
             doc,
         })

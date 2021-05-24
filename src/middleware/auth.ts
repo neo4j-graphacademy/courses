@@ -35,9 +35,6 @@ export default function applyAuth(app: Express) {
 
     app.use(async (req: Request, res: Response, next: Function) => {
         // @ts-ignore
-// console.log(JSON.stringify(req.oidc), req.oidc.user, req.headers.cookie);
-
-// console.log(req.headers.cookie);
 
         // @ts-ignore
         res.locals.user = await getUser(req)
