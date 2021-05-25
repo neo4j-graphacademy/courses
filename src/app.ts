@@ -6,6 +6,7 @@ import homeRoutes from './routes/home'
 import courseRoutes from './routes/courses'
 import profileRoutes from './routes/profile'
 import publicProfileRoutes from './routes/public-profile'
+import testRoutes from './routes/test'
 import { apply404handler } from './middleware/404'
 import { Driver } from 'neo4j-driver'
 
@@ -38,6 +39,10 @@ export default function initApp(driver: Driver) {
     app.use('/profile', profileRoutes)
     app.use('/u', publicProfileRoutes)
     app.use('/browser', express.static( path.join(__dirname, '..', 'browser', 'dist') ))
+
+    if ( process.env.NODE_ENV !== 'production' ) {
+        app.use('/test', testRoutes)
+    }
 
     // 404 error handler
     apply404handler(app)

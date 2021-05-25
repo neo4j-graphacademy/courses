@@ -41,12 +41,17 @@ const QUESTION_SELECTOR_FREE_TEXT = 'freetext'
 const QUESTION_CORRECT = 'question--correct'
 const QUESTION_INCORRECT = 'question--incorrect'
 const QUESTION_SELECTOR_SELECT_IN_SOURCE = 'select-in-source'
+const QUESTION_SELECTOR_INPUT_IN_SOURCE = 'input-in-source'
 
 const OPTION_CORRECT = 'question-option--correct'
 const OPTION_INCORRECT = 'question-option--incorrect'
 
 const COMMENT_SELECTOR = 'hljs-comment'
-const COMMENT_SELECTOR_PREFIX = '/*select:'
+const COMMENT_SELECTOR_SELECT_PREFIX = '/*select'
+const COMMENT_SELECTOR_INPUT_PREFIX = '/*input'
+
+const ANSWER_TYPE_FREETEXT = 'freetext'
+const ANSWER_TYPE_CHECKED = 'checked'
 
 const BUTTON_LOADING = 'btn--loading'
 
@@ -69,7 +74,7 @@ const getQuestionDetails = (element: Element): Question => {
         parent,
         element,
         id,
-        type: element.classList.contains(QUESTION_SELECTOR_FREE_TEXT) ? 'freetext' : 'any',
+        type: element.classList.contains(QUESTION_SELECTOR_FREE_TEXT) || element.classList.contains(QUESTION_SELECTOR_INPUT_IN_SOURCE) ? ANSWER_TYPE_FREETEXT : ANSWER_TYPE_CHECKED,
         options: undefined,
     }
 }
@@ -172,7 +177,7 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
 
     // Place <select> in the source block
     Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
-        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_PREFIX))
+        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX))
         .forEach(el => {
             const parent = el.parentElement!
             parent.insertBefore(select, el)
@@ -186,7 +191,47 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
         type,
         options,
     } as Question
+}
 
+const formatInputInSourceQuestion = async (element: Element): Promise<Question> => {
+    const { id, type, parent, } = getQuestionDetails(element)
+
+    // Get options from checklist
+    const options: Option[] = extractAnswersFromBlock(element)
+
+    // Remove checklist
+    element.querySelectorAll('.checklist').forEach(el => {
+        el.parentElement!.removeChild(el)
+    })
+
+    // Create <input>
+    const input = createElement('input', 'input-in-source-select')
+
+
+    // // Insert blank item at the top
+    // const blank = document.createElement('option')
+    // blank.selected = true
+    // select.insertBefore(blank, select.children[0])
+
+    input.setAttribute('id', id)
+    input.setAttribute('name', <string>id)
+
+    // Place <select> in the source block
+    Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
+        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
+        .forEach(el => {
+            const parent = el.parentElement!
+            parent.insertBefore(input, el)
+            parent.removeChild(el)
+        })
+
+    return {
+        parent,
+        element,
+        id,
+        type,
+        options,
+    } as Question
 }
 
 const formatFreeTextQuestion = async (element: Element): Promise<Question> => {
@@ -207,6 +252,9 @@ const formatQuestion = async (div: Element): Promise<Question> => {
     if (div.classList.contains(QUESTION_SELECTOR_SELECT_IN_SOURCE)) {
         return formatSelectInSourceQuestion(div)
     }
+    else if (div.classList.contains(QUESTION_SELECTOR_INPUT_IN_SOURCE)) {
+        return formatInputInSourceQuestion(div)
+    }
     else if (div.classList.contains(QUESTION_SELECTOR_FREE_TEXT)) {
         return formatFreeTextQuestion(div)
     }
@@ -214,8 +262,12 @@ const formatQuestion = async (div: Element): Promise<Question> => {
     return formatSelectionQuestion(div)
 }
 
+const LESSON_OUTCOME_SELECTOR = 'lesson-outcome'
+const LESSON_OUTCOME_PASSED = 'lesson-outcome--passed'
+const LESSON_OUTCOME_FAILED = 'lesson-outcome--failed'
+
 const handleResponse = (parent, button, res, showHint = false) => {
-    parent.querySelectorAll('.question-outcome')
+    parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
         .forEach(el => parent.removeChild(el))
 
     if (res.data.completed) {
@@ -223,12 +275,12 @@ const handleResponse = (parent, button, res, showHint = false) => {
 
         if (res.data.next) {
             // Next Link
-            const link = createElement('a', 'question-outcome-progress', [
+            const link = createElement('a', 'lesson-outcome-progress', [
                 res.data.next.title
             ])
             link.setAttribute('href', res.data.next.link)
 
-            parent.appendChild(createElement('div', 'admonition admonition--tip question-outcome question-outcome--success', [
+            parent.appendChild(createElement('div', `admonition admonition--tip ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Well done!']),
                 createElement('p', '', [
                     'You are now ready to progress to the next lesson: ',
@@ -238,7 +290,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
         else {
             // Course completed
-            parent.appendChild(createElement('div', 'admonition admonition--tip question-outcome question-outcome--success', [
+            parent.appendChild(createElement('div', `admonition admonition--tip ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
                     'You have completed this lesson!',
@@ -247,13 +299,23 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
     }
     else {
-        parent.appendChild(createElement('div', 'admonition admonition--danger question-outcome question-outcome--danger', [
-            createElement('h3', 'admonition-title', ['Oops!']),
-            createElement('p', '', [
-                'It looks like you haven\'t passed the test, please try again.  If you are still stuck, try clicking the ',
+        let children: any[] = ['It looks like you haven\'t passed the test, please try again.']
+
+        // Show hint text?
+        if (parent.querySelector('.admonition')) {
+            children = children.concat(
+                'If you are still stuck, try clicking the ',
                 createElement('strong', '', ['Show Hint']),
-                ' button',
-            ])
+                ' button'
+            )
+        }
+
+        parent.appendChild(createElement('div', `admonition admonition--danger ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+
+
+
+            createElement('h3', 'admonition-title', ['Oops!']),
+            createElement('p', '', children)
         ]))
 
         if (showHint) {
@@ -267,15 +329,15 @@ const handleResponse = (parent, button, res, showHint = false) => {
 }
 
 const handleError = (parent, button, error) => {
-    parent.querySelectorAll('.question-outcome')
+    parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
         .forEach(el => parent.removeChild(el))
 
-        parent.appendChild(createElement('div', 'admonition admonition--danger question-outcome question-outcome--danger', [
-            createElement('h3', 'admonition-title', ['Error!']),
-            createElement('p', '', [
-                error.message,
-            ])
-        ]))
+    parent.appendChild(createElement('div', `admonition admonition--danger ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+        createElement('h3', 'admonition-title', ['Error!']),
+        createElement('p', '', [
+            error.message,
+        ])
+    ]))
 
     button.classList.remove()
 
@@ -302,7 +364,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             const answers = questions.map(question => {
                 let answers: string[] = [];
 
-                if (question.type === 'freetext') {
+                if (question.type === ANSWER_TYPE_FREETEXT) {
                     answers = <string[]>Array.from(question.element.querySelectorAll('input'))
                         .map(input => input.value)
                         .filter(value => value && value !== '')
@@ -398,7 +460,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 button.classList.add(BUTTON_LOADING)
 
-                axios.post(`${document.location.pathname}/verify`)
+                axios.post(`${document.location.pathname}verify`)
                     .then(res => handleResponse(element.parentElement, element, res, true))
                     .catch(e => handleError(element.parentElement, element, e))
                     .finally(() => {
@@ -414,12 +476,12 @@ window.addEventListener('DOMContentLoaded', () => {
             button.addEventListener('click', e => {
                 e.preventDefault()
 
-                axios.post(`${document.location.pathname}/read`)
-                .then(res => handleResponse(button.parentElement, button, res, true))
-                .catch(e => handleError(button.parentElement, button, e))
-                .finally(() => {
-                    button.classList.remove(BUTTON_LOADING)
-                })
+                axios.post(`${document.location.pathname}read`)
+                    .then(res => handleResponse(button.parentElement, button, res, true))
+                    .catch(e => handleError(button.parentElement, button, e))
+                    .finally(() => {
+                        button.classList.remove(BUTTON_LOADING)
+                    })
+            })
         })
-    })
 })

@@ -8,7 +8,8 @@ export function courseCypher(enrolment?: string, course: string = 'c', module: s
             .status,
             .usecase,
             .link,
-            ${enrolment ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment,` : ''}
+            ${enrolment !== undefined ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, completedAt: ${enrolment}.completedAt,` : ''}
+            ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |
                 ${moduleCypher(enrolment, course, module, lesson)}
             ]
@@ -24,7 +25,7 @@ export function moduleCypher(enrolment?: string, course: string = 'c', module: s
                     next: [ (${module})-[:NEXT]->(next) |
                         next { .slug, .title, .link }
                     ][0],
-                    ${enrolment ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
+                    ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
                     lessons: [ (${module})-[:HAS_LESSON]->(${lesson}) |
                         ${lessonCypher(enrolment, course, module, lesson)}
                     ]
@@ -36,7 +37,7 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
     return `
                         ${lesson} {
                             .*,
-                            ${enrolment ? `completed: exists((${enrolment})-[:COMPLETED_LESSON]->(l)),` : ''}
+                            ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_LESSON]->(l)),` : ''}
                             .link,
                             next: [ (${lesson})-[:NEXT]->(next) |
                                 next { .slug, .title, .link }

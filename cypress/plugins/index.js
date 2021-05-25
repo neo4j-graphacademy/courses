@@ -19,4 +19,11 @@
 module.exports = (on, config) => {
   // `on` is used to hook into various events Cypress emits
   // `config` is the resolved Cypress config
+
+  on('before:browser:launch', (browser = {}, launchOptions) => {
+    if (browser.name === 'chrome' || browser.name === 'edge') {
+      launchOptions.args.push('--disable-features=SameSiteByDefaultCookies') // bypass 401 unauthorised access on chromium-based browsers
+      return launchOptions
+    }
+  })
 }
