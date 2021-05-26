@@ -1,5 +1,5 @@
 import path from 'path'
-import express, { Router } from 'express'
+import express, { Router, Request, Response } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
@@ -62,9 +62,8 @@ router.get('/:course', async (req, res, next) => {
  * Find and send the badge.svg file in the course root
  */
 router.get('/:course/badge', (req, res, next) => {
-    res.sendFile(path.join(__dirname, '..', '..', 'asciidoc', 'courses', req.params.course, 'badge.svg'))
+    res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
 })
-
 
 /**
  * @GET /:course/enrol
@@ -87,7 +86,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
             }
         }
 
-        const goTo = enrolment.nextModule?.link || `/courses/${enrolment.course.slug}/`
+        const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
         res.redirect(goTo)
     }
@@ -96,13 +95,8 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
     }
 })
 
-/**
- * @GET /:course/browser
- *
- * Pre-fill the login credentials into local storage and then redirect to the
- * patched version of browser hosted at /browser/
- */
-router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
+
+const browser = async (req: Request, res: Response, next: Function) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
@@ -112,7 +106,7 @@ router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
 
         // If not enrolled, send to course home
         if (course.enrolled === false) {
-            return res.redirect(`/courses/${req.params.course}`)
+            return res.redirect(`/courses/${req.params.course}/`)
         }
 
         // Check that a use case exists
@@ -143,7 +137,23 @@ router.get('/:course/browser', requiresAuth(), async (req, res, next) => {
     catch (e) {
         next(e)
     }
-})
+}
+/**
+ * @GET /:course/browser
+ *
+ * Pre-fill the login credentials into local storage and then redirect to the
+ * patched version of browser hosted at /browser/
+ */
+
+router.get('/:course/browser', requiresAuth(), browser)
+
+/**
+ * @GET /:course/:module/browser
+ *
+ * Pre-fill the login credentials into local storage and then redirect to the
+ * patched version of browser hosted at /browser/
+ */
+router.get('/:course/:module/browser', requiresAuth(), browser)
 
 
 /**
@@ -157,9 +167,10 @@ router.get('/:course/:module', async (req, res, next) => {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
+
         // If not enrolled, send to course home
         if (course.enrolled === false) {
-            return res.redirect(`/courses/${req.params.course}`)
+            return res.redirect(`/courses/${req.params.course}/`)
         }
 
         const module = course.modules.find(module => module.slug === req.params.module)
@@ -205,7 +216,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
 
         // If not enrolled, send to course home
         if (course.enrolled === false) {
-            return res.redirect(`/courses/${req.params.course}`)
+            return res.redirect(`/courses/${req.params.course}/`)
         }
 
         const module = course.modules.find(module => module.slug === req.params.module)
@@ -314,11 +325,5 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         next(e)
     }
 })
-
-
-
-
-
-
 
 export default router

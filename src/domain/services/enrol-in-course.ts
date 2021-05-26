@@ -4,6 +4,7 @@ import { write } from "../../modules/neo4j";
 import { UserEnrolled } from "../events/UserEnrolled";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
+import { courseCypher } from "./cypher";
 
 export async function enrolInCourse(slug: string, user: User): Promise<Enrolment> {
     const res = await write(`
@@ -23,13 +24,7 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
             user: {
                 id: u.id
             },
-            course: {
-                slug: c.slug,
-                usecase: c.usecase
-            },
-            nextModule: [ (c)-[:FIRST_MODULE]->(m) | m {
-                .*
-            } ][0],
+            course: ${courseCypher('e')},
             createdAt: e.createdAt
         } AS enrolment
     `, {

@@ -1,5 +1,6 @@
 import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
+import { Pagination } from "./pagination";
 
 // Status
 export const STATUS_ACTIVE = 'active'
@@ -18,12 +19,14 @@ export const ATTRIBUTE_CATEGORIES = 'categories'
 export interface Course {
     slug: string;
     title: string;
+    link?: string;
     thumbnail: string;
     caption: string;
     status: CourseStatus;
     usecase: string | undefined;
     modules: Module[];
     categories: Category[];
+    next?: Pagination;
 }
 
 export interface CourseWithProgress extends Course {

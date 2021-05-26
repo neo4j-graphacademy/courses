@@ -31,6 +31,9 @@ const loadCourse = (folder: string): Course => {
         .filter((e: string) => e !== '')
         .map((category: string) => category.trim())
 
+        console.log(categories);
+
+
     return {
         slug,
         title: <string> file.getTitle(),
@@ -195,7 +198,7 @@ export async function mergeCourses(): Promise<void> {
 
         MERGE (m)-[:HAS_LESSON]->(l)
 
-        FOREACH (r IN [ (l)-[r:NEXT_LESSON]-() | r ] | DELETE r)
+        FOREACH (r IN [ (l)-[r:NEXT]-() | r ] | DELETE r)
 
 
         // Load Questions
@@ -228,6 +231,8 @@ export async function mergeCourses(): Promise<void> {
 
         CALL apoc.nodes.link(modules, 'NEXT_MODULE')
 
+        WITH c, modules[0] AS first
+        MERGE (c)-[:FIRST_MODULE]->(first)
 
         WITH c
         MATCH (c)-[:HAS_MODULE]->(m)-[:LAST_LESSON]->(last),

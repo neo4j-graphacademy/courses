@@ -55,7 +55,6 @@ router.get('/:id/:course', async (req, res, next) => {
         return res.redirect(`/u/${req.params.id}`)
     }
 
-
     const own = current?.id === req.params.id
 
     res.render('profile/achievement-view', {
