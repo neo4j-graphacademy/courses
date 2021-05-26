@@ -1,7 +1,11 @@
 describe('Test Course', () => {
-    it('should log in', () => {
+    after(() => {
+        cy.visit('/logout')
+    })
+
+    it('should enrol and complete course', () => {
         // Login
-        cy.visit('http://localhost:3000/test')
+        cy.visit(Cypress.env('setup_url'))
 
         cy.intercept({ method: 'POST', url: '/callback' }).as('callback')
         cy.intercept({ method: 'POST', url: '/courses/*/*/*' }).as('answer')
@@ -11,9 +15,9 @@ describe('Test Course', () => {
             .click()
 
         // Log in to Auth0
-        // cy.get('.auth0-lock-input-email input').type('adam+graphacademy@neo4j.com')
-        // cy.get('.auth0-lock-input-show-password input').type('GraphAcademy2021')
-        // cy.get('.auth0-lock-submit').click()
+        cy.get('.auth0-lock-input-email input').type(Cypress.env('user_email'))
+        cy.get('.auth0-lock-input-show-password input').type(Cypress.env('user_password'))
+        cy.get('.auth0-lock-submit').click()
 
         // Hack: Intercept and set cookie
         cy.wait('@callback').should(({ response }) => {
@@ -27,25 +31,25 @@ describe('Test Course', () => {
             cy.reload()
         })
 
+        // The user should now be logged in
         cy.get('.navbar-account')
             .contains('Hey')
 
 
         // Open course page
-        cy.contains('.card a', 'Test Course')
+        cy.contains('.card a', Cypress.env('test_course_title'))
             .click()
 
-        cy.get('.course-header h1').should('contain', 'Test Course')
+        cy.get('.course-header h1').should('contain', Cypress.env('test_course_title'))
 
         //  Click Enrol
         cy.contains('.btn', 'Enrol').click()
-        // cy.contains('.btn', 'Continue').click()
 
         /**
          * 1. Overview Module
          */
         // Should be on first course
-        cy.get('.module-title').should('contain', 'Overview Module')
+        cy.get('.module-title').should('contain', Cypress.env('first_module_title'))
 
         /**
          * 1.1 Expanding Sandbox
@@ -56,6 +60,12 @@ describe('Test Course', () => {
         // Should have a visible sandbox
         cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
 
+        // Toggle Sandbox
+        cy.get('.lesson-sandbox-toggle').click()
+        cy.get('.lesson-sandbox').should('not.have.class', 'lesson-sandbox--visible')
+
+        cy.get('.lesson-sandbox-toggle').click()
+        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
 
         // Mark lesson as read
         cy.markAsRead()
@@ -69,7 +79,7 @@ describe('Test Course', () => {
          * 1.2 Mark Lesson As Read
          */
 
-        // Toggle sandbo
+        // Toggle sandbox
         cy.get('.lesson-sandbox-toggle').click()
         cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
 
@@ -79,6 +89,32 @@ describe('Test Course', () => {
         cy.markAsRead()
         cy.get('.lesson-outcome--passed a.lesson-outcome-progress').click()
 
+        /**
+         * 1.3 How to Run Code in Sandbox
+         */
+        cy.get('.code-header')
+            .should('contain', 'Original Title')
+            .should('contain', 'Cypher')
+
+        // Copy to clipboard
+        cy.get('.btn-copy').click().should('contain', 'Copied!')
+
+        // Play button
+        cy.get('.btn-play').click()
+        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
+
+        // TODO: Check that query is properly copied
+        // cy.wait(1000)
+        // cy.get('.lesson-sandbox iframe').then($iframe => {
+        //     const editor = $iframe.contents().find('.monaco-editor')
+        //     cy.wrap(editor).should('contain', 'MATCH (')
+        // })
+
+        // TODO: Check role=norun
+        // TODO: Check role=noheader
+
+        cy.markAsRead()
+        cy.get('.lesson-outcome--passed a.lesson-outcome-progress').click()
 
         /**
          * 2. Question Types
@@ -233,7 +269,7 @@ describe('Test Course', () => {
          * 2.6 Database Verification
          */
         // Correct
-        cy.get('.verify .btn').click()
+        cy.get('.verify input.btn').click()
         cy.wait('@verify')
 
         cy.get('.lesson-outcome--passed').should('exist')
@@ -251,13 +287,13 @@ describe('Test Course', () => {
         cy.contains('p', 'has completed').should('exist')
 
         cy.contains('a', 'My Achievements').click()
-        cy.get('.achievement-group--completed').should('contain', 'Test Course')
+        cy.get('.achievement-group--completed').should('contain', Cypress.env('test_course_title'))
 
         /**
          * Logout
          */
         // cy.get('.navbar-account').parent().trigger('mouseover')
         // cy.get('.navbar-logout').click()
-        cy.visit('http://localhost:3000/logout')
+        // cy.visit('/logout')
     })
 })

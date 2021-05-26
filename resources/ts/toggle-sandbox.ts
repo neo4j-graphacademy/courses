@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
+export default function toggleSandbox() {
     const VISIBLE = 'lesson-sandbox--visible'
     Array.from(document.querySelectorAll('.lesson-sandbox-toggle'))
         .forEach(button => {
@@ -8,4 +8,4 @@ window.addEventListener('DOMContentLoaded', () => {
                 parent.classList.toggle(VISIBLE)
             })
         })
-})
+}

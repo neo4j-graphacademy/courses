@@ -1,5 +1,4 @@
 
-// import { createElement } from './modules/dom'
 import axios from 'axios'
 
 export function createElement(element: string, classes: string, children?: Array<HTMLElement | Text | string>) {
@@ -343,7 +342,7 @@ const handleError = (parent, button, error) => {
 
 }
 
-window.addEventListener('DOMContentLoaded', async () => {
+const setupQuestions = async () => {
     const questions: Question[] = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
@@ -447,9 +446,9 @@ window.addEventListener('DOMContentLoaded', async () => {
                 })
         })
     }
-})
+}
 
-window.addEventListener('DOMContentLoaded', () => {
+const setupVerify = () => {
     Array.from(document.querySelectorAll('.verify'))
         .map((element: Element) => {
             addHintListeners(element)
@@ -468,9 +467,9 @@ window.addEventListener('DOMContentLoaded', () => {
                     })
             })
         })
-})
+}
 
-window.addEventListener('DOMContentLoaded', () => {
+const setupMarkAsReadButton = () => {
     Array.from(document.querySelectorAll('input[name="read"]'))
         .map((button: Element) => {
             button.addEventListener('click', e => {
@@ -484,4 +483,10 @@ window.addEventListener('DOMContentLoaded', () => {
                     })
             })
         })
-})
+}
+
+export default function questions() {
+    setupVerify()
+    setupMarkAsReadButton()
+    setupQuestions()
+}
