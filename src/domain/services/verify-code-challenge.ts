@@ -7,12 +7,13 @@ import { ATTRIBUTE_VERIFY, LessonWithProgress } from "../model/lesson";
 import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
+import { decode } from 'html-entities'
 
 export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
     const document = await getLessonOverview(course, module, lesson)
     const progress = await getCourseWithProgress(course, user)
     const usecase = progress.usecase
-    const verify = document.getAttribute(ATTRIBUTE_VERIFY)
+    const verify = decode(document.getAttribute(ATTRIBUTE_VERIFY))
 
     // No usecase or verify?
     if ( usecase === undefined || verify === undefined ) {
