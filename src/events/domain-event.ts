@@ -1,1 +1,1 @@
-export interface DomainEvent {}
+export type DomainEvent = any;

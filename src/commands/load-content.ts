@@ -5,6 +5,7 @@ import { mergeCategories } from '../domain/services/asciidoc/merge-categories';
 
 dotenv.config()
 
+/* tslint:disable-next-line */
 console.clear();
 
 const {
@@ -13,6 +14,6 @@ const {
     NEO4J_PASSWORD
 } = process.env
 
-initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
+initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
     .then(() => mergeCourses())
     .then(() => mergeCategories())

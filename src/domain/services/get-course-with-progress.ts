@@ -3,7 +3,7 @@ import { read } from "../../modules/neo4j"
 import { sortCourse } from "../../utils"
 import { CourseWithProgress } from "../model/course"
 import { User } from "../model/user"
-import { courseCypher, lessonCypher } from "./cypher"
+import { courseCypher } from "./cypher"
 
 export async function getCourseWithProgress(slug: string, user?: User): Promise<CourseWithProgress> {
     const res = await read(`
@@ -17,7 +17,7 @@ export async function getCourseWithProgress(slug: string, user?: User): Promise<
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
-    const course = <CourseWithProgress> res.records[0].get('course')
+    const course = res.records[0].get('course') as CourseWithProgress
 
     sortCourse(course)
 

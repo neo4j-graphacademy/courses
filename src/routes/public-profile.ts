@@ -48,7 +48,7 @@ router.get('/:id/:course', async (req, res, next) => {
 
     const course = await getCourseWithProgress(req.params.course)
 
-    const progress = enrolments.completed?.find(course => course.slug === req.params.course)
+    const progress = enrolments.completed?.find(row => row.slug === req.params.course)
     const { enrolled, completed } = progress || {}
 
     if ( !completed ) {

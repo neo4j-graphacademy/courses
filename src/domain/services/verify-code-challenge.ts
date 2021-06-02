@@ -2,7 +2,6 @@ import { Transaction } from "neo4j-driver";
 import { getLessonOverview } from "../../modules/asciidoc";
 import { createDriver } from "../../modules/neo4j";
 import { getSandboxForUseCase } from "../../modules/sandbox";
-import { ATTRIBUTE_USECASE } from "../model/course";
 import { ATTRIBUTE_VERIFY, LessonWithProgress } from "../model/lesson";
 import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";

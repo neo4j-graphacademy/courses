@@ -1,14 +1,8 @@
 import { EventEmitter } from 'events'
-import { UserCompletedLesson } from '../domain/events/UserCompletedLesson'
-import { UserCompletedModule } from '../domain/events/UserCompletedModule'
-import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { DomainEvent } from './domain-event'
 
 
-
-export interface Listener<T extends DomainEvent> {
-    (event: T): void;
-}
+type Listener<T extends DomainEvent> = (event: T) => void;
 
 export interface Disposable {
     dispose: () => void;

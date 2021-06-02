@@ -2,7 +2,7 @@ export function inputBlockProcessor(registry: any) {
 
     registry.blockMacro(function () {
         // @ts-ignore
-        var self: any = this
+        const self: any = this
 
         self.named('input')
         self.process(function(parent: any, target: any, attrs: any) {
