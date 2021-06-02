@@ -1,4 +1,5 @@
 import codeBlocks from './code-blocks'
+import copyButtons from './copy-button'
 import highlight from './highlight'
 import questions from './questions'
 import toggleSandbox from './toggle-sandbox'
@@ -8,4 +9,5 @@ window.addEventListener('DOMContentLoaded', () => {
     questions()
     toggleSandbox()
     codeBlocks()
+    copyButtons()
 })

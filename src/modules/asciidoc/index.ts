@@ -26,9 +26,9 @@ export function loadFile(filepath: string, options: Record<string, any> = {}): A
     // TODO: Remove
     const doc = asciidoctor()
 
-    console.log('cc');
+    // console.log('cc');
 
-    doc.TemplateConverter.clearCache()
+    // doc.TemplateConverter.clearCache()
 
     const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), {
         ...baseOptions,

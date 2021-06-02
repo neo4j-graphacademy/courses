@@ -1,50 +1,4 @@
-import { track } from './modules/mixpanel'
-
-const TEXT_COPIED = 'Copied!'
-
-function copyableCommand(input: string) {
-    const commandContinuationRx = /\\\s*$/
-    let result = input
-
-    if (input.startsWith('$ ')) {
-        var lines = result.split('\n')
-        var currentCommand = ''
-        var commands: any[] = []
-        let commandContinuationFound: any = false
-        for (let i = 0; i < lines.length; i++) {
-            var line = lines[i]
-            if (!commandContinuationFound && !line.startsWith('$ ')) {
-                // ignore, command output
-            } else {
-                if (commandContinuationFound) {
-                    currentCommand += '\n' + line
-                } else if (line.startsWith('$ ')) {
-                    currentCommand = line.substr(2, line.length)
-                }
-                commandContinuationFound = line.match(commandContinuationRx)
-                if (!commandContinuationFound) {
-                    commands.push(currentCommand)
-                }
-            }
-        }
-        result = commands.join('; ')
-    }
-    return result
-}
-
-function cleanCode(raw: string, language?: string) {
-    // TODO: Other languages...
-    const stripped = raw.replace(/(<([^>]+)>)/gi, "");
-
-    // Convert entities
-    const el = document.createElement('textarea')
-    el.innerHTML = stripped
-
-    const converted = el.value
-
-
-    return copyableCommand(converted)
-}
+import { cleanCode, copyToClipboard } from './modules/clipboard'
 
 const SANDBOX_SELECTOR = 'lesson-sandbox'
 const SANDBOX_SELECTOR_VISIBLE = 'lesson-sandbox--visible'
@@ -67,37 +21,15 @@ function handlePlayClick(e) {
     sandboxWindow!.classList.add(SANDBOX_SELECTOR_VISIBLE)
 }
 
-function handleCopyClick(e) {
-    const button = e.target as HTMLButtonElement
-    const text = button.innerHTML
-    const width = button.clientWidth
+export function handleCopyClick(e) {
+    const button = e.target as HTMLElement
 
     // @ts-ignore
     const raw = button.parentNode.parentNode.querySelector('code').innerHTML
-    const cleaned = cleanCode(raw)
 
-    button.style.width = width + 'px'
-    button.classList.add('btn-success')
-    button.innerHTML = TEXT_COPIED
-
-    setTimeout(function () {
-        button.innerHTML = text
-        button.style.width = 'auto'
-        button.classList.remove('btn-success')
-    }, 1000)
-
-    const textarea = document.createElement('textarea')
-    textarea.setAttribute('readonly', '')
-    textarea.style.position = 'absolute'
-    textarea.style.left = '-9999px'
-    textarea.value = cleaned
-
-    document.body.appendChild(textarea)
-    textarea.select()
-
-    document.execCommand('copy')
-    document.body.removeChild(textarea)
+    copyToClipboard(raw, button)
 }
+
 
 export default function codeBlocks() {
     document.querySelectorAll('.btn-copy')

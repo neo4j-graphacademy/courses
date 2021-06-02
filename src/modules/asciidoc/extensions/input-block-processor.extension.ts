@@ -4,7 +4,6 @@ export function inputBlockProcessor(registry: any) {
         // @ts-ignore
         var self: any = this
 
-
         self.named('input')
         self.process(function(parent: any, target: any, attrs: any) {
             const { type, ...other } = attrs
