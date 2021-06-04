@@ -1,3 +1,4 @@
+import fs from 'fs'
 import { Router } from 'express'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { loadFile } from '../modules/asciidoc'
@@ -18,6 +19,8 @@ router.get('/', async (req, res, next) => {
             categories,
         })
 
+        const graphSvg = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'img', 'home', 'home-graph.svg'))
+
         // Render Doc
         const home = loadFile('pages/home.adoc', {
             attributes: {
@@ -27,9 +30,10 @@ router.get('/', async (req, res, next) => {
 
         const doc = home.getContent()
 
-
         res.render('home', {
+            classes: 'home transparent-nav',
             doc,
+            graphSvg,
         })
     }
     catch (e) {
