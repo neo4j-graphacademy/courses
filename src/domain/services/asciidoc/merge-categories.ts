@@ -16,7 +16,7 @@ const loadCategories = (): Category[] => {
 }
 
 const loadCategory = (filepath: string): CategoryWithParent => {
-    const slug = <string> filepath.split('/').filter(a => !!a).pop()!.replace('.adoc', '')
+    const slug = filepath.split('/').filter(a => !!a).pop()!.replace('.adoc', '') as string
     const file = loadFile(path.join(filepath))
     const parent = file.getAttribute(ATTRIBUTE_PARENT, null)
     const description = file.getContent()
@@ -24,7 +24,7 @@ const loadCategory = (filepath: string): CategoryWithParent => {
     return {
         id: '',
         slug,
-        title: <string> file.getTitle(),
+        title: file.getTitle() as string,
         description,
         parent,
     }
@@ -44,5 +44,6 @@ export async function mergeCategories(): Promise<void> {
         )
     `, { categories })
 
+    /* tslint:disable-next-line */
     console.log(`🎒 ${categories.length} Categories merged into graph`);
 }

@@ -1,5 +1,5 @@
 import path from 'path'
-import express, { Router, Request, Response } from 'express'
+import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
@@ -82,7 +82,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
                 await createSandbox(token, enrolment.course.usecase)
             }
             catch(e) {
-                console.log('error creating sandbox', e);
+                // console.error('error creating sandbox', e);
             }
         }
 
@@ -96,7 +96,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
 })
 
 
-const browser = async (req: Request, res: Response, next: Function) => {
+const browser = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
@@ -173,7 +173,7 @@ router.get('/:course/:module', async (req, res, next) => {
             return res.redirect(`/courses/${req.params.course}/`)
         }
 
-        const module = course.modules.find(module => module.slug === req.params.module)
+        const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
@@ -219,13 +219,13 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             return res.redirect(`/courses/${req.params.course}/`)
         }
 
-        const module = course.modules.find(module => module.slug === req.params.module)
+        const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
             next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
-        const lesson = module!.lessons.find(lesson => lesson.slug === req.params.lesson)
+        const lesson = module!.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
             next(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))

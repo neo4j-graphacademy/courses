@@ -1,13 +1,10 @@
+/* tslint:disable */
 import 'dotenv/config'
 import { Express } from 'express'
 import { Driver } from 'neo4j-driver';
 import initApp from './app'
-import { UserCompletedLesson } from './domain/events/UserCompletedLesson';
-import { UserCompletedModule } from './domain/events/UserCompletedModule';
-import { UserEnrolled } from './domain/events/UserEnrolled';
 import { mergeCategories } from './domain/services/asciidoc/merge-categories';
 import { mergeCourses } from './domain/services/asciidoc/merge-courses';
-import { emitter } from './events';
 import initNeo4j, { close } from './modules/neo4j';
 
 const {
@@ -19,11 +16,7 @@ const {
 
 console.log(`Connecting to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
 
-emitter.on<UserEnrolled>(UserEnrolled, e => console.log('UserEnrolled', e))
-emitter.on<UserCompletedModule>(UserCompletedModule, e => console.log('UserCompletedModule', e))
-emitter.on<UserCompletedLesson>(UserCompletedLesson, e => console.log('UserCompletedLesson', e))
-
-initNeo4j(<string> NEO4J_HOST, <string> NEO4J_USERNAME, <string> NEO4J_PASSWORD)
+initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
     .then((driver: Driver) => initApp(driver))
     .then((app: Express) => {
         app.listen(PORT || 3000, () => {

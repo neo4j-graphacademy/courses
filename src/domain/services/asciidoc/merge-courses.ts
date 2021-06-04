@@ -16,14 +16,14 @@ const loadCourses = (): Course[] => {
 }
 
 const loadCourse = (folder: string): Course => {
-    const slug = <string> folder.split('/').filter(a => !!a).pop()
+    const slug = folder.split('/').filter(a => !!a).pop() as string
     const file = loadFile(path.join(folder, 'overview.adoc'))
 
     const moduleDir = path.join(ASCIIDOC_DIRECTORY, folder, 'modules')
     const modules = fs.existsSync(moduleDir)
         ? fs.readdirSync(moduleDir)
-            .filter(slug => fs.existsSync(path.join(moduleDir, slug, 'overview.adoc')))
-            .map(slug => loadModule(path.join(folder, 'modules', slug)))
+            .filter(item => fs.existsSync(path.join(moduleDir, item, 'overview.adoc')))
+            .map(item => loadModule(path.join(folder, 'modules', item)))
         : []
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
@@ -31,12 +31,9 @@ const loadCourse = (folder: string): Course => {
         .filter((e: string) => e !== '')
         .map((category: string) => category.trim())
 
-        console.log(categories);
-
-
     return {
         slug,
-        title: <string> file.getTitle(),
+        title: file.getTitle() as string,
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
@@ -47,14 +44,14 @@ const loadCourse = (folder: string): Course => {
 }
 
 const loadModule = (folder: string): Module => {
-    const slug = <string> folder.split('/').filter(a => !!a).pop()
+    const slug = folder.split('/').filter(a => !!a).pop() as string
     const file = loadFile(path.join(folder, 'overview.adoc'))
 
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
     const lessons = fs.existsSync(lessonsDir)
         ? fs.readdirSync(lessonsDir)
-            .filter(file => fs.lstatSync(path.join(lessonsDir, file)).isDirectory() && fs.existsSync(path.join(lessonsDir, file, 'index.adoc')))
+            .filter(filename => fs.lstatSync(path.join(lessonsDir, filename)).isDirectory() && fs.existsSync(path.join(lessonsDir, filename, 'index.adoc')))
             .map(filename => loadLesson(path.join(folder, 'lessons', filename)))
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
@@ -62,21 +59,21 @@ const loadModule = (folder: string): Module => {
     return {
         path: path.join(folder, 'index.adoc'),
         slug,
-        title: <string> file.getTitle(),
+        title: file.getTitle() as string,
         order: file.getAttribute(ATTRIBUTE_ORDER, null),
         lessons,
     }
 }
 
 const loadLesson = (folder: string): Lesson => {
-    const slug = <string> folder.split('/').filter(a => !!a).pop()!
+    const slug = folder.split('/').filter(a => !!a).pop()! as string
     const file = loadFile(path.join(folder, 'index.adoc'))
 
     // Load questions and answers into database
     const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')
     const questions = fs.existsSync( questionsDir ) ?
         fs.readdirSync(questionsDir)
-            .filter(file => file.endsWith('.adoc'))
+            .filter(filename => filename.endsWith('.adoc'))
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
@@ -243,5 +240,6 @@ export async function mergeCourses(): Promise<void> {
         RETURN count(*) AS count
     `, { courses })
 
+    /* tslint:disable-next-line */
     console.log(`📚 ${courses.length} Courses merged into graph`);
 }

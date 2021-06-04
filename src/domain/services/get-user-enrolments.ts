@@ -1,9 +1,6 @@
-import { convertCourseOverview } from "../../modules/asciidoc";
 import { read } from "../../modules/neo4j";
 import { sortCourse } from "../../utils";
-import { CourseWithProgress } from "../model/course";
 import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED } from "../model/enrolment";
-import { Module } from "../model/module";
 import { courseCypher } from "./cypher";
 
 export async function getUserEnrolments(id: string): Promise<EnrolmentsByStatus> {
@@ -31,16 +28,18 @@ export async function getUserEnrolments(id: string): Promise<EnrolmentsByStatus>
     `, { id })
 
     if ( res.records.length === 0 ) {
-        return <EnrolmentsByStatus> {}
+        return {} as EnrolmentsByStatus
     }
 
     const user = res.records[0].get('user')
     const enrolments = res.records[0].get('enrolments')
 
     // Sort items because we can't do this in a pattern comprehension
-    for (let key in enrolments) {
-        for (let course of enrolments[key]) {
-            sortCourse(course)
+    for (const key in enrolments) {
+        if (enrolments.hasOwnProperty(key)) {
+            for (const course of enrolments[key]) {
+                sortCourse(course)
+            }
         }
     }
 

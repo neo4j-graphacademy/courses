@@ -1,4 +1,4 @@
-import { Request, Response, Express } from 'express';
+import { Request, Response, Express, NextFunction } from 'express';
 import { auth } from 'express-openid-connect'
 import { User } from '../domain/model/user';
 import { read } from '../modules/neo4j';
@@ -21,7 +21,7 @@ export async function getUser(req: any): Promise<User | undefined> {
 
     const res = await read(`MATCH (u:User {oauthId: $user_id}) RETURN u`, { user_id: req.oidc.user.user_id })
 
-    let dbUser = res.records.length ? res.records[0].get('u').properties : {}
+    const dbUser = res.records.length ? res.records[0].get('u').properties : {}
 
     return {
         ...req.oidc.user,
@@ -33,7 +33,7 @@ export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));
 
-    app.use(async (req: Request, res: Response, next: Function) => {
+    app.use(async (req: Request, res: Response, next: NextFunction) => {
         // @ts-ignore
 
         // @ts-ignore
