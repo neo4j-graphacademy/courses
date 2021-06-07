@@ -3,6 +3,8 @@ export default function home() {
     const body = document.querySelector('body')
 
     if ( body && hero ) {
+        setTimeout(() => body.classList.remove('preload'), 4000)
+
         window.onscroll = (e) => {
             const height = hero.clientHeight
             const scroll = window.pageYOffset

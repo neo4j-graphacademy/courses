@@ -31,7 +31,7 @@ router.get('/', async (req, res, next) => {
         const doc = home.getContent()
 
         res.render('home', {
-            classes: 'home transparent-nav',
+            classes: 'home transparent-nav preload',
             doc,
             graphSvg,
         })
