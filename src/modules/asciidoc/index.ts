@@ -23,6 +23,12 @@ const baseOptions: Asciidoctor.ProcessorOptions = {
 }
 
 export function loadFile(filepath: string, options: Record<string, any> = {}): Asciidoctor.Document {
+    // TODO: Remove
+    const doc = asciidoctor()
+
+    console.log('cc');
+    doc.TemplateConverter.clearCache()
+
     const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), {
         ...baseOptions,
         ...options,
