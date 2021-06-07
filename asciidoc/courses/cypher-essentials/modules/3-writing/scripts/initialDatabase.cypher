@@ -1,42 +1,3 @@
-= Writing Data to Neo4j
-:order: 3
-
-
-In this module we will explore how to update the graph using Cypher and the Movies example dataset.
-
-Watch this video to learn how Cypher is used to retrieve nodes and relationships in the graph by traversing patterns the graph.
-
-video::uDe9nnVNpPw[youtube,width=560,height=315]
-
-
-////
-Script: Writing Data to Neo4j
-
-https://docs.google.com/document/d/1iI59U2z9ErQ0V12Zl7Z0oGf_x-Ok3sy7oMX8VQ39JlA/edit?usp=sharing
-
-////
-
-First, you will use the `CREATE` statement to create nodes or relationships in the graph.
-You can set the properties for a node or relationship inline or with the `SET` keyword.
-Another way that you can create nodes and relationships is with the `MERGE` statement. The `MERGE` statement allows you to check if a node or relationship exists before it is created. If the node or relationship exists, you can update it.
-And finally, you will learn how to delete nodes and relationships in the graph.
-
-
-== Domain model for this course
-
-Again, here is the domain model and how it is represented in our graph:
-
-image::images/movie-schema.svg[Movie Graph,width=600,align=center]
-
-== Resetting the database
-
-
-During any lesson in this module, if you find that you have made a mistake with your updates to the graph,
-you can always reset the database. The database at the beginning of this module should have 171 nodes and  253 relationships.
-You can execute this Cypher code in the Sandbox to recreate the graph:
-
-[source,cypher]
-----
 MATCH (n) DETACH DELETE n;
 CREATE (TheMatrix:Movie {title:'The Matrix', released:1999, tagline:'Welcome to the Real World'})
 CREATE (Keanu:Person {name:'Keanu Reeves', born:1964})
@@ -543,4 +504,3 @@ CREATE
   (JessicaThompson)-[:REVIEWED {summary:'A solid romp', rating:68}]->(TheDaVinciCode),
   (JamesThompson)-[:REVIEWED {summary:'Fun, but a little far fetched', rating:65}]->(TheDaVinciCode),
   (JessicaThompson)-[:REVIEWED {summary:'You had me at Jerry', rating:92}]->(JerryMaguire)
-----
