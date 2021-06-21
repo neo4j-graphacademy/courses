@@ -23,7 +23,10 @@ const router = Router()
  */
 router.get('/', (req, res, next) => {
     getCoursesByCategory()
-        .then(categories => res.render('course/list', { categories }))
+        .then(categories => res.render('course/list', {
+            title: 'All Courses',
+            categories
+        }))
         // .then(categories => res.json({ categories }))
         .catch(e => next(e))
 })

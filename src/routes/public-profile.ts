@@ -31,6 +31,9 @@ router.get('/:id', async (req, res, next) => {
 
     const { user, enrolments } = await getUserEnrolments(req.params.id)
 
+    console.log(enrolments);
+
+
     const own = current?.id === req.params.id
 
     res.render('profile/achievements', {

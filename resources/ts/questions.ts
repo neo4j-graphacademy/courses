@@ -67,6 +67,8 @@ const getQuestionDetails = (element: Element): Question => {
 const addHintListeners = (element: Element): void => {
     element.querySelectorAll('.admonition')
         .forEach(block => {
+            console.log('pb', block);
+
             const parent = block.parentElement
 
             const show = createElement('button', ADMONITION_SHOW, ['Show Hint'])
@@ -119,9 +121,6 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
             label
         )
     })
-
-    // Add a 'show hint' link
-    addHintListeners(element)
 
     return {
         id,
@@ -234,6 +233,9 @@ const formatFreeTextQuestion = async (element: Element): Promise<Question> => {
 }
 
 const formatQuestion = async (div: Element): Promise<Question> => {
+    // Add a 'show hint' link
+    addHintListeners(div)
+
     if (div.classList.contains(QUESTION_SELECTOR_SELECT_IN_SOURCE)) {
         return formatSelectInSourceQuestion(div)
     }
@@ -243,6 +245,8 @@ const formatQuestion = async (div: Element): Promise<Question> => {
     else if (div.classList.contains(QUESTION_SELECTOR_FREE_TEXT)) {
         return formatFreeTextQuestion(div)
     }
+
+
 
     return formatSelectionQuestion(div)
 }
@@ -296,9 +300,6 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
 
         parent.appendChild(createElement('div', `admonition admonition--danger ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
-
-
-
             createElement('h3', 'admonition-title', ['Oops!']),
             createElement('p', '', children)
         ]))
