@@ -20,7 +20,7 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
     .then((driver: Driver) => initApp(driver))
     .then((app: Express) => {
         app.listen(PORT || 3000, () => {
-            console.clear()
+            // console.clear()
             console.log(`\n\n--\n🚀 Listening on http://localhost:3000\n`);
         })
 

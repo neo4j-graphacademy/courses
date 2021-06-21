@@ -31,6 +31,7 @@ router.get('/', async (req, res, next) => {
         const doc = home.getContent()
 
         res.render('home', {
+            title: 'Free, Self-Paced, Hands-on Online Training ',
             classes: 'home transparent-nav preload',
             doc,
             graphSvg,

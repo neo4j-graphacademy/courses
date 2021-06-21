@@ -15,11 +15,13 @@ export const ATTRIBUTE_THUMBNAIL = 'thumbnail'
 export const ATTRIBUTE_CAPTION = 'caption'
 export const ATTRIBUTE_USECASE = 'usecase'
 export const ATTRIBUTE_CATEGORIES = 'categories'
+export const ATTRIBUTE_REDIRECT = 'redirect'
 
 export interface Course {
     slug: string;
     title: string;
     link?: string;
+    redirect?: string;
     thumbnail: string;
     caption: string;
     status: CourseStatus;

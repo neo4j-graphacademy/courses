@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -42,6 +42,7 @@ const loadCourse = (folder: string): Course => {
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
+        redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         categories,
         modules,
     }
@@ -134,6 +135,7 @@ export async function mergeCourses(): Promise<void> {
             c.caption = course.caption,
             c.status = course.status,
             c.usecase = course.usecase,
+            c.redirect = course.redirect,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()
 

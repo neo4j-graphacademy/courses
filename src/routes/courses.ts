@@ -43,6 +43,10 @@ router.get('/:course', async (req, res, next) => {
         // TODO: Get next link for "Continue Lesson" button
         const course = await getCourseWithProgress(req.params.course, user)
 
+        if ( course.redirect ) {
+            return res.redirect(course.redirect)
+        }
+
         const doc = await convertCourseOverview(course.slug)
 
         res.render('course/overview', {
