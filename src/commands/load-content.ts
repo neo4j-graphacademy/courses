@@ -6,7 +6,7 @@ import { mergeCategories } from '../domain/services/asciidoc/merge-categories';
 dotenv.config()
 
 /* tslint:disable-next-line */
-console.clear();
+// console.clear();
 
 const {
     NEO4J_HOST,

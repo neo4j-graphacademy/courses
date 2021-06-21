@@ -9,7 +9,7 @@ export function registerLocals(app: Express) {
     const logoSvg = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'img', 'logo-color.svg'))
 
     app.use((req, res, next) => {
-        res.locals.status = {
+        res.locals.statuses = {
             STATUS_DRAFT,
             fo: process.env.AUTH0_BASE_URL
         }

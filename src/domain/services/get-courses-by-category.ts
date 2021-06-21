@@ -7,7 +7,12 @@ interface DbCategory extends Category {
 }
 
 interface DbCourse extends Course {
-    categoryIds: string[]
+    categoryIds: DbCategoryMapping[]
+}
+
+interface DbCategoryMapping {
+    id: string;
+    order: string;
 }
 
 export async function getCoursesByCategory(): Promise<Category[]> {
@@ -16,7 +21,7 @@ export async function getCoursesByCategory(): Promise<Category[]> {
         WHERE c.status <> $disabled
         WITH collect(c {
             .*,
-            categoryIds: [(c)-[:IN_CATEGORY]->(ct) | ct.id]
+            categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}]
         }) AS courses
 
         MATCH (c:Category)
@@ -30,10 +35,24 @@ export async function getCoursesByCategory(): Promise<Category[]> {
 
     const courses = res.records[0].get('courses')
     const categories = res.records[0].get('categories')
-            .map((row: DbCategory) => ({
-                ...row,
-                courses: courses.filter((course: DbCourse) => course.categoryIds.includes(row.id)),
-            }))
+            .map((row: DbCategory) => {
+                const categoryCourses = courses.map((course: DbCourse) => {
+                    const categoryOrder = course.categoryIds.find((value: any) => value.id === row.id)
+
+                    if ( !categoryOrder ) return;
+
+                    return { ...course, order: categoryOrder.order }
+                })
+                .filter((e: any) => !!e)
+
+                categoryCourses.sort((a: any, b: any) => a.order < b.order ? -1 : 1)
+
+                return {
+                    ...row,
+                    courses: categoryCourses,
+                }
+            })
+
 
     const root = categories.filter((category: DbCategory) => !category.parents.length)
 

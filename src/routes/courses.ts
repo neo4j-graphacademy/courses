@@ -12,6 +12,7 @@ import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { ASCIIDOC_DIRECTORY } from '../constants'
+import { registerInterest } from '../domain/services/register-interest'
 
 const router = Router()
 
@@ -54,7 +55,13 @@ router.get('/:course', async (req, res, next) => {
     catch (e) {
         next(e)
     }
+})
 
+router.post('/:course/interested', async (req, res, next) => {
+    const user = await getUser(req)
+    await registerInterest(req.params.course, req.body.email, user)
+
+    return res.redirect(`/courses/${req.params.course}/?interested=true`)
 })
 
 /**

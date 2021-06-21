@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -11,25 +11,29 @@ import { write } from '../../../modules/neo4j';
 
 const loadCourses = (): Course[] => {
     const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
+
     return fs.readdirSync( folder )
+        .filter(folder => fs.existsSync(path.join(ASCIIDOC_DIRECTORY, 'courses', folder, 'course.adoc')))
         .map(slug => loadCourse( path.join('courses', slug) ))
 }
 
 const loadCourse = (folder: string): Course => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'overview.adoc'))
+    const file = loadFile(path.join(folder, 'course.adoc'))
 
     const moduleDir = path.join(ASCIIDOC_DIRECTORY, folder, 'modules')
     const modules = fs.existsSync(moduleDir)
         ? fs.readdirSync(moduleDir)
-            .filter(item => fs.existsSync(path.join(moduleDir, item, 'overview.adoc')))
+            .filter(item => fs.existsSync(path.join(moduleDir, item, 'module.adoc')))
             .map(item => loadModule(path.join(folder, 'modules', item)))
         : []
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
         .split(',')
         .filter((e: string) => e !== '')
-        .map((category: string) => category.trim())
+        .map((entry: string) => entry.split(':'))
+        // @ts-ignore
+        .map(([category, order]) => ({ order: order || '1', category: category?.trim() }))
 
     return {
         slug,
@@ -51,7 +55,7 @@ const loadModule = (folder: string): Module => {
 
     const lessons = fs.existsSync(lessonsDir)
         ? fs.readdirSync(lessonsDir)
-            .filter(filename => fs.lstatSync(path.join(lessonsDir, filename)).isDirectory() && fs.existsSync(path.join(lessonsDir, filename, 'index.adoc')))
+            .filter(filename => fs.lstatSync(path.join(lessonsDir, filename)).isDirectory() && fs.existsSync(path.join(lessonsDir, filename, 'lesson.adoc')))
             .map(filename => loadLesson(path.join(folder, 'lessons', filename)))
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
@@ -114,6 +118,12 @@ const loadQuestion = (filepath: string): Question => {
 export async function mergeCourses(): Promise<void> {
     const courses = loadCourses()
 
+    // Disable all courses
+    await write(`
+        MATCH (c:Course) SET c.status = $status
+    `, { status: STATUS_DISABLED })
+
+    // Import the courses that exist in the array
     await write(`
         UNWIND $courses AS course
         MERGE (c:Course {slug: course.slug })
@@ -130,9 +140,10 @@ export async function mergeCourses(): Promise<void> {
         // Assign Categories
         FOREACH (r in [ (c)-[r:IN_CATEGORY]->() | r] | DELETE r)
 
-        FOREACH (category IN course.categories |
-            MERGE (ct:Category {id: apoc.text.base64Encode(category)})
-            MERGE (c)-[:IN_CATEGORY]->(ct)
+        FOREACH (row IN course.categories |
+            MERGE (ct:Category {id: apoc.text.base64Encode(row.category)})
+            MERGE (c)-[r:IN_CATEGORY]->(ct)
+            SET r.order = row.order
         )
 
         // Set old modules to "deleted"
