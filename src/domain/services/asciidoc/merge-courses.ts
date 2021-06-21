@@ -49,7 +49,7 @@ const loadCourse = (folder: string): Course => {
 
 const loadModule = (folder: string): Module => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'overview.adoc'))
+    const file = loadFile(path.join(folder, 'module.adoc'))
 
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
@@ -61,7 +61,7 @@ const loadModule = (folder: string): Module => {
         : []
 
     return {
-        path: path.join(folder, 'index.adoc'),
+        path: path.join(folder, 'module.adoc'),
         slug,
         title: file.getTitle() as string,
         order: file.getAttribute(ATTRIBUTE_ORDER, null),
@@ -71,7 +71,7 @@ const loadModule = (folder: string): Module => {
 
 const loadLesson = (folder: string): Lesson => {
     const slug = folder.split('/').filter(a => !!a).pop()! as string
-    const file = loadFile(path.join(folder, 'index.adoc'))
+    const file = loadFile(path.join(folder, 'lesson.adoc'))
 
     // Load questions and answers into database
     const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')

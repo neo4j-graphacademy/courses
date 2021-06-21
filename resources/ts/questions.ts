@@ -268,7 +268,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
             parent.appendChild(createElement('div', `admonition admonition--tip ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Well done!']),
                 createElement('p', '', [
-                    'You are now ready to progress to the next lesson: ',
+                    'You are now ready to advance to ',
                     link,
                 ])
             ]))

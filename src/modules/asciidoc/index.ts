@@ -45,20 +45,20 @@ export function convert(document: Asciidoctor.Document, options: Record<string, 
 
 export async function convertCourseOverview(slug: string) {
     const folder = path.join('courses', slug)
-    const document = loadFile(path.join(folder, 'overview.adoc'))
+    const document = loadFile(path.join(folder, 'course.adoc'))
 
     return convert(document)
 }
 
 export async function convertModuleOverview(course: string, module: string) {
     const folder = path.join('courses', course, 'modules', module)
-    const document = loadFile(path.join(folder, 'overview.adoc'))
+    const document = loadFile(path.join(folder, 'module.adoc'))
 
     return convert(document)
 }
 
 export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
-    const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'index.adoc')
+    const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'lesson.adoc')
     return loadFile(file)
 }
 

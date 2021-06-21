@@ -31,7 +31,7 @@ router.get('/', (req, res, next) => {
 /**
  * @GET /:course
  *
- * Render course information from overview.adoc in the course root
+ * Render course information from course.adoc in the course root
  */
 router.get('/:course', async (req, res, next) => {
     try {
@@ -168,7 +168,7 @@ router.get('/:course/:module/browser', requiresAuth(), browser)
  * @GET /:course/:module
  *
  * If none of the routes matched above, this URL must be a module page.
- * Render index.adoc in the course root
+ * Render courseindex.adoc in the course root
  */
 router.get('/:course/:module', async (req, res, next) => {
     try {
