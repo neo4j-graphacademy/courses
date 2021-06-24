@@ -6,7 +6,7 @@ import { getCourseWithProgress } from '../domain/services/get-course-with-progre
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth'
 import { createSandbox, getSandboxForUseCase } from '../modules/sandbox'
-import { convertCourseOverview, convertLessonOverview, convertModuleOverview } from '../modules/asciidoc'
+import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
@@ -59,6 +59,7 @@ router.get('/:course', async (req, res, next) => {
             ...course,
             doc,
             interested,
+            summary: course.completed && courseSummaryExists(req.params.course),
         })
     }
     catch (e) {
@@ -99,6 +100,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
                 await createSandbox(token, enrolment.course.usecase)
             }
             catch(e) {
+                // TODO: Log this error somewhere
                 // console.error('error creating sandbox', e);
             }
         }
@@ -112,6 +114,38 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
     }
 })
 
+/**
+ * @GET /:course/summary
+ *
+ * If it exists, show the contents of summary.adoc
+ */
+router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+
+        // TODO: Flash memory
+        const interested = req.query.interested
+
+        // TODO: Get next link for "Continue Lesson" button
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        if ( course.redirect ) {
+            return res.redirect(course.redirect)
+        }
+
+        const doc = await convertCourseSummary(course.slug)
+
+        res.render('course/summary', {
+            classes: `course ${course.slug}`,
+            ...course,
+            doc,
+            interested,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
+})
 
 const browser = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -203,7 +237,7 @@ router.get('/:course/:module', async (req, res, next) => {
             showSandbox,
             sandboxVisible,
             sandboxUrl,
-        } = getSandboxConfig(course)
+        } = await getSandboxConfig(course)
 
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}`,
@@ -231,7 +265,34 @@ router.use('/:course/:module/images', (req, res, next) => {
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
 })
 
-function getSandboxConfig(course: Course, lesson?: Lesson) {
+async function getPageAttributes(req: Request, course: Course): Promise<Record<string, any>> {
+    const user = await getUser(req)
+
+
+    const attributes: Record<string, any> = {
+        name: user!.given_name,
+    }
+
+    if ( course.usecase ) {
+        const token = await getToken(req)
+
+        const sandboxConfig = await getSandboxForUseCase(token, course.usecase)
+
+        attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
+        attributes['sandbox-username'] = sandboxConfig?.username;
+        attributes['sandbox-password'] = sandboxConfig?.password;
+    }
+
+    return attributes
+}
+
+interface SandboxConfig {
+    showSandbox: boolean;
+    sandboxVisible: boolean;
+    sandboxUrl: string | undefined;
+}
+
+function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfig> {
     const showSandbox = course.usecase !== undefined && (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
     const sandboxVisible = typeof lesson?.sandbox === 'string'
 
@@ -247,11 +308,11 @@ function getSandboxConfig(course: Course, lesson?: Lesson) {
         sandboxUrl = lesson!.sandbox
     }
 
-    return {
+    return Promise.resolve({
         showSandbox,
         sandboxVisible,
         sandboxUrl,
-    }
+    } as SandboxConfig)
 }
 
 /**
@@ -281,16 +342,17 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             next(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
-        const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, {
-            'name': user!.given_name,
-        })
+        // Build Attributes for adoc
+        const attributes = await getPageAttributes(req, course)
+
+        const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
 
         // Configure Sandbox
         const {
             showSandbox,
             sandboxVisible,
             sandboxUrl,
-        } = getSandboxConfig(course, lesson)
+        } = await getSandboxConfig(course, lesson)
 
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,

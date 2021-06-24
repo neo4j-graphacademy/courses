@@ -260,6 +260,11 @@ const handleResponse = (parent, button, res, showHint = false) => {
     if (res.data.completed) {
         parent.removeChild(button)
 
+        for (let element in document.querySelectorAll('.summary')) {
+            // @ts-ignore
+            element.classList?.add('summary--visible')
+        }
+
         if (res.data.next) {
             // Next Link
             const link = createElement('a', 'lesson-outcome-progress', [

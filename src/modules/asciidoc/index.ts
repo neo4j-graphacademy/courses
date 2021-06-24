@@ -28,7 +28,7 @@ export function fileExists(filepath: string): boolean {
     return fs.existsSync(path.join(ASCIIDOC_DIRECTORY, filepath))
 }
 
-export function loadFile(filepath: string, options: Record<string, any> = {}): Asciidoctor.Document {
+export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
     // TODO: Remove
     const doc = asciidoctor()
     doc.TemplateConverter.clearCache()
@@ -41,7 +41,7 @@ export function loadFile(filepath: string, options: Record<string, any> = {}): A
     return file
 }
 
-export function convert(document: Asciidoctor.Document, options: Record<string, any> = {}) {
+export function convert(document: Asciidoctor.Document, options: Asciidoctor.ProcessorOptions = {}) {
     // TODO: Extend Options
     return document.convert({
         ...baseOptions,
@@ -49,7 +49,7 @@ export function convert(document: Asciidoctor.Document, options: Record<string, 
     })
 }
 
-export async function convertCourseOverview(slug: string) {
+export async function convertCourseOverview(slug: string, attributes?: Record<string, any>) {
     const folder = path.join('courses', slug)
 
     const file = path.join(folder, 'course.adoc')
@@ -58,12 +58,32 @@ export async function convertCourseOverview(slug: string) {
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
-    const document = loadFile(file)
+    const document = loadFile(file, { attributes })
 
     return convert(document)
 }
 
-export async function convertModuleOverview(course: string, module: string) {
+export async function convertCourseSummary(slug: string, attributes?: Record<string, any>) {
+    const folder = path.join('courses', slug)
+    const file = path.join(folder, 'summary.adoc')
+
+    if ( !fileExists(file) ) {
+        throw new NotFoundError(`Summary for course ${slug} could not be found`)
+    }
+
+    const document = loadFile(file, { attributes })
+
+    return convert(document)
+}
+
+export async function courseSummaryExists(slug: string) {
+    const folder = path.join('courses', slug)
+    const file = path.join(folder, 'summary.adoc')
+
+    return fileExists(file)
+}
+
+export async function convertModuleOverview(course: string, module: string, attributes?: Record<string, any>) {
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
@@ -71,23 +91,23 @@ export async function convertModuleOverview(course: string, module: string) {
         throw new NotFoundError(`Module ${module} could not be found in ${course}`)
     }
 
-    const document = loadFile(file)
+    const document = loadFile(file, { attributes })
 
     return convert(document)
 }
 
-export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
+export async function getLessonOverview(course: string, module: string, lesson: string, attributes?: Record<string, any>): Promise<Asciidoctor.Document> {
     const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'lesson.adoc')
 
     if ( !fileExists(file) ) {
         throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
     }
 
-    return loadFile(file)
+    return loadFile(file, { attributes })
 }
 
 export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}) {
-    const document = await getLessonOverview(course, module, lesson)
+    const document = await getLessonOverview(course, module, lesson, attributes)
 
-    return convert(document, attributes)
+    return convert(document, { attributes })
 }
