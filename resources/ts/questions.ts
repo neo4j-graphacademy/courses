@@ -67,8 +67,6 @@ const getQuestionDetails = (element: Element): Question => {
 const addHintListeners = (element: Element): void => {
     element.querySelectorAll('.admonition')
         .forEach(block => {
-            console.log('pb', block);
-
             const parent = block.parentElement
 
             const show = createElement('button', ADMONITION_SHOW, ['Show Hint'])
@@ -85,6 +83,10 @@ const addHintListeners = (element: Element): void => {
 
 const formatSelectionQuestion = async (element: Element): Promise<Question> => {
     const { id, type, parent, } = getQuestionDetails(element)
+
+    // Show Checklist
+    element.querySelector('.ulist')?.classList.remove('ulist')
+    element.querySelector('.ulist')?.classList.add('question-options')
 
     const options: Option[] = extractAnswersFromBlock(element)
 
@@ -117,6 +119,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
 
         // Add the checkbox
         answer.element.classList.add('question-option')
+        answer.element.classList.add('nice-try--no-answers-here')
         answer.element.appendChild(
             label
         )
@@ -191,11 +194,6 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
     // Create <input>
     const input = createElement('input', 'input-in-source-select')
 
-
-    // // Insert blank item at the top
-    // const blank = document.createElement('option')
-    // blank.selected = true
-    // select.insertBefore(blank, select.children[0])
 
     input.setAttribute('id', id)
     input.setAttribute('name', <string>id)
