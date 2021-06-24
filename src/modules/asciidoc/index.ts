@@ -24,6 +24,10 @@ const baseOptions: Asciidoctor.ProcessorOptions = {
     extension_registry: registry,
 }
 
+export function fileExists(filepath: string): boolean {
+    return fs.existsSync(path.join(ASCIIDOC_DIRECTORY, filepath))
+}
+
 export function loadFile(filepath: string, options: Record<string, any> = {}): Asciidoctor.Document {
     // TODO: Remove
     const doc = asciidoctor()
@@ -50,8 +54,8 @@ export async function convertCourseOverview(slug: string) {
 
     const file = path.join(folder, 'course.adoc')
 
-    if ( !fs.existsSync(file) ) {
-        throw new NotFoundError(`Module ${slug} could not be found`)
+    if ( !fileExists(file) ) {
+        throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
     const document = loadFile(file)
@@ -63,7 +67,7 @@ export async function convertModuleOverview(course: string, module: string) {
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
-    if ( !fs.existsSync(file) ) {
+    if ( !fileExists(file) ) {
         throw new NotFoundError(`Module ${module} could not be found in ${course}`)
     }
 
@@ -75,7 +79,7 @@ export async function convertModuleOverview(course: string, module: string) {
 export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
     const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'lesson.adoc')
 
-    if ( !fs.existsSync(file) ) {
+    if ( !fileExists(file) ) {
         throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
     }
 
