@@ -9,6 +9,7 @@ export function courseCypher(enrolment?: string, course: string = 'c', module: s
             .usecase,
             .redirect,
             .link,
+            categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description }],
             ${enrolment !== undefined ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, createdAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt,` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |

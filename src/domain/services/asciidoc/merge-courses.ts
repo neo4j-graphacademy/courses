@@ -89,7 +89,7 @@ const loadLesson = (folder: string): Lesson => {
         type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_TEXT),
         order: file.getAttribute(ATTRIBUTE_ORDER, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
-        sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, null),
+        sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
         cypher: decode(file.getAttribute(ATTRIBUTE_CYPHER, null)),
         answer: decode(file.getAttribute(ATTRIBUTE_ANSWER, null)),
         verify: decode(file.getAttribute(ATTRIBUTE_VERIFY, null)),

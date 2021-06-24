@@ -27,7 +27,7 @@ export interface Lesson {
     type: LessonType;
     order: number;
     duration: number;
-    sandbox: boolean;
+    sandbox: boolean | string;
     cypher: string | undefined;
     answer: string | undefined;
     verify: string | undefined;
