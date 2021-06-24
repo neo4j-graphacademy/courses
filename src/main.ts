@@ -3,8 +3,8 @@ import 'dotenv/config'
 import { Express } from 'express'
 import { Driver } from 'neo4j-driver';
 import initApp from './app'
-import { mergeCategories } from './domain/services/asciidoc/merge-categories';
-import { mergeCourses } from './domain/services/asciidoc/merge-courses';
+// import { mergeCategories } from './domain/services/asciidoc/merge-categories';
+// import { mergeCourses } from './domain/services/asciidoc/merge-courses';
 import initNeo4j, { close } from './modules/neo4j';
 
 const {
@@ -24,8 +24,8 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
             console.log(`\n\n--\n🚀 Listening on http://localhost:3000\n`);
         })
 
-        mergeCategories()
-        mergeCourses()
+        // mergeCategories()
+        // mergeCourses()
     })
     .catch(e => {
         console.error(e)
