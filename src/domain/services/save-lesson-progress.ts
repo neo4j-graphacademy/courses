@@ -76,7 +76,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
             } AS module
     `, {
-        user: user.user_id,
+        user: user.sub,
         course,
         module,
         lesson,

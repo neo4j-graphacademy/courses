@@ -12,7 +12,7 @@ export async function registerInterest(course: string, email: string, user: User
             SET r.email = $email
         )
         RETURN true AS status
-    `, { course, email, user: user?.user_id || null })
+    `, { course, email, user: user?.sub || null })
 
     return res.records[0].get('status') as boolean
 }

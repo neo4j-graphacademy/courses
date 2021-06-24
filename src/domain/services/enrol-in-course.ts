@@ -29,8 +29,8 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
         } AS enrolment
     `, {
         slug,
-        user: user.user_id,
-        name: user.name,
+        user: user.sub,
+        name: user.given_name || user.name,
         givenName: user.name,
     })
 

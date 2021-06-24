@@ -268,7 +268,6 @@ router.use('/:course/:module/images', (req, res, next) => {
 async function getPageAttributes(req: Request, course: Course): Promise<Record<string, any>> {
     const user = await getUser(req)
 
-
     const attributes: Record<string, any> = {
         name: user!.given_name,
     }

@@ -6,7 +6,6 @@ import { read } from '../modules/neo4j';
 const config = {
     authRequired: false,
     auth0Logout: true,
-    attemptSilentLogin: true,
     secret: process.env.AUTH0_CLIENT_SECRET || 'a long, randomly-generated string stored in env',
     baseURL: process.env.AUTH0_BASE_URL,
     clientID: process.env.AUTH0_CLIENT_ID,
@@ -23,7 +22,7 @@ export async function getToken(req: any): Promise<string> {
 export async function getUser(req: any): Promise<User | undefined> {
     if ( !req.oidc.user ) return undefined;
 
-    const res = await read(`MATCH (u:User {oauthId: $user_id}) RETURN u`, { user_id: req.oidc.user.user_id })
+    const res = await read(`MATCH (u:User {oauthId: $user_id}) RETURN u`, { user_id: req.oidc.user.sub })
 
     const dbUser = res.records.length ? res.records[0].get('u').properties : {}
 
@@ -41,8 +40,6 @@ export default function applyAuth(app: Express) {
     app.get('/login', (req, res) => res.oidc.login({ returnTo: req.query.returnTo || '/' }))
 
     app.use(async (req: Request, res: Response, next: NextFunction) => {
-        // @ts-ignore
-
         // @ts-ignore
         res.locals.user = await getUser(req)
         // @ts-ignore

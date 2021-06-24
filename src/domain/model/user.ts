@@ -1,9 +1,9 @@
 export interface User {
     id: string;
-    user_id: string;
-    givenName: string;
-    email: string;
+    sub: string;
     name: string;
     given_name?: string;
-    [key: string]: any;
+    email: string;
+    // givenName: string;
+    // [key: string]: any;
 }

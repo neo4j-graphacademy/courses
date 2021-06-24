@@ -11,7 +11,7 @@ export async function getCourseWithProgress(slug: string, user?: User): Promise<
         ${user ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
 
         RETURN ${courseCypher(user ? 'e' : undefined)} AS course
-    `, { slug, user: user?.user_id })
+    `, { slug, user: user?.sub })
 
     if ( res.records.length === 0 ) {
         throw new NotFoundError(`Course ${slug} could not be found`)
