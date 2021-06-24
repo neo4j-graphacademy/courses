@@ -6,10 +6,14 @@ import { read } from '../modules/neo4j';
 const config = {
     authRequired: false,
     auth0Logout: true,
+    attemptSilentLogin: true,
     secret: process.env.AUTH0_CLIENT_SECRET || 'a long, randomly-generated string stored in env',
     baseURL: process.env.AUTH0_BASE_URL,
     clientID: process.env.AUTH0_CLIENT_ID,
-    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL
+    issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
+    routes: {
+        login: false as false,
+    },
 };
 
 export async function getToken(req: any): Promise<string> {
@@ -32,6 +36,9 @@ export async function getUser(req: any): Promise<User | undefined> {
 export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));
+
+    // @ts-ignore
+    app.get('/login', (req, res) => res.oidc.login({ returnTo: req.query.returnTo || '/' }))
 
     app.use(async (req: Request, res: Response, next: NextFunction) => {
         // @ts-ignore
