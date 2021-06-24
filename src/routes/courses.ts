@@ -13,6 +13,8 @@ import { Answer } from '../domain/model/answer'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { ASCIIDOC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
+import { Course } from '../domain/model/course'
+import { Lesson } from '../domain/model/lesson'
 
 const router = Router()
 
@@ -196,6 +198,13 @@ router.get('/:course/:module', async (req, res, next) => {
 
         const doc = await convertModuleOverview(req.params.course, req.params.module)
 
+        // Configure Sandbox
+        const {
+            showSandbox,
+            sandboxVisible,
+            sandboxUrl,
+        } = getSandboxConfig(course)
+
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}`,
             ...module,
@@ -203,6 +212,9 @@ router.get('/:course/:module', async (req, res, next) => {
             enrolled: course.enrolled,
             course,
             doc,
+            showSandbox,
+            sandboxVisible,
+            sandboxUrl,
         })
     }
     catch (e) {
@@ -218,6 +230,29 @@ router.use('/:course/:module/images', (req, res, next) => {
 
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
 })
+
+function getSandboxConfig(course: Course, lesson?: Lesson) {
+    const showSandbox = course.usecase !== undefined && (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
+    const sandboxVisible = typeof lesson?.sandbox === 'string'
+
+    let sandboxUrl = `${course.link}browser/`
+
+    // Show sandbox?
+    if ( showSandbox === true && lesson?.cypher ) {
+        sandboxUrl += `?cmd=edit&arg=${encodeURIComponent(lesson?.cypher)}`
+    }
+
+    // Overwrite
+    if ( typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true' ) {
+        sandboxUrl = lesson!.sandbox
+    }
+
+    return {
+        showSandbox,
+        sandboxVisible,
+        sandboxUrl,
+    }
+}
 
 /**
  * @GET /:course/:module/:lesson
@@ -250,6 +285,13 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             'name': user!.given_name,
         })
 
+        // Configure Sandbox
+        const {
+            showSandbox,
+            sandboxVisible,
+            sandboxUrl,
+        } = getSandboxConfig(course, lesson)
+
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,
             ...lesson,
@@ -258,6 +300,9 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             enrolled: course.enrolled,
             module,
             doc,
+            showSandbox,
+            sandboxUrl,
+            sandboxVisible,
         })
     }
     catch (e) {
