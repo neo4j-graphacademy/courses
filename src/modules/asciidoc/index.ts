@@ -1,9 +1,11 @@
+import fs from 'fs'
 import path from 'path'
 import asciidoctor, { Asciidoctor } from '@asciidoctor/core'
 import './converter'
 import { inputBlockProcessor } from './extensions/input-block-processor.extension'
 import { browserBlockProcessor } from './extensions/browser-block-processor.extension'
 import { ASCIIDOC_DIRECTORY } from '../../constants'
+import NotFoundError from '../../errors/not-found.error'
 
 // Reader
 const doc = asciidoctor()
@@ -45,20 +47,38 @@ export function convert(document: Asciidoctor.Document, options: Record<string, 
 
 export async function convertCourseOverview(slug: string) {
     const folder = path.join('courses', slug)
-    const document = loadFile(path.join(folder, 'course.adoc'))
+
+    const file = path.join(folder, 'course.adoc')
+
+    if ( !fs.existsSync(file) ) {
+        throw new NotFoundError(`Module ${slug} could not be found`)
+    }
+
+    const document = loadFile(file)
 
     return convert(document)
 }
 
 export async function convertModuleOverview(course: string, module: string) {
     const folder = path.join('courses', course, 'modules', module)
-    const document = loadFile(path.join(folder, 'module.adoc'))
+    const file = path.join(folder, 'module.adoc')
+
+    if ( !fs.existsSync(file) ) {
+        throw new NotFoundError(`Module ${module} could not be found in ${course}`)
+    }
+
+    const document = loadFile(file)
 
     return convert(document)
 }
 
 export async function getLessonOverview(course: string, module: string, lesson: string): Promise<Asciidoctor.Document> {
     const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'lesson.adoc')
+
+    if ( !fs.existsSync(file) ) {
+        throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
+    }
+
     return loadFile(file)
 }
 
