@@ -94,13 +94,13 @@ describe('Test Course', () => {
          */
         cy.get('.code-header')
             .should('contain', 'Original Title')
-            .should('contain', 'Cypher')
+            .should('contain', 'cypher')
 
         // Copy to clipboard
-        cy.get('.btn-copy').click().should('contain', 'Copied!')
+        cy.get('.btn-copy').first().click().should('contain', 'Copied!')
 
         // Play button
-        cy.get('.btn-play').click()
+        cy.get('.btn-play').first().click()
         cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
 
         // TODO: Check that query is properly copied
