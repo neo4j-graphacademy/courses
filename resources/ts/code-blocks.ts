@@ -13,12 +13,21 @@ function handlePlayClick(e) {
     const sandboxWindow = document.querySelector(`.${SANDBOX_SELECTOR}`)
     const iframe = sandboxWindow!.querySelector('iframe')
 
-    // Send to URL
-    const url = new URL(iframe!.src)
-    iframe!.src = `${url.pathname}?cmd=edit&arg=${encodeURIComponent(cleaned)}`
-
-    // Open Window
+    // Show sandbox window
     sandboxWindow!.classList.add(SANDBOX_SELECTOR_VISIBLE)
+
+    try {
+        // @ts-ignore
+        iframe!.contentWindow.postMessage({
+            cmd: 'edit',
+            arg: cleaned
+        })
+    }
+    catch (e) {
+        // Send to URL
+        const url = new URL(iframe!.src)
+        iframe!.src = `${url.pathname}?cmd=edit&arg=${encodeURIComponent(cleaned)}`
+    }
 }
 
 export function handleCopyClick(e) {

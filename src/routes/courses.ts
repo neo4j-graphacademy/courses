@@ -68,10 +68,14 @@ router.get('/:course', async (req, res, next) => {
 })
 
 router.post('/:course/interested', async (req, res, next) => {
-    const user = await getUser(req)
-    await registerInterest(req.params.course, req.body.email, user)
+    if (req.body.email) {
+        const user = await getUser(req)
+        await registerInterest(req.params.course, req.body.email, user)
 
-    return res.redirect(`/courses/${req.params.course}/?interested=true`)
+        return res.redirect(`/courses/${req.params.course}/?interested=true`)
+    }
+
+    return res.redirect(`/courses/${req.params.course}/`)
 })
 
 /**
@@ -292,7 +296,7 @@ interface SandboxConfig {
 }
 
 function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfig> {
-    const showSandbox = course.usecase !== undefined && (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
+    const showSandbox = course.usecase !== undefined || (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
     const sandboxVisible = typeof lesson?.sandbox === 'string'
 
     let sandboxUrl = `${course.link}browser/`
