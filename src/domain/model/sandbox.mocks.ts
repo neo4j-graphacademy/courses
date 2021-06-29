@@ -14,13 +14,13 @@ export function devSandbox(): Sandbox {
     return {
         sandboxId: SANDBOX_DEV_INSTANCE_ID as string,
         sandboxHashKey: SANDBOX_DEV_INSTANCE_HASH_KEY as string,
-        scheme: SANDBOX_DEV_INSTANCE_SCHEME as Neo4jScheme,
-        boltPort: SANDBOX_DEV_INSTANCE_PORT as string,
-        host: SANDBOX_DEV_INSTANCE_HOST as string,
-        port: SANDBOX_DEV_INSTANCE_PORT as string,
+        scheme: (SANDBOX_DEV_INSTANCE_SCHEME || 'neo4j') as Neo4jScheme,
+        boltPort: SANDBOX_DEV_INSTANCE_PORT || '7687' as string,
+        host: SANDBOX_DEV_INSTANCE_HOST || 'localhost' as string,
+        port: SANDBOX_DEV_INSTANCE_PORT || '7687' as string,
         ip: SANDBOX_DEV_INSTANCE_HOST as string,
-        username: SANDBOX_DEV_INSTANCE_USERNAME as string,
-        password: SANDBOX_DEV_INSTANCE_PASSWORD as string,
+        username: SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j' as string,
+        password: SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein' as string,
         usecase: 'movies',
         expires: 0
     }
