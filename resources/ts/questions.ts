@@ -341,12 +341,14 @@ const handleError = (parent, button, error) => {
 }
 
 const setupAnswers = () => {
+    // @ts-ignore
     for (let question of document.getElementsByClassName(QUESTION)) {
         Array.from(question.querySelectorAll(`.${COMMENT_SELECTOR}`))
+            // @ts-ignore
             .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
-            .forEach((el: Element) => {
-                el.innerHTML = '/* CORRECT ANSWER BELOW */'
-            })
+            // TODO: Improve this
+            // @ts-ignore
+            .forEach((el: Element) => el.innerHTML = '/* CORRECT ANSWER BELOW */')
 
         // @ts-ignore
         for (let ulist of question.getElementsByClassName('ulist')) {
