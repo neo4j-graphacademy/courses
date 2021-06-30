@@ -16,18 +16,22 @@ interface Option {
     correct: boolean;
 }
 
+const LESSON_COMPLETED = 'lesson--completed'
+
 const CORRECT_INDICATOR = '✓'
 const INCORRECT_INDICATOR = '❏'
 const ADMONITION_VISIBLE = 'admonition--visible'
 const ADMONITION_SHOW = 'admonition-show'
 const ADMONITION_SHOW_VISIBLE = 'admonition-show--visible'
 
+const QUESTION = 'question'
 const QUESTION_SELECTOR_FREE_TEXT = 'freetext'
 const QUESTION_CORRECT = 'question--correct'
 const QUESTION_INCORRECT = 'question--incorrect'
 const QUESTION_SELECTOR_SELECT_IN_SOURCE = 'select-in-source'
 const QUESTION_SELECTOR_INPUT_IN_SOURCE = 'input-in-source'
 
+const OPTION = 'question-option'
 const OPTION_CORRECT = 'question-option--correct'
 const OPTION_INCORRECT = 'question-option--incorrect'
 
@@ -118,7 +122,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
         }
 
         // Add the checkbox
-        answer.element.classList.add('question-option')
+        answer.element.classList.add(OPTION)
         answer.element.classList.add('nice-try--no-answers-here')
         answer.element.appendChild(
             label
@@ -258,7 +262,11 @@ const handleResponse = (parent, button, res, showHint = false) => {
         .forEach(el => parent.removeChild(el))
 
     if (res.data.completed) {
+        // Remove Submit button
         parent.removeChild(button)
+
+        // Mark as completed in navigation
+        document.querySelector('.toc-module-lesson--current')?.classList.add('toc-module-lesson--completed')
 
         for (let element in document.querySelectorAll('.summary')) {
             // @ts-ignore
@@ -302,7 +310,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
             )
         }
 
-        parent.appendChild(createElement('div', `admonition admonition--danger ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+        parent.appendChild(createElement('div', `admonition admonition--warning ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
             createElement('h3', 'admonition-title', ['Oops!']),
             createElement('p', '', children)
         ]))
@@ -321,7 +329,7 @@ const handleError = (parent, button, error) => {
     parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
         .forEach(el => parent.removeChild(el))
 
-    parent.appendChild(createElement('div', `admonition admonition--danger ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+    parent.appendChild(createElement('div', `admonition admonition--warning ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
         createElement('h3', 'admonition-title', ['Error!']),
         createElement('p', '', [
             error.message,
@@ -332,7 +340,44 @@ const handleError = (parent, button, error) => {
 
 }
 
+const setupAnswers = () => {
+    // @ts-ignore
+    for (let question of document.getElementsByClassName(QUESTION)) {
+        Array.from(question.querySelectorAll(`.${COMMENT_SELECTOR}`))
+            // @ts-ignore
+            .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
+            // TODO: Improve this
+            // @ts-ignore
+            .forEach((el: Element) => el.innerHTML = '/* CORRECT ANSWER BELOW */')
+
+        // @ts-ignore
+        for (let ulist of question.getElementsByClassName('ulist')) {
+            ulist.classList.remove('ulist')
+
+            for (let li of ulist.getElementsByTagName('li')) {
+                const correct = li.innerText.startsWith(CORRECT_INDICATOR)
+
+                // Mark as option
+                li.classList.add(OPTION)
+                if (correct) {
+                    li.classList.add(OPTION_CORRECT)
+                }
+
+                // Remove the Incorrect indicator
+                li.innerHTML = li.innerHTML.replace(INCORRECT_INDICATOR, '')
+            }
+        }
+    }
+}
+
 const setupQuestions = async () => {
+    // Don't run if lesson is already completed
+    const body = document.getElementsByTagName('body')[0]
+    if (body && body.classList.contains(LESSON_COMPLETED)) {
+        setupAnswers()
+        return;
+    }
+
     const questions: Question[] = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
@@ -439,11 +484,19 @@ const setupQuestions = async () => {
 }
 
 const setupVerify = () => {
+    const body = document.getElementsByTagName('body')[0]
+
+    // Don't run if lesson is already completed
+    if (body && body.classList.contains(LESSON_COMPLETED)) {
+        return;
+    }
+
     Array.from(document.querySelectorAll('.verify'))
         .map((element: Element) => {
+            const button = element.querySelector('input[type="button"]')
+
             addHintListeners(element)
 
-            const button = element.querySelector('input[type="button"]')
             button?.addEventListener('click', e => {
                 e.preventDefault()
 

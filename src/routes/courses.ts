@@ -15,6 +15,7 @@ import { ASCIIDOC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
 import { Lesson } from '../domain/model/lesson'
+import { resetDatabase } from '../domain/services/reset-database'
 
 const router = Router()
 
@@ -318,7 +319,7 @@ function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfi
     } as SandboxConfig)
 }
 
-/**
+/**co
  * @GET /:course/:module/:lesson
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
@@ -326,6 +327,7 @@ function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfi
 router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
+        const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
@@ -356,6 +358,11 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             sandboxVisible,
             sandboxUrl,
         } = await getSandboxConfig(course, lesson)
+
+        // Reset Database?
+        if ( course.usecase && !lesson?.completed ) {
+            await resetDatabase(token, req.params.course, req.params.module, req.params.lesson, course.usecase)
+        }
 
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,

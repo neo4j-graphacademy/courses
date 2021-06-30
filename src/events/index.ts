@@ -13,11 +13,11 @@ class GraphAcademyEventEmitter {
     private emitter = new EventEmitter()
 
     on<T extends DomainEvent>(event: DomainEvent, listener: Listener<T>): void {
-        this.emitter.on(event.constructor.name, listener)
+        this.emitter.on(event.name, listener)
     }
 
     off<T extends DomainEvent>(event: DomainEvent, listener: Listener<T>): void {
-        this.emitter.off(event.constructor.name, listener)
+        this.emitter.off(event.name, listener)
     }
 
     emit(event: DomainEvent) {
@@ -25,6 +25,5 @@ class GraphAcademyEventEmitter {
     }
 
 }
-
 
 export const emitter = new GraphAcademyEventEmitter()

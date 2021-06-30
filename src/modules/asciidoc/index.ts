@@ -96,8 +96,12 @@ export async function convertModuleOverview(course: string, module: string, attr
     return convert(document)
 }
 
+export function getLessonDirectory(course: string, module: string, lesson: string): string {
+    return path.join('courses', course, 'modules', module, 'lessons', lesson)
+}
+
 export async function getLessonOverview(course: string, module: string, lesson: string, attributes?: Record<string, any>): Promise<Asciidoctor.Document> {
-    const file = path.join('courses', course, 'modules', module, 'lessons', lesson, 'lesson.adoc')
+    const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
     if ( !fileExists(file) ) {
         throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
