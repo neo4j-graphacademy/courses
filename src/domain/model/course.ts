@@ -16,6 +16,8 @@ export const ATTRIBUTE_CAPTION = 'caption'
 export const ATTRIBUTE_USECASE = 'usecase'
 export const ATTRIBUTE_CATEGORIES = 'categories'
 export const ATTRIBUTE_REDIRECT = 'redirect'
+export const ATTRIBUTE_PREVIOUS = 'previous'
+export const ATTRIBUTE_NEXT = 'next'
 
 export interface Course {
     slug: string;
@@ -28,7 +30,8 @@ export interface Course {
     usecase: string | undefined;
     modules: Module[];
     categories: Category[];
-    next?: Pagination;
+    prerequisites?: Course[];
+    progressTo?: Course[];
 }
 
 export interface CourseWithProgress extends Course {
@@ -37,6 +40,7 @@ export interface CourseWithProgress extends Course {
     completedCount: number;
     completedPercentage: number;
     modules: ModuleWithProgress[];
+    next?: Pagination;
 }
 
 

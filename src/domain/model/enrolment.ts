@@ -1,4 +1,4 @@
-import { Course, CourseWithProgress } from "./course";
+import { CourseWithProgress } from "./course";
 import { Module } from "./module";
 import { User } from "./user";
 
@@ -11,7 +11,7 @@ export type EnrolmentStatus = typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED 
 
 export interface Enrolment {
     user: User;
-    course: Partial<Course>;
+    course: Partial<CourseWithProgress>;
     nextModule: Partial<Module>;
     createdAt: Date;
 }

@@ -35,7 +35,8 @@ router.get('/email/enrolment', async (req, res) => {
     const html = pug.renderFile('views/emails/enrolment.pug', {
         user,
         course,
-        sandbox
+        sandbox,
+        baseUrl: process.env.AUTH0_BASE_URL
     })
 
     res.send(html)

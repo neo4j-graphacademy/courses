@@ -14,7 +14,9 @@ export function courseCypher(enrolment?: string, course: string = 'c', module: s
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |
                 ${moduleCypher(enrolment, course, module, lesson)}
-            ]
+            ],
+            prerequisites: [ (${course})-[:PREREQUISITE]->(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
+            progressTo: [ (${course})<-[:PREREQUISITE]-(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ]
         }
     `
 }

@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -9,7 +9,12 @@ import { ATTRIBUTE_ANSWER, Question } from '../../model/question';
 import { decode } from 'html-entities'
 import { write } from '../../../modules/neo4j';
 
-const loadCourses = (): Course[] => {
+interface CourseToImport extends Course {
+    prerequisiteSlugs: string[];
+    progressToSlugs: string[];
+}
+
+const loadCourses = (): CourseToImport[] => {
     const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
 
     return fs.readdirSync( folder )
@@ -17,7 +22,7 @@ const loadCourses = (): Course[] => {
         .map(slug => loadCourse( path.join('courses', slug) ))
 }
 
-const loadCourse = (folder: string): Course => {
+const loadCourse = (folder: string): CourseToImport => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
     const file = loadFile(path.join(folder, 'course.adoc'))
 
@@ -30,10 +35,21 @@ const loadCourse = (folder: string): Course => {
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
         .split(',')
+        .map((e: string) => e?.trim() || '')
         .filter((e: string) => e !== '')
         .map((entry: string) => entry.split(':'))
         // @ts-ignore
         .map(([category, order]) => ({ order: order || '1', category: category?.trim() }))
+
+    const prerequisiteSlugs = file.getAttribute(ATTRIBUTE_PREVIOUS, '')
+        .split(',')
+        .map((e: string) => e?.trim() || '')
+        .filter((e: string) => e !== '')
+
+    const progressToSlugs = file.getAttribute(ATTRIBUTE_NEXT, '')
+        .split(',')
+        .map((e: string) => e?.trim() || '')
+        .filter((e: string) => e !== '')
 
     return {
         slug,
@@ -43,6 +59,8 @@ const loadCourse = (folder: string): Course => {
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
+        prerequisiteSlugs,
+        progressToSlugs,
         categories,
         modules,
     }
@@ -148,6 +166,18 @@ export async function mergeCourses(): Promise<void> {
             SET r.order = row.order
         )
 
+        // Previous courses
+        FOREACH (slug IN course.prerequisiteSlugs |
+            MERGE (prev:Course {slug: slug}) ON CREATE SET c.status = $STATUS_DISABLED
+            MERGE (c)-[:PREREQUISITE]->(prev)
+        )
+
+        // Next courses
+        FOREACH (slug IN course.progressToSlugs |
+            MERGE (next:Course {slug: slug}) ON CREATE SET c.status = $STATUS_DISABLED
+            MERGE (c)<-[:PREREQUISITE]-(next)
+        )
+
         // Set old modules to "deleted"
         FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] |
             SET m:DeletedModule
@@ -251,7 +281,7 @@ export async function mergeCourses(): Promise<void> {
 
 
         RETURN count(*) AS count
-    `, { courses })
+    `, { courses, STATUS_DISABLED })
 
     /* tslint:disable-next-line */
     console.log(`📚 ${courses.length} Courses merged into graph`);
