@@ -1,6 +1,7 @@
 import { read } from "../../modules/neo4j";
 import { Category } from "../model/category";
 import { Course, STATUS_DISABLED } from "../model/course";
+import { User } from "../model/user";
 
 interface DbCategory extends Category {
     parents: string[]
@@ -15,13 +16,18 @@ interface DbCategoryMapping {
     order: string;
 }
 
-export async function getCoursesByCategory(): Promise<Category[]> {
+export async function getCoursesByCategory(user?: User): Promise<Category[]> {
     const res = await read(`
+
         MATCH (c:Course)
         WHERE c.status <> $disabled
+        ${user !== undefined ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
+
         WITH collect(c {
             .*,
-            categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}]
+            ${user !== undefined ? `enrolled: e IS NOT NULL, completed: e:CompletedEnrolment, createdAt: e.createdAt, completedAt: e.completedAt,` : ''}
+            categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
+            modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
         }) AS courses
 
         MATCH (c:Category)
@@ -29,9 +35,10 @@ export async function getCoursesByCategory(): Promise<Category[]> {
         RETURN courses,
             collect(c {
                 .*,
+                link: '/categories/'+ c.slug +'/',
                 parents: [(c)<-[:HAS_CHILD]-(p) | p.id ]
             }) AS categories
-    `, { disabled: STATUS_DISABLED })
+    `, { disabled: STATUS_DISABLED, user: user?.sub  })
 
     const courses = res.records[0].get('courses')
     const categories = res.records[0].get('categories')

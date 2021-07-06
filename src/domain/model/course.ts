@@ -23,6 +23,7 @@ export interface Course {
     slug: string;
     title: string;
     link?: string;
+    duration?: string;
     redirect?: string;
     thumbnail: string;
     caption: string;

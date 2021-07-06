@@ -1,5 +1,6 @@
 import codeBlocks from './code-blocks'
 import copyButtons from './copy-button'
+import header from './header'
 import highlight from './highlight'
 import home from './home'
 import questions from './questions'
@@ -11,6 +12,7 @@ window.addEventListener('DOMContentLoaded', () => {
     toggleSandbox()
     codeBlocks()
     copyButtons()
+    header()
 
     home()
 })

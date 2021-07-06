@@ -59,6 +59,7 @@ const loadCourse = (folder: string): CourseToImport => {
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
+        duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         prerequisiteSlugs,
         progressToSlugs,
         categories,
@@ -154,6 +155,7 @@ export async function mergeCourses(): Promise<void> {
             c.status = course.status,
             c.usecase = course.usecase,
             c.redirect = course.redirect,
+            c.duration = course.duration,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()
 

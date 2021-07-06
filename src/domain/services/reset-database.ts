@@ -38,7 +38,6 @@ export async function resetDatabase(token: string, course: string, module: strin
     catch(e) {
         // TODO: Error handling
         console.log(e);
-
     }
 
     await session.close()

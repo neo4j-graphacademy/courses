@@ -78,7 +78,8 @@ const addHintListeners = (element: Element): void => {
                 e.preventDefault()
 
                 block.classList.add(ADMONITION_VISIBLE)
-                show.classList.remove(ADMONITION_SHOW_VISIBLE)
+                // show.classList.remove(ADMONITION_SHOW_VISIBLE)
+                show.parentElement?.removeChild(show)
             })
 
             parent?.insertBefore(show, block)
@@ -247,7 +248,6 @@ const formatQuestion = async (div: Element): Promise<Question> => {
     else if (div.classList.contains(QUESTION_SELECTOR_FREE_TEXT)) {
         return formatFreeTextQuestion(div)
     }
-
 
 
     return formatSelectionQuestion(div)
@@ -423,20 +423,15 @@ const setupQuestions = async () => {
             })
                 .filter(e => !!e)
 
-            if (answers.length === 0) {
-                return
-            }
+            // if (answers.length === 0) {
+            //     return
+            // }
 
             // Apply Progress
-            answers.map(answer => {
-                const question = questions.find(question => question!.id === answer!.id)!
+            questions.map(question => {
+                const answer = answers.find(answer => answer!.id === question!.id)
 
-                if (answer!.correct) {
-                    // Set class on question
-                    question.element.classList.add(QUESTION_CORRECT)
-                    question.element.classList.remove(QUESTION_INCORRECT)
-                }
-                else {
+                if (answer === undefined || answer!.correct === false) {
                     // Set class on question
                     question.element.classList.add(QUESTION_INCORRECT)
                     question.element.classList.remove(QUESTION_CORRECT)
@@ -447,11 +442,17 @@ const setupQuestions = async () => {
                             element.classList.add(ADMONITION_SHOW_VISIBLE)
                         })
                 }
+                else {
+                    // Set class on question
+                    question.element.classList.add(QUESTION_CORRECT)
+                    question.element.classList.remove(QUESTION_INCORRECT)
+
+                }
 
                 // Set option classes
                 // @ts-ignore
                 question.options.map(option => {
-                    const selected = answer!.answers.includes(option.value)
+                    const selected = answer?.answers.includes(option.value)
                     const correct = option.correct
 
                     if (selected && correct) {
