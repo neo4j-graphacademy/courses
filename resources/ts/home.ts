@@ -20,4 +20,22 @@ export default function home() {
 
         }
     }
+
+    const PATH_VISIBLE = 'category-path--visible'
+    // const paths = document.querySelectorAll('.category-path')
+
+    document.querySelectorAll('.category-path-toggle').forEach(element => {
+        element.addEventListener('click', e => {
+            e.preventDefault()
+
+
+            element.parentElement?.classList.toggle(PATH_VISIBLE)
+
+            // paths.forEach(el => {
+            //     if (el !== element.parentElement) {
+            //         el.classList.remove(PATH_VISIBLE)
+            //     }
+            // })
+        })
+    })
 }
