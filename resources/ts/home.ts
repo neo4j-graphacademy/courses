@@ -21,21 +21,37 @@ export default function home() {
         }
     }
 
+    // Toggle stacked cards on mobile
     const PATH_VISIBLE = 'category-path--visible'
-    // const paths = document.querySelectorAll('.category-path')
 
     document.querySelectorAll('.category-path-toggle').forEach(element => {
         element.addEventListener('click', e => {
             e.preventDefault()
 
-
             element.parentElement?.classList.toggle(PATH_VISIBLE)
+        })
+    })
 
-            // paths.forEach(el => {
-            //     if (el !== element.parentElement) {
-            //         el.classList.remove(PATH_VISIBLE)
-            //     }
-            // })
+    // Lists on tablet and bigger
+    const links = document.querySelectorAll('.level-nav-item')
+
+    const LINK_ACTIVE = 'level-nav-item--active'
+    const PATH_ACTIVE = 'category-path--active'
+
+    links.forEach(parent => {
+        parent.getElementsByTagName('a')[0].addEventListener('click', (e: Event) => {
+            e.preventDefault()
+
+            // Toggle link classes
+            document.querySelectorAll(`.${LINK_ACTIVE}`).forEach(e => e.classList.remove(LINK_ACTIVE))
+            // @ts-ignore
+            parent.classList.add(LINK_ACTIVE)
+
+            // Toggle path classes
+            document.querySelectorAll(`.${PATH_ACTIVE}`).forEach(e => e.classList.remove(PATH_ACTIVE))
+
+            // @ts-ignore
+            document.getElementById(e.target.getAttribute('href').replace('#', '')).classList.add(PATH_ACTIVE)
         })
     })
 }
