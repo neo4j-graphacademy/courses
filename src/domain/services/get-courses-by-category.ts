@@ -4,16 +4,8 @@ import { Course, STATUS_DISABLED } from "../model/course";
 import { User } from "../model/user";
 
 interface DbCategory extends Category {
+    order: number;
     parents: string[]
-}
-
-interface DbCourse extends Course {
-    categoryIds: DbCategoryMapping[]
-}
-
-interface DbCategoryMapping {
-    id: string;
-    order: string;
 }
 
 export async function getCoursesByCategory(user?: User): Promise<Category[]> {
@@ -27,6 +19,11 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             .*,
             ${user !== undefined ? `enrolled: e IS NOT NULL, completed: e:CompletedEnrolment, createdAt: e.createdAt, completedAt: e.completedAt,` : ''}
             categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
+            categories: [(c)-[r:IN_CATEGORY]->(ct) | ct {
+                .*,
+                link: '/categories/'+ c.slug +'/',
+                order: r.order
+            }],
             modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
         }) AS courses
 
@@ -42,23 +39,23 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
 
     const courses = res.records[0].get('courses')
     const categories = res.records[0].get('categories')
-            .map((row: DbCategory) => {
-                const categoryCourses = courses.map((course: DbCourse) => {
-                    const categoryOrder = course.categoryIds.find((value: any) => value.id === row.id)
+        .map((row: DbCategory) => {
+            const categoryCourses = courses.map((course: Course) => {
+                const categoryWithOrder = course.categories.find((value: any) => value.id === row.id) as DbCategory
 
-                    if ( !categoryOrder ) return;
+                if ( !categoryWithOrder ) return;
 
-                    return { ...course, order: categoryOrder.order }
-                })
-                .filter((e: any) => !!e)
-
-                categoryCourses.sort((a: any, b: any) => parseInt(a.order) < parseInt(b.order) ? -1 : 1)
-
-                return {
-                    ...row,
-                    courses: categoryCourses,
-                }
+                return { ...course, order: categoryWithOrder.order }
             })
+            .filter((e: any) => !!e)
+
+            categoryCourses.sort((a: any, b: any) => parseInt(a.order) < parseInt(b.order) ? -1 : 1)
+
+            return {
+                ...row,
+                courses: categoryCourses,
+            }
+        })
 
 
     const root = categories.filter((category: DbCategory) => !category.parents.length)

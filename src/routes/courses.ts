@@ -10,7 +10,7 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+// import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { ASCIIDOC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
@@ -25,13 +25,14 @@ const router = Router()
  * Display a list of available courses
  */
 router.get('/', (req, res, next) => {
-    getCoursesByCategory()
-        .then(categories => res.render('course/list', {
-            title: 'All Courses',
-            categories
-        }))
-        // .then(categories => res.json({ categories }))
-        .catch(e => next(e))
+    res.redirect('/categories')
+//     getCoursesByCategory()
+//         .then(categories => res.render('course/list', {
+//             title: 'All Courses',
+//             categories
+//         }))
+//         // .then(categories => res.json({ categories }))
+//         .catch(e => next(e))
 })
 
 /**
@@ -146,6 +147,27 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
             doc,
             interested,
         })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/certificate
+ *
+ * Redirect the user to their public certificate
+ */
+router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        if ( !course.completed ) {
+            return res.redirect(course.link!)
+        }
+
+        return res.redirect(`/u/${user!.id}/${course.slug}/`)
     }
     catch (e) {
         next(e)

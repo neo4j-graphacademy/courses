@@ -18,9 +18,6 @@ export function registerLocals(app: Express) {
         .map(file => [file.replace('.svg', ''), fs.readFileSync(path.join(svgFolder, file)).toString()])
     )
 
-    console.log(Object.keys(svg));
-
-
     app.use((req, res, next) => {
         res.locals.statuses = {
             STATUS_DRAFT,
