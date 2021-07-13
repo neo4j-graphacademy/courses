@@ -6,6 +6,7 @@ import homeRoutes from './routes/home'
 import courseRoutes from './routes/courses'
 import profileRoutes from './routes/profile'
 import publicProfileRoutes from './routes/public-profile'
+import categoryRoutes from './routes/categories'
 import testRoutes from './routes/test'
 import { apply404handler } from './middleware/404'
 import { Driver } from 'neo4j-driver'
@@ -35,6 +36,7 @@ export default function initApp(driver: Driver) {
 
     // Routes
     app.use('/', homeRoutes)
+    app.use('/categories', categoryRoutes)
     app.use('/courses', courseRoutes)
     app.use('/profile', profileRoutes)
     app.use('/u', publicProfileRoutes)

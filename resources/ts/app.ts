@@ -1,5 +1,6 @@
 import codeBlocks from './code-blocks'
 import copyButtons from './copy-button'
+import courseList from './course-list'
 import header from './header'
 import highlight from './highlight'
 import home from './home'
@@ -15,4 +16,5 @@ window.addEventListener('DOMContentLoaded', () => {
     header()
 
     home()
+    courseList()
 })
