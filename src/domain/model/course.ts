@@ -22,7 +22,7 @@ export const ATTRIBUTE_NEXT = 'next'
 export interface Course {
     slug: string;
     title: string;
-    link?: string;
+    link: string;
     duration?: string;
     redirect?: string;
     thumbnail: string;

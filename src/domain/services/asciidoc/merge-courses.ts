@@ -53,6 +53,7 @@ const loadCourse = (folder: string): CourseToImport => {
 
     return {
         slug,
+        link: `/courses/${slug}/`,
         title: file.getTitle() as string,
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
@@ -282,7 +283,17 @@ export async function mergeCourses(): Promise<void> {
         MERGE (last)-[:NEXT]->(next)
 
 
-        RETURN count(*) AS count
+        WITH c
+        MATCH p = (c)-[:FIRST_MODULE]->()-[:NEXT*]->(end)
+        WHERE not (end)-[:NEXT]->()
+
+        WITH c, nodes(p) as nodes, size(nodes(p)) AS size
+
+        UNWIND range(0, size(nodes)-1) AS idx
+        WITH size, idx, nodes[idx] AS node
+        WHERE NOT node:Course
+
+        SET node.progressPercentage = round((1.0 * idx / size) * 100)
     `, { courses, STATUS_DISABLED })
 
     /* tslint:disable-next-line */

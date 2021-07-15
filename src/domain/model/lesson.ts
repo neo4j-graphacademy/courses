@@ -34,6 +34,7 @@ export interface Lesson {
     questions: Question[];
     previous: Pagination | undefined;
     next: Pagination | undefined;
+    progressPercentage?: number; // %age position
 }
 
 export interface LessonWithProgress extends Lesson {

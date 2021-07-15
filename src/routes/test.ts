@@ -42,4 +42,8 @@ router.get('/email/enrolment', async (req, res) => {
     res.send(html)
 })
 
+router.get('/style', (req, res) => {
+    res.render('test')
+})
+
 export default router

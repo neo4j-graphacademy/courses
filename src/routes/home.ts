@@ -38,6 +38,8 @@ router.get('/', async (req, res, next) => {
 
         const paths = categories.find(category => category.slug === 'paths')
 
+        paths?.children?.sort((a, b) => a.title < b.title ? -1 : 1)
+
         const certification = categories.find(category => category.slug === 'certification')
 
         res.render('home', {

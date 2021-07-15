@@ -4,7 +4,7 @@ export function courseCypher(enrolment?: string, course: string = 'c', module: s
             .slug,
             .title,
             .thumbnail,
-            .caption,
+        .caption,
             .status,
             .usecase,
             .redirect,
@@ -30,6 +30,9 @@ export function moduleCypher(enrolment?: string, course: string = 'c', module: s
                     next: [ (${module})-[:NEXT]->(next) |
                         next { .slug, .title, .link }
                     ][0],
+                    previous: [ (${module})<-[:NEXT]-(prev) |
+                        prev { .slug, .title, .link }
+                    ][0],
                     ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
                     lessons: [ (${module})-[:HAS_LESSON]->(${lesson}) |
                         ${lessonCypher(enrolment, course, module, lesson)}
@@ -46,6 +49,9 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
                             .link,
                             next: [ (${lesson})-[:NEXT]->(next) |
                                 next { .slug, .title, .link }
+                            ][0],
+                            previous: [ (${lesson})<-[:NEXT]-(prev) |
+                                prev { .slug, .title, .link }
                             ][0],
                             questions: [ (${lesson})-[:HAS_QUESTION]->(q) | q {
                                     .id,

@@ -1,3 +1,4 @@
+import fs from 'fs'
 import path from 'path'
 import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
@@ -26,13 +27,13 @@ const router = Router()
  */
 router.get('/', (req, res, next) => {
     res.redirect('/categories')
-//     getCoursesByCategory()
-//         .then(categories => res.render('course/list', {
-//             title: 'All Courses',
-//             categories
-//         }))
-//         // .then(categories => res.json({ categories }))
-//         .catch(e => next(e))
+    //     getCoursesByCategory()
+    //         .then(categories => res.render('course/list', {
+    //             title: 'All Courses',
+    //             categories
+    //         }))
+    //         // .then(categories => res.json({ categories }))
+    //         .catch(e => next(e))
 })
 
 /**
@@ -50,15 +51,22 @@ router.get('/:course', async (req, res, next) => {
         // TODO: Get next link for "Continue Lesson" button
         const course = await getCourseWithProgress(req.params.course, user)
 
-        if ( course.redirect ) {
+        if (course.redirect) {
             return res.redirect(course.redirect)
         }
 
         const doc = await convertCourseOverview(course.slug)
 
+        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
+        const badge = fs.existsSync( badgePath ) && fs.readFileSync(badgePath)
+
+        // console.log(badge, badgePath);
+
+
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
+            badge,
             doc,
             interested,
             summary: course.completed && courseSummaryExists(req.params.course),
@@ -105,7 +113,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
             try {
                 await createSandbox(token, enrolment.course.usecase)
             }
-            catch(e) {
+            catch (e) {
                 // TODO: Log this error somewhere
                 // console.error('error creating sandbox', e);
             }
@@ -114,6 +122,23 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
         const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
         res.redirect(goTo)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/continue
+ *
+ * Redirect the user to the next lesson
+ */
+router.get('/:course/continue', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        res.redirect(course.next?.link || course.link)
     }
     catch (e) {
         next(e)
@@ -135,7 +160,7 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
         // TODO: Get next link for "Continue Lesson" button
         const course = await getCourseWithProgress(req.params.course, user)
 
-        if ( course.redirect ) {
+        if (course.redirect) {
             return res.redirect(course.redirect)
         }
 
@@ -163,7 +188,7 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
-        if ( !course.completed ) {
+        if (!course.completed) {
             return res.redirect(course.link!)
         }
 
@@ -299,7 +324,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
         name: user!.given_name,
     }
 
-    if ( course.usecase ) {
+    if (course.usecase) {
         const token = await getToken(req)
 
         const sandboxConfig = await getSandboxForUseCase(token, course.usecase)
@@ -319,18 +344,18 @@ interface SandboxConfig {
 }
 
 function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfig> {
-    const showSandbox = course.usecase !== undefined || (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
+    const showSandbox = (course.usecase !== undefined && course.usecase !== null) || (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
     const sandboxVisible = typeof lesson?.sandbox === 'string'
 
     let sandboxUrl = `${course.link}browser/`
 
     // Show sandbox?
-    if ( showSandbox === true && lesson?.cypher ) {
+    if (showSandbox === true && lesson?.cypher) {
         sandboxUrl += `?cmd=edit&arg=${encodeURIComponent(lesson?.cypher)}`
     }
 
     // Overwrite
-    if ( typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true' ) {
+    if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true') {
         sandboxUrl = lesson!.sandbox
     }
 
@@ -382,7 +407,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
         } = await getSandboxConfig(course, lesson)
 
         // Reset Database?
-        if ( course.usecase && !lesson?.completed ) {
+        if (course.usecase && !lesson?.completed) {
             await resetDatabase(token, req.params.course, req.params.module, req.params.lesson, course.usecase)
         }
 
@@ -429,7 +454,7 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
 /**
  * Static routing for module images
  */
- router.use('/:course/:module/:lesson/images', (req, res, next) => {
+router.use('/:course/:module/:lesson/images', (req, res, next) => {
     const { course, module, lesson } = req.params
 
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(req, res, next)

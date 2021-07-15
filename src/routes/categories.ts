@@ -53,7 +53,7 @@ router.get('/:slug', async (req, res, next) => {
     }
 
     res.render('course/list', {
-        title: `${category.title} | Courses`,
+        title: `${category.title} Courses`,
         slug,
         categories,
         courses: category.courses

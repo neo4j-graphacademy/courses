@@ -10,6 +10,7 @@ export interface Module {
     order: number;
     lessons: Lesson[];
     link?: string;
+    progressPercentage?: number;
 }
 
 export interface ModuleWithProgress extends Module {
