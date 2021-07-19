@@ -1,4 +1,5 @@
 import { read } from "../../modules/neo4j";
+import { formatCourse } from "../../utils";
 import { Category } from "../model/category";
 import { Course, STATUS_DISABLED } from "../model/course";
 import { User } from "../model/user";
@@ -10,7 +11,6 @@ interface DbCategory extends Category {
 
 export async function getCoursesByCategory(user?: User): Promise<Category[]> {
     const res = await read(`
-
         MATCH (c:Course)
         WHERE c.status <> $disabled
         ${user !== undefined ? 'OPTIONAL MATCH (u:User {oauthId: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
@@ -40,7 +40,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             }) AS categories
     `, { disabled: STATUS_DISABLED, user: user?.sub  })
 
-    const courses = res.records[0].get('courses')
+    const courses = res.records[0].get('courses').map((course: Course) => formatCourse(course))
     const categories = res.records[0].get('categories')
         .map((row: DbCategory) => {
             const categoryCourses = courses.map((course: Course) => {

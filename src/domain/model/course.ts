@@ -33,6 +33,7 @@ export interface Course {
     categories: Category[];
     prerequisites?: Course[];
     progressTo?: Course[];
+    badge?: string;
 }
 
 export interface CourseWithProgress extends Course {
