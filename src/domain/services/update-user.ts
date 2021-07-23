@@ -22,7 +22,7 @@ export async function updateUser(user: User, updates: UserUpdates): Promise<User
         updates,
     })
 
-    if ( res.records.length == 0 ) {
+    if ( res.records.length === 0 ) {
         throw new NotFoundError(`No user with sub ${user.sub}`)
     }
 

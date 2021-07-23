@@ -2,6 +2,8 @@ import pug from 'pug'
 import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
+import { getToken } from '../middleware/auth'
+import { getSandboxes } from '../modules/sandbox'
 
 const router = Router()
 
@@ -20,6 +22,21 @@ router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
 router.get('/sandbox/SandboxRunInstance', (req, res) => {
     res.json(devSandbox())
 })
+
+
+router.get('/sandboxes', async (req, res, next) => {
+    try {
+        const token = await getToken(req)
+        const sandboxes = await getSandboxes(token)
+
+        res.json(sandboxes)
+    }
+    catch (e) {
+        next(e)
+    }
+
+})
+
 
 router.get('/email/enrolment', async (req, res) => {
     const result = await read(`

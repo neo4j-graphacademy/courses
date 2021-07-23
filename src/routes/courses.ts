@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
@@ -28,14 +27,12 @@ const router = Router()
  * Redirect the user to the category list
  */
 router.get('/', requiresAuth(), async (req, res, next) => {
-    res.redirect('/categories')
-    //     getCoursesByCategory()
-    //         .then(categories => res.render('course/list', {
-    //             title: 'All Courses',
-    //             categories
-    //         }))
-    //         // .then(categories => res.json({ categories }))
-    //         .catch(e => next(e))
+    try {
+        res.redirect('/categories')
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -56,13 +53,9 @@ router.get('/:course', async (req, res, next) => {
 
         const doc = await convertCourseOverview(course.slug)
 
-        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
-        const badge = fs.existsSync( badgePath ) && fs.readFileSync(badgePath)
-
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
-            badge,
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
         })
@@ -81,16 +74,21 @@ router.get('/:course', async (req, res, next) => {
  * This route also creates a 'bookmark' for them
  */
 router.post('/:course/interested', async (req, res, next) => {
-    if (req.body.email) {
-        const user = await getUser(req)
-        await registerInterest(req.params.course, req.body.email, user)
+    try {
+        if (req.body.email) {
+            const user = await getUser(req)
+            await registerInterest(req.params.course, req.body.email, user)
 
-        req.flash('success', 'Your interest in this course has been registered')
+            req.flash('success', 'Your interest in this course has been registered')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
 
         return res.redirect(`/courses/${req.params.course}/`)
     }
-
-    return res.redirect(`/courses/${req.params.course}/`)
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -100,14 +98,19 @@ router.post('/:course/interested', async (req, res, next) => {
  * in `My Courses`
  */
 router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
-    const { course } = req.params
-    const user = await getUser(req)
+    try {
+        const { course } = req.params
+        const user = await getUser(req)
 
-    await bookmarkCourse(course, user!)
+        await bookmarkCourse(course, user!)
 
-    req.flash('success', 'This course has been bookmarked!')
+        req.flash('success', 'This course has been bookmarked!')
 
-    return res.redirect(`/courses/${req.params.course}/`)
+        return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -116,14 +119,19 @@ router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
  * Delete a bookmark
  */
 router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) => {
-    const { course } = req.params
-    const user = await getUser(req)
+    try {
+        const { course } = req.params
+        const user = await getUser(req)
 
-    await removeBookmark(course, user!)
+        await removeBookmark(course, user!)
 
-    req.flash('success', 'Your bookmark has been removed')
+        req.flash('success', 'Your bookmark has been removed')
 
-    return res.redirect(`/courses/${req.params.course}/`)
+        return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -132,7 +140,12 @@ router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) =>
  * Find and send the badge.svg file in the course root
  */
 router.get('/:course/badge', (req, res, next) => {
-    res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
+    try {
+        res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -425,7 +438,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, nextfn) 
         // Next link in pagination?
         let next: Pagination | undefined = course.next
 
-        if ( !next && course.completed ) {
+        if (!next && course.completed) {
             next = {
                 title: 'Course Summary',
                 link: `${course.link}summary/`

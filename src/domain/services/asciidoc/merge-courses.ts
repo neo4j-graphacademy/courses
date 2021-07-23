@@ -15,22 +15,22 @@ interface CourseToImport extends Course {
 }
 
 const loadCourses = (): CourseToImport[] => {
-    const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
+    const courseDirectory = path.join(ASCIIDOC_DIRECTORY, 'courses')
 
-    return fs.readdirSync( folder )
+    return fs.readdirSync( courseDirectory )
         .filter(folder => fs.existsSync(path.join(ASCIIDOC_DIRECTORY, 'courses', folder, 'course.adoc')))
         .map(slug => loadCourse( path.join('courses', slug) ))
 }
 
-const loadCourse = (folder: string): CourseToImport => {
-    const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'course.adoc'))
+const loadCourse = (courseFolder: string): CourseToImport => {
+    const slug = courseFolder.split('/').filter(a => !!a).pop() as string
+    const file = loadFile(path.join(courseFolder, 'course.adoc'))
 
-    const moduleDir = path.join(ASCIIDOC_DIRECTORY, folder, 'modules')
+    const moduleDir = path.join(ASCIIDOC_DIRECTORY, courseFolder, 'modules')
     const modules = fs.existsSync(moduleDir)
         ? fs.readdirSync(moduleDir)
             .filter(item => fs.existsSync(path.join(moduleDir, item, 'module.adoc')))
-            .map(item => loadModule(path.join(folder, 'modules', item)))
+            .map(item => loadModule(path.join(courseFolder, 'modules', item)))
         : []
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')

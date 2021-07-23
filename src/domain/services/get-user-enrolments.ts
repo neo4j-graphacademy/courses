@@ -5,12 +5,12 @@ import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED
 import { User } from "../model/user";
 import { courseCypher } from "./cypher";
 
-type ValidKey = 'sub' | 'id'
+type ValidLookupProperty = 'sub' | 'id'
 
-export async function getUserEnrolments(sub: string, key: ValidKey = 'sub'): Promise<EnrolmentsByStatus> {
+export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub'): Promise<EnrolmentsByStatus> {
 
     const res = await read(`
-        MATCH (u:User {${key}: $sub})
+        MATCH (u:User {${property}: $sub})
         MATCH (c:Course)
         WHERE c.status <> '${STATUS_DISABLED}'
 

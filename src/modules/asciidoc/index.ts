@@ -29,10 +29,6 @@ export function fileExists(filepath: string): boolean {
 }
 
 export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
-    // TODO: Remove
-    const doc = asciidoctor()
-    doc.TemplateConverter.clearCache()
-
     const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), {
         ...baseOptions,
         ...options,

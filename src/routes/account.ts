@@ -17,30 +17,28 @@ const router = Router()
  * Display user account details
  */
 router.get('/', requiresAuth(), async (req, res, next) => {
-    const user = await getUser(req)
-    const token = await getToken(req)
-
-    // Get Sandboxes
-    let sandboxes: Sandbox[] = []
     try {
-        sandboxes = await getSandboxes(token)
-    }
-    catch (e) {;
-        // Do nothing
-    }
+        const user = await getUser(req)
+        const token = await getToken(req)
 
+        // Get Sandboxes
+        const sandboxes: Sandbox[] = await getSandboxes(token)
 
-    const courses = getUserEnrolments(user!.sub)
+        const courses = getUserEnrolments(user!.sub)
 
-    res.render('account/edit', {
-        title: 'My Account',
-        hero: {
+        res.render('account/edit', {
             title: 'My Account',
-        },
-        user,
-        sandboxes,
-        courses,
-    })
+            hero: {
+                title: 'My Account',
+            },
+            user,
+            sandboxes,
+            courses,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -49,16 +47,21 @@ router.get('/', requiresAuth(), async (req, res, next) => {
  * Update user details
  */
 router.post('/', requiresAuth(), async (req, res, next) => {
-    const user = await getUser(req)
+    try {
+        const user = await getUser(req)
 
-    // TODO: Validation
-    const { nickname, givenName, position, company } = req.body
+        // TODO: Validation
+        const { nickname, givenName, position, company } = req.body
 
-    await updateUser(user!, { nickname, givenName, position, company })
+        await updateUser(user!, { nickname, givenName, position, company })
 
-    req.flash('success', 'Your personal information has been updated')
+        req.flash('success', 'Your personal information has been updated')
 
-    res.redirect(req.params.returnTo || '/account')
+        res.redirect(req.params.returnTo || '/account')
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -68,12 +71,17 @@ router.post('/', requiresAuth(), async (req, res, next) => {
  * the account deleted page
  */
 router.post('/delete', requiresAuth(), async (req, res, next) => {
-    const user = await getUser(req)
+    try {
+        const user = await getUser(req)
 
-    await deleteUser(user!)
+        await deleteUser(user!)
 
-    // @ts-ignore
-    res.oidc.logout({ returnTo: '/account/deleted' })
+        // @ts-ignore
+        res.oidc.logout({ returnTo: '/account/deleted' })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -81,14 +89,19 @@ router.post('/delete', requiresAuth(), async (req, res, next) => {
  *
  * Show a confirmation to the user that their account has been deleted
  */
-router.get('/deleted', (req, res) => {
-    res.render('account/deleted', {
-        title: 'Account Deleted',
-        hero: {
-            overline: `We're sorry to see you go`,
+router.get('/deleted', (req, res, next) => {
+    try {
+        res.render('account/deleted', {
             title: 'Account Deleted',
-        },
-    })
+            hero: {
+                overline: `We're sorry to see you go`,
+                title: 'Account Deleted',
+            },
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -97,47 +110,52 @@ router.get('/deleted', (req, res) => {
  */
 
 const courseHandler = async (req: Request, res: Response, next: NextFunction) => {
-    const user = await getUser(req)
+    try {
+        const user = await getUser(req)
 
-    const status: EnrolmentStatus = (req.params.status || STATUS_ENROLLED) as EnrolmentStatus
+        const status: EnrolmentStatus = (req.params.status || STATUS_ENROLLED) as EnrolmentStatus
 
-    const links: Pagination[] = [
-        { title: 'Enrolled', link: `/account/courses/${STATUS_ENROLLED}`, current: status === STATUS_ENROLLED },
-        { title: 'Bookmarked', link: `/account/courses/${STATUS_INTERESTED}`, current: status === STATUS_INTERESTED },
-        { title: 'Completed', link: `/account/courses/${STATUS_COMPLETED}`, current: status === STATUS_COMPLETED },
-        { title: 'Available', link: `/account/courses/${STATUS_AVAILABLE}`, current: status === STATUS_AVAILABLE },
-    ]
+        const links: Pagination[] = [
+            { title: 'Enrolled', link: `/account/courses/${STATUS_ENROLLED}`, current: status === STATUS_ENROLLED },
+            { title: 'Bookmarked', link: `/account/courses/${STATUS_INTERESTED}`, current: status === STATUS_INTERESTED },
+            { title: 'Completed', link: `/account/courses/${STATUS_COMPLETED}`, current: status === STATUS_COMPLETED },
+            { title: 'Available', link: `/account/courses/${STATUS_AVAILABLE}`, current: status === STATUS_AVAILABLE },
+        ]
 
-    const result = await getUserEnrolments(user!.sub)
-    const courses: CourseWithProgress[] = (result.enrolments[ status ] || []) as CourseWithProgress[]
+        const result = await getUserEnrolments(user!.sub)
+        const courses: CourseWithProgress[] = (result.enrolments[status] || []) as CourseWithProgress[]
 
-    let title = 'My Courses'
-    switch (status) {
-        case STATUS_ENROLLED:
-            title = 'My Enrolled Courses'
-            break;
-        case STATUS_INTERESTED:
-            title = 'My Bookmarked Courses'
-            break;
-        case STATUS_COMPLETED:
-            title = 'Completed Courses'
-            break;
-        case STATUS_AVAILABLE:
-            title = 'Available Courses'
-            break;
-    }
+        let title = 'My Courses'
+        switch (status) {
+            case STATUS_ENROLLED:
+                title = 'My Enrolled Courses'
+                break;
+            case STATUS_INTERESTED:
+                title = 'My Bookmarked Courses'
+                break;
+            case STATUS_COMPLETED:
+                title = 'Completed Courses'
+                break;
+            case STATUS_AVAILABLE:
+                title = 'Available Courses'
+                break;
+        }
 
-    res.render('account/courses', {
-        title,
-        hero: {
+        res.render('account/courses', {
             title,
-            overline: 'My Courses',
-        },
+            hero: {
+                title,
+                overline: 'My Courses',
+            },
 
-        user,
-        links,
-        courses,
-    })
+            user,
+            links,
+            courses,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 }
 
 router.get('/courses', courseHandler)

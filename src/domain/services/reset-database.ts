@@ -5,6 +5,7 @@ import { getLessonDirectory } from '../../modules/asciidoc';
 import { ASCIIDOC_DIRECTORY, RESET_CYPHER_FILENAME } from '../../constants';
 import { createDriver } from '../../modules/neo4j';
 import { Transaction } from 'neo4j-driver';
+import { notify } from '../../middleware/bugsnag';
 
 
 export async function resetDatabase(token: string, course: string, module: string, lesson: string, usecase: string): Promise<boolean> {
@@ -37,7 +38,7 @@ export async function resetDatabase(token: string, course: string, module: strin
     }
     catch(e) {
         // TODO: Error handling
-        console.log(e);
+        notify(e)
     }
 
     await session.close()

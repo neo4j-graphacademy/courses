@@ -16,9 +16,9 @@ export function sortCourse(course: Course): Course {
 
 export function formatCourse(course: Course): Course {
     let badge
-    let badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
+    const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
 
-    if ( fs.existsSync(badgePath) ) {
+    if (fs.existsSync(badgePath)) {
         badge = fs.readFileSync(badgePath).toString()
     }
 
