@@ -27,7 +27,10 @@ router.get('/', async (req, res, next) => {
         title: 'All Courses',
         slug: false,
         categories,
-        courses
+        courses,
+        heroTitle: 'Free Neo4j Courses',
+        heroByline: 'Hands-on training. No installation required.',
+        heroOverline: 'Neo4j GraphAcademy',
     })
 })
 
@@ -53,9 +56,15 @@ router.get('/:slug', async (req, res, next) => {
     }
 
     res.render('course/list', {
-        title: `${category.title} Courses`,
+        title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
         slug,
         categories,
+        category,
+        hero: {
+            overline: 'Neo4j GraphAcademy',
+            title: slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`,
+            byline: category.caption || 'Hands-on training. No installation required.',
+        },
         courses: category.courses
     })
 })

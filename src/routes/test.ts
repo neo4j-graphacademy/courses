@@ -36,14 +36,21 @@ router.get('/email/enrolment', async (req, res) => {
         user,
         course,
         sandbox,
-        baseUrl: process.env.AUTH0_BASE_URL
+        baseUrl: process.env.BASE_URL
     })
 
     res.send(html)
 })
 
 router.get('/style', (req, res) => {
-    res.render('test')
+    res.render('test', {
+        title: 'Text Styles',
+        hero: {
+            title: 'Free, Self-Paced, Hands-on Online Training',
+            byline: 'Learn everything you need to know to about how to build, optimise and launch your Neo4j project, all from the Neo4j experts.',
+            overline: 'Learn with GraphAcademy'
+        }
+    })
 })
 
 export default router

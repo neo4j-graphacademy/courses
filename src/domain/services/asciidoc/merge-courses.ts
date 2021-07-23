@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -58,6 +58,7 @@ const loadCourse = (folder: string): CourseToImport => {
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
+        video: file.getAttribute(ATTRIBUTE_VIDEO, null),
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
@@ -157,6 +158,7 @@ export async function mergeCourses(): Promise<void> {
             c.usecase = course.usecase,
             c.redirect = course.redirect,
             c.duration = course.duration,
+            c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()
 

@@ -1,7 +1,9 @@
 import path from 'path'
 import { STATUS_DRAFT } from './domain/model/course'
 
-export const DEFAULT_COURSE_THUMBNAIL = '/img/course-thumbnail.png'
+export const BASE_URL = process.env.BASE_URL
+
+export const DEFAULT_COURSE_THUMBNAIL = '/img/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
 
 export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCIIDOC_DIRECTORY || 'asciidoc')

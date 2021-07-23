@@ -1,8 +1,8 @@
 export default function courseList() {
-    document.querySelectorAll('.course-filter-title')
+    document.querySelectorAll('.secondary-nav-title')
         .forEach(element => {
             element.addEventListener('click', event => {
-                (event.target as HTMLElement).parentElement?.classList.toggle('course-filters--visible')
+                (event.target as HTMLElement).parentElement?.classList.toggle('secondary-nav--visible')
             })
         })
 

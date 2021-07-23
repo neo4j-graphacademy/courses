@@ -1,51 +1,57 @@
 import { read } from "../../modules/neo4j";
-import { sortCourse } from "../../utils";
-import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED } from "../model/enrolment";
+import { formatCourse, formatUser } from "../../utils";
+import { STATUS_DISABLED } from "../model/course";
+import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from "../model/enrolment";
+import { User } from "../model/user";
 import { courseCypher } from "./cypher";
 
-export async function getUserEnrolments(id: string): Promise<EnrolmentsByStatus> {
+type ValidKey = 'sub' | 'id'
+
+export async function getUserEnrolments(sub: string, key: ValidKey = 'sub'): Promise<EnrolmentsByStatus> {
 
     const res = await read(`
-        MATCH (u:User {id: $id})
+        MATCH (u:User {${key}: $sub})
         MATCH (c:Course)
+        WHERE c.status <> '${STATUS_DISABLED}'
 
         OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
         WITH
-            u { .id, .name, .givenName } AS user,
-
-            ${courseCypher('e')} AS course,
-            CASE WHEN e IS NULL THEN '${STATUS_AVAILABLE}'
-                 WHEN e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
-                 ELSE '${STATUS_ENROLLED}'
+            u,
+            ${courseCypher('e', 'u', 'c')} AS course,
+            CASE
+                WHEN e IS NOT NULL AND e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
+                WHEN e IS NOT NULL THEN '${STATUS_ENROLLED}'
+                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_INTERESTED}'
+                ELSE '${STATUS_AVAILABLE}'
             END as status
 
-        WITH user, status, collect(course) AS courses
+        WITH u, status, collect(course) AS courses
 
-        WITH user, collect([status, courses]) AS pairs
+        WITH u, collect([status, courses]) AS pairs
 
-        RETURN user, apoc.map.fromPairs(pairs) AS enrolments
-    `, { id })
+        RETURN u { .id, .name, .nickname, .givenName } AS user,
+            apoc.map.fromPairs(pairs) AS enrolments
+    `, { sub })
 
     if ( res.records.length === 0 ) {
         return {} as EnrolmentsByStatus
     }
 
-    const user = res.records[0].get('user')
+    const user: User = res.records[0].get('user')
     const enrolments = res.records[0].get('enrolments')
 
     // Sort items because we can't do this in a pattern comprehension
     for (const key in enrolments) {
         if (enrolments.hasOwnProperty(key)) {
             for (const course of enrolments[key]) {
-                sortCourse(course)
+                formatCourse(course)
             }
         }
     }
 
     return {
-        user,
+        user: formatUser(user),
         enrolments,
     }
-
 }

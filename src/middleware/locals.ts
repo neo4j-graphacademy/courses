@@ -12,7 +12,7 @@ export function registerLocals(app: Express) {
     // const iconDuration = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'img', 'icon-duration.svg'))
 
     // Load CSVs from public/img/svg
-    const svgFolder = path.join(__dirname, '..', '..', 'public', 'img', 'svg')
+    const svgFolder = path.join(__dirname, '..', '..', 'resources', 'svg')
     const svg = Object.fromEntries(fs.readdirSync(svgFolder)
         .filter(file => file.endsWith('.svg'))
         .map(file => [file.replace('.svg', ''), fs.readFileSync(path.join(svgFolder, file)).toString()])
@@ -22,7 +22,7 @@ export function registerLocals(app: Express) {
         res.locals.statuses = {
             STATUS_DRAFT,
         }
-        res.locals.baseUrl = process.env.AUTH0_BASE_URL
+        res.locals.baseUrl = process.env.BASE_URL
         res.locals.svg = svg
 
         next()

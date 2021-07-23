@@ -2,12 +2,13 @@ import { Request, Response, Express, NextFunction } from 'express';
 import { auth } from 'express-openid-connect'
 import { User } from '../domain/model/user';
 import { read } from '../modules/neo4j';
+import { formatUser } from '../utils';
 
 const config = {
     authRequired: false,
     auth0Logout: true,
     secret: process.env.AUTH0_CLIENT_SECRET || 'a long, randomly-generated string stored in env',
-    baseURL: process.env.AUTH0_BASE_URL,
+    baseURL: process.env.BASE_URL,
     clientID: process.env.AUTH0_CLIENT_ID,
     issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
     routes: {
@@ -22,14 +23,14 @@ export async function getToken(req: any): Promise<string> {
 export async function getUser(req: any): Promise<User | undefined> {
     if ( !req.oidc.user ) return undefined;
 
-    const res = await read(`MATCH (u:User {oauthId: $user_id}) RETURN u`, { user_id: req.oidc.user.sub })
+    const res = await read(`MATCH (u:User {sub: $sub}) RETURN u`, { sub: req.oidc.user.sub })
 
     const dbUser = res.records.length ? res.records[0].get('u').properties : {}
 
-    return {
+    return formatUser({
         ...req.oidc.user,
         ...dbUser,
-    }
+    })
 }
 
 export default function applyAuth(app: Express) {

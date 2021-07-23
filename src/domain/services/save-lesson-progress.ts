@@ -10,7 +10,7 @@ import { lessonCypher } from "./cypher";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
     const res = await write(`
-        MATCH (u:User {oauthId: $user})
+        MATCH (u:User {sub: $sub})
         MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
         WHERE c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
@@ -76,7 +76,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
             } AS module
     `, {
-        user: user.sub,
+        sub: user.sub,
         course,
         module,
         lesson,
@@ -93,10 +93,6 @@ export async function saveLessonProgress(user: User, course: string, module: str
     if ( mod.completed ) {
         emitter.emit(new UserCompletedModule(user, mod))
     }
-
-    // if ( mod.completed ) {
-    //     emitter.emit(EVENT_USER_COMPLETED_MODULE, mod)
-    // }
 
     return output
 }

@@ -7,9 +7,11 @@ import courseRoutes from './routes/courses'
 import profileRoutes from './routes/profile'
 import publicProfileRoutes from './routes/public-profile'
 import categoryRoutes from './routes/categories'
+import accountRoutes from './routes/account'
 import testRoutes from './routes/test'
 import { apply404handler } from './middleware/404'
 import { Driver } from 'neo4j-driver'
+import { registerSession } from './middleware/session'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -34,8 +36,12 @@ export default function initApp(driver: Driver) {
     // Apply auth headers
     applyAuth(app)
 
+    // Apply Session/Flash
+    registerSession(app)
+
     // Routes
     app.use('/', homeRoutes)
+    app.use('/account', accountRoutes)
     app.use('/categories', categoryRoutes)
     app.use('/courses', courseRoutes)
     app.use('/profile', profileRoutes)

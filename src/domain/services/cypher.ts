@@ -1,18 +1,21 @@
-export function courseCypher(enrolment?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
+export function courseCypher(enrolment?: string, user?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
     return `
         ${course} {
             .slug,
             .title,
             .thumbnail,
-        .caption,
+            .caption,
             .status,
             .usecase,
             .redirect,
             .link,
+            .duration,
+            .video,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description, link: '/categories/'+ category.slug +'/' }],
             ${enrolment !== undefined ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, createdAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt,` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL THEN 1.0*size((${enrolment})-[:COMPLETED_LESSON]->()) / size((${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->()) ELSE 0 END ,` : ''}
+            ${user !== undefined ? `interested: exists((${course})<-[:INTERESTED_IN]-(${user})),` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |
                 ${moduleCypher(enrolment, course, module, lesson)}
             ],

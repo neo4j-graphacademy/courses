@@ -13,6 +13,7 @@ type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_D
 export const ATTRIBUTE_STATUS = 'status'
 export const ATTRIBUTE_THUMBNAIL = 'thumbnail'
 export const ATTRIBUTE_CAPTION = 'caption'
+export const ATTRIBUTE_VIDEO = 'video'
 export const ATTRIBUTE_USECASE = 'usecase'
 export const ATTRIBUTE_CATEGORIES = 'categories'
 export const ATTRIBUTE_REDIRECT = 'redirect'
@@ -23,11 +24,13 @@ export interface Course {
     slug: string;
     title: string;
     link: string;
+    video?: string;
     duration?: string;
     redirect?: string;
     thumbnail: string;
     caption: string;
     status: CourseStatus;
+    interested?: string;
     usecase: string | undefined;
     modules: Module[];
     categories: Category[];

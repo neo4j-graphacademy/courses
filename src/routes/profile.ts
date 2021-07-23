@@ -4,6 +4,7 @@ import { getSandboxes } from '../modules/sandbox'
 
 const router = Router()
 
+// TODO: Remove
 router.get('/', async (req, res, next) => {
     const user = await getUser(req)
 

@@ -12,7 +12,7 @@ npm install
 ```
 ASCIIDOC_DIRECTORY=asciidoc
 
-AUTH0_BASE_URL=http://localhost:3000
+BASE_URL=http://localhost:3000
 AUTH0_CLIENT_ID=XXX
 AUTH0_CLIENT_SECRET=XXX
 AUTH0_ISSUER_BASE_URL=https://neo4j-sync.auth0.com
