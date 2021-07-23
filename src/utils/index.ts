@@ -6,10 +6,10 @@ import { User } from '../domain/model/user';
 import { Lesson } from '../domain/model/lesson';
 
 export function sortCourse(course: Course): Course {
-    course.modules.map(module => {
-        module.lessons.sort((a, b) => a.order < b.order ? -1 : 1)
+    course.modules?.map(module => {
+        module.lessons?.sort((a, b) => a.order < b.order ? -1 : 1)
     })
-    course.modules.sort((a, b) => a.order < b.order ? -1 : 1)
+    course.modules?.sort((a, b) => a.order < b.order ? -1 : 1)
 
     return course
 }
