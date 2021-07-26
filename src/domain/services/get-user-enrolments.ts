@@ -35,7 +35,10 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
     `, { sub })
 
     if ( res.records.length === 0 ) {
-        return {} as EnrolmentsByStatus
+        return {
+            user: false,
+            enrolments: [],
+        } as EnrolmentsByStatus
     }
 
     const user: User = res.records[0].get('user')

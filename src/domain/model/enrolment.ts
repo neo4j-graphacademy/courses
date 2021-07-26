@@ -18,7 +18,7 @@ export interface Enrolment {
 }
 
 export type EnrolmentsByStatus = {
-    user: User;
+    user: User | false;
     enrolments: {
         [key in EnrolmentStatus]?: CourseWithProgress[]
     }
