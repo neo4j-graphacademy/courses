@@ -1,4 +1,5 @@
 export interface Pagination {
     link: string;
-    text: string;
+    title: string;
+    current?: boolean;
 }

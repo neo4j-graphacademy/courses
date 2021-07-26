@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, Course, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -15,22 +15,22 @@ interface CourseToImport extends Course {
 }
 
 const loadCourses = (): CourseToImport[] => {
-    const folder = path.join(ASCIIDOC_DIRECTORY, 'courses')
+    const courseDirectory = path.join(ASCIIDOC_DIRECTORY, 'courses')
 
-    return fs.readdirSync( folder )
+    return fs.readdirSync( courseDirectory )
         .filter(folder => fs.existsSync(path.join(ASCIIDOC_DIRECTORY, 'courses', folder, 'course.adoc')))
         .map(slug => loadCourse( path.join('courses', slug) ))
 }
 
-const loadCourse = (folder: string): CourseToImport => {
-    const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'course.adoc'))
+const loadCourse = (courseFolder: string): CourseToImport => {
+    const slug = courseFolder.split('/').filter(a => !!a).pop() as string
+    const file = loadFile(path.join(courseFolder, 'course.adoc'))
 
-    const moduleDir = path.join(ASCIIDOC_DIRECTORY, folder, 'modules')
+    const moduleDir = path.join(ASCIIDOC_DIRECTORY, courseFolder, 'modules')
     const modules = fs.existsSync(moduleDir)
         ? fs.readdirSync(moduleDir)
             .filter(item => fs.existsSync(path.join(moduleDir, item, 'module.adoc')))
-            .map(item => loadModule(path.join(folder, 'modules', item)))
+            .map(item => loadModule(path.join(courseFolder, 'modules', item)))
         : []
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
@@ -58,6 +58,7 @@ const loadCourse = (folder: string): CourseToImport => {
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
         caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
+        video: file.getAttribute(ATTRIBUTE_VIDEO, null),
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
@@ -157,6 +158,7 @@ export async function mergeCourses(): Promise<void> {
             c.usecase = course.usecase,
             c.redirect = course.redirect,
             c.duration = course.duration,
+            c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()
 

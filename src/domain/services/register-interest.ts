@@ -7,8 +7,9 @@ export async function registerInterest(course: string, email: string, user: User
         SET c.interested = apoc.coll.toSet(coalesce(c.interested, []) + $email)
 
         FOREACH (_ IN CASE WHEN $user IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (u:User {id: $user})
+            MERGE (u:User {sub: $user})
             MERGE (u)-[r:INTERESTED_IN]->(c)
+            ON CREATE SET r.createdAt = datetime()
             SET r.email = $email
         )
         RETURN true AS status

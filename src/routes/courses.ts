@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
@@ -11,29 +10,29 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-// import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { ASCIIDOC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
-import { Lesson } from '../domain/model/lesson'
 import { resetDatabase } from '../domain/services/reset-database'
+import { bookmarkCourse } from '../domain/services/bookmark-course'
+import { removeBookmark } from '../domain/services/remove-bookmark'
+import { getSandboxConfig } from '../utils'
+import { Pagination } from '../domain/model/pagination'
 
 const router = Router()
 
 /**
  * @GET /
  *
- * Display a list of available courses
+ * Redirect the user to the category list
  */
-router.get('/', (req, res, next) => {
-    res.redirect('/categories')
-    //     getCoursesByCategory()
-    //         .then(categories => res.render('course/list', {
-    //             title: 'All Courses',
-    //             categories
-    //         }))
-    //         // .then(categories => res.json({ categories }))
-    //         .catch(e => next(e))
+router.get('/', requiresAuth(), async (req, res, next) => {
+    try {
+        res.redirect('/categories')
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -45,9 +44,6 @@ router.get('/:course', async (req, res, next) => {
     try {
         const user = await getUser(req)
 
-        // TODO: Flash memory
-        const interested = req.query.interested
-
         // TODO: Get next link for "Continue Lesson" button
         const course = await getCourseWithProgress(req.params.course, user)
 
@@ -57,18 +53,10 @@ router.get('/:course', async (req, res, next) => {
 
         const doc = await convertCourseOverview(course.slug)
 
-        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
-        const badge = fs.existsSync( badgePath ) && fs.readFileSync(badgePath)
-
-        // console.log(badge, badgePath);
-
-
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
-            badge,
             doc,
-            interested,
             summary: course.completed && courseSummaryExists(req.params.course),
         })
     }
@@ -77,15 +65,73 @@ router.get('/:course', async (req, res, next) => {
     }
 })
 
+/**
+ * @GET /:course/interested
+ *
+ * When a course is in draft status, the user can register their interest using
+ * the provided form.  By providing their email address they consent to .
+ *
+ * This route also creates a 'bookmark' for them
+ */
 router.post('/:course/interested', async (req, res, next) => {
-    if (req.body.email) {
-        const user = await getUser(req)
-        await registerInterest(req.params.course, req.body.email, user)
+    try {
+        if (req.body.email) {
+            const user = await getUser(req)
+            await registerInterest(req.params.course, req.body.email, user)
 
-        return res.redirect(`/courses/${req.params.course}/?interested=true`)
+            req.flash('success', 'Your interest in this course has been registered')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
+
+        return res.redirect(`/courses/${req.params.course}/`)
     }
+    catch (e) {
+        next(e)
+    }
+})
 
-    return res.redirect(`/courses/${req.params.course}/`)
+/**
+ * GET /:course/bookmark
+ *
+ * Create a relationship between the user and course so it can be highlighted
+ * in `My Courses`
+ */
+router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
+    try {
+        const { course } = req.params
+        const user = await getUser(req)
+
+        await bookmarkCourse(course, user!)
+
+        req.flash('success', 'This course has been bookmarked!')
+
+        return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/bookmark/remove
+ *
+ * Delete a bookmark
+ */
+router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) => {
+    try {
+        const { course } = req.params
+        const user = await getUser(req)
+
+        await removeBookmark(course, user!)
+
+        req.flash('success', 'Your bookmark has been removed')
+
+        return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -94,7 +140,12 @@ router.post('/:course/interested', async (req, res, next) => {
  * Find and send the badge.svg file in the course root
  */
 router.get('/:course/badge', (req, res, next) => {
-    res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
+    try {
+        res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 /**
@@ -321,7 +372,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
     const user = await getUser(req)
 
     const attributes: Record<string, any> = {
-        name: user!.given_name,
+        name: user!.nickname,
     }
 
     if (course.usecase) {
@@ -337,41 +388,14 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
     return attributes
 }
 
-interface SandboxConfig {
-    showSandbox: boolean;
-    sandboxVisible: boolean;
-    sandboxUrl: string | undefined;
-}
 
-function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfig> {
-    const showSandbox = (course.usecase !== undefined && course.usecase !== null) || (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
-    const sandboxVisible = typeof lesson?.sandbox === 'string'
-
-    let sandboxUrl = `${course.link}browser/`
-
-    // Show sandbox?
-    if (showSandbox === true && lesson?.cypher) {
-        sandboxUrl += `?cmd=edit&arg=${encodeURIComponent(lesson?.cypher)}`
-    }
-
-    // Overwrite
-    if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true') {
-        sandboxUrl = lesson!.sandbox
-    }
-
-    return Promise.resolve({
-        showSandbox,
-        sandboxVisible,
-        sandboxUrl,
-    } as SandboxConfig)
-}
 
 /**co
  * @GET /:course/:module/:lesson
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) => {
+router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -385,13 +409,13 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
         const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
-            next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
         const lesson = module!.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
-            next(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+            nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
         // Build Attributes for adoc
@@ -411,6 +435,16 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             await resetDatabase(token, req.params.course, req.params.module, req.params.lesson, course.usecase)
         }
 
+        // Next link in pagination?
+        let next: Pagination | undefined = course.next
+
+        if (!next && course.completed) {
+            next = {
+                title: 'Course Summary',
+                link: `${course.link}summary/`
+            }
+        }
+
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,
             ...lesson,
@@ -419,13 +453,14 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =>
             enrolled: course.enrolled,
             module,
             doc,
+            next,
             showSandbox,
             sandboxUrl,
             sandboxVisible,
         })
     }
     catch (e) {
-        next(e)
+        nextfn(e)
     }
 })
 

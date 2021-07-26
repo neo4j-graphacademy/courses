@@ -9,12 +9,12 @@ import { courseCypher } from "./cypher";
 export async function enrolInCourse(slug: string, user: User): Promise<Enrolment> {
     const res = await write(`
         MATCH (c:Course {slug: $slug})
-        MERGE (u:User {oauthId: $user})
+        MERGE (u:User {sub: $user})
         ON CREATE SET u.id = randomUuid(), u.createdAt = datetime(),
             u.givenName = $givenName,
             u.name = $name
 
-        MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.id)})
+        MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
         ON CREATE SET e.createdAt = datetime()
 
         MERGE (u)-[:HAS_ENROLMENT]->(e)
@@ -24,13 +24,13 @@ export async function enrolInCourse(slug: string, user: User): Promise<Enrolment
             user: {
                 id: u.id
             },
-            course: ${courseCypher('e')},
+            course: ${courseCypher('e', 'u')},
             createdAt: e.createdAt
         } AS enrolment
     `, {
         slug,
         user: user.sub,
-        name: user.given_name || user.name,
+        name: user.nickname || user.name,
         givenName: user.name,
     })
 

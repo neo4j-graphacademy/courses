@@ -1,3 +1,4 @@
+import account from './account'
 import codeBlocks from './code-blocks'
 import copyButtons from './copy-button'
 import courseList from './course-list'
@@ -17,4 +18,5 @@ window.addEventListener('DOMContentLoaded', () => {
 
     home()
     courseList()
+    account()
 })

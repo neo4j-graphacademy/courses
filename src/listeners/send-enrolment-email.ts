@@ -1,3 +1,4 @@
+/* tslint:disable */
 import { UserEnrolled } from "../domain/events/UserEnrolled";
 
 export default function sendEnrolmentEmail(event: UserEnrolled): void {

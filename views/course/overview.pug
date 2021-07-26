@@ -1,58 +1,42 @@
 extends ../layouts/default
+include ../mixins/json
 
 block main
-  .course-header.hero.hero--primary
-    .container
-      h1 !{title}
-      p.heading-5 !{caption}
+  .course-container
+    .course-header.hero.hero--primary
+      .container
+        h1 !{title}
+        p.heading-5 !{caption}
 
-  .neutral
-    .container.course-container
+    .neutral
+      .container
         .course-overview
           .card
             .card-header
               h2.card-title Course Overview
 
-            if badge
-              .card-body.course-badge
-                //- img(src=`${link}badge` alt=`Course badge for ${title}`)
-                | !{badge}
-
-                if user
-                  if completed
-                    p
-                      | You have earned the
-                      |
-                      strong !{title}
-                      |
-                      | badge
-                    if summary
-                    p
-                      a(href=`${link}summary/`) View Course Summary
-
-                  else if status != statuses.STATUS_DRAFT
-                    p
-                      | #{enrolled ? 'Continue' : 'Take'}
-                      |
-                      |  this course now to earn the
-                      |
-                      strong !{title}
-                      |
-                      | badge
-
-            if interested
-              .notification.notification--positive Thank you for registering your interest. We will contact you when the course is available.
+            .card-body
+              if video
+                iframe(src=video, width="560", height="315", frameborder, allowfullscreen="")
+              else
+                img(src='/img/course-placeholder.jpg', alt=title)
 
             if status == statuses.STATUS_DRAFT
-              .card-header
-                h2.card-title Coming Soon
+              //- .card-header
+              //-   h2.card-title Coming Soon
               .card-body
-                p Fill out the form below to register your interest.
-                | We will contact you when the course is available.
 
-                form(method='POST' action=`${link}interested`)
-                  input#email(type="email" name="email", value=user ? user.email : '')
-                  button.btn Register Interest
+                if interested
+                  .admonition.admonition--positive Thank you for registering your interest. We will contact you when the course is available.
+                else
+                  p Fill out the form below to register your interest.  We will contact you when the course is available.
+
+                  form.form(method='POST' action=`${link}interested`)
+                    .form-group
+                      label Email Address
+                      input#email(type="email" name="email", value=user ? user.email : '')
+                    .form-buttons
+                      button.btn Register Interest
 
             else if user && completed
               .card-body
@@ -67,19 +51,58 @@ block main
                     |
                     a(href=`${link}browser` target='_blank') Neo4j Browser
             else if user
-              .card-header
-                h2.card-title Take this course for free!
+              //- .card-header
+              //-   h2.card-title Take this course for free!
               .card-body
-                p Enrolling on this course is free of charge. Just hit the button below to begin.
+                p All GraphAcademy courses are completely free of charge. Just hit the button below to begin.
 
                 a.btn(href=`${link}enrol`) Enrol Now
             else
-              .card-header
-                h2.card-title Take this course for free!
+              //- .card-header
+              //-   h2.card-title Take this course for free!
               .card-body
                 p Enrolling on this course is free of charge. All you need to do is sign in or register
 
                 a.btn(href=`/login?returnTo=${link}enrol`) Sign in to continue
+
+
+          if user && interested
+            a.btn(href=`${link}bookmark/remove/`) Remove Bookmark
+          else if user
+            a.btn(href=`${link}bookmark/`) Add Bookmark to Course
+
+          //- .card
+
+          //-   if badge
+          //-     .card-body.course-badge
+          //-       //- img(src=`${link}badge` alt=`Course badge for ${title}`)
+          //-       | !{badge}
+
+          //-   if user
+          //-     if completed
+          //-       p
+          //-         | You have earned the
+          //-         |
+          //-         strong !{title}
+          //-         |
+          //-         | badge
+          //-       if summary
+          //-       p
+          //-         a(href=`${link}summary/`) View Course Summary
+
+          //-     else if status != statuses.STATUS_DRAFT
+          //-       p
+          //-         | #{enrolled ? 'Continue' : 'Take'}
+          //-         |
+          //-         |  this course now to earn the
+          //-         |
+          //-         strong !{title}
+          //-         |
+          //-         | badge
+
+          //-   if interested
+          //-     .notification.notification--positive Thank you for registering your interest. We will contact you when the course is available.
+
 
           //- if categories
           //-   .course-card
@@ -115,24 +138,58 @@ block main
           //-             //- +json(category)
 
         .course-details
-          .course-description
-            | !{doc}
+          //- .course-meta
+          //-   if duration
+          //-     dl.course-meta-list
+          //-       dt.course-meta-term
+          //-         | !{svg.iconDurationLarge}
+          //-         span Course Duration
+          //-       dd.course-meta-details
+          //-         | !{duration}
+          //-   if modules && modules.length > 0
+          //-     dl.course-meta-list
+          //-       dt.course-meta-term
+          //-         | !{svg.iconBookLarge}
+          //-       span Course Length
+          //-       dd.course-meta-details #{modules.length}
+          //-         |
+          //-         | Modules
 
-            //- h2 Course Modules
-            ul.course-modules
-              each module in modules
-                li.course-module(class=module.completed ? 'module--completed' : '')
-                  a(href=module.link)
-                    | #{module.title}
 
-                    if module.duration
-                      span.duration (#{module.duration})
 
-                  if module.lessons
-                    ul.course-module-lessons
-                      each lesson in module.lessons
-                        li.course-module-lesson(class=lesson.completed ? 'lesson--completed' : '')
-                          a(href=lesson.link)
-                            | #{lesson.title}
+          .course-description.doc
+            if doc
+              | !{doc}
+            else
+              h2 Coming Soon
+              p We don't have any details about this course at the moment.  Please check back later
+                if status == statuses.STATUS_DRAFT
+                  |
+                  | or complete the
+                  |
+                  strong Register Interest
+                  |
+                  | form to be notified of any updates
+                | .
 
-  include ../partials/community-cutout.pug
+
+          if modules && modules.length
+            .course-toc
+              h2 Table of Contents
+              ul.course-modules
+                each module in modules
+                  li.course-module(class=module.completed ? 'module--completed' : '')
+                    a(href=module.link)
+                      | #{module.title}
+
+                      if module.duration
+                        span.duration (#{module.duration})
+
+                    if module.lessons
+                      ul.course-module-lessons
+                        each lesson in module.lessons
+                          li.course-module-lesson(class=lesson.completed ? 'lesson--completed' : '')
+                            a(href=lesson.link)
+                              | #{lesson.title}
+
+  //- include ../partials/community-cutout.pug

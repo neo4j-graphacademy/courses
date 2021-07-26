@@ -13,51 +13,70 @@ const router = Router()
  * Display a list of available courses
  */
 router.get('/', async (req, res, next) => {
-    const user = await getUser(req)
-    const categories = await getCoursesByCategory(user)
+    try {
+        const user = await getUser(req)
+        const categories = await getCoursesByCategory(user)
 
-    const courses = categories.reduce(
-        (acc, category: Category) => acc.concat(
-            // @ts-ignore
-            (category.children || []).reduce((acc, child) => acc.concat(child?.courses || [])
-        , [])),
-    [])
+        const courses = categories.reduce(
+            (acc, category: Category) => acc.concat(
+                // @ts-ignore
+                (category.children || []).reduce((innerAcc, child) => innerAcc.concat(child?.courses || [])
+                    , [])),
+            [])
 
-    res.render('course/list', {
-        title: 'All Courses',
-        slug: false,
-        categories,
-        courses
-    })
+        res.render('course/list', {
+            title: 'All Courses',
+            slug: false,
+            categories,
+            courses,
+            heroTitle: 'Free Neo4j Courses',
+            heroByline: 'Hands-on training. No installation required.',
+            heroOverline: 'Neo4j GraphAcademy',
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 router.get('/:slug', async (req, res, next) => {
-    const { slug } = req.params
-    const user = await getUser(req)
-    const categories = await getCoursesByCategory(user)
+    try {
+        const { slug } = req.params
+        const user = await getUser(req)
+        const categories = await getCoursesByCategory(user)
 
-    const flattened = categories.reduce((acc: Category[], category: Category) => {
-        let output = [ category ]
+        const flattened = categories.reduce((acc: Category[], item: Category) => {
+            let output = [item]
 
-        if ( category.children ) {
-            output = output.concat(...category.children)
+            if (item.children) {
+                output = output.concat(...item.children)
+            }
+
+            return acc.concat(output)
+        }, [])
+
+        const category = flattened.find(item => item.slug === slug)
+
+        if (!category) {
+            return next(new NotFoundError(`Category with slug ${slug} could not be found`))
         }
 
-        return acc.concat(output)
-    }, [])
-
-    const category = flattened.find(category => category.slug === slug)
-
-    if ( !category ) {
-        return next( new NotFoundError(`Category with slug ${slug} could not be found`) )
+        res.render('course/list', {
+            title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
+            slug,
+            categories,
+            category,
+            hero: {
+                overline: 'Neo4j GraphAcademy',
+                title: slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`,
+                byline: category.caption || 'Hands-on training. No installation required.',
+            },
+            courses: category.courses
+        })
     }
-
-    res.render('course/list', {
-        title: `${category.title} Courses`,
-        slug,
-        categories,
-        courses: category.courses
-    })
+    catch (e) {
+        next(e)
+    }
 })
 
 export default router
