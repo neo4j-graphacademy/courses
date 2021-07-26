@@ -10,7 +10,7 @@ type ValidLookupProperty = 'sub' | 'id'
 export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub'): Promise<EnrolmentsByStatus> {
 
     const res = await read(`
-        MATCH (u:User {${property}: $sub})
+        OPTIONAL MATCH (u:User {${property}: $sub})
         MATCH (c:Course)
         WHERE c.status <> '${STATUS_DISABLED}'
 
