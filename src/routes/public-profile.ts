@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { User } from '../domain/model/user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth'
 import { getUserName } from '../utils'
@@ -17,7 +18,7 @@ router.get('/:id', async (req, res, next) => {
 
     const own = current?.id === req.params.id
 
-    const title = own ? 'My Achievements' : `${getUserName(user)}'s Achievements`
+    const title = own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`
 
     res.render('profile/achievements', {
         title,
@@ -51,13 +52,13 @@ router.get('/:id/:course', async (req, res, next) => {
 
     const title = [
         course.title,
-        own ? 'My Achievements' : `${getUserName(user)}'s Achievements`
+        own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`
     ].join(' | ')
 
     res.render('profile/achievement-view', {
         title,
         course,
-        name: getUserName(user),
+        name: getUserName(user as User),
         own,
     })
 })

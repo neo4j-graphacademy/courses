@@ -41,9 +41,11 @@ export interface Course {
 
 export interface CourseWithProgress extends Course {
     enrolled: boolean;
+    endrolledAt: Date;
     completed: boolean;
+    completedAt: Date;
     completedCount: number;
-    completedPercentage: number;
+    completedPercentage: number | string;
     modules: ModuleWithProgress[];
     next?: Pagination;
 }
