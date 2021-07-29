@@ -328,7 +328,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
         // Show hint text?
         if (parent.querySelector('.admonition')) {
             children = children.concat(
-                'If you are still stuck, try clicking the ',
+                '  If you are still stuck, try clicking the ',
                 createElement('strong', '', ['Show Hint']),
                 ' button'
             )

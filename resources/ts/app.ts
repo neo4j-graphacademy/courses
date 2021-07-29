@@ -7,6 +7,7 @@ import header from './header'
 import highlight from './highlight'
 import home from './home'
 import questions from './questions'
+import tabs from './tabs'
 
 window.addEventListener('DOMContentLoaded', () => {
     highlight()
@@ -19,4 +20,5 @@ window.addEventListener('DOMContentLoaded', () => {
     courseList()
     account()
     classroom()
+    tabs()
 })

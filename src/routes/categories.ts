@@ -29,9 +29,11 @@ router.get('/', async (req, res, next) => {
             slug: false,
             categories,
             courses,
-            heroTitle: 'Free Neo4j Courses',
-            heroByline: 'Hands-on training. No installation required.',
-            heroOverline: 'Neo4j GraphAcademy',
+            hero: {
+                title:'Free Neo4j Courses',
+                byline: 'Hands-on training. No installation required.',
+                overline: 'Neo4j GraphAcademy',
+            }
         })
     }
     catch (e) {
