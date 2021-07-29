@@ -1,7 +1,7 @@
 import { cleanCode, copyToClipboard } from './modules/clipboard'
 
-const SANDBOX_SELECTOR = 'lesson-sandbox'
-const SANDBOX_SELECTOR_VISIBLE = 'lesson-sandbox--visible'
+const SANDBOX_SELECTOR = 'classroom-sandbox'
+const SANDBOX_SELECTOR_VISIBLE = 'classroom-sandbox--visible'
 
 function handlePlayClick(e) {
     const button = e.target as HTMLButtonElement

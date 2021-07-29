@@ -32,6 +32,7 @@ const QUESTION_SELECTOR_SELECT_IN_SOURCE = 'select-in-source'
 const QUESTION_SELECTOR_INPUT_IN_SOURCE = 'input-in-source'
 
 const OPTION = 'question-option'
+const OPTION_SELECTED = 'question-option--selected'
 const OPTION_CORRECT = 'question-option--correct'
 const OPTION_INCORRECT = 'question-option--incorrect'
 
@@ -44,11 +45,15 @@ const ANSWER_TYPE_CHECKED = 'checked'
 
 const BUTTON_LOADING = 'btn--loading'
 
+const cleanAnswer = (element: any) => {
+    return element.textContent!.replace(CORRECT_INDICATOR, '').replace(INCORRECT_INDICATOR, '').replace(/^\s+|\s+$/g, '')
+}
+
 const extractAnswersFromBlock = (div: Element): Option[] => {
     return Array.from(div.querySelectorAll('ul li'))
         .map((element: any) => ({
             element,
-            value: element.textContent!.replace(CORRECT_INDICATOR, '').replace(INCORRECT_INDICATOR, '').replace(/^\s+|\s+$/g, ''),
+            value: cleanAnswer(element),
             correct: element.textContent!.includes(CORRECT_INDICATOR),
         }))
 }
@@ -103,6 +108,25 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
         input.setAttribute('name', <string>id)
         input.setAttribute('value', answer.value)
         input.setAttribute('type', multiple ? 'checkbox' : 'radio')
+
+        input.addEventListener('change', e => {
+            const target: HTMLInputElement = e.target as HTMLInputElement;
+            const id = target.getAttribute('id')
+
+            document.querySelectorAll(`input[name="${target.getAttribute('name')}"]`)
+                .forEach((element) => {
+                    const li: HTMLLIElement = element.parentNode!.parentNode as HTMLLIElement
+
+
+                    // @ts-ignore
+                    if (element.checked) {
+                        li.classList.add(OPTION_SELECTED)
+                    }
+                    else {
+                        li.classList.remove(OPTION_SELECTED)
+                    }
+                })
+        })
 
         const label = createElement('label', 'question-option-label', [
             input,
@@ -280,7 +304,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
             ])
             link.setAttribute('href', res.data.next.link)
 
-            parent.appendChild(createElement('div', `admonition admonition--tip ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
+            parent.appendChild(createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Well done!']),
                 createElement('p', '', [
                     'You are now ready to advance to ',
@@ -290,7 +314,7 @@ const handleResponse = (parent, button, res, showHint = false) => {
         }
         else {
             // Course completed
-            parent.appendChild(createElement('div', `admonition admonition--tip ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
+            parent.appendChild(createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
                     'You have completed this lesson!',
@@ -346,9 +370,16 @@ const setupAnswers = () => {
         Array.from(question.querySelectorAll(`.${COMMENT_SELECTOR}`))
             // @ts-ignore
             .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
-            // TODO: Improve this
             // @ts-ignore
-            .forEach((el: Element) => el.innerHTML = '/* CORRECT ANSWER BELOW */')
+            .forEach((el: Element) => {
+                const question = el.parentElement!.parentElement!.parentElement!.parentElement!
+                const correct = Array.from(question.querySelectorAll('.checklist li'))
+                    // @ts-ignore
+                    .find(e => e.textContent.includes(CORRECT_INDICATOR))
+
+                el.innerHTML = cleanAnswer(correct!)
+                el.classList.add('code-correct')
+            })
 
         // @ts-ignore
         for (let ulist of question.getElementsByClassName('ulist')) {

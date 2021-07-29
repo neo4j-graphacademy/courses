@@ -69,3 +69,13 @@ export function getSandboxConfig(course: Course, lesson?: Lesson): Promise<Sandb
         sandboxUrl,
     } as SandboxConfig)
 }
+
+export function getSvgs(): Record<string, string> {
+    const svgFolder = path.join(__dirname, '..', '..', 'resources', 'svg')
+    const svg = Object.fromEntries(fs.readdirSync(svgFolder)
+        .filter(file => file.endsWith('.svg'))
+        .map(file => [file.replace('.svg', ''), fs.readFileSync(path.join(svgFolder, file)).toString()])
+    )
+
+    return svg
+}

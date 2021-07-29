@@ -27,7 +27,6 @@ export default function initApp(driver: Driver) {
 
     app.set('view engine', 'pug')
 
-
     // Init bugsnag
     initBugsnag()
 

@@ -5,6 +5,7 @@ import { Pagination } from "./pagination";
 // Status
 export const STATUS_ACTIVE = 'active'
 export const STATUS_DRAFT = 'draft'
+export const STATUS_TEST = 'test'
 export const STATUS_DISABLED = 'disabled'
 
 type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_DISABLED

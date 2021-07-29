@@ -388,9 +388,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
     return attributes
 }
 
-
-
-/**co
+/**
  * @GET /:course/:module/:lesson
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
@@ -436,7 +434,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, nextfn) 
         }
 
         // Next link in pagination?
-        let next: Pagination | undefined = course.next
+        let next: Pagination | undefined = lesson!.next
 
         if (!next && course.completed) {
             next = {
