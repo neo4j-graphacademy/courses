@@ -14,7 +14,7 @@ const config = {
     routes: {
         login: false as false,
     },
-};
+}
 
 export async function getToken(req: any): Promise<string> {
     return req.oidc.idToken;
