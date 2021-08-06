@@ -158,7 +158,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
     }
 }
 
-router.get('/courses', courseHandler)
-router.get('/courses/:status', courseHandler)
+router.get('/courses', requiresAuth(), courseHandler)
+router.get('/courses/:status', requiresAuth(), courseHandler)
 
 export default router
