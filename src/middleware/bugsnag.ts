@@ -1,6 +1,7 @@
 import { Express } from 'express'
 import Bugsnag from '@bugsnag/js'
 import BugsnagPluginExpress from '@bugsnag/plugin-express'
+import Neo4jError from '../errors/neo4j.error'
 
 
 
@@ -8,7 +9,18 @@ export function initBugsnag() {
     if ( bugsnagApiKey() ) {
         Bugsnag.start({
             apiKey: process.env.BUGSNAG_API_KEY as string,
-            plugins: [ BugsnagPluginExpress ]
+            plugins: [ BugsnagPluginExpress ],
+            onError: event => {
+                event.errors.map(error => {
+                    if ( error instanceof Neo4jError )  {
+                        event.addMetadata('query', {
+                            query: error.query,
+                            parameters: error.parameters,
+                            database: error.database,
+                        })
+                    }
+                })
+            },
         })
     }
 }
