@@ -7,6 +7,7 @@ export function apply404handler(app: Express) {
         if ( (error as NotFoundError).status ) {
             return res.status((error as NotFoundError).status)
                 .render('errors/404', {
+                    title: 'Page Not Found',
                     error
                 })
         }

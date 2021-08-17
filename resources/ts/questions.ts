@@ -292,9 +292,9 @@ const handleResponse = (parent, button, res, showHint = false) => {
         // Mark as completed in navigation
         document.querySelector('.toc-module-lesson--current')?.classList.add('toc-module-lesson--completed')
 
-        for (let element in document.querySelectorAll('.summary')) {
-            // @ts-ignore
-            element.classList?.add('summary--visible')
+        // @ts-ignore
+        for (let element of document.querySelectorAll('.summary')) {
+            element.classList.add('summary--visible')
         }
 
         if (res.data.next) {

@@ -1,5 +1,7 @@
 import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
+import { UserAnsweredQuestion } from "../events/UserAnsweredQuestion";
+import { UserAttemptedLesson } from "../events/UserAttemptedLesson";
 import { UserCompletedLesson } from "../events/UserCompletedLesson";
 import { UserCompletedModule } from "../events/UserCompletedModule";
 import { Answer } from "../model/answer";
@@ -86,10 +88,21 @@ export async function saveLessonProgress(user: User, course: string, module: str
     const output: LessonWithProgress = res.records[0].get('lesson')
     const mod: ModuleWithProgress = res.records[0].get('module')
 
+
+    // Emit that hte user as attempted the lesson
+    emitter.emit(new UserAttemptedLesson(user, output, output.completed, answers))
+
+    // Emit individual Answers
+    answers.forEach(answer => {
+        emitter.emit(new UserAnsweredQuestion(user, output, answer))
+    })
+
+    // Emit that user has completed the lesson
     if ( output.completed ) {
         emitter.emit(new UserCompletedLesson(user, output))
     }
 
+    // Emit that user has completed the module
     if ( mod.completed ) {
         emitter.emit(new UserCompletedModule(user, mod))
     }

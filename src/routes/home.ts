@@ -29,10 +29,6 @@ router.get('/', async (req, res, next) => {
         // })
         // const doc = home.getContent()
 
-
-        // @ts-ignore
-        // console.log(categories.find(category => category.slug === 'experience'));
-
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
 
@@ -46,7 +42,6 @@ router.get('/', async (req, res, next) => {
             title: 'Free, Self-Paced, Hands-on Online Training ',
             classes: 'home transparent-nav preload',
             categories,
-            // doc,
             beginners,
             paths,
             certification,
