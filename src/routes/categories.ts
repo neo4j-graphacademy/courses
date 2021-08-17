@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { Category } from '../domain/model/category'
+import { Course } from '../domain/model/course'
 
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
@@ -17,12 +18,16 @@ router.get('/', async (req, res, next) => {
         const user = await getUser(req)
         const categories = await getCoursesByCategory(user)
 
-        const courses = categories.reduce(
+        const courses: Course[] = categories.reduce(
             (acc, category: Category) => acc.concat(
                 // @ts-ignore
                 (category.children || []).reduce((innerAcc, child) => innerAcc.concat(child?.courses || [])
                     , [])),
             [])
+            .reduce((acc: Course[], course: Course) => {
+                if ( !acc.map(item => item.slug).includes(course.slug) ) return acc.concat(course)
+                return acc
+            }, [])
 
         res.render('course/list', {
             title: 'All Courses',
