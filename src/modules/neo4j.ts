@@ -1,4 +1,5 @@
 import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
+import Neo4jError from '../errors/neo4j.error';
 
 let _driver: Driver;
 
@@ -18,25 +19,39 @@ export async function createDriver(host: string, username: string, password: str
 export async function read(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<Result> {
     const session = _driver.session({ database })
 
-    const res = await session.readTransaction(tx => {
-        return tx.run(query, params)
-    })
+    try {
+        const res = await session.readTransaction(tx => {
+            return tx.run(query, params)
+        })
 
-    await session.close()
+        await session.close()
 
-    return res
+        return res
+    }
+    catch(e) {
+        await session.close()
+
+        throw new Neo4jError(e.message, query, params, database)
+    }
 }
 
 export async function write(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<Result> {
     const session = _driver.session({ database })
 
-    const res = await session.writeTransaction(tx => {
-        return tx.run(query, params)
-    })
+    try {
+        const res = await session.writeTransaction(tx => {
+            return tx.run(query, params)
+        })
 
-    await session.close()
+        await session.close()
 
-    return res
+        return res
+    }
+    catch(e) {
+        await session.close()
+
+        throw new Neo4jError(e.message, query, params, database)
+    }
 }
 
 export async function writeTransaction(work: (tx: Transaction) => void, database: string | undefined = NEO4J_DATABASE): Promise<void> {
