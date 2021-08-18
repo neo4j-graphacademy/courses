@@ -46,7 +46,6 @@ export function send(to: string, subject: string, html: string): void {
 
 export type AsciidocEmail = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder'
 
-
 interface PreparedEmail {
     subject: string;
     html: string;
@@ -71,4 +70,10 @@ export function prepareEmail(filename: AsciidocEmail, data: Record<string, Recor
         subject,
         html,
     }
+}
+
+export function prepareAndSend(filename: AsciidocEmail, email: string, data: Record<string, Record<string, any>>): void {
+    const { subject, html } = prepareEmail(filename, data)
+
+    send(email, subject, html)
 }
