@@ -79,3 +79,21 @@ export function getSvgs(): Record<string, string> {
 
     return svg
 }
+
+export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
+    const output = {}
+
+    for ( const key in elements ) {
+        if ( elements.hasOwnProperty(key) ) {
+            for ( const inner in elements[key] ) {
+                if ( elements[ key ].hasOwnProperty(inner) ) {
+                    // @ts-ignore
+                    output[ `${key}_${inner}` ] = elements[key][inner]?.toString()
+                }
+            }
+        }
+    }
+
+    return output
+
+}

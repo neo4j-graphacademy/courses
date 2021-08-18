@@ -1,9 +1,14 @@
-import pug from 'pug'
+// import pug from 'pug'
 import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken } from '../middleware/auth'
 import { getSandboxes } from '../modules/sandbox'
+// import { loadFile } from '../modules/asciidoc'
+// import { flattenAttributes } from '../utils'
+import { UserEnrolled } from '../domain/events/UserEnrolled'
+import { emitter } from '../events'
+import { AsciidocEmail, prepareEmail } from '../modules/mailer'
 
 const router = Router()
 
@@ -38,25 +43,26 @@ router.get('/sandboxes', async (req, res, next) => {
 })
 
 
-router.get('/email/enrolment', async (req, res) => {
+router.get('/email/:template', async (req, res) => {
     const result = await read(`
         MATCH (u:User) WHERE exists(u.name) WITH u ORDER BY rand() LIMIT 1
         MATCH (c:Course) WITH u, c ORDER BY rand() LIMIT 1
 
         RETURN u, c
     `)
-    const user = result!.records[0].get('u').properties
+    const user = {email: 'adam@neo4j.com', ... result!.records[0].get('u').properties}
     const course = result!.records[0].get('c').properties
     const sandbox = devSandbox()
 
-    const html = pug.renderFile('views/emails/enrolment.pug', {
-        user,
-        course,
-        sandbox,
-        baseUrl: process.env.BASE_URL
-    })
+    const event = new UserEnrolled(user, course, sandbox)
 
-    res.send(html)
+    const email = prepareEmail(req.params.template as AsciidocEmail, { ...event })
+
+    res.send(email.html)
+
+    // const event = new UserEnrolled(user, course)
+
+    emitter.emit(event)
 })
 
 router.get('/style', (req, res) => {
