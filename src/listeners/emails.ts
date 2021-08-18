@@ -3,8 +3,6 @@ import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
 
-
-
 export default async function initEmailListeners(): Promise<void> {
     if ( !isEnabled() ) {
         return

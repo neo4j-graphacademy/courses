@@ -22,7 +22,7 @@ if ( MAILGUN_API_KEY && MAILGUN_DOMAIN ) {
 
 
 export function isEnabled(): boolean {
-    return !!MAILGUN_API_KEY
+    return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }
 
 export function send(to: string, subject: string, html: string): void {
@@ -34,12 +34,9 @@ export function send(to: string, subject: string, html: string): void {
             subject,
             html,
         }, (err: MailgunError, body) => {
-            console.log(err, body);
-
             if (err) {
                 notify(new Error(err.message))
             }
-
         })
     }
 }
