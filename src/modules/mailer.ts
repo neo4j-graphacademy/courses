@@ -26,14 +26,6 @@ export function isEnabled(): boolean {
 }
 
 export function send(to: string, subject: string, html: string): void {
-    console.log({
-        from: MAIL_FROM,
-        "h:Reply-To": MAIL_REPLY_TO,
-        to,
-        subject,
-        // html,
-    });
-
     if (mailer) {
         mailer.messages().send({
             from: MAIL_FROM,
