@@ -270,20 +270,12 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         }
 
         // Check that the user has created a sandbox
-        let sandbox
-        try {
-            sandbox = await getSandboxForUseCase(token, course.usecase as string)
-        }
-        catch(e) {
-            // 400/401 on sandbox API - redirect to login
-            return res.redirect(`/login?returnTo=${req.originalUrl}`)
-        }
+        let sandbox = await getSandboxForUseCase(token, course.usecase as string)
 
         // If sandbox doesn't exist then recreate it
         if (!sandbox) {
             sandbox = await createSandbox(token, course.usecase!)
         }
-
 
 
         // Pre-fill credentials and redirect to browser
@@ -298,7 +290,8 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         })
     }
     catch (e) {
-        next(e)
+        // 400/401 on sandbox API - redirect to login
+        return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
 }
 /**

@@ -79,3 +79,17 @@ export function getSvgs(): Record<string, string> {
 
     return svg
 }
+
+export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
+    const output = {}
+
+    for (let key in elements) {
+        for (let inner in elements[key]) {
+            // @ts-ignore
+            output[ `${key}_${inner}` ] = elements[key][inner]?.toString()
+        }
+    }
+
+    return output
+
+}

@@ -2,13 +2,15 @@ import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
 import { UserAnsweredQuestion } from "../events/UserAnsweredQuestion";
 import { UserAttemptedLesson } from "../events/UserAttemptedLesson";
+import { UserCompletedCourse } from "../events/UserCompletedCourse";
 import { UserCompletedLesson } from "../events/UserCompletedLesson";
 import { UserCompletedModule } from "../events/UserCompletedModule";
 import { Answer } from "../model/answer";
+import { CourseWithProgress } from "../model/course";
 import { LessonWithProgress } from "../model/lesson";
 import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
-import { lessonCypher } from "./cypher";
+import { courseCypher, lessonCypher } from "./cypher";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
     const res = await write(`
@@ -76,7 +78,8 @@ export async function saveLessonProgress(user: User, course: string, module: str
             m {
                 .*,
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
-            } AS module
+            } AS module,
+            ${courseCypher('e', 'u')} AS course
     `, {
         sub: user.sub,
         course,
@@ -87,9 +90,10 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
     const output: LessonWithProgress = res.records[0].get('lesson')
     const mod: ModuleWithProgress = res.records[0].get('module')
+    const co: CourseWithProgress = res.records[0].get('course')
 
 
-    // Emit that hte user as attempted the lesson
+    // Emit that the user as attempted the lesson
     emitter.emit(new UserAttemptedLesson(user, output, output.completed, answers))
 
     // Emit individual Answers
@@ -97,14 +101,19 @@ export async function saveLessonProgress(user: User, course: string, module: str
         emitter.emit(new UserAnsweredQuestion(user, output, answer))
     })
 
-    // Emit that user has completed the lesson
+    // Emit if user has completed the lesson
     if ( output.completed ) {
         emitter.emit(new UserCompletedLesson(user, output))
     }
 
-    // Emit that user has completed the module
+    // Emit if user has completed the module
     if ( mod.completed ) {
         emitter.emit(new UserCompletedModule(user, mod))
+    }
+
+    // Emit if user has completed the course
+    if (co.completed) {
+        emitter.emit(new UserCompletedCourse(user, co))
     }
 
     return output
