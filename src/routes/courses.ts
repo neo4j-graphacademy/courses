@@ -18,6 +18,7 @@ import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
 import { getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
+import { notify } from '../middleware/bugsnag'
 
 const router = Router()
 
@@ -158,15 +159,14 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
         const user = await getUser(req)
         const token = await getToken(req)
 
-        const enrolment = await enrolInCourse(req.params.course, user!)
+        const enrolment = await enrolInCourse(req.params.course, user!, token)
 
         if (enrolment.course.usecase) {
             try {
                 await createSandbox(token, enrolment.course.usecase)
             }
             catch (e) {
-                // TODO: Log this error somewhere
-                // console.error('error creating sandbox', e);
+                notify(e)
             }
         }
 

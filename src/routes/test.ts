@@ -1,11 +1,14 @@
-import pug from 'pug'
+// import pug from 'pug'
 import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken } from '../middleware/auth'
 import { getSandboxes } from '../modules/sandbox'
-import { loadFile } from '../modules/asciidoc'
-import { flattenAttributes } from '../utils'
+// import { loadFile } from '../modules/asciidoc'
+// import { flattenAttributes } from '../utils'
+import { UserEnrolled } from '../domain/events/UserEnrolled'
+import { emitter } from '../events'
+import { AsciidocEmail, prepareEmail } from '../modules/mailer'
 
 const router = Router()
 
@@ -47,26 +50,19 @@ router.get('/email/:template', async (req, res) => {
 
         RETURN u, c
     `)
-    const user = result!.records[0].get('u').properties
+    const user = {email: 'adam@neo4j.com', ... result!.records[0].get('u').properties}
     const course = result!.records[0].get('c').properties
     const sandbox = devSandbox()
 
+    const event = new UserEnrolled(user, course, sandbox)
 
-    const attributes = flattenAttributes({
-        base: { url: process.env.BASE_URL },
-        user,
-        course,
-        sandbox,
-    })
+    const email = prepareEmail(req.params.template as AsciidocEmail, { ...event })
 
-    const adoc = loadFile(`emails/${req.params.template}.adoc`, { attributes })
+    res.send(email.html)
 
-    const html = pug.renderFile('views/emails/template.pug', {
-        title: adoc.getTitle(),
-        content: adoc.getContent()
-    })
+    // const event = new UserEnrolled(user, course)
 
-    res.send(html)
+    emitter.emit(event)
 })
 
 router.get('/style', (req, res) => {
