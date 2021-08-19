@@ -20,7 +20,6 @@ if ( MAILGUN_API_KEY && MAILGUN_DOMAIN ) {
     })
 }
 
-
 export function isEnabled(): boolean {
     return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }

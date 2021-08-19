@@ -3,6 +3,7 @@ import classroom from './classroom'
 import codeBlocks from './code-blocks'
 import copyButtons from './copy-button'
 import courseList from './course-list'
+import feedback from './feedback'
 import header from './header'
 import highlight from './highlight'
 import home from './home'
@@ -21,4 +22,5 @@ window.addEventListener('DOMContentLoaded', () => {
     account()
     classroom()
     tabs()
+    feedback()
 })

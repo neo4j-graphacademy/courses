@@ -19,6 +19,8 @@ import { removeBookmark } from '../domain/services/remove-bookmark'
 import { getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag'
+import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
+import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 
 const router = Router()
 
@@ -347,6 +349,7 @@ router.get('/:course/:module', async (req, res, next) => {
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}`,
             ...module,
+            type: 'module',
             path: req.originalUrl,
             enrolled: course.enrolled,
             course,
@@ -357,6 +360,31 @@ router.get('/:course/:module', async (req, res, next) => {
         })
     }
     catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * Store feedback for a module
+ */
+router.post('/:course/:module/feedback', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const { course, module } = req.params
+
+        const json = await saveModuleFeedback(user!, course, module, req.body)
+
+        if (json.status === 'ok') {
+            res.status(201)
+        }
+        else {
+            res.status(404)
+        }
+
+        res.json(json)
+
+    }
+    catch(e) {
         next(e)
     }
 })
@@ -482,6 +510,31 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
         res.json(output)
     }
     catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * Store feedback for a lesson
+ */
+router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const { course, module, lesson } = req.params
+
+        const json = await saveLessonFeedback(user!, course, module, lesson, req.body)
+
+        if (json.status === 'ok') {
+            res.status(201)
+        }
+        else {
+            res.status(404)
+        }
+
+        res.json(json)
+
+    }
+    catch(e) {
         next(e)
     }
 })
