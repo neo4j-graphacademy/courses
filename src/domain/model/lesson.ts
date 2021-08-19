@@ -9,6 +9,7 @@ export const ATTRIBUTE_CYPHER = 'cypher'
 export const ATTRIBUTE_VERIFY = 'verify'
 
 export const LESSON_TYPE_VIDEO = 'video'
+export const LESSON_TYPE_DEFAULT = 'lesson'
 export const LESSON_TYPE_TEXT = 'text' // TODO: Page?
 export const LESSON_TYPE_QUIZ = 'quiz'
 export const LESSON_TYPE_ACTIVITY = 'activity'

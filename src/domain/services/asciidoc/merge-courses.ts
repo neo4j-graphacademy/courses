@@ -4,7 +4,7 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_TEXT } from '../../model/lesson';
+import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
 import { ATTRIBUTE_ANSWER, Question } from '../../model/question';
 import { decode } from 'html-entities'
 import { write } from '../../../modules/neo4j';
@@ -107,7 +107,7 @@ const loadLesson = (folder: string): Lesson => {
         path: folder,
         slug,
         title: file.getTitle(),
-        type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_TEXT),
+        type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_DEFAULT),
         order: file.getAttribute(ATTRIBUTE_ORDER, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
