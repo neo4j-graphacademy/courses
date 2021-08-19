@@ -349,7 +349,7 @@ router.get('/:course/:module', async (req, res, next) => {
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}`,
             ...module,
-            type: 'module',
+            type: 'module overview',
             path: req.originalUrl,
             enrolled: course.enrolled,
             course,
@@ -567,8 +567,6 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         res.json(outcome)
     }
     catch (e) {
-        console.log('??', e);
-
         next(e)
     }
 })

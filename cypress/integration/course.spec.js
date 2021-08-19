@@ -33,14 +33,11 @@ describe('Test Course', () => {
 
         // The user should now be logged in
         cy.get('.navbar-account')
-            .contains('Hey')
+            .contains('My Account')
 
 
         // Open course page
-        cy.contains('.card a', Cypress.env('test_course_title'))
-            .click()
-
-        cy.get('.course-header h1').should('contain', Cypress.env('test_course_title'))
+        cy.visit('/courses/test/')
 
         //  Click Enrol
         cy.contains('.btn', 'Enrol').click()
@@ -58,14 +55,14 @@ describe('Test Course', () => {
         cy.get('.pagination-link--next a').click()
 
         // Should have a visible sandbox
-        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox').should('have.class', 'lesson-sandbox--visible')
 
         // Toggle Sandbox
-        cy.get('.lesson-sandbox-toggle').click()
-        cy.get('.lesson-sandbox').should('not.have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox-toggle').click()
+        cy.get('.sandbox-sandbox').should('not.have.class', 'lesson-sandbox--visible')
 
-        cy.get('.lesson-sandbox-toggle').click()
-        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox-toggle').click()
+        cy.get('.sandbox-sandbox').should('have.class', 'lesson-sandbox--visible')
 
         // Mark lesson as read
         cy.markAsRead()
@@ -80,14 +77,14 @@ describe('Test Course', () => {
          */
 
         // Toggle sandbox
-        cy.get('.lesson-sandbox-toggle').click()
-        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox-toggle').click()
+        cy.get('.sandbox-sandbox').should('have.class', 'lesson-sandbox--visible')
 
-        cy.get('.lesson-sandbox-toggle').click()
-        cy.get('.lesson-sandbox').should('not.have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox-toggle').click()
+        cy.get('.sandbox-sandbox').should('not.have.class', 'lesson-sandbox--visible')
 
         cy.markAsRead()
-        cy.get('.lesson-outcome--passed a.lesson-outcome-progress').click()
+        cy.get('.sandbox-outcome--passed a.sandbox-outcome-progress').click()
 
         /**
          * 1.3 How to Run Code in Sandbox
@@ -101,11 +98,11 @@ describe('Test Course', () => {
 
         // Play button
         cy.get('.btn-play').first().click()
-        cy.get('.lesson-sandbox').should('have.class', 'lesson-sandbox--visible')
+        cy.get('.sandbox-sandbox').should('have.class', 'lesson-sandbox--visible')
 
         // TODO: Check that query is properly copied
         // cy.wait(1000)
-        // cy.get('.lesson-sandbox iframe').then($iframe => {
+        // cy.get('.sandbox-sandbox iframe').then($iframe => {
         //     const editor = $iframe.contents().find('.monaco-editor')
         //     cy.wrap(editor).should('contain', 'MATCH (')
         // })
@@ -114,7 +111,7 @@ describe('Test Course', () => {
         // TODO: Check role=noheader
 
         cy.markAsRead()
-        cy.get('.lesson-outcome--passed a.lesson-outcome-progress').click()
+        cy.get('.sandbox-outcome--passed a.sandbox-outcome-progress').click()
 
         /**
          * 2. Question Types
@@ -165,8 +162,8 @@ describe('Test Course', () => {
 
         cy.get('.question').should('have.class', 'question--correct')
 
-        cy.get('.lesson-outcome--passed').should('exist')
-        cy.get('.lesson-outcome--passed a').should('exist').click()
+        cy.get('.sandbox-outcome--passed').should('exist')
+        cy.get('.sandbox-outcome--passed a').should('exist').click()
 
         /**
          * 2.2 Multiple Question
@@ -272,7 +269,7 @@ describe('Test Course', () => {
         cy.get('.verify input.btn').click()
         cy.wait('@verify')
 
-        cy.get('.lesson-outcome--passed').should('exist')
+        cy.get('.sandbox-outcome--passed').should('exist')
         cy.reload()
 
         /**

@@ -24,7 +24,7 @@ export async function saveModuleFeedback(user: User, course: string, module: str
 
     `, { user: user.sub, course, module, feedback })
 
-    if ( res.records.length == 0 ) {
+    if ( res.records.length === 0 ) {
         return {
             status: 'error',
             message: 'User or course not found',
