@@ -60,13 +60,13 @@ export async function saveLessonProgress(user: User, course: string, module: str
         )
 
         // Has the module been completed?
-        WITH c, m, l, e, size((m)-[:HAS_LESSON]->()) AS lessons, size((e)-[:COMPLETED_LESSON]->()<-[:HAS_LESSON]-(m)) as completed
+        WITH u, c, m, l, e, size((m)-[:HAS_LESSON]->()) AS lessons, size((e)-[:COMPLETED_LESSON]->()<-[:HAS_LESSON]-(m)) as completed
 
         FOREACH (_ IN CASE WHEN lessons = completed THEN [1] ELSE [] END |
             MERGE (e)-[:COMPLETED_MODULE]->(m)
         )
 
-        WITH c, m, l, e, size((c)-[:HAS_MODULE]->()) AS modules, size((e)-[:COMPLETED_MODULE]->()) as completed
+        WITH u, c, m, l, e, size((c)-[:HAS_MODULE]->()) AS modules, size((e)-[:COMPLETED_MODULE]->()) as completed
 
         FOREACH (_ IN CASE WHEN modules = completed THEN [1] ELSE [] END |
             SET e:CompletedEnrolment,

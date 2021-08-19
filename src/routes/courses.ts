@@ -567,6 +567,8 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         res.json(outcome)
     }
     catch (e) {
+        console.log('??', e);
+
         next(e)
     }
 })

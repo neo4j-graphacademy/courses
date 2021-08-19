@@ -518,14 +518,27 @@ const setupQuestions = async () => {
 const setupVerify = () => {
     const body = document.getElementsByTagName('body')[0]
 
-    // Don't run if lesson is already completed
-    if (body && body.classList.contains(LESSON_COMPLETED)) {
-        return;
-    }
-
     Array.from(document.querySelectorAll('.verify'))
         .map((element: Element) => {
-            const button = element.querySelector('input[type="button"]')
+            const button: HTMLButtonElement = element.querySelector('input[type="button"]') as HTMLButtonElement
+
+                // Don't run if lesson is already completed
+                if (body && body.classList.contains(LESSON_COMPLETED)) {
+                    console.log('completed', button);
+
+                    button.disabled = true
+                    // (button as HTMLButtonElement).value = 'Lesson Completed'
+
+                    const span = document.createElement('span')
+                    span.classList.add('verified-notification')
+                    span.classList.add('body-small')
+                    span.classList.add('muted')
+                    span.appendChild(document.createTextNode('Database already verified'))
+
+                    button.parentElement?.appendChild(span)
+
+                    return
+                }
 
             addHintListeners(element)
 
