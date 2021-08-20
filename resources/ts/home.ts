@@ -54,4 +54,31 @@ export default function home() {
             document.getElementById(e.target.getAttribute('href').replace('#', '')).classList.add(PATH_ACTIVE)
         })
     })
+
+    // Horizontal Controlls
+    document.querySelectorAll('.horizontal-controls')
+        .forEach(element => {
+            const target: HTMLDivElement = element.parentElement!.querySelector('.course-list') as HTMLDivElement
+            const firstCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
+
+
+            element.querySelector('.horizontal-control--right')!.addEventListener('click', e => {
+                e.preventDefault()
+
+                const firstCard: HTMLLIElement = target.querySelector('.course-list-item:first-child') as HTMLLIElement
+
+                target.removeChild(firstCard)
+                target.appendChild(firstCard)
+            })
+
+            element.querySelector('.horizontal-control--left')!.addEventListener('click', e => {
+                e.preventDefault()
+
+                const lastCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
+
+                target.removeChild(lastCard)
+                target.prepend(lastCard)
+            })
+
+        })
 }

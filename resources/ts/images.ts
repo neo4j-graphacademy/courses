@@ -3,7 +3,6 @@
 export default function images() {
     const MODAL_VISIBLE = 'modal--visible'
 
-
     document.querySelectorAll('.modal').forEach(modal => {
         modal.querySelectorAll('.modal-close')
             .forEach(element => {
@@ -13,7 +12,6 @@ export default function images() {
                 })
             })
     })
-
 
     document.querySelectorAll('.imageblock img')
         .forEach(image => {
@@ -51,6 +49,5 @@ export default function images() {
                     modalElement.classList.add(MODAL_VISIBLE)
                 }
             })
-
         })
 }
