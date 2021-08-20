@@ -7,6 +7,7 @@ import feedback from './feedback'
 import header from './header'
 import highlight from './highlight'
 import home from './home'
+import images from './images'
 import questions from './questions'
 import tabs from './tabs'
 
@@ -23,4 +24,5 @@ window.addEventListener('DOMContentLoaded', () => {
     classroom()
     tabs()
     feedback()
+    images()
 })
