@@ -3,6 +3,7 @@ import classroom from './classroom'
 import codeBlocks from './code-blocks'
 import copyButtons from './copy-button'
 import courseList from './course-list'
+import courseOverview from './course-overview'
 import feedback from './feedback'
 import header from './header'
 import highlight from './highlight'
@@ -25,4 +26,5 @@ window.addEventListener('DOMContentLoaded', () => {
     tabs()
     feedback()
     images()
+    courseOverview()
 })
