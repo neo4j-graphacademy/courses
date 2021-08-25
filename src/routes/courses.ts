@@ -21,6 +21,7 @@ import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
+import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 
 const router = Router()
 
@@ -173,6 +174,29 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
         }
 
         const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
+
+        res.redirect(goTo)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/unenroll
+ *
+ * Delete the user's enrolment and all answers/attempts
+ */
+router.get('/:course/unenrol', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const token = await getToken(req)
+
+        await unenrolFromCourse(req.params.course, user!, token)
+
+        req.flash('success', 'You have been successfully unenrolled from this course')
+
+        const goTo = `/courses/${req.params.course}/`
 
         res.redirect(goTo)
     }
