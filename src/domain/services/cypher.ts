@@ -1,9 +1,14 @@
 import { NEGATIVE_STATUSES } from "../model/course"
 
-export function appendParams(params: Record<string, any>): Record<string, any> {
+interface ExtendedParams {
+    exclude: typeof NEGATIVE_STATUSES;
+    [key: string]: any;
+}
+
+export function appendParams(params: Record<string, any>): ExtendedParams {
     params.exclude = NEGATIVE_STATUSES
 
-    return params
+    return params as ExtendedParams
 }
 
 export function courseCypher(enrolment?: string, user?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
