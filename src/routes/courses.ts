@@ -47,9 +47,9 @@ router.get('/', requiresAuth(), async (req, res, next) => {
 router.get('/:course', async (req, res, next) => {
     try {
         const user = await getUser(req)
+        const token = await getToken(req)
 
-        // TODO: Get next link for "Continue Lesson" button
-        const course = await getCourseWithProgress(req.params.course, user)
+        const course = await getCourseWithProgress(req.params.course, user, token)
 
         if (course.redirect) {
             return res.redirect(course.redirect)

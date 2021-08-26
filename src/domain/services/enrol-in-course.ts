@@ -5,7 +5,7 @@ import { createSandbox } from "../../modules/sandbox";
 import { UserEnrolled } from "../events/UserEnrolled";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
-import { courseCypher } from "./cypher";
+import { appendParams, courseCypher } from "./cypher";
 
 export async function enrolInCourse(slug: string, user: User, token: string): Promise<Enrolment> {
     const res = await write(`
@@ -29,13 +29,13 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
             course: ${courseCypher('e', 'u')},
             createdAt: e.createdAt
         } AS enrolment
-    `, {
+    `, appendParams({
         slug,
         user: user.sub,
         name: user.nickname || user.name,
         email: user.email,
         givenName: user.name,
-    })
+    }))
 
     if ( res.records.length === 0 ) {
         throw new NotFoundError(`Course ${slug} could not be found`)

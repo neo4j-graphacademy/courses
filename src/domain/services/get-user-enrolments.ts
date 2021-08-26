@@ -3,7 +3,7 @@ import { formatCourse, formatUser } from "../../utils";
 import { STATUS_DISABLED } from "../model/course";
 import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from "../model/enrolment";
 import { User } from "../model/user";
-import { courseCypher } from "./cypher";
+import { appendParams, courseCypher } from "./cypher";
 
 type ValidLookupProperty = 'sub' | 'id'
 
@@ -32,7 +32,7 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
 
         RETURN u { .id, .name, .nickname, .givenName } AS user,
             apoc.map.fromPairs(pairs) AS enrolments
-    `, { sub })
+    `, appendParams({ sub }))
 
     if ( res.records.length === 0 ) {
         return {
