@@ -1,3 +1,4 @@
+import { Category } from "./category";
 import { CourseWithProgress } from "./course";
 import { Module } from "./module";
 import { User } from "./user";
@@ -22,4 +23,12 @@ export type EnrolmentsByStatus = {
     enrolments: {
         [key in EnrolmentStatus]?: CourseWithProgress[]
     }
+}
+
+
+export type CategoryEnrolments = {
+    category: Category;
+    completedCount: number;
+    completedPercentage: number;
+    courses: CourseWithProgress[];
 }

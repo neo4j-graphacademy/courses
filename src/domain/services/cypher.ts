@@ -1,3 +1,16 @@
+import { NEGATIVE_STATUSES } from "../model/course"
+
+interface ExtendedParams {
+    exclude: typeof NEGATIVE_STATUSES;
+    [key: string]: any;
+}
+
+export function appendParams(params: Record<string, any>): ExtendedParams {
+    params.exclude = NEGATIVE_STATUSES
+
+    return params as ExtendedParams
+}
+
 export function courseCypher(enrolment?: string, user?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
     return `
         ${course} {
@@ -30,10 +43,10 @@ export function moduleCypher(enrolment?: string, course: string = 'c', module: s
                 ${module} {
                     .*,
                     .link,
-                    next: [ (${module})-[:NEXT]->(next) |
+                    next: [ (${module})-[:NEXT]->(next) WHERE NOT next.status IN $exclude |
                         next { .slug, .title, .link }
                     ][0],
-                    previous: [ (${module})<-[:NEXT]-(prev) |
+                    previous: [ (${module})<-[:NEXT]-(prev) WHERE NOT prev.status IN $exclude |
                         prev { .slug, .title, .link }
                     ][0],
                     ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}

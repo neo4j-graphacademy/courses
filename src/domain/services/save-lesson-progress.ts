@@ -10,7 +10,7 @@ import { CourseWithProgress } from "../model/course";
 import { LessonWithProgress } from "../model/lesson";
 import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
-import { courseCypher, lessonCypher } from "./cypher";
+import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
     const res = await write(`
@@ -80,13 +80,13 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
             } AS module,
             ${courseCypher('e', 'u')} AS course
-    `, {
+    `, appendParams({
         sub: user.sub,
         course,
         module,
         lesson,
         answers,
-    })
+    }))
 
     const output: LessonWithProgress = res.records[0].get('lesson')
     const mod: ModuleWithProgress = res.records[0].get('module')

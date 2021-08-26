@@ -33,6 +33,12 @@ export async function getUser(req: any): Promise<User | undefined> {
     })
 }
 
+export async function getUserById(id: string): Promise<User | undefined> {
+    const res = await read(`MATCH (u:User {id: $id}) RETURN u`, { id })
+
+    return res.records[0]?.get('u').properties
+}
+
 export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));

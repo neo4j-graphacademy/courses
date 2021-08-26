@@ -1,3 +1,4 @@
+import { Sandbox } from "../../modules/sandbox";
 import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
 import { Pagination } from "./pagination";
@@ -9,6 +10,11 @@ export const STATUS_TEST = 'test'
 export const STATUS_DISABLED = 'disabled'
 
 type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_DISABLED
+
+export const NEGATIVE_STATUSES = [
+    STATUS_TEST,
+    STATUS_DISABLED
+]
 
 // Attributes
 export const ATTRIBUTE_STATUS = 'status'
@@ -49,6 +55,7 @@ export interface CourseWithProgress extends Course {
     completedPercentage: number | string;
     modules: ModuleWithProgress[];
     next?: Pagination;
+    sandbox?: Sandbox;
 }
 
 

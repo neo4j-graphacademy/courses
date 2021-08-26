@@ -7,4 +7,16 @@ export default function courseOverview() {
                 }
             })
         });
+
+        document.querySelectorAll('.course-details')
+            .forEach(element => {
+                // TODO: Hacky
+                setTimeout(() => {
+                    const overview = document.querySelector('.course-overview')
+
+                    if (overview) {
+                        (element as HTMLDivElement).style.minHeight = `${overview.clientHeight}px`
+                    }
+                }, 100)
+            })
 }
