@@ -1,4 +1,5 @@
 import path from 'path'
+import { existsSync } from 'fs'
 import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
@@ -145,7 +146,14 @@ router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) =>
  */
 router.get('/:course/badge', (req, res, next) => {
     try {
-        res.sendFile(path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg'))
+        let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg')
+
+        if ( !existsSync(filePath) ) {
+            filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
+        }
+
+
+        res.sendFile(filePath)
     }
     catch (e) {
         next(e)
