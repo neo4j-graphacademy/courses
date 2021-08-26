@@ -28,7 +28,7 @@ router.get('/:id', async (req, res, next) => {
         }
 
         if ( categories.length === 0 ) {
-            const content = own ? `<p>This page acts as a public record of your achivements on GraphAcademy.</p><p>Every course that you complete will appear here so friends and colleagues can track your progress.</p>`
+            const content = own ? `<p>This page acts as a public record of your achievements on GraphAcademy.</p><p>Every course that you complete will appear here so friends and colleagues can track your progress.</p>`
                 : `This user hasn't completed any courses yet.  Please check back later.`;
 
             return res.render('simple', {
@@ -87,7 +87,7 @@ router.get('/:id/:course', async (req, res, next) => {
             own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`
         ].join(' | ')
 
-        res.render('profile/achievement-view', {
+        res.render('profile/certificate', {
             title,
             course,
             name: getUserName(user as User),
