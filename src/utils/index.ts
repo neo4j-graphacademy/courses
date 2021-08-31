@@ -97,3 +97,8 @@ export function flattenAttributes(elements: Record<string, Record<string, any>>)
     return output
 
 }
+
+export function dd(el: any): void {
+    // tslint:disable-next-line
+    console.log( JSON.stringify(el, null, 2) );
+}
