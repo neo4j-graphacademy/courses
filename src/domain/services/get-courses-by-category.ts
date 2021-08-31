@@ -25,7 +25,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
             categories: [(c)-[r:IN_CATEGORY]->(ct) | ct {
                 .*,
-                link: '/categories/'+ c.slug +'/',
+                link: '/categories/'+ ct.slug +'/',
                 order: r.order
             }],
             modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
@@ -44,7 +44,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
     const courses = res.records[0].get('courses').map((course: Course) => formatCourse(course))
     const categories = res.records[0].get('categories')
         .map((row: DbCategory) => {
-            const categoryCourses = courses.map((course: Course) => {
+            const categoryCourses: Course[] = courses.map((course: Course) => {
                 const categoryWithOrder = course.categories.find((value: any) => value.id === row.id) as DbCategory
 
                 if ( !categoryWithOrder ) return;

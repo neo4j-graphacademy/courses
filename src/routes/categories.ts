@@ -5,8 +5,10 @@ import { Course } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth'
+import { flattenCategories } from '../utils'
 
 const router = Router()
+
 
 /**
  * @GET /
@@ -18,16 +20,15 @@ router.get('/', async (req, res, next) => {
         const user = await getUser(req)
         const categories = await getCoursesByCategory(user)
 
-        const courses: Course[] = categories.reduce(
-            (acc, category: Category) => acc.concat(
-                // @ts-ignore
-                (category.children || []).reduce((innerAcc, child) => innerAcc.concat(child?.courses || [])
-                    , [])),
-            [])
-            .reduce((acc: Course[], course: Course) => {
-                if ( !acc.map(item => item.slug).includes(course.slug) ) return acc.concat(course)
-                return acc
-            }, [])
+        // Flatten Category list
+        const flattened: Category[] = flattenCategories(categories)
+
+        // Unique Courses only
+        const courses: Course[] = flattened.reduce((acc: Course[], category: Category) => {
+            const these = (category.courses || []).filter(item => !acc.map(row => row.slug).includes(item.slug))
+
+            return acc.concat(these)
+        }, [])
 
         res.render('course/list', {
             title: 'All Courses',
@@ -52,16 +53,10 @@ router.get('/:slug', async (req, res, next) => {
         const user = await getUser(req)
         const categories = await getCoursesByCategory(user)
 
-        const flattened = categories.reduce((acc: Category[], item: Category) => {
-            let output = [item]
+        // Flatten Category list
+        const flattened: Category[] = flattenCategories(categories)
 
-            if (item.children) {
-                output = output.concat(...item.children)
-            }
-
-            return acc.concat(output)
-        }, [])
-
+        // Find Category by slug
         const category = flattened.find(item => item.slug === slug)
 
         if (!category) {

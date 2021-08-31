@@ -9,10 +9,18 @@ import { getUserName } from '../utils'
 const router = Router()
 
 
+/**
+ * Redirect to home if no user ID is supplied
+ */
 router.get('/', (req, res) => {
     res.redirect('/')
 })
 
+/**
+ * @GET /u/:id
+ *
+ * Show public profile for a user
+ */
 router.get('/:id', async (req, res, next) => {
     try {
         const current = await getUser(req)
@@ -55,14 +63,17 @@ router.get('/:id', async (req, res, next) => {
             own,
             categories,
         })
-
-        res.json({title })
     }
     catch (e) {
         next(e)
     }
 })
 
+/**
+ * @GET /u/:id/:course
+ *
+ * Show a certificate for a user/course
+ */
 router.get('/:id/:course', async (req, res, next) => {
     try {
         const current = await getUser(req)
