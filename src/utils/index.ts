@@ -4,6 +4,7 @@ import { ASCIIDOC_DIRECTORY, BASE_URL } from '../constants';
 import { Course, CourseWithProgress } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson } from '../domain/model/lesson';
+import { Category } from '../domain/model/category';
 
 export function sortCourse(course: Course): Course {
     course.modules?.map(module => {
@@ -96,6 +97,14 @@ export function flattenAttributes(elements: Record<string, Record<string, any>>)
 
     return output
 
+}
+
+export function flattenCategories(categories: Category[]): Category[] {
+    return categories.reduce((acc: Category[], item: Category): Category[] => {
+        const output: Category[] = [item].concat(...flattenCategories(item.children || []) || [])
+
+        return acc.concat(...output)
+    }, [])
 }
 
 export function dd(el: any): void {

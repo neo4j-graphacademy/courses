@@ -5,16 +5,10 @@ import { Course } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth'
+import { flattenCategories } from '../utils'
 
 const router = Router()
 
-const flattenCategories = (categories: Category[]): Category[] => {
-    return categories.reduce((acc: Category[], item: Category): Category[] => {
-        const output: Category[] = [item].concat(...flattenCategories(item.children || []) || [])
-
-        return acc.concat(...output)
-    }, [])
-}
 
 /**
  * @GET /
