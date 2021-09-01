@@ -1,4 +1,4 @@
-= Identifying Relationships
+= Modeling Relationships
 :type: quiz
 :order: 1
 
@@ -19,9 +19,9 @@ Using “connections are verbs” is a fine shorthand to get started, but there 
 
 === Naming relationships
 
-Choosing good names (types) for the relationships in the graph is vital.
+Choosing good names (types) for the relationships in the graph is important.
 Relationship types need to be something that is intuitive to stakeholders and developers alike.
-Relationship types cannot be confused as an entity name.
+Relationship types cannot be confused with an entity name.
 
 So in our example questions, we could define these relationship types:
 
@@ -43,16 +43,18 @@ image::images/married.png[Married relationship,width=400,align=center]
 
 === Fanout
 
-image::images/famout.png[Fanout,width=400,align=left]
+image::images/fanout.png[Fanout,width=400,align=left]
 
-Here, we have entities (Person, Address) represented not as a single node, but as a network or linked nodes.
+Here, we have entities (Person, Residence) represented not as a single node, but as a network or linked nodes.
 
 This is an extreme example of fanout, and is almost certainly overkill for any real-life solution, but some amount of fanout can be very useful.
 
-For example, splitting last names onto separate nodes helps answer the question, “Who has the last name Scott?” Similarly, having cities as separate nodes assists with the question, “Who lives in the same city as Patrick Scott?”
+For example, splitting last names onto separate nodes helps answer the question, “Who has the last name Scott?”.
+Similarly, having cities as separate nodes assists with the question, “Who lives in the same city as Patrick Scott?”.
 
 The main risk about fanout is that it can lead to very dense nodes, or supernodes. Supernodes need to be handled carefully.
-== Relationships in the Movie graph
+
+=== Relationships in the Movie graph
 
 Now let's look at identifying the relationships for these domain questions:
 
@@ -65,18 +67,95 @@ Given these questions, we name the relationships:
 * ACTED_IN
 * DIRECTED
 
-Furthermore, both of these relationship type start at Person nodes and end in Movie nodes.
+Furthermore, both of these relationship type start at _Person_ nodes and end in _Movie_ nodes.
 
 Here is the supporting graph data model:
 
-image::images/before-challenge.png[Starting movie relationships,width=400,align=center]
+image::images/adding-first-relationships.png[Starting movie relationships,width=400,align=center]
 
-An here is the instance model to support this graph data model:
+And here is the instance model to support this graph data model:
 
-image::images/before-challenge-instance-model.png[Starting movie relationships instances,width=400,align=center]
+image::images/adding-first-relationships-instance.png[Starting movie relationships instances,width=400,align=center]
 
 Tom Hanks acted in two movies. Meg Ryan and Jack Nicholson each acted in one movie. Danny DeVito both acted in and directed the same movie.
 Exploring relationships with this instance model we see that the movie Apollo 13 has a single actor in the graph, but the other two movies have two actors each.
+
+=== Properties for relationships
+
+Properties for a relationship are used to enrich how two nodes are related.
+When you define a property for a relationship, it is because your use cases ask a specific question about how two nodes are related, not just that they are related.
+
+For example, we saw in the _Neo4j Fundamentals_ course that the property can be added to a relationship to further describe it.
+
+image::images/relationship-properties.jpg[Loves strength,width=400,align=center]
+
+Here we see that we have a _date_ property on the _MARRIED_ relationship to further describe the relationship between Michael and Sarah.
+Additionally, we have a _roles_ property on the _WORKS_AT_ relationship to describe the roles that Michael has or had when he worked at Graph Inc.
+
+These properties are specific to the relationship between two nodes.
+
+=== Relationship properties in the Movie graph
+
+Just like you analyze the questions for your domain for naming labels, relationship types, and node properties, you use the questions to come up with properties for relationships.
+
+Here is a question of our domain:
+
+What role did a person play in a movie?
+
+The details for this question are:
+
+. Retrieve the name of the person.
+. Follow the ACTED_IN relationships to movies.
+. Filter the movie by its title.
+. Return the *role* from the ACTED_IN relationship between the two nodes.
+
+We know that the _role_ for a particular _ACTED_IN_ relationship will answer this question.
+So we add the _role_ property to this relationship.
+Here is the data model:
+
+image::images/before-challenge1-data-model.png[Data model,width=400,align=center]
+
+And here is the instance model;
+
+image::images/before-challenge1-instance-model.png[Instance model,width=400,align=center]
+
+Each _ACTED_IN_ relationship here has a different value for the _role_ property.
+
+Run this Cypher code to add the _ACTED_IN_ and _DIRECTED_ relationships to the graph:
+
+[TIP]
+Click the *Run in Sandbox* button to the top right of the code sample to open the Sandbox to the right create the nodes and relationships.
+
+[source,cypher]
+----
+MATCH (n)
+DETACH DELETE n;
+MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6, genres: ['Drama', 'Adventure', 'IMAX']})
+MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
+MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
+MERGE (danny:Person {name: 'Danny DeVito', tmdbId: 518, born: '1944-11-17'})
+MERGE (sleep:Movie {title: 'Sleepless in Seattle', tmdbId: 858, released: '1993-06-25', imdbRating: 6.8, genres: ['Comedy', 'Drama', 'Romance']})
+MERGE (hoffa:Movie {title: 'Hoffa', tmdbId: 10410, released: '1992-12-25', imdbRating: 6.6, genres: ['Crime', 'Drama']})
+MERGE (jack:Person {name: 'Jack Nicholson', tmdbId: 514, born: '1937-04-22'})
+MERGE (:User {name: 'Sandy Jones', userId: 534})
+MERGE (:User {name: 'Clinton Spencer', userId: 105})
+MERGE (tom)-[:ACTED_IN {role: 'Jim Lovell'}]->(apollo)
+MERGE (tom)-[:ACTED_IN {role: 'Sam Baldwin'}]->(sleep)
+MERGE (meg)-[:ACTED_IN {role: 'Annie Reed'}]->(sleep)
+MERGE (danny)-[:ACTED_IN {role: 'Bobby Ciaro'}]->(hoffa)
+MERGE (danny)-[:DIRECTED]->(hoffa)
+MERGE (jack)-[:ACTED_IN {role: 'Jimmy Hoffa'}]->(hoffa)
+----
+
+
+You can verify that the relationships have been created with this code:
+
+[source,cypher]
+----
+MATCH (n) RETURN n
+----
+
+There should be a total of 6 relationships in the graph.
 
 == Check your understanding
 
@@ -89,5 +168,5 @@ include::questions/2-relationships.adoc[]
 [.summary]
 == Summary
 
-In this lesson, you learned how to identify the relationships that will be added to your graph data model based upon the questions for your use cases.
-In the next challenge, you will further develop the model by adding another relationship to the model.
+In this lesson, you learned how to identify the relationships (and their properties) that will be added to your graph data model based upon the questions for your use cases.
+In the next challenge, you will further develop the model by adding another relationship type to the model.
