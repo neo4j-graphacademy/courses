@@ -1,13 +1,41 @@
 import { createElement } from "./modules/dom"
 
 function toggleSandbox() {
-    const VISIBLE = 'classroom-sandbox--visible'
-    Array.from(document.querySelectorAll('.classroom-sandbox-toggle'))
+    const SELECTOR = 'classroom-sandbox'
+    const TOGGLE = `${SELECTOR}-toggle`
+    const VISIBLE = `${SELECTOR}--visible`
+
+    Array.from(document.querySelectorAll(`.${TOGGLE}`))
         .forEach(button => {
             button.addEventListener('click', e => {
                 e.preventDefault()
-                const parent = button.parentElement!
+                const parent = document.querySelector(`.${SELECTOR}`)!
                 parent.classList.toggle(VISIBLE)
+            })
+        })
+}
+
+function toggleSupport() {
+    const SELECTOR = 'classroom-support'
+    const TOGGLE = `${SELECTOR}-toggle`
+    const VISIBLE = `${SELECTOR}--visible`
+
+    Array.from(document.querySelectorAll(`.${TOGGLE}`))
+        .forEach(button => {
+            button.addEventListener('click', e => {
+                e.preventDefault()
+                const parent = document.querySelector(`.${SELECTOR}`)!
+                parent.classList.toggle(VISIBLE)
+            })
+        })
+
+    document.querySelectorAll('.classroom-panel-close')
+        .forEach(element => {
+            element.addEventListener('click', e => {
+                e.preventDefault()
+
+                element.parentElement.parentElement.classList.remove(VISIBLE)
+
             })
         })
 }
@@ -106,6 +134,7 @@ export default function classroom() {
         return;
     }
 
+    toggleSupport()
     toggleSandbox()
     toggleToc()
     videoTabs()
