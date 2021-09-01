@@ -11,10 +11,8 @@ import { getSvgs } from '../utils'
 
 
 export function registerLocals(app: Express) {
-    // Load CSVs from resources/svg
-
-
     app.use((req, res, next) => {
+        // Load constants into locals
         res.locals.statuses = {
             STATUS_DRAFT,
         }
@@ -27,6 +25,8 @@ export function registerLocals(app: Express) {
         }
 
         res.locals.baseUrl = process.env.BASE_URL
+
+        // Load CSVs from resources/svg
         res.locals.svg = getSvgs()
 
         next()

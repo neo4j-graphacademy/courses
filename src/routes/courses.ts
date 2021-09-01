@@ -23,6 +23,7 @@ import { notify } from '../middleware/bugsnag'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
+import { classroomLocals } from '../middleware/classroom-locals'
 
 const router = Router()
 
@@ -191,7 +192,7 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
 })
 
 /**
- * @GET /:course/unenroll
+ * @GET /:course/unenrol
  *
  * Delete the user's enrolment and all answers/attempts
  */
@@ -352,7 +353,7 @@ router.get('/:course/:module/browser', requiresAuth(), browser)
  * If none of the routes matched above, this URL must be a module page.
  * Render courseindex.adoc in the course root
  */
-router.get('/:course/:module', async (req, res, next) => {
+router.get('/:course/:module', classroomLocals, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
@@ -455,7 +456,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)

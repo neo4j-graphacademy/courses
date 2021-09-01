@@ -69,7 +69,9 @@ export function prepareEmail(filename: AsciidocEmail, data: Record<string, Recor
 }
 
 export function prepareAndSend(filename: AsciidocEmail, email: string, data: Record<string, Record<string, any>>): void {
-    const { subject, html } = prepareEmail(filename, data)
+    if ( MAILGUN_DOMAIN && MAILGUN_API_KEY ) {
+        const { subject, html } = prepareEmail(filename, data)
 
-    send(email, subject, html)
+        send(email, subject, html)
+    }
 }
