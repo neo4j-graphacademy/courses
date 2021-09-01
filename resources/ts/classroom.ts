@@ -34,8 +34,7 @@ function toggleSupport() {
             element.addEventListener('click', e => {
                 e.preventDefault()
 
-                element.parentElement.parentElement.classList.remove(VISIBLE)
-
+                element.parentElement?.parentElement?.classList.remove(VISIBLE)
             })
         })
 }
