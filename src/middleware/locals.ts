@@ -7,6 +7,7 @@ import {
     LESSON_TYPE_ACTIVITY,
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
+const { GOOGLE_ANALYTICS_MEASUREMENT_ID } = process.env
 import { getSvgs } from '../utils'
 
 
@@ -22,6 +23,11 @@ export function registerLocals(app: Express) {
             LESSON_TYPE_QUIZ,
             LESSON_TYPE_ACTIVITY,
             LESSON_TYPE_CHALLENGE,
+        }
+
+        // GA
+        res.locals.ga = {
+            id: GOOGLE_ANALYTICS_MEASUREMENT_ID,
         }
 
         res.locals.baseUrl = process.env.BASE_URL
