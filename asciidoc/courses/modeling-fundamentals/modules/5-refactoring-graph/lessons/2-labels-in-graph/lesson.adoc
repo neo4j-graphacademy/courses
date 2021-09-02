@@ -1,0 +1,169 @@
+= Labels
+:type: quiz
+:order: 2
+:usecase: blank-sandbox
+:sandbox: true
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== Labels at runtime
+
+In Neo4j, node labels serve as an index to nodes.
+Using a node label helps to reduce the number of nodes that are retrieved.
+
+For example:
+
+`MATCH (n) RETURN n` returns all nodes in the graph.
+
+`MATCH (n:Person) RETURN n` returns all _Person_ nodes in the graph.
+
+Your goal in your modeling should be to reduce the number of nodes that need to be retrieved.
+
+If _Person_ nodes also had a label which is the country that a person is from, then you could used this Cypher code to retrieve all people from the US:
+
+`MATCH (n:US) RETURN n` returns all _Person:US_ nodes in the graph.
+
+But having a label that is specific like this might be overkill, especially if the query could be:
+
+`MATCH (n:Person) WHERE n.country = 'US' RETURN n`
+
+In Cypher you can parameterize literals in queries so the second query would be more flexible as:
+
+`MATCH (n:Person) WHERE n.country = $country RETURN n`
+
+You cannot parameterize labels so keeping the country as a property makes the Cypher code more flexible.
+
+But if you have a strong use case for having multiple labels for a node, you should do so.
+
+== Do not overuse labels
+
+You should use labels wisely in your data model.
+They should be used if it will help with *most* of your use cases.
+A best practice is to limit the number of labels for a node to 4.
+
+Here is an example of overuse of labels:
+
+image::images/label-overuse.png[Label overuse,width=400,align=center]
+
+Here we see _Person_ nodes that have a label representing the country that a Person is from like we described earlier.
+
+In addition, we see multiple labels for _Movie_ nodes.
+The label represents the languages available for a movie.
+
+This is another similar scenario where you must decide if an important question of your domain is related to the language of a movie.
+Again if the use of a property for a node will suffice, then it is best to not have the label.
+
+== Adding a label
+
+Here is an example where adding a label will help our queries at runtime.
+
+What if we added this domain question:
+
+*What actors were born before 1950?*
+
+The Cypher query for this question is:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]-()
+WHERE p.born < '1950'
+RETURN p.name
+----
+
+Here is what this Cypher query does:
+
+. A node by label scan to retrieve all _Person_ nodes.
+. Tests the born property for the nodes retrieved to filter them.
+. Determines which of these filtered nodes have the outgoing _ACTED_IN_ relationship.
+
+You can imagine that if this were a fully-loaded graph with millions of nodes, in step 1, it would need to retrieve a lot of _Person_ nodes, some of which are not actors.
+
+One way that you can optimize this retrieval is to change the data model to include an Actor label for a Person node.
+
+Then the initial node by label scan would only retrieve the Actor nodes.
+
+Here is the refactored instance model:
+
+image::images/added-actor-label-instance.png[Added Actor label,width=400,align=center]
+
+=== Refactor the graph
+
+Because the test data in our graph does not contain a _Person_ node that is only a director, let's add one:
+
+Execute this Cypher code:
+
+[source,cypher]
+----
+MATCH (junkMovie:Movie {title: 'Junk'})
+MERGE (junkDirector:Person {name: 'Junk Director', tmdbId: 99999})
+MERGE (junkDirector)-[:DIRECTED]->(junkMovie)
+----
+
+With Cypher, you can easily transform the graph.
+
+Execute this Cypher code to add the _Actor_ label to the appropriate nodes:
+
+[source,cypher]
+----
+MATCH (p:Person)
+WHERE exists ((p)-[:ACTED_IN]-())
+SET p:Actor
+----
+
+There are 5 _Person_ nodes in the graph. It should set 4 of them with the _Actor_ label.
+
+After you refactor the graph, it is *important* that you *retest* all of the domain questions.
+
+And you need to test the new question:
+
+*What actors were born before 1950?*
+
+The Cypher query for this question now is:
+
+[source,cypher]
+----
+MATCH (p:Actor)
+WHERE p.born < '1950'
+RETURN p.name
+----
+
+It should return the same results as before.
+
+=== Avoid semantically orthogonal labels
+
+You should be careful not to use the same type of label in different contexts.
+For example, using the region for all types of nodes is not useful for most queries.
+
+Here is an example:
+
+image::images/orthogonal-labels.png[Orthogonal labels,width=400,align=center]
+
+=== Avoid class hierarchies
+
+You also want to avoid labeling your nodes to represent hierarchies.
+
+You should not do this:
+
+image::images/actor-hierarchy.png[Hierarchy of labels,width=400,align=center]
+
+Instead, you should do this:
+
+image::images/membership-instead-of-hierarchy.png[Membership instead,width=400,align=center]
+
+
+== Check your understanding
+
+
+include::questions/1-why-add-labels.adoc[]
+
+include::questions/2-num-labels.adoc[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned some best practices for using labels and how to refactor a graph to add labels.
+In the next challenge, you refactor the graph to add another label.

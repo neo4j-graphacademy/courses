@@ -1,7 +1,5 @@
 MATCH (n)
 DETACH DELETE n;
-MATCH (n)
-DETACH DELETE n;
 MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6, genres: ['Drama', 'Adventure', 'IMAX']})
 MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
 MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
@@ -17,10 +15,15 @@ MERGE (meg)-[:ACTED_IN {role: 'Annie Reed'}]->(sleep)
 MERGE (danny)-[:ACTED_IN {role: 'Bobby Ciaro'}]->(hoffa)
 MERGE (danny)-[:DIRECTED]->(hoffa)
 MERGE (jack)-[:ACTED_IN {role: 'Jimmy Hoffa'}]->(hoffa)
-MERGE (sandy)-[:RATED {rating: 5}]->(apollo)
-MERGE (sandy)-[:RATED {rating: 4}]->(sleep)
-MERGE (clinton)-[:RATED {rating: 3}]->(apollo)
-MERGE (clinton)-[:RATED {rating: 3}]->(sleep)
-MERGE (clinton)-[:RATED {rating: 3}]->(hoffa)
-
-
+MERGE (sandy)-[:RATED {rating:5}]->(apollo)
+MERGE (sandy)-[:RATED {rating:4}]->(sleep)
+MERGE (clinton)-[:RATED {rating:3}]->(apollo)
+MERGE (clinton)-[:RATED {rating:3}]->(sleep)
+MERGE (clinton )-[:RATED {rating:3}]->(hoffa)
+MERGE (junkMovie:Movie {title: 'Junk', tmdbId: 9999, released: '1995-06-25', imdbRating: 9.5, genres: ['Crime', 'Drama']})
+MERGE (junkDirector:Person {name: 'Junk Director', tmdbId: 99999})
+MERGE (junkDirector)-[:DIRECTED]->(junkMovie)
+SET tom:Actor
+SET meg:Actor
+SET danny:Actor
+SET jack:Actor

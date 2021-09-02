@@ -1,0 +1,170 @@
+= Testing
+:type: quiz
+:order: 1
+:usecase: blank-sandbox
+:sandbox: true
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== Why test?
+
+Thus far you have see that you design the data model on paper, whiteboard, or with a tool like arrows app.
+You use the domain uese cases (questions) to design the data model that includes node labels, relationship types and direction, and properties for the nodes and relationships.
+
+You have also populated the graph to implement the data model with a small set of test data.
+To ensure that the graph can answer every domain question, you must test the questions against the graph.
+
+=== Testing the data model
+
+Here is the instance model that should now be in our graph:
+
+image::images/after-challenge2-instance-model.png[Current instance model,width=400,align=center]
+
+Next we will test each domain question against the graph by executing Cypher queries.
+The query parameters will be specific to the data we know is in the graph, but you can imagine that a fully-populated graph would satisfy a broader range of query parameters.
+
+
+==== 1. What people acted in a movie?
+
+Run this Cypher code to answer this question about the movie, Sleepless in Seattle.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]-(m:Movie)
+WHERE m.title = 'Sleepless in Seattle'
+RETURN p.name AS Actor
+----
+
+==== 2. What person directed a movie?
+
+Run this Cypher code to answer this question about the movie, Hoffa.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:DIRECTED]-(m:Movie)
+WHERE m.title = 'Hoffa'
+RETURN  p.name AS Director
+----
+
+==== 3. What movies did a person act in?
+
+Run this Cypher code to answer this question about the person, Tom Hanks.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]-(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title AS Movie
+----
+
+==== 4. How many users rated a movie?
+
+Run this Cypher code to answer this question about the movie, Apollo 13.
+
+[source,cypher]
+----
+MATCH (u:User)-[:RATED]-(m:Movie)
+WHERE m.title = 'Apollo 13'
+RETURN count(*) AS `Number of reviewers`
+----
+
+==== 5. Who was the youngest person to act in a movie?
+
+Run this Cypher code to answer this question about the movie, Hoffa.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]-(m:Movie)
+WHERE m.title = 'Hoffa'
+RETURN  p.name AS Actor, p.born as `Year Born` ORDER BY p.born DESC LIMIT 1
+----
+
+==== 6. What role did a person play in a movie?
+
+Run this Cypher code to answer this question about the movie, Sleepless in Seattle and the person, Meg Ryan.
+
+[source,cypher]
+----
+MATCH (p:Person)-[r:ACTED_IN]-(m:Movie)
+WHERE m.title = 'Sleepless in Seattle' AND
+p.name = 'Meg Ryan'
+RETURN  r.role AS Role
+----
+
+==== 7. What is the highest rated movie in a particular year according to imDB?
+
+Run this Cypher code to answer this question about movies in the year 1995.
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.released STARTS WITH '1995'
+RETURN  m.title as Movie, m.imdbRating as Rating ORDER BY m.imdbRating DESC LIMIT 1
+----
+
+Our test data has only one movie released in 1995, but if you were to add another movie to the graph that was released in 1995, this query would be answered correctly.
+In this case, you must add more data to the graph to fully test this query.
+
+Run the Cypher code to add another Movie node to the graph:
+
+[source,cypher]
+----
+MERGE (:Movie {title: 'Junk', tmdbId: 9999, released: '1995-06-25', imdbRating: 9.5, genres: ['Crime', 'Drama']})
+----
+
+You can rerun the query above the answer the question and receive a different result.
+
+==== 8. What drama movies did an actor act in?
+
+Run this Cypher code to answer this question about the person, Tom Hanks.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]-(m:Movie)
+WHERE p.name = 'Tom Hanks' AND
+'Drama' IN m.genres
+RETURN m.title AS Movie
+----
+
+If you were to change 'Drama' to 'Comedy' in this query, it would return a different result.
+
+==== 9. What reviewers gave a movie a rating of 5?
+
+Run this Cypher code to answer this question about the movie, Apollo 13.
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]-(m:Movie)
+WHERE m.title = 'Apollo 13' AND
+r.rating = 5
+RETURN u.name as Reviewer
+----
+
+=== More testing?
+
+As you go through the domain questions, you may think of more data that you want to add to the graph to round out the testing.
+
+The Cypher code used to test the questions needs to be carefully reviewed for correctness.
+In addition, you must understand that if and when the graph is refactored (next module), the Cypher code for these questions may need to be modified.
+
+The basic testing to ensure that the domain questions can be answered by the data model is the first step of testing.
+
+A really important factor with testing the graph is *scalability*.
+How will these queries perform if the graph has millions of nodes or relationships?
+This is where you need to work with the Cypher developers to test the performance of the queries when the graph grows.
+
+In the next module, you will learn how refactoring is necessary for a graph when performance is a factor.
+
+== Check your understanding
+
+
+include::questions/1-graph-numbers.adoc[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned that you must test your data model against the domain questions.
+In the next module, you will learn about modifying the data model and graph (refactoring).
