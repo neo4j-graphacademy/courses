@@ -9,10 +9,13 @@ import {
 } from '../domain/model/lesson'
 const { GOOGLE_ANALYTICS_MEASUREMENT_ID } = process.env
 import { getSvgs } from '../utils'
+import { version } from '../../package.json'
 
 
 export function registerLocals(app: Express) {
     app.use((req, res, next) => {
+        res.locals.version = version
+
         // Load constants into locals
         res.locals.statuses = {
             STATUS_DRAFT,
