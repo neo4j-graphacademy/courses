@@ -33,7 +33,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         ORDER BY category.title ASC
     `, appendParams({ id }))
 
-    if ( res.records.length == 0 ) {
+    if ( res.records.length === 0 ) {
         throw new NotFoundError(`User with id ${id} not found`)
     }
 

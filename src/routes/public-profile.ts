@@ -93,9 +93,6 @@ router.get('/:id/:course', async (req, res, next) => {
             return res.redirect(`/u/${req.params.id}`)
         }
 
-        console.log(course.badge);
-
-
         const title = [
             course.title,
             own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`

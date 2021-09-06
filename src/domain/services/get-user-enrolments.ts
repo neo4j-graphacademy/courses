@@ -58,11 +58,6 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
         }
     }
 
-
-    // @ts-ignore
-    console.log(enrolments.completed.find(c => c.slug === 'neo4j-fundamentals'));
-
-
     return {
         user: formatUser(user),
         enrolments,

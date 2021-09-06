@@ -62,6 +62,7 @@ router.get('/:course', async (req, res, next) => {
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
+            course: { modules: course.modules },
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
         })
