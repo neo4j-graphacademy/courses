@@ -18,7 +18,7 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
-    const course = formatCourse(res.records[0].get('course')) as CourseWithProgress
+    const course = await formatCourse(res.records[0].get('course')) as CourseWithProgress
 
     // Attempt to find a Sandbox instance
     try {
@@ -27,6 +27,7 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
         }
     }
     catch(e) {
+        // Should be fine
     }
 
     return course

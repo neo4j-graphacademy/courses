@@ -153,6 +153,7 @@ router.get('/:course/badge', (req, res, next) => {
             filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
         }
 
+        res.header('Content-Type', 'image/svg+xml')
 
         res.sendFile(filePath)
     }

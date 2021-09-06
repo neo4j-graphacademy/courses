@@ -15,13 +15,24 @@ export function sortCourse(course: Course): Course {
     return course
 }
 
-export function formatCourse(course: Course | CourseWithProgress): Course {
-    let badge
-    const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
+export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
+    return new Promise((resolve, reject) => {
+        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
 
-    if ( fs.existsSync(badgePath) ) {
-        badge = fs.readFileSync(badgePath).toString()
-    }
+        if ( !fs.existsSync(badgePath) ) {
+            return resolve(undefined)
+        }
+
+        fs.readFile(badgePath, (err, data) => {
+            if (err) reject(err)
+            else resolve(data.toString())
+        })
+    })
+}
+
+
+export async function formatCourse(course: Course | CourseWithProgress): Promise<Course> {
+    const badge = await getBadge(course)
 
     return sortCourse({
         ...course,
