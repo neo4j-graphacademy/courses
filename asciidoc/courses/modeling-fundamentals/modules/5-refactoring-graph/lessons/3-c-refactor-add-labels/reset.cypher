@@ -20,9 +20,9 @@ MERGE (sandy)-[:RATED {rating:4}]->(sleep)
 MERGE (clinton)-[:RATED {rating:3}]->(apollo)
 MERGE (clinton)-[:RATED {rating:3}]->(sleep)
 MERGE (clinton )-[:RATED {rating:3}]->(hoffa)
-MERGE (junkMovie:Movie {title: 'Junk', tmdbId: 9999, released: '1995-06-25', imdbRating: 9.5, genres: ['Crime', 'Drama']})
-MERGE (junkDirector:Person {name: 'Junk Director', tmdbId: 99999})
-MERGE (junkDirector)-[:DIRECTED]->(junkMovie)
+MERGE (casino:Movie {title: 'Casino', tmdbId: 524, released: '1995-11-22', imdbRating: 8.2, genres: ['Drama','Crime']})
+MERGE (martin:Person {name: 'Martin Scorsese', tmdbId: 1032})
+MERGE (martin)-[:DIRECTED]->(casino)
 SET tom:Actor
 SET meg:Actor
 SET danny:Actor
