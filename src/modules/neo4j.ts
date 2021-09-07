@@ -73,3 +73,7 @@ export default async function initNeo4j(host: string, username: string, password
 
     return _driver
 }
+
+export function getDriver(): Driver {
+    return _driver;
+}
