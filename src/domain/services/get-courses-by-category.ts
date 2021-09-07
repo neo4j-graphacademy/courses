@@ -41,7 +41,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             }) AS categories
     `, appendParams({ sub: user?.sub  }))
 
-    const courses = res.records[0].get('courses').map((course: Course) => formatCourse(course))
+    const courses = await Promise.all(res.records[0].get('courses').map(async (course: Course) => await formatCourse(course))) as Course[]
     const categories = res.records[0].get('categories')
         .map((row: DbCategory) => {
             const categoryCourses: Course[] = courses.map((course: Course) => {
@@ -51,14 +51,14 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
 
                 return { ...course, order: categoryWithOrder.order }
             })
-            .filter((e: any) => !!e)
+            .filter((e: any) => !!e) as Course[]
 
             categoryCourses.sort((a: any, b: any) => parseInt(a.order) < parseInt(b.order) ? -1 : 1)
 
             return {
                 ...row,
                 courses: categoryCourses,
-            }
+            } as Category
         })
 
     const root = categories.filter((category: DbCategory) => !category.parents.length)

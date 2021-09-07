@@ -50,8 +50,10 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
     // Sort items because we can't do this in a pattern comprehension
     for (const key in enrolments) {
         if (enrolments.hasOwnProperty(key)) {
-            for (const course of enrolments[key]) {
-                formatCourse(course)
+            for (const course in enrolments[key]) {
+                if (enrolments[key].hasOwnProperty(course)) {
+                    enrolments[key][course] = await formatCourse(enrolments[key][course])
+                }
             }
         }
     }

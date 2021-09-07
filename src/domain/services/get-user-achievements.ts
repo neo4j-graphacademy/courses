@@ -33,7 +33,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         ORDER BY category.title ASC
     `, appendParams({ id }))
 
-    if ( res.records.length == 0 ) {
+    if ( res.records.length === 0 ) {
         throw new NotFoundError(`User with id ${id} not found`)
     }
 
@@ -41,11 +41,10 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
 
     return {
         user,
-        categories: res.records.map(row => {
-            const courses = row.get('courses').map((course: CourseWithProgress) => formatCourse(course))
+        categories: await Promise.all(res.records.map(async row => {
+            const courses = await Promise.all(row.get('courses').map((course: CourseWithProgress) => formatCourse(course))) as CourseWithProgress[]
             const completedCount = row.get('courses').reduce((acc: number, course: CourseWithProgress) => course.completed ? acc + 1 : acc, 0)
             const completedPercentage = Math.round((completedCount / courses.length) * 100)
-
 
             return {
                 category: row.get('category'),
@@ -53,6 +52,6 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
                 completedCount,
                 completedPercentage,
             }
-        })
+        }))
     }
 }
