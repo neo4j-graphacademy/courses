@@ -55,7 +55,7 @@ export default function initApp(driver: Driver) {
     app.use('/certificates', certificateRoutes)
     app.use('/browser', express.static( path.join(__dirname, '..', 'browser', 'dist') ))
 
-    if ( process.env.NODE_ENV !== 'production' ) {
+    if ( process.env.NODE_ENV === 'dev' ) {
         app.use('/test', testRoutes)
     }
 
