@@ -125,6 +125,32 @@ function videoTabs() {
     }
 }
 
+function scrollIntoView(element: HTMLLIElement | HTMLHeadingElement) {
+    const toc = document.querySelector('.toc')
+    const header = document.querySelector('.header')
+
+    if ( toc && header ) {
+        setTimeout(() => {
+            const { y } = element.getBoundingClientRect()
+            toc.scrollTo(0, y)
+        }, 100)
+    }
+}
+
+function moveCurrentLessonIntoView() {
+    const lesson: HTMLLIElement | null = document.querySelector('.toc-module-lesson--current')
+
+    if ( lesson ) {
+        return scrollIntoView(lesson!)
+    }
+
+    const module: HTMLHeadingElement | null = document.querySelector('.toc-module--current')
+
+    if ( module ) {
+        return scrollIntoView(module!)
+    }
+}
+
 
 export default function classroom() {
     const body = document.querySelector('body')
@@ -137,5 +163,6 @@ export default function classroom() {
     toggleSandbox()
     toggleToc()
     videoTabs()
+    moveCurrentLessonIntoView()
 
 }
