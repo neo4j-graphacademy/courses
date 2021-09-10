@@ -6,8 +6,6 @@ const thankyou = (el: HTMLDivElement) => {
     el.classList.add('feedback--positive')
 
     el.innerHTML = '<div class="feedback-header thank-you-positive"><p><strong>Thank you for your feedback!</strong></p></div>'
-
-    // setTimeout(() => hideFeedback(el), 2000)
 }
 
 const sendFeedback = (helpful, reason: string | undefined = undefined, additional: string | undefined = undefined) => {
@@ -21,7 +19,6 @@ const sendFeedback = (helpful, reason: string | undefined = undefined, additiona
             'Content-Type': 'application/json'
         }
     })
-        .then(res => console.log(res))
 }
 
 const isHelpful = (el: HTMLDivElement) => {

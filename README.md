@@ -223,7 +223,13 @@ RETURN p
 ====
 
 
-input::Check Database[type=button,class=btn,value=Check Database]
+verify::[]
+```
+
+You can also specify the button text:
+
+```
+verify::Check Database[]
 ```
 
 

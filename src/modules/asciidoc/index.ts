@@ -4,6 +4,7 @@ import asciidoctor, { Asciidoctor } from '@asciidoctor/core'
 import './converter'
 import { inputBlockProcessor } from './extensions/input-block-processor.extension'
 import { browserBlockProcessor } from './extensions/browser-block-processor.extension'
+import { verifyBlockProcessor } from './extensions/verify.extension'
 import { ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
 
@@ -15,6 +16,7 @@ const doc = asciidoctor()
 const registry = doc.Extensions.create()
 inputBlockProcessor(registry)
 browserBlockProcessor(registry)
+verifyBlockProcessor(registry)
 
 // Convert options
 const baseOptions: Asciidoctor.ProcessorOptions = {
