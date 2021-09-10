@@ -40,6 +40,6 @@ MERGE (l:Language {name:language})
 WITH l, movies
 UNWIND movies AS m
 WITH l,m
-MERGE (m)-[:USES_LANGUAGE]->(l);
+MERGE (m)-[:IN_LANGUAGE]->(l);
 MATCH (m:Movie)
 SET m.languages = null;
