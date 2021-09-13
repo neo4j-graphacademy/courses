@@ -54,14 +54,14 @@ MERGE (m)-[:IN_GENRE]->(g);
 MATCH (m:Movie)
 SET m.genres = null;
 MATCH (n:Actor)-[r:ACTED_IN]->(m:Movie)
-CALL apoc.create.relationship(startNode(r),
+CALL apoc.create.relationship(n,
 'ACTED_IN_' + left(m.released,4),
 {},
-endNode(r) ) YIELD rel
+m ) YIELD rel
 RETURN COUNT(*) AS `Number of relationships added`;
 MATCH (n:Director)-[r:DIRECTED]->(m:Movie)
-CALL apoc.create.relationship(startNode(r),
+CALL apoc.create.relationship(n,
 'DIRECTED_' + left(m.released,4),
 {},
-endNode(r) ) YIELD rel
+m) YIELD rel
 RETURN COUNT(*) AS `Number of relationships added`
