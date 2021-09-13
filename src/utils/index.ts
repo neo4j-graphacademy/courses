@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ASCIIDOC_DIRECTORY, BASE_URL } from '../constants';
+import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
 import { Course, CourseWithProgress } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson } from '../domain/model/lesson';
@@ -122,3 +122,6 @@ export function dd(el: any): void {
     // tslint:disable-next-line
     console.log( JSON.stringify(el, null, 2) );
 }
+
+export const courseBannerPath = (course: Course) => path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'banner.png')
+export const categoryBannerPath = (category: Category) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)

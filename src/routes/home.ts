@@ -1,9 +1,6 @@
 import { Router } from 'express'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUser } from '../middleware/auth'
-// import { loadFile } from '../modules/asciidoc'
-// import pug from 'pug'
-// import path from 'path'
 
 const router = Router()
 
@@ -13,21 +10,6 @@ router.get('/', async (req, res, next) => {
 
         // Get Courses
         const categories = await getCoursesByCategory(user)
-
-        // const courseTemplate = path.join(__dirname, '..', '..', 'views', 'partials', 'courses-by-category.pug')
-        // const compileCourses = pug.compileFile(courseTemplate)
-
-        // const catalogue = compileCourses({
-        //     categories,
-        // })
-
-        // Render Doc
-        // const home = loadFile('pages/home.adoc', {
-        //     attributes: {
-        //         catalogue,
-        //     }
-        // })
-        // const doc = home.getContent()
 
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
@@ -40,6 +22,12 @@ router.get('/', async (req, res, next) => {
 
         res.render('home', {
             title: 'Free, Self-Paced, Hands-on Online Training ',
+            hero: {
+                title: 'Free, Self-Paced, Hands-on Online Training',
+                byline: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
+                overline: 'Learn with GraphAcademy'
+            },
+            description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
             classes: 'home transparent-nav preload',
             categories,
             beginners,

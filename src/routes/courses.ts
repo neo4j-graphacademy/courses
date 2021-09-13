@@ -11,13 +11,13 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { ASCIIDOC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { getSandboxConfig } from '../utils'
+import { courseBannerPath, getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -62,6 +62,11 @@ router.get('/:course', async (req, res, next) => {
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
+
+            ogDescription: course.caption,
+            ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
+            ogImage: `${course.link}banner/`,
+
             course: { modules: course.modules },
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
@@ -92,6 +97,29 @@ router.post('/:course/interested', async (req, res, next) => {
         }
 
         return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * GET /:course/banner
+ *
+ * Create an image suitable for an og:image tag
+ */
+router.get('/:course/banner', async (req, res, next) => {
+    try {
+        // TODO: Caching, save to S3
+        let filePath = courseBannerPath({ slug: req.params.course } as Course)
+
+        if (!existsSync(filePath)) {
+            filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-layout.png`)
+        }
+
+        res.header('Content-Type', 'image/png')
+
+        res.sendFile(filePath)
     }
     catch (e) {
         next(e)
@@ -150,7 +178,7 @@ router.get('/:course/badge', (req, res, next) => {
     try {
         let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg')
 
-        if ( !existsSync(filePath) ) {
+        if (!existsSync(filePath)) {
             filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
         }
 
@@ -419,7 +447,7 @@ router.post('/:course/:module/feedback', requiresAuth(), async (req, res, next) 
         res.json(json)
 
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -569,7 +597,7 @@ router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res
         res.json(json)
 
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })

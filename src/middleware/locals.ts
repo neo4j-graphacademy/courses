@@ -30,6 +30,8 @@ export function registerLocals(app: Express) {
             id: GOOGLE_ANALYTICS_MEASUREMENT_ID,
         }
 
+        res.locals.path = req.path
+
         res.locals.baseUrl = process.env.BASE_URL
 
         // Load CSVs from resources/svg
