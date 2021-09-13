@@ -10,7 +10,6 @@ import { courseCypher } from '../domain/services/cypher'
 import { Course, NEGATIVE_STATUSES } from '../domain/model/course'
 import { Category } from '../domain/model/category'
 
-
 dotenv.config()
 
 /* tslint:disable-next-line */
@@ -28,7 +27,7 @@ const svg = getSvgs()
 const main = async () => {
     await initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
 
-    // await render(path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`), 'Neo4j GraphAcademy', 'Free, Hands-on training.  No installation required.', 'Learn everything you need to know about Neo4j from the experts')
+    // await render(path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`), 'Neo4j GraphAcademy', 'Free, Hands-on training.  No installation required.', 'Learn everything you need to know about Neo4j from the experts.')
 
     await renderCourses()
     await renderCategories()
