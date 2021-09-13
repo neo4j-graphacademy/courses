@@ -24,6 +24,8 @@ import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feed
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
+import { bannerHandler } from '../middleware/banner'
+
 
 const router = Router()
 
@@ -62,6 +64,11 @@ router.get('/:course', async (req, res, next) => {
         res.render('course/overview', {
             classes: `course ${course.slug}`,
             ...course,
+
+            ogDescription: course.caption,
+            ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
+            ogImage: `${course.link}banner/`,
+
             course: { modules: course.modules },
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
@@ -92,6 +99,23 @@ router.post('/:course/interested', async (req, res, next) => {
         }
 
         return res.redirect(`/courses/${req.params.course}/`)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * GET /:course/banner
+ *
+ * Create an image suitable for an og:image tag
+ */
+router.get('/:course/banner', async (req, res, next) => {
+    try {
+        // TODO: Caching, save to S3, create on build
+        const course = await getCourseWithProgress(req.params.course)
+
+        bannerHandler(req, res, next, course.categories[0]?.title, course.title, course.caption, course.badge)
     }
     catch (e) {
         next(e)
@@ -150,7 +174,7 @@ router.get('/:course/badge', (req, res, next) => {
     try {
         let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg')
 
-        if ( !existsSync(filePath) ) {
+        if (!existsSync(filePath)) {
             filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
         }
 
@@ -419,7 +443,7 @@ router.post('/:course/:module/feedback', requiresAuth(), async (req, res, next) 
         res.json(json)
 
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -569,7 +593,7 @@ router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res
         res.json(json)
 
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })

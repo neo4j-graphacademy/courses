@@ -9,6 +9,7 @@ import { getSandboxes } from '../modules/sandbox'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { emitter } from '../events'
 import { AsciidocEmail, prepareEmail } from '../modules/mailer'
+import NotFoundError from '../errors/not-found.error'
 
 const router = Router()
 
@@ -77,6 +78,14 @@ router.get('/style', (req, res) => {
             overline: 'Learn with GraphAcademy'
         }
     })
+})
+
+router.get('/404', (req, res, next) => {
+    next(new NotFoundError('Throw an error'))
+})
+
+router.get('/500', (req, res, next) => {
+    next(new Error('Generic Error'))
 })
 
 export default router

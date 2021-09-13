@@ -9,7 +9,7 @@ import categoryRoutes from './routes/categories'
 import accountRoutes from './routes/account'
 import certificateRoutes from './routes/certificates'
 import testRoutes from './routes/test'
-import { apply404handler } from './middleware/404'
+import { applyErrorhandlers } from './middleware/error-handlers'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag'
@@ -62,8 +62,8 @@ export default function initApp(driver: Driver) {
     // Bugsnag Error Handler
     useErrorHandler(app)
 
-    // Generic 404 Error Handler
-    apply404handler(app)
+    // Generic Error Handlers
+    applyErrorhandlers(app)
 
     return app
 }
