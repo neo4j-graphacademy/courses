@@ -11,21 +11,19 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { ASCIIDOC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { getSandboxConfig } from '../utils'
+import { courseBannerPath, getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
-import { bannerHandler } from '../middleware/banner'
-
 
 const router = Router()
 
@@ -112,10 +110,16 @@ router.post('/:course/interested', async (req, res, next) => {
  */
 router.get('/:course/banner', async (req, res, next) => {
     try {
-        // TODO: Caching, save to S3, create on build
-        const course = await getCourseWithProgress(req.params.course)
+        // TODO: Caching, save to S3
+        let filePath = courseBannerPath({ slug: req.params.course } as Course)
 
-        bannerHandler(req, res, next, course.categories[0]?.title, course.title, course.caption, course.badge)
+        if (!existsSync(filePath)) {
+            filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-layout.png`)
+        }
+
+        res.header('Content-Type', 'image/png')
+
+        res.sendFile(filePath)
     }
     catch (e) {
         next(e)

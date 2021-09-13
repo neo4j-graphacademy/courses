@@ -1,12 +1,14 @@
+import path from 'path'
+import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
+import { PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
 import { Course } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth'
-import { bannerHandler } from '../middleware/banner'
 
-import { flattenCategories } from '../utils'
+import { categoryBannerPath, flattenCategories } from '../utils'
 
 const router = Router()
 
@@ -43,7 +45,7 @@ router.get('/', async (req, res, next) => {
             },
 
             ogDescription: 'Hands-on training. No installation required.',
-            ogImage: `/categories/banner`,
+            ogImage: `/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',
         })
     }
@@ -53,7 +55,11 @@ router.get('/', async (req, res, next) => {
 })
 
 router.get('/banner', (req: Request, res: Response, next: NextFunction) => {
-    bannerHandler(req, res, next, 'Neo4j GraphAcdemy', 'Free Neo4j Courses', 'Hands-on training. No installation required.')
+    const filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`)
+
+    res.header('Content-Type', 'image/png')
+
+    res.sendFile(filePath)
 })
 
 router.get('/:slug', async (req, res, next) => {
@@ -96,24 +102,22 @@ router.get('/:slug', async (req, res, next) => {
 
 
 router.get('/:slug/banner', async (req: Request, res: Response, next: NextFunction) => {
-    const categories = await getCoursesByCategory()
+    try {
+        // TODO: Caching, save to S3
+        const filePath =  categoryBannerPath({ slug: req.params.slug } as Category)
 
-    // TODO: Refactor
-    // Flatten Category list
-    const flattened: Category[] = flattenCategories(categories)
+        if ( ! fs.existsSync(filePath) ) {
+            return next(new NotFoundError(`Banner not found for ${req.params.slug}`))
+        }
 
-    // Find Category by slug
-    const category = flattened.find(item => item.slug === req.params.slug)
+        res.header('Content-Type', 'image/png')
 
-    if (!category) {
-        return next(new NotFoundError(`Category with slug ${req.params.slug} could not be found`))
+        res.sendFile(filePath)
+    }
+    catch (e) {
+        next(e)
     }
 
-    const overline = 'Neo4j GraphAcademy'
-    const title = category.slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`
-    const caption = category.caption || 'Hands-on training. No installation required.'
-
-    bannerHandler(req, res, next, overline, title, caption)
 })
 
 export default router
