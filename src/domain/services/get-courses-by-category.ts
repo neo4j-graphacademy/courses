@@ -31,13 +31,13 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
         }) AS courses
 
-        MATCH (c:Category)
-        WHERE exists((c)<-[:IN_CATEGORY]-()) OR exists((c)-[:HAS_CHILD]->())
+        MATCH (ct:Category)
+        WHERE exists((ct)<-[:IN_CATEGORY]-()) OR exists((ct)-[:HAS_CHILD]->())
         RETURN courses,
-            collect(c {
+            collect(ct {
                 .*,
-                link: '/categories/'+ c.slug +'/',
-                parents: [(c)<-[:HAS_CHILD]-(p) | p.id ]
+                link: '/categories/'+ ct.slug +'/',
+                parents: [(ct)<-[:HAS_CHILD]-(p) | p.id ]
             }) AS categories
     `, appendParams({ sub: user?.sub  }))
 
