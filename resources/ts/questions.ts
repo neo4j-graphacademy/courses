@@ -630,7 +630,7 @@ const setupVerify = () => {
 }
 
 const setupMarkAsReadButton = () => {
-    Array.from(document.querySelectorAll('input[name="read"]'))
+    Array.from(document.querySelectorAll('.btn-read'))
         .map((button: Element) => {
             button.addEventListener('click', e => {
                 e.preventDefault()
