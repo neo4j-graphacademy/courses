@@ -4,7 +4,7 @@ export default function images() {
     const MODAL_VISIBLE = 'modal--visible'
 
     document.querySelectorAll('.modal').forEach(modal => {
-        modal.querySelectorAll('.modal-close')
+        modal.querySelectorAll('.modal-close, .modal-shade')
             .forEach(element => {
                 element.addEventListener('click', e => {
                     e.preventDefault()
@@ -35,7 +35,7 @@ export default function images() {
                     }
                 }
 
-                if (bodyElement) {
+                if (bodyElement && modalElement) {
                     // Clear out body
                     while (bodyElement.hasChildNodes()) {
                         bodyElement.removeChild(bodyElement.childNodes[0])
@@ -43,9 +43,8 @@ export default function images() {
 
                     // Add in cloned element
                     bodyElement.appendChild(cloned)
-                }
 
-                if (modalElement) {
+                    // Make visible
                     modalElement.classList.add(MODAL_VISIBLE)
                 }
             })

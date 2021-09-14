@@ -5,8 +5,6 @@ export const ATTRIBUTE_TYPE = 'type'
 export const ATTRIBUTE_ORDER = 'order'
 export const ATTRIBUTE_DURATION = 'duration'
 export const ATTRIBUTE_SANDBOX = 'sandbox'
-export const ATTRIBUTE_CYPHER = 'cypher'
-export const ATTRIBUTE_VERIFY = 'verify'
 
 export const LESSON_TYPE_VIDEO = 'video'
 export const LESSON_TYPE_DEFAULT = 'lesson'
@@ -30,7 +28,6 @@ export interface Lesson {
     duration: number;
     sandbox: boolean | string;
     cypher: string | undefined;
-    answer: string | undefined;
     verify: string | undefined;
     questions: Question[];
     previous: Pagination | undefined;

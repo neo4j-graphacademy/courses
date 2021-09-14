@@ -1,5 +1,3 @@
-export const ATTRIBUTE_ANSWER = 'answer'
-
 export const QUESTION_TYPE_MULTIPLE_CHOICE = 'multiple_choice'
 export const QUESTION_TYPE_SELECT = 'select'
 export const QUESTION_TYPE_INPUT = 'input'

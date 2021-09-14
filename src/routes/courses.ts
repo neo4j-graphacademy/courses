@@ -320,6 +320,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         const token = await getToken(req)
         const user = await getUser(req)
 
+
         // Check that user is enrolled
         const course = await getCourseWithProgress(req.params.course, user)
 
@@ -341,7 +342,6 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         if (!sandbox) {
             sandbox = await createSandbox(token, course.usecase!)
         }
-
 
         // Pre-fill credentials and redirect to browser
         res.render('browser', {
@@ -615,7 +615,7 @@ router.use('/:course/:module/:lesson/images', (req, res, next) => {
  * @GET /:course/:module/:lesson/verify
  *
  * Verify that the challenge has been completed in the database.
- * This method takes the ':verify:' page attribute from the lesson file and
+ * This method takes the verify.cypher file from the lesson folder and
  * runs it against the database.  The query should return a single row with an
  * outcome column - which should return true or false
  */
