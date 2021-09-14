@@ -1,5 +1,3 @@
-MATCH (n)
-DETACH DELETE n;
 MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6, genres: ['Drama', 'Adventure', 'IMAX']})
 MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
 MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
@@ -20,10 +18,3 @@ MERGE (sandy)-[:RATED {rating:4}]->(sleep)
 MERGE (clinton)-[:RATED {rating:3}]->(apollo)
 MERGE (clinton)-[:RATED {rating:3}]->(sleep)
 MERGE (clinton )-[:RATED {rating:3}]->(hoffa)
-MERGE (casino:Movie {title: 'Casino', tmdbId: 524, released: '1995-11-22', imdbRating: 8.2, genres: ['Drama','Crime']})
-MERGE (martin:Person {name: 'Martin Scorsese', tmdbId: 1032})
-MERGE (martin)-[:DIRECTED]->(casino)
-SET tom:Actor
-SET meg:Actor
-SET danny:Actor
-SET jack:Actor
