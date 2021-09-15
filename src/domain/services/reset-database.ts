@@ -1,18 +1,15 @@
-import path from 'path'
-import fs from 'fs'
 import { getSandboxForUseCase } from "../../modules/sandbox";
-import { getLessonDirectory } from '../../modules/asciidoc';
-import { ASCIIDOC_DIRECTORY, RESET_CYPHER_FILENAME } from '../../constants';
 import { createDriver } from '../../modules/neo4j';
 import { Transaction } from 'neo4j-driver';
 import { notify } from '../../middleware/bugsnag';
+import { getLessonCypherFile } from '../../utils';
 
 
 export async function resetDatabase(token: string, course: string, module: string, lesson: string, usecase: string): Promise<boolean> {
     // Check that a reset.cypher file exists
-    const resetFile = path.join(ASCIIDOC_DIRECTORY, getLessonDirectory(course, module, lesson), RESET_CYPHER_FILENAME)
+    const cypher = await getLessonCypherFile(course, module, lesson, 'reset')
 
-    if ( !fs.existsSync(resetFile) ) {
+    if ( !cypher ) {
         return false
     }
 
@@ -22,9 +19,6 @@ export async function resetDatabase(token: string, course: string, module: strin
     if ( !sandbox ) {
         return false
     }
-
-    // Run the cypher
-    const cypher = fs.readFileSync(resetFile).toString()
 
     const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
     const { username, password } = sandbox
@@ -36,8 +30,7 @@ export async function resetDatabase(token: string, course: string, module: strin
     try {
         await session.writeTransaction((tx: Transaction) => tx.run(cypher))
     }
-    catch(e) {
-        // TODO: Error handling
+    catch(e: any) {
         notify(e)
     }
 

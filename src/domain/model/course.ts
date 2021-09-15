@@ -44,6 +44,8 @@ export interface Course {
     prerequisites?: Course[];
     progressTo?: Course[];
     badge?: string;
+    verify: string | undefined;
+    cypher: string | undefined;
 }
 
 export interface CourseWithProgress extends Course {

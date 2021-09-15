@@ -15,8 +15,6 @@ export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
 export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCIIDOC_DIRECTORY || 'asciidoc')
 export const PUBLIC_DIRECTORY = path.resolve(__dirname, '..', 'public')
 
-export const RESET_CYPHER_FILENAME = 'reset.cypher'
-
 // Community
 export const COMMUNITY_BASE_URL = DISCOURSE_BASE_URL
 export const COMMUNITY_TITLE = 'Neo4j Community Site'

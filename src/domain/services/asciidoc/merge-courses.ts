@@ -4,12 +4,11 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_CYPHER, ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_VERIFY, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
-import { ATTRIBUTE_ANSWER, Question } from '../../model/question';
-import { decode } from 'html-entities'
+import { ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
+import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
-interface CourseToImport extends Course {
+interface CourseToImport extends Partial<Course> {
     prerequisiteSlugs: string[];
     progressToSlugs: string[];
 }
@@ -111,9 +110,6 @@ const loadLesson = (folder: string): Lesson => {
         order: file.getAttribute(ATTRIBUTE_ORDER, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
-        cypher: decode(file.getAttribute(ATTRIBUTE_CYPHER, null)),
-        answer: decode(file.getAttribute(ATTRIBUTE_ANSWER, null)),
-        verify: decode(file.getAttribute(ATTRIBUTE_VERIFY, null)),
         questions,
     } as Lesson
 }

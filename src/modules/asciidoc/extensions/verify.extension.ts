@@ -15,11 +15,28 @@ export function verifyBlockProcessor(registry: any) {
         const self: any = this
 
         self.named('verify')
-        self.process(function(parent: any, target: any = 'Check Database', attrs: any) {
+        self.process(function(parent: any, target: any, attrs: any) {
             const input = `
                 <button class="btn btn-submit btn-verify">
                     <span class="loading-indicator">${svg}</span>
                     <span class="btn-label">${target !== '' ? target : 'Check Database'}</span>
+                </button>
+            `
+
+            return self.createBlock(parent, 'pass', input)
+        })
+    })
+
+    registry.blockMacro(function () {
+        // @ts-ignore
+        const self: any = this
+
+        self.named('read')
+        self.process(function(parent: any, target: any, attrs: any) {
+            const input = `
+                <button class="btn btn-submit btn-read">
+                    <span class="loading-indicator">${svg}</span>
+                    <span class="btn-label">${target !== '' ? target : 'Mark As Read'}</span>
                 </button>
             `
 

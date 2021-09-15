@@ -1,4 +1,4 @@
-
+import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
 import NotFoundError from '../errors/not-found.error';
 
@@ -28,6 +28,16 @@ export function applyErrorhandlers(app: Express) {
     app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
         if ( (error as NotFoundError).status === 404 ) {
             return notFoundError(req, res)
+        }
+
+        if ( (error as AxiosError).response?.status === 400 || (error as AxiosError).response?.status === 401 ) {
+            let redirectTo = '/login'
+
+            if ( req.method === 'GET' ) {
+                redirectTo += `?returnTo=${req.path}`
+            }
+
+            return res.redirect(redirectTo)
         }
 
         if ( process.env.NODE_ENV === 'production' ) {

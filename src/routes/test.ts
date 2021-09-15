@@ -13,7 +13,7 @@ import NotFoundError from '../errors/not-found.error'
 
 const router = Router()
 
-router.get('/', async (req, res) => {
+router.get('/reset', async (req, res) => {
     await write(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)
         WHERE u.email CONTAINS 'neotechnology'

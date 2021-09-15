@@ -1,0 +1,1 @@
+MATCH (p:Person {name: 'Daniel Kaluuya'}) RETURN true AS outcome
