@@ -1,5 +1,3 @@
-MATCH (n)
-DETACH DELETE n;
 MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6, genres: ['Drama', 'Adventure', 'IMAX']})
 MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
 MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
@@ -29,17 +27,14 @@ SET danny:Actor
 SET jack:Actor
 SET danny:Director
 SET martin:Director
-SET apollo.languages = ['English']
-SET sleep.languages =  ['English']
-SET hoffa.languages =  ['English', 'Italian', 'Latin']
-SET casino.languages =  ['English'];
-MATCH (m:Movie)
-UNWIND m.languages AS language
-WITH  language, collect(m) AS movies
-MERGE (l:Language {name:language})
-WITH l, movies
-UNWIND movies AS m
-WITH l,m
-MERGE (m)-[:IN_LANGUAGE]->(l);
-MATCH (m:Movie)
-SET m.languages = null;
+MERGE (english:Language {name: 'English'})
+MERGE (italian:Language {name: 'Italian'})
+MERGE (latin:Language {name: 'Latin'})
+MERGE (apollo)-[:IN_LANGUAGE]->(english)
+MERGE (sleep)-[:IN_LANGUAGE]->(english)
+MERGE (hoffa)-[:IN_LANGUAGE]->(english)
+MERGE (casino)-[:IN_LANGUAGE]->(english)
+MERGE (apollo)-[:IN_LANGUAGE]->(english)
+MERGE (hoffa)-[:IN_LANGUAGE]->(italian)
+MERGE (hoffa)-[:IN_LANGUAGE]->(latin)
+
