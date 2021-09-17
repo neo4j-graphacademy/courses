@@ -1,11 +1,10 @@
-MATCH (n)
-DETACH DELETE n;
-MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6, genres: ['Drama', 'Adventure', 'IMAX']})
+// use these for now until we figure out the best way to reset
+MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6})
 MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
 MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
 MERGE (danny:Person {name: 'Danny DeVito', tmdbId: 518, born: '1944-11-17'})
-MERGE (sleep:Movie {title: 'Sleepless in Seattle', tmdbId: 858, released: '1993-06-25', imdbRating: 6.8, genres: ['Comedy', 'Drama', 'Romance']})
-MERGE (hoffa:Movie {title: 'Hoffa', tmdbId: 10410, released: '1992-12-25', imdbRating: 6.6, genres: ['Crime', 'Drama']})
+MERGE (sleep:Movie {title: 'Sleepless in Seattle', tmdbId: 858, released: '1993-06-25', imdbRating: 6.8})
+MERGE (hoffa:Movie {title: 'Hoffa', tmdbId: 10410, released: '1992-12-25', imdbRating: 6.6})
 MERGE (jack:Person {name: 'Jack Nicholson', tmdbId: 514, born: '1937-04-22'})
 MERGE (sandy:User {name: 'Sandy Jones', userId: 534})
 MERGE (clinton:User {name: 'Clinton Spencer', userId: 105})
@@ -20,7 +19,7 @@ MERGE (sandy)-[:RATED {rating:4}]->(sleep)
 MERGE (clinton)-[:RATED {rating:3}]->(apollo)
 MERGE (clinton)-[:RATED {rating:3}]->(sleep)
 MERGE (clinton )-[:RATED {rating:3}]->(hoffa)
-MERGE (casino:Movie {title: 'Casino', tmdbId: 524, released: '1995-11-22', imdbRating: 8.2, genres: ['Drama','Crime']})
+MERGE (casino:Movie {title: 'Casino', tmdbId: 524, released: '1995-11-22', imdbRating: 8.2})
 MERGE (martin:Person {name: 'Martin Scorsese', tmdbId: 1032})
 MERGE (martin)-[:DIRECTED]->(casino)
 SET tom:Actor
@@ -29,45 +28,41 @@ SET danny:Actor
 SET jack:Actor
 SET danny:Director
 SET martin:Director
-SET apollo.languages = ['English']
-SET sleep.languages =  ['English']
-SET hoffa.languages =  ['English', 'Italian', 'Latin']
-SET casino.languages =  ['English'];
-MATCH (m:Movie)
-UNWIND m.languages AS language
-WITH  language, collect(m) AS movies
-MERGE (l:Language {name:language})
-WITH l, movies
-UNWIND movies AS m
-WITH l,m
-MERGE (m)-[:IN_LANGUAGE]->(l);
-MATCH (m:Movie)
-SET m.languages = null;
-MATCH (m:Movie)
-UNWIND m.genres AS genre
-WITH  genre, collect(m) AS movies
-MERGE (g:Genre {name:genre})
-WITH g, movies
-UNWIND movies AS m
-WITH g,m
-MERGE (m)-[:IN_GENRE]->(g);
-MATCH (m:Movie)
-SET m.genres = null;
-MATCH (n:Actor)-[r:ACTED_IN]->(m:Movie)
-CALL apoc.create.relationship(startNode(r),
-'ACTED_IN_' + left(m.released,4),
-{},
-endNode(r) ) YIELD rel
-RETURN COUNT(*) AS `Number of relationships added`;
-MATCH (n:Director)-[r:DIRECTED]->(m:Movie)
-CALL apoc.create.relationship(startNode(r),
-'DIRECTED_' + left(m.released,4),
-{},
-endNode(r) ) YIELD rel
-RETURN COUNT(*) AS `Number of relationships added`;
-MATCH (n:User)-[r:RATED]->()
-CALL apoc.create.relationship(startNode(r),
-'RATED_' + toString(r.rating),
-{},
-endNode(r) ) YIELD rel
-RETURN COUNT(*) AS `Number of relationships added`
+MERGE (english:Language {name: 'English'})
+MERGE (italian:Language {name: 'Italian'})
+MERGE (latin:Language {name: 'Latin'})
+MERGE (apollo)-[:IN_LANGUAGE]->(english)
+MERGE (sleep)-[:IN_LANGUAGE]->(english)
+MERGE (hoffa)-[:IN_LANGUAGE]->(english)
+MERGE (casino)-[:IN_LANGUAGE]->(english)
+MERGE (apollo)-[:IN_LANGUAGE]->(english)
+MERGE (hoffa)-[:IN_LANGUAGE]->(italian)
+MERGE (hoffa)-[:IN_LANGUAGE]->(latin)
+MERGE (comedy:Genre {name: 'Comedy'})
+MERGE (drama:Genre {name: 'Drama'})
+MERGE (romance:Genre {name: 'Romance'})
+MERGE (adventure:Genre {name: 'Adventure'})
+MERGE (imax:Genre {name: 'IMAX'})
+MERGE (crime:Genre {name: 'Crime'})
+MERGE (apollo)-[:IN_GENRE]->(drama)
+MERGE (apollo)-[:IN_GENRE]->(adventure)
+MERGE (apollo)-[:IN_GENRE]->(imax)
+MERGE (sleep)-[:IN_GENRE]->(drama)
+MERGE (sleep)-[:IN_GENRE]->(comedy)
+MERGE (sleep)-[:IN_GENRE]->(romance)
+MERGE (hoffa)-[:IN_GENRE]->(drama)
+MERGE (hoffa)-[:IN_GENRE]->(crime)
+MERGE (casino)-[:IN_GENRE]->(drama)
+MERGE (casino)-[:IN_GENRE]->(crime)
+MERGE (jack)-[:ACTED_IN_1992]->(hoffa)
+MERGE (danny)-[:ACTED_IN_1992]->(hoffa)
+MERGE (danny)-[:DIRECTED_1992]->(hoffa)
+MERGE (tom)-[:ACTED_IN_1993]->(sleep)
+MERGE (meg)-[:ACTED_IN_1993]->(sleep)
+MERGE (tom)-[:ACTED_IN_1995]->(apollo)
+MERGE (martin)-[:DIRECTED_1995]->(casino)
+MERGE (clinton)-[:RATED_3]->(apollo)
+MERGE (clinton)-[:RATED_3]->(hoffa)
+MERGE (clinton)-[:RATED_3]->(sleep)
+MERGE (sandy)-[:RATED_4]->(sleep)
+MERGE (sandy)-[:RATED_5]->(apollo)

@@ -1,7 +1,7 @@
 = Specific Relationships
 :type: quiz
 :order: 1
-:sandbox: true
+
 
 [.video]
 video::xxxx[youtube,width=560,height=315]
@@ -19,7 +19,7 @@ Let's look at a new use case:
 
 You can execute the query with the current graph:
 
-[source,cypher]
+[source,cypher, role=noplay nocopy]
 ----
 MATCH (p:Actor)-[:ACTED_IN]-(m:Movie)
 WHERE p.name = 'Tom Hanks' AND
@@ -27,7 +27,9 @@ m.released STARTS WITH '1995'
 RETURN m.title AS Movie
 ----
 
-It should return the movie, Apollo 13.
+It returns the movie, Apollo 13:
+
+image::images/tom-acted-1995.png[Tom Hanks acted in 1995,width=400,align=center]
 
 What if Tom Hanks acted in 50 movies in the year 1995?
 The query would need to retrieve _all_ movies that Tom Hanks acted in and then check the value of the _released_ property.
@@ -38,16 +40,19 @@ And here is another new use case:
 
 *13. What actors or directors worked in a particular year?*
 
-You can execute the query with the current graph:
+Here is the query:
 
-[source,cypher]
+[source,cypher, role=noplay nocopy]
 ----
 MATCH (p:Person)--(m:Movie)
 WHERE  m.released STARTS WITH '1995'
 RETURN DISTINCT p.name as `Actor or Director`
 ----
 
-It should return Tom Hanks and Martin Scorsese.
+It returns Tom Hanks and Martin Scorsese:
+
+image::images/actor-or-director-1995.png[Actors or Directors in 1995,width=400,align=center]
+
 
 This query is even worse for performance because in order to return results, it must retrieve *all* _Movie_ nodes.
 You can imagine, if the graph contained millions of movies, it would be a very expensive query.
@@ -76,9 +81,9 @@ In most cases where we specialize relationships, we keep the original generic re
 The code to refactor the graph to add these specialized relationships uses the APOC library.
 It has a `apoc.create.relationships` procedure that allows you to dynamically create relationships in the graph.
 
-Execute this code to refactor the _ACTED_IN_ relationships in the graph:
+This is the code to refactor the _ACTED_IN_ relationships in the graph that you will execute in the next Challenge:
 
-[source,cypher]
+[source,cypher, role=noplay nocopy]
 ----
 MATCH (n:Actor)-[r:ACTED_IN]->(m:Movie)
 CALL apoc.create.relationship(n,
@@ -88,51 +93,28 @@ CALL apoc.create.relationship(n,
 RETURN COUNT(*) AS `Number of relationships added`
 ----
 
-It should add 5 relationships.
+In the next Challenge, you will create specialized relationships for _ACTED_IN_ and _DIRECTED_
 
-Execute this code to refactor the _DIRECTED_ relationships in the graph:
+As a result of the refactoring, the previous two queries can be rewritten and will definitely perform better for a large graph:
 
-[source,cypher]
-----
-MATCH (n:Director)-[r:DIRECTED]->(m:Movie)
-CALL apoc.create.relationship(n,
-                              'DIRECTED_' + left(m.released,4),
-                              {},
-                              m ) YIELD rel
-RETURN COUNT(*) AS `Number of relationships added`
-----
-
-It should add 2 relationships.
-
-
-With the refactoring of the graph, we rewrite the above 2 queries for our use cases.
-
-*12. What movies did an actor act in for a particular year?*
-
-You can execute the query with the refactored graph:
-
-[source,cypher]
+[source,cypher, role=noplay nocopy]
 ----
 MATCH (p:Actor)-[:ACTED_IN_1995]-(m:Movie)
 WHERE p.name = 'Tom Hanks'
 RETURN m.title AS Movie
 ----
 
-It should return the movie, Apollo 13.
+For this query the specific relationship is traversed, but fewer Movie nodes are retrieved.
 
-*13. What actors or directors worked in a particular year?*
+And here is how we rewrite the second query:
 
-You can execute the query with the refactored graph:
-
-[source,cypher]
+[source,cypher, role=noplay nocopy]
 ----
 MATCH (p:Person)-[:ACTED_IN_1995|DIRECTED_1995]-()
 RETURN p.name as `Actor or Director`
 ----
 
-It should return Tom Hanks and Martin Scorsese.
-
-This last use case is one where we don't even need to retrieve any Movie nodes to test the use case which is a huge performance improvement for a large graph.
+For this query, because the year is in the relationship type, we do not have to retrieve any _Movie_ nodes.
 
 
 == Check your understanding
@@ -145,4 +127,4 @@ include::questions/2-dynamic-relationship-creation.adoc[]
 == Summary
 
 In this lesson, you learned why it may improve query performance if you specialize relationships in the graph.
-In the next challenge, you perform a refactoring that specializes the _RATED_ relationships in the graph.
+In the next challenge, you perform a refactoring that specializes the _ACTED_IN_ and _DIRECTED_ relationships in the graph.
