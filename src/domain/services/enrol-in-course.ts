@@ -13,7 +13,8 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
         MERGE (u:User {sub: $user})
         ON CREATE SET u.id = randomUuid(), u.createdAt = datetime(),
             u.givenName = $givenName,
-            u.name = $name
+            u.name = $name,
+            u.picture = $picture
         SET u.email = coalesce($email, u.email)
 
         MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
@@ -35,6 +36,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
         name: user.nickname || user.name,
         email: user.email,
         givenName: user.name,
+        picture: user.picture,
     }))
 
     if ( res.records.length === 0 ) {

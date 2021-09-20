@@ -45,6 +45,7 @@ router.get('/:id', async (req, res, next) => {
                 : `This user hasn't completed any courses yet.  Please check back later.`;
 
             return res.render('simple', {
+                title,
                 hero: {
                     title,
                     overline: 'Neo4j GraphAcademy',
