@@ -12,6 +12,24 @@ import { getSandboxes, Sandbox } from '../modules/sandbox'
 const router = Router()
 
 /**
+ * Account Breadcrumbs
+ */
+ router.use((req, res, next) => {
+    res.locals.breadcrumbs = [
+        {
+            link: '/',
+            text: 'Neo4j GraphAcademy',
+        },
+        {
+            link: '/account',
+            text: 'My Account',
+        },
+    ]
+
+    next()
+})
+
+/**
  * @GET /account/
  *
  * Display user account details
@@ -140,6 +158,11 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
                 title = 'Available Courses'
                 break;
         }
+
+        res.locals.breadcrumbs.push({
+            link: req.originalUrl,
+            text: title,
+        })
 
         res.render('account/courses', {
             title,

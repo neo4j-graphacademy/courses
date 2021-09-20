@@ -35,6 +35,11 @@ router.get('/:id', async (req, res, next) => {
             category.courses.sort((a: CourseWithProgress, b: CourseWithProgress) => a.completed < b.completed ? 1 : -1)
         }
 
+        const breadcrumbs = [
+            { link: '/', text: 'Neo4j GraphAcademy', },
+            { link: req.originalUrl, text: title, },
+        ]
+
         if ( categories.length === 0 ) {
             const content = own ? `<p>This page acts as a public record of your achievements on GraphAcademy.</p><p>Every course that you complete will appear here so friends and colleagues can track your progress.</p>`
                 : `This user hasn't completed any courses yet.  Please check back later.`;
@@ -44,14 +49,14 @@ router.get('/:id', async (req, res, next) => {
                     title,
                     overline: 'Neo4j GraphAcademy',
                 },
+                breadcrumbs,
                 content,
                 action: {
                     link: '/categories/',
                     text: 'View Course Catalogue'
-                }
+                },
             })
         }
-
 
         res.render('profile/achievements', {
             title,
@@ -62,6 +67,7 @@ router.get('/:id', async (req, res, next) => {
             ...user,
             own,
             categories,
+            breadcrumbs
         })
     }
     catch (e) {
