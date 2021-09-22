@@ -18,7 +18,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         MATCH (c:Course)
         WHERE NOT c.status IN $exclude
 
-        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e:CompletedEnrolment)-[:FOR_COURSE]->(c)
+        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
         WITH u, ${courseCypher('e', 'u')} AS course
 

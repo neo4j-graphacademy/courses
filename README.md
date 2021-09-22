@@ -256,3 +256,22 @@ input::read[type=button,class=btn,value=Mark as Read]
     ```
     browser::MERGE (p:Person {name: 'Daniel Kaluuya'})[]
     ```
+
+
+## Deployment
+
+The live site is hosted via AWS using Kubernetes - Kudos to Max for sorting this out!
+
+To redeploy:
+
+> Build the latest version:
+  ```
+  skaffold build -t latest
+  ```
+
+  Then when it's built and pushed you just need to do `kubectl rollout restart deployment/graphacademy -n graphacademy-prod`
+
+  or kill the running pod and the deployment will spawn a new one.
+
+
+

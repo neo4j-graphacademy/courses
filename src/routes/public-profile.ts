@@ -32,7 +32,16 @@ router.get('/:id', async (req, res, next) => {
 
         // Sort Courses
         for ( const category of categories ) {
-            category.courses.sort((a: CourseWithProgress, b: CourseWithProgress) => a.completed < b.completed ? 1 : -1)
+            category.courses.sort((a: CourseWithProgress, b: CourseWithProgress) => {
+                if ( a.completed && !b.completed ) {
+                    return -1
+                }
+                if ( a.completed && !b.enrolled ) {
+                    return -1
+                }
+
+                return a.title < b.title ? -1 : 1
+            })
         }
 
         const breadcrumbs = [

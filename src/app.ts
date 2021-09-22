@@ -9,6 +9,7 @@ import categoryRoutes from './routes/categories'
 import accountRoutes from './routes/account'
 import certificateRoutes from './routes/certificates'
 import testRoutes from './routes/test'
+import pageRoutes from './routes/pages'
 import { applyErrorhandlers } from './middleware/error-handlers'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session'
@@ -54,6 +55,7 @@ export default function initApp(driver: Driver) {
     app.use('/u', publicProfileRoutes)
     app.use('/certificates', certificateRoutes)
     app.use('/browser', express.static( path.join(__dirname, '..', 'browser', 'dist') ))
+    app.use('/', pageRoutes)
 
     if ( process.env.NODE_ENV === 'dev' ) {
         app.use('/test', testRoutes)
