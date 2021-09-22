@@ -49,6 +49,7 @@ const renderCourses = async () => {
 
         await render(courseBannerPath(course), course.categories[0].title, course.title, course.caption, course.badge)
 
+        // tslint:disable-next-line
         console.log(courseBannerPath(course));
     }
 }
@@ -67,6 +68,7 @@ const renderCategories = async () => {
             category.caption || 'Hands-on training. No installation required.'
         )
 
+        // tslint:disable-next-line
         console.log(categoryBannerPath(category));
     }
 }
