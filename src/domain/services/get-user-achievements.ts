@@ -18,7 +18,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         MATCH (c:Course)
         WHERE NOT c.status IN $exclude
 
-        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e:CompletedEnrolment)-[:FOR_COURSE]->(c)
+        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
         WITH u, ${courseCypher('e', 'u')} AS course
 
@@ -26,12 +26,14 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
 
         UNWIND course.categories AS category
 
-        WITH  u AS user, category, collect(course) AS courses
-        WHERE any(c IN courses WHERE c.completed = true)
-
-        RETURN *
+        WITH u AS user, category, collect(course) AS courses
         ORDER BY category.title ASC
+
+        WITH user, collect({category: category, courses: courses}) AS categories
+
+        RETURN user, [ cat in categories where any(c in cat.courses where c.completed = true) ] AS categories
     `, appendParams({ id }))
+
 
     if ( res.records.length === 0 ) {
         throw new NotFoundError(`User with id ${id} not found`)
@@ -41,14 +43,14 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
 
     return {
         user,
-        categories: await Promise.all(res.records.map(async row => {
-            const courses = await Promise.all(row.get('courses').map((course: CourseWithProgress) => formatCourse(course))) as CourseWithProgress[]
-            const completedCount = row.get('courses').reduce((acc: number, course: CourseWithProgress) => course.completed ? acc + 1 : acc, 0)
+        categories: await Promise.all(res.records[0].get('categories').map(async ({ category, courses }: any) => {
+            const formattedCourses = await Promise.all(courses.map((course: CourseWithProgress) => formatCourse(course))) as CourseWithProgress[]
+            const completedCount = courses.reduce((acc: number, course: CourseWithProgress) => course.completed ? acc + 1 : acc, 0)
             const completedPercentage = Math.round((completedCount / courses.length) * 100)
 
             return {
-                category: row.get('category'),
-                courses,
+                category,
+                courses: formattedCourses,
                 completedCount,
                 completedPercentage,
             }

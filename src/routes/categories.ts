@@ -12,6 +12,23 @@ import { categoryBannerPath, flattenCategories } from '../utils'
 
 const router = Router()
 
+/**
+ * Course Breadcrumbs
+ */
+ router.use((req, res, next) => {
+    res.locals.breadcrumbs = [
+        {
+            link: '/',
+            text: 'Neo4j GraphAcademy',
+        },
+        {
+            link: '/categories',
+            text: 'All Courses',
+        },
+    ]
+
+    next()
+})
 
 /**
  * @GET /
@@ -77,6 +94,12 @@ router.get('/:slug', async (req, res, next) => {
         if (!category) {
             return next(new NotFoundError(`Category with slug ${slug} could not be found`))
         }
+
+        // Add Breadcrumb
+        res.locals.breadcrumbs.push({
+            link: `/categories/${category.slug}/`,
+            text: category.title,
+        })
 
         res.render('course/list', {
             title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,

@@ -28,6 +28,24 @@ import { classroomLocals } from '../middleware/classroom-locals'
 const router = Router()
 
 /**
+ * Course Breadcrumbs
+ */
+router.use((req, res, next) => {
+    res.locals.breadcrumbs = [
+        {
+            link: '/',
+            text: 'Neo4j GraphAcademy',
+        },
+        {
+            link: '/categories',
+            text: 'All Courses',
+        },
+    ]
+
+    next()
+})
+
+/**
  * @GET /
  *
  * Redirect the user to the category list
@@ -58,6 +76,12 @@ router.get('/:course', async (req, res, next) => {
         }
 
         const doc = await convertCourseOverview(course.slug)
+
+        // Add Breadcrumb
+        res.locals.breadcrumbs.push({
+            link: course.link,
+            text: course.title,
+        })
 
         res.render('course/overview', {
             classes: `course ${course.slug}`,
