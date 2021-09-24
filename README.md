@@ -275,3 +275,10 @@ To redeploy:
 
 
 
+```
+skaffold build -t latest
+kubectl rollout restart deployment/graphacademy -n graphacademy-prod
+```
+
+
+
