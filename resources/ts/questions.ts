@@ -297,6 +297,8 @@ const handleResponse = (parent, button, res, showHint = false) => {
             element.classList.add('summary--visible')
         }
 
+        let confirmation
+
         if (res.data.next) {
             // Next Link
             const link = createElement('a', 'lesson-outcome-progress', [
@@ -304,23 +306,31 @@ const handleResponse = (parent, button, res, showHint = false) => {
             ])
             link.setAttribute('href', res.data.next.link)
 
-            parent.appendChild(createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
+            confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Well done!']),
                 createElement('p', '', [
                     'You are now ready to advance to ',
                     link,
                 ])
-            ]))
+            ])
         }
         else {
             // Course completed
-            parent.appendChild(createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
+            confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
                     'You have completed this lesson!',
                 ])
-            ]))
+            ])
         }
+
+        const summary = document.querySelector('.summary')
+
+        if (summary && summary.parentElement) {
+            summary.parentElement!.insertBefore(confirmation, summary)
+        }
+
+        parent.classList.remove(QUESTION_INCORRECT)
     }
     else {
         setButtonNegativeState(button)
@@ -600,7 +610,7 @@ const setupVerify = () => {
                 return
             }
 
-            if ( parent ) {
+            if (parent) {
                 addHintListeners(parent)
             }
 
@@ -608,9 +618,6 @@ const setupVerify = () => {
                 e.preventDefault()
 
                 setButtonLoadingState(button as HTMLButtonElement)
-
-                console.log('go');
-
 
                 axios.post(`${document.location.pathname}verify`)
                     .then(res => handleResponse(button.parentElement, button, res, true))
@@ -623,7 +630,7 @@ const setupVerify = () => {
 }
 
 const setupMarkAsReadButton = () => {
-    Array.from(document.querySelectorAll('input[name="read"]'))
+    Array.from(document.querySelectorAll('.btn-read'))
         .map((button: Element) => {
             button.addEventListener('click', e => {
                 e.preventDefault()

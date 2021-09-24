@@ -96,6 +96,4 @@ export async function render(outputTo: string, overline: string | undefined, tit
     return output.toString()
 }
 
-
-
 main()

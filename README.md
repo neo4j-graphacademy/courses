@@ -113,12 +113,18 @@ Lesson content
 * `order` -
 * `duration` -
 * `sandbox` - Should the sandbox window be expanded/visible by default?
-* `cypher` - Pre-populate the sandbox window with a cypher query
-* `verify` - Cypher query to run against the database to check that the challenge has been completed.  Combine with a `[.verify]` question.
+
+### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/sandbox.cypher
+
+Pre-populate the sandbox query window with a cypher query
+
+### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/verify.cypher
+
+Cypher query to run against the database to check that the challenge has been completed.  Combine with a `[.verify]` question.
 
 ### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/questions/{question}.adoc
 
-Question title and text
+Question title, text and answer
 
 #### Attributes
 
@@ -249,8 +255,9 @@ input::read[type=button,class=btn,value=Mark as Read]
     ```
     :sandbox: true
     // Optional: Pre-fill query window with a cypher query
-    :cypher: MATCH (n) RETURN count(n)
     ```
+    Add a `sandbox.cypher` file to pre-fill a query in the sandbox
+
 
 2. Embed within lesson
     ```

@@ -1,18 +1,16 @@
 import { Transaction } from "neo4j-driver";
-import { getLessonOverview } from "../../modules/asciidoc";
 import { createDriver } from "../../modules/neo4j";
 import { getSandboxForUseCase } from "../../modules/sandbox";
-import { ATTRIBUTE_VERIFY, LessonWithProgress } from "../model/lesson";
+import { getLessonCypherFile } from "../../utils";
+import { LessonWithProgress } from "../model/lesson";
 import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
-import { decode } from 'html-entities'
 
 export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
-    const document = await getLessonOverview(course, module, lesson)
     const progress = await getCourseWithProgress(course, user)
-    const usecase = progress.usecase
-    const verify = decode(document.getAttribute(ATTRIBUTE_VERIFY))
+    const { usecase } = progress
+    const verify = await getLessonCypherFile(course, module, lesson, 'verify')
 
     // No usecase or verify?
     if ( usecase === undefined || verify === undefined ) {

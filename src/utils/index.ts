@@ -3,17 +3,9 @@ import fs from 'fs'
 import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
 import { Course, CourseWithProgress } from "../domain/model/course";
 import { User } from '../domain/model/user';
-import { Lesson } from '../domain/model/lesson';
+import { Lesson, LessonWithProgress } from '../domain/model/lesson';
+import { Module, ModuleWithProgress } from '../domain/model/module';
 import { Category } from '../domain/model/category';
-
-export function sortCourse(course: Course): Course {
-    course.modules?.map(module => {
-        module.lessons?.sort((a, b) => a.order < b.order ? -1 : 1)
-    })
-    course.modules?.sort((a, b) => a.order < b.order ? -1 : 1)
-
-    return course
-}
 
 export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -31,13 +23,59 @@ export async function getBadge(course: Course | CourseWithProgress): Promise<str
 }
 
 
+type CypherFile = 'verify' | 'reset' | 'sandbox'
+
+export function getLessonCypherFile(course: string, module: string, lesson: string, file: CypherFile): Promise<string | undefined> {
+    return new Promise((resolve, reject) => {
+        const filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${file}.cypher`)
+
+        if ( !fs.existsSync(filePath) ) {
+            return resolve(undefined)
+        }
+
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                return reject(err)
+            }
+
+            resolve(data.toString())
+        })
+    })
+}
+
+
+export async function formatLesson(course: string, module: string, lesson: Lesson | LessonWithProgress): Promise<Lesson | LessonWithProgress> {
+    const cypher = await getLessonCypherFile(course, module, lesson.slug, 'sandbox')
+
+    return {
+        ...lesson,
+        cypher,
+    }
+}
+
+
+export async function formatModule(course: string, module: Module | ModuleWithProgress): Promise<Module | ModuleWithProgress> {
+    const lessons = await Promise.all((module.lessons || []).map((lesson: Lesson | LessonWithProgress) => formatLesson(course, module.slug, lesson)))
+
+    lessons.sort((a, b) => a.order < b.order ? -1 : 1)
+
+    return {
+        ...module,
+        lessons,
+    }
+}
+
 export async function formatCourse(course: Course | CourseWithProgress): Promise<Course> {
+    const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
     const badge = await getBadge(course)
 
-    return sortCourse({
+    modules.sort((a, b) => a.order < b.order ? -1 : 1)
+
+    return {
         ...course,
+        modules,
         badge,
-    })
+    }
 }
 
 export function getUserName(user: User): string {
