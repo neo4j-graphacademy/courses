@@ -412,7 +412,6 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
-
         // If not enrolled, send to course home
         if (course.enrolled === false) {
             return res.redirect(`/courses/${req.params.course}/`)
