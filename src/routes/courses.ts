@@ -94,6 +94,7 @@ router.get('/:course', async (req, res, next) => {
             course: { modules: course.modules },
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
+            feedback: true,
         })
     }
     catch (e) {
@@ -294,23 +295,23 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
 
-        // TODO: Flash memory
-        const interested = req.query.interested
-
-        // TODO: Get next link for "Continue Lesson" button
         const course = await getCourseWithProgress(req.params.course, user)
 
         if (course.redirect) {
             return res.redirect(course.redirect)
         }
+        else if (!course.completed) {
+            return res.redirect(course.link)
+        }
 
         const doc = await convertCourseSummary(course.slug)
 
         res.render('course/summary', {
-            classes: `course ${course.slug}`,
-            ...course,
+            classes: `course-summary ${course.slug}`,
+            title: 'Course Summary',
+            course,
             doc,
-            interested,
+
         })
     }
     catch (e) {
@@ -434,6 +435,7 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
 
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}`,
+            feedback: true,
             ...module,
             type: 'module overview',
             path: req.originalUrl,
@@ -561,6 +563,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
 
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,
+            feedback: true,
             ...lesson,
             path: req.originalUrl,
             course,

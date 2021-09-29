@@ -365,10 +365,16 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
         }
         else {
             // Course completed
+            const link = createElement('a', 'lesson-outcome-progress', [
+                'View Course Summary'
+            ])
+            link.setAttribute('href', `${res.data.link}summary/`)
+
             confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
                 createElement('h3', 'admonition-title', ['Congratulations!']),
                 createElement('p', '', [
-                    'You have completed this lesson!',
+                    'You have completed this course! ',
+                    link
                 ])
             ])
         }
