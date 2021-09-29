@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { createElement } from './modules/dom'
 
-
 interface Question {
     parent: Element;
     element: Element,
@@ -13,6 +12,12 @@ interface Question {
 interface Option {
     element: Element,
     value: string;
+    correct: boolean;
+}
+
+interface Answer {
+    id: string;
+    answers: string[];
     correct: boolean;
 }
 
@@ -273,7 +278,6 @@ const formatQuestion = async (div: Element): Promise<Question> => {
         return formatFreeTextQuestion(div)
     }
 
-
     return formatSelectionQuestion(div)
 }
 
@@ -281,9 +285,54 @@ const LESSON_OUTCOME_SELECTOR = 'lesson-outcome'
 const LESSON_OUTCOME_PASSED = 'lesson-outcome--passed'
 const LESSON_OUTCOME_FAILED = 'lesson-outcome--failed'
 
-const handleResponse = (parent, button, res, showHint = false) => {
+const handleResponse = (parent, button, res, questions: Question[], answers: Answer[], showHint = false) => {
     parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
         .forEach(el => parent.removeChild(el))
+
+    // Apply answers
+    questions.map(question => {
+        const answer = answers.find(answer => answer!.id === question!.id)
+
+        if (answer === undefined || answer!.correct === false) {
+            // Set class on question
+            question.element.classList.add(QUESTION_INCORRECT)
+            question.element.classList.remove(QUESTION_CORRECT)
+
+            // Show hints links
+            question.element.querySelectorAll(`.${ADMONITION_SHOW}`)
+                .forEach((element) => {
+                    element.classList.add(ADMONITION_SHOW_VISIBLE)
+                })
+        }
+        else {
+            // Set class on question
+            question.element.classList.add(QUESTION_CORRECT)
+            question.element.classList.remove(QUESTION_INCORRECT)
+
+        }
+
+        // Set option classes
+        // @ts-ignore
+        question.options.map(option => {
+            const selected = answer?.answers.includes(option.value)
+            const correct = option.correct
+
+            if (selected && correct) {
+                option.element.classList.add(OPTION_CORRECT)
+                option.element.classList.remove(OPTION_INCORRECT)
+
+            }
+            else if (selected && !correct) {
+                option.element.classList.remove(OPTION_CORRECT)
+                option.element.classList.add(OPTION_INCORRECT)
+            }
+            else {
+                option.element.classList.remove(OPTION_CORRECT)
+                option.element.classList.remove(OPTION_INCORRECT)
+            }
+
+        })
+    })
 
     if (res.data.completed) {
         // Remove Submit button
@@ -358,6 +407,8 @@ const handleResponse = (parent, button, res, showHint = false) => {
                     element.classList.add(ADMONITION_SHOW_VISIBLE)
                 })
         }
+
+        parent.scrollIntoView()
     }
 }
 
@@ -373,7 +424,6 @@ const handleError = (parent, button, error) => {
     ]))
 
     button.classList.remove()
-
 }
 
 const setupAnswers = () => {
@@ -428,7 +478,6 @@ const loadingIndicator = () => {
     </svg>`
 
     return span;
-
 }
 
 const createSubmitButton = (text) => {
@@ -448,12 +497,14 @@ const setupQuestions = async () => {
         return;
     }
 
+    // Find Questions on page
     const questions: Question[] = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
     )
 
     if (questions.length) {
+        // Add Submit button
         const parent = questions[0].parent;
         const button = createSubmitButton(`Check Answer${questions.length > 1 ? 's' : ''}`)
 
@@ -463,7 +514,7 @@ const setupQuestions = async () => {
             e.preventDefault()
 
             // Gather answers
-            const answers = questions.map(question => {
+            const answers: Answer[] = questions.map(question => {
                 let answers: string[] = [];
 
                 if (question.type === ANSWER_TYPE_FREETEXT) {
@@ -489,56 +540,8 @@ const setupQuestions = async () => {
                     correct: answers.length === correctOptions.length && answers.every(answer => correctOptions.includes(answer!)),
                 }
             })
-                .filter(e => !!e)
+                .filter(e => !!e) as Answer[]
 
-            // if (answers.length === 0) {
-            //     return
-            // }
-
-            // Apply Progress
-            questions.map(question => {
-                const answer = answers.find(answer => answer!.id === question!.id)
-
-                if (answer === undefined || answer!.correct === false) {
-                    // Set class on question
-                    question.element.classList.add(QUESTION_INCORRECT)
-                    question.element.classList.remove(QUESTION_CORRECT)
-
-                    // Show hints links
-                    question.element.querySelectorAll(`.${ADMONITION_SHOW}`)
-                        .forEach((element) => {
-                            element.classList.add(ADMONITION_SHOW_VISIBLE)
-                        })
-                }
-                else {
-                    // Set class on question
-                    question.element.classList.add(QUESTION_CORRECT)
-                    question.element.classList.remove(QUESTION_INCORRECT)
-
-                }
-
-                // Set option classes
-                // @ts-ignore
-                question.options.map(option => {
-                    const selected = answer?.answers.includes(option.value)
-                    const correct = option.correct
-
-                    if (selected && correct) {
-                        option.element.classList.add(OPTION_CORRECT)
-                        option.element.classList.remove(OPTION_INCORRECT)
-
-                    }
-                    else if (selected && !correct) {
-                        option.element.classList.remove(OPTION_CORRECT)
-                        option.element.classList.add(OPTION_INCORRECT)
-                    }
-                    else {
-                        option.element.classList.remove(OPTION_CORRECT)
-                        option.element.classList.remove(OPTION_INCORRECT)
-                    }
-
-                })
-            })
 
             // Send Progress to API
             setButtonLoadingState(button as HTMLButtonElement)
@@ -550,7 +553,7 @@ const setupQuestions = async () => {
             }
 
             axios.post(document.location.pathname, answers)
-                .then(res => handleResponse(parent, button, res))
+                .then(res => handleResponse(parent, button, res, questions, answers))
         })
     }
 }
@@ -599,14 +602,6 @@ const setupVerify = () => {
 
                 b.classList.add('btn--correct')
 
-                // const span = document.createElement('span')
-                // span.classList.add('verified-notification')
-                // span.classList.add('body-small')
-                // span.classList.add('muted')
-                // span.appendChild(document.createTextNode('Database already verified'))
-
-                // button.parentElement?.appendChild(span)
-
                 return
             }
 
@@ -620,7 +615,7 @@ const setupVerify = () => {
                 setButtonLoadingState(button as HTMLButtonElement)
 
                 axios.post(`${document.location.pathname}verify`)
-                    .then(res => handleResponse(button.parentElement, button, res, true))
+                    .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(e => handleError(button.parentElement, button, e))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
@@ -636,7 +631,7 @@ const setupMarkAsReadButton = () => {
                 e.preventDefault()
 
                 axios.post(`${document.location.pathname}read`)
-                    .then(res => handleResponse(button.parentElement, button, res, true))
+                    .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(e => handleError(button.parentElement, button, e))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
