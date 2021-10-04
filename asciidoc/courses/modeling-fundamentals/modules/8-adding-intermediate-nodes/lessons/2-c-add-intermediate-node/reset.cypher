@@ -1,4 +1,5 @@
 // use these for now until we figure out the best way to reset
+match (n) detach delete n
 MERGE (apollo:Movie {title: 'Apollo 13', tmdbId: 568, released: '1995-06-30', imdbRating: 7.6})
 MERGE (tom:Person {name: 'Tom Hanks', tmdbId: 31, born: '1956-07-09'})
 MERGE (meg:Person {name: 'Meg Ryan', tmdbId: 5344, born: '1961-11-19'})
