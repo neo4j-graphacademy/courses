@@ -163,6 +163,5 @@ export default function classroom() {
     toggleSandbox()
     toggleToc()
     videoTabs()
-    moveCurrentLessonIntoView()
-
+    // moveCurrentLessonIntoView()
 }

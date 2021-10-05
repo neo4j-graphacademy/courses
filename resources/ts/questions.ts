@@ -604,7 +604,7 @@ const setupVerify = () => {
                 parent?.classList.add(QUESTION_CORRECT)
 
                 b.disabled = true
-                b.innerHTML = 'Lesson Completed'
+                b.innerHTML = 'Challenge Completed'
 
                 b.classList.add('btn--correct')
 
