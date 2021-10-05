@@ -26,7 +26,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
             // Log Attempt
-            MERGE (a:Attempt { id: apoc.text.base64Encode(u.id + '--'+ l.id + '--' + toString(datetime())) })
+            MERGE (a:Attempt { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime())) })
             SET a.createdAt = datetime()
             MERGE (e)-[:HAS_ATTEMPT]->(a)
 
@@ -36,7 +36,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 ON CREATE SET q.slug = row.id
                 MERGE (l)-[:HAS_QUESTION]->(q)
 
-                MERGE (an:Answer { id: apoc.text.base64Encode(u.id + '--'+ l.id + '--' + toString(datetime()) +'--'+ q.id) })
+                MERGE (an:Answer { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime()) +'--'+ q.id) })
                 SET an.createdAt = datetime(),
                     an.correct = row.correct,
                     an.answers = row.answers
