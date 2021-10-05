@@ -9,11 +9,17 @@ export function initBugsnag() {
             plugins: [ BugsnagPluginExpress ],
             onError: event => {
                 event.errors.map((error: any) => {
-                    if ( error.query === 'Neo4jError' )  {
+                    if ( error.query !== undefined )  {
                         event.addMetadata('query', {
                             query: error.query,
                             parameters: error.parameters,
                             database: error.database,
+                        })
+                    }
+
+                    if ( error.user !== undefined )  {
+                        event.addMetadata('user', {
+                            id: error.user,
                         })
                     }
                 })
