@@ -29,7 +29,7 @@ export function applyErrorhandlers(app: Express) {
             return notFoundError(req, res)
         }
 
-        if ( (error as AxiosError).response?.status === 400 || (error as AxiosError).response?.status === 401 ) {
+        if ( (error as AxiosError).response?.status === 401 ) {
             let redirectTo = '/login'
 
             if ( req.method === 'GET' ) {

@@ -1,6 +1,6 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { devSandbox } from '../domain/model/sandbox.mocks'
-import SandboxApiError from '../errors/sandbox-api.error'
+import { notify } from '../middleware/bugsnag'
 
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'
 
@@ -22,14 +22,27 @@ export interface Sandbox {
 
 const { SANDBOX_URL } = process.env
 
+const api = axios.create({
+    baseURL: SANDBOX_URL,
+})
+
+api.interceptors.response.use(
+    config => config,
+    (error: AxiosError) => {
+        notify( error )
+
+        return Promise.reject(error)
+    }
+)
+
 export async function getSandboxes(token: string): Promise<Sandbox[]> {
     if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
         return [ devSandbox() ]
     }
 
     try {
-        const res = await axios.get(
-            `${SANDBOX_URL}SandboxGetRunningInstancesForUser`,
+        const res = await api.get(
+            `SandboxGetRunningInstancesForUser`,
             {
                 headers: {
                     authorization: `${token}`
@@ -60,8 +73,15 @@ export async function getSandboxForUseCase(token: string, usecase: string): Prom
 }
 
 export async function createSandbox(token: string, usecase: string): Promise<Sandbox> {
-    const res = await axios.post(
-        `${SANDBOX_URL}SandboxRunInstance`,
+    // Prefer existing to avoid 400 errors
+    const existing = await getSandboxForUseCase(token, usecase)
+
+    if ( existing ) {
+        return existing
+    }
+
+    const res = await api.post(
+        `SandboxRunInstance`,
         { usecase, },
         {
             headers: {

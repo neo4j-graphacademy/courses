@@ -60,10 +60,6 @@ export function useErrorHandler(app: Express) {
 }
 
 export function notify(error: Error) {
-
-    console.log(error);
-
-
     if ( bugsnagApiKey() ) {
         Bugsnag.notify(error)
     }
