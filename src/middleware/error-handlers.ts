@@ -3,7 +3,6 @@ import { Express, NextFunction, Request, Response } from 'express';
 import NotFoundError from '../errors/not-found.error';
 
 export function applyErrorhandlers(app: Express) {
-
     const notFoundError = (req: Request, res: Response) => {
         res.status(404)
             .render('simple', {

@@ -6,6 +6,7 @@ import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
 import { Category } from '../domain/model/category';
+import { courseSummaryExists } from '../modules/asciidoc';
 
 export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -65,7 +66,7 @@ export async function formatModule(course: string, module: Module | ModuleWithPr
     }
 }
 
-export async function formatCourse(course: Course | CourseWithProgress): Promise<Course> {
+export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
     const badge = await getBadge(course)
 
@@ -73,6 +74,7 @@ export async function formatCourse(course: Course | CourseWithProgress): Promise
 
     return {
         ...course,
+        summary: courseSummaryExists(course.slug),
         modules,
         badge,
     }

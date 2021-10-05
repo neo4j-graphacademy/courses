@@ -54,10 +54,10 @@ export async function write(query: string, params?: Record<string, any>, databas
     }
 }
 
-export async function writeTransaction(work: (tx: Transaction) => void, database: string | undefined = NEO4J_DATABASE): Promise<void> {
+export async function writeTransaction<T>(work: (tx: Transaction) => T, database: string | undefined = NEO4J_DATABASE): Promise<T> {
     const session = _driver.session({ database, defaultAccessMode: 'WRITE' })
 
-    const res = await session.writeTransaction(work)
+    const res = await session.writeTransaction<T>(work)
 
     await session.close()
 

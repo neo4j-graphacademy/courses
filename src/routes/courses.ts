@@ -300,9 +300,9 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
         if (course.redirect) {
             return res.redirect(course.redirect)
         }
-        else if (!course.completed) {
-            return res.redirect(course.link)
-        }
+        // else if (!course.completed) {
+        //     return res.redirect(course.link)
+        // }
 
         const doc = await convertCourseSummary(course.slug)
 
@@ -434,7 +434,7 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
         } = await getSandboxConfig(course)
 
         res.render('course/module', {
-            classes: `module ${req.params.course}-${req.params.module}`,
+            classes: `module ${req.params.course}-${req.params.module}  ${module!.completed || course!.completed ? 'lesson--completed' : ''}`,
             feedback: true,
             ...module,
             type: 'module overview',
@@ -562,7 +562,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
         }
 
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed ? 'lesson--completed' : ''}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed || course!.completed ? 'lesson--completed' : ''}`,
             feedback: true,
             ...lesson,
             path: req.originalUrl,
@@ -574,6 +574,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
             showSandbox,
             sandboxUrl,
             sandboxVisible,
+            summary: await courseSummaryExists(req.params.course),
         })
     }
     catch (e) {
