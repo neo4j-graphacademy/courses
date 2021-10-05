@@ -24,6 +24,7 @@ import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feed
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
+import SandboxApiError from '../errors/sandbox-api.error'
 
 const router = Router()
 
@@ -232,8 +233,8 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
             try {
                 await createSandbox(token, enrolment.course.usecase)
             }
-            catch (e) {
-                notify(e)
+            catch (e: any) {
+                notify(new SandboxApiError(e.message, user!.sub, e.response?.headers['x-amzn-requestid'], e.response?.data))
             }
         }
 

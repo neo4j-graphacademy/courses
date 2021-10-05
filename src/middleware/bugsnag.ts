@@ -19,7 +19,14 @@ export function initBugsnag() {
 
                     if ( error.user !== undefined )  {
                         event.addMetadata('user', {
-                            id: error.user,
+                            sub: error.user,
+                        })
+                    }
+
+                    if ( error.requestId !== undefined )  {
+                        event.addMetadata('innerRequest', {
+                            requestId: error.requestId,
+                            response: error.response,
                         })
                     }
                 })
@@ -53,6 +60,10 @@ export function useErrorHandler(app: Express) {
 }
 
 export function notify(error: Error) {
+
+    console.log(error);
+
+
     if ( bugsnagApiKey() ) {
         Bugsnag.notify(error)
     }
