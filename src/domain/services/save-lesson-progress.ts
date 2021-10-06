@@ -52,9 +52,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 MERGE (an)-[:TO_QUESTION]->(q)
             )
 
-
-
-            FOREACH (_ IN CASE WHEN ALL (a IN $answers WHERE a.correct) THEN [1] ELSE [] END |
+            FOREACH (_ IN CASE WHEN  size($answers) = size((l)-[:HAS_QUESTION]->()) AND ALL (a IN $answers WHERE a.correct) THEN [1] ELSE [] END |
                 SET a:SuccessfulAttempt
                 MERGE (e)-[r:COMPLETED_LESSON]->(l)
                 SET r.createdAt = datetime()
