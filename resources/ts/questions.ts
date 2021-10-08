@@ -289,7 +289,7 @@ const LESSON_OUTCOME_FAILED = 'lesson-outcome--failed'
 
 const removeFailedMessages = (parent) => {
     parent.querySelectorAll(`.${LESSON_OUTCOME_FAILED}`)
-        .forEach(el => parent.removeChild(el))
+        .forEach(el => el.parentElement!.removeChild(el))
 }
 
 const handleResponse = (parent, button, res, questions: Question[], answers: Answer[], showHint = false) => {
@@ -343,7 +343,7 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
 
     if (res.data.completed) {
         // Remove Submit button
-        parent.removeChild(button)
+        button.parentElement!.removeChild(button)
 
         // Mark as completed in navigation
         document.querySelector('.toc-module-lesson--current')?.classList.add('toc-module-lesson--completed')
@@ -763,8 +763,8 @@ const setupVerify = () => {
                 setButtonLoadingState(button as HTMLButtonElement)
 
                 axios.post(`${document.location.pathname}verify`)
-                    .then(res => handleResponse(button.parentElement, button, res, [], [], true))
-                    .catch(e => handleError(button.parentElement, button, e))
+                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
+                    .catch(e => handleError(button.parentElement!.parentElement!, button, e))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
                     })

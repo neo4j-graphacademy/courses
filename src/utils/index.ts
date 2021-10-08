@@ -12,7 +12,7 @@ export async function getBadge(course: Course | CourseWithProgress): Promise<str
     return new Promise((resolve, reject) => {
         const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
 
-        if ( !fs.existsSync(badgePath) ) {
+        if (!fs.existsSync(badgePath)) {
             return resolve(undefined)
         }
 
@@ -30,7 +30,7 @@ export function getLessonCypherFile(course: string, module: string, lesson: stri
     return new Promise((resolve, reject) => {
         const filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${file}.cypher`)
 
-        if ( !fs.existsSync(filePath) ) {
+        if (!fs.existsSync(filePath)) {
             return resolve(undefined)
         }
 
@@ -135,12 +135,12 @@ export function getSvgs(): Record<string, string> {
 export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
     const output = {}
 
-    for ( const key in elements ) {
-        if ( elements.hasOwnProperty(key) ) {
-            for ( const inner in elements[key] ) {
-                if ( elements[ key ].hasOwnProperty(inner) ) {
+    for (const key in elements) {
+        if (elements.hasOwnProperty(key)) {
+            for (const inner in elements[key]) {
+                if (elements[key].hasOwnProperty(inner)) {
                     // @ts-ignore
-                    output[ `${key}_${inner}` ] = elements[key][inner]?.toString()
+                    output[`${key}_${inner}`] = elements[key][inner]?.toString()
                 }
             }
         }
@@ -160,8 +160,43 @@ export function flattenCategories(categories: Category[]): Category[] {
 
 export function dd(el: any): void {
     // tslint:disable-next-line
-    console.log( JSON.stringify(el, null, 2) );
+    console.log(JSON.stringify(el, null, 2));
 }
 
 export const courseBannerPath = (course: Course) => path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'banner.png')
 export const categoryBannerPath = (category: Category) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
+
+/**
+ * Simple object check.
+ * @param item
+ * @returns {boolean}
+ */
+export function isObject(item: any) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+/**
+ * Deep merge two objects.
+ * @param target
+ * @param ...sources
+ */
+export function mergeDeep(target: Object, ...sources: any[]): Object {
+    if (!sources.length) return target;
+    const source = sources.shift();
+
+    if (isObject(target) && isObject(source)) {
+        for (const key in source) {
+            if (isObject(source[key])) {
+                if ( !target.hasOwnProperty(key) ) {
+                    Object.assign(target, { [key]: {} });
+                }
+
+                mergeDeep((target as any)[key] as Object, source[key]);
+            } else {
+                Object.assign(target, { [key]: source[key] });
+            }
+        }
+    }
+
+    return mergeDeep(target, ...sources);
+}

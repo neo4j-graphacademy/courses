@@ -14,11 +14,15 @@ import NotFoundError from '../errors/not-found.error'
 const router = Router()
 
 router.get('/reset', async (req, res) => {
-    await write(`
+    const result = await write(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)
-        WHERE u.email CONTAINS 'neotechnology'
+        WHERE u.email = $email
         DETACH DELETE e
-    `)
+        RETURN count(*) AS count
+    `, { email: req.query.email })
+
+    // tslint:disable-next-line:no-console
+    console.log(result.records[0].get('count'), ' enrolments deleted for ', req.query.email);
 
     res.redirect('/logout')
 })

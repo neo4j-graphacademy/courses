@@ -7,6 +7,7 @@ import { browserBlockProcessor } from './extensions/browser-block-processor.exte
 import { verifyBlockProcessor } from './extensions/verify.extension'
 import { ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
+import { mergeDeep } from '../../utils'
 
 // Reader
 const doc = asciidoctor()
@@ -30,21 +31,17 @@ export function fileExists(filepath: string): boolean {
     return fs.existsSync(path.join(ASCIIDOC_DIRECTORY, filepath))
 }
 
+
+
 export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
-    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), {
-        ...baseOptions,
-        ...options,
-    })
+    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), mergeDeep(baseOptions, options))
 
     return file
 }
 
 export function convert(document: Asciidoctor.Document, options: Asciidoctor.ProcessorOptions = {}) {
     // TODO: Extend Options
-    return document.convert({
-        ...baseOptions,
-        ...options,
-    })
+    return document.convert(mergeDeep(baseOptions, options))
 }
 
 export async function convertCourseOverview(slug: string, attributes?: Record<string, any>) {
@@ -61,7 +58,7 @@ export async function convertCourseOverview(slug: string, attributes?: Record<st
     return convert(document)
 }
 
-export async function convertCourseSummary(slug: string, attributes?: Record<string, any>) {
+export async function convertCourseSummary(slug: string, attributes: Record<string, any> = {}) {
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.adoc')
 
@@ -81,7 +78,7 @@ export async function courseSummaryExists(slug: string) {
     return fileExists(file)
 }
 
-export async function convertModuleOverview(course: string, module: string, attributes?: Record<string, any>) {
+export async function convertModuleOverview(course: string, module: string, attributes: Record<string, any> = {}) {
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
@@ -98,7 +95,7 @@ export function getLessonDirectory(course: string, module: string, lesson: strin
     return path.join('courses', course, 'modules', module, 'lessons', lesson)
 }
 
-export async function getLessonOverview(course: string, module: string, lesson: string, attributes?: Record<string, any>): Promise<Asciidoctor.Document> {
+export async function getLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<Asciidoctor.Document> {
     const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
     if ( !fileExists(file) ) {
