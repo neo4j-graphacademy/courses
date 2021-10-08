@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { CourseWithProgress } from '../domain/model/course'
-import { EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
+import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { updateUser } from '../domain/services/update-user'
 import { getToken, getUser } from '../middleware/auth'
+import { notify } from '../middleware/bugsnag'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
 
 const router = Router()
@@ -42,8 +43,6 @@ router.get('/', requiresAuth(), async (req, res, next) => {
         // Get Sandboxes
         const sandboxes: Sandbox[] = await getSandboxes(token)
 
-        const courses = getUserEnrolments(user!.sub)
-
         res.render('account/edit', {
             title: 'My Account',
             hero: {
@@ -51,7 +50,6 @@ router.get('/', requiresAuth(), async (req, res, next) => {
             },
             user,
             sandboxes,
-            courses,
         })
     }
     catch (e) {
@@ -140,7 +138,16 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
             { title: 'Available', link: `/account/courses/${STATUS_AVAILABLE}`, current: status === STATUS_AVAILABLE },
         ]
 
-        const result = await getUserEnrolments(user!.sub)
+        let result: EnrolmentsByStatus
+        try {
+            result = await getUserEnrolments(user!.sub)
+        }
+        catch (e) {
+            notify(e)
+
+            result = { enrolments: {} } as EnrolmentsByStatus
+        }
+
         const courses: CourseWithProgress[] = (result.enrolments[status] || []) as CourseWithProgress[]
 
         let title = 'My Courses'
