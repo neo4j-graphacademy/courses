@@ -24,7 +24,6 @@ import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feed
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
-import SandboxApiError from '../errors/sandbox-api.error'
 
 const router = Router()
 

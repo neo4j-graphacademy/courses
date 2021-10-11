@@ -94,7 +94,7 @@ router.get('/:id/:course', async (req, res, next) => {
     try {
         const current = await getUser(req)
 
-        const { user, enrolments } = await getUserEnrolments(req.params.id, 'id')
+        const { user, enrolments } = await getUserEnrolments(req.params.id, 'id', false)
 
         const own = current?.id === req.params.id
 
