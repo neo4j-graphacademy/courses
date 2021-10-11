@@ -140,7 +140,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 
         let result: EnrolmentsByStatus
         try {
-            result = await getUserEnrolments(user!.sub)
+            result = await getUserEnrolments(user!.sub, 'sub', false)
         }
         catch (e: any) {
             notify(e, event => {
