@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import Bugsnag from '@bugsnag/js'
+import Bugsnag, { OnErrorCallback } from '@bugsnag/js'
 import BugsnagPluginExpress from '@bugsnag/plugin-express'
 import Neo4jError from '../errors/neo4j.error'
 
@@ -47,8 +47,8 @@ export function useErrorHandler(app: Express) {
     }
 }
 
-export function notify(error: Error) {
+export function notify(error: Error, onError?: OnErrorCallback) {
     if ( bugsnagApiKey() ) {
-        Bugsnag.notify(error)
+        Bugsnag.notify(error, onError)
     }
 }

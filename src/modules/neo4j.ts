@@ -1,5 +1,6 @@
 import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
 import Neo4jError from '../errors/neo4j.error';
+import { notify } from '../middleware/bugsnag';
 
 let _driver: Driver;
 
@@ -28,8 +29,16 @@ export async function read(query: string, params?: Record<string, any>, database
 
         return res
     }
-    catch(e) {
+    catch(e: any) {
         await session.close()
+
+        notify(e, event => {
+            event.addMetadata('query', {
+                query,
+                params,
+                database,
+            })
+        })
 
         throw e
     }
@@ -47,8 +56,16 @@ export async function write(query: string, params?: Record<string, any>, databas
 
         return res
     }
-    catch(e) {
+    catch(e: any) {
         await session.close()
+
+        notify(e, event => {
+            event.addMetadata('query', {
+                query,
+                params,
+                database,
+            })
+        })
 
         throw e
     }

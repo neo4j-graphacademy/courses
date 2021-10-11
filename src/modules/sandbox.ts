@@ -26,14 +26,6 @@ const api = axios.create({
     baseURL: SANDBOX_URL,
 })
 
-api.interceptors.response.use(
-    config => config,
-    (error: AxiosError) => {
-        notify( error )
-
-        return Promise.reject(error)
-    }
-)
 
 export async function getSandboxes(token: string): Promise<Sandbox[]> {
     if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
@@ -57,7 +49,12 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
             host: `${row.sandboxHashKey}.neo4jsandbox.com`,
         }))
     }
-    catch (e) {
+    catch (e: any) {
+        notify(e, event => {
+            event.addMetadata('request', e.request)
+            event.addMetadata('response', e.response)
+        })
+
         return []
     }
 }

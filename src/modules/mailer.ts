@@ -34,7 +34,9 @@ export function send(to: string, subject: string, html: string): void {
             html,
         }, (err: MailgunError, body) => {
             if (err) {
-                notify(new Error(err.message))
+                notify(new Error(err.message), event => {
+                    event.setUser(undefined, to)
+                })
             }
         })
     }

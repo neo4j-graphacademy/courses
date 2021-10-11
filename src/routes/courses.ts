@@ -234,7 +234,12 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
                 await createSandbox(token, enrolment.course.usecase)
             }
             catch (e: any) {
-                notify(new SandboxApiError(e.message, user!.sub, e.response?.headers['x-amzn-requestid'], e.response?.data))
+                notify(e, (event) => {
+                    event.setUser(user?.sub, user?.email, user?.name)
+
+                    event.addMetadata('request', e.request)
+                    event.addMetadata('response', e.response)
+                })
             }
         }
 
@@ -342,11 +347,10 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
 })
 
 const browser = async (req: Request, res: Response, next: NextFunction) => {
+    const token = await getToken(req)
+    const user = await getUser(req)
+
     try {
-        const token = await getToken(req)
-        const user = await getUser(req)
-
-
         // Check that user is enrolled
         const course = await getCourseWithProgress(req.params.course, user)
 
@@ -380,7 +384,14 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
             password: sandbox!.password
         })
     }
-    catch (e) {
+    catch (e: any) {
+        notify(e, (event) => {
+            event.setUser(user?.sub, user?.email, user?.name)
+
+            event.addMetadata('request', e.request)
+            event.addMetadata('response', e.response)
+        })
+
         // 400/401 on sandbox API - redirect to login
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
