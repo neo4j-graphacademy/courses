@@ -31,8 +31,6 @@ export function fileExists(filepath: string): boolean {
     return fs.existsSync(path.join(ASCIIDOC_DIRECTORY, filepath))
 }
 
-
-
 export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
     const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), mergeDeep(baseOptions, options))
 

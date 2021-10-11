@@ -147,7 +147,6 @@ export function flattenAttributes(elements: Record<string, Record<string, any>>)
     }
 
     return output
-
 }
 
 export function flattenCategories(categories: Category[]): Category[] {
@@ -177,26 +176,28 @@ export function isObject(item: any) {
 
 /**
  * Deep merge two objects.
+ *
  * @param target
  * @param ...sources
  */
-export function mergeDeep(target: Object, ...sources: any[]): Object {
-    if (!sources.length) return target;
-    const source = sources.shift();
+export function mergeDeep(target: Record<string, any>, ...sources: any[]): Record<string, any> {
+    while (sources.length) {
+        const source = sources.shift();
 
-    if (isObject(target) && isObject(source)) {
-        for (const key in source) {
-            if (isObject(source[key])) {
-                if ( !target.hasOwnProperty(key) ) {
-                    Object.assign(target, { [key]: {} });
+        if (isObject(target) && isObject(source)) {
+            for (const key in source) {
+                if (isObject(source[key])) {
+                    if ( !target.hasOwnProperty(key) ) {
+                        Object.assign(target, { [key]: {} });
+                    }
+
+                    mergeDeep(target[key], source[key]);
+                } else {
+                    Object.assign(target, { [key]: source[key] });
                 }
-
-                mergeDeep((target as any)[key] as Object, source[key]);
-            } else {
-                Object.assign(target, { [key]: source[key] });
             }
         }
     }
 
-    return mergeDeep(target, ...sources);
+    return target;
 }

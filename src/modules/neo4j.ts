@@ -31,7 +31,7 @@ export async function read(query: string, params?: Record<string, any>, database
     catch(e) {
         await session.close()
 
-        throw new Neo4jError(e.message, query, params, database)
+        throw e
     }
 }
 
@@ -50,7 +50,7 @@ export async function write(query: string, params?: Record<string, any>, databas
     catch(e) {
         await session.close()
 
-        throw new Neo4jError(e.message, query, params, database)
+        throw e
     }
 }
 
