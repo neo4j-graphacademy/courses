@@ -11,11 +11,11 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
     const res = await write(`
         MATCH (c:Course {slug: $slug})
         MERGE (u:User {sub: $user})
-        ON CREATE SET u.id = randomUuid(), u.createdAt = datetime(),
+        ON CREATE SET u.createdAt = datetime(),
             u.givenName = $givenName,
             u.name = $name,
             u.picture = $picture
-        SET u.email = coalesce($email, u.email)
+        SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid())
 
         MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
         ON CREATE SET e.createdAt = datetime()
