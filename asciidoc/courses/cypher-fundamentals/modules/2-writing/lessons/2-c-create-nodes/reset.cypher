@@ -1,6 +1,4 @@
-MATCH (m:Movie {title: 'Get Out'})
-DETACH DELETE m;
-MATCH (m:Movie {title: 'Rocketman'})
-DETACH DELETE m;
-MATCH (p:Person {name: 'Daniel Kaluuya'})
-DETACH DELETE p;
+MATCH (p:Person {name: 'Daniel Kaluuya'}) DETACH DELETE p
+WITH distinct true AS status
+
+MATCH (m:Movie) WHERE m.title IN ['Get Out', 'Rocketman'] DETACH DELETE m
