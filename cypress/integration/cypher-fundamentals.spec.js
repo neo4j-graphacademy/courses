@@ -263,7 +263,7 @@ describe('Test Course', () => {
         cy.submitVerify()
         cy.verifyLessonPassed(true)
         cy.advanceFromModuleOutcome()
-*/
+
 cy.visit('/courses/cypher-fundamentals/2-writing/3-create-relationships/')
         // 2.3 Creating Relationships
         cy.submitQuiz([

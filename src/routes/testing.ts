@@ -8,7 +8,7 @@ import { getSandboxes } from '../modules/sandbox'
 // import { flattenAttributes } from '../utils'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { emitter } from '../events'
-import { AsciidocEmail, prepareEmail } from '../modules/mailer'
+import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 
 const router = Router()
@@ -22,7 +22,7 @@ router.get('/reset', async (req, res) => {
     `, { email: req.query.email })
 
     // tslint:disable-next-line:no-console
-    console.log(result.records[0].get('count'), ' enrolments deleted for ', req.query.email);
+    console.log('\n\n--\n', result.records[0].get('count'), ' enrolments deleted for ', req.query.email);
 
     res.redirect('/logout')
 })
@@ -64,7 +64,7 @@ router.get('/email/:template', async (req, res) => {
 
     const event = new UserEnrolled(user, course, sandbox)
 
-    const email = prepareEmail(req.params.template as AsciidocEmail, { ...event })
+    const email = prepareEmail(req.params.template as AsciidocEmailFilename, { ...event })
 
     res.send(email.html)
 

@@ -180,21 +180,16 @@ export function isObject(item: any) {
  * @param target
  * @param ...sources
  */
-export function mergeDeep(target: Record<string, any>, ...sources: any[]): Record<string, any> {
+export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<string, any>[]): Record<string, any> {
     while (sources.length) {
         const source = sources.shift();
 
-        if (isObject(target) && isObject(source)) {
-            for (const key in source) {
-                if (isObject(source[key])) {
-                    if ( !target.hasOwnProperty(key) ) {
-                        Object.assign(target, { [key]: {} });
-                    }
-
-                    mergeDeep(target[key], source[key]);
-                } else {
-                    Object.assign(target, { [key]: source[key] });
-                }
+        for ( const key in source ) {
+            if ( !target.hasOwnProperty(key) ) {
+                Object.assign(target, { [key]: source[key] });
+            }
+            else {
+                Object.assign(target[key], source[ key ])
             }
         }
     }

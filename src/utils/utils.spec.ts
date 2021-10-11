@@ -27,6 +27,43 @@ describe('utils', () => {
                 }
             })
         })
+
+        it('should handle real world scenario', () => {
+            const baseOptions = {
+                // TODO: Note: this is dangerous once we start including remote files
+                safe: 'unsafe',
+                backend: 'html5',
+                template_dir: 'TEMPLATE_DIR',
+                attributes: {
+                    shared: 'SHARED_PATH',
+                },
+            }
+
+            const extended = {
+                attributes: {
+                    course_title: 'COURSE_TITLE'
+                }
+            }
+
+            const other = {
+                to_file: true
+            }
+
+            const output = mergeDeep(baseOptions, extended, other)
+
+            const expected = {
+                safe: 'unsafe',
+                backend: 'html5',
+                template_dir: 'TEMPLATE_DIR',
+                attributes: {
+                    shared: 'SHARED_PATH',
+                    course_title: 'COURSE_TITLE'
+                },
+                to_file: true,
+            }
+
+            expect(output).toEqual(expected)
+        })
     })
 
 })

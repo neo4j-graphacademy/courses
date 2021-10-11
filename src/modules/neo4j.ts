@@ -34,6 +34,9 @@ export async function read(query: string, params?: Record<string, any>, database
 
         notify(e, event => {
             event.addMetadata('query', {
+                // @ts-ignore
+                // tslint:disable-next-line no-string-literal
+                instance: _driver['_address'],
                 query,
                 params,
                 database,
@@ -61,6 +64,9 @@ export async function write(query: string, params?: Record<string, any>, databas
 
         notify(e, event => {
             event.addMetadata('query', {
+                // @ts-ignore
+                // tslint:disable-next-line no-string-literal
+                instance: _driver['_address'],
                 query,
                 params,
                 database,

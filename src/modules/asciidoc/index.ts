@@ -21,10 +21,14 @@ verifyBlockProcessor(registry)
 
 // Convert options
 const baseOptions: Asciidoctor.ProcessorOptions = {
-    safe: 'safe',
+    // TODO: Note: this is dangerous once we start including remote files
+    safe: 'unsafe',
     backend: 'html5',
     template_dir: path.join(__dirname, '..', '..', '..', 'views', '_asciidoc'),
     extension_registry: registry,
+    attributes: {
+        shared: path.join(ASCIIDOC_DIRECTORY, 'shared'),
+    },
 }
 
 export function fileExists(filepath: string): boolean {
@@ -32,13 +36,13 @@ export function fileExists(filepath: string): boolean {
 }
 
 export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
-    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), mergeDeep(baseOptions, options))
+    const mergedOptions = mergeDeep(baseOptions, options)
+    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), mergedOptions)
 
     return file
 }
 
 export function convert(document: Asciidoctor.Document, options: Asciidoctor.ProcessorOptions = {}) {
-    // TODO: Extend Options
     return document.convert(mergeDeep(baseOptions, options))
 }
 

@@ -1,7 +1,7 @@
 import pug from 'pug'
 import mailgun, { Mailgun, Error as MailgunError } from 'mailgun-js'
 import { flattenAttributes } from '../utils'
-import { loadFile } from './asciidoc'
+import { convert, loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag'
 
 const {
@@ -42,14 +42,14 @@ export function send(to: string, subject: string, html: string): void {
     }
 }
 
-export type AsciidocEmail = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder'
+export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder'
 
 interface PreparedEmail {
     subject: string;
     html: string;
 }
 
-export function prepareEmail(filename: AsciidocEmail, data: Record<string, Record<string, any>>): PreparedEmail {
+export function prepareEmail(filename: AsciidocEmailFilename, data: Record<string, Record<string, any>>): PreparedEmail {
     const attributes = flattenAttributes({
         base: { url: process.env.BASE_URL },
         ...data,
@@ -61,7 +61,7 @@ export function prepareEmail(filename: AsciidocEmail, data: Record<string, Recor
 
     const html = pug.renderFile('views/emails/template.pug', {
         title: adoc.getTitle(),
-        content: adoc.getContent()
+        content: adoc.getContent(),
     })
 
     return {
@@ -70,7 +70,7 @@ export function prepareEmail(filename: AsciidocEmail, data: Record<string, Recor
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmail, email: string, data: Record<string, Record<string, any>>): void {
+export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>): void {
     if ( MAILGUN_DOMAIN && MAILGUN_API_KEY ) {
         const { subject, html } = prepareEmail(filename, data)
 
