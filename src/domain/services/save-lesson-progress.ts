@@ -1,5 +1,7 @@
+import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
-import { write } from "../../modules/neo4j";
+import { writeTransaction } from "../../modules/neo4j";
+import { formatCourse } from "../../utils";
 import { UserAnsweredQuestion } from "../events/UserAnsweredQuestion";
 import { UserAttemptedLesson } from "../events/UserAttemptedLesson";
 import { UserCompletedCourse } from "../events/UserCompletedCourse";
@@ -13,108 +15,134 @@ import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
-    const res = await write(`
-        MATCH (u:User {sub: $sub})
-        MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
-        WHERE c.slug = $course AND m.slug = $module AND l.slug = $lesson
+    const {
+        lessonWithProgress,
+        moduleWithProgress,
+        courseWithProgress
+    } = await writeTransaction(async tx => {
+        // Save Answers
+        const lessonResult = await tx.run(`
+            MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
+            WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
-        MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+            // Log Attempt
+            MERGE (a:Attempt { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime())) })
+            SET a.createdAt = datetime()
+            MERGE (e)-[:HAS_ATTEMPT]->(a)
 
-        // Log Attempt
-        MERGE (a:Attempt { id: apoc.text.base64Encode(u.id + '--'+ l.id + '--' + toString(datetime())) })
-        SET a.createdAt = datetime()
+            // Log Answers
+            FOREACH (row in $answers |
+                MERGE (q:Question {id: apoc.text.base64Encode(l.id + '--'+ row.id)})
+                ON CREATE SET q.slug = row.id
+                MERGE (l)-[:HAS_QUESTION]->(q)
 
-        MERGE (e)-[:HAS_ATTEMPT]->(a)
+                MERGE (an:Answer { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime()) +'--'+ q.id) })
+                SET an.createdAt = datetime(),
+                    an.correct = row.correct,
+                    an.answers = row.answers
 
-        // Log Answers
-        FOREACH (row in $answers |
-            MERGE (q:Question {id: apoc.text.base64Encode(l.id + '--'+ row.id)})
-            ON CREATE SET q.slug = row.id
-            MERGE (l)-[:HAS_QUESTION]->(q)
+                FOREACH (_ IN CASE WHEN row.correct = true THEN [1] ELSE [] END |
+                    SET an:CorrectAnswer
+                )
+                FOREACH (_ IN CASE WHEN row.correct = false THEN [1] ELSE [] END |
+                    SET an:IncorrectAnswer
+                )
 
-            MERGE (an:Answer { id: apoc.text.base64Encode(u.id + '--'+ l.id + '--' + toString(datetime()) +'--'+ q.id) })
-            SET an.createdAt = datetime(),
-                an.correct = row.correct,
-                an.answers = row.answers
-
-            FOREACH (_ IN CASE WHEN row.correct = true THEN [1] ELSE [] END |
-                SET an:CorrectAnswer
+                MERGE (a)-[:PROVIDED_ANSWER]->(an)
+                MERGE (an)-[:TO_QUESTION]->(q)
             )
-            FOREACH (_ IN CASE WHEN row.correct = false THEN [1] ELSE [] END |
-                SET an:IncorrectAnswer
+
+            FOREACH (_ IN CASE WHEN  size($answers) = size((l)-[:HAS_QUESTION]->()) AND ALL (a IN $answers WHERE a.correct) THEN [1] ELSE [] END |
+                SET a:SuccessfulAttempt
+                MERGE (e)-[r:COMPLETED_LESSON]->(l)
+                SET r.createdAt = datetime()
             )
 
-            MERGE (a)-[:PROVIDED_ANSWER]->(an)
-            MERGE (an)-[:TO_QUESTION]->(q)
-        )
+            RETURN ${lessonCypher('e')} AS lesson
+        `, {
+            sub: user.sub,
+            course,
+            module,
+            lesson,
+            answers,
+        })
 
-        WITH u, c, l, m, e, a, size((l)-[:HAS_QUESTION]->()) AS questions, size((a)-[:PROVIDED_ANSWER]->(:CorrectAnswer)) AS correctAnswers
+        if ( lessonResult.records.length === 0 ) {
+            throw new NotFoundError(`Enrolment not found for ${user.sub} on ${course}/`)
+        }
 
-        // Are all answers correct?
-        FOREACH (_ IN CASE
-            WHEN questions = correctAnswers
-            THEN [1] ELSE [] END |
+        const lessonOutput: LessonWithProgress = lessonResult.records[0].get('lesson')
 
-            SET a:SuccessfulAttempt
-            MERGE (e)-[:COMPLETED_LESSON]->(l)
-        )
+        // Check Enrolment Status for module
+        const moduleResult = await tx.run(`
+            MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)-[:HAS_MODULE]->(m)
+            WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module
 
-        // Has the module been completed?
-        WITH u, c, m, l, e, size((m)-[:HAS_LESSON]->()) AS lessons, size((e)-[:COMPLETED_LESSON]->()<-[:HAS_LESSON]-(m)) as completed
+            WITH u, e, m, [ (m)-[:HAS_LESSON]->(l) | l ] AS lessons, [ (e)-[:COMPLETED_LESSON]->(l) WHERE not l.status IN $exclude | l ] AS completed
 
-        FOREACH (_ IN CASE WHEN lessons = completed THEN [1] ELSE [] END |
-            MERGE (e)-[:COMPLETED_MODULE]->(m)
-        )
+            FOREACH (_ IN CASE WHEN all(l IN lessons WHERE l IN completed) THEN [1] ELSE [] END |
+                MERGE (e)-[r:COMPLETED_MODULE]->(m)
+                SET  r.createdAt = datetime()
+            )
 
-        WITH u, c, m, l, e, size((c)-[:HAS_MODULE]->()) AS modules, size((e)-[:COMPLETED_MODULE]->()) as completed
-
-        FOREACH (_ IN CASE WHEN modules = completed THEN [1] ELSE [] END |
-            SET e:CompletedEnrolment,
-                e.completedAt = coalesce(e.completedAt, datetime())
-        )
-
-        RETURN
-            ${lessonCypher('e')} AS lesson,
-            m {
+            RETURN m {
                 .*,
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
-            } AS module,
-            ${courseCypher('e', 'u')} AS course
-    `, appendParams({
-        sub: user.sub,
-        course,
-        module,
-        lesson,
-        answers,
-    }))
+            } AS module
+        `, appendParams({
+            sub: user.sub,
+            course,
+            module,
+        }))
 
-    const output: LessonWithProgress = res.records[0].get('lesson')
-    const mod: ModuleWithProgress = res.records[0].get('module')
-    const co: CourseWithProgress = res.records[0].get('course')
+        const moduleOutput: ModuleWithProgress = moduleResult.records[0].get('module')
 
+        // Get Enrolment Status
+        const courseResult = await tx.run(`
+            MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $course})
+
+            WITH u, e, c, size((e)-[:COMPLETED_MODULE]->()) AS completed, size((c)-[:HAS_MODULE]->()) AS total
+
+            FOREACH (_ IN CASE WHEN completed = total THEN [1] ELSE [] END |
+                SET e:CompletedEnrolment,
+                    e.completedAt = datetime()
+            )
+
+            RETURN ${courseCypher('e', 'u')} AS course
+        `, appendParams({ sub: user.sub, course }))
+
+        const courseOutput: CourseWithProgress = await formatCourse<CourseWithProgress>(courseResult.records[0].get('course'))
+
+        return {
+            lessonWithProgress: lessonOutput,
+            moduleWithProgress: moduleOutput,
+            courseWithProgress: courseOutput,
+        }
+    })
 
     // Emit that the user as attempted the lesson
-    emitter.emit(new UserAttemptedLesson(user, output, output.completed, answers))
+    emitter.emit(new UserAttemptedLesson(user, lessonWithProgress, lessonWithProgress.completed, answers))
 
     // Emit individual Answers
     answers.forEach(answer => {
-        emitter.emit(new UserAnsweredQuestion(user, output, answer))
+        emitter.emit(new UserAnsweredQuestion(user, lessonWithProgress, answer))
     })
 
     // Emit if user has completed the lesson
-    if ( output.completed ) {
-        emitter.emit(new UserCompletedLesson(user, output))
+    if ( lessonWithProgress.completed ) {
+        emitter.emit(new UserCompletedLesson(user, lessonWithProgress))
+
+        // Emit if user has completed the module
+        if ( moduleWithProgress.completed ) {
+            emitter.emit(new UserCompletedModule(user, moduleWithProgress))
+
+            // Emit if user has completed the course
+            if (courseWithProgress.completed) {
+                emitter.emit(new UserCompletedCourse(user, courseWithProgress))
+            }
+        }
     }
 
-    // Emit if user has completed the module
-    if ( mod.completed ) {
-        emitter.emit(new UserCompletedModule(user, mod))
-    }
 
-    // Emit if user has completed the course
-    if (co.completed) {
-        emitter.emit(new UserCompletedCourse(user, co))
-    }
-
-    return output
+    return lessonWithProgress
 }

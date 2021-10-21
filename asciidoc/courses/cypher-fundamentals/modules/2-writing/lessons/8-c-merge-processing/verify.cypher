@@ -1,1 +1,1 @@
-MATCH (m:Movie {title: 'Rocketman'}) WHERE  m.revenue >= 10000  AND m.released = 2019 RETURN true AS outcome
+MATCH (m:Movie {title: 'Rocketman'}) WHERE  m.matchedAt IS NOT NULL AND m.createdAt IS NOT NULL AND m.updatedAT IS NOT NULL RETURN true AS outcome

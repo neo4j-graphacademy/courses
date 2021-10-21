@@ -1,7 +1,6 @@
 import axios from 'axios'
 import { createElement } from './modules/dom'
 
-
 interface Question {
     parent: Element;
     element: Element,
@@ -13,6 +12,12 @@ interface Question {
 interface Option {
     element: Element,
     value: string;
+    correct: boolean;
+}
+
+interface Answer {
+    id: string;
+    answers: string[];
     correct: boolean;
 }
 
@@ -39,6 +44,8 @@ const OPTION_INCORRECT = 'question-option--incorrect'
 const COMMENT_SELECTOR = 'hljs-comment'
 const COMMENT_SELECTOR_SELECT_PREFIX = '/*select'
 const COMMENT_SELECTOR_INPUT_PREFIX = '/*input'
+
+const CONTENT_SELECTOR = 'classroom-content'
 
 const ANSWER_TYPE_FREETEXT = 'freetext'
 const ANSWER_TYPE_CHECKED = 'checked'
@@ -273,7 +280,6 @@ const formatQuestion = async (div: Element): Promise<Question> => {
         return formatFreeTextQuestion(div)
     }
 
-
     return formatSelectionQuestion(div)
 }
 
@@ -281,13 +287,63 @@ const LESSON_OUTCOME_SELECTOR = 'lesson-outcome'
 const LESSON_OUTCOME_PASSED = 'lesson-outcome--passed'
 const LESSON_OUTCOME_FAILED = 'lesson-outcome--failed'
 
-const handleResponse = (parent, button, res, showHint = false) => {
-    parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
-        .forEach(el => parent.removeChild(el))
+const removeFailedMessages = (parent) => {
+    parent.querySelectorAll(`.${LESSON_OUTCOME_FAILED}`)
+        .forEach(el => el.parentElement!.removeChild(el))
+}
+
+const handleResponse = (parent, button, res, questions: Question[], answers: Answer[], showHint = false) => {
+    // Removed failed messages
+    removeFailedMessages(parent)
+
+    // Apply answers
+    questions.map(question => {
+        const answer = answers.find(answer => answer!.id === question!.id)
+
+        if (answer === undefined || answer!.correct === false) {
+            // Set class on question
+            question.element.classList.add(QUESTION_INCORRECT)
+            question.element.classList.remove(QUESTION_CORRECT)
+
+            // Show hints links
+            question.element.querySelectorAll(`.${ADMONITION_SHOW}`)
+                .forEach((element) => {
+                    element.classList.add(ADMONITION_SHOW_VISIBLE)
+                })
+        }
+        else {
+            // Set class on question
+            question.element.classList.add(QUESTION_CORRECT)
+            question.element.classList.remove(QUESTION_INCORRECT)
+
+        }
+
+        // Set option classes
+        // @ts-ignore
+        question.options.map(option => {
+            const selected = answer?.answers.includes(option.value)
+            const correct = option.correct
+
+            if (selected && correct) {
+                option.element.classList.add(OPTION_CORRECT)
+                option.element.classList.remove(OPTION_INCORRECT)
+
+            }
+            else if (selected && !correct) {
+                option.element.classList.remove(OPTION_CORRECT)
+                option.element.classList.add(OPTION_INCORRECT)
+            }
+            else {
+                option.element.classList.remove(OPTION_CORRECT)
+                option.element.classList.remove(OPTION_INCORRECT)
+            }
+
+        })
+    })
 
     if (res.data.completed) {
         // Remove Submit button
-        parent.removeChild(button)
+        button.parentElement!.removeChild(button)
 
         // Mark as completed in navigation
         document.querySelector('.toc-module-lesson--current')?.classList.add('toc-module-lesson--completed')
@@ -297,37 +353,12 @@ const handleResponse = (parent, button, res, showHint = false) => {
             element.classList.add('summary--visible')
         }
 
-        let confirmation
-
         if (res.data.next) {
-            // Next Link
-            const link = createElement('a', 'lesson-outcome-progress', [
-                res.data.next.title
-            ])
-            link.setAttribute('href', res.data.next.link)
+            displayLessonCompleted(res)
 
-            confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
-                createElement('h3', 'admonition-title', ['Well done!']),
-                createElement('p', '', [
-                    'You are now ready to advance to ',
-                    link,
-                ])
-            ])
         }
         else {
-            // Course completed
-            confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
-                createElement('h3', 'admonition-title', ['Congratulations!']),
-                createElement('p', '', [
-                    'You have completed this lesson!',
-                ])
-            ])
-        }
-
-        const summary = document.querySelector('.summary')
-
-        if (summary && summary.parentElement) {
-            summary.parentElement!.insertBefore(confirmation, summary)
+            displayCourseCompleted(res)
         }
 
         parent.classList.remove(QUESTION_INCORRECT)
@@ -339,14 +370,15 @@ const handleResponse = (parent, button, res, showHint = false) => {
 
         // Show hint text?
         if (parent.querySelector('.admonition')) {
+            // TODO: Show after a couple of incorrect attempts
             children = children.concat(
-                '  If you are still stuck, try clicking the ',
+                '  If you are stuck, try clicking the ',
                 createElement('strong', '', ['Show Hint']),
                 ' button'
             )
         }
 
-        parent.appendChild(createElement('div', `admonition admonition--warning ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+        parent.appendChild(createElement('div', `admonition admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
             createElement('h3', 'admonition-title', ['Oops!']),
             createElement('p', '', children)
         ]))
@@ -358,22 +390,186 @@ const handleResponse = (parent, button, res, showHint = false) => {
                     element.classList.add(ADMONITION_SHOW_VISIBLE)
                 })
         }
+
+        parent.scrollIntoView()
     }
 }
 
-const handleError = (parent, button, error) => {
-    parent.querySelectorAll(`.${LESSON_OUTCOME_SELECTOR}`)
-        .forEach(el => parent.removeChild(el))
 
-    parent.appendChild(createElement('div', `admonition admonition--warning ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_FAILED}`, [
+
+/**
+.module-outcome
+    .module-outcome-container
+      h2.module-outcome-title Congratulations!
+
+      .module-outcome-message
+        p You have passed this lesson.  You are now ready to advance to !{' '}
+          a(href='#') the next lesson
+          | .
+
+      .section.summary
+        h2#_summary Summary
+        p
+          | In this challenge, you demonstrated your skills in identifying an additional label for the graph data model.
+        p The new data model is now:
+        .imageblock.text-center
+          .content
+            img(src='images/after-challenge1-data-model.png' alt='Model thus far' width='400')
+        p
+          | In the next challenge, you will demonstrate that you can create a node with the new label and properties in the graph.
+
+
+      .module-outcome-links
+        a(href='#') Advance to Next Lesson &rarr;
+
+ */
+
+const buildModuleOutcome = (title: string, buttons: HTMLElement[]): HTMLElement => {
+    const summary = document.querySelector('.summary') as (HTMLElement | undefined)
+
+    const titleElement = createElement('h2', 'module-outcome-title', [
+        title
+    ])
+
+    const container = createElement('div', 'module-outcome-container', [
+        titleElement,
+        summary || '',
+        createElement('div', 'module-outcome-actions', buttons),
+    ])
+
+    const output = createElement('div', 'module-outcome', [ container ])
+
+    return output
+}
+
+
+const displayLessonCompleted = (res) => {
+    const actions: HTMLElement[] = []
+
+    // Next Link
+    if ( res.data.next ) {
+        actions.push(createElement('span', 'spacer', []))
+
+        const span = document.createElement('span')
+        span.innerHTML = ' &rarr;'
+
+        const button = createElement('a', 'btn', [
+            'Advance to ',
+            res.data.next.title,
+            span
+        ])
+        button.setAttribute('href', res.data.next.link)
+
+        actions.push(button)
+    }
+
+
+    const confirmation = buildModuleOutcome(
+        'You have passed this lesson!',
+        actions,
+    )
+
+    const content = document.querySelector(`.${CONTENT_SELECTOR}`)
+
+    if ( content ) {
+        content.appendChild(confirmation)
+    }
+}
+
+const displayCourseCompleted = (res) => {
+    const actions: HTMLElement[] = []
+
+    // Course Summary Link
+    // @ts-ignore
+    if ( window.course.summary ) {
+        const span = document.createElement('span')
+        span.innerHTML = ' &rarr;'
+
+        const button = createElement('a', 'btn btn-secondary', [
+            'View Course Summary',
+        ])
+        // @ts-ignore
+        button.setAttribute('href', `${window.course.link}summary/`)
+        button.setAttribute('target', '_blank')
+
+        actions.push(button)
+
+        actions.push(createElement('span', 'spacer', []))
+    }
+
+    // Certificate Link
+    // @ts-ignore
+    if ( window.user.id ) {
+        const span = document.createElement('span')
+        span.innerHTML = ' &rarr;'
+
+        const button = createElement('a', 'btn', [
+            'View Certificate',
+            span
+        ])
+        // @ts-ignore
+        button.setAttribute('href', `/u/${window.user.id}/${window.course.slug}`)
+
+        actions.push(button)
+    }
+    else {
+        const span = document.createElement('span')
+        span.innerHTML = ' &rarr;'
+
+        const button = createElement('a', 'btn', [
+            'My Courses',
+            span
+        ])
+        // @ts-ignore
+        button.setAttribute('href', `/account/courses`)
+
+        actions.push(button)
+    }
+
+    const confirmation = buildModuleOutcome(
+        'You have completed this course!',
+        actions,
+    )
+
+    const content = document.querySelector(`.${CONTENT_SELECTOR}`)
+
+    if ( content ) {
+        content.appendChild(confirmation)
+    }
+
+    // Course completed
+    // const link = createElement('a', 'lesson-outcome-progress', [
+    //     'View Course Summary'
+    // ])
+    // link.setAttribute('href', `${res.data.link}summary/`)
+
+    // const confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
+    //     createElement('h3', 'admonition-title', ['Congratulations!']),
+    //     createElement('p', '', [
+    //         'You have completed this course! ',
+    //         link
+    //     ])
+    // ])
+
+    // const summary = document.querySelector('.summary')
+
+    // if (summary && summary.parentElement) {
+    //     summary.parentElement!.insertBefore(confirmation, summary)
+    // }
+}
+
+const handleError = (parent, button, error) => {
+    // Removed failed messages
+    removeFailedMessages(parent)
+
+    parent.appendChild(createElement('div', `admonition admonition--show admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
         createElement('h3', 'admonition-title', ['Error!']),
         createElement('p', '', [
             error.message,
         ])
     ]))
 
-    button.classList.remove()
-
+    setButtonNegativeState(button)
 }
 
 const setupAnswers = () => {
@@ -428,7 +624,6 @@ const loadingIndicator = () => {
     </svg>`
 
     return span;
-
 }
 
 const createSubmitButton = (text) => {
@@ -448,12 +643,14 @@ const setupQuestions = async () => {
         return;
     }
 
+    // Find Questions on page
     const questions: Question[] = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
     )
 
     if (questions.length) {
+        // Add Submit button
         const parent = questions[0].parent;
         const button = createSubmitButton(`Check Answer${questions.length > 1 ? 's' : ''}`)
 
@@ -463,7 +660,7 @@ const setupQuestions = async () => {
             e.preventDefault()
 
             // Gather answers
-            const answers = questions.map(question => {
+            const answers: Answer[] = questions.map(question => {
                 let answers: string[] = [];
 
                 if (question.type === ANSWER_TYPE_FREETEXT) {
@@ -489,56 +686,8 @@ const setupQuestions = async () => {
                     correct: answers.length === correctOptions.length && answers.every(answer => correctOptions.includes(answer!)),
                 }
             })
-                .filter(e => !!e)
+                .filter(e => !!e) as Answer[]
 
-            // if (answers.length === 0) {
-            //     return
-            // }
-
-            // Apply Progress
-            questions.map(question => {
-                const answer = answers.find(answer => answer!.id === question!.id)
-
-                if (answer === undefined || answer!.correct === false) {
-                    // Set class on question
-                    question.element.classList.add(QUESTION_INCORRECT)
-                    question.element.classList.remove(QUESTION_CORRECT)
-
-                    // Show hints links
-                    question.element.querySelectorAll(`.${ADMONITION_SHOW}`)
-                        .forEach((element) => {
-                            element.classList.add(ADMONITION_SHOW_VISIBLE)
-                        })
-                }
-                else {
-                    // Set class on question
-                    question.element.classList.add(QUESTION_CORRECT)
-                    question.element.classList.remove(QUESTION_INCORRECT)
-
-                }
-
-                // Set option classes
-                // @ts-ignore
-                question.options.map(option => {
-                    const selected = answer?.answers.includes(option.value)
-                    const correct = option.correct
-
-                    if (selected && correct) {
-                        option.element.classList.add(OPTION_CORRECT)
-                        option.element.classList.remove(OPTION_INCORRECT)
-
-                    }
-                    else if (selected && !correct) {
-                        option.element.classList.remove(OPTION_CORRECT)
-                        option.element.classList.add(OPTION_INCORRECT)
-                    }
-                    else {
-                        option.element.classList.remove(OPTION_CORRECT)
-                        option.element.classList.remove(OPTION_INCORRECT)
-                    }
-
-                })
-            })
 
             // Send Progress to API
             setButtonLoadingState(button as HTMLButtonElement)
@@ -550,13 +699,15 @@ const setupQuestions = async () => {
             }
 
             axios.post(document.location.pathname, answers)
-                .then(res => handleResponse(parent, button, res))
+                .then(res => handleResponse(parent, button, res, questions, answers))
+                .catch(e => handleError(parent, button, e))
         })
     }
 }
 
 const removeButtonLoadingState = (button: HTMLButtonElement) => {
     button.classList.remove(BUTTON_LOADING)
+    button.removeAttribute('disabled')
 }
 
 const setButtonLoadingState = (button: HTMLButtonElement) => {
@@ -572,7 +723,7 @@ const setButtonLoadingState = (button: HTMLButtonElement) => {
 const setButtonNegativeState = (button: HTMLButtonElement) => {
     removeButtonLoadingState(button)
 
-    button.classList.add('btn--negative')
+    // button.classList.add('btn--negative')
 
     const label = button.querySelector('.btn-label')
 
@@ -595,17 +746,9 @@ const setupVerify = () => {
                 parent?.classList.add(QUESTION_CORRECT)
 
                 b.disabled = true
-                b.innerHTML = 'Lesson Completed'
+                b.innerHTML = 'Challenge Completed'
 
                 b.classList.add('btn--correct')
-
-                // const span = document.createElement('span')
-                // span.classList.add('verified-notification')
-                // span.classList.add('body-small')
-                // span.classList.add('muted')
-                // span.appendChild(document.createTextNode('Database already verified'))
-
-                // button.parentElement?.appendChild(span)
 
                 return
             }
@@ -620,8 +763,8 @@ const setupVerify = () => {
                 setButtonLoadingState(button as HTMLButtonElement)
 
                 axios.post(`${document.location.pathname}verify`)
-                    .then(res => handleResponse(button.parentElement, button, res, true))
-                    .catch(e => handleError(button.parentElement, button, e))
+                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
+                    .catch(e => handleError(button.parentElement!.parentElement!, button, e))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
                     })
@@ -636,7 +779,7 @@ const setupMarkAsReadButton = () => {
                 e.preventDefault()
 
                 axios.post(`${document.location.pathname}read`)
-                    .then(res => handleResponse(button.parentElement, button, res, true))
+                    .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(e => handleError(button.parentElement, button, e))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)

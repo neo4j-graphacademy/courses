@@ -1,5 +1,6 @@
 import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
 import Neo4jError from '../errors/neo4j.error';
+import { notify } from '../middleware/bugsnag';
 
 let _driver: Driver;
 
@@ -28,10 +29,21 @@ export async function read(query: string, params?: Record<string, any>, database
 
         return res
     }
-    catch(e) {
+    catch(e: any) {
         await session.close()
 
-        throw new Neo4jError(e.message, query, params, database)
+        notify(e, event => {
+            event.addMetadata('query', {
+                // @ts-ignore
+                // tslint:disable-next-line no-string-literal
+                instance: _driver['_address'],
+                query,
+                params,
+                database,
+            })
+        })
+
+        throw e
     }
 }
 
@@ -47,17 +59,28 @@ export async function write(query: string, params?: Record<string, any>, databas
 
         return res
     }
-    catch(e) {
+    catch(e: any) {
         await session.close()
 
-        throw new Neo4jError(e.message, query, params, database)
+        notify(e, event => {
+            event.addMetadata('query', {
+                // @ts-ignore
+                // tslint:disable-next-line no-string-literal
+                instance: _driver['_address'],
+                query,
+                params,
+                database,
+            })
+        })
+
+        throw e
     }
 }
 
-export async function writeTransaction(work: (tx: Transaction) => void, database: string | undefined = NEO4J_DATABASE): Promise<void> {
+export async function writeTransaction<T>(work: (tx: Transaction) => T, database: string | undefined = NEO4J_DATABASE): Promise<T> {
     const session = _driver.session({ database, defaultAccessMode: 'WRITE' })
 
-    const res = await session.writeTransaction(work)
+    const res = await session.writeTransaction<T>(work)
 
     await session.close()
 

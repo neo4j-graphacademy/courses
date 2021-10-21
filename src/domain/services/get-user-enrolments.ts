@@ -8,7 +8,7 @@ import { appendParams, courseCypher } from "./cypher";
 
 type ValidLookupProperty = 'sub' | 'id'
 
-export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub'): Promise<EnrolmentsByStatus> {
+export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', throwOnNotFound: boolean = true): Promise<EnrolmentsByStatus> {
     const res = await read(`
         OPTIONAL MATCH (u:User {${property}: $sub})
         MATCH (c:Course)
@@ -46,7 +46,14 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
     const enrolments = res.records[0].get('enrolments')
 
     if ( !user ) {
-        throw new NotFoundError(`User not found`)
+        if ( throwOnNotFound ) {
+            throw new NotFoundError(`User with sub ${sub} not found`)
+        }
+
+        return {
+            user: false,
+            enrolments: {}
+        }
     }
 
     // Sort items because we can't do this in a pattern comprehension

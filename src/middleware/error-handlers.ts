@@ -3,7 +3,6 @@ import { Express, NextFunction, Request, Response } from 'express';
 import NotFoundError from '../errors/not-found.error';
 
 export function applyErrorhandlers(app: Express) {
-
     const notFoundError = (req: Request, res: Response) => {
         res.status(404)
             .render('simple', {
@@ -30,7 +29,7 @@ export function applyErrorhandlers(app: Express) {
             return notFoundError(req, res)
         }
 
-        if ( (error as AxiosError).response?.status === 400 || (error as AxiosError).response?.status === 401 ) {
+        if ( (error as AxiosError).response?.status === 401 ) {
             let redirectTo = '/login'
 
             if ( req.method === 'GET' ) {

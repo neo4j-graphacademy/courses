@@ -46,6 +46,7 @@ export interface Course {
     badge?: string;
     verify: string | undefined;
     cypher: string | undefined;
+    summary: boolean;
 }
 
 export interface CourseWithProgress extends Course {

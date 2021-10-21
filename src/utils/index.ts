@@ -6,12 +6,13 @@ import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
 import { Category } from '../domain/model/category';
+import { courseSummaryExists } from '../modules/asciidoc';
 
 export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
         const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
 
-        if ( !fs.existsSync(badgePath) ) {
+        if (!fs.existsSync(badgePath)) {
             return resolve(undefined)
         }
 
@@ -29,7 +30,7 @@ export function getLessonCypherFile(course: string, module: string, lesson: stri
     return new Promise((resolve, reject) => {
         const filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${file}.cypher`)
 
-        if ( !fs.existsSync(filePath) ) {
+        if (!fs.existsSync(filePath)) {
             return resolve(undefined)
         }
 
@@ -65,7 +66,7 @@ export async function formatModule(course: string, module: Module | ModuleWithPr
     }
 }
 
-export async function formatCourse(course: Course | CourseWithProgress): Promise<Course> {
+export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
     const badge = await getBadge(course)
 
@@ -73,6 +74,7 @@ export async function formatCourse(course: Course | CourseWithProgress): Promise
 
     return {
         ...course,
+        summary: courseSummaryExists(course.slug),
         modules,
         badge,
     }
@@ -133,19 +135,18 @@ export function getSvgs(): Record<string, string> {
 export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
     const output = {}
 
-    for ( const key in elements ) {
-        if ( elements.hasOwnProperty(key) ) {
-            for ( const inner in elements[key] ) {
-                if ( elements[ key ].hasOwnProperty(inner) ) {
+    for (const key in elements) {
+        if (elements.hasOwnProperty(key)) {
+            for (const inner in elements[key]) {
+                if (elements[key].hasOwnProperty(inner)) {
                     // @ts-ignore
-                    output[ `${key}_${inner}` ] = elements[key][inner]?.toString()
+                    output[`${key}_${inner}`] = elements[key][inner]?.toString()
                 }
             }
         }
     }
 
     return output
-
 }
 
 export function flattenCategories(categories: Category[]): Category[] {
@@ -158,8 +159,40 @@ export function flattenCategories(categories: Category[]): Category[] {
 
 export function dd(el: any): void {
     // tslint:disable-next-line
-    console.log( JSON.stringify(el, null, 2) );
+    console.log(JSON.stringify(el, null, 2));
 }
 
 export const courseBannerPath = (course: Course) => path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'banner.png')
 export const categoryBannerPath = (category: Category) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
+
+/**
+ * Simple object check.
+ * @param item
+ * @returns {boolean}
+ */
+export function isObject(item: any) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+}
+
+/**
+ * Deep merge two objects.
+ *
+ * @param target
+ * @param ...sources
+ */
+export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<string, any>[]): Record<string, any> {
+    while (sources.length) {
+        const source = sources.shift();
+
+        for ( const key in source ) {
+            if ( !target.hasOwnProperty(key) ) {
+                Object.assign(target, { [key]: source[key] });
+            }
+            else {
+                Object.assign(target[key], source[ key ])
+            }
+        }
+    }
+
+    return target;
+}

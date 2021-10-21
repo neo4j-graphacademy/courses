@@ -8,12 +8,13 @@ import publicProfileRoutes from './routes/public-profile'
 import categoryRoutes from './routes/categories'
 import accountRoutes from './routes/account'
 import certificateRoutes from './routes/certificates'
-import testRoutes from './routes/test'
+import testRoutes from './routes/testing'
 import pageRoutes from './routes/pages'
 import { applyErrorhandlers } from './middleware/error-handlers'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag'
+import { getDriver } from './modules/neo4j'
 
 export default function initApp(driver: Driver) {
     const app = express()
