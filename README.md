@@ -288,5 +288,11 @@ skaffold build -t latest
 kubectl rollout restart deployment/graphacademy -n graphacademy-prod
 ```
 
+### Updating environment variables
 
+To update environment variables in production:
+
+1. Search for `GraphAcademy Prod` under Developer Relations in 1password, then download the `production.env` file
+2. Copy the file into `k8s/production` and rename the file as `.env`
+3. Run `kubectl apply -k k8s/production`
 
