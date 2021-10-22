@@ -1,0 +1,229 @@
+= Processing Results
+:order: 5
+
+The Neo4j JavaScript Driver provides you with two methods for consuming results:
+
+* through the **Promise** API
+* through the **Streaming** API with `RxJS`
+
+== The Promise API
+
+The most common method of consuming results is with the Promise API.
+When the server stops has finished streaming results, the `.run()` method resolves with a **Result**.
+
+
+
+[.tab]
+.Using async/await
+====
+Here is an example query call using `async`/`await`.
+
+.Async Example
+[source,js]
+----
+try {
+  const res = await session.readTransaction(tx =>
+    tx.run(
+      `MATCH (p:Person) RETURN p.name AS name`
+    )
+  )
+
+  const names = res.records.map(row => {
+    return row.get('name')
+  })
+
+  // `names` is an array of strings
+  console.log(names)
+}
+catch (e) {
+  // There was a problem with the
+  // database connection or the query
+  console.log(e)
+}
+----
+====
+
+[.tab]
+.Using Promises
+====
+Here is an example query utilising the `then` function from the returned Promise.
+
+.Using Promises
+[source,js]
+----
+session.readTransaction(tx => tx.run(`MATCH (p:Person) RETURN p.name AS name`))
+  .then(res => {
+    return res.records.map(row => {
+      return row.get('name')
+    })
+  })
+  .then(names => {
+    // `names` is an array of strings
+  })
+  .catch(e => {
+    // There was a problem with the
+    // database connection or the query
+    console.log(e)
+  })
+----
+====
+
+
+== The Result
+
+From the examples above, you can see that `session.run` and `tx.run` both return a Promise which resolves to a `res` variable.
+This variable contains a Result object, which contains a `records` property, containing a set of **Records**.
+
+=== Records
+
+As we discovered back in the link:../1-terminology/[Key Terminology] lesson, a Record is an an unordered, keyed set of values as specified in the RETURN statement.
+
+These Records are made available through the `records` property, which is an array.
+
+This can be used to iterate over the individual records, for example, to extract the name value returned from the query.
+
+[source,js]
+----
+const names = res.records.map(row => {
+  return row.get('name') // or row.get(0) for the first key
+})
+----
+
+[TIP]
+You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifing the column number as an integer.
+The available keys can be accessed through `res.keys`.
+
+=== Result Summary
+
+You can access summary information provided by the query through the `summary` property.
+The information provided by the summary includes information about the server, the query, execution times, and a `counters` object which provide statistics about the query.
+
+To get information about how long the query took to complete, you can use the following property:
+
+[source,js]
+----
+// Time in milliseconds before receiving the first result
+console.log(res.summary.resultAvailableAfter) // 10
+
+// Time in milliseconds once the final result was consumed
+console.log(res.summary.resultConsumedAfter) // 30
+----
+
+To access write statistics about the query, call the `updates` method on the `counters` properties.
+
+[source,js]
+----
+console.log(res.summary.counters.updates())
+
+/*
+{
+  nodesCreated: 10,
+  nodesDeleted: 0,
+  relationshipsCreated: 5,
+  relationshipsDeleted: 0,
+  propertiesSet: 20,
+  labelsAdded: 10,
+  labelsRemoved: 0,
+  indexesAdded: 0,
+  indexesRemoved: 0,
+  constraintsAdded: 0,
+  constraintsRemoved: 0
+}
+*/
+----
+
+== The Streaming API
+
+If you prefer to consume results as they become available rather than when the final result is consumed, you can use the `subscribe` method.
+This is available on `session.run` or `tx.run`.
+
+The `subscribe` method accepts one argument, an object of callbacks:
+
+* `onKeys` - is called when keys are made available for all records.
+* `onNext` - called when the next record is available.
+* `onCompleted` - called when all records have been consumed.
+* `onError` - called if an error is thrown.
+
+
+[source,js]
+----
+// Run a Cypher statement, reading the result in a streaming manner as records arrive:
+session
+  .run('MERGE (alice:Person {name : $nameParam}) RETURN alice.name AS name', {
+    nameParam: 'Alice'
+  })
+  .subscribe({
+    onKeys: keys => {
+      console.log(keys)
+    },
+    onNext: record => {
+      console.log(record.get('name'))
+    },
+    onCompleted: () => {
+      session.close() // returns a Promise
+    },
+    onError: error => {
+      console.log(error)
+    }
+  })
+----
+
+This method may be useful if you need to process the records as they become available, for example if are streaming records to another service, or updating a real-time UI using websockets, or if you have complex queries that may take a long time to return a full results.
+
+
+== Reactive Streams with RxJS
+
+The Drivers also offer out-of-the-box support for RxJS streams.
+To create a reactive session, call the `rxSession` method on the driver.
+
+The methods to execute read or write queries are similar to the examples above, with the exception that the `run` function exposes a `records` method which returns an RxJS Observable, to which you can apply operators.
+
+[source,js]
+----
+rxSession
+  .writeTransaction(txc =>
+    txc
+      .run('MERGE (p:Person) RETURN p.name AS name LIMIT 10')
+      .records()
+      .pipe(
+         map(record => record.get('name'))
+       )
+  )
+----
+
+
+== The Neo4j JavaScript Driver and Integers
+
+Due to a discrepency between integers JavaScript and the Neo4j type system, we need to take extra care when working with integers in the Neo4j JavaScript Driver.
+
+The Neo4j type system uses 64-bit signed integer values (with a range of `-(2^64^- 1)` and `(2^63^- 1)`) while JavaScript can only safely represent integers between `-(2^53^- 1)` (`Number.MIN_SAFE_INTEGER`) and `2^53^- 1` (`and Number.MAX_SAFE_INTEGER`).
+
+In order to conform with the Neo4j type system, the driver will not automatically convert to javascript integers and instead convert them to a Float.  This ensures that no data is lost.
+
+The driver provides an `Integer` type, and an `int` function for sending and receiving integers with neo4j.
+
+When an integer is received by the driver, it is wrapped in an `Integer` class.
+You can call the `toNumber` method on this object to convert it back into a JavaScript number.
+If the number is outside of the valid range, it will be returned as a string.
+
+[source,js]
+----
+import { int, isInt } from 'neo4j-driver'
+
+// Convert a JavaScript 'number' into a Neo4j Integer
+const thisYear = int(2022)
+
+// Check if a value is a Neo4j integer
+console.log(isInt(thisYear)) // true
+
+// Convert the Neo4j integer into a Neo4j number
+console.log(thisYear.toNumber()) // 2022
+----
+
+We make use of these functions often throughout this course.
+
+
+== Check Your Understanding
+
+* TODO
+

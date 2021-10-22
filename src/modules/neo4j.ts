@@ -1,4 +1,4 @@
-import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
+import neo4j, { Driver, Result, Transaction, session } from 'neo4j-driver'
 import { notify } from '../middleware/bugsnag';
 
 let _driver: Driver;
