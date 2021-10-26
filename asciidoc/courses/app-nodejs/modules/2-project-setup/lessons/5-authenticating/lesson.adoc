@@ -1,0 +1,168 @@
+= Authenticating a User
+:order: 5
+
+At the moment a user can register, but they are still unable to sign in.
+As with the previous lesson, the `authenticate` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
+
+In the project we use a Local strategy in the `passport` library to handle the authentication request, but the heavy lifting is done by the `authenticate` method on the `AuthService`.
+
+1. A route handler in `src/routes/auth.routes.js` listens for a `POST` request.
+2. The `passport.authenticate` middleware triggers a _local_ authentication strategy.
+3. The callback in `src/passport/neo4j.strategy.js` is triggered
+4. The Strategy calls the `authenticate` method on the `AuthService`
+
+
+== Implementing Authentication
+
+In order for the strategy to work correctly, it must return an object which represents the user on successful login, or return `false` if the credentials are incorrect.
+
+In order to do this, we must first look up the user by their email address.
+If the user exists, we must use the same encryption strategy to verify the password.
+If the user exists and the password can be verified, we must return the properties.
+
+The returned value will be defined as `req.user` on any route handlers that use the `passport.authenticate` middleware.
+
+
+=== Creating a Session
+
+As with the Write Transaction that we wrote in the link:../3-registering/[Registering a User^] lesson, we start by creating a session.
+
+[source,js]
+----
+// Create a new Session
+const session = this.driver.session()
+----
+
+=== Executing a Read Transaction
+
+To execute a Read Transaction, we provide a Unit of Work to the `readTransaction` method on the session.
+
+In this instance we would like to find a `:User` node with the email address supplied in the method arguments.
+
+[source,js]
+----
+// Find the User node within a Read Transaction
+const res = await session.readTransaction(tx =>
+    tx.run('MATCH (u:User {email: $email}) RETURN u', { email })
+)
+----
+
+If there are no records returned by the query, it means that the user doesn't exist in the database and that we should return `false`.
+
+[source,js]
+----
+// User not found, return false
+if ( res.records.length === 0 ) {
+    return false
+}
+----
+
+Next, we should compare the unencrypted password passed to the method with the encrypted password that has been stored in the node property.
+
+If the passwords do not match then we should return `false`.
+
+[source,js]
+----
+// Check password
+const user = res.records[0].get('u')
+const encryptedPassword = user.properties.password
+
+const correct = await compare(unencryptedPassword,
+    encryptedPassword)
+
+if ( correct === false ) {
+    return false
+}
+----
+
+=== Closing the Session
+
+We've now accessed the information that we need from the database, so we can close the session.
+
+[source,js]
+----
+// Close the session
+session.close()
+----
+
+
+Then finally, if all of those checks have been successful, we can generate a JWT token and return it along with the non-sensitive user information.
+
+
+[source,js]
+----
+// Extract the claims for the JWT
+const { password, ...claims } = user.properties
+
+return {
+    ...claims,
+    token: jwt.sign(claims, process.env.JWT_SECRET),
+}
+----
+
+Anything returned from this method will be accessible by calling `req.user` in a route handler.
+
+
+=== Piecing it together
+
+The entire method should look similar to the snippet below.
+
+[source,js]
+----
+async authenticate(email, unencryptedPassword) {
+    // Create a new Session
+    const session = this.driver.session()
+
+    // Find the User node within a Read Transaction
+    const res = await session.readTransaction(tx =>
+        tx.run('MATCH (u:User {email: $email}) RETURN u', { email })
+    )
+
+    // User not found, return false
+    if ( res.records.length === 0 ) {
+        return false
+    }
+
+    // Check password
+    const user = res.records[0].get('u')
+    const encryptedPassword = user.properties.password
+
+    const correct = await compare(unencryptedPassword,
+        encryptedPassword)
+
+    if ( correct === false ) {
+        return false
+    }
+
+    // Close the session
+    await session.close()
+
+    // Extract the claims for the JWT
+    const { password, ...claims } = user.properties
+
+    return {
+        ...claims,
+        token: jwt.sign(claims, process.env.JWT_SECRET),
+    }
+}
+----
+
+== Testing
+
+To test that the user can successfully authenticate, run the following command in a new terminal session:
+
+[source,sh]
+npm run test 04
+
+If all tests pass then the authentication feature has been successfully implemented.
+
+You can view the test file by opening `test/challenges/04-authenticating.spec.js`.
+
+
+== Next Steps
+
+* **TODO**
+
+== Check Your Understanding
+
+* **TODO**
