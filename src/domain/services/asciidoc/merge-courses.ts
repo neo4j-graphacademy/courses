@@ -81,11 +81,19 @@ const loadModule = (folder: string): Module => {
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
 
+    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+
+    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
+        const [ _, number] = slug.match(/^([0-9]+)-/)!
+
+        order = number
+    }
+
     return {
         path: path.join(folder, 'module.adoc'),
         slug,
         title: file.getTitle() as string,
-        order: file.getAttribute(ATTRIBUTE_ORDER, null),
+        order,
         lessons,
     }
 }
@@ -102,12 +110,20 @@ const loadLesson = (folder: string): Lesson => {
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
+    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+
+    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
+        const [ _, number] = slug.match(/^([0-9]+)-/)!
+
+        order = number
+    }
+
     return {
         path: folder,
         slug,
         title: file.getTitle(),
         type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_DEFAULT),
-        order: file.getAttribute(ATTRIBUTE_ORDER, null),
+        order,
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
         questions,

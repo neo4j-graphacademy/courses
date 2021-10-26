@@ -432,7 +432,7 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
         const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
-            next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            return next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
         const doc = await convertModuleOverview(req.params.course, req.params.module)
@@ -536,13 +536,17 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
         const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
-            nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+        }
+
+        else if (!module!.lessons) {
+            return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
         }
 
         const lesson = module!.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
-            nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+            return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
         // Add sandbox attributes to Page Attributes?
