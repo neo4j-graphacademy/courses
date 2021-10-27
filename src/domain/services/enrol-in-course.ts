@@ -60,8 +60,6 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
 
     // Emit event
     if (enrolment.updatedAt === null) {
-        console.log('enrolment reated');
-
         emitter.emit(new UserEnrolled(user, course, sandbox))
     }
 
