@@ -3,6 +3,7 @@ import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
 import { createSandbox } from "../../modules/sandbox";
 import { UserEnrolled } from "../events/UserEnrolled";
+import { STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
 import { appendParams, courseCypher } from "./cypher";
@@ -10,6 +11,7 @@ import { appendParams, courseCypher } from "./cypher";
 export async function enrolInCourse(slug: string, user: User, token: string): Promise<Enrolment> {
     const res = await write(`
         MATCH (c:Course {slug: $slug})
+        WHERE (NOT c.status in [ $draft ] + $exclude) OR $email ENDS WITH '@neotechnology.com'
         MERGE (u:User {sub: $user})
         ON CREATE SET u.createdAt = datetime(),
             u.givenName = $givenName,
@@ -19,6 +21,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
 
         MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
         ON CREATE SET e.createdAt = datetime()
+        ON MATCH SET e.updatedAt = datetime()
 
         MERGE (u)-[:HAS_ENROLMENT]->(e)
         MERGE (e)-[:FOR_COURSE]->(c)
@@ -28,9 +31,11 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
                 id: u.id
             },
             course: ${courseCypher('e', 'u')},
-            createdAt: e.createdAt
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt
         } AS enrolment
     `, appendParams({
+        draft: STATUS_DRAFT,
         slug,
         user: user.sub,
         name: user.nickname || user.name,
@@ -40,7 +45,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
     }))
 
     if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Course ${slug} could not be found`)
+        throw new NotFoundError(`Could not enrol in course ${slug}.  Course could not could not be found`)
     }
 
     const enrolment = res.records[0].get('enrolment')
@@ -54,7 +59,11 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
     }
 
     // Emit event
-    emitter.emit(new UserEnrolled(user, course, sandbox))
+    if (enrolment.updatedAt === null) {
+        console.log('enrolment reated');
+
+        emitter.emit(new UserEnrolled(user, course, sandbox))
+    }
 
     return enrolment
 }
