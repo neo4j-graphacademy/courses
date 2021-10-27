@@ -1,0 +1,116 @@
+= Handling Driver Errors
+:type: quiz
+
+This brings us on to the remaining `// TODO` comment in the `AuthService`.
+
+
+== Unique User Email Addresses
+
+We still have a hard-coded element in the query that will we need to implement.
+Currently, if the email address passed to the method isn't `graphacademy@neo4j.com`, a `ValidationError` is thrown.
+
+[source.js]
+----
+// TODO: Handle Unique constraints in the database
+if (email !== 'graphacademy@neo4j.com') {
+    throw new ValidationError(`An account already exists with the email address ${email}`, {
+        email: 'Email address taken'
+    })
+}
+----
+
+This will seriously affect Neoflix's Daily Active Users numbers.
+
+
+As all of the methods in the `AuthService` are `async` functions, we can use `try`/`catch` blocks to catch any errors as they are thrown.
+
+
+
+
+We can pass the responsibility of handling the duplicate user error to the database by creating a Unique Constraint on the `:User` label, asserting that the `email` property must be unique.
+
+This also gives us the added benefit of an indexed property that we can look up User nodes by without a costly `NodeByLabelScan`.
+
+
+=== Creating a Unique Constraint
+
+To create a Unique Constraint against a label, we can a one-time query against the database.
+If you want to learn more about indexes and constraints
+
+
+[source,cypher]
+CREATE CONSTRAINT UserEmailUnique
+    on (u:User)
+    ASSERT u.email IS UNIQUE;
+
+Click the **Run in Sandbox** button to create the constraint on your Sandbox.
+
+
+If we now run the following query in the Sandbox, a node should be created without any problems.
+
+[source,cypher]
+CREATE (:User {email: "uniqueconstraint@example.com"})
+
+However, running the query again should return the following error:
+
+[source,rel=nocopy]
+Node(33880) already exists with label `User` and property
+ `email` = 'uniqueconstraint@example.com'
+
+=== Catching the Error
+
+We can wrap the entire method in a try/catch block and then use the error message to detect the error.
+
+When a Neo4j Error is thrown, we can check the `code` property for a Neo4j specific code.
+In this case, we're looking for a code of `Neo.ClientError.Schema.ConstraintValidationFailed`.
+If the error is different, we should re-throw it so it can be handled by the application.
+
+[source,js]
+----
+const session = this.driver.session()
+
+try {
+    // Run the query...
+}
+catch (e) {
+    if (e.code === 'Neo.ClientError.Schema.ConstraintValidationFailed') {
+        throw new ValidationError(`An account already exists with the email address ${email}`, {
+            email: 'Email address taken'
+        })
+    }
+
+    throw e
+}
+finally {
+    // Close the session
+    session.close()
+}
+----
+
+Also note that the `session.close` call has been moved to the `finally` block to ensure that is is always closed regardless of whether the query was successful or an error was thrown.
+
+
+== Going Further
+
+If we wanted to go further, we could use Regular Expression to extract more specific information about the `ConstraintValidationFailed` error.
+
+
+== Testing
+
+To test that these errors are being handled correctly, run the following command in a new terminal session:
+
+[source,sh]
+npm run test 03
+
+If all tests pass then the error handling has been successfully implemented.
+
+The test file is located at `test/challenges/03-handle-constraint-errors.spec.js`.
+
+== Next Steps
+
+Now that we are able to successfully register a user by their email address, let's update the `authenticate` method to find our user in the database.
+
+
+== Check Your Understanding
+
+* **TODO**

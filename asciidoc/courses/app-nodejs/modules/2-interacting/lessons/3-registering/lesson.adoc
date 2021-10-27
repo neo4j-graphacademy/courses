@@ -1,0 +1,152 @@
+= Registering a User
+:type: challenge
+
+A key piece of functionality that we should provide is for new users to be able to register themselves with the site.
+This functionality is already built into the front end, but at the moment the credentials are hard coded in the API.
+This might be fine for demo purposes, but limiting the number of users to one is bad for Neoflix's bottom line.
+
+In order to register a user, we will need to **write** some data to the Neo4j database.
+To do this, we will use the `writeTransaction` function that we learned about in the link:../../1-driver/4-transactions[Sessions & Transactions lesson^].
+
+== Implementing Transactions
+
+The best way for us to do this in our Express app is to bind a Write Transaction to our request.
+
+As we learned in the Sessions & Transactions lesson, we can call the `writeTransaction` method with a function to represent the unit of work.
+
+The register logic is already written into the `register` method of the `AuthService` at `src/services/auth.service.js`.  As we can see from the snippet below, at the moment it will only accept an email address of `graphacademy@neo4j.com` and password `letmein`.
+
+// TODO: include:: src/services/auth.service.js[tag="auth.register"]
+
+[source,js]
+.src/services/auth.service.js
+----
+async register(email, plainPassword, name) {
+    const encrypted = await hash(plainPassword, parseInt(process.env.SALT_ROUNDS))
+
+    // TODO: Handle Unique constraints in the database
+    if (email !== 'graphacademy@neo4j.com') {
+        throw new ValidationError(`An account already exists with the email address ${email}`, {
+            email: 'Email address taken'
+        })
+    }
+
+    // TODO: Save user
+
+    const { password, ...claims } = user.properties
+
+    return {
+        ...claims,
+        token: jwt.sign(claims, process.env.JWT_SECRET),
+    }
+}
+----
+
+== Accessing the Driver
+
+The Driver instance that we created in the last lesson has already been passed through to the constructor, so now it is defined, we can use it to create the Session object, and run the unit of work within the write transaction.
+The Driver can be accessed within any method in the class using `this.driver`.
+
+== Running the Unit of Work
+
+
+First, we will want to create a new session.
+We are running this query on the default database and the default access mode is `WRITE`, so we don't need to supply any options.
+
+[source,js]
+----
+const session = this.driver.session()
+----
+
+Next, on that session, we can run the `writeTransaction` method with two arguments:
+
+1. The Cypher query as a parameterised string
+2. An object containing the values for the parameters prefixed in the query with a dollar sign (`$`)
+
+[source,js]
+----
+const res = await session.writeTransaction(tx =>
+    tx.run(
+        `CREATE (u:User {
+            email: $email,
+            password: $encrypted,
+            name: $name
+        })
+        RETURN u`,
+        { email, encrypted, name }
+    )
+)
+----
+
+== Closing the Session
+
+Then, finally, before returning anything, we should make sure that the session is closed.
+
+[source,js]
+await session.close()
+
+== Final Solution
+
+.Click here to see the full `register` method.
+[%collapsible]
+====
+[source,js]
+----
+async register(email, plainPassword, name) {
+    const encrypted = await hash(plainPassword, parseInt(process.env.SALT_ROUNDS))
+
+    // TODO: Handle Unique constraints in the database
+    if (email !== 'graphacademy@neo4j.com') {
+        throw new ValidationError(`An account already exists with the email address ${email}`, {
+            email: 'Email address taken'
+        })
+    }
+
+    const session = this.driver.session()
+
+    const res = await session.writeTransaction(tx =>
+        tx.run(
+            `CREATE (u:User {
+                email: $email,
+                password: $encrypted,
+                name: $name
+            })
+            RETURN u`,
+            { email, encrypted, name }
+        )
+    )
+
+    const { password, ...claims } = res.records[0].get('u').properties
+
+    // Close the session
+    await session.close()
+
+    return {
+        ...claims,
+        token: jwt.sign(claims, process.env.JWT_SECRET),
+    }
+}
+----
+====
+
+
+== Testing
+
+To test that a user can register successfully, run the following command in a new terminal session:
+
+[source,sh]
+npm run test 02
+
+If all tests pass then the register feature has been successfully implemented.
+
+The test file is located at `test/challenges/02-registering-a-user.spec.js`.
+
+
+== Next Steps
+
+We still have `TODO` comment in the query for handling unique constraint violations in the database, so let's take care of that in the next lesson.
+
+== Check Your Understanding
+
+* **TODO**
+
