@@ -1,0 +1,305 @@
+= The Cypher Type System
+:type: quiz
+
+At this point, we should take a look at the Cypher type system.
+As Neo4j is written in Java (the _j_ in Neo4**j** stands for Java after all), there are some discrepencies between the types stored in the Neo4j database and native JavaScript types.
+
+Some values like strings, floats, booleans and nulls have a direct mapping but more complex types need some care and attention.
+
+
+== Nodes & Relationships
+
+Nodes and Relationships are both returned as similar classes.
+
+As an example, let's take the following code snippet:
+
+.Return Nodes and Relationships
+[source,js]
+----
+const res = await session.readTransaction(tx => tx.run(`
+    MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie)
+    RETURN path, person, actedIn, movie
+    LIMIT 1
+`))
+
+const row = res.records[0]
+----
+
+=== Nodes
+
+We can retrieve the `movie` value using the `.get` method on the row.
+
+[source,js]
+----
+const person = row.get('movie')
+----
+
+The value assigned to the `person` variable will be the instance of a `Node`.
+Node is a type provided by the Neo4j JavaScript Driver to hold the information held in Neo4j for the node.
+
+An instance of a `Node` has three properties:
+
+.Working with Node Objects
+[source,js]
+----
+person.identity // <1>
+person.labels // <2>
+person.properties // <3>
+----
+
+<1> `identity` - a Neo4j `Integer` representing the internal ID for the node. +
+    eg. `Integer {high: 1234, low: 0}`
+<2> `labels` - an Array of String values, one per label stored against the node. +
+    eg. `['Person', 'Actor']`
+<3> `properties` - A JavaScript object containing all the properties for the node. +
+    eg. `{name: 'Tom Hanks', tmdbId: '31' }`
+
+
+[TIP]
+.Internal IDs
+Internal IDs refer to the position in the Neo4j store files where te record is held.
+These numbers can be re-used, so it is recommended to instead look up a node by it's property rather than relying on an internal ID.
+
+=== Relationships
+
+`Relationship` objects are similar to `Node` in that they also include a `identity` and `properties` properties.
+
+
+.Working with Relationship Objects
+[source,js]
+----
+const actedIn = row.get('actedIn')
+
+actedIn.identity // <1>
+actedIn.type // <2>
+actedIn.properties // <3>
+actedIn.start // <4>
+actedIn.end // <5>
+----
+
+<1> `identity` - a Neo4j `Integer` representing the internal ID for the relationship. +
+    eg. `Integer {high: 9876, low: 0}`
+<2> `type` - the type of the relationship +
+    eg - `ACTED_IN`
+<3> `properties` - A JavaScript object containing all the properties for the node. +
+    eg. `{role: 'Woody' }`
+<4> `start` - a Neo4j `Integer` representing the internal ID for the node at the start of the relationship
+<5> `end` - a Neo4j `Integer` representing the internal ID for the node at the end of the relationship
+
+
+=== Paths
+
+If you return a path of nodes and relationships, they will be returned as an instance of a `Path`.
+
+.Working with Path Objects
+[source,js]
+----
+const path = row.get('path')
+
+path.start // <1>
+path.end // <2>
+path.length // <3>
+path.segments // <4>
+----
+
+
+<1> `start` - a Neo4j `Integer` representing the internal ID for the node at the start of the path
+<2> `end` - a Neo4j `Integer` representing the internal ID for the node at the end of the path
+<3> `length` - A count of the number of _segments_ within the path
+<4> `segments` - An array of `PathSegment` objects.
+
+==== Path Segments
+
+A path is split into segments representing each relationship in the path.
+For example, say we have a path of `(p:Person)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)`, there would be two segments.
+
+1. `(p:Person)-[:ACTED_IN]->(m:Movie)`
+2. `(m:Movie)-[:IN_GENRE]->(g:Genre)`
+
+.Iterating over Segments
+[source,js]
+----
+path.segments.forEach(segment => {
+    console.log(segment.start)
+    console.log(segment.end)
+    console.log(segment.relationship)
+})
+----
+
+The `PathSegment` object has three properties:
+
+* `relationship` - A `Relationship` object representing that part of the path.
+* `start` - The internal ID for the start node for this path segment `*`
+* `end` -  ID for the end node for this path segment `*`
+
+[TIP]
+.`*` Start and End nodes within the Path Segment object
+The start and end nodes on the `PathSegment` may differ from the start and end nodes of the relationship itself if the relationship was traversed in reverse direction.
+
+
+
+== Integers
+
+Due to a discrepency between integers JavaScript and the Neo4j type system, we need to take extra care when working with integers in the Neo4j JavaScript Driver.
+
+The Neo4j type system uses 64-bit signed integer values (with a range of `-(2^64^- 1)` and `(2^63^- 1)`) while JavaScript can only safely represent integers between `-(2^53^- 1)` (`Number.MIN_SAFE_INTEGER`) and `2^53^- 1` (`and Number.MAX_SAFE_INTEGER`).
+
+In order to conform with the Neo4j type system, the driver will not automatically convert to javascript integers and instead convert them to a Float.  This ensures that no data is lost.
+
+The driver provides an `Integer` type, and an `int` function for sending and receiving integers with neo4j.
+
+When an integer is received by the driver, it is wrapped in an `Integer` class.
+You can call the `toNumber` method on this object to convert it back into a JavaScript number.
+If the number is outside of the valid range, it will be returned as a string.
+
+.Working with Integers
+[source,js]
+----
+import { int, isInt } from 'neo4j-driver'
+
+// Convert a JavaScript 'number' into a Neo4j Integer
+const thisYear = int(2022)
+
+// Check if a value is a Neo4j integer
+console.log(isInt(thisYear)) // true
+
+// Convert the Neo4j integer into a JavaScript number
+console.log(thisYear.toNumber()) // 2022
+----
+
+We make use of these functions often throughout this course.
+
+
+== Temporal Types
+
+The Temporal types used in the Cypher type system mean that they are also handled differently.
+The driver exports helper functions to assist in checking the type.
+
+.Temporal Types
+[cols="1,3,1,1"]
+|===
+| Type | Description | Example | Helper Function
+
+| `Date`
+| Represents an instant capturing the date, but not the time, nor the timezone.
+| `2020-01-02`
+| `isDate`
+
+| `DateTime`
+| Represents an instant capturing the date, the time and the timezone identifier.
+| `2020-01-02T01:02:03+04:00`
+| `isDateTime`
+
+
+| `LocalDateTime`
+| Represents an instant capturing the date and the time, but not the timezone.
+| `2020-01-02T01:02:03+04:00`
+| `isLocalDateTime`
+
+| `LocalTime`
+| Represents an instant capturing the time of day, but not the date, nor the timezone.
+| `12:34:56`
+| `isLocalDate`
+
+| `Time`
+| Represents an instant capturing the time of day, and the timezone offset in seconds, but not the date.
+| `12:34:56+04:00`
+| `isTime`
+
+|===
+
+
+Each of these types has a `toString` object that can be used in conjunction with `Date.parse` to convert the Cypher date into a native `Date` object.
+
+
+.Working with Temporal types
+[source,js]
+----
+import { DateTime, isDateTime, isDate } from 'neo4j-driver'
+
+// Convert a native Date into a Neo4j DateTime
+const now = new Date()
+const createdAt = DateTime.fromStandardDate(now)
+
+console.log(isDateTime(createdAt)) // true
+console.log(isDate(createdAt)) // false
+
+// Convert a Neo4j DateTime back into a native Date
+const dateNumber = Date.parse(driverDate.toString())
+const nativeDate = new Date(dateNumber)
+----
+
+== Converting these values en masse
+
+There may be times when you need to convert many Neo4j types back into native JavaScript types.
+For example, when retrieving a set of properties.
+
+For this purpose, I have added a utility function to `src/utils.js` which when given an Object of properties, will iterate through the keys and where appropriate convert the value to a native JavaScript value.
+This function is called `toNativeTypes`.
+
+[%collapsible]
+.Show the `toNativeTypes` method
+====
+This function checks for both integer and temporal values as mentioned in the previous lesson, and calls the appropriate method to convert them into a more friendly format.
+
+.src/utils.js
+[source,js]
+----
+/**
+ * Convert Neo4j Properties back into JavaScript types
+ *
+ * @param {Record<string, any>} properties
+ * @return {Record<string, any>}
+ */
+export function toNativeTypes(properties) {
+    return Object.fromEntries(Object.keys(properties).map((key) => {
+        let value = valueToNativeType(properties[key])
+
+        return [ key, value ]
+    }))
+}
+
+/**
+ * Convert an individual value to its JavaScript equivalent
+ *
+ * @param {any} value
+ * @returns any
+ */
+function valueToNativeType(value) {
+    if ( Array.isArray(value) ) {
+        value = value.map(innerValue => valueToNativeType(innerValue))
+    }
+
+    if ( isInt(value) ) {
+        value = value.toNumber()
+    }
+    else if (
+        isDate(value) ||
+        isDateTime(value) ||
+        isTime(value) ||
+        isLocalDateTime(value) ||
+        isLocalTime(value) ||
+        isDuration(value)
+    ) {
+        value = value.toString()
+    }
+
+    return value
+}
+----
+====
+
+
+== Check Your Understanding
+
+include::questions/1-node-property.adoc[]
+
+include::questions/2-integer-helper.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson you have learned how to handle some of the more complex objects returned by a Cypher query.
+
+As we progress through this module, we will use the knowledge gained so far to read data from the database and write data back to the database.

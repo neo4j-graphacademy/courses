@@ -1,0 +1,199 @@
+= Rating Movies
+:type: challenge
+
+image::images/rating-form.png[Rating a Movie, role=right]
+On every Movie page, the user is invited to rate a movie on scale of 1 to 5.
+The form pictured to the right gives the user the ability to select a rating between 1 and 5 and click submit to save the rating.
+
+When the form is submitted, the website sends an AJAX request to `/api/account/ratings/{movieId}` and the following will happen:
+
+
+1. The server directs the request to the route handler in `src/routes/account.routes.js`, which verifies the user's JWT token before handling the request.
+2. The route handler creates an instance of the `RatingService` in `src/services/favorites.service.js`.
+3. The `add` method is called on the `RatingService`, accepting the ID of the current user, the ID of the movie and a rating (which should be a number).
+4.  It is then the responsibility of the `RatingService` to save this information to the database.
+
+
+== Saving a Rating
+
+When we save a rating to the database, a `:RATED` relationship will be created between the `:User` and `:Movie` nodes.
+The relationship will have a `rating` property which holds the value submitted by the user, which should be saved as an integer.
+
+After the data is saved, the UI expects the movie details to be returned, with an additional property called `rating`, which will be the rating that the user has given for the movie.
+
+As mentioned in the previous lesson, there is some work to do in order to convert this number to a value that can be stored as an integer in the Cypher type system.
+If we do not do this, then the number will be stored as a `float`.
+
+
+Let's take a look at the existing method in the `RatingService`.
+
+.src/services/rating.service
+[source,js]
+----
+async add(userId, movieId, rating) {
+    // TODO: Convert the native integer into a Neo4j Integer
+    // TODO: Save the rating in the database
+    return Promise.resolve(goodfellas)
+}
+----
+
+=== Converting the rating to a Neo4j Integer
+
+To convert the native JavaScript integer to a Neo4j Integer, we can use the `int` function exported from `neo4j-driver`.
+
+[source,js]
+----
+import { int } from 'neo4j-driver'
+
+// ...
+
+async add(userId, movieId, rating) {
+    // Convert the native integer into a Neo4j Integer
+    rating = int(rating)
+
+    // ...
+}
+----
+
+[TIP]
+====
+We could also use the `toInteger` function in Cypher to convert the value sent by the driver.
+
+[source,cypher,rel=norun]
+toInteger(20.0) // 20
+====
+
+Next, we will need to execute a Write Transaction, with a query to `MATCH` the User and Movie nodes, then `MERGE` a relationship between them with the `rating` property set.
+
+[source,js]
+----
+import { int } from 'neo4j-driver'
+
+// ...
+
+async add(userId, movieId, rating) {
+    // Convert the native integer into a Neo4j Integer
+    const rating = int()
+
+    // Save the rating in the database
+    const session = this.driver.session()
+    const res = await session.writeTransaction(tx => tx.run(`
+        MATCH (u:User {id: $userId})
+        MATCH (m:Movie {tmdbId: $movieId})
+
+        MERGE (u)-[r:RATED]->(m)
+        SET r.rating = $rating
+
+        RETURN m {
+            .*,
+            rating: r.rating
+        } AS movie
+    `, { userId, movieId, rating }))
+
+    // Throw an error if the user or movie could not be found
+    if ( res.records.length === 0 ) {
+        throw new NotFoundError(`Couldn't create a rating for User ${userId} and Movie ${movieId}`)
+    }
+
+    // Get movie information
+    const movie = res.records[0].get('movie')
+
+    // Close the session
+    await session.close()
+
+    return movie
+}
+----
+
+[TIP]
+By using the `MERGE` keyword here, we will overwrite an existing rating if one already exists.
+This way we don't need to worry about duplicates or deleting existing records.
+
+
+=== But `rating` is an integer?!
+
+If you have tested the method already, you would have seen that the `rating` property has been returned by the API as an Object with a high and low: `{ low: 5, high: 0 }`
+
+By default, Express will do its best to interpret and return the value based on the properties of the `Integer` object.
+We can try to convert this property back to an Integer in the front end, or better yet handle the conversion in our API.
+
+We can use the `toNativeTypes` method function to convert the values within the object.
+
+We can simply import the `toNativeTypes` method mentioned in link:../3-type-system/[The Cypher Type System lesson] and pass the `movie` variable to it as part of the `return` statement.
+
+.Converting Neo4j Types back to JavaScript types
+[source,js]
+----
+import { toNativeTypes } from '../utils.js'
+
+// ...
+return toNativeTypes(movie)
+----
+
+
+== Final Solution
+
+[%collapsible]
+.Click here to reveal the final solution.
+====
+
+.src/services/rating.service.js
+[source,js]
+----
+async add(userId, movieId, rating) {
+    // Convert the native integer into a Neo4j Integer
+    rating = int(rating)
+
+    // Save the rating in the database
+    const session = this.driver.session()
+    const res = await session.writeTransaction(tx => tx.run(`
+        MATCH (u:User {userId: $userId})
+        MATCH (m:Movie {tmdbId: $movieId})
+
+        MERGE (u)-[r:RATED]->(m)
+        SET r.rating = $rating
+
+        RETURN m {
+            .*,
+            rating: r.rating
+        } AS movie
+    `, { userId, movieId, rating }))
+
+    // Throw an error if the user or movie could not be found
+    if ( res.records.length === 0 ) {
+        throw new NotFoundError(`Couldn't create a rating for User ${userId} and Movie ${movieId}`)
+    }
+
+    // Return movie details and a rating
+    const movie = res.records[0].get('movie')
+
+    // Close the session
+    await session.close()
+
+    return toNativeTypes(movie)
+}
+----
+====
+
+== Testing
+
+To test that the rating functionality has been correctly implemented, run the following command in a new terminal session:
+
+[source,sh]
+npm run test 06
+
+If all tests pass then the rating functionality has been successfully implemented.
+
+You can view the test file by opening `test/challenges/06-rating-movies.spec.js`.
+
+
+
+include::./questions/verify.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson we have learned how to convert a JavaScript type into a Neo4j integer and how to convert it back when returning the data through the API.
+
+In the next lesson, we will look at managing the user's Favorites List.
