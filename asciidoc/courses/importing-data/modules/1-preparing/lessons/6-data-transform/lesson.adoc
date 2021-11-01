@@ -1,0 +1,166 @@
+= Data Transformation
+:type: quiz
+
+//[.video]
+//video::jEIE_b1MzAE[youtube,width=560,height=315]
+
+//https://youtu.be/jEIE_b1MzAE
+
+
+[.transcript]
+== Steps for data transformation
+
+You must ensure that the data read from CSV files conforms to the types specified in the graph data model.
+Here are the steps to identify the transformation code you will write when loading CSV data into the graph:
+
+. View subset of data to be loaded based upon the graph data model and compare values to be loaded with properties defined in the graph data model.
+. Write transformation code for selected properties.
+
+=== Step 1: Viewing a subset of CSV data to be loaded
+
+Given the header names and the properties defined for a node in the graph data model, you first write the code to read a subset of the selected data.
+
+Here is a subset of the data that will be loaded into the Person nodes.
+We specify the column header names that will correspond to the properties for the Person nodes in our graph data model and we return ten of them:
+
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/persons.csv'
+AS row
+RETURN
+ row.person_imdbId as imdbId,
+ row.person_tmdbId as tmdbId,
+ row.bornIn as bornIn,
+ row.born as born,
+ row.name as name,
+ row.bio as bio,
+ row.person_poster as poster,
+ row.died as died,
+ row.person_url as url
+LIMIT 10
+----
+
+Notice here that the header column names do not match exactly the property names in the graph data model.
+
+Here is the result of executing this cypher code:
+
+image::images/check-transform-person.png[Check for transformation - Person nodes,width=600,align=center]
+
+Here we see that the default type of string for each field matches what we want in our graph data model for Person nodes:
+
+image::images/movie-data-model.png[Movie data model,width=600,align=center]
+
+If we scroll to the right in our results returned, we see that the _died_ property will not be set if there is no value in the CSV file.
+
+image::images/check-transform-person-2.png[Check for transformation - Person nodes died property,width=600,align=center]
+
+Suppose we do the same for the Movie data:
+
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/movies.csv'
+AS row
+RETURN
+row.movie_imdbId as imdbId,
+row.movie_tmdbId as tmdbId,
+row.movieId as movieId,
+row.imdbRating as imdbRating,
+row.released as released,
+row.title as title,
+row.year as year,
+row.movie_poster as poster,
+row.runtime as runtime,
+row.countries as countries,
+row.imdbVotes as imdbVotes,
+row.revenue as revenue,
+row.plot as plot,
+row.movie_url as url,
+row.budget as budget,
+row.languages as languages,
+row.genres as genres
+LIMIT 10
+----
+
+Here are the results:
+
+image::images/check-transform-movie.png[Check for transformation - Movie nodes - part 1,width=600,align=center]
+
+image::images/check-transform-movie-2.png[Check for transformation - Movie nodes - part 2,width=600,align=center]
+
+For this CSV data, we must transform the values to match the types in the graph data model:
+
+* imdbRating: decimal
+* year: integer
+* runtime: integer
+* countries: list of strings
+* imdbVotes: integer
+* revenue: integer
+* budget: integer
+* languages: list of strings
+* genres: list of strings that will be used to create Genre nodes
+
+=== Step 2: Writing the transformation code
+
+With Cypher it is pretty straightforward to transform a string value to a numeric value using `toFloat()` and `toInteger`.
+
+For those fields that need numeric transformation, we do the following to match what is in the graph data model:
+
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/movies.csv'
+AS row
+RETURN
+row.movie_imdbId as imdbId,
+row.movie_tmdbId as tmdbId,
+row.movieId as movieId,
+toFloat(row.imdbRating) as imdbRating, // transformed to decimal
+row.released as released,
+row.title as title,
+toInteger(row.year) as year,           // transformed to integer
+row.movie_poster as poster,
+toInteger(row.runtime) as runtime,     // transformed to integer
+row.countries as countries,
+toInteger(row.imdbVotes) as imdbVotes, // transformed to integer
+toInteger(row.revenue) as revenue,     // transformed to integer
+row.plot as plot,
+row.movie_url as url,
+toInteger(row.budget) as budget,       // transformed to integer
+row.languages as languages,
+row.genres as genres
+LIMIT 10
+----
+
+Transforming multi-value fields as lists can be done as follows:
+
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/movies.csv'
+AS row
+RETURN
+...
+split(coalesce(row.countries,""), "|") as countries,
+...
+split(coalesce(row.languages,""), "|") as languages,
+split(coalesce(row.genres,""), "|") as genres
+LIMIT 10
+----
+
+`coalesce()` identifies each element in the multi-value field where the "|" character is the separator. It then uses `split()` to create a list of each element.
+
+So the resulting transformations look like this:
+
+image::images/transformed-movie.png[Movie data transformed,width=600,align=center]
+
+== Check your understanding
+
+include::questions/1-tbd.adoc[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about some of transformations you need to do to load CSV data into your graph where the data types match the graph data model.
+In the next challenge, you practice transforming data from  CSV files.
