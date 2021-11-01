@@ -1,0 +1,111 @@
+= Browsing Genres
+:type: challenge
+:test-number: 08
+:test-filename: 08-genre-list.spec.js
+
+If you click on the Genres link in the main navigation, you will be taken to a link:http://localhost:3000/genres[list of Genres^].
+This list is populated by the API route at http://localhost:3000/api/movies, with the list being produced by `all` method within the `GenreService`
+
+
+First, we create a new session:
+
+include::../../../../includes/code.adoc[tag="driver.session"]
+
+
+Then, to match the mocked data, we need to get a list of Genres along with their movie count and a poster image:
+
+[source,js]
+----
+// Get a list of genres with the movie count and a poster image
+const res = await session.readTransaction(tx => tx.run(`
+    MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
+    WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
+    WITH g, m
+    ORDER BY m.imdbRating DESC
+
+    WITH g, head(collect(m)) AS movie
+
+    RETURN g {
+        link: '/genres/'+ g.name,
+        .name,
+        movies: size((g)<-[:IN_GENRE]-()),
+        poster: movie.poster
+    } AS genre
+    ORDER BY g.name ASC
+`))
+----
+
+include::../../../../includes/code.adoc[tag="session.close"]
+
+Then, all that is left to do is to return the results.
+
+[source,js]
+----
+return res.records.map(row => toNativeTypes(row.get('genre')))
+----
+
+
+== Working Solution
+
+[%collapsible]
+.Click here to view the completed `all` method.
+====
+
+.src/services/genre/service.js
+[source,js]
+----
+async all() {
+    // Open a new Session
+    const session = this.driver.session()
+
+    // Get a list of Genres from the database
+    const res = await session.readTransaction(tx => tx.run(`
+        MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
+        WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
+        WITH g, m
+        ORDER BY m.imdbRating DESC
+
+        WITH g, head(collect(m)) AS movie
+
+        RETURN g {
+            link: '/genres/'+ g.name,
+            .name,
+            movies: size((g)<-[:IN_GENRE]-()),
+            poster: movie.poster
+        } AS genre
+        ORDER BY g.name ASC
+    `))
+
+    // Close the session
+    await session.close()
+
+    // Return results
+    return res.records.map(row => toNativeTypes(row.get('genre')))
+}
+----
+
+====
+
+// Testing
+include::../../../../includes/code.adoc[tag="test"]
+
+
+// == Testing
+
+// To test that this functionality has been correctly implemented, run the following code in a new terminal session:
+
+// [source,sh]
+// npm run test 08
+
+
+== Verifying the Test
+
+include::./questions/1-movie-count.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson we updated the `GenreService` to retrieve a list of movies from the database.
+
+In the next lesson, we will look at retrieving the details of an individual genre.

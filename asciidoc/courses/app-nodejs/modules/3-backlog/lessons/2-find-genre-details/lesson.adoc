@@ -1,0 +1,99 @@
+= Finding Genre Details
+:type: challenge
+:test-number: 09
+:test-filename: 09-genre-details.spec.js
+
+When the user clicks a Genre in the list, they are taken to a list of movies for that genre.  A request is sent to the `/api/[name]` API endpoint.
+
+The `find` method the the `GenreServie` accepts one argument, the name of the Genre and should return the information identical to the entry from the above endpoint.
+
+Open up `src/services/genre.service.js` and modify the `find` method to run the following query within a read transaction:
+
+[source,cypher]
+----
+MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
+WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
+WITH g, m
+ORDER BY m.imdbRating DESC
+
+WITH g, head(collect(m)) AS movie
+
+RETURN g {
+    link: '/genres/'+ g.name,
+    .name,
+    movies: size((g)<-[:IN_GENRE]-()),
+    poster: movie.poster
+} AS genre
+----
+
+[IMPORTANT]
+.What does this query do?
+====
+This query uses the `MATCH` clause to genre with the name passed through with the function call as a parameter.
+The query then finds the highest rated movie with a `poster` property and uses that image as the background to the card in the UI.
+
+The `size()` function uses a precalculated value stored against the `:Genre` node to return the number of incoming `:IN_GENRE` relationships to this node.
+====
+
+
+== Working Solution
+
+[%collapsible]
+.Click here to view the completed `find` method.
+====
+
+.src/services/genre/service.js
+[source,js]
+----
+async find(name) {
+    // Open a new Session
+    const session = this.driver.session()
+
+    // Get Genre information from the database
+    const res = await session.readTransaction(tx => tx.run(`
+        MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
+        WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
+        WITH g, m
+        ORDER BY m.imdbRating DESC
+
+        WITH g, head(collect(m)) AS movie
+
+        RETURN g {
+            link: '/genres/'+ g.name,
+            .name,
+            movies: size((g)<-[:IN_GENRE]-()),
+            poster: movie.poster
+        } AS genre
+    `, { name }))
+
+    // Throw a 404 Error if the genre is not found
+    if ( res.records.length === 0 ) {
+        throw new NotFoundError(`Could not find a genre with the name '${name}'`)
+    }
+
+    // Close the session
+    await session.close()
+
+    // Return results
+    const [ row ] = res.records
+
+    return toNativeTypes(row.get('genre'))
+}
+----
+
+====
+
+// Testing
+include::../../../../includes/code.adoc[tag="test"]
+
+
+== Verifying the Test
+
+include::./questions/1-genre-movie-count.adoc[]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, we modified the `find` method to retrieve basic genre information from the Neo4j database.
+
+In the next lesson, we will look at the methods in the `MovieService` that we use to populate lists of movies in the UI.

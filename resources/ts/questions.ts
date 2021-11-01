@@ -673,6 +673,7 @@ const setupQuestions = async () => {
                     answers = <string[]>Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
                         .map(element => element.getAttribute('value'))
                         .filter(value => !!value)
+                        .map(value => value!.trim())
                 }
 
                 if (!answers.length) return
