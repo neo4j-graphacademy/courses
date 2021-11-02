@@ -18,10 +18,15 @@ Here are the steps to identify the transformation code you will write when loadi
 
 === Step 1: Viewing a subset of CSV data to be loaded
 
-Given the header names and the properties defined for a node in the graph data model, you first write the code to read a subset of the selected data.
+Given the header names and the properties defined for a node in the graph data model, you first write the code to read a subset of the data that will be loaded into each node.
 
-Here is a subset of the data that will be loaded into the Person nodes.
-We specify the column header names that will correspond to the properties for the Person nodes in our graph data model and we return ten of them:
+Here is our graph data model:
+
+image::images/movie-data-model.png[Movie data model,width=600,align=center]
+
+Here is a subset of the data that you will eventually load into the Person nodes.
+We specify the column header names (for example, row.person_imdbId) that will correspond to the properties (for example, imdbId) for the Person nodes in our graph data model and we return ten of them:
+Notice here that the header column names do not match exactly the property names in the graph data model.
 
 [source,Cypher,role=nocopy noplay]
 ----
@@ -29,27 +34,26 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/persons.csv'
 AS row
 RETURN
- row.person_imdbId as imdbId,
- row.person_tmdbId as tmdbId,
- row.bornIn as bornIn,
- row.born as born,
- row.name as name,
- row.bio as bio,
- row.person_poster as poster,
- row.died as died,
- row.person_url as url
+ row.person_imdbId AS imdbId,
+ row.person_tmdbId AS tmdbId,
+ row.bornIn AS bornIn,
+ row.born AS born,
+ row.name AS name,
+ row.bio AS bio,
+ row.person_poster AS poster,
+ row.died AS died,
+ row.person_url AS url
 LIMIT 10
 ----
 
-Notice here that the header column names do not match exactly the property names in the graph data model.
+
 
 Here is the result of executing this cypher code:
 
 image::images/check-transform-person.png[Check for transformation - Person nodes,width=600,align=center]
 
-Here we see that the default type of string for each field matches what we want in our graph data model for Person nodes:
+Here we see that the default type of string for each field matches what we want in our graph data model for Person nodes.
 
-image::images/movie-data-model.png[Movie data model,width=600,align=center]
 
 If we scroll to the right in our results returned, we see that the _died_ property will not be set if there is no value in the CSV file.
 
@@ -63,23 +67,23 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/movies.csv'
 AS row
 RETURN
-row.movie_imdbId as imdbId,
-row.movie_tmdbId as tmdbId,
-row.movieId as movieId,
-row.imdbRating as imdbRating,
-row.released as released,
-row.title as title,
-row.year as year,
-row.movie_poster as poster,
-row.runtime as runtime,
-row.countries as countries,
-row.imdbVotes as imdbVotes,
-row.revenue as revenue,
-row.plot as plot,
-row.movie_url as url,
-row.budget as budget,
-row.languages as languages,
-row.genres as genres
+row.movie_imdbId AS imdbId,
+row.movie_tmdbId AS tmdbId,
+row.movieId AS movieId,
+row.imdbRating AS imdbRating,
+row.released AS released,
+row.title AS title,
+row.year AS year,
+row.movie_poster AS poster,
+row.runtime AS runtime,
+row.countries AS countries,
+row.imdbVotes AS imdbVotes,
+row.revenue AS revenue,
+row.plot AS plot,
+row.movie_url AS url,
+row.budget AS budget,
+row.languages AS languages,
+row.genres AS genres
 LIMIT 10
 ----
 
@@ -89,7 +93,7 @@ image::images/check-transform-movie.png[Check for transformation - Movie nodes -
 
 image::images/check-transform-movie-2.png[Check for transformation - Movie nodes - part 2,width=600,align=center]
 
-For this CSV data, we must transform the values to match the types in the graph data model:
+For this CSV data, we must transform these values to match the types in the graph data model:
 
 * imdbRating: decimal
 * year: integer
@@ -101,9 +105,11 @@ For this CSV data, we must transform the values to match the types in the graph 
 * languages: list of strings
 * genres: list of strings that will be used to create Genre nodes
 
+*Note*: There is no genres property for a Movie node, but we will use the genres list to create the Genre nodes during the load.
+
 === Step 2: Writing the transformation code
 
-With Cypher it is pretty straightforward to transform a string value to a numeric value using `toFloat()` and `toInteger`.
+With Cypher it is pretty straightforward to transform a string value to decimal and integer values using `toFloat()` and `toInteger()` respectively.
 
 For those fields that need numeric transformation, we do the following to match what is in the graph data model:
 
@@ -113,27 +119,27 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/movies.csv'
 AS row
 RETURN
-row.movie_imdbId as imdbId,
-row.movie_tmdbId as tmdbId,
-row.movieId as movieId,
-toFloat(row.imdbRating) as imdbRating, // transformed to decimal
-row.released as released,
-row.title as title,
-toInteger(row.year) as year,           // transformed to integer
-row.movie_poster as poster,
-toInteger(row.runtime) as runtime,     // transformed to integer
-row.countries as countries,
-toInteger(row.imdbVotes) as imdbVotes, // transformed to integer
-toInteger(row.revenue) as revenue,     // transformed to integer
-row.plot as plot,
-row.movie_url as url,
-toInteger(row.budget) as budget,       // transformed to integer
-row.languages as languages,
-row.genres as genres
+row.movie_imdbId AS imdbId,
+row.movie_tmdbId AS tmdbId,
+row.movieId AS movieId,
+toFloat(row.imdbRating) AS imdbRating, // transformed to decimal
+row.released AS released,
+row.title AS title,
+toInteger(row.year) AS year,           // transformed to integer
+row.movie_poster AS poster,
+toInteger(row.runtime) AS runtime,     // transformed to integer
+row.countries AS countries,
+toInteger(row.imdbVotes) AS imdbVotes, // transformed to integer
+toInteger(row.revenue) AS revenue,     // transformed to integer
+row.plot AS plot,
+row.movie_url AS url,
+toInteger(row.budget) AS budget,       // transformed to integer
+row.languages AS languages,
+row.genres AS genres
 LIMIT 10
 ----
 
-Transforming multi-value fields as lists can be done as follows:
+Transforming multi-value fields as lists can be done as follows where we use two Cypher built-in functions to help us:
 
 [source,Cypher,role=nocopy noplay]
 ----
@@ -141,11 +147,11 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/movies.csv'
 AS row
 RETURN
-...
-split(coalesce(row.countries,""), "|") as countries,
-...
-split(coalesce(row.languages,""), "|") as languages,
-split(coalesce(row.genres,""), "|") as genres
+// other properties
+split(coalesce(row.countries,""), "|") AS countries,
+// other properties
+split(coalesce(row.languages,""), "|") AS languages,
+split(coalesce(row.genres,""), "|") AS genres
 LIMIT 10
 ----
 
@@ -157,7 +163,8 @@ image::images/transformed-movie.png[Movie data transformed,width=600,align=cente
 
 == Check your understanding
 
-include::questions/1-tbd.adoc[]
+include::questions/1-default-type.adoc[]
+include::questions/2-transform-list.adoc[]
 
 [.summary]
 == Summary

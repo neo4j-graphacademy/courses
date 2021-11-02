@@ -1,0 +1,1 @@
+CREATE CONSTRAINT Movie_movieId ON (m:Movie) ASSERT m.movieId IS UNIQUE

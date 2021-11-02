@@ -1,0 +1,1 @@
+CALL apoc.schema.assert({}, {})
