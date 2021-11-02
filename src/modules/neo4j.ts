@@ -1,5 +1,4 @@
 import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
-import Neo4jError from '../errors/neo4j.error';
 import { notify } from '../middleware/bugsnag';
 
 let _driver: Driver;
