@@ -514,6 +514,9 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
         attributes['sandbox-password'] = sandboxConfig?.password;
     }
 
+    // Course repository
+    attributes['repository'] = course.repository
+
     return attributes
 }
 

@@ -4,7 +4,7 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
+import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
@@ -61,6 +61,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
+        repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
         prerequisiteSlugs,
         progressToSlugs,
         categories,
@@ -138,7 +139,7 @@ const generateQuestionId = (title: string): string => {
 }
 
 const loadQuestion = (filepath: string): Question => {
-    const file = loadFile(filepath)
+    const file = loadFile(filepath, { parse: true })
 
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
@@ -146,7 +147,6 @@ const loadQuestion = (filepath: string): Question => {
         id,
         text: file.getTitle(),
     } as Question
-
 }
 
 export async function mergeCourses(): Promise<void> {
@@ -170,6 +170,7 @@ export async function mergeCourses(): Promise<void> {
             c.usecase = course.usecase,
             c.redirect = course.redirect,
             c.duration = course.duration,
+            c.repository = course.repository,
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()

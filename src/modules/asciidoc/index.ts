@@ -28,6 +28,7 @@ const baseOptions: Asciidoctor.ProcessorOptions = {
     extension_registry: registry,
     attributes: {
         shared: path.join(ASCIIDOC_DIRECTORY, 'shared'),
+        'allow-uri-read': true,
     },
 }
 

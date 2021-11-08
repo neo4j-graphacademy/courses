@@ -5,6 +5,7 @@ export const ATTRIBUTE_TYPE = 'type'
 export const ATTRIBUTE_ORDER = 'order'
 export const ATTRIBUTE_DURATION = 'duration'
 export const ATTRIBUTE_SANDBOX = 'sandbox'
+export const ATTRIBUTE_REPOSITORY = 'repository'
 
 export const LESSON_TYPE_VIDEO = 'video'
 export const LESSON_TYPE_DEFAULT = 'lesson'

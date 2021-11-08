@@ -774,6 +774,17 @@ const setupVerify = () => {
 }
 
 const setupMarkAsReadButton = () => {
+    // If completed, hide the container that holds the Read button
+    const body = document.getElementsByTagName('body')[0]
+    if (body && body.classList.contains(LESSON_COMPLETED)) {
+        Array.from(document.querySelectorAll('.btn-read'))
+            .map((button: Element) => {
+                button.parentElement?.style.setProperty('display', 'none')
+            })
+
+        return;
+    }
+
     Array.from(document.querySelectorAll('.btn-read'))
         .map((button: Element) => {
             button.addEventListener('click', e => {
