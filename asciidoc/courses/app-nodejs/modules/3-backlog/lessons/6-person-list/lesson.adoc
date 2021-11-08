@@ -1,0 +1,95 @@
+= Listing People
+:type: challenge
+:test-number: 13
+:test-filename: 13-person-list.spec.js
+
+If you open click on the **People** link in the main navigation, you will see a paginated list of actors and directors.
+
+== People Search
+
+A list of people can be retrieved by calling the `api/people` endpoint.
+The router passes through
+
+.src/service/people.service.js
+[source,js]
+----
+async all(orderBy, order, limit = 6, skip = 0) {
+    // TODO: Get a list of people from the database
+
+    return people.slice(skip, skip + limit)
+}
+----
+
+This list varies slightly from the Movie lists because this features a **Search by Name** input.
+When this value is set, an additional `q` parameter is sent to the .
+The cypher query will search
+
+[TIP]
+.Using Text Indexes
+The `STARTS WITH`, `ENDS WITH` and `CONTAINS` predicates are **case-sensitive**.
+If you are looking for a case-insensitive search, you should consider setting up a link:https://neo4j.com/docs/cypher-manual/current/indexes-for-full-text-search/[Full-text Index^].
+
+Here is the Cypher query for searching `:Person` nodes.
+
+.Find People
+[source,cypher]
+----
+MATCH (p:Person)
+WHERE p.name CONTAINS $q
+RETURN p { .* } AS person
+ORDER BY p.name ASC
+SKIP $skip
+LIMIT $limit
+----
+
+We should modify the `all` method in such a way that the Cypher query only contains the `WHERE` clause when the `q` variable is defined.
+
+
+Update the `all` method to retrieve the a list of `:Person` nodes from the database.
+
+
+[%collapsible]
+.Click to reveal the completed `akk` method
+====
+
+.src/services/people.service.js
+[source,js]
+----
+async all(q, orderBy = 'name', order = 'ASC', limit = 6, skip = 0) {
+    // Open a new database session
+    const session = this.driver.session()
+
+    const res = await session.readTransaction(tx => tx.run(`
+        MATCH (p:Person)
+        ${q !== undefined ? 'WHERE p.name CONTAINS $q' : ''}
+        RETURN p { .* } AS person
+        ORDER BY p.${orderBy} ${order}
+        SKIP $skip
+        LIMIT $limit
+    `, { q, orderBy, skip: int(skip), limit: int(limit) }))
+
+    // Close the session
+    await session.close()
+
+    return res.records.map(row => toNativeTypes(row.get('person')))
+}
+----
+
+====
+
+
+// Testing
+include::../../../../includes/code.adoc[tag="test"]
+
+
+== Verifying the Test
+
+// include::./questions/1-genre-movie-count.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+// In this lesson, we modified the `find` method to retrieve basic genre information from the Neo4j database.
+
+// In the next lesson, we will look at the methods in the `MovieService` that we use to populate lists of movies in the UI.

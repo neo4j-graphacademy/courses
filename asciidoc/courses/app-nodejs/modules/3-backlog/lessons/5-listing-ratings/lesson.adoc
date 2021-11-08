@@ -1,0 +1,94 @@
+= Listing Ratings
+:type: challenge
+:test-number: 12
+:test-filename: 12-listing-ratings.spec.js
+
+
+The last remaining element on the Movie page is the list of ratings on the right-hand side of the page.
+Although the count in the header is now accurate, the ratings being returned by the API are still hardcoded.
+
+If we head over to the `RatingService` in `src/modules/rating.service.js`, we will see that the `forMovie` id currently returns a hardcoded list.
+
+
+.src/modules/rating.service.js
+[source,js]
+----
+forMovie(id, limit, skip) {
+    return Promise.resolve(ratings)
+}
+----
+
+
+We should replace it with a call to Neo4j, running the following query within a **read**  transaction.
+
+.Get Ratings
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie {tmdbId: $id})
+RETURN r {
+    .rating,
+    .timestamp,
+    user: u {
+        .id, .name
+    }
+} AS review
+ORDER BY r.timestamp DESC
+SKIP $skip
+LIMIT $limit
+----
+
+Update the `forMovie` method to retrieve the review details from the database.
+
+
+
+
+[%collapsible]
+.Click to reveal the completed `findById` method
+====
+
+// tag::RatingService.forMovie[]
+.src/services/rating.service.js
+[source,js]
+----
+forMovie(id, limit, skip) {
+    const session = this.driver.session()
+    const res = await session.readTransaction(tx => tx.run(`
+        MATCH (u:User)-[r:RATED]->(m:Movie {tmdbId: $id})
+        RETURN r {
+            .rating,
+            .timestamp,
+            user: u {
+                .id, .name
+            }
+        } AS review
+        ORDER BY r.timestamp DESC
+        SKIP $skip
+        LIMIT $limit
+    `, { id, limit: int(limit), skip: int(skip)}))
+
+    await session.close()
+
+    return res.records.map(row => toNativeTypes(row.get('review')))
+
+    return Promise.resolve(ratings)
+}
+----
+
+====
+
+
+
+// Testing
+include::../../../../includes/code.adoc[tag="test"]
+
+== Verifying the Test
+
+include::./questions/1-first-rating.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, we modified the `forMovie` method on the `RatingService` to return a paginated list of reviews for a movie from the Neo4j database.
+
+In the next lesson, we will look at populating the list of Actors and Directors.
