@@ -1,0 +1,1 @@
+MATCH ()-[r]->() with count(r) as Relationships MATCH (n) RETURN count(n) + Relationships = 5162 as outcome
