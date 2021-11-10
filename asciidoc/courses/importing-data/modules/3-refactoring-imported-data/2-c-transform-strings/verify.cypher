@@ -5,4 +5,4 @@ with numTransformations
 CALL apoc.meta.relTypeProperties( ) yield  propertyTypes, totalObservations
 with numTransformations, propertyTypes, totalObservations where propertyTypes = ["Date"] OR propertyTypes = ["Long"] OR propertyTypes = ["Double"]
 with numTransformations, sum(totalObservations) AS numRelTransformations
-return numTransformations + numRelTransformations = 5040 AS outcome
+return numTransformations + numRelTransformations = 8634 AS outcome
