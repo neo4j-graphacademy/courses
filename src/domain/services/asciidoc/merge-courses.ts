@@ -8,6 +8,8 @@ import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
+import asciidoctor, { Asciidoctor } from '@asciidoctor/core';
+
 interface CourseToImport extends Partial<Course> {
     prerequisiteSlugs: string[];
     progressToSlugs: string[];
@@ -23,7 +25,7 @@ const loadCourses = (): CourseToImport[] => {
 
 const loadCourse = (courseFolder: string): CourseToImport => {
     const slug = courseFolder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(courseFolder, 'course.adoc'))
+    const file = loadFile(path.join(courseFolder, 'course.adoc'), {parse_header_only: true})
 
     const moduleDir = path.join(ASCIIDOC_DIRECTORY, courseFolder, 'modules')
     const modules = fs.existsSync(moduleDir)
@@ -50,6 +52,8 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         .map((e: string) => e?.trim() || '')
         .filter((e: string) => e !== '')
 
+
+    // @ts-ignore
     return {
         slug,
         link: `/courses/${slug}/`,
@@ -71,7 +75,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
 
 const loadModule = (folder: string): Module => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'module.adoc'))
+    const file = loadFile(path.join(folder, 'module.adoc'), {parse_header_only: true})
 
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
@@ -101,7 +105,7 @@ const loadModule = (folder: string): Module => {
 
 const loadLesson = (folder: string): Lesson => {
     const slug = folder.split('/').filter(a => !!a).pop()! as string
-    const file = loadFile(path.join(folder, 'lesson.adoc'))
+    const file = loadFile(path.join(folder, 'lesson.adoc'), {parse_header_only: true})
 
     // Load questions and answers into database
     const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')
@@ -139,7 +143,7 @@ const generateQuestionId = (title: string): string => {
 }
 
 const loadQuestion = (filepath: string): Question => {
-    const file = loadFile(filepath)
+    const file = loadFile(filepath, {parse_header_only: true})
 
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
