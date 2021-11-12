@@ -1,0 +1,123 @@
+= Authenticating a User
+:type: challenge
+:branch: 05-authentication
+:test-number: 05
+
+At the moment a user can register, but they are still unable to sign in.
+As with the previous lesson, the `authenticate` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
+
+In the project we use a Local strategy exported from the `passport` library to handle the authentication request, but the heavy lifting is done by the `authenticate` method on the `AuthService`.
+
+1. A route handler in `src/routes/auth.routes.js` listens for a `POST` request.
+2. The `passport.authenticate` middleware triggers a _local_ authentication strategy.
+3. The callback in `src/passport/neo4j.strategy.js` is triggered
+4. The Strategy calls the `authenticate` method on the `AuthService` which then attempts to find the user in the database and verify the paswword.
+
+
+== Implementing Authentication
+
+To implement database authentication, we will need to modify the `authenticate` method in the `AuthService`.
+
+.src/services/auth.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/auth.service.js[tag=authenticate]
+----
+
+In order for the strategy to work correctly, it must return an object which represents the user on successful login, or return `false` if the credentials are incorrect.
+
+The method should perform the following actions:
+
+1. Attempt to find the user by their email address
+2. If the user does not exist, return `false`
+3. Compare the encrypted password in the database against the unencrypted password sent with the request
+4. If the passwords do not match, return `false`
+5. Otherwise, return an object containing the user's _safe_ properties, and a JWT token with a set of claims that can be used in the UI.
+
+If the returned value is anything other than false, it will be appended to the request, and will be accessible through `req.user` on any route handlers that use the `passport.authenticate` middleware.
+
+
+=== Creating a Session
+
+As with the Write Transaction that we wrote in the link:../5-registering/[Registering a User^] lesson, we start by creating a session.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session,indent=0]
+----
+
+=== Executing a Read Transaction
+
+To execute a Read Transaction, we provide a Unit of Work to the `readTransaction` method on the session.
+
+In this instance we would like to find a `:User` node with the email address supplied in the method arguments.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/auth.service.js[tag="query"]
+----
+
+If there are no records returned by the query, it means that the user doesn't exist in the database and that we should return `false`.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/auth.service.js[tag="norecords"]
+----
+
+Next, we should compare the unencrypted password passed to the method with the encrypted password that has been stored in the node property.
+
+If the passwords do not match then we should return `false`.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/auth.service.js[tag="password"]
+----
+
+=== Closing the Session
+
+We've now accessed the information that we need from the database, so we can close the session.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag="session.close",indent=0]
+----
+
+Then finally, if all of those checks have been successful, we can generate a JWT token and return it along with the non-sensitive user information.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/auth.service.js[tag="return"]
+----
+
+Anything returned from this method will be accessible by calling `req.user` in a route handler.
+
+[NOTE]
+The `userToClaims` method will take the users properties and extract the information that may be useful in the front-end.
+JWT tokens can be easily decrypted, so you should *never* store any sensitive data in them.
+
+
+== Working Solution
+
+[%collapsible]
+.Click here to reveal the completed `authenticate` method:
+====
+
+.src/services/auth.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/auth.service.js[tag="authenticate"]
+----
+
+====
+
+include::../../../../includes/test.adoc[]
+
+
+include::./questions/verify.adoc[]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, we have used the the information in the database to authenticate a user.
+
+In the next lesson, we will look at saving ratings to the database and how we can use the `int` function to save JavaScript integers in Neo4j.

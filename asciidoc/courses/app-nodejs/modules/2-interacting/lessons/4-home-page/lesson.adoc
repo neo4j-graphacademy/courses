@@ -1,0 +1,129 @@
+= The Home Page
+:type: challenge
+:branch: 02-movie-lists
+:test-number: 02
+
+If you load up the app at http://localhost:3000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
+
+Both of these lists are populated by a request to `http://localhost:3000/api/movies` with some additional parameters.
+The route handler for this route is in `src/routes/movies.routes.js`.
+
+// TODO: tag::movies.list[]
+
+.src/routes/movies.routes.js
+[source,js]
+----
+include::{repository-raw}/main/src/routes/movies.routes.js[tag=list]
+----
+
+Within the above code block, you can see the following:
+
+1. The `orderBy`, `order`, `limit` and `skip` values are extracted from the query string.  This allows us to apply sorting and pagination to the results.
+2. A new instance of the `MovieService` is called with the transaction passed through to the constructor.  We will use this to send our Cypher query to Neo4j.
+3. The results are retreived via the `all` method and are returned by the handler as JSON.
+
+
+== The Movie Service
+
+The magic happens in the `MovieService`, located at `src/services/movie.service.js`.
+For this route we are concerned with the `all` method.
+
+
+== Implementing Read Transactions
+
+As we learned in the Sessions and Transactions lesson, we can call the `readTransaction` method with a function to represent the unit of work.
+
+
+If we take a look in `src/services/movie.service.js`, the `add` method on the `MovieService` currently returns a list of popular movies from a another file in the repository.
+
+[source,js,indent=0]
+.src/services/movie.service.js
+----
+include::{repository-raw}/main/src/services/movie.service.js[tag=all]
+----
+
+
+We will now rewrite this method to query Neo4j and return the results.
+
+=== 1. Open an Session
+
+First, we will want to open a new session.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session]
+----
+
+=== 2. Execute a query in a new Read Transaction
+
+This session then provides us with a `readTransaction` method which we can pass a function to represent the unit of work.
+
+The function will accept one argument, a `Transaction` instance that we can use to execute a Cypher statement using the `run` method.
+
+The `run` method accepts two arguments:
+
+1. The Cypher query as a parameterised string
+2. An object containing the values for the parameters prefixed in the query with a dollar sign (`$`)
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=allcypher]
+----
+
+
+[WARNING]
+====
+In the second argument, we use references to the `int` function imported from `neo4j-driver` to convert the skip and limit values into a Neo4j integer.
+Remember to add the import statement to the top of the file.
+
+[source,js]
+----
+include::{repository-raw}/main/example/integers.js[tag=import]
+----
+====
+
+
+=== 3. Get a list of Movies from the Result
+
+Now that we have results held in the `res` variable, we can use the `map` function on the `res.records` array to retrieve the `movie` value returned by the query.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=allmovies]
+----
+
+
+=== 4. Close the session
+
+Then, finally, before returning anything, we should make sure that the session is closed.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag="session.close"]
+----
+
+
+== Working Solution
+
+[%collapsible]
+.Click here to reveal the completed `all` method
+====
+
+// TODO: add a tag in the 02-movie-lists branch
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=all]
+----
+====
+
+include::../../../../includes/test.adoc[]
+
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, we learned how to execute a Cypher statement within a Read Transaction.
+
+In the next lesson, we will look at writing data to the database.

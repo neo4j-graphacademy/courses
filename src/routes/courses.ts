@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth'
-import { createSandbox, getSandboxForUseCase } from '../modules/sandbox'
+import { createSandbox, getSandboxForUseCase, Sandbox } from '../modules/sandbox'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
@@ -17,7 +17,7 @@ import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { courseBannerPath, getSandboxConfig } from '../utils'
+import { courseBannerPath, flattenAttributes, getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -432,7 +432,7 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
         const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
-            next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            return next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
         const doc = await convertModuleOverview(req.params.course, req.params.module)
@@ -514,6 +514,10 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
         attributes['sandbox-password'] = sandboxConfig?.password;
     }
 
+    // Course repository
+    attributes['repository'] = course.repository
+    attributes['repository-raw'] = `https://raw.githubusercontent.com/${course.repository}`
+
     return attributes
 }
 
@@ -536,17 +540,40 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
         const module = course.modules.find(row => row.slug === req.params.module)
 
         if (!module) {
-            nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+        }
+
+        else if (!module!.lessons) {
+            return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
         }
 
         const lesson = module!.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
-            nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+            return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+        }
+
+        // Add sandbox attributes to Page Attributes?
+        let sandbox: Sandbox = {} as Sandbox
+
+        if (course.usecase) {
+            try {
+                let sandboxInfo = await getSandboxForUseCase(token, course.usecase)
+
+                if (sandboxInfo !== undefined) {
+                    sandbox = sandboxInfo
+                }
+            }
+            catch (e) {
+                // Probably fine...
+            }
         }
 
         // Build Attributes for adoc
-        const attributes = await getPageAttributes(req, course)
+        const attributes = {
+            ...await getPageAttributes(req, course),
+            ...flattenAttributes({sandbox}),
+        }
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
 

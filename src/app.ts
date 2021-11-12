@@ -14,7 +14,6 @@ import { applyErrorhandlers } from './middleware/error-handlers'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag'
-import { getDriver } from './modules/neo4j'
 
 export default function initApp(driver: Driver) {
     const app = express()

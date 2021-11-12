@@ -1,0 +1,99 @@
+= Adding The Favorite Flag
+:type: challenge
+:branch: 08-favorite-flag
+:test-number: 08
+
+In the previous lesson, we hardcoded a `favorite` property on the return to the calls in the `FavoriteService`.
+We did this because we could guarantee the value based on the query being executed.
+However, we will not be able to do this within the `MovieService`.
+
+Instead, to determine this property we can use the open transaction to retrieve a list of ID's for the Movies that the user has liked.
+Then, in our second query we can check that the current ID of the current movie is contained within the `$favorites` parameter.
+
+
+
+== Creating a Reusable Method
+
+We will end up calling this method several times in the `MovieService`, so it makes sense to extract this out into its own method.
+
+So far, we have only executed one `run` call on the `tx` object passed through to the unit of work, but we can use this to execute several queries.
+
+To make the function reusable, we should pass the `tx` instance as the first argument, and the `userId` as the second.
+If the userId is defined, we should run a Cypher query to find their favorite movies.
+
+The function already exists in `src/services/movie.service.js` but currently returns an empty array.
+
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/movie.service.js[tag="getUserFavorites"]
+----
+
+=== Your Task
+
+Use the `tx` object passed as the first argument to run the following Cypher query.
+
+
+.Finding User Favorites
+[source,js,indent=0]
+----
+include::{repository-raw}/main/cypher/2-interacting/10-favorite-flag/user-favorites.cypher[]
+----
+
+[TIP]
+The query finds the user node by its `userId` property, and follows the `:HAS_FAVORITE` relationship to one or more movies.
+The query then returns the `tmdbId` of the movie.
+
+[%collapsible]
+.Click here to reveal the completed `getUserFavorites` method
+====
+
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag="getUserFavorites"]
+----
+====
+
+== Using the Method
+
+Now that we have written the method, all that is left is to add the new function to the unit of work within the `session.readTransaction` call within the `all` method.
+
+To check that a Movie is in the user's favorites, we can pass the array of `tmdbId` values as a parameter into the existing cypher statement, then use the Cypher `IN` clause to check whether the tmdbId exists within the array.
+
+
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag="allcypher"]
+----
+
+== Working Solution
+
+[%collapsible]
+.Click here to view the completed `all` method.
+====
+
+.src/services/movie/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag="all"]
+----
+
+====
+
+
+include::../../../../includes/test.adoc[]
+
+
+include::./questions/verify.adoc[]
+
+
+[.summary]
+== Module Summary
+
+In this module, we have used read and write transactions to interact with the data held in Neo4j.
+We have also learned about some of the considerations that we need to make when working with the Cypher type system in our Node.js application.
+
+In the *Project Backlog* module, we will implement the remaining missing pieces of functionality.
+This isn't strictly required, but will be good practise for your development journey ahead.

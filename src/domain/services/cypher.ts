@@ -23,6 +23,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
             .redirect,
             .link,
             .duration,
+            .repository,
             .video,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description, link: '/categories/'+ category.slug +'/' }],
             ${enrolment !== undefined ? `enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt,` : ''}

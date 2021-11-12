@@ -1,0 +1,151 @@
+= Processing Results
+:type: quiz
+
+The Neo4j JavaScript Driver provides you with two methods for consuming results:
+
+* through the **Promise** API
+* through the **Streaming** API with `RxJS`
+
+== The Promise API
+
+The most common method of consuming results is with the Promise API.
+When the server stops has finished streaming results, the `.run()` method resolves with a **Result**.
+
+
+[.tab]
+.Using async/await
+====
+Here is an example query call using `async`/`await`.
+
+.Async Example
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/async-promises.js[tag=async]
+----
+====
+
+[.tab]
+.Using Promises
+====
+Here is an example query utilising the `then` function from the returned Promise.
+
+.Using Promises
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/async-promises.js[tag=promises]
+----
+====
+
+
+== The Result
+
+From the examples above, you can see that `session.run` and `tx.run` both return a Promise which resolves to a `res` variable.
+
+After executing a query, Neo4j will return a stream of **Records** along with a set of additional meta data.
+
+A record is an unordered, keyed set of values specified in the `RETURN` statement.
+
+The meta data included in the Result include statistics on how many nodes and relationships were created, updated or deleted as a result of the query.
+
+=== Records
+
+You can access the records returned by the query through the `records` property.
+This property is a native JavaScript array which can be iterated over, for example using the `.map` or `.foreach` method.
+
+.Iterating over Records
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/async-promises.js[tag=records]
+----
+
+[TIP]
+You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifing the column number as an integer.
+The available keys can be accessed through `res.keys`.
+
+=== Result Summary
+
+You can access summary information provided by the query through the `summary` property.
+The information provided by the summary includes information about the server, the query, execution times, and a `counters` object which provide statistics about the query.
+
+To get information about how long the query took to complete, you can use the following property:
+
+.Using the Result Summary
+[source,js]
+----
+// Time in milliseconds before receiving the first result
+console.log(res.summary.resultAvailableAfter) // 10
+
+// Time in milliseconds once the final result was consumed
+console.log(res.summary.resultConsumedAfter) // 30
+----
+
+To access write statistics about the query, call the `updates` method on the `counters` properties.
+
+.Result Counters
+[source,js]
+----
+console.log(res.summary.counters.updates())
+
+/*
+{
+  nodesCreated: 10,
+  nodesDeleted: 0,
+  relationshipsCreated: 5,
+  relationshipsDeleted: 0,
+  propertiesSet: 20,
+  labelsAdded: 10,
+  labelsRemoved: 0,
+  indexesAdded: 0,
+  indexesRemoved: 0,
+  constraintsAdded: 0,
+  constraintsRemoved: 0
+}
+*/
+----
+
+== The Streaming API
+
+If you prefer to consume results as they become available rather than when the server has returned the last result, you can use the `subscribe` method.
+This is available when calling `session.run` or `tx.run` within a transaction function.
+
+The `subscribe` method accepts one argument, an object of callbacks:
+
+* `onKeys` - is called when keys are made available for all records.
+* `onNext` - called when the next record is available.
+* `onCompleted` - called when all records have been consumed.
+* `onError` - called if an error is thrown.
+
+.The Streaming API
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/async-promises.js[tag=subscribe]
+----
+
+This method may be useful if you need to process the records as they become available, for example if are streaming records to another service, or updating a real-time UI using websockets, or if you have complex queries that may take a long time to return a full results.
+
+
+== Reactive Streams with RxJS
+
+The Drivers also offer out-of-the-box support for RxJS streams.
+To create a reactive session, call the `rxSession` method on the driver.
+
+The methods to execute read or write queries are similar to the examples above, with the exception that the `run` function exposes a `records` method which returns an RxJS Observable, to which you can apply operators.
+
+
+.Reactive Streams
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/async-promises.js[tag=rxjs]
+----
+
+== Check Your Understanding
+
+include::./questions/1-method.adoc[]
+
+
+[.summary]
+== Lesson Summary
+
+You now have all of the information required to send Cypher queries to Neo4j and consume the results.
+
+Next, we will look at the Cypher Type System and some of the considerations that we need to make when working with values coming from Neo4j in our Node.js application.

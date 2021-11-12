@@ -1,0 +1,180 @@
+= Sessions and Transactions
+:type: quiz
+
+== Sessions
+
+Through the Driver, we create sessions.  A session is a container for a sequence of transactions. Sessions borrow connections from a pool as required and so should be considered lightweight and disposable.
+
+It is important to remember that sessions are not the same as database connections.  Sessions provide a client-side abstraction for grouping units of work and can take advantage of one or more connections.
+
+Connections are managed internally by the driver within a session and are not directly exposed to the user.
+
+To create a session, call the `session` method on the driver.
+
+.Open a new Session
+[source,js,subs="attributes+"]
+----
+include::{repository-raw}/main/example/index.js[tag=session,indent=0]
+----
+
+This session method takes one optional argument, an object containing configuration options.
+For example, you can set the default access mode depending on the intent of your query (either `READ` or `WRITE`), or the database to execute each query against in a multi-database setup.
+
+
+.Open a new Session with additional arguments
+[source,js,subs="attributes+"]
+----
+include::{repository-raw}/main/example/index.js[tag=importWithSession]
+
+include::{repository-raw}/main/example/index.js[tag=sessionWithArgs,indent=0]
+----
+
+[TIP]
+.Default Access Mode
+By default, the `defaultAccessMode` is set to `WRITE`, but this can be overwritten by explicitly calling the `session.readTransaction` method.
+
+
+== Transactions
+
+Neo4j uses an **ACID** consistency model to ensure that data is data is safely and consistently stored.
+Many developers are familiar with ACID transactions from their work with relational databases, and as such the ACID consistency model has been the norm for some time.
+
+The ACID acronym stands for:
+
+* **Atomic** - All operations in a transaction succeed or every operation is rolled back.
+* **Consistent** - On the completion of a transaction, the database is structurally sound.
+* **Isolated** - Transactions do not contend with one another. Contentious access to data is moderated by the database so that transactions appear to run sequentially.
+* **Durable** - The results of applying a transaction are permanent, even in the presence of failures.
+
+
+There are three types of transaction exposed by the driver:
+
+* Auto-commit Transactions
+* Read Transactions
+* Write Transactions
+
+
+
+=== Auto-commit Transactions
+
+Auto-commit transactions are a single unit of work that are immediately executed against the server and acknowledged immediately.
+You can run an auto-commit transaction by calling the `run` method on the session object, passing in a Cypher query as a string and optionally an object containing a set of parameters.
+
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session.run]
+----
+
+
+[TIP]
+.For one-off queries only
+The driver will not attempt to retry a query when using `session.run`.
+These should only be used for one-off queries and generally shouldn't be utilised in production.
+
+
+=== Read Transactions
+
+When you intend to read data from Neo4j, you should execute a Read transaction.
+In a clustered environment (including Neo4j Aura), read queries are distributed across the cluster.
+
+The session provides a `readTransaction` method, which takes a function that represents the unit of work.
+The function will accept a single parameter, a Transaction, on which you can call the `run` method with two arguments: the cypher query as a string and an optional object containing a set of parameters.
+
+.Running a Read Transaction
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session.readTransaction]
+----
+
+[TIP]
+.Parameterized Queries
+In the query above, the the `$` prefix of the `$location` indicates that this value relates to the value as defined in the second argument (2) to the `run` function.
+
+
+You do not need to explicitly commit a read transaction.
+If anything goes wrong within of the unit of work or there is a problem on Neo4j's side, the transaction will be automatically rolled back and the database will remain in its previous state.
+If the unit of work succeeds, the transaction will be automatically committed.
+
+// TODO: Explain what a transient error is.  As a tip?
+Additionally, if a _transient_ error is received by the driver, for example a connectivity issue with the server, the driver will automatically retry the unit of work.
+
+
+=== Write Transactions
+
+In clustered environments, write queries are sent exclusively to the _leader_ of the cluster.  The leader of the cluster is then responsible for processing the query and synchronising the transaction across the _followers_ and _read-replica_ servers in the cluster.
+
+The call is similar to a read transaction, but instead you call the `writeTransaction` method.
+
+.Running a Write Transaction
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session.writeTransaction,indent=0]
+----
+
+
+== Manually Creating Transactions
+
+It is also possible to explicitly create a transaction object by calling the `beginTransaction` method on the session.
+
+.Creating an Manual Transaction
+[source,js,subs="attributes+"]
+----
+include::{repository-raw}/main/example/index.js[tag=importWithSession]
+
+// ...
+
+include::{repository-raw}/main/example/index.js[tag=session.beginTransaction,indent=0]
+----
+
+This returns a Transaction object identical to the one passed in to the unit of work function when calling `readTransaction` or `writeTransaction`.
+
+The difference between this method and the previous two methods, is that this transaction will have to be manually commited or rolled back.
+
+
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session.beginTransaction.Try]
+----
+
+
+== Closing the Session
+
+Once you are finished with your session, you should call the `close` method to release any database connections held by that session.
+
+.Closing a Session
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=session.close]
+----
+
+
+
+== A Working Example
+
+[%collapsible]
+.Click to reveal a working example
+====
+The following code creates a function that accepts a name, then executes a write transaction to create a Person node in the customers database.
+
+.Create a Person node in the customers database
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/index.js[tag=createPerson]
+----
+====
+
+
+== Check your understanding
+
+include::./questions/1-valid-methods.adoc[]
+
+include::./questions/2-read-transaction.adoc[]
+
+include::./questions/3-write-transaction.adoc[]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, we have learned about the process of creating sessions and running Cypher queries within transaction functions.
+
+In the next lesson we will look at how we process the results of a query.

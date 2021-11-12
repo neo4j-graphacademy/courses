@@ -4,7 +4,7 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_DURATION, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
+import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
@@ -61,6 +61,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
+        repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
         prerequisiteSlugs,
         progressToSlugs,
         categories,
@@ -81,11 +82,19 @@ const loadModule = (folder: string): Module => {
             .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
 
+    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+
+    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
+        const [ _, number] = slug.match(/^([0-9]+)-/)!
+
+        order = number
+    }
+
     return {
         path: path.join(folder, 'module.adoc'),
         slug,
         title: file.getTitle() as string,
-        order: file.getAttribute(ATTRIBUTE_ORDER, null),
+        order,
         lessons,
     }
 }
@@ -102,12 +111,20 @@ const loadLesson = (folder: string): Lesson => {
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
+    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+
+    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
+        const [ _, number] = slug.match(/^([0-9]+)-/)!
+
+        order = number
+    }
+
     return {
         path: folder,
         slug,
         title: file.getTitle(),
         type: file.getAttribute(ATTRIBUTE_TYPE, LESSON_TYPE_DEFAULT),
-        order: file.getAttribute(ATTRIBUTE_ORDER, null),
+        order,
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
         questions,
@@ -130,7 +147,6 @@ const loadQuestion = (filepath: string): Question => {
         id,
         text: file.getTitle(),
     } as Question
-
 }
 
 export async function mergeCourses(): Promise<void> {
@@ -154,6 +170,7 @@ export async function mergeCourses(): Promise<void> {
             c.usecase = course.usecase,
             c.redirect = course.redirect,
             c.duration = course.duration,
+            c.repository = course.repository,
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime()

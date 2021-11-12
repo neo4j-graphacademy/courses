@@ -665,14 +665,24 @@ const setupQuestions = async () => {
 
                 if (question.type === ANSWER_TYPE_FREETEXT) {
                     answers = <string[]>Array.from(question.element.querySelectorAll('input'))
-                        .map(input => input.value)
-                        .filter(value => value && value !== '')
+                        .map(input => {
+                            // Trim whitespace
+                            let output = input.value.trim()
 
+                            // Remove start and end quotes
+                            if (output.startsWith('"') && output.endsWith('"')) {
+                                output = output.substr(1, output.length-2)
+                            }
+
+                            return output
+                        })
+                        .filter(value => value && value !== '')
                 }
                 else {
                     answers = <string[]>Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
                         .map(element => element.getAttribute('value'))
                         .filter(value => !!value)
+                        .map(value => value!.trim())
                 }
 
                 if (!answers.length) return
@@ -773,6 +783,17 @@ const setupVerify = () => {
 }
 
 const setupMarkAsReadButton = () => {
+    // If completed, hide the container that holds the Read button
+    const body = document.getElementsByTagName('body')[0]
+    if (body && body.classList.contains(LESSON_COMPLETED)) {
+        Array.from(document.querySelectorAll('.btn-read'))
+            .map((button: Element) => {
+                button.parentElement?.style.setProperty('display', 'none')
+            })
+
+        return;
+    }
+
     Array.from(document.querySelectorAll('.btn-read'))
         .map((button: Element) => {
             button.addEventListener('click', e => {
