@@ -139,7 +139,7 @@ const generateQuestionId = (title: string): string => {
 }
 
 const loadQuestion = (filepath: string): Question => {
-    const file = loadFile(filepath, { parse: true })
+    const file = loadFile(filepath)
 
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 

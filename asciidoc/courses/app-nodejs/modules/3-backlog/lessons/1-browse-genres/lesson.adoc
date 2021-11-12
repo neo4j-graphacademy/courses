@@ -1,48 +1,32 @@
 = Browsing Genres
 :type: challenge
-:test-number: 08
-:test-filename: 08-genre-list.spec.js
+:branch: 09-genre-list
+:test-number: 09
 
-If you click on the Genres link in the main navigation, you will be taken to a link:http://localhost:3000/genres[list of Genres^].
-This list is populated by the API route at http://localhost:3000/api/movies, with the list being produced by `all` method within the `GenreService`
+If you click on the **Genres** link in the main navigation, you will be taken to a link:http://localhost:3000/genres[list of Genres^].
+This list is populated by the API route at http://localhost:3000/api/movies, with the list being produced by `all` method within the `GenreService`.
 
-
-First, we create a new session:
-
-include::../../../../includes/code.adoc[tag="driver.session"]
-
-
-Then, to match the mocked data, we need to get a list of Genres along with their movie count and a poster image:
-
-[source,js]
+.src/services/genre.service.js
+[source,js,indent=0]
 ----
-// Get a list of genres with the movie count and a poster image
-const res = await session.readTransaction(tx => tx.run(`
-    MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
-    WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
-    WITH g, m
-    ORDER BY m.imdbRating DESC
-
-    WITH g, head(collect(m)) AS movie
-
-    RETURN g {
-        link: '/genres/'+ g.name,
-        .name,
-        movies: size((g)<-[:IN_GENRE]-()),
-        poster: movie.poster
-    } AS genre
-    ORDER BY g.name ASC
-`))
+include::{repository-raw}/main/src/services/genre.service.js[tag=all]
 ----
 
-include::../../../../includes/code.adoc[tag="session.close"]
+In this challenge, you should run the following cypher statement in a **read transaction**:
 
-Then, all that is left to do is to return the results.
 
-[source,js]
+.Getting a List of Genres
+[source,cypher]
 ----
-return res.records.map(row => toNativeTypes(row.get('genre')))
+include::{repository-raw}/main/cypher/3-backlog/1-browse-genres/genre-details.cypher[]
 ----
+
+
+== Your Task
+
+* Modify the `all` method on the `GenreService` to call the Neo4j database and return a list of properties ordered by genre name
+* Each genre should have a name, the number of movies listed in that genre (`movies`) and a poster image (from the most popular movie in that genre)
+* Remember to close the session and use the `toNativeTypes` function within a `map` function on `res.records` to convert the values to native types.
 
 
 == Working Solution
@@ -51,51 +35,16 @@ return res.records.map(row => toNativeTypes(row.get('genre')))
 .Click here to view the completed `all` method.
 ====
 
-.src/services/genre/service.js
+.src/services/genre/genre.service.js
 [source,js]
 ----
-async all() {
-    // Open a new Session
-    const session = this.driver.session()
-
-    // Get a list of Genres from the database
-    const res = await session.readTransaction(tx => tx.run(`
-        MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
-        WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
-        WITH g, m
-        ORDER BY m.imdbRating DESC
-
-        WITH g, head(collect(m)) AS movie
-
-        RETURN g {
-            link: '/genres/'+ g.name,
-            .name,
-            movies: size((g)<-[:IN_GENRE]-()),
-            poster: movie.poster
-        } AS genre
-        ORDER BY g.name ASC
-    `))
-
-    // Close the session
-    await session.close()
-
-    // Return results
-    return res.records.map(row => toNativeTypes(row.get('genre')))
-}
+include::{repository-raw}/{branch}/src/services/genre.service.js[tag=all]
 ----
 
 ====
 
 // Testing
 include::../../../../includes/code.adoc[tag="test"]
-
-
-// == Testing
-
-// To test that this functionality has been correctly implemented, run the following code in a new terminal session:
-
-// [source,sh]
-// npm run test 08
 
 
 == Verifying the Test

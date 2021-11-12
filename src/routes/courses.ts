@@ -516,6 +516,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
 
     // Course repository
     attributes['repository'] = course.repository
+    attributes['repository-raw'] = `https://raw.githubusercontent.com/${course.repository}`
 
     return attributes
 }

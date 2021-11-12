@@ -1,5 +1,7 @@
 = The Home Page
 :type: challenge
+:branch: 02-movie-lists
+:test-number: 02
 
 If you load up the app at http://localhost:3000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
 
@@ -11,33 +13,14 @@ The route handler for this route is in `src/routes/movies.routes.js`.
 .src/routes/movies.routes.js
 [source,js]
 ----
-
-router.get('/', async (req, res) => {
-    try {
-        const { orderBy, order, limit, skip }
-            = getPagination(req) // <1>
-
-        const movieService = new MovieService(
-            req.transaction
-        ) // <2>
-
-        const movies = await movieService.all(
-            orderBy, order, limit, skip
-        ) // <3>
-
-        res.json(movies)
-    }
-    catch(e) {
-        next(e)
-    }
-})
+include::{repository-raw}/main/src/routes/movies.routes.js[tag=list]
 ----
 
 Within the above code block, you can see the following:
 
-<1> The `orderBy`, `order`, `limit` and `skip` values are extracted from the query string.  This allows us to apply sorting and pagination to the results.
-<2> A new instance of the `MovieService` is called with the transaction passed through to the constructor.  We will use this to send our Cypher query to Neo4j.
-<3> The results are retreived via the `all` method and are returned by the handler as JSON.
+1. The `orderBy`, `order`, `limit` and `skip` values are extracted from the query string.  This allows us to apply sorting and pagination to the results.
+2. A new instance of the `MovieService` is called with the transaction passed through to the constructor.  We will use this to send our Cypher query to Neo4j.
+3. The results are retreived via the `all` method and are returned by the handler as JSON.
 
 
 == The Movie Service
@@ -53,18 +36,12 @@ As we learned in the Sessions and Transactions lesson, we can call the `readTran
 
 If we take a look in `src/services/movie.service.js`, the `add` method on the `MovieService` currently returns a list of popular movies from a another file in the repository.
 
-[source,js]
+[source,js,indent=0]
 .src/services/movie.service.js
 ----
-async all(orderBy = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
-    // TODO: Open an Session
-    // TODO: Execute a query in a new Read Transaction
-    // TODO: Get a list of Movies from the Result
-    // TODO: Close the session
-
-    return popular
-}
+include::{repository-raw}/main/src/services/movie.service.js[tag=all]
 ----
+
 
 We will now rewrite this method to query Neo4j and return the results.
 
@@ -72,9 +49,9 @@ We will now rewrite this method to query Neo4j and return the results.
 
 First, we will want to open a new session.
 
-[source,js]
+[source,js,indent=0]
 ----
-const session = this.driver.session()
+include::{repository-raw}/main/example/index.js[tag=session]
 ----
 
 === 2. Execute a query in a new Read Transaction
@@ -88,31 +65,31 @@ The `run` method accepts two arguments:
 1. The Cypher query as a parameterised string
 2. An object containing the values for the parameters prefixed in the query with a dollar sign (`$`)
 
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=allcypher]
+----
+
+
+[WARNING]
+====
+In the second argument, we use references to the `int` function imported from `neo4j-driver` to convert the skip and limit values into a Neo4j integer.
+Remember to add the import statement to the top of the file.
 
 [source,js]
 ----
-const res = await session.readTransaction(tx => tx.run(`
-    MATCH (m:Movie)
-    WHERE exists(m.\`${orderBy}\`)
-    RETURN m { .* } AS movie
-    ORDER BY m.\`${orderBy}\` ${order}
-    SKIP $skip
-    LIMIT $limit
-`, { skip: int(skip), limit: int(limit) }))
+include::{repository-raw}/main/example/integers.js[tag=import]
 ----
-
-[NOTE]
-In the second argument, we use references to the `int` function imported from `neo4j-driver`.
-We will cover this in more detail in the **Cypher Type System** and **Rating Movies** lessons.
+====
 
 
 === 3. Get a list of Movies from the Result
 
 Now that we have results held in the `res` variable, we can use the `map` function on the `res.records` array to retrieve the `movie` value returned by the query.
 
-[source,js]
+[source,js,indent=0]
 ----
-const movies = res.records.map(row => toNativeTypes(row.get('movie')))
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=allmovies]
 ----
 
 
@@ -120,9 +97,9 @@ const movies = res.records.map(row => toNativeTypes(row.get('movie')))
 
 Then, finally, before returning anything, we should make sure that the session is closed.
 
-[source,js]
+[source,js,indent=0]
 ----
-await session.close()
+include::{repository-raw}/main/example/index.js[tag="session.close"]
 ----
 
 
@@ -132,49 +109,16 @@ await session.close()
 .Click here to reveal the completed `all` method
 ====
 
+// TODO: add a tag in the 02-movie-lists branch
 .src/services/movie.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async all(orderBy = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
-    // Open an Session
-    const session = this.driver.session()
-
-    // Execute a query in a new Read Transaction
-    const res = await session.readTransaction(tx => tx.run(`
-        MATCH (m:Movie)
-        WHERE exists(m.\`${orderBy}\`)
-        RETURN m { .* } AS movie
-        ORDER BY m.\`${orderBy}\` ${order}
-        SKIP $skip
-        LIMIT $limit
-    `, { skip: int(skip), limit: int(limit) }))
-
-    // Get a list of Movies from the Result
-    const movies = res.records.map(row => toNativeTypes(row.get('movie')))
-
-    // Close the session
-    await session.close()
-
-    return movies
-}
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=all]
 ----
-
 ====
 
-== Testing
+include::../../../../includes/test.adoc[]
 
-To test that this function correctly calls Neo4j, run the following command in a new terminal session:
-
-[source,sh]
-npm run test 02
-
-
-The test file is located at `test/challenges/02-movie-lists.spec.js`.
-
-
-== Verifying the Test
-
-include::./questions/verify.adoc[]
 
 
 [.summary]

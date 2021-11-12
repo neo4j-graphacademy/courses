@@ -1,29 +1,25 @@
 = Finding Genre Details
 :type: challenge
-:test-number: 09
-:test-filename: 09-genre-details.spec.js
+:test-number: 10
+:branch: 10-genre-details
 
 When the user clicks a Genre in the list, they are taken to a list of movies for that genre.  A request is sent to the `/api/[name]` API endpoint.
 
 The `find` method the the `GenreServie` accepts one argument, the name of the Genre and should return the information identical to the entry from the above endpoint.
 
-Open up `src/services/genre.service.js` and modify the `find` method to run the following query within a read transaction:
+.src/services/genre.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/genre.service.js[tag=find]
+----
 
+
+In this challenge, you should run the following cypher statement in a **read transaction**:
+
+.Finding Genre Details
 [source,cypher]
 ----
-MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
-WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
-WITH g, m
-ORDER BY m.imdbRating DESC
-
-WITH g, head(collect(m)) AS movie
-
-RETURN g {
-    link: '/genres/'+ g.name,
-    .name,
-    movies: size((g)<-[:IN_GENRE]-()),
-    poster: movie.poster
-} AS genre
+include::{repository-raw}/main/cypher/3-backlog/2-find-genre-details/genre-details.cypher[]
 ----
 
 [IMPORTANT]
@@ -36,6 +32,14 @@ The `size()` function uses a precalculated value stored against the `:Genre` nod
 ====
 
 
+== Your Task
+
+* Modify the `find` method on the `GenreService` to call the Neo4j database and return details for a Genre
+* The `name` variable should be passed to the `run` call as a parameter
+* If no records are found, a `NotFoundError` should be thrown
+* Remember to close the session and use the `toNativeTypes` function to convert the genre value to native types
+
+
 == Working Solution
 
 [%collapsible]
@@ -43,48 +47,14 @@ The `size()` function uses a precalculated value stored against the `:Genre` nod
 ====
 
 .src/services/genre/service.js
-[source,js]
+[source,js,indent=0]
 ----
-async find(name) {
-    // Open a new Session
-    const session = this.driver.session()
-
-    // Get Genre information from the database
-    const res = await session.readTransaction(tx => tx.run(`
-        MATCH (g:Genre {name: $name})<-[:IN_GENRE]-(m:Movie)
-        WHERE exists(m.imdbRating) AND exists(m.poster) AND g.name <> '(no genres listed)'
-        WITH g, m
-        ORDER BY m.imdbRating DESC
-
-        WITH g, head(collect(m)) AS movie
-
-        RETURN g {
-            link: '/genres/'+ g.name,
-            .name,
-            movies: size((g)<-[:IN_GENRE]-()),
-            poster: movie.poster
-        } AS genre
-    `, { name }))
-
-    // Throw a 404 Error if the genre is not found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Could not find a genre with the name '${name}'`)
-    }
-
-    // Close the session
-    await session.close()
-
-    // Return results
-    const [ row ] = res.records
-
-    return toNativeTypes(row.get('genre'))
-}
+include::{repository-raw}/{branch}/src/services/genre.service.js[tag=find]
 ----
-
 ====
 
 // Testing
-include::../../../../includes/code.adoc[tag="test"]
+include::../../../../includes/test.adoc[]
 
 
 == Verifying the Test

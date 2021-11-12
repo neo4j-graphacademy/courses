@@ -1,5 +1,7 @@
 = My Favorites List
 :type: challenge
+:branch: 07-favorites-list
+:test-number: 07
 
 image::images/movie-cards.png[Add a Movie to your Favorites, role=right]
 
@@ -29,18 +31,9 @@ In order to save this information to the database, we will have to modify the `F
 The `add` method in the `FavoriteService` currently returns some dummy data.
 
 .src/services/favorite.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async add(userId, movieId) {
-    // TODO: Open Session
-    // TODO: Create HAS_FAVORITE relationship
-    // TODO: Return movie details and `favorite` property
-
-    return {
-        ...goodfellas,
-        favorite: true,
-    }
-}
+include::{repository-raw}/main/src/services/favorite.service.js[tag=add]
 ----
 
 We will update this method to create a session, then run a Write Transaction with a unit of work to find the User and Movie by their IDs and then create the relationship between them.
@@ -51,58 +44,39 @@ The UI expects a `favorite` property to be returned which is used to update the 
 
 Let's first open a new session from `this.driver`.
 
-[source,js]
+[source,js,indent=0]
 ----
-// Open a new session
-const session = this.driver.session()
+include::{repository-raw}/main/example/index.js[tag=session]
 ----
 
 Then run the Cypher query to `MERGE` a relationship between the `:User` and `:Movie` nodes, before returning all properties for the movie plus the
 
-
-[source,js]
+[source,js,indent=0]
 ----
-// Create HAS_FAVORITE relationship within a Write Transaction
-const res = await session.writeTransaction(tx => tx.run(`
-    MATCH (u:User {userId: $userId})
-    MATCH (m:Movie {tmdbId: $movieId})
-
-    MERGE (u)-[r:HAS_FAVORITE]->(m)
-    ON CREATE SET u.createdAt = datetime()
-
-    RETURN m {
-        .*,
-        favorite: true
-    } AS movie
-`, { userId, movieId }))
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=create]
 ----
 
 If no records are returned, either the `:User` and `:Movie` cannot be found.
 In which case, we should return a 404 error.
 
-[source,js]
+[source,js,indent=0]
 ----
-// Throw an error if the user or movie could not be found
-if ( res.records.length === 0 ) {
-    throw new NotFoundError(`Couldn't create a favorite relationship for User ${userId} and Movie ${movieId}`)
-}
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=throw]
 ----
 
 Then, we should close the session.
 
-[source,js]
+[source,js,indent=0]
 ----
-// Close the session
-await session.close()
+include::{repository-raw}/main/example/index.js[tag=session.close]
 ----
 
 Finally, we should return the `movie` value from the first row of the Cypher query.
 
-[source,js]
+[source,js,indent=0]
 ----
-return toNativeTypes(res.records[0].get('movie'))
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=return]
 ----
-
 
 === Working Solution
 
@@ -111,36 +85,10 @@ return toNativeTypes(res.records[0].get('movie'))
 ====
 
 .src/services/favorite.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async add(userId, movieId) {
-    // Open a new session
-    const session = this.driver.session()
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=add]
 
-    // Create HAS_FAVORITE relationship within a Write Transaction
-    const res = await session.writeTransaction(tx => tx.run(`
-        MATCH (u:User {userId: $userId})
-        MATCH (m:Movie {tmdbId: $movieId})
-
-        MERGE (u)-[r:HAS_FAVORITE]->(m)
-        ON CREATE SET u.createdAt = datetime()
-
-        RETURN m {
-            .*,
-            favorite: true
-        } AS movie
-    `, { userId, movieId }))
-
-    // Close the session
-    await session.close()
-
-    // Throw an error if the user or movie could not be found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Couldn't create a favorite relationship for User ${userId} and Movie ${movieId}`)
-    }
-
-    return toNativeTypes(res.records[0].get('movie'))
-}
 ----
 ====
 
@@ -152,16 +100,13 @@ The code for deleting the `:HAS_FAVORITE` relationship will be similar, only the
 Instead of two seaprate `MATCH` clauses, we can instead attempt to find the pattern within a single clause.
 If the relationship (with an alias of `r`) exists, we will delete it and then return the movie information with `favorite` set to `false`.
 
-[source,cypher]
+[source,cypher,rel=norun]
 ----
-MATCH (u:User {userId: $userId})-[r:HAS_FAVORITE]->(m:Movie {tmdbId: $movieId})
-DELETE r
+include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/deleting-the-relationship.cypher[]
+----
 
-RETURN m {
-    .*,
-    favorite: true
-} AS movie
-----
+Use the code from the `add` method above to implement the `remove` function.
+If you get stuck, you can reveal the completed method below.
 
 === Working Solution
 
@@ -172,160 +117,66 @@ RETURN m {
 .src/services/favorite.service.js
 [source,js]
 ----
-async remove(userId, movieId) {
-    // Open a new session
-    const session = this.driver.session()
-
-    // Delete HAS_FAVORITE relationship within a Write Transaction
-    const res = await session.writeTransaction(tx => tx.run(`
-        MATCH (u:User {userId: $userId})-[r:HAS_FAVORITE]->(m:Movie {tmdbId: $movieId})
-        DELETE r
-
-        RETURN m {
-            .*,
-            favorite: false
-        } AS movie
-    `, { userId, movieId }))
-
-    // Close the session
-    await session.close()
-
-    // Throw an error if the user or movie could not be found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Couldn't delete the favorite relationship for User ${userId} and Movie ${movieId}`)
-    }
-
-    return toNativeTypes(res.records[0].get('movie'))
-}
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=remove]
 ----
 ====
 
 == Listing a User's favorite movies
 
-The `FavoriteService` also has an `all` method which should return a paginated list of the User's favorite movies.
-At the moment it is hardcoded to return a list of movies.
+At the top of the `FavoriteService`, you will also see `all` method which at the moment returns dummy data.
+This method should return a paginated list of Movies that the User has added to their Favorites list.
+
+.src/services/favorite.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/favorite.service.js[tag=all]
+----
 
 We will update this method to open a new session and then follow the `(:User)-[:FAVORITED_MOVIE]->(:Movie)` pattern to retrieve a list of movies.
 
-
-.src/services/favorite.service.js
-[source,js]
-----
-async all(userId, orderBy = 'title', order = 'ASC', limit = 6, skip = 0) {
-    // TODO: Open a new session
-    // TODO: Retrieve a list of movies favorited by the user
-    // TODO: Close session
-
-    return popular
-}
-----
-
 To implement this function we must open a new session, and execute a read transaction with the following Cypher query:
 
-[source,cypher]
+.Returning User Favorites
+[source,cypher,rel=norun]
 ----
 MATCH (u:User {userId: $userId})-[r:HAS_FAVORITE]->(m:Movie)
 RETURN m {
-    .*,
-    favorite: false
+  .*,
+  favorite: false
 } AS movie
-ORDER BY m.\`${orderBy}\` ${order}
+ORDER BY m.\`${sort}\` ${order}
 SKIP $skip
 LIMIT $limit
 ----
 
+[NOTE]
+.Invalid Cypher
+====
+Both `sort` and `order` are variables that are variables that are passed as parameters to the `MovieService`.
+We need to do this because the order by value cannot be parameterized unlike `$skip` and `$limit`.
+
+The example uses escaped backticks (`\``) within the template literal to escape the `sort` value in case it contains spaces.
+====
+
 We have written similar code a few times already, so try to implement this one on your own.
 If you get stuck, you can view the full solution below.
+
+Remember to also import the `int` function from `neo4j-driver`.
+This is required to convert the `skip` and `limit` values to Neo4j integers.
 
 [%collapsible]
 .Click here to reveal the completed `all` method
 ====
 
 .src/services/favorite.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async all(userId, orderBy = 'title', order = 'ASC', limit = 6, skip = 0) {
-    // Open a new session
-    const session = this.driver.session()
-
-    // Retrieve a list of movies favorited by the user
-    const res = await session.readTransaction(tx => tx.run(`
-        MATCH (u:User {userId: $userId})-[r:HAS_FAVORITE]->(m:Movie)
-        RETURN m {
-            .*,
-            favorite: false
-        } AS movie
-        ORDER BY m.\`${orderBy}\` ${order}
-        SKIP $skip
-        LIMIT $limit
-    `, { userId, skip: int(skip), limit: int(limit) }))
-
-    // Close the session
-    await session.close()
-
-    return res.records.map(row => toNativeTypes(row.get('movie')))
-
-    return popular
-}
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=all]
 ----
 ====
 
 
-
-== Adding the `favorite` property to the `/movies/*` endpoints
-
-In the queries above, we have hard coded the `favorite` property because we can guarantee the value as a result of the query above.
-However, we will not be able to do this within the `MovieService`.
-
-Instead, to determine this property we can use the open transaction to retrieve a list of ID's that the user has liked.
-Then, in our second query we can check that the current ID of the current movie is contained within the `$favorites` parameter.
-
-.src/services/movie.service.js
-[source,js]
-----
-const res = await session.readTransaction(async tx => {
-    const favorites = []
-
-    // Find favorite movie IDs for the current user if defined
-    if ( userId !== undefined ) {
-        const favoriteResult = await tx.run(`
-            MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m)
-            RETURN m.tmdbId AS id
-        `)
-        favorites = favoriteResult.map(row => row.get('id'))
-    }
-
-    // Add a check to make sure the movie id is in our $favorites parameter
-    return tx.run(`
-        MATCH (m:Movie)
-        WHERE exists(m.\`${orderBy}\`)
-        RETURN m {
-            .*,
-            favorite: m.tmdbId IN $favorites
-        } AS movie
-        ORDER BY m.\`${orderBy}\` ${order}
-        SKIP $skip
-        LIMIT $limit
-    `, { skip: int(skip), limit: int(limit), favorites }
-    )
-})
-----
-
-
-
-
-== Testing
-
-To test that the My Favorites functionality has been correctly implemented, run the following command in a new terminal session:
-
-[source,sh]
-npm run test 07
-
-If all tests pass then the favorite list functionality has been successfully implemented.
-
-You can view the test file by opening `test/challenges/07-favorites-list.spec.js`.
-
-
+include::../../../../includes/test.adoc[]
 
 include::./questions/verify.adoc[]
 
@@ -333,8 +184,6 @@ include::./questions/verify.adoc[]
 [.summary]
 == Module Summary
 
-In this module, we have used read and write transactions to interact with the data held in Neo4j.
-We have also learned about some of the considerations that we need to make when working with the Cypher type system in our Node.js application.
+In this module, we have written the code to create a `:HAS_FAVORITE` relationship between a User and a Movie within a write transaction.
 
-In the *Project Backlog* module, we will implement the remaining missing pieces of functionality.
-This isn't strictly required, but will be good practise for your development journey ahead.
+In the next lesson, we will look at how we can execute multiple queries in the same transaction.

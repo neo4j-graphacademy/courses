@@ -1,7 +1,7 @@
 = Listing Ratings
 :type: challenge
-:test-number: 12
-:test-filename: 12-listing-ratings.spec.js
+:test-number: 13
+:branch: 13-listing-ratings
 
 
 The last remaining element on the Movie page is the list of ratings on the right-hand side of the page.
@@ -10,76 +10,39 @@ Although the count in the header is now accurate, the ratings being returned by 
 If we head over to the `RatingService` in `src/modules/rating.service.js`, we will see that the `forMovie` id currently returns a hardcoded list.
 
 
-.src/modules/rating.service.js
-[source,js]
+.src/services/rating.service.js
+[source,js,indent=0]
 ----
-forMovie(id, limit, skip) {
-    return Promise.resolve(ratings)
-}
+include::{repository-raw}/main/src/services/rating.service.js[tag=forMovie]
 ----
-
 
 We should replace it with a call to Neo4j, running the following query within a **read**  transaction.
 
 .Get Ratings
 [source,cypher]
 ----
-MATCH (u:User)-[r:RATED]->(m:Movie {tmdbId: $id})
-RETURN r {
-    .rating,
-    .timestamp,
-    user: u {
-        .id, .name
-    }
-} AS review
-ORDER BY r.timestamp DESC
-SKIP $skip
-LIMIT $limit
+include::{repository-raw}/main/cypher/3-backlog/5-listing-ratings/listing-ratings.cypher[]
 ----
 
 Update the `forMovie` method to retrieve the review details from the database.
 
 
-
-
 [%collapsible]
-.Click to reveal the completed `findById` method
+.Click to reveal the completed `forMovie` method
 ====
 
-// tag::RatingService.forMovie[]
 .src/services/rating.service.js
-[source,js]
+[source,js,indent=0]
 ----
-forMovie(id, limit, skip) {
-    const session = this.driver.session()
-    const res = await session.readTransaction(tx => tx.run(`
-        MATCH (u:User)-[r:RATED]->(m:Movie {tmdbId: $id})
-        RETURN r {
-            .rating,
-            .timestamp,
-            user: u {
-                .id, .name
-            }
-        } AS review
-        ORDER BY r.timestamp DESC
-        SKIP $skip
-        LIMIT $limit
-    `, { id, limit: int(limit), skip: int(skip)}))
-
-    await session.close()
-
-    return res.records.map(row => toNativeTypes(row.get('review')))
-
-    return Promise.resolve(ratings)
-}
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=forMovie]
 ----
 
 ====
-
 
 
 // Testing
-include::../../../../includes/code.adoc[tag="test"]
+include::../../../../includes/test.adoc[]
+
 
 == Verifying the Test
 

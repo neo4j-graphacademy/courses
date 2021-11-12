@@ -1,12 +1,13 @@
 = Rating Movies
 :type: challenge
+:branch: 06-rating-movies
+:test-number: 06
 
 image::images/rating-form.png[Rating a Movie, role=right]
 On every Movie page, the user is invited to rate a movie on scale of 1 to 5.
 The form pictured to the right gives the user the ability to select a rating between 1 and 5 and click submit to save the rating.
 
-When the form is submitted, the website sends an AJAX request to `/api/account/ratings/{movieId}` and the following will happen:
-
+When the form is submitted, the website sends a request to `/api/account/ratings/{movieId}` and the following will happen:
 
 1. The server directs the request to the route handler in `src/routes/account.routes.js`, which verifies the user's JWT token before handling the request.
 2. The route handler creates an instance of the `RatingService` in `src/services/favorites.service.js`.
@@ -27,14 +28,10 @@ If we do not do this, then the number will be stored as a `float`.
 
 Let's take a look at the existing method in the `RatingService`.
 
-.src/services/rating.service
-[source,js]
+.src/services/rating.service.js
+[source,js,indent=0]
 ----
-async add(userId, movieId, rating) {
-    // TODO: Convert the native integer into a Neo4j Integer
-    // TODO: Save the rating in the database
-    return Promise.resolve(goodfellas)
-}
+include::{repository-raw}/main/src/services/rating.service.js[tag=add]
 ----
 
 === Converting the rating to a Neo4j Integer
@@ -43,16 +40,11 @@ To convert the native JavaScript integer to a Neo4j Integer, we can use the `int
 
 [source,js]
 ----
-import { int } from 'neo4j-driver'
+include::{repository-raw}/main/example/integers.js[tag=import]
 
 // ...
 
-async add(userId, movieId, rating) {
-    // Convert the native integer into a Neo4j Integer
-    rating = int(rating)
-
-    // ...
-}
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=convert,indent=0]
 ----
 
 [TIP]
@@ -63,72 +55,38 @@ We could also use the `toInteger` function in Cypher to convert the value sent b
 toInteger(20.0) // 20
 ====
 
-Next, we will need to execute a Write Transaction, with a query to `MATCH` the User and Movie nodes, then `MERGE` a relationship between them with the `rating` property set.
+Next, we will need to open a new session and execute a cypher query within a write transaction.  The query should `MATCH` the User and Movie nodes, then `MERGE` a relationship between them with the `rating` property set.
 
 [source,js]
 ----
-import { int } from 'neo4j-driver'
+include::{repository-raw}/{branch}/example/index.js[tag=session,indent=0]
 
-// ...
-
-async add(userId, movieId, rating) {
-    // Convert the native integer into a Neo4j Integer
-    const rating = int()
-
-    // Save the rating in the database
-    const session = this.driver.session()
-    const res = await session.writeTransaction(tx => tx.run(`
-        MATCH (u:User {id: $userId})
-        MATCH (m:Movie {tmdbId: $movieId})
-
-        MERGE (u)-[r:RATED]->(m)
-        SET r.rating = $rating
-
-        RETURN m {
-            .*,
-            rating: r.rating
-        } AS movie
-    `, { userId, movieId, rating }))
-
-    // Throw an error if the user or movie could not be found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Couldn't create a rating for User ${userId} and Movie ${movieId}`)
-    }
-
-    // Get movie information
-    const movie = res.records[0].get('movie')
-
-    // Close the session
-    await session.close()
-
-    return movie
-}
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=write,indent=0]
 ----
 
 [TIP]
 By using the `MERGE` keyword here, we will overwrite an existing rating if one already exists.
 This way we don't need to worry about duplicates or deleting existing records.
 
+If either the User or Movie could not be found, we should throw a `NotFoundError`.
 
-=== But `rating` is an integer?!
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=throw,indent=0]
+----
 
-If you have tested the method already, you would have seen that the `rating` property has been returned by the API as an Object with a high and low: `{ low: 5, high: 0 }`
 
-By default, Express will do its best to interpret and return the value based on the properties of the `Integer` object.
-We can try to convert this property back to an Integer in the front end, or better yet handle the conversion in our API.
+Then, we'll need to close the session and return the movie details from the first record.
 
-We can use the `toNativeTypes` method function to convert the values within the object.
-
-We can simply import the `toNativeTypes` method mentioned in link:../3-type-system/[The Cypher Type System lesson] and pass the `movie` variable to it as part of the `return` statement.
-
-.Converting Neo4j Types back to JavaScript types
 [source,js]
 ----
-import { toNativeTypes } from '../utils.js'
+include::{repository-raw}/{branch}/example/index.js[tag=session.close,indent=0]
 
-// ...
-return toNativeTypes(movie)
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=addreturn,indent=0]
 ----
+
+[TIP]
+This example uses the link:https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment[Destructuring assignment^] technique to get the first record from the `res.records` array.
 
 
 == Working Solution
@@ -138,54 +96,58 @@ return toNativeTypes(movie)
 ====
 
 .src/services/rating.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async add(userId, movieId, rating) {
-    // Convert the native integer into a Neo4j Integer
-    rating = int(rating)
-
-    // Save the rating in the database
-    const session = this.driver.session()
-    const res = await session.writeTransaction(tx => tx.run(`
-        MATCH (u:User {userId: $userId})
-        MATCH (m:Movie {tmdbId: $movieId})
-
-        MERGE (u)-[r:RATED]->(m)
-        SET r.rating = $rating
-
-        RETURN m {
-            .*,
-            rating: r.rating
-        } AS movie
-    `, { userId, movieId, rating }))
-
-    // Throw an error if the user or movie could not be found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Couldn't create a rating for User ${userId} and Movie ${movieId}`)
-    }
-
-    // Return movie details and a rating
-    const movie = res.records[0].get('movie')
-
-    // Close the session
-    await session.close()
-
-    return toNativeTypes(movie)
-}
+include::{repository-raw}/{branch}/src/services/rating.service.js[tag=add]
 ----
+
+// TODO:
+// async add(userId, movieId, rating) {
+//     // Convert the native integer into a Neo4j Integer
+//     rating = int(rating)
+
+//     // Save the rating in the database
+//     const session = this.driver.session()
+//     const res = await session.writeTransaction(tx => tx.run(`
+//         MATCH (u:User {userId: $userId})
+//         MATCH (m:Movie {tmdbId: $movieId})
+
+//         MERGE (u)-[r:RATED]->(m)
+//         SET r.rating = $rating
+
+//         RETURN m {
+//             .*,
+//             rating: r.rating
+//         } AS movie
+//     `, { userId, movieId, rating }))
+
+//     // Throw an error if the user or movie could not be found
+//     if ( res.records.length === 0 ) {
+//         throw new NotFoundError(`Couldn't create a rating for User ${userId} and Movie ${movieId}`)
+//     }
+
+//     // Return movie details and a rating
+//     const movie = res.records[0].get('movie')
+
+//     // Close the session
+//     await session.close()
+
+//     return toNativeTypes(movie)
+// }
 ====
 
-== Testing
+// == Testing
 
-To test that the rating functionality has been correctly implemented, run the following command in a new terminal session:
+// To test that the rating functionality has been correctly implemented, run the following command in a new terminal session:
 
-[source,sh]
-npm run test 06
+// [source,sh]
+// npm run test 06
 
-If all tests pass then the rating functionality has been successfully implemented.
+// If all tests pass then the rating functionality has been successfully implemented.
 
-You can view the test file by opening `test/challenges/06-rating-movies.spec.js`.
+// You can view the test file by opening `test/challenges/06-rating-movies.spec.js`.
 
+include::../../../../includes/test.adoc[]
 
 
 include::./questions/verify.adoc[]

@@ -1,7 +1,7 @@
 = Movie Details
 :type: challenge
-:test-number: 11
-:test-filename: 11-movie-details.spec.js
+:test-number: 12
+:branch: 12-movie-details
 
 If you click on any movie, you'll see that the API currently only returns information about the film Goodfellas.
 
@@ -17,13 +17,9 @@ The page itself is populated by three API calls:
 The movie details are retrieved by the `findById` method on the `MovieService` in `src/services/movie.service.js`.
 
 .src/services/movie.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async findById(id, userId = undefined) {
-    // TODO: Find a movie by its ID
-
-    return goodfellas
-}
+include::{repository-raw}/main/src/services/movie.service.js[tag=findById]
 ----
 
 Most of the important information is held as properties on the Movie node, but the payload should also return some additional information.
@@ -36,15 +32,7 @@ Here is the Cypher query:
 .Movie Details
 [source,cypher]
 ----
-MATCH (m:Movie {tmdbId: $id})
-RETURN m {
-    .*,
-    actors: [ (a)-[r:ACTED_IN]->(m) | a { .*, role: r.role } ],
-    directors: [ (d)-[:DIRECTED]->(m) | d { .* } ],
-    genres: [ (m)-[:IN_GENRE]->(g) | g { .name }],
-    favorite: m.tmdbId IN $favorites
-} AS movie
-LIMIT 1
+include::{repository-raw}/main/cypher/3-backlog/4-movie-view/movie-details.cypher[]
 ----
 
 We should also throw a `NotFound` error if the query returns no records.
@@ -56,107 +44,12 @@ Update the `findById` method to retrieve the movie details from the database.
 ====
 
 .src/services/movie.service.js
-[source,js]
+[source,js,indent=0]
 ----
-async findById(id, userId = undefined) {
-    // Open a new database session
-    const session = this.driver.session()
-
-    // Find a movie by its ID
-    const res = await session.readTransaction(async tx => {
-        const favorites = []
-        if ( userId !== undefined ) {
-            const favoriteResult = await tx.run(`MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m) RETURN m.tmdbId AS id`)
-            favorites = favoriteResult.map(row => row.get('id'))
-        }
-
-        return tx.run(`
-            MATCH (m:Movie {tmdbId: $id})
-            RETURN m {
-                .*,
-                actors: [ (a)-[r:ACTED_IN]->(m) | a { .*, role: r.role } ],
-                directors: [ (d)-[:DIRECTED]->(m) | d { .* } ],
-                genres: [ (m)-[:IN_GENRE]->(g) | g { .name }],
-                ratingCount: size((m)<-[:RATED]-()),
-                favorite: m.tmdbId IN $favorites
-            } AS movie
-            LIMIT 1
-        `, { id, favorites }
-        )
-    })
-
-    // Close the session
-    await session.close()
-
-    // Throw a 404 if the Movie cannot be found
-    if ( res.records.length === 0 ) {
-        throw new NotFoundError(`Could not find a Movie with tmdbId ${id}`)
-    }
-
-    const [ first ] = res.records
-
-    return toNativeTypes(first.get('movie'))
-}
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=findById]
 ----
 
 ====
-
-
-
-
-
-// [%collapsible]
-// .Click to reveal the an example JSON payload
-// ====
-// .Example Movie
-// [source,json]
-// ----
-// {
-
-//   "imdbRating": 8.7,
-//   "languages": [
-//     "English",
-//     "Italian"
-//   ],
-//   "tmdbId": "769",
-//   "title": "Goodfellas",
-//   "poster": "https://image.tmdb.org/t/p/w440_and_h660_face/oErEczcVUmJm0EPdvWsvK4g4Lv3.jpg",
-//   "plot": "Henry Hill and his friends work their way up through the mob hierarchy.",
-//   "year": 1990,
-//   "runtime": 146,
-//   "actors": [
-//     {
-//       "name": "Robert De Niro",
-//       "bornIn": "Greenwich Village, New York City, New York, USA",
-//       "tmdbId": "0000134",
-//       "poster": "https://image.tmdb.org/t/p/w440_and_h660_face/cT8htcckIuyI1Lqwt1CvD02ynTh.jpg",
-//       "born": "1943-08-17"
-//     }
-//   ],
-//   "directors": [
-//     {
-//       "name": "Martin Scorsese",
-//       "bornIn": "Queens, New York, USA",
-//       "tmdbId": "0000217",
-//       "poster": "https://image.tmdb.org/t/p/w440_and_h660_face/9U9Y5GQuWX3EZy39B8nkk4NY01S.jpg",
-//       "born": "1942-11-17"
-//     }
-//   ],
-//   "genres": [
-//     {
-//       "link": "/genres/Crime",
-//       "name": "Crime"
-//     },
-//     {
-//       "link": "/genres/Drama",
-//       "name": "Drama"
-//     }
-//   ],
-//   "ratingCount": 124,
-//   "favorite": true
-// }
-// ----
-// ====
 
 
 == Similar Movies
@@ -169,20 +62,7 @@ To provide a simple set of similar movies, we can use the number of neighbours i
 .Find Similar Movies
 [source,cypher]
 ----
-MATCH (:Movie {tmdbId: $id})-[:IN_GENRE|ACTED_IN|DIRECTED]->()<-[:IN_GENRE|ACTED_IN|DIRECTED]-(m)
-WHERE exists(m.imdbRating)
-
-WITH m, count(*) AS inCommon
-ORDER BY inCommon DESC, m.imdbRating DESC
-
-SKIP $skip
-LIMIT $limit
-
-RETURN m {
-    .*,
-    score: m.imdbRating * inCommon,
-    favorite: m.tmdbId IN $favorites
-} AS movie
+include::{repository-raw}/main/cypher/3-backlog/4-movie-view/similar-movies.cypher[]
 ----
 
 Update the `getSimilarMovies` method to return similar movies from the database.
@@ -192,55 +72,17 @@ Update the `getSimilarMovies` method to return similar movies from the database.
 .Click here to reveal the completed `getSimilarMovies` method
 ====
 
-[source,js]
+.src/services/movie.service.js
+[source,js,indent=0]
 ----
-async getSimilarMovies(id, limit = 6, skip = 0, userId = undefined) {
-    // Open an Session
-    const session = this.driver.session()
-
-    // Get similar movies based on genres or ratings
-    const res = await session.readTransaction(async tx => {
-        const favorites = []
-        if ( userId !== undefined ) {
-            const favoriteResult = await tx.run(`MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m) RETURN m.tmdbId AS id`)
-            favorites = favoriteResult.map(row => row.get('id'))
-        }
-
-        return tx.run(`
-            MATCH (:Movie {tmdbId: $id})-[:IN_GENRE|ACTED_IN|DIRECTED]->()<-[:IN_GENRE|ACTED_IN|DIRECTED]-(m)
-            WHERE exists(m.imdbRating)
-
-            WITH m, count(*) AS inCommon
-            ORDER BY inCommon DESC, m.imdbRating DESC
-
-            SKIP $skip
-            LIMIT $limit
-
-            RETURN m {
-                .*,
-                score: m.imdbRating * inCommon,
-                favorite: m.tmdbId IN $favorites
-            } AS movie
-        `, { id, skip: int(skip), limit: int(limit), favorites }
-        )
-    })
-
-
-    // Get a list of Movies from the Result
-    const movies = res.records.map(row => toNativeTypes(row.get('movie')))
-
-    // Close the session
-    await session.close()
-
-    return movies
-}
+include::{repository-raw}/{branch}/src/services/movie.service.js[tag=getSimilarMovies]
 ----
 
 ====
 
 
 // Testing
-include::../../../../includes/code.adoc[tag="test"]
+include::../../../../includes/test.adoc[]
 
 == Verifying the Test
 

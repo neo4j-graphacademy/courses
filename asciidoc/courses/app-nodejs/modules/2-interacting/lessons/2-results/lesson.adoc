@@ -12,34 +12,15 @@ The most common method of consuming results is with the Promise API.
 When the server stops has finished streaming results, the `.run()` method resolves with a **Result**.
 
 
-
 [.tab]
 .Using async/await
 ====
 Here is an example query call using `async`/`await`.
 
 .Async Example
-[source,js]
+[source,js,subs="attributes+",indent=0]
 ----
-try {
-  const res = await session.readTransaction(tx =>
-    tx.run(
-      `MATCH (p:Person) RETURN p.name AS name`
-    )
-  )
-
-  const names = res.records.map(row => {
-    return row.get('name')
-  })
-
-  // `names` is an array of strings
-  console.log(names)
-}
-catch (e) {
-  // There was a problem with the
-  // database connection or the query
-  console.log(e)
-}
+include::{repository-raw}/main/example/async-promises.js[tag=async]
 ----
 ====
 
@@ -49,22 +30,9 @@ catch (e) {
 Here is an example query utilising the `then` function from the returned Promise.
 
 .Using Promises
-[source,js]
+[source,js,subs="attributes+",indent=0]
 ----
-session.readTransaction(tx => tx.run(`MATCH (p:Person) RETURN p.name AS name`))
-  .then(res => {
-    return res.records.map(row => {
-      return row.get('name')
-    })
-  })
-  .then(names => {
-    // `names` is an array of strings
-  })
-  .catch(e => {
-    // There was a problem with the
-    // database connection or the query
-    console.log(e)
-  })
+include::{repository-raw}/main/example/async-promises.js[tag=promises]
 ----
 ====
 
@@ -84,12 +52,10 @@ The meta data included in the Result include statistics on how many nodes and re
 You can access the records returned by the query through the `records` property.
 This property is a native JavaScript array which can be iterated over, for example using the `.map` or `.foreach` method.
 
-
-[source,js]
+.Iterating over Records
+[source,js,subs="attributes+",indent=0]
 ----
-const names = res.records.map(row => {
-  return row.get('name') // or row.get(0)
-})
+include::{repository-raw}/main/example/async-promises.js[tag=records]
 ----
 
 [TIP]
@@ -103,6 +69,7 @@ The information provided by the summary includes information about the server, t
 
 To get information about how long the query took to complete, you can use the following property:
 
+.Using the Result Summary
 [source,js]
 ----
 // Time in milliseconds before receiving the first result
@@ -114,6 +81,7 @@ console.log(res.summary.resultConsumedAfter) // 30
 
 To access write statistics about the query, call the `updates` method on the `counters` properties.
 
+.Result Counters
 [source,js]
 ----
 console.log(res.summary.counters.updates())
@@ -147,28 +115,10 @@ The `subscribe` method accepts one argument, an object of callbacks:
 * `onCompleted` - called when all records have been consumed.
 * `onError` - called if an error is thrown.
 
-
-[source,js]
+.The Streaming API
+[source,js,subs="attributes+",indent=0]
 ----
-// Run a Cypher statement, reading the result in a streaming manner as records arrive:
-session
-  .run('MERGE (alice:Person {name : $nameParam}) RETURN alice.name AS name', {
-    nameParam: 'Alice'
-  })
-  .subscribe({
-    onKeys: keys => {
-      console.log(keys)
-    },
-    onNext: record => {
-      console.log(record.get('name'))
-    },
-    onCompleted: () => {
-      session.close() // returns a Promise
-    },
-    onError: error => {
-      console.log(error)
-    }
-  })
+include::{repository-raw}/main/example/async-promises.js[tag=subscribe]
 ----
 
 This method may be useful if you need to process the records as they become available, for example if are streaming records to another service, or updating a real-time UI using websockets, or if you have complex queries that may take a long time to return a full results.
@@ -181,17 +131,11 @@ To create a reactive session, call the `rxSession` method on the driver.
 
 The methods to execute read or write queries are similar to the examples above, with the exception that the `run` function exposes a `records` method which returns an RxJS Observable, to which you can apply operators.
 
-[source,js]
+
+.Reactive Streams
+[source,js,subs="attributes+",indent=0]
 ----
-rxSession
-  .writeTransaction(txc =>
-    txc
-      .run('MERGE (p:Person) RETURN p.name AS name LIMIT 10')
-      .records()
-      .pipe(
-         map(record => record.get('name'))
-       )
-  )
+include::{repository-raw}/main/example/async-promises.js[tag=rxjs]
 ----
 
 == Check Your Understanding
