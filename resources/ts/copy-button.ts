@@ -5,10 +5,11 @@ export function handleCopyClick(e) {
     const button = e.target.parentNode as HTMLElement
     const label = button.querySelector('.btn-label') as HTMLElement
 
-    // @ts-ignore
-    const raw = button.parentNode.parentNode.querySelector('.target').innerHTML
+    if (label && label.parentNode && label.parentNode.querySelector('.target')) {
+        const raw = label.parentNode!.querySelector('.target')!.innerHTML
 
-    copyToClipboard(raw, label)
+        copyToClipboard(raw, label)
+    }
 }
 
 export default function copyButtons() {
