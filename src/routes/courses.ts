@@ -435,7 +435,11 @@ router.get('/:course/:module', classroomLocals, async (req, res, next) => {
             return next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
-        const doc = await convertModuleOverview(req.params.course, req.params.module)
+        const attributes = {
+            ...await getPageAttributes(req, course),
+        }
+
+        const doc = await convertModuleOverview(req.params.course, req.params.module, attributes)
 
         // Configure Sandbox
         const {
@@ -517,6 +521,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
     // Course repository
     attributes['repository'] = course.repository
     attributes['repository-raw'] = `https://raw.githubusercontent.com/${course.repository}`
+    attributes['repository-blob'] = `https://github.com/${course.repository}/blob/`
 
     return attributes
 }
