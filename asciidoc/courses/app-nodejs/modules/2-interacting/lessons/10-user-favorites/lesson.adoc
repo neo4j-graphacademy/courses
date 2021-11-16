@@ -3,79 +3,91 @@
 :branch: 07-favorites-list
 :test-number: 07
 
+This challenge is split into three parts:
+
+1. <<Adding a Movie to My Favorites>>
+2. <<Removing a Movie from My Favorites>>
+3. <<Listing My Favorites>>
+
+== The My Favorites Feature
+
 image::images/movie-cards.png[Add a Movie to your Favorites, role=right]
 
-The website features a **My Favorites** list which allows users to create a list of their favorite movies.
+Clicking the link:http://localhost:3000/favorites[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can revisit later.
+
 When a logged in user hovers their mouse over a Movie on the website, a bookmark icon appears in the top right hand corner.
-Clicking this icon will either add or remove the movie from the user's Favorites list.
+Clicking this icon will either add or remove the Movie from the user's Favorites list.
 
-All of the user's favorite movies are then listed at http://localhost:3000/favorites.
+When adding a Movie to the list, a  `POST` request it sent to the `/api/favorites/{id}` endpoint.  When this happens, the following chain of events will occur:
 
-
-When a user clicks the bookmark icon for the first time, a `POST` request is sent to the `/api/favorites/{id}` endpoint.
-
-
-When a `POST` request it sent to the API, the following will happen:
-
-1. The server directs the request to the route handler in `src/routes/account.routes.js`, which verifies the user's JWT token before handling the request
-2. The route handler creates an instance of the `FavoriteService` in `src/services/favorites.service.js`.
+1. The server directs the request to the route handler in link:{repository-blob}/main/src/routes/account.routes.js[`src/routes/account.routes.js`^], which verifies the user's JWT token before handling the request
+2. The route handler creates an instance of the link:{repository-blob}/main/src/services/favorites.service.js[`FavoriteService`^].
 3. The `add` method is then called on the `FavoriteService` instance with the ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
 4. It is then the responsibility of the `FavoriteService` to persist this information and format a response.
 
-Likewise, when it is clicked for a movie that has already been favorited, a `DELETE` request is sent to the same URL to remove.
-
-== Saving the Relationship
-
-In order to save this information to the database, we will have to modify the `FavoriteService` to run a cypher statement in a **write** transaction, creating a `:HAS_FAVORITE` relationship from the User to the Movie.
-
-The `add` method in the `FavoriteService` currently returns some dummy data.
-
-.src/services/favorite.service.js
-[source,js,indent=0]
-----
-include::{repository-raw}/main/src/services/favorite.service.js[tag=add]
-----
-
-We will update this method to create a session, then run a Write Transaction with a unit of work to find the User and Movie by their IDs and then create the relationship between them.
-Finally, we will close the session and return the movie information.
-
-The UI expects a `favorite` property to be returned which is used to update the state of the movie card.
+Likewise, when it is clicked for a Movie that has already been favorited, a `DELETE` request is sent to the same URL, and the Movie is removed from the list.
 
 
-Let's first open a new session from `this.driver`.
+When adding a Movie to a User's Favorite list, a relationship is created between the `:User` and `:Movie` with the type `:HAS_FAVORITE`.
+
+
+== Adding a Movie to My Favorites
+
+For the first part of this challenge, modify the `add` method to open a new database session, run the Cypher query to ceate te relationship, close the session and return the movie details along with an additional `favorite` property.
+
+=== Open the Session
+
+Call the `session` method on the Driver instance to open a new session:
 
 [source,js,indent=0]
 ----
 include::{repository-raw}/main/example/index.js[tag=session]
 ----
 
-Then run the Cypher query to `MERGE` a relationship between the `:User` and `:Movie` nodes, before returning all properties for the movie plus the
+=== Create the Relationship
+
+In a write transaction, run a Cypher query to create the `:HAS_RELATIONSHIP` relationship between the user and movie nodes, with a `createdAt` property to represent when the relationship was created.
+
+[%collapsible]
+.Click here to reveal the Cypher query
+====
+[source,cypher]
+----
+include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/creating-the-relationship.cypher[]
+----
+====
+
 
 [source,js,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=create]
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="create"]
 ----
 
-If no records are returned, either the `:User` and `:Movie` cannot be found.
-In which case, we should return a 404 error.
 
-[source,js,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=throw]
-----
+=== Does the Movie exist?
 
-Then, we should close the session.
+If no records are returned, you can safely assume that the either the User or Movie do not exist.
+In this case, throw a `NotFoundError` with an appropriate error message.
 
 [source,js,indent=0]
 ----
-include::{repository-raw}/main/example/index.js[tag=session.close]
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="throw"]
 ----
 
-Finally, we should return the `movie` value from the first row of the Cypher query.
+=== Close the Session
+
+Before the movie information information is returned, ensure that the session is closed.
 
 [source,js,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=return]
+include::{repository-raw}/main/example/index.js[tag="session.close"]
+----
+
+Then, finally, use the `toNativeTypes` function to return the `movie` value from the first record returned from the database.
+
+[source,js,indent=0]
+----
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="return"]
 ----
 
 === Working Solution
@@ -93,7 +105,10 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=add]
 ====
 
 
-== Deleting the Relationship
+== Removing a Movie from My Favorites
+
+The second part of this challenge is to write the code to remove a movie from the My Favorites list.
+
 
 The code for deleting the `:HAS_FAVORITE` relationship will be similar, only the Cypher statement will really change.
 
@@ -121,41 +136,30 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=remove]
 ----
 ====
 
-== Listing a User's favorite movies
 
-At the top of the `FavoriteService`, you will also see `all` method which at the moment returns dummy data.
-This method should return a paginated list of Movies that the User has added to their Favorites list.
+
+== Listing My Favorites
+
+Finally, the `all` method in the `FavoriteService` currently returns a hardcoded list of Movies.
 
 .src/services/favorite.service.js
-[source,js,indent=0]
+[source,js]
 ----
-include::{repository-raw}/main/src/services/favorite.service.js[tag=all]
-----
-
-We will update this method to open a new session and then follow the `(:User)-[:FAVORITED_MOVIE]->(:Movie)` pattern to retrieve a list of movies.
-
-To implement this function we must open a new session, and execute a read transaction with the following Cypher query:
-
-.Returning User Favorites
-[source,cypher,rel=norun]
-----
-MATCH (u:User {userId: $userId})-[r:HAS_FAVORITE]->(m:Movie)
-RETURN m {
-  .*,
-  favorite: false
-} AS movie
-ORDER BY m.\`${sort}\` ${order}
-SKIP $skip
-LIMIT $limit
+include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=all]
 ----
 
-[NOTE]
-.Invalid Cypher
+
+Update this method to return a paginated list of Movies that the User has added to their My Favorites list.
+
+Update this method to run a Cypher query in a Read Transaction, which will return a paginated list of Movies.
+
+[%collapsible]
+.Click here to reveal the Cypher query
 ====
-Both `sort` and `order` are variables that are variables that are passed as parameters to the `MovieService`.
-We need to do this because the order by value cannot be parameterized unlike `$skip` and `$limit`.
-
-The example uses escaped backticks (`\``) within the template literal to escape the `sort` value in case it contains spaces.
+[source,cypher]
+----
+include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/creating-the-relationship.cypher[]
+----
 ====
 
 We have written similar code a few times already, so try to implement this one on your own.
@@ -184,6 +188,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Module Summary
 
-In this module, we have written the code to create a `:HAS_FAVORITE` relationship between a User and a Movie within a write transaction.
+In this module, you have written the code to create a `:HAS_FAVORITE` relationship between a User and a Movie within a write transaction.
 
 In the next lesson, we will look at how we can execute multiple queries in the same transaction.

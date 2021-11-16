@@ -3,10 +3,76 @@
 :branch: 6-unique-emails
 
 
-In the Promise API, a `run` function will return a Promise that rejects if an error occurs.
-This could be a transient error, for example a problem connecting to the database, or something  more permanent, for example a Syntax Error or a Constraint Error.
+When executin ga Cypher query, certain exceptions and error cases may arise.
+This could be a _transient_ error that may be resolved if retried, for example a problem connecting to the database instance, or something more permanent, for example a Syntax Error or a Constraint Error.
 
-Below are examples of how to catch an error while using `async`/`await` and the Promise API.
+In the Neo4j JavaScript Driver, the Promise returned by the `run` method will be rejected, and an instance of a link:https://neo4j.com/docs/api/javascript-driver/current/class/lib6/error.js~Neo4jError.html[`Neo4jError`^] will be returned.
+
+The `Neo4jError` class extends the native JavaScript `Error`, and as such contains a `message` property which contains detailed information on the error that has occurred.
+
+== Error Codes
+
+The `Neo4jError` also includes a `code` property, which provides a higher level information about the query.
+
+Each status code follows the same format, and is formed of four parts:
+
+[source,rel=nocopy]
+----
+Neo.[Classification].[Category].[Title]
+(1)        (2)          (3)       (4)
+----
+
+1. Every Neo4j Error code is prefixed with `Neo`
+2. The Classification provides high level classification of the error - for example, a client-side error or an error with the database
+3. The Category provides a higher level category for the error - for example, a problem with clustering, a procedure or the database schema
+4. The Title provides specific information on the error that has occurred
+
+
+// === Classification
+
+// There are four classifications of error:
+
+// [cols="1,3,1"]
+// |====
+// | Classification | Description | Effect on transaction
+
+// | ClientError
+// | The Client sent a bad request - changing the request might yield a successful outcome.
+// | Rollback
+
+// | ClientNotification
+// | There are notifications about the request sent by the client.
+// | None
+
+// | TransientError
+// | The database cannot service the request right now, retrying later might yield a successful outcome.
+// | Rollback
+
+// | DatabaseError
+// | The database failed to service the request.
+// | Rollback
+// |====
+
+
+=== Example Error Codes
+
+Here are some common error codes that you may experience:
+
+* `Neo.ClientError.Procedure.ProcedureCallFailed` - Failed to invoke a procedure. See the detailed error description for exact cause.
+* `Neo.ClientError.Schema.ConstraintViolation` - Added or changed index entry would violate constraint.
+* `Neo.ClientError.Security.Forbidden` - An attempt was made to perform an unauthorized action.
+* `Neo.ClientError.Security.Unauthorized` - The client is unauthorized due to authentication failure.
+* `Neo.ClientError.Statement.ParameterMissing` - The statement refers to a parameter that was not provided in the request.
+* `Neo.ClientError.Statement.SyntaxError` - The statement contains invalid or unsupported syntax.
+* `Neo.TransientError.General.TransactionMemoryLimit` - There is not enough memory to perform the current task.
+
+
+For a comprehensive list of status codes, see link:https://neo4j.com/docs/status-codes/current/[Status Codes in the Neo4j Documentation^].
+
+
+== Catching Errors
+
+Below are examples of how to catch an error thrown by the Driver using both `async`/`await` and the `Promise` API.
 
 [.tab]
 .Using async/await
@@ -32,31 +98,7 @@ When using `Promises`, you will need to add a `catch` function to catch any erro
 include::{repository-raw}/main/example/catch-errors.js[tag=promise]
 ----
 
-
 ====
-
-== Neo4j Errors
-
-If the Neo4j JavaScript Driver does throw an error at any point during its lifecycle, the error will be an instance of a link:https://neo4j.com/docs/api/javascript-driver/current/class/lib6/error.js~Neo4jError.html[`Neo4jError`^].
-
-The `Neo4jError` class extends the native JavaScript `Error`, and as such contains a `message` property.
-This will always contain detailed information on the error.
-
-The `Neo4jError` also includes a `code` property, which provides a higher level information about the query.
-
-Some interesting include:
-
-* `Neo.ClientError.Procedure.ProcedureCallFailed` - Failed to invoke a procedure. See the detailed error description for exact cause.
-* `Neo.ClientError.Schema.ConstraintViolation` - Added or changed index entry would violate constraint.
-* `Neo.ClientError.Security.Forbidden` - An attempt was made to perform an unauthorized action.
-* `Neo.ClientError.Security.Unauthorized` - The client is unauthorized due to authentication failure.
-* `Neo.ClientError.Statement.ParameterMissing` - The statement refers to a parameter that was not provided in the request.
-* `Neo.ClientError.Statement.SyntaxError` - The statement contains invalid or unsupported syntax.
-* `Neo.TransientError.General.TransactionMemoryLimit` - There is not enough memory to perform the current task.
-
-
-For a comprehensive list of status codes, see link:https://neo4j.com/docs/status-codes/current/[Status Codes in the Neo4j Documentation^].
-
 
 
 
@@ -218,7 +260,3 @@ include::./questions/2-error-details.adoc[leveloffset=+1]
 In this lesson, we have learned how to interpret the errors thrown by the Neo4j JavaScript Driver.
 
 In the next challenge, we will add a unique constraint to the database and add a `try`/`catch` block the `register` method to handle the error thrown when the email address is already taken.
-
-// If we wanted to go further, we could use Regular Expression to extract more specific information about the `ConstraintValidationFailed` error.
-
-// Now that we are able to successfully register a user by their email address, let's update the `authenticate` method to find our user in the database.
