@@ -563,7 +563,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
 
         if (course.usecase) {
             try {
-                let sandboxInfo = await getSandboxForUseCase(token, course.usecase)
+                const sandboxInfo = await getSandboxForUseCase(token, course.usecase)
 
                 if (sandboxInfo !== undefined) {
                     sandbox = sandboxInfo

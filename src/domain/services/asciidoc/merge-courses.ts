@@ -89,9 +89,9 @@ const loadModule = (folder: string): Module => {
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
     if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, number] = slug.match(/^([0-9]+)-/)!
+        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
 
-        order = number
+        order = orderNumber
     }
 
     return {
@@ -118,9 +118,9 @@ const loadLesson = (folder: string): Lesson => {
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
     if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, number] = slug.match(/^([0-9]+)-/)!
+        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
 
-        order = number
+        order = orderNumber
     }
 
     return {
