@@ -39,19 +39,6 @@ One advantage of using Cypher for loading your CSV data is that you can perform 
 That is, you can customize how property types are managed so you need not do any post-processing after the load.
 At this writing, there is no capability to "customize" the import using the Data Importer.
 
-== Importing de-normalized data
-
-Recall that de-normalized data represents CSV files where data for an entity such as a movie or person may be repeated in multiple rows.
-
-Here is an example where we have de-normalized data for the same dataset:
-
-image::images/denormalized-data.png[Denormalized data,width=600,align=center]
-
-With de-normalized data, the data is represented by multiple rows corresponding to the same entity, which will be loaded as a node.
-The difference, however, is that de-normalized data typically represents data from multiple tables in the RDBMS.
-For example, the movie and person data (including the ID) is repeated in multiple rows in the file, but a row represents a particular actor's role in a particular movie.
-That is, a Movie and Person data will be represented in multiple rows, but an actor's role will be represented by a single row.
-
 == Planning for the import
 
 You must inspect and possibly clean the data before you import it.
@@ -68,24 +55,49 @@ They do not exceed the 1M row limitation for the Data Importer, but you may run 
 === Planning the Movie, Genre, Person import
 
 Next, we examine the fields in our first CSV file.
-Each row in the 2-movieData.CSV file represents either an actor and his/her role in a move or a director for a movie.
-You see here that the column labels are identical to what you worked with using the smaller CSV files.
-One difference, however is that there is a _worked_ header that represents a value of either "ACTED_IN" or "DIRECTED".
-In addition, if the row represents an actor, the _role_ is set to a value.
+Each row in the *2-movieData.csv* file represents either an Entity or a relationship between two entities.
 
-image::images/row-movie-data-actor.png[Actor row,width=600,align=center]
+==== Entities
 
-image::images/row-movie-data-director.png[Director row,width=600,align=center]
+An Entity row has a value of Person, Movie, or Join. We will continue to use these unique IDs for our _Movie_, _Person_, and _Genre_ nodes:
 
-You must decide whether you want to process the file in multiple passes or in a single pass.
+* Movie.movieId
+* Person.tmdbId
+* Genre.name
 
-We recommend three passes to:
+Here is what the Movie and Person entities look like in our CSV file:
 
-. Create the Movie nodes, Genre nodes, and the IN_GENRE relationships.
-. Create the Person:Actor nodes and the ACTED_IN relationships.
-. Create the Person:Director nodes and the DIRECTED relationships.
+image::images/movie-person-data.png[Movie Person data,width=600,align=center]
 
-The advantage of performing the import in three passes is that you can check the graph after each import to see if it is getting closer to the data model.
+The type of entity is either Person or Movie and each person has a value of tmdbId that uniquely identifies it.
+Each movie has a value of movieId that uniquely identifies it.
+Movies have values for things such as title and People have values for things such as name.
+How we process the data will depend upon the type of entity in the CSV file.
+
+==== Relationships
+
+A relationship row has an Entity value of Join.
+
+image::images/join-data-1.png[Join data IDs,width=600,align=center]
+
+Notice that for the join, we have both a movieId representing a movie and a tmdbId representing a person.
+
+In addition each join row we have a Work colummn that describes whether the data will be used for creating the ACTED_IN or DIRECTED relationships in the graph.
+Actor rows will have a value for the role and a few director rows also have a value for role.
+
+image::images/join-data-2.png[Join data values,width=600,align=center]
+
+==== Multi-step import processing
+
+We recommend several passes to process this CSV file and a cleanup step:
+
+. Create the Movie nodes and the Genre nodes.
+. Create the Person nodes.
+. Add the Actor labels and the ACTED_IN relationships.
+. Add tne Director labels and the DIRECTED relationships.
+
+
+The advantage of performing the import in multiple passes is that you can check the graph after each import to see if it is getting closer to the data model.
 If the CSV file were extremely large, you might want to consider a single pass.
 
 === Planning the User import

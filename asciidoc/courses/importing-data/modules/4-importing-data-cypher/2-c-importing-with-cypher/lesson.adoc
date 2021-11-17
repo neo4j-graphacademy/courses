@@ -2,27 +2,73 @@
 :type: challenge
 :sandbox: true
 
+[WARNING]
+This Challenge is a WIP. There is a problem that 69 Movie rows are being ignored by LOAD CSV and I need to track them down.
+In addition, Michael will "massage" the 2-movieData.csv so that we don't have to wrangle the string/lists.
+
 In this Challenge, you will add more data to the graph you have been working with.
 You will use different CSV files that are much larger than what you have used previously.
 
 [IMPORTANT]
 Although you can execute the Cypher code in this challenge, you can only verify your results of this Challenge if you have not completed all previous Challenges.
 
-This challenge has 4 steps:
+This challenge has 7 steps:
 
-. Import _Movie_ and _Genre_ data.
-. Import _Person_ data for actors.
-. Import _Person_ data for directors.
+. Import _Movie_  and _Genre_ data.
+. Import _Person_ data.
+. Import  the ACTED_IN relationships.
+. Import  the DIRECTED relationships.
 . Import _User_ data.
 
-== Step 1: Importing _Movie_ and _Genre_ data
+== Step 1: Import _Movie_  and _Genre_ data
 
-This is the Cypher code for first pass we will make through the 2-movieData.csv file to create the _Movie_ and _Genre_ nodes.
+As a first step, execute this code in the sandbox to the right so that you can ensure that the movie data is being property transformed from the CSV file:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+//process only Movie rows
+WITH row WHERE row.Entity = "Movie"
+//Transform countries
+WITH row,split(substring(row.countries,1,size(row.countries)-2),",") AS c1
+UNWIND c1 AS c2
+WITH row, collect(substring(c2,1,size(c2)-2)) AS countries
+//Transform languages
+WITH row,countries,split(substring(row.languages,1,size(row.languages)-2),",") as l1
+UNWIND l1 AS l2
+WITH row, countries,collect(substring(l2,1,size(l2)-2)) as languages
+//Transform genres
+WITH row,countries,languages, split(substring(row.genres,1,size(row.genres)-2),",") as g1
+UNWIND g1 AS g2
+WITH row, countries, languages, collect(substring(g2,1,size(g2)-2)) as genres
+return
+row.tmdbId,
+row.imdbId,
+toFloat(row.imdbRating),
+row.released,
+row.title,
+toInteger(row.year),
+row.poster,
+toInteger(row.runtime),
+countries,
+toInteger(row.imdbVotes),
+toInteger(row.revenue),
+row.plot,
+row.url,
+toInteger(row.budget),
+languages,
+genres
+LIMIT 10
+----
+
+This is the Cypher code for first pass we will make through the 2-movieData.csv file to create the _Movie_, _Person_, and _Genre_ nodes.
 Notice in this code we perform all of the necessary transformations of types when we set the properties for the _Movie_ node.
 We use `MERGE` to only create the _Movie_ and _Genre_ nodes if they do not already exist.
 And we create the _IN_GENRE_ relationships.
 
-Execute this code: in the sandbox on the right.
+Execute this code in the sandbox to the right to read the CSV data and create the _Movie_ and _Genre_ nodes:
 
 [source,Cypher]
 ----
@@ -30,24 +76,38 @@ Execute this code: in the sandbox on the right.
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
+//process only Movie rows
+WITH row WHERE row.Entity = "Movie"
+//Transform countries
+WITH row,split(substring(row.countries,1,size(row.countries)-2),",") AS c1
+UNWIND c1 AS c2
+WITH row, collect(substring(c2,1,size(c2)-2)) AS countries
+//Transform languages
+WITH row,countries,split(substring(row.languages,1,size(row.languages)-2),",") as l1
+UNWIND l1 AS l2
+WITH row, countries,collect(substring(l2,1,size(l2)-2)) as languages
+//Transform genres
+WITH row,countries,languages, split(substring(row.genres,1,size(row.genres)-2),",") as g1
+UNWIND g1 AS g2
+WITH row, countries, languages, collect(substring(g2,1,size(g2)-2)) as genres
 MERGE (m:Movie {movieId: row.movieId})
 ON CREATE SET
 m.tmdbId = row.tmdbId,
-m.imdbId = row.movie_imdbId,
+m.imdbId = row.imdbId,
 m.imdbRating = toFloat(row.imdbRating),
 m.released = row.released,
 m.title = row.title,
 m.year = toInteger(row.year),
-m.poster = row.movie_poster,
+m.poster = row.poster,
 m.runtime = toInteger(row.runtime),
-m.countries = split(coalesce(row.countries,""), "|") ,
+m.countries = countries ,
 m.imdbVotes = toInteger(row.imdbVotes),
 m.revenue = toInteger(row.revenue),
 m.plot = row.plot,
-m.url = row.movie_url,
+m.url = row.url,
 m.budget = toInteger(row.budget),
-m.languages = split(coalesce(row.languages,""), "|")
-with m,  split(coalesce(row.genres,""), "|")  as genres
+m.languages = languages
+WITH m,genres
 UNWIND genres AS genre
 WITH m, genre
 MERGE (g:Genre {name:genre})
@@ -56,9 +116,30 @@ MERGE (m)-[:IN_GENRE]->(g)
 
 When you execute this code you should see:
 
-Added 5566 labels, created 5566 nodes, set 78264 properties, created 11916 relationships
+Added 8966 labels, created 8966 nodes, set 135152 properties, created 19989 relationships
 
-== Step 2: Importing actor data
+== Step 2: Import _Person_ data
+
+As a first step, execute this code in the sandbox to the right so that you can ensure that the person data is being property transformed from the CSV file:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Person"
+RETURN
+row.tmdbId,
+row.imdbId,
+row.bornIn,
+row.name,
+row.bio,
+row.poster,
+row.url,
+CASE row.born WHEN "" THEN null ELSE date(row.born) END,
+CASE row.died WHEN "" THEN null ELSE date(row.died) END
+LIMIT 10
+----
 
 This is the Cypher code for second pass we will make through the 2-movieData.csv file to create the _Person_ nodes for actors.
 Notice in this code we perform all of the necessary transformations of types when we set the properties for the _Person_ node.
@@ -66,76 +147,135 @@ We use `MERGE` to only create the _Person_ nodes if they do not already exist. W
 
 Execute this code in the sandbox on the right.
 
-[source,Cypher,role=nocopy noplay]
+[source,Cypher]
 ----
 :auto USING PERIODIC COMMIT
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
-WITH row WHERE row.work = "ACTED_IN"
-MERGE (p:Person {tmdbId: row.person_tmdbId})
+WITH row WHERE row.Entity = "Person"
+MERGE (p:Person {tmdbId: row.tmdbId})
 ON CREATE SET
-p.imdbId = row.person_imdbId,
+p.imdbId = row.imdbId,
 p.bornIn = row.bornIn,
 p.name = row.name,
 p.bio = row.bio,
-p.poster = row.person_poster,
-p.url = row.person_url,
-p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END
-WITH row, p
-SET p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
-WITH row, p
-MATCH (m:Movie {movieId: row.movieId})
-MERGE (p)-[r:ACTED_IN]->(m)
-SET p:Actor
-SET r.role = row.role
+p.poster = row.poster,
+p.url = row.url,
+p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END,
+p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
 ----
 
 When you execute this code, you should see:
 
-Added 18984 labels, created 9486 nodes, set 93369 properties, created 22057 relationships
+Added 18603 labels, created 18603 nodes, set 127318 properties
 
-== Step 3: Importing director data
+== Step 3: Import  the ACTED_IN relationships
 
-This is the Cypher code for third pass we will make through the 2-movieData.csv file to create the _Person_ nodes for directors.
-Notice in this code we perform all of the necessary transformations of types when we set the properties for the _Person_ node.
-We use `MERGE` to only create the _Person_ nodes if they do not already exist. We also set the _Director_ label and create the _DIRECTED_ relationships.
+As a first step, execute this code in the sandbox to the right to see what data is being read from the CSV file:
 
-Execute this code in the sandbox on the right.
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
+RETURN
+row.tmdbId,
+row.movieId,
+row.role
+LIMIT 10
+----
 
-[source,Cypher,role=nocopy noplay]
+This is the Cypher code for third pass we will make through the 2-movieData.csv file to create ACTED_IN relationships in the graph.
+We also add the _Actor_ label to the _Person_ node. Execute this code in the sandbox on the right.
+
+[source,Cypher]
 ----
 :auto USING PERIODIC COMMIT
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
-WITH row WHERE row.work = "DIRECTED"
-MERGE (p:Person {tmdbId: row.person_tmdbId})
-ON CREATE SET
-p.imdbId = row.person_imdbId,
-p.bornIn = row.bornIn,
-p.name = row.name,
-p.bio = row.bio,
-p.poster = row.person_poster,
-p.url = row.person_url,
-p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END
-WITH row, p
-SET p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
-WITH row, p
+WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
+MATCH (p:Person {tmdbId: row.tmdbId})
 MATCH (m:Movie {movieId: row.movieId})
-MERGE (p)-[:DIRECTED]->(m)
+MERGE (p)-[r:ACTED_IN]->(m)
+ON CREATE
+SET r.role = row.role
+SET p:Actor
+----
+
+When you execute this code, you should see:
+
+Added 14988 labels, set 33742 properties, created 35360 relationships
+
+== Step 4: Import  the DIRECTED relationships
+
+As a first step, execute this code in the sandbox to the right to see what data is being read from the CSV file:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
+RETURN
+row.tmdbId,
+row.movieId,
+row.role
+LIMIT 10
+----
+
+There are some rows in the CSV file where a value of "Directing" _Work_ could have an associated role value.
+Modify the above query to show such rows.
+
+*Hint:* Add `AND exists(row.role)` to the `WHERE` clause.
+
+
+This is the Cypher code for forth pass we will make through the 2-movieData.csv file to create DIRECTED relationships in the graph.
+We also add the _Director_ label to the _Person_ node. Execute this code in the sandbox on the right.
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
+MATCH (p:Person {tmdbId: row.tmdbId})
+MATCH (m:Movie {movieId: row.movieId})
+MERGE (p)-[r:DIRECTED]->(m)
+ON CREATE
+SET r.role = row.role
 SET p:Director
 ----
 
 When you execute this code, you should see:
 
-Added 4620 labels, created 2180 nodes, set 16310 properties, created 6001 relationships,
+Added 3948 labels, set 1133 properties, created 9829 relationships
 
-== Step 4: Importing the User data
+== Step 5: Import the _User_ data
 
-The *2-ratingData.csv* file is much simpler to process.
-Notice in this code we perform all of the necessary transformations of types when we set the properties for the _Person_ node.
-We use `MERGE` to only create the _Person_ nodes if they do not already exist. We also set the _Director_ label and create the _DIRECTED_ relationships.
+The *2-ratingData.csv* file contains data for users who rated movies.
+
+As a first step, execute this code in the sandbox to the right to see what data is being read from the CSV file:
+
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
+AS row
+RETURN
+row.movieId,
+row.userId,
+row.name,
+toInteger(row.rating),
+toInteger(row.timestamp)
+LIMIT 100
+----
+
+
+Here is the code to create the users and _RATED_ relationships.
 
 Execute this code in the sandbox on the right.
 
@@ -155,14 +295,14 @@ r.timestamp = toInteger(row.timestamp)
 
 When you execute this code, you should see:
 
-Added 111 labels, created 111 nodes, set 81367 properties, created 81145 relationships
+Added 111 labels, created 111 nodes, set 192766 properties, created 96272 relationships
 
 include::./questions/verify.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
 
-In this challenge, you transformed the multi-value string data to list (StringArray) types to match our target data model.
+In this challenge, you imported a large dataset using Cypher.
 
 This concludes your introduction to importing CSV data into Neo4j.
 
