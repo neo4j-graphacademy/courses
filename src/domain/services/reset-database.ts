@@ -31,7 +31,21 @@ export async function resetDatabase(token: string, course: string, module: strin
         await session.writeTransaction((tx: Transaction) => tx.run(cypher))
     }
     catch(e: any) {
-        notify(e)
+        notify(e, event => {
+            event.addMetadata('course', {
+                course,
+                module,
+                lesson,
+                usecase,
+            })
+
+            event.addMetadata('query', {
+                // @ts-ignore
+                // tslint:disable-next-line no-string-literal
+                instance: _driver['_address'],
+                query: cypher,
+            })
+        })
     }
 
     await session.close()
