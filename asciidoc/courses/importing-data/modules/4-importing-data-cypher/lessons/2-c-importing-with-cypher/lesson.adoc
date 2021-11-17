@@ -3,8 +3,7 @@
 :sandbox: true
 
 [WARNING]
-This Challenge is a WIP. There is a problem that 69 Movie rows are being ignored by LOAD CSV and I need to track them down.
-In addition, Michael will "massage" the 2-movieData.csv so that we don't have to wrangle the string/lists.
+This Challenge is a WIP. We still need to verify that the fully loaded db matches the recommendations sandbox db.
 
 In this Challenge, you will add more data to the graph you have been working with.
 You will use different CSV files that are much larger than what you have used previously.
@@ -31,19 +30,7 @@ FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 //process only Movie rows
 WITH row WHERE row.Entity = "Movie"
-//Transform countries
-WITH row,split(substring(row.countries,1,size(row.countries)-2),",") AS c1
-UNWIND c1 AS c2
-WITH row, collect(substring(c2,1,size(c2)-2)) AS countries
-//Transform languages
-WITH row,countries,split(substring(row.languages,1,size(row.languages)-2),",") as l1
-UNWIND l1 AS l2
-WITH row, countries,collect(substring(l2,1,size(l2)-2)) as languages
-//Transform genres
-WITH row,countries,languages, split(substring(row.genres,1,size(row.genres)-2),",") as g1
-UNWIND g1 AS g2
-WITH row, countries, languages, collect(substring(g2,1,size(g2)-2)) as genres
-return
+RETURN
 row.tmdbId,
 row.imdbId,
 toFloat(row.imdbRating),
@@ -52,14 +39,14 @@ row.title,
 toInteger(row.year),
 row.poster,
 toInteger(row.runtime),
-countries,
+split(coalesce(row.countries,""), "|"),
 toInteger(row.imdbVotes),
 toInteger(row.revenue),
 row.plot,
 row.url,
 toInteger(row.budget),
-languages,
-genres
+split(coalesce(row.languages,""), "|"),
+split(coalesce(row.genres,""), "|")
 LIMIT 10
 ----
 
@@ -78,18 +65,6 @@ FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 //process only Movie rows
 WITH row WHERE row.Entity = "Movie"
-//Transform countries
-WITH row,split(substring(row.countries,1,size(row.countries)-2),",") AS c1
-UNWIND c1 AS c2
-WITH row, collect(substring(c2,1,size(c2)-2)) AS countries
-//Transform languages
-WITH row,countries,split(substring(row.languages,1,size(row.languages)-2),",") as l1
-UNWIND l1 AS l2
-WITH row, countries,collect(substring(l2,1,size(l2)-2)) as languages
-//Transform genres
-WITH row,countries,languages, split(substring(row.genres,1,size(row.genres)-2),",") as g1
-UNWIND g1 AS g2
-WITH row, countries, languages, collect(substring(g2,1,size(g2)-2)) as genres
 MERGE (m:Movie {movieId: row.movieId})
 ON CREATE SET
 m.tmdbId = row.tmdbId,
@@ -100,14 +75,14 @@ m.title = row.title,
 m.year = toInteger(row.year),
 m.poster = row.poster,
 m.runtime = toInteger(row.runtime),
-m.countries = countries ,
+m.countries = split(coalesce(row.countries,""), "|"),
 m.imdbVotes = toInteger(row.imdbVotes),
 m.revenue = toInteger(row.revenue),
 m.plot = row.plot,
 m.url = row.url,
 m.budget = toInteger(row.budget),
-m.languages = languages
-WITH m,genres
+m.languages = split(coalesce(row.languages,""), "|")
+WITH m,split(coalesce(row.genres,""), "|") AS genres
 UNWIND genres AS genre
 WITH m, genre
 MERGE (g:Genre {name:genre})
@@ -116,7 +91,7 @@ MERGE (m)-[:IN_GENRE]->(g)
 
 When you execute this code you should see:
 
-Added 8966 labels, created 8966 nodes, set 135152 properties, created 19989 relationships
+//Added 8966 labels, created 8966 nodes, set 135152 properties, created 19989 relationships
 
 == Step 2: Import _Person_ data
 
@@ -207,7 +182,7 @@ SET p:Actor
 
 When you execute this code, you should see:
 
-Added 14988 labels, set 33742 properties, created 35360 relationships
+//Added 14988 labels, set 33742 properties, created 35360 relationships
 
 == Step 4: Import  the DIRECTED relationships
 
@@ -252,7 +227,7 @@ SET p:Director
 
 When you execute this code, you should see:
 
-Added 3948 labels, set 1133 properties, created 9829 relationships
+//Added 3948 labels, set 1133 properties, created 9829 relationships
 
 == Step 5: Import the _User_ data
 
