@@ -3,11 +3,11 @@
 :test-number: 11
 :branch: 11-movie-lists
 
-In this challenge, we will implement the remaining methods for retrieving a list of movies:
+In this challenge, you will implement the remaining methods in the link:{repository-blob}/main/src/services/movie.service.js[`MovieService`^] for retrieving a list of movies:
 
-* `getByGenre` - should return a paginated list of movies that are listed in a particular Genre
-* `getForActor` - should return a paginated list of movies that a particular Person has acted in
-* `getForDirector` - should return a paginated list of movies that a particular Person has directed
+* <<getByGenre>> - should return a paginated list of movies that are listed in a particular Genre
+* <<getForActor>> - should return a paginated list of movies that a particular Person has acted in
+* <<getForDirector>> - should return a paginated list of movies that a particular Person has directed
 
 These methods are very similar to the `all()` method which returns a full list, but with a different pattern in the `MATCH` clause.
 
@@ -17,17 +17,30 @@ These methods are very similar to the `all()` method which returns a full list, 
 // include::{repository-raw}/10-genre-details/src/services/movie.service.js[tag=all]
 // ----
 
-We can take the `all()` method and simply modify the pattern in the first line of the Cypher query to provide a different route.
+For each subtask, we will provide you with the pattern required to run in the Cypher query, plus any additional parameters that are required for the query to run.
 
-In the following subtasks, the pattern will be listed along with any additional parameters that need to be added to the second argument of the `tx.run` call.
+All you need to do is take the code from the `all()` method and modify the pattern in the first line of the Cypher query in the first argument of the `tx.run` call, then if necessary add the additional parameters to the second argument.
 
+If you get stuck at any point, you can click to reveal the completed solution or skip to the bottom for instructions on how to checkout the branch with the working solution.
 
 
 == getByGenre
 
-**Pattern:** `MATCH (m:Movie)-[:IN_GENRE]->(:Genre {name:$name})`
+The `getByGenre` method returns a paginated list of movies that are listed within a certain genre.
 
-**Additional Parameter:** `name` - The name of the movie
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/movie.service.js[tag=getByGenre]
+----
+
+Update the `getByGenre` method to use the following Cypher Pattern:
+
+[source,cypher,rel=norun]
+MATCH (m:Movie)-[:IN_GENRE]->(:Genre {name: $name})
+
+The `tx.run` call will need to include the `name` property, which represents the name of the genre.
+
 
 [%collapsible]
 .Click to reveal the completed `getByGenre()` method
@@ -41,56 +54,28 @@ Find the `getByGenre()` method in `src/services/movie.service.js` and modify the
 include::{repository-raw}/{branch}/src/services/movie.service.js[tag=getByGenre]
 ----
 
-// .src/services/movie.service.js
-// [source,js]
-// ----
-// async getByGenre(name, orderBy = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
-//     // Open an Session
-//     const session = this.driver.session()
-
-//     // Execute a query in a new Read Transaction
-//     const res = await session.readTransaction(async tx => {
-//         const favorites = []
-//         if ( userId !== undefined ) {
-//             const favoriteResult = await tx.run(`MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m) RETURN m.tmdbId AS id`)
-//             favorites = favoriteResult.map(row => row.get('id'))
-//         }
-
-//         return tx.run(`
-//             MATCH (m:Movie)-[:IN_GENRE]->(:Genre {name: $name})
-//             WHERE exists(m.\`${orderBy}\`)
-//             RETURN m {
-//                 .*,
-//                 favorite: m.tmdbId IN $favorites
-//             } AS movie
-//             ORDER BY m.\`${orderBy}\` ${order}
-//             SKIP $skip
-//             LIMIT $limit
-//         `, { name, skip: int(skip), limit: int(limit), favorites }
-//         )
-//     })
-
-//     // Get a list of Movies from the Result
-//     const movies = res.records.map(row => toNativeTypes(row.get('movie')))
-
-//     // Close the session
-//     await session.close()
-
-//     return movies
-// }
-// ----
-
 ====
 
 
 
 == getForActor
 
+The `getByGenre` method returns a paginated list of movies that a Person has acted in.
+
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/movie.service.js[tag=getForActor]
+----
+
 Find the `getForActor()` method in `src/services/movie.service.js` and modify the function to find a list of movies by Actor.
 
-**Pattern:** `MATCH (:Person {tmdbId: $id})-[:ACTED_IN]->(m:Movie)`
+The pattern required in the `MATCH` clause will be:
 
-**Additional Parameter:** `id` - The `tmdbId` property relating to the Person
+[source,cypher]
+MATCH (:Person {tmdbId: $id})-[:ACTED_IN]->(m:Movie)
+
+You will have to include the additional parameter `id` - The `tmdbId` property relating to the actor.
 
 [%collapsible]
 .Click to reveal the completed `getForActor()` method
@@ -102,54 +87,27 @@ Find the `getForActor()` method in `src/services/movie.service.js` and modify th
 include::{repository-raw}/{branch}/src/services/movie.service.js[tag=getForActor]
 ----
 
-// .src/services/movie.service.js
-// [source,js]
-// ----
-// async getForActor(id, orderBy = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
-//     // Open an Session
-//     const session = this.driver.session()
-
-//     // Execute a query in a new Read Transaction
-//     const res = await session.readTransaction(async tx => {
-//         const favorites = []
-//         if ( userId !== undefined ) {
-//             const favoriteResult = await tx.run(`MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m) RETURN m.tmdbId AS id`)
-//             favorites = favoriteResult.map(row => row.get('id'))
-//         }
-
-//         return tx.run(`
-//             MATCH (:Person {tmdbId: $id})-[:ACTED_IN]->(m:Movie)
-//             WHERE exists(m.\`${orderBy}\`)
-//             RETURN m {
-//                 .*,
-//                 favorite: m.tmdbId IN $favorites
-//             } AS movie
-//             ORDER BY m.\`${orderBy}\` ${order}
-//             SKIP $skip
-//             LIMIT $limit
-//         `, { id, skip: int(skip), limit: int(limit), favorites }
-//         )
-//     })
-
-//     // Get a list of Movies from the Result
-//     const movies = res.records.map(row => toNativeTypes(row.get('movie')))
-
-//     // Close the session
-//     await session.close()
-
-//     return movies
-// }
-// ----
-
 ====
 
 == getForDirector
 
+The `getByGenre` method returns a paginated list of movies that a Person has directed.
+
+.src/services/movie.service.js
+[source,js,indent=0]
+----
+include::{repository-raw}/main/src/services/movie.service.js[tag=getForDirector]
+----
+
 Find the `getForDirector()` method in `src/services/movie.service.js` and modify the function to find a list of movies by Director.
 
-**Pattern:** `MATCH (:Person {tmdbId: $id})-[:DIRECTED]->(m:Movie)`
+The pattern required in the `MATCH` clause will be:
 
-**Additional Parameter:** `id` - The `tmdbId` property relating to the Person
+[source,cypher]
+MATCH (:Person {tmdbId: $id})-[:DIRECTED]->(m:Movie)
+
+You will have to include the additional parameter `id` - The `tmdbId` property relating to the director.
+
 
 [%collapsible]
 .Click to reveal the completed `getForDirector()` method
@@ -161,45 +119,6 @@ Find the `getForDirector()` method in `src/services/movie.service.js` and modify
 include::{repository-raw}/{branch}/src/services/movie.service.js[tag=getForDirector]
 ----
 
-// .src/services/movie.service.js
-// [source,js]
-// ----
-// async getForDirector(id, orderBy = 'title', order = 'ASC', limit = 6, skip = 0, userId = undefined) {
-//     // Open an Session
-//     const session = this.driver.session()
-
-//     // Execute a query in a new Read Transaction
-//     const res = await session.readTransaction(async tx => {
-//         const favorites = []
-//         if ( userId !== undefined ) {
-//             const favoriteResult = await tx.run(`MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m) RETURN m.tmdbId AS id`)
-//             favorites = favoriteResult.map(row => row.get('id'))
-//         }
-
-//         return tx.run(`
-//             MATCH (:Person {tmdbId: $id})-[:DIRECTED]->(m:Movie)
-//             WHERE exists(m.\`${orderBy}\`)
-//             RETURN m {
-//                 .*,
-//                 favorite: m.tmdbId IN $favorites
-//             } AS movie
-//             ORDER BY m.\`${orderBy}\` ${order}
-//             SKIP $skip
-//             LIMIT $limit
-//         `, { id, skip: int(skip), limit: int(limit), favorites }
-//         )
-//     })
-
-//     // Get a list of Movies from the Result
-//     const movies = res.records.map(row => toNativeTypes(row.get('movie')))
-
-//     // Close the session
-//     await session.close()
-
-//     return movies
-// }
-// ----
-
 ====
 
 // Testing
@@ -208,14 +127,12 @@ include::../../../../includes/test.adoc[]
 
 == Verifying the Test
 
-include::./questions/1-coppola-films.adoc[]
+include::./questions/1-coppola-films.adoc[leveloffset=+1]
 
 
 [.summary]
 == Lesson Summary
 
-In this lesson, we looked at how we could modify an existing function to discover movies related to another node.
-
-If you wished to go further, you could refactor the code to provide a single method that took the additional pattern as a parameter.
+In this lesson, you modified the functions in the `MovieService` to return lists of Movies.
 
 In the next lesson, we will implement the `findById` method.
