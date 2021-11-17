@@ -3,7 +3,7 @@
 :branch: 07-favorites-list
 :test-number: 07
 
-This challenge is split into three parts:
+This challenge has three parts:
 
 1. <<Adding a Movie to My Favorites>>
 2. <<Removing a Movie from My Favorites>>
@@ -22,7 +22,7 @@ When adding a Movie to the list, a  `POST` request it sent to the `/api/favorite
 
 1. The server directs the request to the route handler in link:{repository-blob}/main/src/routes/account.routes.js[`src/routes/account.routes.js`^], which verifies the user's JWT token before handling the request
 2. The route handler creates an instance of the link:{repository-blob}/main/src/services/favorites.service.js[`FavoriteService`^].
-3. The `add` method is then called on the `FavoriteService` instance with the ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
+3. The `add()` method is then called on the `FavoriteService` instance with the ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
 4. It is then the responsibility of the `FavoriteService` to persist this information and format a response.
 
 Likewise, when it is clicked for a Movie that has already been favorited, a `DELETE` request is sent to the same URL, and the Movie is removed from the list.
@@ -31,22 +31,22 @@ Likewise, when it is clicked for a Movie that has already been favorited, a `DEL
 When adding a Movie to a User's Favorite list, a relationship is created between the `:User` and `:Movie` with the type `:HAS_FAVORITE`.
 
 
-== Adding a Movie to My Favorites
+== 1. Adding a Movie to My Favorites
 
-For the first part of this challenge, modify the `add` method to open a new database session, run the Cypher query to ceate te relationship, close the session and return the movie details along with an additional `favorite` property.
+For the first part of this challenge, modify the `add()` method to open a new database session, run the Cypher query to create te relationship, close the session and return the movie details along with an additional `favorite` property.
 
-=== Open the Session
+=== 1.a Open the Session
 
-Call the `session` method on the Driver instance to open a new session:
+Call the `session()` method on the Driver instance to open a new session:
 
 [source,js,indent=0]
 ----
 include::{repository-raw}/main/example/index.js[tag=session]
 ----
 
-=== Create the Relationship
+=== 1.b Create the Relationship
 
-In a write transaction, run a Cypher query to create the `:HAS_RELATIONSHIP` relationship between the user and movie nodes, with a `createdAt` property to represent when the relationship was created.
+In a write transaction, run a Cypher query to create the `:HAS_RELATIONSHIP` relationship between the `User` and `Movie` nodes, with a `createdAt` property to represent when the relationship was created.
 
 [%collapsible]
 .Click here to reveal the Cypher query
@@ -64,7 +64,7 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="create"
 ----
 
 
-=== Does the Movie exist?
+=== 1.c Does the Movie exist?
 
 If no records are returned, you can safely assume that the either the User or Movie do not exist.
 In this case, throw a `NotFoundError` with an appropriate error message.
@@ -74,7 +74,7 @@ In this case, throw a `NotFoundError` with an appropriate error message.
 include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="throw"]
 ----
 
-=== Close the Session
+=== 1.d Close the Session
 
 Before the movie information information is returned, ensure that the session is closed.
 
@@ -83,17 +83,19 @@ Before the movie information information is returned, ensure that the session is
 include::{repository-raw}/main/example/index.js[tag="session.close"]
 ----
 
-Then, finally, use the `toNativeTypes` function to return the `movie` value from the first record returned from the database.
+=== 1.d return results
+
+Then, finally, use the `toNativeTypes()` function to return the `movie` value from the first record returned from the database.
 
 [source,js,indent=0]
 ----
 include::{repository-raw}/{branch}/src/services/favorite.service.js[tag="return"]
 ----
 
-=== Working Solution
+=== 1. Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `add` method
+.Click here to reveal the completed `add()` method
 ====
 
 .src/services/favorite.service.js
@@ -105,14 +107,14 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=add]
 ====
 
 
-== Removing a Movie from My Favorites
+== 2. Removing a Movie from My Favorites
 
 The second part of this challenge is to write the code to remove a movie from the My Favorites list.
 
 
-The code for deleting the `:HAS_FAVORITE` relationship will be similar, only the Cypher statement will really change.
+The code for deleting the `:HAS_FAVORITE` relationship will be similar, only the Cypher statement will change.
 
-Instead of two seaprate `MATCH` clauses, we can instead attempt to find the pattern within a single clause.
+Instead of two separate `MATCH` clauses, we can instead attempt to find the pattern within a single clause.
 If the relationship (with an alias of `r`) exists, we will delete it and then return the movie information with `favorite` set to `false`.
 
 [source,cypher,rel=norun]
@@ -120,13 +122,13 @@ If the relationship (with an alias of `r`) exists, we will delete it and then re
 include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/deleting-the-relationship.cypher[]
 ----
 
-Use the code from the `add` method above to implement the `remove` function.
+Use the code from the `add()` method above to implement the `remove()` function.
 If you get stuck, you can reveal the completed method below.
 
-=== Working Solution
+=== 2. Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `remove` method
+.Click here to reveal the completed `remove()` method
 ====
 
 .src/services/favorite.service.js
@@ -138,9 +140,9 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=remove]
 
 
 
-== Listing My Favorites
+== 3. Listing My Favorites
 
-Finally, the `all` method in the `FavoriteService` currently returns a hardcoded list of Movies.
+Finally, the `all()` method in the `FavoriteService` currently returns a hardcoded list of Movies.
 
 .src/services/favorite.service.js
 [source,js]
@@ -149,9 +151,9 @@ include::{repository-raw}/{branch}/src/services/favorite.service.js[tag=all]
 ----
 
 
-Update this method to return a paginated list of Movies that the User has added to their My Favorites list.
+Update this method to return a paginated list of movies that the user has added to their My Favorites list.
 
-Update this method to run a Cypher query in a Read Transaction, which will return a paginated list of Movies.
+Update this method to run a Cypher query in a Read Transaction, which will return a paginated list of movies.
 
 [%collapsible]
 .Click here to reveal the Cypher query
@@ -165,11 +167,11 @@ include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/creating-th
 We have written similar code a few times already, so try to implement this one on your own.
 If you get stuck, you can view the full solution below.
 
-Remember to also import the `int` function from `neo4j-driver`.
+Remember to also import the `int()` function from `neo4j-driver`.
 This is required to convert the `skip` and `limit` values to Neo4j integers.
 
 [%collapsible]
-.Click here to reveal the completed `all` method
+.Click here to reveal the completed `all()` method
 ====
 
 .src/services/favorite.service.js
@@ -188,6 +190,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Module Summary
 
-In this module, you have written the code to create a `:HAS_FAVORITE` relationship between a User and a Movie within a write transaction.
+In this Challenge, you have written the code to create a `:HAS_FAVORITE` relationship between a `User` and a `Movie` within a write transaction.
 
-In the next lesson, we will look at how we can execute multiple queries in the same transaction.
+In the next Challenge, you will write code to execute multiple queries in the same transaction.
