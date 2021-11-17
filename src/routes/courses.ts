@@ -305,9 +305,9 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
         if (course.redirect) {
             return res.redirect(course.redirect)
         }
-        // else if (!course.completed) {
-        //     return res.redirect(course.link)
-        // }
+        else if (!course.completed) {
+            return res.redirect(course.link)
+        }
 
         const doc = await convertCourseSummary(course.slug)
 
