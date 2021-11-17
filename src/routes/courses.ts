@@ -505,7 +505,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
     const user = await getUser(req)
 
     const attributes: Record<string, any> = {
-        name: user!.nickname,
+        name: user?.nickname,
     }
 
     if (course.usecase) {
