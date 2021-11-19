@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth'
-import { createSandbox, getSandboxForUseCase, Sandbox } from '../modules/sandbox'
+import { getSandboxForUseCase, Sandbox } from '../modules/sandbox'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
@@ -24,6 +24,7 @@ import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feed
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
+import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox'
 
 const router = Router()
 
@@ -228,20 +229,6 @@ router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
 
         const enrolment = await enrolInCourse(req.params.course, user!, token)
 
-        if (enrolment.course.usecase) {
-            try {
-                await createSandbox(token, enrolment.course.usecase)
-            }
-            catch (e: any) {
-                notify(e, (event) => {
-                    event.setUser(user?.sub, user?.email, user?.name)
-
-                    event.addMetadata('request', e.request)
-                    event.addMetadata('response', e.response)
-                })
-            }
-        }
-
         const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
         res.redirect(goTo)
@@ -365,11 +352,11 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         }
 
         // Check that the user has created a sandbox
-        let sandbox = await getSandboxForUseCase(token, course.usecase as string)
+        let { sandbox } = course
 
         // If sandbox doesn't exist then recreate it
         if (!sandbox) {
-            sandbox = await createSandbox(token, course.usecase!)
+            sandbox = await createAndSaveSandbox(token, course.usecase!, course.enrolmentId)
         }
 
         // Pre-fill credentials and redirect to browser
@@ -559,25 +546,28 @@ router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (r
         }
 
         // Add sandbox attributes to Page Attributes?
-        let sandbox: Sandbox = {} as Sandbox
+        let sandbox: Sandbox | undefined = course.sandbox
 
-        if (course.usecase) {
+        if (course.usecase && !sandbox) {
             try {
-                const sandboxInfo = await getSandboxForUseCase(token, course.usecase)
-
-                if (sandboxInfo !== undefined) {
-                    sandbox = sandboxInfo
-                }
+                sandbox = await createAndSaveSandbox(token, course.usecase, course.enrolmentId)
             }
-            catch (e) {
-                // Probably fine...
+            catch(e: any) {
+                // Sandbox API error?
+
+                notify(e, event => {
+                    event.setUser(user?.sub, user?.email, user?.name)
+
+                    event.addMetadata('request', e.request)
+                    event.addMetadata('response', e.response)
+                })
             }
         }
 
         // Build Attributes for adoc
         const attributes = {
             ...await getPageAttributes(req, course),
-            ...flattenAttributes({sandbox}),
+            ...flattenAttributes({sandbox: sandbox || {}}),
         }
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)

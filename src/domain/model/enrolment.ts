@@ -1,3 +1,4 @@
+import { Sandbox } from "../../modules/sandbox";
 import { Category } from "./category";
 import { CourseWithProgress } from "./course";
 import { Module } from "./module";
@@ -11,11 +12,13 @@ export const STATUS_ENROLLED = 'enrolled';
 
 export type EnrolmentStatus = typeof STATUS_INTERESTED | typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED | typeof STATUS_ENROLLED
 
+
 export interface Enrolment {
     user: User;
     course: Partial<CourseWithProgress>;
     nextModule: Partial<Module>;
     createdAt: Date;
+    sandbox?: Sandbox;
 }
 
 export type EnrolmentsByStatus = {
@@ -24,7 +27,6 @@ export type EnrolmentsByStatus = {
         [key in EnrolmentStatus]?: CourseWithProgress[]
     }
 }
-
 
 export type CategoryEnrolments = {
     category: Category;

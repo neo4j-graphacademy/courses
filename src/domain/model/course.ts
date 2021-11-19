@@ -51,6 +51,7 @@ export interface Course {
 }
 
 export interface CourseWithProgress extends Course {
+    enrolmentId: string;
     enrolled: boolean;
     endrolledAt: Date;
     completed: boolean;
