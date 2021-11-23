@@ -48,6 +48,13 @@ router.get('/sandboxes', async (req, res, next) => {
     catch (e) {
         next(e)
     }
+})
+
+router.get('/profile', async (req, res) => {
+    // @ts-ignore
+    const user = await req.oidc.user
+
+    res.json(user)
 
 })
 
