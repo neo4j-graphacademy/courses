@@ -6,7 +6,7 @@ import { Pagination } from '../domain/model/pagination'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { updateUser } from '../domain/services/update-user'
-import { getToken, getUser } from '../middleware/auth'
+import { getToken, getUser, requestEmailVerification } from '../middleware/auth'
 import { notify } from '../middleware/bugsnag'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
 
@@ -76,6 +76,32 @@ router.post('/', requiresAuth(), async (req, res, next) => {
         res.redirect(req.params.returnTo || '/account')
     }
     catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /account/verify
+ */
+router.get('/verify', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        await requestEmailVerification(user!)
+
+        res.render('simple', {
+            title: 'Verification Email Sent',
+            hero: {
+                title: 'Verification Email Sent',
+                overline: 'Email Verification',
+            },
+            content: `<p>We have sent you a new verification email.  If you don't receive it shortly, please check your junk or spam folder before requesting a new verification email.</p>`,
+            action: {
+                link: '/account/verify/',
+                text: 'Resend Verification Email'
+            }
+        })
+    }
+    catch(e) {
         next(e)
     }
 })

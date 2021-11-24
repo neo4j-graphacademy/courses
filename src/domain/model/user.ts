@@ -5,6 +5,7 @@ export interface User {
     // Auth0
     sub: string;
     email: string;
+    email_verified: boolean;
     name: string;
     picture?: string;
 

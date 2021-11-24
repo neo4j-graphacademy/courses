@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { Request, Response, Express, NextFunction } from 'express';
 import { auth } from 'express-openid-connect'
 import { User } from '../domain/model/user';
@@ -39,6 +40,18 @@ export async function getUserById(id: string): Promise<User | undefined> {
     return res.records[0]?.get('u').properties
 }
 
+export async function requestEmailVerification(user: User): Promise<string> {
+    const api = axios.create({
+        baseURL: 'https://internal-api.neo4jsandbox.com',
+    })
+
+    const res = await api.post('/v1/user/verification', {
+        user_id: user.sub
+    })
+
+    return res.data.status
+}
+
 export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));
@@ -55,3 +68,4 @@ export default function applyAuth(app: Express) {
         next()
     })
 }
+

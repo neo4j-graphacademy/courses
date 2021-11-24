@@ -25,6 +25,7 @@ import { saveModuleFeedback } from '../domain/services/feedback/save-module-feed
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals'
 import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox'
+import { requiresVerification } from '../middleware/verification'
 
 const router = Router()
 
@@ -222,7 +223,7 @@ router.get('/:course/badge', (req, res, next) => {
  *
  * Create an :Enrolment node between the user and the course within the database
  */
-router.get('/:course/enrol', requiresAuth(), async (req, res, next) => {
+router.get('/:course/enrol', requiresAuth(), requiresVerification, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
