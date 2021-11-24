@@ -16,6 +16,7 @@ import { applyErrorhandlers } from './middleware/error-handlers'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag'
+import { verifyJwt } from './middleware/verify-jwt'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -42,6 +43,8 @@ export default function initApp(driver: Driver) {
 
     // Apply auth headers
     applyAuth(app)
+
+    app.use(verifyJwt)
 
     // Apply Session/Flash
     registerSession(app)
