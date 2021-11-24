@@ -1,10 +1,17 @@
 import { NextFunction, Request, Response } from 'express';
+import UnverifiedError from '../errors/unverified.error';
 import { getUser } from './auth';
+import { notify } from './bugsnag';
 
 export async function requiresVerification(req: Request, res: Response, next: NextFunction) {
     const user = await getUser(req)
 
     if (user?.email_verified === false) {
+        notify(new UnverifiedError(), error => {
+            error.setUser(user.id, user.email, user.name)
+            error.addMetadata('request', req)
+        })
+
         return res.status(401)
             .render('simple', {
                 title: 'Email Verification Required',
