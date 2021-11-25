@@ -20,6 +20,23 @@ export function applyErrorhandlers(app: Express) {
             })
     }
 
+    const unauthorized = (err: Error, req: Request, res: Response) => {
+        res.status(401)
+            .render('simple', {
+                title: 'Unauthorized Request',
+                hero: {
+                    title: 'Unauthorized Request',
+                    byline: 'You are unable to perform this request.',
+                    overline: 'Oops',
+                },
+                content: `<p>${err.message}</p>`,
+                action: {
+                    link: '/categories/',
+                    text: 'View Course Catalogue'
+                }
+            })
+    }
+
     app.use((req: Request, res: Response) => {
         notFoundError(req, res)
     })
@@ -27,6 +44,10 @@ export function applyErrorhandlers(app: Express) {
     app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
         if ( (error as NotFoundError).status === 404 ) {
             return notFoundError(req, res)
+        }
+
+        if ( (error as NotFoundError).status === 401 ) {
+            return unauthorized(error, req, res)
         }
 
         if ( (error as AxiosError).response?.status === 401 ) {

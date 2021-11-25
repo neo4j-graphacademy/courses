@@ -17,13 +17,23 @@ export async function verifyJwt(req: Request, res: Response, next: NextFunction)
             // TODO: Log user out if the token has expired
             const user = await getUser(req)
 
-            notify(new TokenExpiredError(expiry), error => {
-                error.setUser(user?.id, user?.email, user?.name)
-                error.addMetadata('token', {
+            const error = new TokenExpiredError(expiry)
+
+            notify(error, event => {
+                event.setUser(user?.id, user?.email, user?.name)
+                event.addMetadata('token', {
                     token,
                     claims,
                 })
             })
+
+            // If a GET request, logout and return to this URL
+            if ( req.method === 'GET' ) {
+                return res.redirect(`/logout?returnTo=${req.originalUrl}`)
+            }
+            else {
+                throw error
+            }
         }
     }
 

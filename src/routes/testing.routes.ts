@@ -10,6 +10,7 @@ import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { emitter } from '../events'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
+import { TokenExpiredError } from '../errors/token-expired.error'
 
 const router = Router()
 
@@ -97,6 +98,10 @@ router.get('/404', (req, res, next) => {
 
 router.get('/500', (req, res, next) => {
     next(new Error('Generic Error'))
+})
+
+router.get('/token-expired', (req, res, next) => {
+    throw new TokenExpiredError(Date.now() / 1000)
 })
 
 export default router
