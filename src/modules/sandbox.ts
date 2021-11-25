@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { notify } from '../middleware/bugsnag'
+import { isVerified } from './jwt'
 
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'
 
@@ -28,6 +29,10 @@ const api = axios.create({
 
 
 export async function getSandboxes(token: string): Promise<Sandbox[]> {
+    if (!isVerified(token)) {
+        return []
+    }
+
     if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
         return [ devSandbox() ]
     }
@@ -60,6 +65,10 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
 }
 
 export async function getSandboxForUseCase(token: string, usecase: string): Promise<Sandbox | undefined> {
+    if (!isVerified(token)) {
+        return undefined
+    }
+
     if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
         return devSandbox()
     }

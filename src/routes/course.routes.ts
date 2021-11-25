@@ -390,7 +390,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
  * patched version of browser hosted at /browser/
  */
 
-router.get('/:course/browser', requiresAuth(), browser)
+router.get('/:course/browser', requiresAuth(), requiresVerification, browser)
 
 /**
  * @GET /:course/:module/browser
@@ -398,7 +398,7 @@ router.get('/:course/browser', requiresAuth(), browser)
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
-router.get('/:course/:module/browser', requiresAuth(), browser)
+router.get('/:course/:module/browser', requiresAuth(), requiresVerification, browser)
 
 
 /**
@@ -519,7 +519,7 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), classroomLocals, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, classroomLocals, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)

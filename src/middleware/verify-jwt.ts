@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { TokenExpiredError } from '../errors/token-expired.error';
+import { decode } from '../modules/jwt';
 import { getToken, getUser } from './auth';
 import { notify } from './bugsnag';
 
@@ -8,7 +9,7 @@ export async function verifyJwt(req: Request, res: Response, next: NextFunction)
     const token = await getToken(req)
 
     if ( token ) {
-        const claims: JwtPayload = await jwt.decode(token) as JwtPayload
+        const claims: JwtPayload = await decode(token)
 
         const expiry = claims.exp
 
