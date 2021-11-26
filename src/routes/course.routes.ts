@@ -555,7 +555,6 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
             }
             catch(e: any) {
                 // Sandbox API error?
-
                 notify(e, event => {
                     event.setUser(user?.sub, user?.email, user?.name)
 
