@@ -391,7 +391,7 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
                 })
         }
 
-        parent.scrollIntoView()
+        document.querySelector(`.${QUESTION_INCORRECT}`)?.scrollIntoView()
     }
 }
 
