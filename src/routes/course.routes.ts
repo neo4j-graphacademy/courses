@@ -529,7 +529,6 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         if (course.enrolled === false) {
             return res.redirect(`/courses/${req.params.course}/`)
         }
-console.log(user);
 
         const module = course.modules.find(row => row.slug === req.params.module)
 
