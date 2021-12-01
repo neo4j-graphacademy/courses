@@ -565,9 +565,6 @@ console.log(user);
             }
         }
 
-console.log(sandbox);
-
-
         // Build Attributes for adoc
         const attributes = {
             ...await getPageAttributes(req, course),
