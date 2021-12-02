@@ -22,7 +22,8 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
         MERGE (s:Sandbox {id: toInteger($sandbox.id)})
         SET s += $sandbox,
                 s.createdAt = datetime(),
-                s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)})
+                s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)}),
+                e.lastSeenAt = datetime()
         MERGE (e)-[:HAS_SANDBOX]->(s)
         RETURN s { .* } AS sandbox
     `

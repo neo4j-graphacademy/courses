@@ -25,6 +25,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
             MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
             ON CREATE SET e.createdAt = datetime()
             ON MATCH SET e.updatedAt = datetime()
+            SET e.lastSeenAt = datetime()
 
             MERGE (u)-[:HAS_ENROLMENT]->(e)
             MERGE (e)-[:FOR_COURSE]->(c)

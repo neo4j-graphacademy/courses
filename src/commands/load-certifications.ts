@@ -36,16 +36,19 @@ const main = async () => {
         }
     })
 
+    // tslint:disable-next-line
     console.log(`Connecting to GraphAcademy at ${NEO4J_HOST}`);
     const ga = await createDriver(NEO4J_HOST!, NEO4J_USERNAME!, NEO4J_PASSWORD!)
     const gaSession = ga.session()
 
+    // tslint:disable-next-line
     console.log(`Connecting to Community Graph at ${COMMUNITY_GRAPH_HOST}`);
     const community = await createDriver(COMMUNITY_GRAPH_HOST!, COMMUNITY_GRAPH_USERNAME!, COMMUNITY_GRAPH_PASSWORD!)
     const communitySession = community.session()
 
     const lastCertification = await getLastCertification(gaSession)
 
+    // tslint:disable-next-line
     console.log(`\n🔎 Getting certifications since ${lastCertification}`);
 
     const readRes = await communitySession.readTransaction((tx: Transaction) => tx.run(`
@@ -91,6 +94,7 @@ const main = async () => {
         MERGE (u)-[:HAS_ENROLMENT]->(e)
     `, { rows }))
 
+    // tslint:disable-next-line
     console.log(`🥇 Created ${writeRes.summary.counters.updates().nodesCreated} certificate nodes`)
 
     await ga.close()

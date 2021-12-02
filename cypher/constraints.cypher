@@ -13,5 +13,8 @@ CREATE CONSTRAINT ON (c:Category) ASSERT c.slug IS UNIQUE;
 CREATE CONSTRAINT ON (c:Sandbox) ASSERT c.id IS UNIQUE;
 
 CREATE INDEX ON :Enrolment(createdAt);
+CREATE INDEX ON :Enrolment(reminderSentAt);
+CREATE INDEX ON :Enrolment(lastSeenAt);
+CREATE INDEX ON :FromCommunityGraph(completedAt);
 
 CREATE CONSTRAINT ON (c:Session) ASSERT c.id IS UNIQUE;
