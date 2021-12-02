@@ -7,6 +7,7 @@ import { UserEnrolled } from "../events/UserEnrolled";
 import { STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
+import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
 
 export async function enrolInCourse(slug: string, user: User, token: string): Promise<Enrolment> {
@@ -61,31 +62,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
         // Create and save sandbox details
         if (course.usecase && !enrolment.sandbox) {
             try {
-                const sandboxOutput = await createSandbox(token, course.usecase)
-                const sandboxRes = await tx.run(`
-                    MATCH (e:Enrolment {id: $id})
-                    MERGE (s:Sandbox {id: toInteger($sandbox.id)})
-                    SET s += $sandbox,
-                            s.createdAt = datetime(),
-                            s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)})
-                    MERGE (e)-[:HAS_SANDBOX]->(s)
-                    RETURN s { .* } AS sandbox
-                `, {
-                    id: enrolment.id, sandbox: {
-                        id: sandboxOutput.sandboxId,
-                        hashKey: sandboxOutput.sandboxHashKey,
-                        host: sandboxOutput.host,
-                        ip: sandboxOutput.ip,
-                        boltPort: sandboxOutput.boltPort,
-                        expires: sandboxOutput.expires,
-                        usecase: sandboxOutput.usecase,
-                        username: sandboxOutput.username,
-                        password: sandboxOutput.password,
-                        scheme: sandboxOutput.scheme,
-                    }
-                })
-
-                sandbox = sandboxRes.records[0].get('sandbox')
+                sandbox = await createAndSaveSandbox(token, course, tx)
             }
             catch (e: any) {
                 notify(e, event => {

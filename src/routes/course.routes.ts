@@ -357,7 +357,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
 
         // If sandbox doesn't exist then recreate it
         if (!sandbox) {
-            sandbox = await createAndSaveSandbox(token, course.usecase!, course.enrolmentId)
+            sandbox = await createAndSaveSandbox(token, course)
         }
 
         // Pre-fill credentials and redirect to browser
@@ -547,11 +547,11 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         }
 
         // Add sandbox attributes to Page Attributes?
-        let sandbox: Sandbox | undefined = course.sandbox
+        let sandbox: Sandbox | undefined
 
-        if (course.usecase && !sandbox) {
+        if ( course.usecase ) {
             try {
-                sandbox = await createAndSaveSandbox(token, course.usecase, course.enrolmentId)
+                sandbox = await createAndSaveSandbox(token, course)
             }
             catch(e: any) {
                 // Sandbox API error?
