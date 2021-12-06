@@ -375,8 +375,18 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         notify(e, (event) => {
             event.setUser(user?.sub, user?.email, user?.name)
 
-            event.addMetadata('request', e.request)
-            event.addMetadata('response', e.response)
+            event.addMetadata('request', {
+                data: e.request.data,
+                headers: e.request.headers,
+                status: e.request.status,
+                statusText: e.request.statusText,
+            })
+            event.addMetadata('response', {
+                data: e.response.data,
+                headers: e.response.headers,
+                status: e.response.status,
+                statusText: e.response.statusText,
+            })
         })
 
         // 400/401 on sandbox API - redirect to login
@@ -558,8 +568,18 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
                 notify(e, event => {
                     event.setUser(user?.sub, user?.email, user?.name)
 
-                    event.addMetadata('request', e.request)
-                    event.addMetadata('response', e.response)
+                    event.addMetadata('request', {
+                        data: e.request.data,
+                        headers: e.request.headers,
+                        status: e.request.status,
+                        statusText: e.request.statusText,
+                    })
+                    event.addMetadata('response', {
+                        data: e.response.data,
+                        headers: e.response.headers,
+                        status: e.response.status,
+                        statusText: e.response.statusText,
+                    })
                 })
             }
         }

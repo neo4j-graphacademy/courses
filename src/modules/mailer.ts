@@ -4,28 +4,21 @@ import { flattenAttributes } from '../utils'
 import { convert, loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag'
 
-const {
-    MAILGUN_DOMAIN,
-    MAILGUN_API_KEY,
-    MAIL_FROM,
-    MAIL_REPLY_TO,
-} = process.env
-
-let mailer: Mailgun
-
-if ( MAILGUN_API_KEY && MAILGUN_DOMAIN ) {
-    mailer = mailgun({
-        apiKey: MAILGUN_API_KEY as string,
-        domain: MAILGUN_DOMAIN as string,
-    })
-}
-
 export function isEnabled(): boolean {
+    const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
+
     return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }
 
 export function send(to: string, subject: string, html: string): void {
-    if (mailer) {
+    const { MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO } = process.env
+
+    if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
+        const mailer = mailgun({
+            apiKey: MAILGUN_API_KEY as string,
+            domain: MAILGUN_DOMAIN as string,
+        })
+
         mailer.messages().send({
             from: MAIL_FROM,
             "h:Reply-To": MAIL_REPLY_TO,
@@ -71,7 +64,9 @@ export function prepareEmail(filename: AsciidocEmailFilename, data: Record<strin
 }
 
 export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>): void {
-    if ( MAILGUN_DOMAIN && MAILGUN_API_KEY ) {
+    const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
+
+    if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data)
 
         send(email, subject, html)

@@ -25,6 +25,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
             MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
             ON CREATE SET e.createdAt = datetime()
             ON MATCH SET e.updatedAt = datetime()
+            SET e.lastSeenAt = datetime()
 
             MERGE (u)-[:HAS_ENROLMENT]->(e)
             MERGE (e)-[:FOR_COURSE]->(c)
@@ -68,8 +69,18 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
                 notify(e, event => {
                     event.setUser(user.id, user.email, user.name)
 
-                    event.addMetadata('request', e.request)
-                    event.addMetadata('response', e.response)
+                    event.addMetadata('request', {
+                        data: e.request.data,
+                        headers: e.request.headers,
+                        status: e.request.status,
+                        statusText: e.request.statusText,
+                    })
+                    event.addMetadata('response', {
+                        data: e.response.data,
+                        headers: e.response.headers,
+                        status: e.response.status,
+                        statusText: e.response.statusText,
+                    })
                 })
             }
         }

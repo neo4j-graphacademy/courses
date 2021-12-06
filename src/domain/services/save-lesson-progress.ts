@@ -25,6 +25,8 @@ export async function saveLessonProgress(user: User, course: string, module: str
             MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
             WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
+            SET e.lastSeenAt = datetime()
+
             // Log Attempt
             MERGE (a:Attempt { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime())) })
             SET a.createdAt = datetime()

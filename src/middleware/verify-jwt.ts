@@ -14,7 +14,6 @@ export async function verifyJwt(req: Request, res: Response, next: NextFunction)
         const expiry = claims.exp
 
         if ( expiry && claims.exp! * 1000 < Date.now() ) {
-            // TODO: Log user out if the token has expired
             const user = await getUser(req)
 
             const error = new TokenExpiredError(expiry)
@@ -24,6 +23,10 @@ export async function verifyJwt(req: Request, res: Response, next: NextFunction)
                 event.addMetadata('token', {
                     token,
                     claims,
+                })
+                event.addMetadata('request', {
+                    method: req.method,
+                    originalUrl: req.originalUrl,
                 })
             })
 
