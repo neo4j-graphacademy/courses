@@ -1,5 +1,5 @@
 import path from 'path'
-import express from 'express'
+import express, { RequestHandler } from 'express'
 import applyAuth from './middleware/auth'
 import { registerLocals } from './middleware/locals'
 
@@ -27,8 +27,8 @@ export default function initApp(driver: Driver) {
         next()
     })
 
-    app.use(express.urlencoded({ extended: true }))
-    app.use(express.json())
+    app.use(express.urlencoded({ extended: true }) as RequestHandler)
+    app.use(express.json() as RequestHandler)
 
     app.set('view engine', 'pug')
 

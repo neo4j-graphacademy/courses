@@ -56,8 +56,18 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
     }
     catch (e: any) {
         notify(e, event => {
-            event.addMetadata('request', e.request)
-            event.addMetadata('response', e.response)
+            event.addMetadata('request', {
+                data: e.request.data,
+                headers: e.request.headers,
+                status: e.request.status,
+                statusText: e.request.statusText,
+            })
+            event.addMetadata('response', {
+                data: e.response.data,
+                headers: e.response.headers,
+                status: e.response.status,
+                statusText: e.response.statusText,
+            })
         })
 
         return []
