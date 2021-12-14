@@ -25,6 +25,14 @@ SANDBOX_URL=https://efz1cnte2e.execute-api.us-east-1.amazonaws.com/main/
 ```
 
 
+## Author Only Method
+
+If you are only interested in authoring a course, you can use `docker-compose` to create a standalone server and Neo4j instance.
+
+```
+docker-compose -f docker-compose.dev.yaml up
+```
+
 
 ## Running in Development Mode
 

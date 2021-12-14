@@ -1,173 +1,194 @@
 = Processing Results
 :type: quiz
 
-The Neo4j JavaScript Driver provides you with two APIs for consuming results:
+Query results are typically consumed as a stream of records.
+The drivers provide a way to iterate through that stream.
 
-* **Promise** API
-* **Streaming** API
+The `session.run()` and `tx.run()` functions both provide a number of options to iterate through the stream of _records_.
 
+== Records
 
-== The Promise API
+A Record is an immutable ordered collection of key-value pairs.
+It is generally closer to a `namedtuple` than to a `OrderedDict` inasmuch as iteration of the collection will yield values rather than keys.
 
-The most common method of consuming results is with the Promise API.
-
-When using `session.run()`, `tx.run()`, or one of the two transaction functions, the query will return a Promise.
-
-Once the query has finished and all results have been streamed back to the Driver, each method will resolve with a **Result** object.
+A record represents a set of values specified in the `RETURN` clause of the Cypher query.
 
 
-[.tab]
-.Using async/await
-====
-Here is an example query call using `async`/`await`.
+=== Single Record
 
-.Async Example
-[source,python,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/async-promises.py[tag=async]
-----
-
-By using the `await` keyword, the Result object is assigned to the `res` variable once the database has stopped streaming records to the Driver.
-
-====
-
-[.tab]
-.Using Promises
-====
-Here is an example query utilizing the `then()` function from the returned Promise.
-
-.Using Promises
-[source,python,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/async-promises.py[tag=promises]
-----
-
-Once the database has stopped streaming records to the Driver, the Promise will resolve with a Result object.
-
-====
-
-
-== The Result
-
-The **Result** object, defined as `res` in the examples above, contains the total number of records received by the Driver along with a set of additional meta data about the query.
-
-An individual row of results is referred to as a `record`, and can be accessed by the `res.records` array.
-A record refers to the keyed set of values specified in the `RETURN` portion of the statement.
-If no `RETURN` values are specified, the query will not return any results, and as a result `res.records` will be an empty array.
-
-The meta data included in the Result include statistics on how many nodes and relationships were created, updated, or deleted as a result of the query.
-
-=== Records
-
-You can access the records returned by the query through the `records` property.
-This property is a native JavaScript array which can be iterated over, for example using the `.map()` or `.foreach()` methods.
-
-.Iterating over Records
-[source,python,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/async-promises.py[tag=records]
-----
-
-[TIP]
-.Key or Index
-You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifing the column number as an integer.
-The available keys can be accessed through `res.keys()`.
-
-=== Result Summary
-
-You can access summary information about the query through the `summary` property.
-Included in this summary is information about the server, the query, execution times, and a `counters` object which provide statistics about the query.
-
-For example, to get information about how long the query took to complete, you can use the following property:
-
-.Using the Result Summary
-[source,python,role=nocopy]
-----
-// Time in milliseconds before receiving the first result
-console.log(res.summary.resultAvailableAfter) // 10
-
-// Time in milliseconds once the final result was consumed
-console.log(res.summary.resultConsumedAfter) // 30
-----
-
-Another interesting part of the summary is the `counters` property, which holds numerical data about the queries execution.
-To access statistics as a result of a Write Transaction, you can call the `updates()` method on the `counters` property:
-
-.Result Counters
-[source,python,role=nocopy]
-----
-console.log(res.summary.counters.updates())
-
-/*
-{
-  nodesCreated: 10,
-  nodesDeleted: 0,
-  relationshipsCreated: 5,
-  relationshipsDeleted: 0,
-  propertiesSet: 20,
-  labelsAdded: 10,
-  labelsRemoved: 0,
-  indexesAdded: 0,
-  indexesRemoved: 0,
-  constraintsAdded: 0,
-  constraintsRemoved: 0
-}
-*/
-----
-
-== The Streaming API
-
-The drawback to the Promise API method of consuming results, is that the Promise will only resolve after all results have been received by the Driver.
-
-There may be occasions where you have more complex, or slower-running queries in your application but wish to update a front-end application as results become available.
-For example, many Flight search websites have complex queries that take up to a minute to complete, but simple, more expensive flights may be available immediately.
-
-In this case, you can use the `subscribe()` method to consume results as they become available.
-This method can be used when calling `session.run()` or `tx.run()` within a transaction function.
-
-You can use this method with websockets, or a similar technology to update the front-end application with new results as they are made available.
-
-
-The `subscribe()` method accepts one argument, an object of callbacks:
-
-* `onKeys` - is called when keys are made available for all records.
-* `onNext` - called when the next record is available.
-* `onError` - called if an error is thrown.
-* `onCompleted` - called when all records have been consumed and no error has been thrown.
-
-.The Streaming API
-[source,python,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/async-promises.py[tag=subscribe]
-----
+If you only expect a single record, you can use the `single()` function to return the first record.
 
 
 
-[TIP]
-.Reactive Streams with RxJS
-====
-The Drivers also offer out-of-the-box support for RxJS streams.
-To create a reactive session, call the `rxSession()` method on the driver.
+== Consuming Multiple Results
 
-The execution of the query is almost identical, with the exception of a `records()` method which returns an RxJS `Observable`, to which you can apply operators.
+// The Neo4j JavaScript Driver provides you with two APIs for consuming results:
 
-
-.Reactive Streams
-[source,python,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/async-promises.py[tag=rxjs]
-----
-====
+// * **Promise** API
+// * **Streaming** API
 
 
-== Check Your Understanding
+// == The Promise API
 
-include::./questions/1-method.adoc[leveloffset=+1]
+// The most common method of consuming results is with the Promise API.
+
+// When using `session.run()`, `tx.run()`, or one of the two transaction functions, the query will return a Promise.
+
+// Once the query has finished and all results have been streamed back to the Driver, each method will resolve with a **Result** object.
 
 
-[.summary]
-== Lesson Summary
+// [.tab]
+// .Using async/await
+// ====
+// Here is an example query call using `async`/`await`.
 
-You now have all of the information required to send Cypher queries to Neo4j and consume the results.
+// .Async Example
+// [source,python,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/example/async-promises.py[tag=async]
+// ----
 
-Next, we will look at the Cypher Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Node.js application.
+// By using the `await` keyword, the Result object is assigned to the `res` variable once the database has stopped streaming records to the Driver.
+
+// ====
+
+// [.tab]
+// .Using Promises
+// ====
+// Here is an example query utilizing the `then()` function from the returned Promise.
+
+// .Using Promises
+// [source,python,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/example/async-promises.py[tag=promises]
+// ----
+
+// Once the database has stopped streaming records to the Driver, the Promise will resolve with a Result object.
+
+// ====
+
+
+// == The Result
+
+// The **Result** object, defined as `res` in the examples above, contains the total number of records received by the Driver along with a set of additional meta data about the query.
+
+// An individual row of results is referred to as a `record`, and can be accessed by the `res.records` array.
+// A record refers to the keyed set of values specified in the `RETURN` portion of the statement.
+// If no `RETURN` values are specified, the query will not return any results, and as a result `res.records` will be an empty array.
+
+// The meta data included in the Result include statistics on how many nodes and relationships were created, updated, or deleted as a result of the query.
+
+// === Records
+
+// You can access the records returned by the query through the `records` property.
+// This property is a native JavaScript array which can be iterated over, for example using the `.map()` or `.foreach()` methods.
+
+// .Iterating over Records
+// [source,python,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/example/async-promises.py[tag=records]
+// ----
+
+// [TIP]
+// .Key or Index
+// You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifing the column number as an integer.
+// The available keys can be accessed through `res.keys()`.
+
+// === Result Summary
+
+// You can access summary information about the query through the `summary` property.
+// Included in this summary is information about the server, the query, execution times, and a `counters` object which provide statistics about the query.
+
+// For example, to get information about how long the query took to complete, you can use the following property:
+
+// .Using the Result Summary
+// [source,python,role=nocopy]
+// ----
+// // Time in milliseconds before receiving the first result
+// console.log(res.summary.resultAvailableAfter) // 10
+
+// // Time in milliseconds once the final result was consumed
+// console.log(res.summary.resultConsumedAfter) // 30
+// ----
+
+// Another interesting part of the summary is the `counters` property, which holds numerical data about the queries execution.
+// To access statistics as a result of a Write Transaction, you can call the `updates()` method on the `counters` property:
+
+// .Result Counters
+// [source,python,role=nocopy]
+// ----
+// console.log(res.summary.counters.updates())
+
+// /*
+// {
+//   nodesCreated: 10,
+//   nodesDeleted: 0,
+//   relationshipsCreated: 5,
+//   relationshipsDeleted: 0,
+//   propertiesSet: 20,
+//   labelsAdded: 10,
+//   labelsRemoved: 0,
+//   indexesAdded: 0,
+//   indexesRemoved: 0,
+//   constraintsAdded: 0,
+//   constraintsRemoved: 0
+// }
+// */
+// ----
+
+// == The Streaming API
+
+// The drawback to the Promise API method of consuming results, is that the Promise will only resolve after all results have been received by the Driver.
+
+// There may be occasions where you have more complex, or slower-running queries in your application but wish to update a front-end application as results become available.
+// For example, many Flight search websites have complex queries that take up to a minute to complete, but simple, more expensive flights may be available immediately.
+
+// In this case, you can use the `subscribe()` method to consume results as they become available.
+// This method can be used when calling `session.run()` or `tx.run()` within a transaction function.
+
+// You can use this method with websockets, or a similar technology to update the front-end application with new results as they are made available.
+
+
+// The `subscribe()` method accepts one argument, an object of callbacks:
+
+// * `onKeys` - is called when keys are made available for all records.
+// * `onNext` - called when the next record is available.
+// * `onError` - called if an error is thrown.
+// * `onCompleted` - called when all records have been consumed and no error has been thrown.
+
+// .The Streaming API
+// [source,python,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/example/async-promises.py[tag=subscribe]
+// ----
+
+
+
+// [TIP]
+// .Reactive Streams with RxJS
+// ====
+// The Drivers also offer out-of-the-box support for RxJS streams.
+// To create a reactive session, call the `rxSession()` method on the driver.
+
+// The execution of the query is almost identical, with the exception of a `records()` method which returns an RxJS `Observable`, to which you can apply operators.
+
+
+// .Reactive Streams
+// [source,python,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/example/async-promises.py[tag=rxjs]
+// ----
+// ====
+
+
+// == Check Your Understanding
+
+// include::./questions/1-method.adoc[leveloffset=+1]
+
+
+// [.summary]
+// == Lesson Summary
+
+// You now have all of the information required to send Cypher queries to Neo4j and consume the results.
+
+// Next, we will look at the Cypher Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Node.js application.
