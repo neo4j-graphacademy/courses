@@ -1,0 +1,57 @@
+version: '3.7'
+
+networks:
+  graphacademy:
+    driver: bridge
+
+services:
+  neo4j:
+    image: neo4j:enterprise
+    hostname: neo4j
+    container_name: neo4j
+    ports:
+    - "7474:7474"
+    - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/neo
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+      - NEO4JLABS_PLUGINS=["apoc"]
+    networks:
+      - graphacademy
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  graphacademy:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - "./asciidoc:/app/asciidoc"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    command: npm run dev
+    environment:
+      - ASCIIDOC_DIRECTORY=/app/asciidoc
+      - BASE_URL=http://localhost:3000
+      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
+      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
+      - AUTH0_ISSUER_BASE_URL=${AUTH0_ISSUER_BASE_URL}
+      # - SANDBOX_URL=${SANDBOX_URL}
+      - SANDBOX_DEV_INSTANCE_ID=139f44bf53e91b10e9465bb9918e1660
+      - SANDBOX_DEV_INSTANCE_HASH_KEY=139f44bf53e91b10e9465bb9918e1660
+      - SANDBOX_DEV_INSTANCE_SCHEME=neo4j
+      - SANDBOX_DEV_INSTANCE_HOST=neo4j
+      - SANDBOX_DEV_INSTANCE_PORT=7687
+      - SANDBOX_DEV_INSTANCE_USERNAME=neo4j
+      - SANDBOX_DEV_INSTANCE_PASSWORD=neo
+      - NEO4J_HOST=neo4j://neo4j:7687
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=neo
+    networks:
+      - graphacademy
+
