@@ -52,7 +52,7 @@ router.use((req, res, next) => {
  *
  * Redirect the user to the category list
  */
-router.get('/', requiresAuth(), async (req, res, next) => {
+router.get('/', async (req, res, next) => {
     try {
         res.redirect('/categories')
     }

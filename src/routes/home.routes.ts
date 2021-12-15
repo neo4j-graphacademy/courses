@@ -1,15 +1,29 @@
 import { Router } from 'express'
+import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth'
 
 const router = Router()
 
-router.get('/', async (req, res, next) => {
+router.get('/',  async (req, res, next) => {
     try {
         const user = await getUser(req)
 
         // Get Courses
         const categories = await getCoursesByCategory(user)
+
+        // let enrolled: CourseWithProgress[] = []
+
+        // if ( user ) {
+        //     const output = await getUserEnrolments(user.sub)
+        //     enrolled = output.enrolments.enrolled || []
+
+        //     console.log(enrolled);
+
+        // }
+
+
 
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
