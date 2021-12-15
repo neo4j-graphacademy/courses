@@ -13,16 +13,15 @@ router.get('/',  async (req, res, next) => {
         // Get Courses
         const categories = await getCoursesByCategory(user)
 
-        // let enrolled: CourseWithProgress[] = []
+        // Get current courses
+        let current: CourseWithProgress[] = []
 
-        // if ( user ) {
-        //     const output = await getUserEnrolments(user.sub)
-        //     enrolled = output.enrolments.enrolled || []
+        if ( user ) {
+            const output = await getUserEnrolments(user.sub)
+            current = output.enrolments.enrolled || []
 
-        //     console.log(enrolled);
-
-        // }
-
+            current.sort((a, b) => a.lastSeenAt > b.lastSeenAt ? -1 : 1)
+        }
 
 
         const beginners = categories.find(category => category.slug === 'experience')
@@ -43,6 +42,7 @@ router.get('/',  async (req, res, next) => {
             },
             description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
             classes: 'home transparent-nav preload',
+            current,
             categories,
             beginners,
             paths,

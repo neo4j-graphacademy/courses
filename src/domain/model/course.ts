@@ -56,6 +56,7 @@ export interface CourseWithProgress extends Course {
     endrolledAt: Date;
     completed: boolean;
     completedAt: Date;
+    lastSeenAt: Date;
     completedCount: number;
     completedPercentage: number | string;
     modules: ModuleWithProgress[];
