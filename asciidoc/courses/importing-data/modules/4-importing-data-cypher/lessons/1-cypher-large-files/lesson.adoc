@@ -1,45 +1,44 @@
 = Importing Large Datasets with Cypher
 :type: quiz
 
-//[.video]
-//video::jEIE_b1MzAE[youtube,width=560,height=315]
-
-//https://youtu.be/jEIE_b1MzAE
+[.video]
+video::4DrR-xHFToY[youtube,width=560,height=315]
 
 
 [.transcript]
-== Memory requirements
+== Memory requirements for import
 
 As you learned earlier, the Data Importer can be used for small to medium datasets containing less than 1M rows.
-The Data Importer is a generalized tool as you saw that creates all properties in the graph as strings, integers, decimals, or boolean, and you need to possibly post-process or refactor the graph after the import.
-It is also designed to handle a smaller memory footprint so it may not be useful for all of your data import needs.
+The Data Importer is a generalized app as you saw that creates all properties in the graph as strings, integers, decimals, or boolean, and you need to possibly post-process or refactor the graph after the import.
+It is also designed to handle a smaller memory footprint, so it may not be useful for all of your data import needs.
 
 When you import using Cypher statements, you have control over the amount of memory used for the import.
 In Cypher, by default, the execution of your code is a single transaction.
 In order to process large CSV imports, you need to break up the execution of the Cypher into multiple transactions.
 
-== Using `:auto USING PERIODIC COMMIT` in Neo4j Browser
+=== Using `USING PERIODIC COMMIT`
 
-In Neo4j Browser, you can use this code structure to import a large dataset:
+You can use this code structure to import a large dataset:
 
 [source,Cypher,role=nocopy noplay]
 ----
-:auto USING PERIODIC COMMIT LOAD CSV WITH HEADERS
+USING PERIODIC COMMIT LOAD CSV WITH HEADERS
 FROM 'url-for-CSV-file'
 AS row
-/// add data to the graph
+/// add data to the graph for each row
 ----
 
 The default transaction size for this type of import is 500 rows. That is, after 500 rows have been read from the CSV file, the data will be committed to the graph and the import will continue.
 This enables you to load extremely large CSV files into the graph without running out of memory.
 
-== Specialized processing using Cypher
+[IMPORTANT]
+In Neo4j Browser, you must prefix this Cypher with `:auto`, that is `:auto USING PERIODIC COMMIT LOAD CSV...`
+This tells Neo4j to use automatic detection of transactions.
+
+=== Planning for the import
 
 One advantage of using Cypher for loading your CSV data is that you can perform the type transformations and some of the "refactoring" during the import.
 That is, you can customize how property types are managed so you need not do any post-processing after the load.
-At this writing, there is no capability to "customize" the import using the Data Importer.
-
-== Planning for the import
 
 You must inspect and possibly clean the data before you import it.
 The large CSV data files you will be working with have already been cleaned.
@@ -59,7 +58,7 @@ Each row in the *2-movieData.csv* file represents either an Entity or a relation
 
 ==== Entities
 
-An Entity row has a value of Person, Movie, or Join, where the Movie rows have the genre data. We will continue to use these unique IDs for our _Movie_, _Person_, and _Genre_ nodes:
+An Entity row has a value of Person or Movie, where the Movie rows have the genre data. We will continue to use these unique IDs for our _Movie_, _Person_, and _Genre_ nodes:
 
 * Movie.movieId
 * Person.tmdbId
@@ -82,14 +81,14 @@ image::images/join-data-1.png[Join data IDs,width=600,align=center]
 
 Notice that for the join, we have both a movieId representing a movie and a tmdbId representing a person.
 
-In addition each join row we have a Work colummn that describes whether the data will be used for creating the ACTED_IN or DIRECTED relationships in the graph.
+In addition, for each join row we have a Work column that describes whether the data will be used for creating the ACTED_IN or DIRECTED relationships in the graph.
 Actor rows will have a value for the role and a few director rows also have a value for role.
 
 image::images/join-data-2.png[Join data values,width=600,align=center]
 
-==== Multi-step import processing
+==== Multi-pass import processing
 
-We recommend several passes to process this CSV file and a cleanup step:
+We recommend several passes to process this CSV file:
 
 . Create the Movie nodes and the Genre nodes.
 . Create the Person nodes.
