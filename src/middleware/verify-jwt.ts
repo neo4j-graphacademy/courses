@@ -14,21 +14,21 @@ export async function verifyJwt(req: Request, res: Response, next: NextFunction)
         const expiry = claims.exp
 
         if ( expiry && claims.exp! * 1000 < Date.now() ) {
-            const user = await getUser(req)
+            // const user = await getUser(req)
 
             const error = new TokenExpiredError(expiry)
 
-            notify(error, event => {
-                event.setUser(user?.id, user?.email, user?.name)
-                event.addMetadata('token', {
-                    token,
-                    claims,
-                })
-                event.addMetadata('request', {
-                    method: req.method,
-                    originalUrl: req.originalUrl,
-                })
-            })
+            // notify(error, event => {
+            //     event.setUser(user?.id, user?.email, user?.name)
+            //     event.addMetadata('token', {
+            //         token,
+            //         claims,
+            //     })
+            //     event.addMetadata('request', {
+            //         method: req.method,
+            //         originalUrl: req.originalUrl,
+            //     })
+            // })
 
             // If a GET request, logout and return to this URL
             if ( req.method === 'GET' ) {
