@@ -17,10 +17,15 @@ router.get('/',  async (req, res, next) => {
         let current: CourseWithProgress[] = []
 
         if ( user ) {
-            const output = await getUserEnrolments(user.sub)
-            current = output.enrolments.enrolled || []
+            try {
+                const output = await getUserEnrolments(user.sub)
+                current = output.enrolments.enrolled || []
 
-            current.sort((a, b) => a.lastSeenAt > b.lastSeenAt ? -1 : 1)
+                current.sort((a, b) => a.lastSeenAt > b.lastSeenAt ? -1 : 1)
+            }
+            catch(e) {
+                current = []
+            }
         }
 
 
