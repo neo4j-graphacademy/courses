@@ -417,13 +417,15 @@ router.get('/:course/:module/browser', requiresAuth(), requiresVerification, bro
  * If none of the routes matched above, this URL must be a module page.
  * Render courseindex.adoc in the course root
  */
-router.get('/:course/:module', classroomLocals, async (req, res, next) => {
+router.get('/:course/:module', requiresAuth(), classroomLocals, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
         if (course.enrolled === false) {
+            req.flash('info', 'You must be enrolled to view this content')
+
             return res.redirect(`/courses/${req.params.course}/`)
         }
 
@@ -537,6 +539,8 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
 
         // If not enrolled, send to course home
         if (course.enrolled === false) {
+            req.flash('info', 'You must be enrolled to view this content')
+
             return res.redirect(`/courses/${req.params.course}/`)
         }
 
