@@ -1,6 +1,6 @@
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
-import { notify } from "../../middleware/bugsnag";
+import { notify } from "../../middleware/bugsnag.middleware";
 import { write, writeTransaction } from "../../modules/neo4j";
 import { createSandbox } from "../../modules/sandbox";
 import { UserEnrolled } from "../events/UserEnrolled";

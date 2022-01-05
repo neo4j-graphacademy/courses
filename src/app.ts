@@ -1,7 +1,7 @@
 import path from 'path'
 import express, { RequestHandler } from 'express'
-import applyAuth from './middleware/auth'
-import { registerLocals } from './middleware/locals'
+import applyAuth from './middleware/auth.middleware'
+import { registerLocals } from './middleware/locals.middleware'
 
 import homeRoutes from './routes/home.routes'
 import courseRoutes from './routes/course.routes'
@@ -12,11 +12,11 @@ import certificateRoutes from './routes/certificate.routes'
 import testRoutes from './routes/testing.routes'
 import pageRoutes from './routes/asciidoc.routes'
 
-import { applyErrorhandlers } from './middleware/error-handlers'
+import { applyErrorhandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
-import { registerSession } from './middleware/session'
-import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag'
-import { verifyJwt } from './middleware/verify-jwt'
+import { registerSession } from './middleware/session.middleware'
+import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
+import { verifyJwt } from './middleware/verify-jwt.middleware'
 
 export default function initApp(driver: Driver) {
     const app = express()

@@ -2,7 +2,7 @@
 import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
-import { getToken } from '../middleware/auth'
+import { getToken } from '../middleware/auth.middleware'
 import { getSandboxes } from '../modules/sandbox'
 // import { loadFile } from '../modules/asciidoc'
 // import { flattenAttributes } from '../utils'

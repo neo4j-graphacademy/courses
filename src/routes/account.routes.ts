@@ -1,13 +1,16 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
+import { determineQueryType, QUERY_TYPE_READ, UserExecutedQuery } from '../domain/events/UserExecutedQuery'
+import { UserUiEvent } from '../domain/events/UserUiEvent'
 import { CourseWithProgress } from '../domain/model/course'
 import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { updateUser } from '../domain/services/update-user'
-import { getToken, getUser, requestEmailVerification } from '../middleware/auth'
-import { notify } from '../middleware/bugsnag'
+import { emitter } from '../events'
+import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
+import { notify } from '../middleware/bugsnag.middleware'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
 
 const router = Router()
@@ -147,7 +150,7 @@ router.get('/deleted', (req, res, next) => {
 })
 
 /**
- * @GET /account/courses/ ?:course
+ * @GET /account/courses/ ?:status
  * Show a list of users enrolments and their bookmarked courses
  */
 
@@ -218,5 +221,64 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 
 router.get('/courses', requiresAuth(), courseHandler)
 router.get('/courses/:status', requiresAuth(), courseHandler)
+
+
+/**
+ * @POST /account/event
+ *
+ * Handle a new event posted from the UI
+ *
+ */
+router.post('/event', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const { type, meta } = req.body
+
+        emitter.emit(
+            new UserUiEvent(
+                user!,
+                type,
+                meta
+            )
+        )
+
+        res.status(201).send()
+    }
+    catch(e) {
+        next(e)
+    }
+})
+
+/**
+ * @POST /account/query
+ *
+ * Log a query executed
+ *
+ */
+router.post('/query', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const { cypher, params, database, valid, meta } = req.body
+
+        const type = determineQueryType(cypher, database)
+
+        emitter.emit(
+            new UserExecutedQuery(
+                user!,
+                type,
+                cypher,
+                params,
+                database,
+                valid,
+                meta
+            )
+        )
+
+        res.status(201).send()
+    }
+    catch(e) {
+        next(e)
+    }
+})
 
 export default router

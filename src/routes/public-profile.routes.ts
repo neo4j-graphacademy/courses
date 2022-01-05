@@ -3,7 +3,7 @@ import { CourseWithProgress } from '../domain/model/course'
 import { User } from '../domain/model/user'
 import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
-import { getUser } from '../middleware/auth'
+import { getUser } from '../middleware/auth.middleware'
 import { getUserName } from '../utils'
 
 const router = Router()

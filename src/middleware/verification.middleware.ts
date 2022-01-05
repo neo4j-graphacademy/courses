@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import UnverifiedError from '../errors/unverified.error';
-import { getUser } from './auth';
-import { notify } from './bugsnag';
+import { getUser } from './auth.middleware';
+import { notify } from './bugsnag.middleware';
 
 export async function requiresVerification(req: Request, res: Response, next: NextFunction) {
     const user = await getUser(req)
