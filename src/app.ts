@@ -17,6 +17,8 @@ import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
+// import { initAnalytics } from './modules/analytics'
+// import { trackPageview } from './middleware/track-pageview.middleware'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -51,6 +53,10 @@ export default function initApp(driver: Driver) {
 
     // Bugsnag Request Handler
     useRequestHandler(app)
+
+    // Track PageViews
+    // initAnalytics()
+    // app.use(trackPageview)
 
     // Routes
     app.use('/', homeRoutes)

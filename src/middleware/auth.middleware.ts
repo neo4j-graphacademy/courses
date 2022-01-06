@@ -23,15 +23,20 @@ export async function getToken(req: any): Promise<string> {
 
 export async function getUser(req: any): Promise<User | undefined> {
     if ( !req.oidc.user ) return undefined;
+    if ( req.dbUser ) return req.dbUser;
 
     const res = await read(`MATCH (u:User {sub: $sub}) RETURN u`, { sub: req.oidc.user.sub })
 
     const dbUser = res.records.length ? res.records[0].get('u').properties : {}
 
-    return formatUser({
+    const user = formatUser({
         ...req.oidc.user,
         ...dbUser,
     })
+
+    req.dbUser = user
+
+    return user
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
