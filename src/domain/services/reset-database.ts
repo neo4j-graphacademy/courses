@@ -1,7 +1,7 @@
 import { getSandboxForUseCase } from "../../modules/sandbox";
 import { createDriver } from '../../modules/neo4j';
 import { Transaction } from 'neo4j-driver';
-import { notify } from '../../middleware/bugsnag';
+import { notify } from '../../middleware/bugsnag.middleware';
 import { getLessonCypherFile } from '../../utils';
 
 

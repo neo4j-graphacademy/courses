@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { devSandbox } from '../domain/model/sandbox.mocks'
-import { notify } from '../middleware/bugsnag'
+import { notify } from '../middleware/bugsnag.middleware'
 import { isVerified } from './jwt'
 
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'

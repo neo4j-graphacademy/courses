@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
-import { getUser } from '../middleware/auth'
+import { getUser } from '../middleware/auth.middleware'
 
 const router = Router()
 

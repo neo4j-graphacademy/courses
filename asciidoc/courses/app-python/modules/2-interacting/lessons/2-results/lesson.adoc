@@ -6,217 +6,157 @@ The drivers provide a way to iterate through that stream.
 
 == Result
 
-Here is an exampe query which retrieves a list of `:Person` nodes related to a given Movie.
+Here is an example query which retrieves a list of `:Person` nodes related to a given Movie.
 
 .Get Actors by Movie title
-[source,python]
+[source,python,indent=0]
 ----
 include::{repository-raw}/main/example/results.py[tag="get_actors"]
 ----
 
-The `result` object obtained using the `tx.run` function returns a `Result` object.
-This object provides a number of options to iterate through the stream of _records_.
 
 
-== Records
+The code can be broken down into two elements:
 
-A Record is an immutable ordered collection of key-value pairs.
-It is generally closer to a `namedtuple` than to a `OrderedDict` inasmuch as iteration of the collection will yield values rather than keys.
+1. The `get_actors()` function defines a _unit of work_ to be executed within a transaction, passed as the first argument of the function, in this case referenced as `tx`
+2. The `read_transaction()` method executes the unit of work within a Read Transaction
 
-In the example above, the `result` is iterated over within a List Comprehension to extract the `p` value specified in the `RETURN` clause of the Cypher query.
+The result of the `read_transaction()` is a **Result** object.
+// This object provides a number of options to iterate through the stream of *records*.
+
+The result object acts as a buffer for an iterable list of records and provides a number of options for accessing those records.
+Once a result is _consumed_, it is removed from the buffer.
+// provides a number of options to iterate through a stream of records.
+
+=== Peeking at Results
+
+If you wish to preview a result without consuming it, you can use the `peek` method.
+
+.Peek
+[source,python,indent=0]
+----
+include::{repository-raw}/main/example/results.py[tag="peek"]
+----
+
+This can be used to preview the first record in the result without removing it from the buffer.
+
+=== Keys
+
+To get the keys for each record in the result, you can call the `keys()` method.
+
+.Get Keys
+[source,python,indent=0]
+----
+include::{repository-raw}/main/example/results.py[tag="keys"]
+----
 
 
+=== Single Result
+
+If you only expect a single record, you can use the `single()` method on the `result` to return the first record.
+
+.First Result
 [source,python]
 ----
-include::{repository-raw}/main/example/results.py[tag="get_actor_nodes"]
+include::{repository-raw}/main/example/results.py[tag="single"]
 ----
 
+If more than one record is available from the result then a warning will be generated, but the first result will still be returned.
+If no results are available, then the method call will return `None`.
 
 
-=== Single Record
+=== Value
 
-If you only expect a single record, you can use the `single()` function to return the first record.
+If you wish to extract a single value from the remaining list of results, you can use the `value()` method.
 
+.Extract a value
 [source,python]
 ----
-first = result.single()
-print(first.get("p")) # :Person Node
+include::{repository-raw}/main/example/results.py[tag="value"]
+----
+
+This method two parameters:
+
+1. The key or index of the field to return for each remaining record, and returns a list of single values.
+2. Optionally, you can provide a default value to be used if the value is `None` or unavailable.
+
+
+=== Values
+
+If you need to extract more than item from each record, you can use the `values()` method.
+The method expects one parameter per item requested from the `RETURN` statement of the query.
+
+.Extract values
+[source,python]
+----
+include::{repository-raw}/main/example/results.py[tag="values"]
+----
+
+In the above example, a `list` will be returned, with each entry containing values representing `name`, `title`, and `roles`.
+
+
+=== Consume
+
+The `consume()` method will consume the remainder of the results and return a **Result Summary**.
+
+.Result Summary
+[source,python]
+----
+include::{repository-raw}/main/example/results.py[tag="consume"]
+----
+
+The Result Summary contains a information about the server, the query, execution times and a `counters` object which provide statistics about the query.
+
+.Query Execution Times
+[source,python]
+----
+include::{repository-raw}/main/example/results.py[tag="times"]
+----
+
+The `counters` object can be used to retrieve the number of nodes, relationships, properties or labels that were affected during a write transaction.
+
+.Write Statement Counters
+[source,python]
+----
+include::{repository-raw}/main/example/results.py[tag="counters"]
+----
+
+You can link:https://neo4j.com/docs/api/python-driver/4.4/api.html#neo4j.ResultSummary[read more about the result summary here^].
+
+
+== Exploring Records
+
+When accessing a record, either within a loop, list comprehension or within a single record, you can use the `[]` bracket syntax.
+
+The following example extracts the `p` value from each `record` in the result buffer.
+
+.For Loop
+[source,python,ident=0]
+----
+include::{repository-raw}/main/example/results.py[tag="for"]
+----
+
+You can also access a value using its index, as it relates to the value contained in the keys array:
+
+.Get Available Keys
+[source,python,ident=0]
+----
+include::{repository-raw}/main/example/results.py[tag="keys"]
 ----
 
 
-=== X
+== Check Your Understanding
+
+include::./questions/1-first-method.adoc[leveloffset=+1]
+
+include::./questions/2-consume-method.adoc[leveloffset=+1]
+
+include::./questions/3-get-name.adoc[leveloffset=+1]
 
 
+[.summary]
+== Lesson Summary
 
-== Consuming Multiple Results
+You now have all of the information required to send Cypher queries to Neo4j and consume the results.
 
-// The Neo4j JavaScript Driver provides you with two APIs for consuming results:
-
-// * **Promise** API
-// * **Streaming** API
-
-
-// == The Promise API
-
-// The most common method of consuming results is with the Promise API.
-
-// When using `session.run()`, `tx.run()`, or one of the two transaction functions, the query will return a Promise.
-
-// Once the query has finished and all results have been streamed back to the Driver, each method will resolve with a **Result** object.
-
-
-// [.tab]
-// .Using async/await
-// ====
-// Here is an example query call using `async`/`await`.
-
-// .Async Example
-// [source,python,role=nocopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/async-promises.py[tag=async]
-// ----
-
-// By using the `await` keyword, the Result object is assigned to the `res` variable once the database has stopped streaming records to the Driver.
-
-// ====
-
-// [.tab]
-// .Using Promises
-// ====
-// Here is an example query utilizing the `then()` function from the returned Promise.
-
-// .Using Promises
-// [source,python,role=nocopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/async-promises.py[tag=promises]
-// ----
-
-// Once the database has stopped streaming records to the Driver, the Promise will resolve with a Result object.
-
-// ====
-
-
-// == The Result
-
-// The **Result** object, defined as `res` in the examples above, contains the total number of records received by the Driver along with a set of additional meta data about the query.
-
-// An individual row of results is referred to as a `record`, and can be accessed by the `res.records` array.
-// A record refers to the keyed set of values specified in the `RETURN` portion of the statement.
-// If no `RETURN` values are specified, the query will not return any results, and as a result `res.records` will be an empty array.
-
-// The meta data included in the Result include statistics on how many nodes and relationships were created, updated, or deleted as a result of the query.
-
-// === Records
-
-// You can access the records returned by the query through the `records` property.
-// This property is a native JavaScript array which can be iterated over, for example using the `.map()` or `.foreach()` methods.
-
-// .Iterating over Records
-// [source,python,role=nocopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/async-promises.py[tag=records]
-// ----
-
-// [TIP]
-// .Key or Index
-// You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifing the column number as an integer.
-// The available keys can be accessed through `res.keys()`.
-
-// === Result Summary
-
-// You can access summary information about the query through the `summary` property.
-// Included in this summary is information about the server, the query, execution times, and a `counters` object which provide statistics about the query.
-
-// For example, to get information about how long the query took to complete, you can use the following property:
-
-// .Using the Result Summary
-// [source,python,role=nocopy]
-// ----
-// // Time in milliseconds before receiving the first result
-// console.log(res.summary.resultAvailableAfter) // 10
-
-// // Time in milliseconds once the final result was consumed
-// console.log(res.summary.resultConsumedAfter) // 30
-// ----
-
-// Another interesting part of the summary is the `counters` property, which holds numerical data about the queries execution.
-// To access statistics as a result of a Write Transaction, you can call the `updates()` method on the `counters` property:
-
-// .Result Counters
-// [source,python,role=nocopy]
-// ----
-// console.log(res.summary.counters.updates())
-
-// /*
-// {
-//   nodesCreated: 10,
-//   nodesDeleted: 0,
-//   relationshipsCreated: 5,
-//   relationshipsDeleted: 0,
-//   propertiesSet: 20,
-//   labelsAdded: 10,
-//   labelsRemoved: 0,
-//   indexesAdded: 0,
-//   indexesRemoved: 0,
-//   constraintsAdded: 0,
-//   constraintsRemoved: 0
-// }
-// */
-// ----
-
-// == The Streaming API
-
-// The drawback to the Promise API method of consuming results, is that the Promise will only resolve after all results have been received by the Driver.
-
-// There may be occasions where you have more complex, or slower-running queries in your application but wish to update a front-end application as results become available.
-// For example, many Flight search websites have complex queries that take up to a minute to complete, but simple, more expensive flights may be available immediately.
-
-// In this case, you can use the `subscribe()` method to consume results as they become available.
-// This method can be used when calling `session.run()` or `tx.run()` within a transaction function.
-
-// You can use this method with websockets, or a similar technology to update the front-end application with new results as they are made available.
-
-
-// The `subscribe()` method accepts one argument, an object of callbacks:
-
-// * `onKeys` - is called when keys are made available for all records.
-// * `onNext` - called when the next record is available.
-// * `onError` - called if an error is thrown.
-// * `onCompleted` - called when all records have been consumed and no error has been thrown.
-
-// .The Streaming API
-// [source,python,role=nocopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/async-promises.py[tag=subscribe]
-// ----
-
-
-
-// [TIP]
-// .Reactive Streams with RxJS
-// ====
-// The Drivers also offer out-of-the-box support for RxJS streams.
-// To create a reactive session, call the `rxSession()` method on the driver.
-
-// The execution of the query is almost identical, with the exception of a `records()` method which returns an RxJS `Observable`, to which you can apply operators.
-
-
-// .Reactive Streams
-// [source,python,role=nocopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/async-promises.py[tag=rxjs]
-// ----
-// ====
-
-
-// == Check Your Understanding
-
-// include::./questions/1-method.adoc[leveloffset=+1]
-
-
-// [.summary]
-// == Lesson Summary
-
-// You now have all of the information required to send Cypher queries to Neo4j and consume the results.
-
-// Next, we will look at the Cypher Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Node.js application.
+Next, we will look at the Neo4j Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Python application.

@@ -2,7 +2,7 @@ import pug from 'pug'
 import mailgun, { Mailgun, Error as MailgunError } from 'mailgun-js'
 import { flattenAttributes } from '../utils'
 import { convert, loadFile } from './asciidoc'
-import { notify } from '../middleware/bugsnag'
+import { notify } from '../middleware/bugsnag.middleware'
 
 export function isEnabled(): boolean {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env

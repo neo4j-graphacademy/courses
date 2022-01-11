@@ -6,7 +6,7 @@ import { Category } from '../domain/model/category'
 import { Course } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
-import { getUser } from '../middleware/auth'
+import { getUser } from '../middleware/auth.middleware'
 
 import { categoryBannerPath, flattenCategories } from '../utils'
 
