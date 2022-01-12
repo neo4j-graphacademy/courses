@@ -501,6 +501,14 @@ router.use('/:course/:module/images', (req, res, next) => {
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
 })
 
+/**
+ * Use the request and current course to generate page attributes to use when
+ * generating the asciidoc for a module or lesson.
+ *
+ * @param req Request
+ * @param course {Course}
+ * @return {Record<string, any>}
+ */
 async function getPageAttributes(req: Request, course: Course): Promise<Record<string, any>> {
     const user = await getUser(req)
 
@@ -518,10 +526,14 @@ async function getPageAttributes(req: Request, course: Course): Promise<Record<s
         attributes['sandbox-password'] = sandboxConfig?.password;
     }
 
-    // Course repository
-    attributes['repository'] = course.repository
-    attributes['repository-raw'] = `https://raw.githubusercontent.com/${course.repository}`
-    attributes['repository-blob'] = `https://github.com/${course.repository}/blob/`
+    // Course repository attributes
+    for ( const [ key, value ] of Object.entries(course) ) {
+        if ( key.endsWith('repository') ) {
+            attributes[ key ] = value
+            attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
+            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob/`
+        }
+    }
 
     return attributes
 }

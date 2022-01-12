@@ -198,3 +198,12 @@ export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<s
 
     return output;
 }
+
+export function toCamelCase(input: string): string {
+    const parts = input.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g) || []
+
+    return parts
+            .map(x => x.toLowerCase())
+            .map((x, index) => index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1))
+            .join('')
+}

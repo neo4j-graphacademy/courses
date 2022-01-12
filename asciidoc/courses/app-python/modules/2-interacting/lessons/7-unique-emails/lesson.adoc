@@ -1,19 +1,23 @@
 = Unique Email Addresses
 :type: challenge
-:branch: 04-handle-constraint-errors
-:previous-branch: 03-registering-a-user
-:test-number: 04
+// :branch: 04-handle-constraint-errors
+// :previous-branch: 03-registering-a-user
+:branch: main
+:previous-branch: main
+:test-filename: 04_handle_constraint_errors__test
 
 
-In the link:../5-registering[Registering a User challenge^], you updated the `authenticate()` method in the link:{repository-blob}main/src/routes/auth.services.py[`AuthService`^] to create a new User node in the database.
+In the link:../5-registering[Registering a User challenge^], you updated the `register()` method in the link:{repository-blob}main/api/dao/auth.py[`AuthDAO`^] to create a new User node in the database.
 
-There is still one `// TODO` comment remaining in the application.
+There is still one `# TODO` comment remaining in this file.
 
-Currently, it is still possible to use the same email address twice, we should guard against that.
+Currently, it is still possible to use the same email address twice, we should take advantage of Unique Constraints in the database to guard against that.
 
 This functionality could be handled by checking the database before running the `CREATE` Cypher query, but this could still cause problems if the database is manually updated elsewhere.
 
 Instead, you can pass the responsibility of handling the duplicate user error to the database by creating a Unique Constraint on the `:User` label, asserting that the `email` property must be unique.
+
+This will create a potential error case that will need to be handled in the code.
 
 To pass this challenge, you will need to:
 
@@ -25,10 +29,10 @@ To pass this challenge, you will need to:
 
 If we take a look at `register()` method, it has been hardcoded to throw a new `ValidationError` if the email address is anything other than `graphacademy@neo4j.com`.
 
-.src/services/auth.service.js
+.api/dao/auth.py
 [source,python,subs="attributes+",indent=0]
 ----
-include::{repository-raw}/{previous-branch}/src/services/auth.service.py[tag=register]
+include::{repository-raw}/{previous-branch}/api/dao/auth.py[tag=register]
 ----
 
 The code also has no explicit error handling.
@@ -38,35 +42,28 @@ This way, the error can be better handled by the UI.
 
 To do this, you will need to rearange the code into `try`/`catch` blocks.
 
-If we take a look at a generic `try`/`catch`,  it can be broken down into three parts; `try`, `catch` and `finally`.
-
-.Try/Catch/Finally
+.Try/Catch Example
 [source,python]
 ----
-try {
-  // Attempt the code inside the block
-}
-catch (e) {
-  // If anything goes wrong in the try block,
-  // deal with the error here
-}
-finally {
-  // Run this statement regardless of whether an error
-  // is thrown or not
-}
+try:
+  # Attempt the code inside the block
+
+except ConstraintError:
+  # If a ConstraintError is thrown in the try block,
+  # then handle the error here
+
 ----
 
-When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error.
+When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error, at which point the driver will raise a `neo4j.exceptions.ConstraintError`.
 Instead of this being treated as an internal server error, it should instead be treated as a `422 Unprocessable Entity`.
-//Adam: need to complete this sentence.
-This will allow the front end to
+This will allow the front end to handle the error appropriately.
 
-A `ValidationError` class already exists which is handled by an Express middleware.
+A `ValidationError` class already exists in the codebase which is handled by a Flask middleware.
 
 
 == Completing the Challenge
 
-To complete this challenge, you will first create a new constraint in your Sandbox database and modify the code to add a try/catch block
+To complete this challenge, you will first create a new constraint in your Sandbox database and modify the code to add a try/catch block.
 
 === Create a Unique Constraint
 
@@ -77,7 +74,7 @@ Click the **Run in Sandbox** button to create the constraint on your Sandbox.
 
 [source,cypher]
 ----
-include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.cypher[]
+include::{cypher-repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.cypher[]
 ----
 
 
@@ -86,14 +83,13 @@ include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.c
 In the method, we should:
 
 1. **Try** to create a User with the supplied email, password and name.
-2. **Catch** an error when it is thrown, using the `code` property to check and reformat a `Neo.ClientError.Schema.ConstraintValidationFailed` error into a `ValidationError`.
-3. **Finally** ensure that the session is closed regardless of whether the query is successful or an error is thrown.
+2. **Catch** a `neo4j.exception.ConstraintError` error if it is thrown and instead throw an `api.exceptions.ValidationException`
 
 Your code should look like this:
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="catch"]
+include::{repository-raw}/{branch}/api/dao/auth.py[tag="catch"]
 ----
 
 Update the `register()` method to reflect the changes above, then scroll to <<Testing>> to verify that the code works as expected.
@@ -106,7 +102,7 @@ Update the `register()` method to reflect the changes above, then scroll to <<Te
 ====
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="register"]
+include::{repository-raw}/{branch}/api/dao/auth.py[tag="register"]
 ----
 ====
 
