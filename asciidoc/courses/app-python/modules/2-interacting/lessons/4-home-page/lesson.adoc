@@ -1,19 +1,20 @@
 = The Home Page
 :type: challenge
-:branch: 02-movie-lists
-:test-number: 02
+// :branch: 02-movie-lists
+:branch: main
+:test-filename: 02_movie_list__test
+:test-output: true
 
 Now for another challenge.
 
 In this challenge, you will use the knowledge gained so far in this course to add new functionality to the API.
-You will modify the `all()` method of the link:{repository-blob}main/src/routes/movie.services.py[`MovieService`^] to do the following:
+You will modify the `all()` method of the link:{repository-blob}main/api/dao/movies.py[`MovieDAO`^] to do the following:
 
 
 1. <<Open a new Session>>
-2. <<Execute a Cypher query within a new Read Transaction>>
+2. <<Create a Unit of Work>>
 3. <<Extract a list of Movies from the Result>>
-4. <<Close the Session>>
-5. <<Return the Results>>
+4. <<Return the Results>>
 
 Once you have completed the challenge, you will be asked to run a unit test to verify that the code has been correctly implemented.
 If the test runs correctly, the title of the highest rated movie will be logged.
@@ -23,39 +24,38 @@ You will need this value to verify that the test has run correctly.
 == Exploring the Code
 
 Before you start, let's take a look at the code.
-//Adam: Is this supposed to be a link to Working solution?
-If you are not interested in the code, you can skip straight to <<Implementing Read Transactions>>.
+If you are not interested in exploring the code, you can skip straight to <<Implementing Read Transactions>>.
 
-If you start the application and access the app at http://localhost:3000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
-Both of these lists are populated by a request to link:http://localhost:3000/api/movies[`http://localhost:3000/api/movies`^] with some additional parameters.
+If you start the application and access the app at http://localhost:5000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
+Both of these lists are populated by a request to link:http://localhost:5000/api/movies[`http://localhost:5000/api/movies`^] with some additional parameters.
 
 === Route Handler
 
-You can find the route handler, the function that handles the request, in link:{repository-blob}main/api/routes/movie.py[`api/routes/movie.py`^]:
+You can find the route handler, the function that handles the request, in the movies blueprint at link:{repository-blob}main/api/routes/movies.py[`api/routes/movies.py`^]:
 
 .api/routes/movie.py
 [source,python,role=nocopy]
 ----
-include::{repository-raw}/main/api/routes/movie.py[tag=list]
+include::{repository-raw}/main/api/routes/movies.py[tag=list]
 ----
 
 Within the route handler, you can see that:
 
 1. The `sort`, `order`, `limit` and `skip` values are extracted from the query string.  This allows us to apply sorting and pagination to the results.
-2. A new instance of the `MovieService` is created with the Driver instance that you created in link:../../1-driver/3-connecting/[Adding the Driver] passed to the constructor.
+2. A new instance of the `MovieDAO` is created with the Driver instance that you created in link:../../1-driver/3-connecting/[Adding the Driver] passed to the constructor.
 3. The results are retrieved via the `all()` method and are returned by the handler as JSON.
 
 === The Movie Service
 
-The magic happens in the `MovieService`, located at link:{repository-blob}main/src/services/movies.service.py[`src/services/movies.service.js`^].
+The magic happens in the `MovieDAO`, located at link:{repository-blob}main/api/dao/movies.py[`api/dao/movies.py`^].
 For this route we are concerned with the `all()` method.
 
 If we take a closer look at the `add()` method, we can see that it currently returns a hardcoded list of popular movies from a another file in the repository.
 
 [source,python,indent=0]
-.src/services/movie.service.js
+.api/dao/movies.py
 ----
-include::{repository-raw}/main/src/services/movie.service.py[tag=all]
+include::{repository-raw}/main/api/dao/movies.py[tag=all]
 ----
 
 You will need to replace these `TODO` comments with working code to complete the challenge.
@@ -74,64 +74,55 @@ Within the `all()` method, first open a new session:
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/example/index.py[tag=session]
+include::{repository-raw}/main/example/index.py[tag=driver.session]
 ----
 
-=== Execute a Cypher query within a new Read Transaction
+=== Create a Unit of Work
 
-This session then provides a `readTransaction()` method for which you pass a function to represent the unit of work.
+The session can be used to execute a `read_transaction`.
+First, create a new `get_movies` to represent the unit of work.
 
-The function will have one argument passed to it, a `Transaction` instance that you can use to execute a Cypher statement using the `run()` method.
-The `run()` method accepts two arguments:
+This function will have one mandatory argument passed to it, a `Transaction` instance that you can use to execute a Cypher statement using the `run()` method.
+The function should also have the `sort`, `order`, `skip`, `limit` and `userId` parameters passed through as named parameters - these will be referenced in the query by prefixing the name with a dollar sign (`$`).
 
-1. The Cypher query as a parameterised string.
-2. An object containing the values for the parameters prefixed in the query with a dollar sign (`$`).
-
-[source,python,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/movie.service.py[tag=allcypher]
-----
-
-
-[WARNING]
-====
-In the second argument, we use references to the `int()` function imported from `neo4j-driver` to convert the skip and limit values into a Neo4j integer.
-Remember to add the import statement to the top of the file.
 
 [source,python]
 ----
-include::{repository-raw}/main/example/integers.py[tag=import]
+include::{repository-raw}/{branch}/api/dao/movies.py[tag=get_movies,indent=0]
+    # Code will go here...
 ----
-====
 
+You will need to call the `run()` method on the `tx` argument, passing a Cypher query to retrieve a list of paginated movie results along with named arguments `sort`, `order`, `skip`, `limit` and `userId`.
+
+[source,python,indent=0]
+----
+include::{repository-raw}/{branch}/api/dao/movies.py[tag=allcypher]
+----
 
 === Extract a list of Movies from the Result
 
-Now that you have a complete result assigned to the `res` variable, you use the `map()` function on the `res.records` array to retrieve the `movie` value returned by the query.
+The individual movie values can then be extracted from the `result` variable using a list comprehension.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/movie.service.py[tag=allmovies]
+include::{repository-raw}/{branch}/api/dao/movies.py[tag=allmovies]
 ----
 
-
-=== Close the Session
-
-Before returning anything, make sure that the session is closed.
-
-[source,python,indent=0]
-----
-include::{repository-raw}/main/example/index.py[tag="session.close"]
-----
+[WARNING]
+.Consuming Results
+====
+Make sure that you extract the results within the unit of work.
+====
 
 
 === Return the Results
 
-Finally, update the `return` statement to return the `movies` list extracted above.
+The `get_movies` function can then be executed within a Read Transaction, and the results returned.
+
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/movie.service.py[tag=return]
+include::{repository-raw}/{branch}/api/dao/movies.py[tag=return]
 ----
 
 
@@ -144,7 +135,7 @@ include::{repository-raw}/{branch}/src/services/movie.service.py[tag=return]
 .src/services/movie.service.js
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/movie.service.py[tag=all]
+include::{repository-raw}/{branch}/api/dao/movies.py[tag=all]
 ----
 ====
 
@@ -155,6 +146,7 @@ include::../../../../includes/test.adoc[]
 
 include::./questions/verify.adoc[leveloffset=+1]
 
+// TODO: Make sure output is printed AND the filtering works
 
 [.summary]
 == Lesson Summary

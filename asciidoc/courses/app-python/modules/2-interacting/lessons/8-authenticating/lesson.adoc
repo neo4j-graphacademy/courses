@@ -1,128 +1,107 @@
 = Authenticating a User
 :type: challenge
-:branch: 05-authentication
-:test-number: 05
+// :branch: 05-authentication
+:branch: main
+:test-filename: 05_authentication__test
 
-At stage of the application,  a user can register, but they are still unable to sign in.
+At stage of the project,  a user can register, but they are still unable to sign in.
 As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
 
-In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/src/routes/auth.services.py[`AuthService`^] to do the following:
+In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/api/routesauth.services.py[`AuthDAO`^] to do the following:
 
-1. <<Open a new Session>>
-2. <<Find the User node within a Read Transaction>>
-3. <<Verify The User Exists>>
+1. <<Create a transaction function to find the User>>
+2. <<Execute the function within a Read Transaction>>
+3. <<Verify the User exists>>
 4. <<Compare Passwords>>
-5. <<Close the Session>>
-6. <<Return User Details>>
-
+5. <<Return User Details>>
 
 But first, let's take a look at how Authentication works in the application.
 If you prefer, you can skip straight to <<Implementing Authentication>>.
 
-== Passport & Authentication
+== How Authentication Works
 
-This project uses a _Local Strategy_ exported from the `passport-local` library to handle the authentication request.
-The purpose of a Local Strategy is to authenticate a user using a username and password.
+When a user attempts to access an API endpoint that requires authentication, the server checks for a JWT token.
 
-When a user submits the Sign In form from the UI, the following process occurs:
+When a user registers or signs in, a JWT token is generated and appended to the User record.
+This token is then stored by the UI and appended in a `Bearer` token.
+The API then decodes the token and uses the .
 
-1. A route handler in link:{repository-blob}/main/src/routes/auth.routes.py[`src/routes/auth.routes.js`^] listens for a `POST` request.
-2. The `passport.authenticate` middleware triggers the _local_ authentication strategy.
-3. This calls the callback function defined in link:{repository-blob}/main/src/passport/neo4j.strategy.py[`src/passport/neo4j.strategy.js`^].
-4. The strategy creates a new instance of the link:{repository-blob}main/src/routes/auth.services.py[`AuthService`^] and calls the `authenticate()` method with the username and password defined in the request.
+The token generation happens in the link:{repository}/main/api/dao/auth.py[`AuthDAO`^] using the `_generate_token` method.
 
-
-The `authenticate()` method performs the following actions:
-
-1. Attempt to find the user by their email address.
-2. If the user does not exist, return `false`.
-3. Compare the encrypted password in the database against the unencrypted password sent with the request.
-4. If the passwords do not match, return `false`.
-5. Otherwise, return an object containing the user's _safe_ properties, and a JWT token with a set of claims that can be used in the UI.
+This token is decoded by the link:https://pythonhosted.org/Flask-JWT/[Flask-JWT] library.
 
 
-For this strategy to work correctly, the `authenticate()` method must return an object which represents the user on successful login, or return `false` if the credentials are incorrect.
+=== Login Route
 
-If the returned value is anything other than false, the value will be appended to the request, and will be accessible through `req.user` on any route handlers that use the `passport.authenticate` middleware.
+When a user submits the login form on the website, a request is sent to `http://localhost:5000/api/login` with a username and password.
 
 
 == Implementing Authentication
 
-To implement database authentication, you will modify the `authenticate` method in the `AuthService`.
+To implement database authentication, you will modify the `authenticate` method in the `AuthDAO`.
 
-.src/services/auth.service.js
+.api/dao/auth.py
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/src/services/auth.service.py[tag=authenticate]
+include::{repository-raw}/main/api/dao/auth.py[tag=authenticate]
 ----
 
 Your challenge is to update the `authenticate()` method to perform the following actions:
 
-=== Open a new Session
+=== Create a transaction function to find the User
 
-First, open a new session:
+The Transaction function should be a simple query that uses Cypher to look up a `:User` node by the `email` parameter provided and return a single result.
+
+
+.Get User by Email
+[source,python,indent=0]
+----
+include::{repository-raw}/main/api/dao/auth.py[tag=get_user]
+----
+
+
+=== Execute the function within a Read Transaction
+
+After opening up a new session, call the `read_transaction` method to execute the `get_user` function above.
+
+.Call the Transaction Function
+[source,python,indent=0]
+----
+include::{repository-raw}/main/api/dao/auth.py[tag=call_get_user]
+----
+
+=== Verify the User exists
+
+If the user does not exist, then `get_user` will return `None`.
+In this case, return `False`.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/example/index.py[tag=session]
+include::{repository-raw}/main/api/dao/auth.py[tag=user_not_found]
 ----
-
-
-=== Find the User node within a Read Transaction
-
-Use a `MATCH` query to find a `:User` node with the email address passed to the method as a parameter.
-
-[source,python,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="query"]
-----
-
-
-=== Verify The User Exists
-
-If no records are returned, you can safely assume that the user does not exist in the database.
-In this case, a `false` value should be returned.
-
-[source,python,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="norecords"]
-----
-
 
 === Compare Passwords
 
-Next, you must verify that the unencrypted password matches the encrypted password saved as a property against the `:User` node.
+The `authenticate()` method uses the `hashpw` function imported from `bcrypt` to encrypt the password.
+The library also provides a `checkpw` function for comparing a plain text value against the previously encrypted value.
 
-The `bcrypt` library used to encrypt the password also includes a `compare()` function that can be used to compare a string against a previously encrypted value.
-
-If the `compare()` function returns false, the passwords do not match and the method should also return false
-
-[source,python,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="password"]
-----
-
-
-=== Close the Session
-
-Before the user information is returned, make sure that the session is closed.
+If the check fails, return `False`.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/example/index.py[tag="session.close"]
+include::{repository-raw}/main/api/dao/auth.py[tag=compare_passwords]
 ----
-
 
 === Return User Details
 
-As with the `register()` method, the UI expects a JWT token to be returned along with the response.
+Finally, if the user exists and the password comparison returns true, generate a JWT token and return it along with information about the User.
 
-The code is already written to the example, so this can be re-purposed at the end of the method.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="return"]
+include::{repository-raw}/main/api/dao/auth.py[tag=auth_jwt]
 ----
+
 
 Once you have applied these changes to the `authenticate()` method, scroll to <<Testing>> to verify that the method works as expected.
 
@@ -133,10 +112,10 @@ Once you have applied these changes to the `authenticate()` method, scroll to <<
 .Click here to reveal the completed `authenticate()` method:
 ====
 
-.src/services/auth.service.js
+.api/dao/auth.py
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.py[tag="authenticate"]
+include::{repository-raw}/{branch}/api/dao/auth.py[tag="authenticate"]
 ----
 
 ====
@@ -149,6 +128,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Lesson Summary
 
-In this Challenge, you have updated the `AuthService` to authenticate a User using the data held in the Sandbox database.
+In this Challenge, you have updated the `AuthDAO` to authenticate a User using the data held in the Sandbox database.
 
-In the next Challenge, you will write ratings to the database and learn how to use the `int()` function to save JavaScript integers in Neo4j.
+In the next Challenge, you will save user ratings to the database.

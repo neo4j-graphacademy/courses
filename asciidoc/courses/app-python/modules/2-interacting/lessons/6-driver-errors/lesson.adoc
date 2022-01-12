@@ -7,13 +7,56 @@ When executing a Cypher query, certain exceptions and error cases may arise.
 One error could be a _transient_ error that may be resolved if retried, for example a problem connecting to the database instance.
 Another type of error could be something more permanent, for example a Syntax Error or a Constraint Error.
 
-In the Neo4j JavaScript Driver, the Promise returned by the `run()` method will be rejected, and an instance of a link:https://neo4j.com/docs/api/javascript-driver/current/class/lib6/error.js~Neo4jError.html[`Neo4jError`^] will be returned.
 
-The `Neo4jError` class extends the native JavaScript `Error`, and as such contains a `message` property that contains detailed information about the error that has occurred.
+In the Neo4j Python Driver, an error extending the link:https://neo4j.com/docs/api/python-driver/current/api.html#neo4j.exceptions.Neo4jError[`neo4j.exceptions.Neo4jError`^] class will be thrown.
+
+// The
+
+
+== Exception Types
+
+Depending on the nature of the error, you may receive one of the following exceptions:
+
+* `neo4j.exceptions.Neo4jError` - Raised when the Cypher engine returns an error to the client.
+* `neo4j.exceptions.ClientError` - The Client sent a bad request - changing the request might yield a successful outcome.
+** `neo4j.exceptions.CypherSyntaxError` - Raised when the Cypher statement contains one or more syntax errors
+** `neo4j.exceptions.CypherTypeError` - Raised when or more of the data types in the query is incorrect
+** `neo4j.exceptions.ConstraintError` - Raised when action is rejected due to a constraint violation
+** `neo4j.exceptions.AuthError` - Raised when authentication failure occurs.
+** `neo4j.exceptions.Forbidden` - Raised when the action is forbidden for the authenticated user
+* `neo4j.exceptions.TransientError` - The database cannot service the request right now, retrying later might yield a successful outcome
+
+** `neo4j.exceptions.ForbiddenOnReadOnlyDatabase` - The write cypher you are requesting cannot be run on a readonly database
+** `neo4j.exceptions.NotALeader` - The write query cannot be executed on the current server because it is not the leader of the cluster
+
+You can catch the specific exception above within a try/catch block, or catch all `Neo4jErrors` instances:
+
+[source,python]
+----
+# Import the Exception classes from neo4j.exceptions
+from neo4j.exceptions import Neo4jError, ConstraintError
+
+# Attempt a query
+try:
+    tx.run(cypher, params)
+except ConstraintError as err:
+    print("Handle constaint violation")
+    print(err.code) # <1>
+    print(err.message) # <2>
+except Neo4jError as err:
+    print("Handle generic Neo4j Error")
+    print(err.code) # <1>
+    print(err.message) # <2>
+----
+
+Exceptions contain `code` (1) and `message` (2) properties to help you further diagnose the problem.
+
+
 
 == Error Codes
 
-The `Neo4jError` also includes a `code` property, which provides higher-level information about the query.
+
+The `Neo4jError` includes a `code` property, which provides higher-level information about the query.
 
 Each status code follows the same format, and includes four parts:
 
@@ -29,224 +72,7 @@ Neo.[Classification].[Category].[Title]
 4. The Title provides specific information about the error that has occurred.
 
 
-// === Classification
-
-// There are four classifications of error:
-
-// [cols="1,3,1"]
-// |====
-// | Classification | Description | Effect on transaction
-
-// | ClientError
-// | The Client sent a bad request - changing the request might yield a successful outcome.
-// | Rollback
-
-// | ClientNotification
-// | There are notifications about the request sent by the client.
-// | None
-
-// | TransientError
-// | The database cannot service the request right now, retrying later might yield a successful outcome.
-// | Rollback
-
-// | DatabaseError
-// | The database failed to service the request.
-// | Rollback
-// |====
-
-
-=== Example Error Codes
-
-Here are some common error codes that you may experience:
-
-* `Neo.ClientError.Procedure.ProcedureCallFailed` - Failed to invoke a procedure. See the detailed error description for exact cause.
-* `Neo.ClientError.Schema.ConstraintViolation` - Added or changed index entry would violate constraint.
-* `Neo.ClientError.Security.Forbidden` - An attempt was made to perform an unauthorized action.
-* `Neo.ClientError.Security.Unauthorized` - The client is unauthorized due to authentication failure.
-* `Neo.ClientError.Statement.ParameterMissing` - The statement refers to a parameter that was not provided in the request.
-* `Neo.ClientError.Statement.SyntaxError` - The statement contains invalid or unsupported syntax.
-* `Neo.TransientError.General.TransactionMemoryLimit` - There is not enough memory to perform the current task.
-
-
 For a comprehensive list of status codes, see link:https://neo4j.com/docs/status-codes/current/[Status Codes in the Neo4j Documentation^].
-
-
-== Catching Errors
-
-Below are examples of how to catch an error thrown by the Driver using both `async`/`await` and the `Promise` API.
-
-[.tab]
-.Using async/await
-====
-When using `async`/`await`, you will need to use `try` and `catch` blocks to catch any errors.
-
-.Async Example
-[source,python,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/catch-errors.py[tag=catch]
-----
-
-====
-
-[.tab]
-.Using Promises
-====
-When using `Promises`, you will need to add a `catch()` function to catch any errors.
-
-.Using Promises
-[source,python,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/catch-errors.py[tag=promise]
-----
-
-====
-
-
-
-
-// == Query Errors
-
-// First, let's take a look at how we can catch an error thrown while running a query.
-// If you prefer, you can skip to <<Catching Errors>>.
-
-
-// When an error is thrown,
-
-
-// [source,rel=nocopy]
-// Node(33880) already exists with label `User` and property
-//  `email` = 'uniqueconstraint@example.com'
-
-// === Catching the Error
-
-// We can wrap the entire method in a try/catch block and then use the error message to detect the error.
-
-// When a Neo4j Error is thrown, we can check the `code` property for a Neo4j specific code.
-// In this case, we're looking for a code of `Neo.ClientError.Schema.ConstraintValidationFailed`.
-// If the error is different, we should re-throw it so it can be handled by the application.
-
-
-
-
-// == Catching Errors
-
-// In order to correctly
-
-
-// === Create a Unique Constraint
-
-// In order to ensure that a property and label combination is unique, we will need to run a `CREATE CONSTRAINT` query.
-// In this case, we would need to ensure that the `email` property is unique across all nodes with a `:User` label.
-
-// Click the **Run in Sandbox** button to create the constraint on your Sandbox.
-
-// [source,cypher]
-// ----
-// include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.cypher[]
-// ----
-
-
-
-
-// == Add a Try/Catch Block
-
-
-// == Modify the Register Method
-
-
-
-
-
-// This will seriously affect Neoflix's Daily Active Users numbers.
-
-// As the `register` method is an `async` function, we will need to use a `try`/`catch` block to catch any errors as they are thrown.
-
-
-
-// === Unique User Email Addresses
-
-
-
-
-
-// As all of the methods in the `AuthService` are `async` functions, we can use
-
-// We can pass the responsibility of handling the duplicate user error to the database by creating a Unique Constraint on the `:User` label, asserting that the `email` property must be unique.
-
-// This also gives us the added benefit of an indexed property that we can look up User nodes by email without a costly `NodeByLabelScan`.
-
-
-// == Catching Errors
-
-// === Create a Unique Constraint
-
-// === Modify the Register Method
-
-// Currently, if the email address passed to the method isn't `graphacademy@neo4j.com`, a `ValidationError` is thrown.
-
-// .src/services/auth.service.js
-// [source,python,indent=0]
-// ----
-// include::{repository-raw}/main/src/services/auth.service.py[tag=constraintError]
-// ----
-
-// == --
-
-
-// To create a Unique Constraint against a label, we can a one-time query against the database.
-// If you want to learn more about indexes and constraints
-
-
-
-
-
-// If we now run the following query in the Sandbox, a node should be created without any problems.
-
-// [source,cypher]
-// ----
-// include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/create-user.cypher[]
-// ----
-
-// Running the query a second time should return the following error:
-
-// [source,rel=nocopy]
-// Node(33880) already exists with label `User` and property
-//  `email` = 'uniqueconstraint@example.com'
-
-// === Catching the Error
-
-// We can wrap the entire method in a try/catch block and then use the error message to detect the error.
-
-// When a Neo4j Error is thrown, we can check the `code` property for a Neo4j specific code.
-// In this case, we're looking for a code of `Neo.ClientError.Schema.ConstraintValidationFailed`.
-// If the error is different, we should re-throw it so it can be handled by the application.
-
-// .Catching the error
-// [source,python,indent=0]
-// ----
-// include::{repository-raw}/{branch}/src/services/auth.service.py[tag="catch"]
-// ----
-
-// [TIP]
-// . ...and finally
-// You may also have noticed that the `session.close` call has been moved to the `finally` block.
-// This is to ensure that is is always closed regardless of whether the query was successful or an error was thrown.
-
-
-// == Working Solution
-
-// .Click here to reveal the updated `register` method.
-// [%collapsible]
-// ====
-// [source,python,indent=0]
-// ----
-// include::{repository-raw}/{branch}/src/services/auth.service.py[tag="register"]
-// ----
-// ====
-
-// // Testing
-
-// include::../../../../includes/test.adoc[]
 
 
 == Check Your Understanding
