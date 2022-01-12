@@ -17,7 +17,7 @@ const main = async () => {
     await initNeo4j(NEO4J_HOST!, NEO4J_USERNAME!, NEO4J_PASSWORD!)
 
     const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
-    const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 100
+    const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
 
     // Get enrolments that haven't been updated in the last X days
     // (but hasn't had another reminder email in the last three days)
