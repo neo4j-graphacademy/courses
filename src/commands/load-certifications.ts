@@ -13,7 +13,6 @@ const {
     COMMUNITY_GRAPH_PASSWORD,
 } = process.env
 
-
 const getLastCertification = async (session: Session) : Promise<string> => {
     const res = await session.readTransaction((tx: Transaction) => tx.run(`MATCH (c:FromCommunityGraph) RETURN max(c.completedAt) AS date`))
     const [ first ] = res.records
@@ -70,7 +69,6 @@ const main = async () => {
         u.auth0_key AS sub,
         CASE c.name WHEN 'neo4j-gds-test' THEN 'gds-certification' ELSE 'neo4j-certification' END AS slug,
         c {
-            id: 'community-'+ c.testId,
             .percent,
             .certificatePath,
             completedAt: datetime({epochSeconds: c.finished})
@@ -84,14 +82,16 @@ const main = async () => {
         MATCH (c:Course {slug: row.slug})
 
         MERGE (u:User {sub: row.sub})
-        ON CREATE SET u.id = randomUuid()
+        ON CREATE SET u.id = randomUuid(),
+            u.createdAt = datetime()
 
-        MERGE (e:Enrolment {id: apoc.text.base64Encode(row.slug +'--'+ u.sub)})
+        MERGE (e:Enrolment {id: apoc.text.base64Encode(row.slug +'--'+ row.sub)})
+        ON CREATE SET e.createdAt = datetime()
         SET e:CompletedEnrolment, e:FromCommunityGraph,
-            e.createdAt = datetime(),
             e += row.certification
 
         MERGE (u)-[:HAS_ENROLMENT]->(e)
+        MERGE (e)-[:FOR_COURSE]->(c)
     `, { rows }))
 
     // tslint:disable-next-line
