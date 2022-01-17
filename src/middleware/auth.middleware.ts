@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { Request, Response, Express, NextFunction } from 'express';
-import { auth } from 'express-openid-connect'
+import { auth, OpenidRequest, OpenidResponse, Session } from 'express-openid-connect'
+import jwt, { JwtPayload } from 'jsonwebtoken'
+import { UserLogin } from '../domain/events/UserLogin';
 import { User } from '../domain/model/user';
+import { emitter } from '../events';
 import { read } from '../modules/neo4j';
 import { formatUser } from '../utils';
 
@@ -15,6 +18,16 @@ const config = {
     routes: {
         login: false as false,
     },
+    // Send event to segment
+    afterCallback: async (req: OpenidRequest, res: OpenidResponse, session: Session, decodedState: { [key: string]: any }) => {
+        const decoded: JwtPayload = jwt.decode(session.id_token) as JwtPayload
+
+        if (decoded && decoded.sub) {
+            emitter.emit(new UserLogin(decoded))
+        }
+
+        return session
+    }
 }
 
 export async function getToken(req: any): Promise<string> {
@@ -22,8 +35,8 @@ export async function getToken(req: any): Promise<string> {
 }
 
 export async function getUser(req: any): Promise<User | undefined> {
-    if ( !req.oidc.user ) return undefined;
-    if ( req.dbUser ) return req.dbUser;
+    if (!req.oidc.user) return undefined;
+    if (req.dbUser) return req.dbUser;
 
     const res = await read(`MATCH (u:User {sub: $sub}) RETURN u`, { sub: req.oidc.user.sub })
 

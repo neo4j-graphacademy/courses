@@ -132,7 +132,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
     // Emit if user has completed the lesson
     if ( lessonWithProgress.completed ) {
-        emitter.emit(new UserCompletedLesson(user, lessonWithProgress))
+        emitter.emit(new UserCompletedLesson(user, courseWithProgress, moduleWithProgress, lessonWithProgress))
 
         // Emit if user has completed the module
         if ( moduleWithProgress.completed ) {

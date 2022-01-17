@@ -1,6 +1,15 @@
 import { User } from "../model/user";
 
-type UiEventType = string
+
+export const UI_EVENT_SANDBOX_TOGGLE = 'sandbox-toggle'
+export const UI_EVENT_SUPPORT_TOGGLE = 'support-toggle'
+
+export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE | typeof UI_EVENT_SUPPORT_TOGGLE
+
+export const UI_EVENTS: UiEventType[] = [
+    UI_EVENT_SANDBOX_TOGGLE,
+    UI_EVENT_SUPPORT_TOGGLE,
+]
 
 export class UserUiEvent {
     constructor(

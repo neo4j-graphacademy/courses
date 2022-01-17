@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { determineQueryType, QUERY_TYPE_READ, UserExecutedQuery } from '../domain/events/UserExecutedQuery'
-import { UserUiEvent } from '../domain/events/UserUiEvent'
+import { UiEventType, UI_EVENTS, UserUiEvent } from '../domain/events/UserUiEvent'
 import { CourseWithProgress } from '../domain/model/course'
 import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { updateUser } from '../domain/services/update-user'
+import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
@@ -224,15 +225,21 @@ router.get('/courses/:status', requiresAuth(), courseHandler)
 
 
 /**
- * @POST /account/event
+ * @POST /account/event/:type
  *
  * Handle a new event posted from the UI
  *
  */
-router.post('/event', requiresAuth(), async (req, res, next) => {
+router.post('/event/:type', requiresAuth(), async (req, res, next) => {
+    const type: UiEventType = req.params.type as UiEventType
+
+    if ( !UI_EVENTS.includes(type) ) {
+        next( new NotFoundError('unknown event') )
+    }
+
     try {
         const user = await getUser(req)
-        const { type, meta } = req.body
+        const meta = req.body
 
         emitter.emit(
             new UserUiEvent(
@@ -255,22 +262,23 @@ router.post('/event', requiresAuth(), async (req, res, next) => {
  * Log a query executed
  *
  */
-router.post('/query', requiresAuth(), async (req, res, next) => {
+router.post('/cypher', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
-        const { cypher, params, database, valid, meta } = req.body
+        const { cypher, source, numberOfStatements } = req.body
 
-        const type = determineQueryType(cypher, database)
+        console.log(req.body);
+
+
+        const type = determineQueryType(cypher)
 
         emitter.emit(
             new UserExecutedQuery(
                 user!,
                 type,
                 cypher,
-                params,
-                database,
-                valid,
-                meta
+                source,
+                numberOfStatements
             )
         )
 

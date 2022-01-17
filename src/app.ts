@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import express, { RequestHandler } from 'express'
 import applyAuth from './middleware/auth.middleware'
 import { registerLocals } from './middleware/locals.middleware'
@@ -11,14 +12,15 @@ import accountRoutes from './routes/account.routes'
 import certificateRoutes from './routes/certificate.routes'
 import testRoutes from './routes/testing.routes'
 import pageRoutes from './routes/asciidoc.routes'
+import browserRoutes from './routes/browser.routes'
 
 import { applyErrorhandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
-// import { initAnalytics } from './modules/analytics'
-// import { trackPageview } from './middleware/track-pageview.middleware'
+import { initAnalytics } from './modules/analytics'
+
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -55,7 +57,7 @@ export default function initApp(driver: Driver) {
     useRequestHandler(app)
 
     // Track PageViews
-    // initAnalytics()
+    initAnalytics()
     // app.use(trackPageview)
 
     // Routes
@@ -65,7 +67,7 @@ export default function initApp(driver: Driver) {
     app.use('/courses', courseRoutes)
     app.use('/u', publicProfileRoutes)
     app.use('/certificates', certificateRoutes)
-    app.use('/browser', express.static( path.join(__dirname, '..', 'browser', 'dist') ))
+    app.use('/browser', browserRoutes)
     app.use('/', pageRoutes)
 
     if ( process.env.NODE_ENV === 'dev' ) {

@@ -26,6 +26,8 @@ import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals.middleware'
 import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox'
 import { requiresVerification } from '../middleware/verification.middleware'
+import { emitter } from '../events'
+import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 
 const router = Router()
 
@@ -75,6 +77,11 @@ router.get('/:course', async (req, res, next) => {
 
         if (course.redirect) {
             return res.redirect(course.redirect)
+        }
+
+        // Emit user viewed course
+        if ( user ) {
+            emitter.emit(new UserViewedCourse(user, course))
         }
 
         const doc = await convertCourseOverview(course.slug)
@@ -362,6 +369,8 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
 
         // Pre-fill credentials and redirect to browser
         res.render('browser', {
+            course,
+            referrer: req.originalUrl,
             classes: `course ${req.params.course}`,
             layout: 'empty',
             scheme: sandbox!.scheme,

@@ -1,8 +1,11 @@
+import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
+import { UserUnenrolled } from "../events/UserUnenrolled";
+import { Course } from "../model/course";
 import { User } from "../model/user";
 
 export async function unenrolFromCourse(course: string, user: User, token: string): Promise<void> {
-    await write(`
+    const res = await write(`
         MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $course})
 
         FOREACH ( a IN [ (e)-[:HAS_ATTEMPT]->(a) | a ] |
@@ -14,9 +17,19 @@ export async function unenrolFromCourse(course: string, user: User, token: strin
 
         DETACH DELETE e
 
-        RETURN distinct true
+        RETURN c {
+            .*,
+            categories: [ (c)-[:IN_CATEGORY]->(x) | x { .slug, .title } ]
+        } AS course
     `, {
         sub: user.sub,
         course,
     })
+
+    const [ first ] = res.records
+
+    if ( first ) {
+        const courseInfo: Course = first.get('course')
+        emitter.emit( new UserUnenrolled(user, courseInfo) )
+    }
 }

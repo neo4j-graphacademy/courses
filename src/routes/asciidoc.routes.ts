@@ -4,10 +4,7 @@ import { loadFile } from "../modules/asciidoc";
 const router = Router()
 
 router.get('/movies', (req, res, next) => {
-
-
     const file = loadFile('pages/movies.adoc')
-
 
     res.render('simple', {
         hero: {

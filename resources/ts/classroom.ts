@@ -1,4 +1,16 @@
+import axios from "axios"
 import { createElement } from "./modules/dom"
+
+function logToggle(type, visible) {
+    axios.post(`/account/event/${type}`, {
+        // @ts-ignore
+        courseName: window.course.title,
+        // @ts-ignore
+        courseSlug: window.course.slug,
+        pageName: document.title,
+        visible,
+    })
+}
 
 function toggleSandbox() {
     const SELECTOR = 'classroom-sandbox'
@@ -11,6 +23,8 @@ function toggleSandbox() {
                 e.preventDefault()
                 const parent = document.querySelector(`.${SELECTOR}`)!
                 parent.classList.toggle(VISIBLE)
+
+                logToggle('toggle-sandbox', parent.classList.contains(VISIBLE))
             })
         })
 }
@@ -26,7 +40,10 @@ function toggleSupport() {
                 e.preventDefault()
                 const parent = document.querySelector(`.${SELECTOR}`)!
                 parent.classList.toggle(VISIBLE)
+
+                logToggle('toggle-sandbox', parent.classList.contains(VISIBLE))
             })
+
         })
 
     document.querySelectorAll('.classroom-panel-close')
@@ -35,6 +52,8 @@ function toggleSupport() {
                 e.preventDefault()
 
                 element.parentElement?.parentElement?.classList.remove(VISIBLE)
+
+                logToggle('toggle-sandbox', false)
             })
         })
 }
