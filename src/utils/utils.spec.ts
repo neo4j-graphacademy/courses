@@ -1,4 +1,4 @@
-import { mergeDeep } from "."
+import { mergeDeep, toCamelCase } from "."
 
 /* global describe, it */
 describe('utils', () => {
@@ -64,6 +64,27 @@ describe('utils', () => {
 
             expect(output).toEqual(expected)
         })
+    })
+
+    describe('toCamelCase', () => {
+        it('should convert a string to camel case', () => {
+            const input = 'this string'
+            const expected = 'thisString'
+
+            const output = toCamelCase(input)
+
+            expect(output).toEqual(expected)
+        })
+
+        it('should convert first character to lower case', () => {
+            const input = 'THIS.string-with-Punctuation!'
+            const expected = 'thisStringWithPunctuation'
+
+            const output = toCamelCase(input)
+
+            expect(output).toEqual(expected)
+        })
+
     })
 
 })

@@ -8,9 +8,8 @@ import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
-import asciidoctor, { Asciidoctor } from '@asciidoctor/core';
-
 interface CourseToImport extends Partial<Course> {
+    attributes: Record<string, any>;
     prerequisiteSlugs: string[];
     progressToSlugs: string[];
 }
@@ -52,6 +51,12 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         .map((e: string) => e?.trim() || '')
         .filter((e: string) => e !== '')
 
+    // Extract additional properties from course asciidoc attributes
+    // (ends with repository, eg :cypher-repository:)
+    const attributes = Object.fromEntries(
+        Object.entries(file.getAttributes())
+            .filter(([key]) => key.endsWith('repository'))
+    )
 
     // @ts-ignore
     return {
@@ -66,6 +71,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
+        attributes,
         prerequisiteSlugs,
         progressToSlugs,
         categories,
@@ -144,7 +150,6 @@ const generateQuestionId = (title: string): string => {
 
 const loadQuestion = (filepath: string): Question => {
     const file = loadFile(filepath, {parse_header_only: true})
-
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
     return {
@@ -177,7 +182,9 @@ export async function mergeCourses(): Promise<void> {
             c.repository = course.repository,
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
-            c.updatedAt = datetime()
+            c.updatedAt = datetime(),
+
+            c += course.attributes
 
         // Assign Categories
         FOREACH (r in [ (c)-[r:IN_CATEGORY]->() | r] | DELETE r)

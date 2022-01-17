@@ -48,6 +48,8 @@ export interface Course {
     verify: string | undefined;
     cypher: string | undefined;
     summary: boolean;
+    // Additional attributes extracted from Asciidoc
+    [key: string]: any;
 }
 
 export interface CourseWithProgress extends Course {

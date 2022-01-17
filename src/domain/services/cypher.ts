@@ -14,17 +14,8 @@ export function appendParams(params: Record<string, any>): ExtendedParams {
 export function courseCypher(enrolment?: string, user?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
     return `
         ${course} {
-            .slug,
-            .title,
-            .thumbnail,
-            .caption,
-            .status,
-            .usecase,
-            .redirect,
-            .link,
-            .duration,
-            .repository,
-            .video,
+            // .slug, .title, .thumbnail, .caption, .status, .usecase, .redirect, .link, .duration, .repository, .video,
+            .*,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description, link: '/categories/'+ category.slug +'/' }],
             ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
