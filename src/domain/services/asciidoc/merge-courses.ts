@@ -150,7 +150,6 @@ const generateQuestionId = (title: string): string => {
 
 const loadQuestion = (filepath: string): Question => {
     const file = loadFile(filepath, {parse_header_only: true})
-
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
     return {
