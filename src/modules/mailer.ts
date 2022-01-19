@@ -42,10 +42,10 @@ interface PreparedEmail {
     html: string;
 }
 
-export function prepareEmail(filename: AsciidocEmailFilename, data: Record<string, Record<string, any>>): PreparedEmail {
+export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlattened: Record<string, Record<string, any>>): PreparedEmail {
     const attributes = flattenAttributes({
         base: { url: process.env.BASE_URL },
-        ...data,
+        ...attributesToBeFlattened,
     })
 
     const adoc = loadFile(`emails/${filename}.adoc`, { attributes })

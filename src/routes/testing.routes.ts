@@ -11,6 +11,7 @@ import { emitter } from '../events'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
+import { flattenAttributes } from '../utils'
 
 const router = Router()
 
@@ -70,15 +71,13 @@ router.get('/email/:template', async (req, res) => {
     const course = result!.records[0].get('c').properties
     const sandbox = devSandbox()
 
-    const event = new UserEnrolled(user, course, sandbox)
-
-    const email = prepareEmail(req.params.template as AsciidocEmailFilename, { ...event })
+    const data = { user, course, sandbox }
+    const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
 
     res.send(email.html)
 
-    // const event = new UserEnrolled(user, course)
-
-    emitter.emit(event)
+    // const event = new UserEnrolled(user, course, sandbox)
+    // emitter.emit(event)
 })
 
 router.get('/style', (req, res) => {
