@@ -7,7 +7,7 @@ import {
     LESSON_TYPE_ACTIVITY,
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
-const { GOOGLE_ANALYTICS_MEASUREMENT_ID } = process.env
+const { GOOGLE_ANALYTICS_MEASUREMENT_ID, TWITTER_TAG_ID } = process.env
 import { getSvgs } from '../utils'
 
 
@@ -28,6 +28,10 @@ export function registerLocals(app: Express) {
         // GA
         res.locals.ga = {
             id: GOOGLE_ANALYTICS_MEASUREMENT_ID,
+        }
+
+        res.locals.twitter = {
+            tagId: TWITTER_TAG_ID,
         }
 
         res.locals.path = req.path
