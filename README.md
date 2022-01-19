@@ -251,8 +251,11 @@ verify::Check Database[]
 
 If there are no questions to the _Lesson_, you can add a `Mark As Read` button to the page.
 
-```
+<!-- ```
 input::read[type=button,class=btn,value=Mark as Read]
+``` -->
+```
+read::I have added my environment variables[]
 ```
 
 ## Including the Browser

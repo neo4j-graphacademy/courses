@@ -18,7 +18,9 @@ export async function saveLessonProgress(user: User, course: string, module: str
     const {
         lessonWithProgress,
         moduleWithProgress,
-        courseWithProgress
+        moduleCompletedInTransaction,
+        courseWithProgress,
+        courseCompletedInTransaction,
     } = await writeTransaction(async tx => {
         // Save Answers
         const lessonResult = await tx.run(`
@@ -80,9 +82,14 @@ export async function saveLessonProgress(user: User, course: string, module: str
             MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)-[:HAS_MODULE]->(m)
             WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module
 
-            WITH u, e, m, [ (m)-[:HAS_LESSON]->(l) | l ] AS lessons, [ (e)-[:COMPLETED_LESSON]->(l) WHERE not l.status IN $exclude | l ] AS completed
+            WITH u, e, m,
+                [ (m)-[:HAS_LESSON]->(l) WHERE NOT l:OptionalLesson | l ] AS lessons,
+                [ (e)-[:COMPLETED_LESSON]->(l)<-[:HAS_LESSON]-(m) WHERE NOT l:OptionalLesson AND NOT l.status IN $exclude | l ] AS completed
 
-            FOREACH (_ IN CASE WHEN all(l IN lessons WHERE l IN completed) THEN [1] ELSE [] END |
+            WITH u, e, m, lessons, completed,
+                size((e)-[:COMPLETED_MODULE]->(m)) = 0 AND all(x IN lessons WHERE x IN completed) AS shouldComplete
+
+            FOREACH (_ IN CASE WHEN shouldComplete THEN [1] ELSE [] END |
                 MERGE (e)-[r:COMPLETED_MODULE]->(m)
                 SET  r.createdAt = datetime()
             )
@@ -90,7 +97,8 @@ export async function saveLessonProgress(user: User, course: string, module: str
             RETURN m {
                 .*,
                 completed: exists((e)-[:COMPLETED_MODULE]->(m))
-            } AS module
+            } AS module,
+            shouldComplete
         `, appendParams({
             sub: user.sub,
             course,
@@ -98,27 +106,35 @@ export async function saveLessonProgress(user: User, course: string, module: str
         }))
 
         const moduleOutput: ModuleWithProgress = moduleResult.records[0].get('module')
+        const moduleShouldComplete: boolean = moduleResult.records[0].get('shouldComplete')
 
         // Get Enrolment Status
         const courseResult = await tx.run(`
             MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $course})
 
-            WITH u, e, c, size((e)-[:COMPLETED_MODULE]->()) AS completed, size((c)-[:HAS_MODULE]->()) AS total
+            WITH u, e, c,
+                size([ (e)-[:COMPLETED_LESSON]->(l) WHERE NOT l:OptionalLesson | l ]) AS completed,
+                size([ (c)-[:HAS_MODULE]->()-[:HAS_LESSON]->(l) WHERE NOT l:OptionalLesson | l ]) as total
 
-            FOREACH (_ IN CASE WHEN completed = total THEN [1] ELSE [] END |
+            WITH u, e, c, completed, total, NOT e:CompletedEnrolment AND completed = total AS shouldComplete
+
+            FOREACH (_ IN CASE WHEN shouldComplete THEN [1] ELSE [] END |
                 SET e:CompletedEnrolment,
                     e.completedAt = datetime()
             )
 
-            RETURN ${courseCypher('e', 'u')} AS course
+            RETURN ${courseCypher('e', 'u')} AS course, shouldComplete
         `, appendParams({ sub: user.sub, course }))
 
         const courseOutput: CourseWithProgress = await formatCourse<CourseWithProgress>(courseResult.records[0].get('course'))
+        const shouldComplete: boolean = courseResult.records[0].get('shouldComplete')
 
         return {
             lessonWithProgress: lessonOutput,
             moduleWithProgress: moduleOutput,
+            moduleCompletedInTransaction: moduleShouldComplete,
             courseWithProgress: courseOutput,
+            courseCompletedInTransaction: shouldComplete,
         }
     })
 
@@ -135,11 +151,11 @@ export async function saveLessonProgress(user: User, course: string, module: str
         emitter.emit(new UserCompletedLesson(user, courseWithProgress, moduleWithProgress, lessonWithProgress))
 
         // Emit if user has completed the module
-        if ( moduleWithProgress.completed ) {
+        if ( moduleCompletedInTransaction && moduleWithProgress.completed ) {
             emitter.emit(new UserCompletedModule(user, moduleWithProgress))
 
             // Emit if user has completed the course
-            if (courseWithProgress.completed) {
+            if (courseCompletedInTransaction && courseWithProgress.completed) {
                 emitter.emit(new UserCompletedCourse(user, courseWithProgress))
             }
         }
