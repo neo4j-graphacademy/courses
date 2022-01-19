@@ -19,7 +19,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
             categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description, link: '/categories/'+ category.slug +'/' }],
             ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
-            ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL THEN toString(toInteger((1.0 * size((${enrolment})-[:COMPLETED_LESSON]->()) / size((${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->()))*100)) ELSE 0 END ,` : ''}
+            ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL THEN toString(toInteger((1.0 * size([ (${enrolment})-[:COMPLETED_LESSON]->(x) WHERE not x:OptionalLesson | x ]) / size([ (${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->(x) WHERE not x:OptionalLesson | x ]))*100)) ELSE 0 END ,` : ''}
             ${enrolment !== undefined ? `sandbox: [ (${enrolment})-[:HAS_SANDBOX]->(sbx) WHERE sbx.expiresAt >= datetime() | sbx { .* } ][0],` : ''}
             ${user !== undefined ? `interested: exists((${course})<-[:INTERESTED_IN]-(${user})),` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |
@@ -54,6 +54,7 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
     return `
                         ${lesson} {
                             .*,
+                            optional: ${lesson}:OptionalLesson,
                             ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_LESSON]->(l)),` : ''}
                             .link,
                             next: [ (${lesson})-[:NEXT]->(next) |

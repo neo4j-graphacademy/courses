@@ -4,7 +4,7 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
+import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, } from '../../model/lesson';
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 
@@ -137,6 +137,7 @@ const loadLesson = (folder: string): Lesson => {
         order,
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
+        optional: file.getAttribute(ATTRIBUTE_OPTIONAL, false) === 'true',
         questions,
     } as Lesson
 }
@@ -264,6 +265,14 @@ export async function mergeCourses(): Promise<void> {
             l.updatedAt = datetime()
 
         REMOVE l:DeletedLesson
+
+        FOREACH (_ IN CASE WHEN lesson.optional THEN [1] ELSE [] END |
+            SET l:OptionalLesson
+        )
+
+        FOREACH (_ IN CASE WHEN lesson.optional = false THEN [1] ELSE [] END |
+            REMOVE l:OptionalLesson
+        )
 
         MERGE (m)-[:HAS_LESSON]->(l)
 

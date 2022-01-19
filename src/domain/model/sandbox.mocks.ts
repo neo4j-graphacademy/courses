@@ -17,10 +17,10 @@ export function devSandbox(): Sandbox {
         scheme: (SANDBOX_DEV_INSTANCE_SCHEME || 'neo4j') as Neo4jScheme,
         boltPort: SANDBOX_DEV_INSTANCE_PORT || '7687' as string,
         host: SANDBOX_DEV_INSTANCE_HOST || 'localhost' as string,
-        port: SANDBOX_DEV_INSTANCE_PORT || '7687' as string,
-        ip: SANDBOX_DEV_INSTANCE_HOST as string,
-        username: SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j' as string,
-        password: SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein' as string,
+        port: SANDBOX_DEV_INSTANCE_PORT || '7474' as string,
+        ip: SANDBOX_DEV_INSTANCE_HOST || '127.0.0.1' as string,
+        username: (SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j') as string,
+        password: (SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein') as string,
         usecase: 'movies',
         expires: 0
     }

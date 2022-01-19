@@ -640,7 +640,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         }
 
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed || course!.completed ? 'lesson--completed' : ''}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed || course!.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
             feedback: true,
             ...lesson,
             path: req.originalUrl,
