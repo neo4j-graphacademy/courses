@@ -1,11 +1,16 @@
 import { Router } from 'express'
-import { CourseWithProgress } from '../domain/model/course'
+import { BASE_URL } from '../constants'
+import { CourseWithProgress, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
+import { read } from '../modules/neo4j'
 
 const router = Router()
 
+/**
+ * Display homepage
+ */
 router.get('/',  async (req, res, next) => {
     try {
         const user = await getUser(req)
@@ -27,7 +32,6 @@ router.get('/',  async (req, res, next) => {
                 current = []
             }
         }
-
 
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
@@ -58,5 +62,29 @@ router.get('/',  async (req, res, next) => {
         next(e)
     }
 })
+
+
+/**
+ * Generate sitemap
+ */
+router.get('/sitemap.txt', async (req, res, next) => {
+    try {
+        const result = await read(`
+            MATCH (c:Course)
+            WHERE NOT c.status IN $negative
+            RETURN '/courses/'+ c.slug AS link
+            UNION ALL MATCH (c:Category) RETURN '/categories/'+ c.slug AS link
+        `, { negative: NEGATIVE_STATUSES })
+
+        const links = result.records.map(row => BASE_URL + row.get('link'))
+            .join('\n')
+
+        res.send(links)
+    }
+    catch(e) {
+        next(e)
+    }
+})
+
 
 export default router
