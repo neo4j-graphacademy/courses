@@ -125,7 +125,7 @@ function videoTabs() {
                 const id = link.getAttribute('href')!.replace('#', '')
 
                 // Remove active tab states
-                tabElements.forEach(element => element.classList.remove(TAB_SELECTED))
+                tabElements.forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
 
                 // Add active state to clicked tab
                 link.classList.add(TAB_SELECTED)

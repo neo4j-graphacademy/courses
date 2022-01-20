@@ -1,4 +1,4 @@
-export function createElement(element: string, classes: string, children?: Array<HTMLElement | Text | string>) {
+export function createElement(element: string, classes: string, children?: (HTMLElement | Text | string)[]) {
     const output = document.createElement(element)
     output.setAttribute('class', classes)
 

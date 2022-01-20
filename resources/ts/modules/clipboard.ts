@@ -50,12 +50,11 @@ function copyableCommand(input: string) {
     let result = input
 
     if (input.startsWith('$ ')) {
-        var lines = result.split('\n')
-        var currentCommand = ''
-        var commands: any[] = []
+        const lines = result.split('\n')
+        let currentCommand = ''
+        const commands: any[] = []
         let commandContinuationFound: any = false
-        for (let i = 0; i < lines.length; i++) {
-            var line = lines[i]
+        for (const line of lines ) {
             if (!commandContinuationFound && !line.startsWith('$ ')) {
                 // ignore, command output
             } else {

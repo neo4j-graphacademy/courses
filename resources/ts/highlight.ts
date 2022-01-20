@@ -13,9 +13,6 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import { definer as graphql } from 'highlightjs-graphql/graphql'
 import cypher from 'highlightjs-cypher/src/cypher'
 
-
-
-
 export default function highlight() {
   hljs.registerLanguage('sh', bash)
   hljs.registerLanguage('bash', bash)

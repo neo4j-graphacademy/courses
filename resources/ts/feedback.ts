@@ -9,8 +9,6 @@ const thankyou = (el: HTMLDivElement) => {
 }
 
 const sendFeedback = (helpful, reason: string | undefined = undefined, additional: string | undefined = undefined) => {
-    console.log(`${document.location.protocol}//${document.location.host}${document.location.pathname}feedback`);
-
     fetch(`${document.location.protocol}//${document.location.host}${document.location.pathname}feedback`, {
         method: 'post',
         body: JSON.stringify({ helpful, reason, additional }),

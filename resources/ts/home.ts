@@ -43,12 +43,12 @@ export default function home() {
             e.preventDefault()
 
             // Toggle link classes
-            document.querySelectorAll(`.${LINK_ACTIVE}`).forEach(e => e.classList.remove(LINK_ACTIVE))
+            document.querySelectorAll(`.${LINK_ACTIVE}`).forEach(element => element.classList.remove(LINK_ACTIVE))
             // @ts-ignore
             parent.classList.add(LINK_ACTIVE)
 
             // Toggle path classes
-            document.querySelectorAll(`.${PATH_ACTIVE}`).forEach(e => e.classList.remove(PATH_ACTIVE))
+            document.querySelectorAll(`.${PATH_ACTIVE}`).forEach(element => element.classList.remove(PATH_ACTIVE))
 
             // @ts-ignore
             document.getElementById(e.target.getAttribute('href').replace('#', '')).classList.add(PATH_ACTIVE)
@@ -59,8 +59,7 @@ export default function home() {
     document.querySelectorAll('.horizontal-controls')
         .forEach(element => {
             const target: HTMLDivElement = element.parentElement!.querySelector('.course-list') as HTMLDivElement
-            const firstCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
-
+            // const firstCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
 
             element.querySelector('.horizontal-control--right')!.addEventListener('click', e => {
                 e.preventDefault()

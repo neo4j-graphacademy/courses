@@ -1,4 +1,4 @@
-export function post(url: string, data: Record<string, any> = {}) {
+export function post(url: string, formData: Record<string, any> = {}) {
     return fetch(url, {
         method: 'POST',
         mode: 'cors',
@@ -7,7 +7,7 @@ export function post(url: string, data: Record<string, any> = {}) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formData),
     })
     .then(res => res.json())
     .then(data => ({ data }))

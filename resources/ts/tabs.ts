@@ -10,10 +10,10 @@ const ATTRIBUTE_TARGET = 'data-target'
 const ATTRIBUTE_TITLE = 'data-target'
 
 function setTabSelectedInTabSet(activeElement: HTMLAnchorElement) {
-    const tabs = activeElement.parentNode!
+    const tabElements = activeElement.parentNode!
 
     // Set all tabs to inactive
-    tabs.querySelectorAll(`.${TAB}`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
+    tabElements.querySelectorAll(`.${TAB}`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
 
     // Set this tab as active
     activeElement.classList.add(TAB_SELECTED)
@@ -82,21 +82,21 @@ function convertClassroomTabs() {
     }
 
     classroom.querySelectorAll('.tab')
-        .forEach((tab: Element) => {
+        .forEach((tabElement: Element) => {
             // Only get the first tab in a list of siblings
-            if ( tab.previousElementSibling && (tab.previousElementSibling as HTMLDivElement).classList.contains('tab') ) {
+            if ( tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab') ) {
                 return
             }
 
             // Add in placeholder
             const placeholder = createElement('div', 'tab-placeholder', [])
-            tab.parentElement!.insertBefore(placeholder, tab)
+            tabElement.parentElement!.insertBefore(placeholder, tabElement)
 
             // Get Tab Targets
-            const tabs: HTMLElement[] = []
-            const targets: HTMLElement[] = [tab as HTMLElement]
+            const theseTabs: HTMLElement[] = []
+            const targets: HTMLElement[] = [tabElement as HTMLElement]
 
-            let nextSibling = (tab as HTMLElement).nextElementSibling
+            let nextSibling = (tabElement as HTMLElement).nextElementSibling
 
             while ( nextSibling && (nextSibling as HTMLElement).classList.contains('tab') ) {
                 targets.push(nextSibling as HTMLElement)
@@ -129,14 +129,14 @@ function convertClassroomTabs() {
                     target.classList.add('tab-target--visible')
                 }
 
-                tabs.push(tab)
+                theseTabs.push(tab)
 
                 // Remove the target from the page
                 target.parentElement!.removeChild(target)
             })
 
             // Create a div containing the tabs
-            const tabElements = createElement('div', 'tabs', tabs)
+            const tabElements = createElement('div', 'tabs', theseTabs)
 
             // Add the tabs and all targets to a new container
             const tabContainer = createElement('div', 'tab-container', [

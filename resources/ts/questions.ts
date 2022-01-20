@@ -112,21 +112,20 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
     options.map(answer => {
         const input = createElement('input', '')
         input.setAttribute('id', `${id}--${answer.value}`)
-        input.setAttribute('name', <string>id)
+        input.setAttribute('name', id as string)
         input.setAttribute('value', answer.value)
         input.setAttribute('type', multiple ? 'checkbox' : 'radio')
 
         input.addEventListener('change', e => {
             const target: HTMLInputElement = e.target as HTMLInputElement;
-            const id = target.getAttribute('id')
 
             document.querySelectorAll(`input[name="${target.getAttribute('name')}"]`)
-                .forEach((element) => {
-                    const li: HTMLLIElement = element.parentNode!.parentNode as HTMLLIElement
+                .forEach((inputElement) => {
+                    const li: HTMLLIElement = inputElement.parentNode!.parentNode as HTMLLIElement
 
 
                     // @ts-ignore
-                    if (element.checked) {
+                    if (inputElement.checked) {
                         li.classList.add(OPTION_SELECTED)
                     }
                     else {
@@ -144,7 +143,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
             const cloned = answer.element.childNodes[0].cloneNode(true)
 
             // TODO: Hacky
-            if (cloned.nodeType != cloned.TEXT_NODE) {
+            if (cloned.nodeType !== cloned.TEXT_NODE) {
                 // @ts-ignore
                 cloned.innerHTML = cloned.innerHTML.replace(CORRECT_INDICATOR, '').replace(INCORRECT_INDICATOR, '')
             }
@@ -196,15 +195,16 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
     select.insertBefore(blank, select.children[0])
 
     select.setAttribute('id', id)
-    select.setAttribute('name', <string>id)
+    select.setAttribute('name', id as string)
 
     // Place <select> in the source block
     Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
         .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX))
         .forEach(el => {
-            const parent = el.parentElement!
-            parent.insertBefore(select, el)
-            parent.removeChild(el)
+            const parentElement = el.parentElement!
+
+            parentElement.insertBefore(select, el)
+            parentElement.removeChild(el)
         })
 
     return {
@@ -232,15 +232,16 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
 
 
     input.setAttribute('id', id)
-    input.setAttribute('name', <string>id)
+    input.setAttribute('name', id as string)
 
     // Place <select> in the source block
     Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
         .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
         .forEach(el => {
-            const parent = el.parentElement!
-            parent.insertBefore(input, el)
-            parent.removeChild(el)
+            const commentParent = el.parentElement!
+
+            commentParent.insertBefore(input, el)
+            commentParent.removeChild(el)
         })
 
     return {
@@ -292,15 +293,15 @@ const removeFailedMessages = (parent) => {
         .forEach(el => el.parentElement!.removeChild(el))
 }
 
-const handleResponse = (parent, button, res, questions: Question[], answers: Answer[], showHint = false) => {
+const handleResponse = (parent, button, res, questionsOnPage: Question[], answers: Answer[], showHint = false) => {
     // Removed failed messages
     removeFailedMessages(parent)
 
     // Apply answers
-    questions.map(question => {
-        const answer = answers.find(answer => answer!.id === question!.id)
+    questionsOnPage.map(question => {
+        const response = answers.find(answer => answer!.id === question!.id)
 
-        if (answer === undefined || answer!.correct === false) {
+        if (response === undefined || response!.correct === false) {
             // Set class on question
             question.element.classList.add(QUESTION_INCORRECT)
             question.element.classList.remove(QUESTION_CORRECT)
@@ -315,13 +316,12 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
             // Set class on question
             question.element.classList.add(QUESTION_CORRECT)
             question.element.classList.remove(QUESTION_INCORRECT)
-
         }
 
         // Set option classes
         // @ts-ignore
         question.options.map(option => {
-            const selected = answer?.answers.includes(option.value)
+            const selected = response?.answers.includes(option.value)
             const correct = option.correct
 
             if (selected && correct) {
@@ -349,7 +349,7 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
         document.querySelector('.toc-module-lesson--current')?.classList.add('toc-module-lesson--completed')
 
         // @ts-ignore
-        for (let element of document.querySelectorAll('.summary')) {
+        for (const element of document.querySelectorAll('.summary')) {
             element.classList.add('summary--visible')
         }
 
@@ -394,35 +394,6 @@ const handleResponse = (parent, button, res, questions: Question[], answers: Ans
         document.querySelector(`.${QUESTION_INCORRECT}`)?.scrollIntoView()
     }
 }
-
-
-
-/**
-.module-outcome
-    .module-outcome-container
-      h2.module-outcome-title Congratulations!
-
-      .module-outcome-message
-        p You have passed this lesson.  You are now ready to advance to !{' '}
-          a(href='#') the next lesson
-          | .
-
-      .section.summary
-        h2#_summary Summary
-        p
-          | In this challenge, you demonstrated your skills in identifying an additional label for the graph data model.
-        p The new data model is now:
-        .imageblock.text-center
-          .content
-            img(src='images/after-challenge1-data-model.png' alt='Model thus far' width='400')
-        p
-          | In the next challenge, you will demonstrate that you can create a node with the new label and properties in the graph.
-
-
-      .module-outcome-links
-        a(href='#') Advance to Next Lesson &rarr;
-
- */
 
 const buildModuleOutcome = (title: string, buttons: HTMLElement[]): HTMLElement => {
     const summary = document.querySelector('.summary') as (HTMLElement | undefined)
@@ -536,26 +507,6 @@ const displayCourseCompleted = (res) => {
     if ( content ) {
         content.appendChild(confirmation)
     }
-
-    // Course completed
-    // const link = createElement('a', 'lesson-outcome-progress', [
-    //     'View Course Summary'
-    // ])
-    // link.setAttribute('href', `${res.data.link}summary/`)
-
-    // const confirmation = createElement('div', `admonition admonition--important ${LESSON_OUTCOME_SELECTOR} ${LESSON_OUTCOME_PASSED}`, [
-    //     createElement('h3', 'admonition-title', ['Congratulations!']),
-    //     createElement('p', '', [
-    //         'You have completed this course! ',
-    //         link
-    //     ])
-    // ])
-
-    // const summary = document.querySelector('.summary')
-
-    // if (summary && summary.parentElement) {
-    //     summary.parentElement!.insertBefore(confirmation, summary)
-    // }
 }
 
 const handleError = (parent, button, error) => {
@@ -574,14 +525,14 @@ const handleError = (parent, button, error) => {
 
 const setupAnswers = () => {
     // @ts-ignore
-    for (let question of document.getElementsByClassName(QUESTION)) {
+    for (const question of document.getElementsByClassName(QUESTION)) {
         Array.from(question.querySelectorAll(`.${COMMENT_SELECTOR}`))
             // @ts-ignore
             .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
             // @ts-ignore
             .forEach((el: Element) => {
-                const question = el.parentElement!.parentElement!.parentElement!.parentElement!
-                const correct = Array.from(question.querySelectorAll('.checklist li'))
+                const questionElement = el.parentElement!.parentElement!.parentElement!.parentElement!
+                const correct = Array.from(questionElement.querySelectorAll('.checklist li'))
                     // @ts-ignore
                     .find(e => e.textContent.includes(CORRECT_INDICATOR))
 
@@ -590,10 +541,10 @@ const setupAnswers = () => {
             })
 
         // @ts-ignore
-        for (let ulist of question.getElementsByClassName('ulist')) {
+        for (const ulist of question.getElementsByClassName('ulist')) {
             ulist.classList.remove('ulist')
 
-            for (let li of ulist.getElementsByTagName('li')) {
+            for (const li of ulist.getElementsByTagName('li')) {
                 const correct = li.innerText.startsWith(CORRECT_INDICATOR)
 
                 // Mark as option
@@ -644,27 +595,27 @@ const setupQuestions = async () => {
     }
 
     // Find Questions on page
-    const questions: Question[] = await Promise.all(
+    const questionsOnPage: Question[] = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
     )
 
-    if (questions.length) {
+    if (questionsOnPage.length) {
         // Add Submit button
-        const parent = questions[0].parent;
-        const button = createSubmitButton(`Check Answer${questions.length > 1 ? 's' : ''}`)
+        const parent = questionsOnPage[0].parent;
+        const button = createSubmitButton(`Check Answer${questionsOnPage.length > 1 ? 's' : ''}`)
 
         parent.appendChild(button)
 
-        button.addEventListener('click', (e) => {
-            e.preventDefault()
+        button.addEventListener('click', (buttonClickEvent) => {
+            buttonClickEvent.preventDefault()
 
             // Gather answers
-            const answers: Answer[] = questions.map(question => {
+            const responses: Answer[] = questionsOnPage.map(question => {
                 let answers: string[] = [];
 
                 if (question.type === ANSWER_TYPE_FREETEXT) {
-                    answers = <string[]>Array.from(question.element.querySelectorAll('input'))
+                    answers = Array.from(question.element.querySelectorAll('input'))
                         .map(input => {
                             // Trim whitespace
                             let output = input.value.trim()
@@ -679,7 +630,7 @@ const setupQuestions = async () => {
                         .filter(value => value && value !== '')
                 }
                 else {
-                    answers = <string[]>Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
+                    answers = Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
                         .map(element => element.getAttribute('value'))
                         .filter(value => !!value)
                         .map(value => value!.trim())
@@ -708,9 +659,9 @@ const setupQuestions = async () => {
                 label.innerHTML = 'Checking&hellip;'
             }
 
-            post(document.location.pathname, answers)
-                .then(res => handleResponse(parent, button, res, questions, answers))
-                .catch(e => handleError(parent, button, e))
+            post(document.location.pathname, responses)
+                .then(res => handleResponse(parent, button, res, questionsOnPage, responses))
+                .catch(error => handleError(parent, button, error))
         })
     }
 }
@@ -774,7 +725,7 @@ const setupVerify = () => {
 
                 post(`${document.location.pathname}verify`)
                     .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
-                    .catch(e => handleError(button.parentElement!.parentElement!, button, e))
+                    .catch(error => handleError(button.parentElement!.parentElement!, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
                     })
@@ -796,12 +747,12 @@ const setupMarkAsReadButton = () => {
 
     Array.from(document.querySelectorAll('.btn-read'))
         .map((button: Element) => {
-            button.addEventListener('click', e => {
-                e.preventDefault()
+            button.addEventListener('click', readClickEvent => {
+                readClickEvent.preventDefault()
 
                 post(`${document.location.pathname}read`)
                     .then(res => handleResponse(button.parentElement, button, res, [], [], true))
-                    .catch(e => handleError(button.parentElement, button, e))
+                    .catch(error => handleError(button.parentElement, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
                     })
