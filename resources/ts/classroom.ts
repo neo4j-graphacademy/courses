@@ -1,8 +1,8 @@
-import axios from "axios"
 import { createElement } from "./modules/dom"
+import { post } from "./modules/http"
 
 function logToggle(type, visible) {
-    axios.post(`/account/event/${type}`, {
+    post(`/account/event/${type}`, {
         // @ts-ignore
         courseName: window.course.title,
         // @ts-ignore
@@ -24,7 +24,7 @@ function toggleSandbox() {
                 const parent = document.querySelector(`.${SELECTOR}`)!
                 parent.classList.toggle(VISIBLE)
 
-                logToggle('toggle-sandbox', parent.classList.contains(VISIBLE))
+                logToggle('sandbox-toggle', parent.classList.contains(VISIBLE))
             })
         })
 }
@@ -41,7 +41,7 @@ function toggleSupport() {
                 const parent = document.querySelector(`.${SELECTOR}`)!
                 parent.classList.toggle(VISIBLE)
 
-                logToggle('toggle-sandbox', parent.classList.contains(VISIBLE))
+                logToggle('support-toggle', parent.classList.contains(VISIBLE))
             })
 
         })
@@ -53,7 +53,7 @@ function toggleSupport() {
 
                 element.parentElement?.parentElement?.classList.remove(VISIBLE)
 
-                logToggle('toggle-sandbox', false)
+                logToggle('support-toggle', false)
             })
         })
 }

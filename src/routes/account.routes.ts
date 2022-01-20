@@ -233,6 +233,9 @@ router.get('/courses/:status', requiresAuth(), courseHandler)
 router.post('/event/:type', requiresAuth(), async (req, res, next) => {
     const type: UiEventType = req.params.type as UiEventType
 
+    console.log(type, UI_EVENTS);
+
+
     if ( !UI_EVENTS.includes(type) ) {
         next( new NotFoundError('unknown event') )
     }
@@ -266,9 +269,6 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
         const { cypher, source, numberOfStatements } = req.body
-
-        console.log(req.body);
-
 
         const type = determineQueryType(cypher)
 

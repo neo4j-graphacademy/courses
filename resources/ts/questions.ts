@@ -1,5 +1,5 @@
-import axios from 'axios'
 import { createElement } from './modules/dom'
+import { post } from './modules/http'
 
 interface Question {
     parent: Element;
@@ -708,7 +708,7 @@ const setupQuestions = async () => {
                 label.innerHTML = 'Checking&hellip;'
             }
 
-            axios.post(document.location.pathname, answers)
+            post(document.location.pathname, answers)
                 .then(res => handleResponse(parent, button, res, questions, answers))
                 .catch(e => handleError(parent, button, e))
         })
@@ -772,7 +772,7 @@ const setupVerify = () => {
 
                 setButtonLoadingState(button as HTMLButtonElement)
 
-                axios.post(`${document.location.pathname}verify`)
+                post(`${document.location.pathname}verify`)
                     .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
                     .catch(e => handleError(button.parentElement!.parentElement!, button, e))
                     .finally(() => {
@@ -799,7 +799,7 @@ const setupMarkAsReadButton = () => {
             button.addEventListener('click', e => {
                 e.preventDefault()
 
-                axios.post(`${document.location.pathname}read`)
+                post(`${document.location.pathname}read`)
                     .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(e => handleError(button.parentElement, button, e))
                     .finally(() => {
