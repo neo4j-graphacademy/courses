@@ -33,8 +33,18 @@ export async function resetDatabase(token: string, course: string, module: strin
 
             while (parts.length) {
                 const next = parts.pop()
+
                 if (next) {
-                    await tx.run(next)
+                    try {
+                        await tx.run(next)
+                    }
+                    catch (e: any) {
+                        notify(e, event => {
+                            event.addMetadata('query', {
+                                query: next,
+                            })
+                        })
+                    }
                 }
             }
         })
