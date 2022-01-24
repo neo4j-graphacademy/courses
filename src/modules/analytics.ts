@@ -30,9 +30,13 @@ export function trackEvent(event: string, userId: string, properties: Record<str
     if  ( analytics ) {
         return analytics.track(
             { event, userId, properties },
-            err => notify(err, e => {
-                e.addMetadata('event', { event, properties })
-            }))
+            err => {
+                if ( err ) {
+                    notify(err, e => {
+                        e.addMetadata('event', { event, properties })
+                    })
+                }
+            })
     }
 }
 
