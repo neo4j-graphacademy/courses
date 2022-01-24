@@ -28,7 +28,16 @@ export async function resetDatabase(token: string, course: string, module: strin
     const session = driver.session()
 
     try {
-        await session.writeTransaction((tx: Transaction) => tx.run(cypher))
+        await session.writeTransaction(async (tx: Transaction) => {
+            const parts = cypher.split(';')
+
+            while (parts.length) {
+                const next = parts.pop()
+                if (next) {
+                    await tx.run(next)
+                }
+            }
+        })
     }
     catch(e: any) {
         notify(e, event => {
