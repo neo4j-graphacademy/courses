@@ -24,6 +24,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
 
     emitter.on<UserViewedCourse>(UserViewedCourse, event => {
         trackEvent(ANALYTICS_EVENT_COURSE_VIEW, event.user.sub, {
+            courseSlug: event.course.slug,
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
@@ -32,6 +33,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
 
     emitter.on<UserEnrolled>(UserEnrolled, event => {
         trackEvent(ANALYTICS_EVENT_COURSE_ENROLL, event.user.sub, {
+            courseSlug: event.course.slug,
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
@@ -40,6 +42,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
 
     emitter.on<UserUnenrolled>(UserUnenrolled, event => {
         trackEvent(ANALYTICS_EVENT_COURSE_UNENROLL, event.user.sub, {
+            courseSlug: event.course.slug,
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
@@ -48,6 +51,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
 
     emitter.on<UserCompletedLesson>(UserCompletedLesson, event => {
             trackEvent(ANALYTICS_EVENT_LESSON_COMPLETION, event.user.sub, {
+                courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
                 moduleName: event.module.title,
@@ -58,6 +62,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
 
     emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
         trackEvent(ANALYTICS_EVENT_COURSE_COMPLETION, event.user.sub, {
+            courseSlug: event.course.slug,
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
