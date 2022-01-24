@@ -4,9 +4,7 @@ import { post } from "./modules/http"
 function logToggle(type, visible) {
     post(`/account/event/${type}`, {
         // @ts-ignore
-        courseName: window.course.title,
-        // @ts-ignore
-        courseSlug: window.course.slug,
+        courseName: window.course.title, courseSlug: window.course.slug,
         pageName: document.title,
         visible,
     })
