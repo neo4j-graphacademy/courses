@@ -9,14 +9,14 @@ export async function resetDatabase(token: string, course: string, module: strin
     // Check that a reset.cypher file exists
     const cypher = await getLessonCypherFile(course, module, lesson, 'reset')
 
-    if ( !cypher ) {
+    if (!cypher) {
         return false
     }
 
     // Check that a sandbox exists
     const sandbox = await getSandboxForUseCase(token, usecase)
 
-    if ( !sandbox ) {
+    if (!sandbox) {
         return false
     }
 
@@ -27,44 +27,32 @@ export async function resetDatabase(token: string, course: string, module: strin
 
     const session = driver.session()
 
-    try {
-        await session.writeTransaction(async (tx: Transaction) => {
-            const parts = cypher.split(';')
+    const parts = cypher.split(';')
+        .filter(e => e !== '')
 
-            while (parts.length) {
-                const next = parts.pop()
+    for (const part of parts) {
+        try {
+            await session.writeTransaction(async (tx: Transaction) => tx.run(part))
+        }
+        catch (e: any) {
+            notify(e, event => {
+                event.addMetadata('course', {
+                    course,
+                    module,
+                    lesson,
+                    usecase,
+                })
 
-                if (next) {
-                    try {
-                        await tx.run(next)
-                    }
-                    catch (e: any) {
-                        notify(e, event => {
-                            event.addMetadata('query', {
-                                query: next,
-                            })
-                        })
-                    }
-                }
-            }
-        })
-    }
-    catch(e: any) {
-        notify(e, event => {
-            event.addMetadata('course', {
-                course,
-                module,
-                lesson,
-                usecase,
+                event.addMetadata('query', {
+                    // @ts-ignore
+                    // tslint:disable-next-line no-string-literal
+                    instance: _driver['_address'],
+                    query: cypher,
+                })
             })
 
-            event.addMetadata('query', {
-                // @ts-ignore
-                // tslint:disable-next-line no-string-literal
-                instance: _driver['_address'],
-                query: cypher,
-            })
-        })
+
+        }
     }
 
     await session.close()
