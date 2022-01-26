@@ -1,7 +1,8 @@
 = My Favorites List
 :type: challenge
-:branch: 07-favorites-list
-:test-number: 07
+// :branch: 07-favorites-list
+:branch: main
+:test-filename: 07_favorites_list__test
 
 This challenge has three parts:
 
@@ -15,20 +16,19 @@ image::images/movie-cards.png[Add a Movie to your Favorites, role=right]
 
 Clicking the link:http://localhost:5000/favorites[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can revisit later.
 
-When a logged in user hovers their mouse over a Movie on the website, a bookmark icon appears in the top right hand corner.
+When a logged in user hovers their mouse cursor over a Movie on the website, a bookmark icon appears in the top right hand corner.
 Clicking this icon will either add or remove the Movie from the user's Favorites list.
 
 When adding a Movie to the list, a  `POST` request it sent to the `/api/favorites/{id}` endpoint.  When this happens, the following chain of events will occur:
 
 1. The server directs the request to the route handler in link:{repository-blob}/main/api/routes/account.py[`api/routes/account.py`^], which verifies the user's JWT token before handling the request
-2. The route handler creates an instance of the link:{repository-blob}/main/src/services/favorites.service.py[`FavoriteService`^].
-3. The `add()` method is then called on the `FavoriteService` instance with the ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
-4. It is then the responsibility of the `FavoriteService` to persist this information and format a response.
+2. The route handler creates an instance of the link:{repository-blob}/main/api/dao/favorites.py[`FavoriteDAO`^].
+3. The `add()` method is then called on the `FavoriteDAO` instance with the user's ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
+4. It is then the responsibility of the `FavoriteDAO` to find the `:User` and `:Movie` nodes and create the `:HAS_FAVORITE` relationship between them.
 
 Likewise, when it is clicked for a Movie that has already been favorited, a `DELETE` request is sent to the same URL, and the Movie is removed from the list.
 
-
-When adding a Movie to a User's Favorite list, a relationship is created between the `:User` and `:Movie` with the type `:HAS_FAVORITE`.
+// When adding a Movie to a User's Favorite list, a relationship is created between the `:User` and `:Movie` with the type `:HAS_FAVORITE`.
 
 
 == Adding a Movie to My Favorites
@@ -39,14 +39,15 @@ For the first part of this challenge, modify the `add()` method to open a new da
 
 Call the `session()` method on the Driver instance to open a new session:
 
+.Open a new session
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/example/index.py[tag=driver.session]
+include::{repository-raw}/main/api/dao/favorites.py[tag=session]
 ----
 
-=== 2. Create the Relationship
+=== 2. Define a new Transaction Function
 
-In a write transaction, run a Cypher query to create the `:HAS_RELATIONSHIP` relationship between the `User` and `Movie` nodes, with a `createdAt` property to represent when the relationship was created.
+Define a new transaction function to execute the Cypher query below to create the `:HAS_FAVORITE` relationship between the User and the Movie.
 
 [%collapsible]
 .Click here to reveal the Cypher query
@@ -57,40 +58,50 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/9-user-favorites/crea
 ----
 ====
 
+The function should expect a transaction object as the first parameter and also accept the `user_id` and `movie_id` as named parameters to the function.
 
+There should only be one result, so you can call the `single()` method to get the first result.
+
+
+.Run the Cypher Query
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag="create"]
+include::{repository-raw}/main/api/dao/favorites.py[tag=add_to_favorites_run]
 ----
 
-
-=== 3. Does the Movie exist?
 
 If no records are returned, you can safely assume that the either the User or Movie do not exist.
-In this case, throw a `NotFoundError` with an appropriate error message.
+In this case, raise a `NotFoundException` with an appropriate error message.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag="throw"]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag="throw"]
 ----
 
-=== 4. Close the Session
 
-Before the movie information information is returned, ensure that the session is closed.
+Otherwise, return the `movie` value from the first record of the result.
+
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/example/index.py[tag="session.close"]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag="return"]
 ----
 
-=== 5. return results
 
-Then, finally, use the `toNativeTypes()` function to return the `movie` value from the first record returned from the database.
+=== 3. Call the Transaction Function
+
+Call the new method in a new Write Transaction before returning the movie.
 
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag="return",indent=0]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag="call_add_to_favorites"]
 ----
+
+// Call the `session.read_transaction()` method to execute a new write transaction, this time passing a lambda function to represent the unit of work.
+// Pass the `user_id` and `movie_id` as named parameters to the function.
+
+
+
 
 === Working Solution
 
@@ -98,10 +109,10 @@ include::{repository-raw}/{branch}/src/services/favorite.service.py[tag="return"
 .Click here to reveal the completed `add()` method
 ====
 
-.src/services/favorite.service.js
+.api/dao/favorites.py
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag=add]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag=add]
 
 ----
 ====
@@ -131,10 +142,10 @@ If you get stuck, you can reveal the completed method below.
 .Click here to reveal the completed `remove()` method
 ====
 
-.src/services/favorite.service.js
-[source,python]
+.api/dao/favorites.py
+[source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag=remove]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag=remove]
 ----
 ====
 
@@ -142,14 +153,13 @@ include::{repository-raw}/{branch}/src/services/favorite.service.py[tag=remove]
 
 == Listing My Favorites
 
-Finally, the `all()` method in the `FavoriteService` currently returns a hardcoded list of Movies.
+Finally, the `all()` method in the `FavoriteDAO` currently returns a hardcoded list of Movies.
 
-.src/services/favorite.service.js
-[source,python]
+.api/dao/favorites.py
+[source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag=all]
+include::{repository-raw}/main/api/dao/favorites.py[tag=all]
 ----
-
 
 Update this method to return a paginated list of movies that the user has added to their My Favorites list.
 
@@ -163,20 +173,32 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/9-user-favorites/crea
 ----
 ====
 
-You have already written similar code a few times, so try to implement this one on your own.
-If you get stuck, you can view the full solution below.
+This time, as the query is simpler, you can use a lambda function to represent the transaction function.
 
-Remember to also import the `int()` function from `neo4j-driver`.
-This is required to convert the `skip` and `limit` values to Neo4j integers.
+[source,python,indent=0]
+----
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag=lambda]
+----
+
+[NOTE]
+.Escaped Braces
+====
+You may have noticed that the code block above features double curly braces (`{{` and `}}`) within the `MATCH` clause rather than the single braces used within the Cypher query.
+
+`MATCH (u:User {{userId: $userId}})`
+
+Braces need to be escaped within a Python string, and we do this by using double quotes.
+====
+
 
 [%collapsible]
 .Click here to reveal the completed `all()` method
 ====
 
-.src/services/favorite.service.js
+.api/dao/favorites.py
 [source,python,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.py[tag=all]
+include::{repository-raw}/{branch}/api/dao/favorites.py[tag=all]
 ----
 ====
 

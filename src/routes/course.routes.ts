@@ -458,7 +458,7 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, async (req, res,
         } = await getSandboxConfig(course)
 
         res.render('course/module', {
-            classes: `module ${req.params.course}-${req.params.module}  ${module!.completed || course!.completed ? 'lesson--completed' : ''}`,
+            classes: `module ${req.params.course}-${req.params.module}  ${course!.completed ? 'course--completed' : ''} ${module!.completed ? 'module--completed' : ''}`,
             feedback: true,
             ...module,
             type: 'module overview',
@@ -640,7 +640,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         }
 
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${lesson!.completed || course!.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson!.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
             feedback: true,
             ...lesson,
             path: req.originalUrl,
