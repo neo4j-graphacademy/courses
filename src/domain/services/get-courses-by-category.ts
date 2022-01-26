@@ -20,7 +20,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             .*,
             ${user !== undefined ? `
                 enrolled: e IS NOT NULL, completed: e:CompletedEnrolment, createdAt: e.createdAt, completedAt: e.completedAt,
-                completedPercentage: CASE WHEN e IS NOT NULL THEN toString(toInteger((1.0*size((e)-[:COMPLETED_LESSON]->()) / size((c)-[:HAS_MODULE]->()-[:HAS_LESSON]->())*100))) ELSE 0 END,
+                completedPercentage: CASE WHEN e IS NOT NULL AND size((c)-[:HAS_MODULE|HAS_LESSON*2]->()) > 0 THEN toString(toInteger((1.0*size((e)-[:COMPLETED_LESSON]->()) / size((c)-[:HAS_MODULE]->()-[:HAS_LESSON]->())*100))) ELSE 0 END,
             ` : ''}
             categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
             categories: [(c)-[r:IN_CATEGORY]->(ct) | ct {
