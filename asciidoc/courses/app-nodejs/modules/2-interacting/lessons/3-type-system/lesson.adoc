@@ -68,11 +68,20 @@ Some values like strings, floats, booleans, and nulls have a direct mapping to J
 
 | `Duration`
 | `Duration`
-|
+| See <<Temporal Types>>
 
+| `neo4j.spatial.Point`
 | `Point`
-| `Point`
-|
+| See <<Spatial Types>>
+
+| `neo4j.spatial.CartesianPoint`
+| `Point (Cartesian)`
+| See <<Spatial Types>>
+
+| `neo4j.spatial.WGS84Point`
+| `Point (WGS-84)`
+| See <<Spatial Types>>
+
 
 | `Node`
 | `Node`
@@ -115,54 +124,6 @@ include::{repository-raw}/main/example/results.js[tag=integers]
 
 We make use of these functions often throughout this course.
 
-
-== Temporal Types
-
-The Temporal types used in the Cypher type system mean that they are also handled differently.
-The driver exports helper functions to assist in checking the type.
-
-.Temporal Types
-[cols="1,3,1,1"]
-|===
-| Neo4j Cypher Type | Description | Example | Helper Function
-
-| `Date`
-| Represents an instant capturing the date, but not the time, nor the timezone.
-| `2020-01-02`
-| `isDate`
-
-| `DateTime`
-| Represents an instant capturing the date, the time and the timezone identifier.
-| `2020-01-02T01:02:03+04:00`
-| `isDateTime`
-
-
-| `LocalDateTime`
-| Represents an instant capturing the date and the time, but not the timezone.
-| `2020-01-02T01:02:03+04:00`
-| `isLocalDateTime`
-
-| `LocalTime`
-| Represents an instant capturing the time of day, but not the date, nor the timezone.
-| `12:34:56`
-| `isLocalDate`
-
-| `Time`
-| Represents an instant capturing the time of day, and the timezone offset in seconds, but not the date.
-| `12:34:56+04:00`
-| `isTime`
-
-|===
-
-
-Each of these types has a `toString()` method that can be used in conjunction with `Date.parse()` in JavaScript to convert the Cypher date into a native `Date` object.
-
-
-.Working with Temporal types
-[source,js,role=ncopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/example/results.js[tag=temporal]
-----
 
 
 == Nodes & Relationships
@@ -274,6 +235,114 @@ The `PathSegment` object has three properties:
 [TIP]
 .`*` Start and End nodes within the Path Segment object
 The start and end nodes on the `PathSegment` may differ from the start and end nodes of the relationship itself if the relationship was traversed in reverse direction.
+
+
+== Temporal Types
+
+The Temporal types used in the Cypher type system mean that they are also handled differently.
+The driver exports helper functions to assist in checking the type.
+
+.Temporal Types
+[cols="1,3,1,1"]
+|===
+| Neo4j Cypher Type | Description | Example | Helper Function
+
+| `Date`
+| Represents an instant capturing the date, but not the time, nor the timezone.
+| `2020-01-02`
+| `isDate`
+
+| `DateTime`
+| Represents an instant capturing the date, the time and the timezone identifier.
+| `2020-01-02T01:02:03+04:00`
+| `isDateTime`
+
+
+| `LocalDateTime`
+| Represents an instant capturing the date and the time, but not the timezone.
+| `2020-01-02T01:02:03+04:00`
+| `isLocalDateTime`
+
+| `LocalTime`
+| Represents an instant capturing the time of day, but not the date, nor the timezone.
+| `12:34:56`
+| `isLocalDate`
+
+| `Time`
+| Represents an instant capturing the time of day, and the timezone offset in seconds, but not the date.
+| `12:34:56+04:00`
+| `isTime`
+
+|===
+
+
+Each of these types has a `toString()` method that can be used in conjunction with `Date.parse()` in JavaScript to convert the Cypher date into a native `Date` object.
+
+
+.Working with Temporal types
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/results.js[tag=temporal]
+----
+
+== Spatial Types
+
+Cypher has built-in support for handling spatial values (points), and the underlying database supports storing these point values as properties on nodes and relationships.
+
+
+=== Point
+
+When using the `Point` spatial type, regardless of the coordinate reference system, an instance of the link:https://neo4j.com/docs/api/javascript-driver/current/class/lib6/spatial-types.js~Point.html[`Point`^] is returned.
+The `Point` object has three public members:
+
+* `srid` - The coordinate reference system (CRS) identifier (4326` for the `wsg-84` or `wsg-84-3d` CRS).
+* `x` - The x coordinate of the point.
+* `y` - The y coordinate of the point.
+* `z` - The z coordinate of the point or undefined if point is 2-dimensional.
+
+The `isPoint()` helper function will allow you to check whether a variable is an instance of a `Point`
+
+.Working with Points
+[source,js]
+----
+import { Point, isPoint } from 'neo4j-driver'
+
+const london = new Point(-0.118092, 51.509865)
+const shard = new Point(-0.086500, 51.504501, 310) // 310m high
+
+const cartesian2d = new Point(10, 5)
+const cartesian3d = new Point(10, 5, 20)
+
+console.log(london) // Point({srid:4326, x:-0.118092, y:51.509865})
+console.log(shard) // Point({srid:4979, x:-0.0865, y:51.504501, z:310})
+
+console.log(catesian2d) // Point({srid:7203, x:5, y:10})
+console.log(catesian3d) // Point({srid:9157, x:5, y:10, z:20})
+
+console.log(isPoint(london)) // true
+console.log(isPoint('string')) // false
+----
+
+[WARNING]
+.`x`, `y` and `z`
+====
+Regardless of the `srid` or whether the point is created using `latitude`, `longitude` (and `height`), the object returned by the Driver will *always* contain `x`, `y` and `z` properties.
+
+When using `wsg-84` or `wsg-84-3d` coordinates, `x` will represent `longitude`, `y` will represent `latitude` and `z` will represent the height.
+====
+
+=== Distance
+
+When using the `distance()` function in Cypher, the distance calculated between two points is returned as a float.
+
+
+[source,cypher]
+----
+WITH point({x: 1, y:1}) AS one,
+     point({x: 10, y: 10}) AS two
+
+RETURN distance(one, two) // 12.727922061357855
+----
 
 
 == Converting these values en masse

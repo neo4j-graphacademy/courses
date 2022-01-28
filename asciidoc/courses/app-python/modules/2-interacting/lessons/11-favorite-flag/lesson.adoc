@@ -1,9 +1,7 @@
 = Adding The Favorite Flag
 :type: challenge
-// :branch: 08-favorite-flag
-// :previous-branch: 07-favorites-list
-:branch: main
-:previous-branch: main
+:branch: 08-favorite-flag
+:previous-branch: 07-favorites-list
 :test-filename: 08_favorite_flag__test
 
 In the previous Challenge, we hardcoded a `favorite` property on the return to the calls in the `FavoriteDAO`.
@@ -12,9 +10,10 @@ This won't be possible in the `MovieDAO`.
 
 Your next challenge is to modify the link:{repository-raw}/main/api/dao/movies.py[`MovieDAO`] to dynamically determine whether a movie is on the current user's My Favorite List.
 
-This challenge has one part:
+This challenge has two parts:
 
 1. <<Finding Favorites>>
+2. Implement <<Multiple Transaction Calls>>
 
 == Running Multiple Queries within a Transaction
 
@@ -52,13 +51,13 @@ Your challenge is to modify this method to retrieve that list of Movie ID's and 
 
 === Finding Favorites
 
-Modify the `getUserFavorites` to run the following query against the `tx` parameter.
+Modify the `getUserFavorites` to run the following query against the `tx` object to return a list of IDs for each movie that the user has added to their favorites.
 
 [%collapsible]
 .Click here to reveal the Cypher query
 ====
 
-This query should only run if a user is logged in for the current request, and therefore the `userId` parameter is not `undefined`.
+This query should only run if a user is logged in for the current request, and therefore the `userId` parameter is not `None`.
 
 [source,cypher]
 ----
@@ -75,31 +74,28 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/10-favorite-flag/user
 .
 [source,python,indent=0]
 ----
-include::{repository-raw}/main/api/dao/movies.py[tag="getUserFavorites"]
+include::{repository-raw}/{branch}/api/dao/movies.py[tag="getUserFavorites"]
 ----
 
 ====
 
-=== Adding the getUserFavorites call
+=== Multiple Transaction Calls
 
-Inside the `all()` method, we have used arrow brackets to immediately return the results of `tx.run()`.
+The `get_movies` function defined in the `all` method of the `MoviesDAO` already uses `tx.run()` to run a Cypher query within the current transaction.
 
-Instead of returning the results directly, you'll need to define an `async()` function that first `await` s the results of a call to `getUserFavorites(tx, userId)`, and then return the existing `tx.run` statement with the result of the `getUserFavorites` function passed as an additional parameter.
+To use the list of Movie IDs in the query, you can simply add a call to the `self.get_user_favorites()` method above the `cypher` variable.
+The output of the function can then be passed as a named parameter in the existing call to `tx.run()`.
 
-==== Working Solution
-[%collapsible]
-.Click here to reveal the completed `getUserFavorites()` method
-====
+All that is left to do is to add a new item to `m { .* }` in the Cypher query to check whether the `tmdbId` property of the current movie is in the favorites array.
 
-.api/dao/movies.py
+
 [source,python,indent=0]
 ----
 include::{repository-raw}/{branch}/api/dao/movies.py[tag="allcypher"]
 ----
 
-====
 
-=== Working Solution
+=== Comparing Versions
 
 If we take a look at the two versions of the `all()` method, not much has changed.
 The `favorites` array has been passed through as a parameter to the query, and the query now uses the Cypher `IN` clause to check if the ID is included in the array.
