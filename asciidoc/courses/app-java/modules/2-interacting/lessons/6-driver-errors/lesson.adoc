@@ -1,0 +1,263 @@
+= Handling Driver Errors
+:type: quiz
+:branch: 6-unique-emails
+
+
+When executing a Cypher query, certain exceptions and error cases may arise.
+One error could be a _transient_ error that may be resolved if retried, for example a problem connecting to the database instance.
+Another type of error could be something more permanent, for example a Syntax Error or a Constraint Error.
+
+In the Neo4j Java Driver, the Promise returned by the `run()` method will be rejected, and an instance of a link:https://neo4j.com/docs/api/java-driver/current/class/lib6/error.js~Neo4jError.html[`Neo4jError`^] will be returned.
+
+The `Neo4jError` class extends the native Java `Error`, and as such contains a `message` property that contains detailed information about the error that has occurred.
+
+== Error Codes
+
+The `Neo4jError` also includes a `code` property, which provides higher-level information about the query.
+
+Each status code follows the same format, and includes four parts:
+
+[source,rel=nocopy]
+----
+Neo.[Classification].[Category].[Title]
+(1)        (2)          (3)       (4)
+----
+
+1. Every Neo4j Error code is prefixed with `Neo`.
+2. The Classification provides a high-level classification of the error - for example, a client-side error or an error with the database.
+3. The Category provides a higher-level category for the error - for example, a problem with clustering, a procedure or the database schema.
+4. The Title provides specific information about the error that has occurred.
+
+
+// === Classification
+
+// There are four classifications of error:
+
+// [cols="1,3,1"]
+// |====
+// | Classification | Description | Effect on transaction
+
+// | ClientError
+// | The Client sent a bad request - changing the request might yield a successful outcome.
+// | Rollback
+
+// | ClientNotification
+// | There are notifications about the request sent by the client.
+// | None
+
+// | TransientError
+// | The database cannot service the request right now, retrying later might yield a successful outcome.
+// | Rollback
+
+// | DatabaseError
+// | The database failed to service the request.
+// | Rollback
+// |====
+
+
+=== Example Error Codes
+
+Here are some common error codes that you may experience:
+
+* `Neo.ClientError.Procedure.ProcedureCallFailed` - Failed to invoke a procedure. See the detailed error description for exact cause.
+* `Neo.ClientError.Schema.ConstraintViolation` - Added or changed index entry would violate constraint.
+* `Neo.ClientError.Security.Forbidden` - An attempt was made to perform an unauthorized action.
+* `Neo.ClientError.Security.Unauthorized` - The client is unauthorized due to authentication failure.
+* `Neo.ClientError.Statement.ParameterMissing` - The statement refers to a parameter that was not provided in the request.
+* `Neo.ClientError.Statement.SyntaxError` - The statement contains invalid or unsupported syntax.
+* `Neo.TransientError.General.TransactionMemoryLimit` - There is not enough memory to perform the current task.
+
+
+For a comprehensive list of status codes, see link:https://neo4j.com/docs/status-codes/current/[Status Codes in the Neo4j Documentation^].
+
+
+== Catching Errors
+
+Below are examples of how to catch an error thrown by the Driver using both `async`/`await` and the `Promise` API.
+
+[.tab]
+.Using async/await
+====
+When using `async`/`await`, you will need to use `try` and `catch` blocks to catch any errors.
+
+.Async Example
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/catch-errors.js[tag=catch]
+----
+
+====
+
+[.tab]
+.Using Promises
+====
+When using `Promises`, you will need to add a `catch()` function to catch any errors.
+
+.Using Promises
+[source,js,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/example/catch-errors.js[tag=promise]
+----
+
+====
+
+
+
+
+// == Query Errors
+
+// First, let's take a look at how we can catch an error thrown while running a query.
+// If you prefer, you can skip to <<Catching Errors>>.
+
+
+// When an error is thrown,
+
+
+// [source,rel=nocopy]
+// Node(33880) already exists with label `User` and property
+//  `email` = 'uniqueconstraint@example.com'
+
+// === Catching the Error
+
+// We can wrap the entire method in a try/catch block and then use the error message to detect the error.
+
+// When a Neo4j Error is thrown, we can check the `code` property for a Neo4j specific code.
+// In this case, we're looking for a code of `Neo.ClientError.Schema.ConstraintValidationFailed`.
+// If the error is different, we should re-throw it so it can be handled by the application.
+
+
+
+
+// == Catching Errors
+
+// In order to correctly
+
+
+// === Create a Unique Constraint
+
+// In order to ensure that a property and label combination is unique, we will need to run a `CREATE CONSTRAINT` query.
+// In this case, we would need to ensure that the `email` property is unique across all nodes with a `:User` label.
+
+// Click the **Run in Sandbox** button to create the constraint on your Sandbox.
+
+// [source,cypher]
+// ----
+// include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.cypher[]
+// ----
+
+
+
+
+// == Add a Try/Catch Block
+
+
+// == Modify the Register Method
+
+
+
+
+
+// This will seriously affect Neoflix's Daily Active Users numbers.
+
+// As the `register` method is an `async` function, we will need to use a `try`/`catch` block to catch any errors as they are thrown.
+
+
+
+// === Unique User Email Addresses
+
+
+
+
+
+// As all of the methods in the `AuthService` are `async` functions, we can use
+
+// We can pass the responsibility of handling the duplicate user error to the database by creating a Unique Constraint on the `:User` label, asserting that the `email` property must be unique.
+
+// This also gives us the added benefit of an indexed property that we can look up User nodes by email without a costly `NodeByLabelScan`.
+
+
+// == Catching Errors
+
+// === Create a Unique Constraint
+
+// === Modify the Register Method
+
+// Currently, if the email address passed to the method isn't `graphacademy@neo4j.com`, a `ValidationError` is thrown.
+
+// .src/services/auth.service.js
+// [source,js,indent=0]
+// ----
+// include::{repository-raw}/main/src/services/auth.service.js[tag=constraintError]
+// ----
+
+// == --
+
+
+// To create a Unique Constraint against a label, we can a one-time query against the database.
+// If you want to learn more about indexes and constraints
+
+
+
+
+
+// If we now run the following query in the Sandbox, a node should be created without any problems.
+
+// [source,cypher]
+// ----
+// include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/create-user.cypher[]
+// ----
+
+// Running the query a second time should return the following error:
+
+// [source,rel=nocopy]
+// Node(33880) already exists with label `User` and property
+//  `email` = 'uniqueconstraint@example.com'
+
+// === Catching the Error
+
+// We can wrap the entire method in a try/catch block and then use the error message to detect the error.
+
+// When a Neo4j Error is thrown, we can check the `code` property for a Neo4j specific code.
+// In this case, we're looking for a code of `Neo.ClientError.Schema.ConstraintValidationFailed`.
+// If the error is different, we should re-throw it so it can be handled by the application.
+
+// .Catching the error
+// [source,js,indent=0]
+// ----
+// include::{repository-raw}/{branch}/src/services/auth.service.js[tag="catch"]
+// ----
+
+// [TIP]
+// . ...and finally
+// You may also have noticed that the `session.close` call has been moved to the `finally` block.
+// This is to ensure that is is always closed regardless of whether the query was successful or an error was thrown.
+
+
+// == Working Solution
+
+// .Click here to reveal the updated `register` method.
+// [%collapsible]
+// ====
+// [source,js,indent=0]
+// ----
+// include::{repository-raw}/{branch}/src/services/auth.service.js[tag="register"]
+// ----
+// ====
+
+// // Testing
+
+// include::../../../../includes/test.adoc[]
+
+
+== Check Your Understanding
+
+include::./questions/1-error-code.adoc[leveloffset=+1]
+
+include::./questions/2-error-details.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you have learned how to interpret the errors thrown by the Neo4j Java Driver.
+
+In the next Challenge, you will add a unique constraint to the database and add a `try`/`catch` block the `register()` method to handle the error thrown when the email address is already taken.
