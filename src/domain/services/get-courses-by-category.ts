@@ -53,9 +53,8 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             })
             .filter((e: any) => !!e) as Course[]
 
+            // Sort courses by status, then order
             sortCourses(categoryCourses)
-
-            categoryCourses.sort((a: any, b: any) => parseInt(a.order) < parseInt(b.order) ? -1 : 1)
 
             return {
                 ...row,

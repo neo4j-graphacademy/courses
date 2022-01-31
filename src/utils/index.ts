@@ -218,6 +218,10 @@ export function sortCourses(courses: Course[]) {
             return aPriority - bPriority
         }
 
-        return parseInt(a.order) < parseInt(b.order) ? -1 : 1
+        if ( a.order && b.order ) {
+            return parseInt(a.order) < parseInt(b.order) ? -1 : 1
+        }
+
+        return a.title.localeCompare(b.title)
     })
 }

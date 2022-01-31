@@ -42,6 +42,8 @@ router.get('/',  async (req, res, next) => {
 
         const certification = categories.find(category => category.slug === 'certification')
 
+        const activePath = 'developer'
+
         res.render('home', {
             title: 'Free, Self-Paced, Hands-on Online Training ',
             hero: {
@@ -56,6 +58,7 @@ router.get('/',  async (req, res, next) => {
             beginners,
             paths,
             certification,
+            activePath,
         })
     }
     catch (e) {
