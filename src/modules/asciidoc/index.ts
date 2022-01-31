@@ -9,6 +9,11 @@ import { ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
 import { mergeDeep } from '../../utils'
 
+
+// Cached Pages
+const cache: Map<string, string> = new Map()
+
+
 // Reader
 const doc = asciidoctor()
 
@@ -108,8 +113,22 @@ export async function getLessonOverview(course: string, module: string, lesson: 
     return loadFile(file, { attributes })
 }
 
-export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}) {
+export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<string> {
+    const key = generateLessonCacheKey(course, module, lesson)
+
+    if ( cache.has(key) ) {
+        return cache.get(key) as string
+    }
+
     const document = await getLessonOverview(course, module, lesson, attributes)
 
     return convert(document, { attributes })
+}
+
+export function addToCache(key: string, html: string): void {
+    cache.set(key, html)
+}
+
+export function generateLessonCacheKey(course: string, module: string, lesson: string): string {
+    return `${course}/${module}/${lesson}`
 }

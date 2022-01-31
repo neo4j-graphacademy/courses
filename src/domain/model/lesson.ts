@@ -7,6 +7,7 @@ export const ATTRIBUTE_DURATION = 'duration'
 export const ATTRIBUTE_SANDBOX = 'sandbox'
 export const ATTRIBUTE_REPOSITORY = 'repository'
 export const ATTRIBUTE_OPTIONAL = 'optional'
+export const ATTRIBUTE_DISABLE_CACHE = 'disable-cache'
 
 export const LESSON_TYPE_VIDEO = 'video'
 export const LESSON_TYPE_DEFAULT = 'lesson'
@@ -32,6 +33,7 @@ export interface Lesson {
     cypher: string | undefined;
     verify: string | undefined;
     optional: boolean;
+    disableCache: boolean;
     questions: Question[];
     previous: Pagination | undefined;
     next: Pagination | undefined;

@@ -17,7 +17,7 @@ import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { courseBannerPath, flattenAttributes, getSandboxConfig } from '../utils'
+import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -510,42 +510,7 @@ router.use('/:course/:module/images', (req, res, next) => {
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
 })
 
-/**
- * Use the request and current course to generate page attributes to use when
- * generating the asciidoc for a module or lesson.
- *
- * @param req Request
- * @param course {Course}
- * @return {Record<string, any>}
- */
-async function getPageAttributes(req: Request, course: Course): Promise<Record<string, any>> {
-    const user = await getUser(req)
 
-    const attributes: Record<string, any> = {
-        name: user?.nickname,
-    }
-
-    if (course.usecase) {
-        const token = await getToken(req)
-
-        const sandboxConfig = await getSandboxForUseCase(token, course.usecase)
-
-        attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
-        attributes['sandbox-username'] = sandboxConfig?.username;
-        attributes['sandbox-password'] = sandboxConfig?.password;
-    }
-
-    // Course repository attributes
-    for ( const [ key, value ] of Object.entries(course) ) {
-        if ( key.endsWith('repository') ) {
-            attributes[ key ] = value
-            attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
-            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob/`
-        }
-    }
-
-    return attributes
-}
 
 /**
  * @GET /:course/:module/:lesson

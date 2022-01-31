@@ -9,6 +9,7 @@ import initNeo4j, { close } from './modules/neo4j';
 import initListeners from './listeners'
 import { emitter } from './events';
 import { AppInit } from './domain/events/AppInit';
+import { cacheHTML } from './domain/services/asciidoc/cache-html';
 
 const {
     NEO4J_HOST,
@@ -31,8 +32,13 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
             emitter.emit(new AppInit(app))
         })
 
+        // Load Course Catalogue
         mergeCategories()
         mergeCourses()
+            .then(() => {
+                // Cache Asciidoc into HTML
+                cacheHTML()
+            })
     })
     .catch(e => {
         console.error(e)

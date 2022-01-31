@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs'
+import { Request } from 'express'
 import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
 import { Course, CourseWithProgress, STATUS_PRIORITIES } from "../domain/model/course";
 import { User } from '../domain/model/user';
@@ -7,6 +8,8 @@ import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
 import { Category } from '../domain/model/category';
 import { courseSummaryExists } from '../modules/asciidoc';
+import { getToken, getUser } from '../middleware/auth.middleware';
+import { getSandboxForUseCase } from '../modules/sandbox';
 
 export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -224,4 +227,41 @@ export function sortCourses(courses: Course[]) {
 
         return a.title.localeCompare(b.title)
     })
+}
+
+/**
+ * Use the request and current course to generate page attributes to use when
+ * generating the asciidoc for a module or lesson.
+ *
+ * @param req Request
+ * @param course {Course}
+ * @return {Record<string, any>}
+ */
+export async function getPageAttributes(req: Request | undefined, course: Course): Promise<Record<string, any>> {
+    const user = req ? await getUser(req) : undefined
+
+    const attributes: Record<string, any> = {
+        name: user?.nickname,
+    }
+
+    if (req && course.usecase) {
+        const token = await getToken(req)
+
+        const sandboxConfig = await getSandboxForUseCase(token, course.usecase)
+
+        attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
+        attributes['sandbox-username'] = sandboxConfig?.username;
+        attributes['sandbox-password'] = sandboxConfig?.password;
+    }
+
+    // Course repository attributes
+    for ( const [ key, value ] of Object.entries(course) ) {
+        if ( key.endsWith('repository') ) {
+            attributes[ key ] = value
+            attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
+            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob/`
+        }
+    }
+
+    return attributes
 }

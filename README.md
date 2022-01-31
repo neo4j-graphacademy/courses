@@ -275,6 +275,17 @@ read::I have added my environment variables[]
     browser::MERGE (p:Person {name: 'Daniel Kaluuya'})[]
     ```
 
+## Caching Pages
+
+Page load times can be slow, so where possible, the asciidoc pages are cached.  If you are using a page that replaces information using `user-*` or `sandbox-*` attributes, you can use the `:disable-cache: true` page attribute in `lesson.adoc` in order to stop the page from being cached.
+
+```
+= Your Neo4j Sandbox
+:disable-cache: true
+```
+
+This value defaults to `false`.
+
 
 ## Deployment
 
