@@ -1,4 +1,5 @@
-import { mergeDeep, toCamelCase } from "."
+import { mergeDeep, sortCourses, toCamelCase } from "."
+import { Course } from "../domain/model/course"
 
 /* global describe, it */
 describe('utils', () => {
@@ -84,6 +85,36 @@ describe('utils', () => {
 
             expect(output).toEqual(expected)
         })
+
+    })
+
+    describe('sortCourses', () => {
+
+        it('should sort courses by status before order', () => {
+            const courses: Partial<Course>[] = [
+                { title: 'Draft 2', status: 'draft', order: 4 },
+                { title: 'Active 1', status: 'active', order: 2 },
+                { title: 'Active 2', status: 'active', order: 3 },
+                { title: 'Draft 1', status: 'draft', order: 1 },
+            ]
+
+            const expected = [ 'Active 1', 'Active 2', 'Draft 1', 'Draft 2' ]
+
+            sortCourses(courses as Course[])
+
+            // Check Order
+            const titles = courses.map(course => course.title)
+
+            console.log(titles);
+
+            expect(titles).toEqual(expected)
+
+
+        })
+
+
+
+
 
     })
 

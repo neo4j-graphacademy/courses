@@ -46,11 +46,14 @@ const renderCourses = async () => {
 
     while (courses.length) {
         const course: Course = courses.pop()!
+        const path = courseBannerPath(course)
 
-        await render(courseBannerPath(course), course.categories[0].title, course.title, course.caption, course.badge)
+        if ( !fs.existsSync(path)  ) {
+            await render(path, course.categories[0].title, course.title, course.caption, course.badge)
 
-        // tslint:disable-next-line
-        console.log(courseBannerPath(course));
+            // tslint:disable-next-line
+            console.log(courseBannerPath(course));
+        }
     }
 }
 

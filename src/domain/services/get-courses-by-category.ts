@@ -1,5 +1,5 @@
 import { read } from "../../modules/neo4j";
-import { formatCourse } from "../../utils";
+import { formatCourse, sortCourses } from "../../utils";
 import { Category } from "../model/category";
 import { Course } from "../model/course";
 import { User } from "../model/user";
@@ -52,6 +52,8 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
                 return { ...course, order: categoryWithOrder.order }
             })
             .filter((e: any) => !!e) as Course[]
+
+            sortCourses(categoryCourses)
 
             categoryCourses.sort((a: any, b: any) => parseInt(a.order) < parseInt(b.order) ? -1 : 1)
 

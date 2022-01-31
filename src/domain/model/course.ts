@@ -9,11 +9,18 @@ export const STATUS_DRAFT = 'draft'
 export const STATUS_TEST = 'test'
 export const STATUS_DISABLED = 'disabled'
 
-type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_DISABLED
+type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_TEST | typeof STATUS_DISABLED
 
 export const NEGATIVE_STATUSES = [
     STATUS_TEST,
     STATUS_DISABLED
+]
+
+export const STATUS_PRIORITIES: CourseStatus[] = [
+    STATUS_ACTIVE,
+    STATUS_DRAFT,
+    STATUS_TEST,
+    STATUS_DISABLED,
 ]
 
 // Attributes

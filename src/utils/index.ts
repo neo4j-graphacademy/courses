@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
-import { Course, CourseWithProgress } from "../domain/model/course";
+import { Course, CourseWithProgress, STATUS_PRIORITIES } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
@@ -206,4 +206,18 @@ export function toCamelCase(input: string): string {
             .map(x => x.toLowerCase())
             .map((x, index) => index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1))
             .join('')
+}
+
+
+export function sortCourses(courses: Course[]) {
+    courses.sort((a: Course, b: Course) => {
+        if ( a.status !== b.status ) {
+            const aPriority = STATUS_PRIORITIES.indexOf(a.status)
+            const bPriority = STATUS_PRIORITIES.indexOf(b.status)
+
+            return aPriority - bPriority
+        }
+
+        return parseInt(a.order) < parseInt(b.order) ? -1 : 1
+    })
 }
