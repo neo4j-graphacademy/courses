@@ -46,10 +46,10 @@ const renderCourses = async () => {
 
     while (courses.length) {
         const course: Course = courses.pop()!
-        const path = courseBannerPath(course)
+        const bannerPath = courseBannerPath(course)
 
-        if ( !fs.existsSync(path)  ) {
-            await render(path, course.categories[0].title, course.title, course.caption, course.badge)
+        if ( !fs.existsSync(bannerPath)  ) {
+            await render(bannerPath, course.categories[0].title, course.title, course.caption, course.badge)
 
             // tslint:disable-next-line
             console.log(courseBannerPath(course));

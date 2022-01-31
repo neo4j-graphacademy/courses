@@ -89,7 +89,6 @@ describe('utils', () => {
     })
 
     describe('sortCourses', () => {
-
         it('should sort courses by status before order', () => {
             const courses: Partial<Course>[] = [
                 { title: 'Draft 2', status: 'draft', order: 4 },
@@ -104,18 +103,8 @@ describe('utils', () => {
 
             // Check Order
             const titles = courses.map(course => course.title)
-
-            console.log(titles);
-
             expect(titles).toEqual(expected)
-
-
         })
-
-
-
-
-
     })
 
 })
