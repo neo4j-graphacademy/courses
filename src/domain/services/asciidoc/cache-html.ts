@@ -4,6 +4,10 @@ import { getPageAttributes } from "../../../utils";
 import { STATUS_ACTIVE } from "../../model/course";
 
 export async function cacheHTML(): Promise<void> {
+    if ( process.env.NODE_ENV !== 'production' ) {
+        return
+    }
+
     const start = new Date()
 
     const res = await read(`
