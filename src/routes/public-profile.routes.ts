@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { BASE_URL } from '../constants'
 import { CourseWithProgress } from '../domain/model/course'
 import { User } from '../domain/model/user'
 import { getUserAchievements } from '../domain/services/get-user-achievements'
@@ -109,16 +110,25 @@ router.get('/:id/:course', async (req, res, next) => {
             return res.redirect(`/u/${req.params.id}`)
         }
 
+        const userName = getUserName(user as User)
         const title = [
             course.title,
-            own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`
+            own ? 'My Achievements' : `${userName}'s Achievements`
         ].join(' | ')
+
+        // OG Tags
+        const ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
+        const ogDescription =  `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
+        const ogImage = `${course.link}/badge`
 
         res.render('profile/certificate', {
             title,
             course,
             name: getUserName(user as User),
             own,
+            ogTitle,
+            ogDescription,
+            ogImage,
         })
     }
     catch (e) {
