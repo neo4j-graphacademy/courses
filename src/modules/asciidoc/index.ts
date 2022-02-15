@@ -8,6 +8,8 @@ import { verifyBlockProcessor } from './extensions/verify.extension'
 import { ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
 import { mergeDeep } from '../../utils'
+import { CourseStatus, CourseStatusInformation } from '../../domain/model/course'
+import { ATTRIBUTE_ORDER } from '../../domain/model/lesson'
 
 
 // Cached Pages
@@ -131,4 +133,30 @@ export function addToCache(key: string, html: string): void {
 
 export function generateLessonCacheKey(course: string, module: string, lesson: string): string {
     return `${course}/${module}/${lesson}`
+}
+
+
+const statusCache: Map<CourseStatus, CourseStatusInformation> = new Map()
+
+export function getStatusDetails(slug: CourseStatus): CourseStatusInformation {
+    if ( statusCache.has(slug) ) {
+        return statusCache.get(slug)!
+    }
+
+    // Load from asciidoc/status/{status}.adoc
+    const folder = path.join('statuses', `${slug}.adoc`)
+
+    const info = loadFile(folder)
+
+    const output = {
+        slug,
+        name: info.getTitle()!,
+        order: parseInt(info.getAttribute(ATTRIBUTE_ORDER, 999)),
+        description: info.convert(),
+    }
+
+    // Add to cache
+    statusCache.set(slug, output)
+
+    return output
 }

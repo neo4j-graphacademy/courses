@@ -4,12 +4,13 @@ import { Module, ModuleWithProgress } from "./module";
 import { Pagination } from "./pagination";
 
 // Status
+export const STATUS_COMPLETED = 'completed'
 export const STATUS_ACTIVE = 'active'
 export const STATUS_DRAFT = 'draft'
 export const STATUS_TEST = 'test'
 export const STATUS_DISABLED = 'disabled'
 
-type CourseStatus = typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_TEST | typeof STATUS_DISABLED
+export type CourseStatus = typeof STATUS_COMPLETED | typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_TEST | typeof STATUS_DISABLED
 
 export const NEGATIVE_STATUSES = [
     STATUS_TEST,
@@ -48,7 +49,7 @@ export interface Course {
     interested?: string;
     usecase: string | undefined;
     modules: Module[];
-    categories: Category[];
+    categories: Category<any>[];
     prerequisites?: Course[];
     progressTo?: Course[];
     badge?: string;
@@ -73,7 +74,17 @@ export interface CourseWithProgress extends Course {
     sandbox?: Sandbox;
 }
 
+export interface CourseStatusInformation {
+    slug: CourseStatus;
+    name: string;
+    order: number;
+    description: string | undefined;
+}
+
+export interface CourseStatusInformationWithCourses extends CourseStatusInformation {
+    courses: Course[];
+}
 
 export type CoursesByStatus = {
-    [key in CourseStatus]: Course[];
+    [key in CourseStatus]: CourseStatusInformationWithCourses;
 }

@@ -5,12 +5,12 @@ import { Course } from "../model/course";
 import { User } from "../model/user";
 import { appendParams } from "./cypher";
 
-interface DbCategory extends Category {
+interface DbCategory extends Category<any> {
     order: number;
     parents: string[]
 }
 
-export async function getCoursesByCategory(user?: User): Promise<Category[]> {
+export async function getCoursesByCategory<T extends Course>(user?: User): Promise<Category<T>[]> {
     const res = await read(`
         MATCH (c:Course)
         WHERE NOT c.status IN $exclude
@@ -41,17 +41,17 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             }) AS categories
     `, appendParams({ sub: user?.sub  }))
 
-    const courses = await Promise.all(res.records[0].get('courses').map(async (course: Course) => await formatCourse(course))) as Course[]
+    const courses = await Promise.all(res.records[0].get('courses').map(async (course: T) => await formatCourse<T>(course))) as T[]
     const categories = res.records[0].get('categories')
         .map((row: DbCategory) => {
-            const categoryCourses: Course[] = courses.map((course: Course) => {
+            const categoryCourses: T[] = courses.map((course: T) => {
                 const categoryWithOrder = course.categories.find((value: any) => value.id === row.id) as DbCategory
 
                 if ( !categoryWithOrder ) return;
 
                 return { ...course, order: categoryWithOrder.order }
             })
-            .filter((e: any) => !!e) as Course[]
+            .filter((e: any) => !!e) as T[]
 
             // Sort courses by status, then order
             sortCourses(categoryCourses)
@@ -59,7 +59,7 @@ export async function getCoursesByCategory(user?: User): Promise<Category[]> {
             return {
                 ...row,
                 courses: categoryCourses,
-            } as Category
+            } as Category<T>
         })
 
     const root = categories.filter((category: DbCategory) => !category.parents.length)
