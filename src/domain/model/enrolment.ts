@@ -29,7 +29,7 @@ export type EnrolmentsByStatus = {
 }
 
 export type CategoryEnrolments = {
-    category: Category;
+    category: Category<any>;
     completedCount: number;
     completedPercentage: number;
     courses: CourseWithProgress[];

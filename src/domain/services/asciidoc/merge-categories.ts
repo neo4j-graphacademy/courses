@@ -4,19 +4,19 @@ import { loadFile } from '../../../modules/asciidoc'
 import { write } from '../../../modules/neo4j';
 import { ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, Category } from '../../model/category';
 import { ASCIIDOC_DIRECTORY } from '../../../constants';
-import { ATTRIBUTE_CAPTION } from '../../model/course';
+import { ATTRIBUTE_CAPTION, Course } from '../../model/course';
 
-interface CategoryWithParent extends Category {
+interface CategoryWithParent<T extends Course> extends Category<T> {
     parent?: string;
 }
 
-const loadCategories = (): Category[] => {
+const loadCategories = <T extends Course>(): Category<T>[] => {
     const folder = path.join(ASCIIDOC_DIRECTORY, 'categories')
     return fs.readdirSync( folder )
         .map(slug => loadCategory( path.join('categories', slug) ))
 }
 
-const loadCategory = (filepath: string): CategoryWithParent => {
+const loadCategory = <T extends Course>(filepath: string): CategoryWithParent<T> => {
     const slug = filepath.split('/').filter(a => !!a).pop()!.replace('.adoc', '') as string
     const file = loadFile(path.join(filepath))
     const parent = file.getAttribute(ATTRIBUTE_PARENT, null)

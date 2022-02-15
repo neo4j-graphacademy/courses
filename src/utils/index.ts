@@ -2,16 +2,16 @@ import path from 'path'
 import fs from 'fs'
 import { Request } from 'express'
 import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
-import { Course, CourseWithProgress, STATUS_PRIORITIES } from "../domain/model/course";
+import { Course, CoursesByStatus, CourseStatus, CourseStatusInformationWithCourses, CourseWithProgress, STATUS_COMPLETED, STATUS_PRIORITIES } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
 import { Category } from '../domain/model/category';
-import { courseSummaryExists } from '../modules/asciidoc';
+import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc';
 import { getToken, getUser } from '../middleware/auth.middleware';
 import { getSandboxForUseCase } from '../modules/sandbox';
 
-export async function getBadge(course: Course | CourseWithProgress): Promise<string | undefined> {
+export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
         const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'badge.svg')
 
@@ -152,12 +152,43 @@ export function flattenAttributes(elements: Record<string, Record<string, any>>)
     return output
 }
 
-export function flattenCategories(categories: Category[]): Category[] {
-    return categories.reduce((acc: Category[], item: Category): Category[] => {
-        const output: Category[] = [item].concat(...flattenCategories(item.children || []) || [])
+export function flattenCategories<T extends Course>(categories: Category<T>[]): Category<T>[] {
+    return categories.reduce((acc: Category<T>[], item: Category<T>): Category<T>[] => {
+        const output: Category<T>[] = [item].concat(...flattenCategories(item.children || []) || [])
 
         return acc.concat(...output)
     }, [])
+}
+
+
+export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesByStatus {
+    const statuses: CourseStatusInformationWithCourses[] = courses.reduce((acc: CourseStatusInformationWithCourses[], current: CourseWithProgress) => {
+        const statusSlug = current.completed ? STATUS_COMPLETED : current.status
+
+        // Find current item in array
+        const index = acc.findIndex((item) => item.slug === statusSlug)
+
+        // Either extract or create a new one
+        const existing: CourseStatusInformationWithCourses = index > -1 ? acc.splice(index, 1)[0] : { ...getStatusDetails(statusSlug), courses: [] }
+
+        // console.log(statusSlug, index, existing);
+
+        // Add the course
+        existing.courses.push(current)
+
+        // Append to array
+        return acc.concat(existing)
+    }, [] as CourseStatusInformationWithCourses[])
+
+    // Sort by order
+    statuses.sort((a, b) => a.order - b.order)
+
+    // Return as { [key: CourseStatus] : value }
+    const output: CoursesByStatus = Object.fromEntries(
+        statuses.map((status: CourseStatusInformationWithCourses) => [ status.slug as CourseStatus, status ])
+    ) as CoursesByStatus
+
+    return output
 }
 
 export function dd(el: any): void {
@@ -166,7 +197,7 @@ export function dd(el: any): void {
 }
 
 export const courseBannerPath = (course: Course) => path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'banner.png')
-export const categoryBannerPath = (category: Category) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
+export const categoryBannerPath = (category: Category<any>) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
 
 /**
  * Simple object check.

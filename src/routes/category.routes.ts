@@ -3,12 +3,12 @@ import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
 import { PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
-import { Course } from '../domain/model/course'
+import { Course, CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth.middleware'
 
-import { categoryBannerPath, flattenCategories } from '../utils'
+import { categoryBannerPath, flattenCategories, groupCoursesByStatus } from '../utils'
 
 const router = Router()
 
@@ -38,23 +38,27 @@ const router = Router()
 router.get('/', async (req, res, next) => {
     try {
         const user = await getUser(req)
-        const categories = await getCoursesByCategory(user)
+        const categories = await getCoursesByCategory<CourseWithProgress>(user)
 
         // Flatten Category list
-        const flattened: Category[] = flattenCategories(categories)
+        const flattened: Category<CourseWithProgress>[] = flattenCategories(categories)
 
         // Unique Courses only
-        const courses: Course[] = flattened.reduce((acc: Course[], category: Category) => {
+        const courses: CourseWithProgress[] = flattened.reduce((acc: CourseWithProgress[], category: Category<CourseWithProgress>) => {
             const these = (category.courses || []).filter(item => !acc.map(row => row.slug).includes(item.slug))
 
             return acc.concat(these)
         }, [])
+
+        // Group by status
+        const grouped = groupCoursesByStatus(courses)
 
         res.render('course/list', {
             title: 'All Courses',
             slug: false,
             categories,
             courses,
+            grouped,
             hero: {
                 title: 'Free Neo4j Courses',
                 byline: 'Hands-on training. No installation required.',
@@ -86,7 +90,7 @@ router.get('/:slug', async (req, res, next) => {
         const categories = await getCoursesByCategory(user)
 
         // Flatten Category list
-        const flattened: Category[] = flattenCategories(categories)
+        const flattened: Category<any>[] = flattenCategories(categories)
 
         // Find Category by slug
         const category = flattened.find(item => item.slug === slug)
@@ -94,6 +98,9 @@ router.get('/:slug', async (req, res, next) => {
         if (!category) {
             return next(new NotFoundError(`Category with slug ${slug} could not be found`))
         }
+
+        // Group by status
+        const grouped = groupCoursesByStatus(category.courses || [])
 
         // Add Breadcrumb
         res.locals.breadcrumbs.push({
@@ -112,6 +119,7 @@ router.get('/:slug', async (req, res, next) => {
                 byline: category.caption || 'Hands-on training. No installation required.',
             },
             courses: category.courses,
+            grouped,
 
             ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free Neo4j ${category.title} Courses from GraphAcademy`,
             ogDescription: category.caption || 'Hands-on training. No installation required.',
@@ -127,7 +135,7 @@ router.get('/:slug', async (req, res, next) => {
 router.get('/:slug/banner', async (req: Request, res: Response, next: NextFunction) => {
     try {
         // TODO: Caching, save to S3
-        const filePath =  categoryBannerPath({ slug: req.params.slug } as Category)
+        const filePath =  categoryBannerPath({ slug: req.params.slug } as Category<any>)
 
         if ( ! fs.existsSync(filePath) ) {
             return next(new NotFoundError(`Banner not found for ${req.params.slug}`))

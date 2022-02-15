@@ -28,7 +28,7 @@ export async function resetDatabase(token: string, course: string, module: strin
     const session = driver.session()
 
     const parts = cypher.split(';')
-        .filter(e => e !== '')
+        .filter(e => e.trim() !== '')
 
     for (const part of parts) {
         try {
