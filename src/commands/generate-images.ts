@@ -63,7 +63,7 @@ const renderCategories = async () => {
     const categories = res.records.map(row => row.get('c').properties)
 
     while (categories.length) {
-        const category: Category = categories.pop()!
+        const category: Category<any> = categories.pop()!
         await render(
             categoryBannerPath(category),
             'Neo4j GraphAcademy',
