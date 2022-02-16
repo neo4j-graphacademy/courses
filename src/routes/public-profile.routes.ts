@@ -105,7 +105,6 @@ router.get('/:id/:course', async (req, res, next) => {
 
         const course = enrolments.completed?.find(item => item.slug === req.params.course)
 
-§
         if (!course || !course?.completed) {
             return res.redirect(`/u/${req.params.id}`)
         }
