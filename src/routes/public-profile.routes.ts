@@ -105,7 +105,7 @@ router.get('/:id/:course', async (req, res, next) => {
 
         const course = enrolments.completed?.find(item => item.slug === req.params.course)
 
-
+§
         if (!course || !course?.completed) {
             return res.redirect(`/u/${req.params.id}`)
         }
@@ -117,8 +117,18 @@ router.get('/:id/:course', async (req, res, next) => {
         ].join(' | ')
 
         // OG Tags
-        const ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
-        const ogDescription =  `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
+        let ogTitle = ''
+        let ogDescription = ''
+
+        if ( course.completedAt ) {
+            ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
+            ogDescription = `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt?.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
+        }
+        else {
+            ogTitle = `${own ? 'I' : userName} am working towards the ${course.title} badge on #Neo4j #GraphAcademy`
+            ogDescription = `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt?.toString()) )} ${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
+        }
+
         const ogImage = `${course.link}badge/`
 
         res.render('profile/certificate', {
