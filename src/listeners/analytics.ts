@@ -102,12 +102,6 @@ export default async function initAnalyticsListeners(): Promise<void> {
             ...other
         } = event
 
-        console.log('tracked', {
-            ...metaData,
-            ...other,
-        });
-
-
         trackEvent(ANALYTICS_EVENT_COMMAND_CYPHER, event.user.sub, {
             ...metaData,
             ...other,
