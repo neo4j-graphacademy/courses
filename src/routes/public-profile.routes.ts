@@ -119,7 +119,7 @@ router.get('/:id/:course', async (req, res, next) => {
         // OG Tags
         const ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
         const ogDescription =  `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
-        const ogImage = `${course.link}/badge`
+        const ogImage = `${course.link}badge/`
 
         res.render('profile/certificate', {
             title,

@@ -265,17 +265,12 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
 router.post('/cypher', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
-        const { cypher, source, numberOfStatements } = req.body
-
-        const type = determineQueryType(cypher)
+        const { meta } = req.body
 
         emitter.emit(
             new UserExecutedQuery(
                 user!,
-                type,
-                cypher,
-                source,
-                numberOfStatements
+                meta,
             )
         )
 

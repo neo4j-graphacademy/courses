@@ -28,6 +28,8 @@ import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox
 import { requiresVerification } from '../middleware/verification.middleware'
 import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
+import { UserViewedModule } from '../domain/events/UserViewedModule'
+import { UserViewedLesson } from '../domain/events/UserViewedLesson'
 
 const router = Router()
 
@@ -457,6 +459,9 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, async (req, res,
             sandboxUrl,
         } = await getSandboxConfig(course)
 
+        // Emit user viewed module
+        emitter.emit(new UserViewedModule(user!, course, module))
+
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}  ${course!.completed ? 'course--completed' : ''} ${module!.completed ? 'module--completed' : ''}`,
             feedback: true,
@@ -603,6 +608,9 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
                 link: `${course.link}summary/`
             }
         }
+
+        // Emit user viewed lesson
+        emitter.emit(new UserViewedLesson(user!, course, module, lesson))
 
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson!.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,

@@ -1,37 +1,61 @@
 import { User } from "../model/user"
 
-export const QUERY_TYPE_READ = 'read'
-export const QUERY_TYPE_WRITE = 'write'
-export const QUERY_TYPE_SCHEMA = 'schema'
-export const QUERY_TYPE_SYSTEM = 'system'
+export const QUERY_TYPE_READ = 'r'
+export const QUERY_TYPE_READ_WRITE = 'rw'
+export const QUERY_TYPE_WRITE = 'w'
+export const QUERY_TYPE_SCHEMA = 's'
+export const QUERY_TYPE_SYSTEM = 's'
 
-export type QueryType = typeof QUERY_TYPE_READ | typeof QUERY_TYPE_WRITE | typeof QUERY_TYPE_SCHEMA | typeof QUERY_TYPE_SYSTEM
+export type QueryType = typeof QUERY_TYPE_READ | typeof QUERY_TYPE_READ_WRITE | typeof QUERY_TYPE_WRITE | typeof QUERY_TYPE_SCHEMA | typeof QUERY_TYPE_SYSTEM
+
+interface QueryResultMeta {
+    type: QueryType;
+    query: string;
+    records: number; // Count of res.records
+    counters: Record<string, any>; // nodesCreated, nodesCreated, etc
+    updates: Record<string, any>; // nodesCreated, nodesCreated, etc
+    systemUpdates: number;
+    notifications: Record<string, any>;
+}
+
+interface QueryErrorMeta {
+    type: 'error',
+    errorCode: string; // eg. "Neo.ClientError.Statement.SyntaxError"
+    errorMessage: string; // Syntax error...
+}
+
+type QueryMeta = QueryResultMeta | QueryErrorMeta
 
 // TODO: Implement fully
+// @deprecated - decided by driver and passed through meta data instead
 export function determineQueryType(cypher: string, database?: string | undefined): QueryType {
-    let type: QueryType = QUERY_TYPE_READ
+    // Convert Cypher to uppercase
+    const upperCypher = cypher.toUpperCase()
 
-    if ( database ==='system' || cypher.includes('CREATE DATABASE') ) {
-        type = QUERY_TYPE_SYSTEM
+    if (
+        database ==='system' || upperCypher.includes('CREATE DATABASE') ||
+        upperCypher.includes('SHOW USER') || upperCypher.includes('CREATE USER') || upperCypher.includes('DROP USER')
+    ) {
+        return QUERY_TYPE_SYSTEM
     }
 
-    if ( cypher.includes('CREATE INDEX') || cypher.includes('CREATE CONSTRAINT') ) {
-        type = QUERY_TYPE_SCHEMA
+    if ( upperCypher.includes('CREATE INDEX') || upperCypher.includes('CREATE CONSTRAINT') ||
+        upperCypher.includes('DROP INDEX') || upperCypher.includes('DROP CONSTRAINT') ||
+        upperCypher.includes('SHOW CONSTRAINTS') || upperCypher.includes('DROP CONSTRAINT')
+    ) {
+        return QUERY_TYPE_SCHEMA
     }
 
-    if ( cypher.includes('MERGE') || cypher.includes('CREATE') ) {
-        type = QUERY_TYPE_WRITE
+    if ( upperCypher.includes('MATCH') ) {
+        return upperCypher.includes('MERGE') || upperCypher.includes('CREATE') ? QUERY_TYPE_READ_WRITE : QUERY_TYPE_WRITE
     }
 
-    return type
+    return QUERY_TYPE_READ
 }
 
 export class UserExecutedQuery {
     constructor(
         public readonly user: User,
-        public readonly type: QueryType,
-        public readonly cypher: string,
-        public readonly source: string,
-        public readonly numberOfStatements: number
+        public readonly metaData: QueryMeta
     ) {}
 }
