@@ -68,9 +68,11 @@ export default async function initAnalyticsListeners(): Promise<void> {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                moduleName: event.module.title,
-                lessonName: event.lesson.title,
                 categories: event.course.categories.map(category => category.title),
+                moduleSlug: event.module.slug,
+                moduleName: event.module.title,
+                lessonSlug: event.lesson.slug,
+                lessonName: event.lesson.title,
             })
     })
 
