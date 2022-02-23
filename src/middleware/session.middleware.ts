@@ -4,7 +4,6 @@ import flash from 'express-flash'
 import { getDriver } from '../modules/neo4j'
 import Neo4jStore from './neo4j-session-store.middleware'
 
-
 export function registerSession(app: Express) {
     app.use(session({
         secret: process.env.SESSION_SECRET || 'a really long secret',
