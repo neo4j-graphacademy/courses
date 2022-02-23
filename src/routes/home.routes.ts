@@ -79,7 +79,9 @@ router.get('/sitemap.txt', async (req, res, next) => {
             UNION ALL MATCH (c:Category) RETURN '/categories/'+ c.slug AS link
         `, { negative: NEGATIVE_STATUSES })
 
-        const links = result.records.map(row => BASE_URL + row.get('link'))
+        const links = result.records
+            .filter(row => row.get('link') !== null)
+            .map(row => BASE_URL + row.get('link'))
             .join('\n')
 
         res.send(links)
