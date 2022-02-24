@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import { devSandbox } from '../domain/model/sandbox.mocks'
+import { User } from '../domain/model/user'
 import { notify } from '../middleware/bugsnag.middleware'
 import { isVerified } from './jwt'
 
@@ -26,6 +27,27 @@ const { SANDBOX_URL } = process.env
 const api = axios.create({
     baseURL: SANDBOX_URL,
 })
+
+
+export async function getAuth0UserInfo(token: string):  Promise<Partial<User>> {
+    const res = await axios.post(`${process.env.AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
+        id_token: token
+    })
+
+    return res.data
+}
+
+export async function getUserInfo(token: string): Promise<Partial<User>> {
+    const res = await api.get(`SandboxGetUserInfo`, {
+        headers: {
+            authorization: `${token}`
+        },
+    })
+
+    const [ user ] = res.data
+
+    return user as Partial<User>
+}
 
 
 export async function getSandboxes(token: string): Promise<Sandbox[]> {

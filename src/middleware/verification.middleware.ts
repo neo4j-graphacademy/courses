@@ -1,16 +1,21 @@
 import { NextFunction, Request, Response } from 'express';
 import UnverifiedError from '../errors/unverified.error';
-import { getUser } from './auth.middleware';
+import { getAuth0UserInfo } from '../modules/sandbox';
+import { getToken, getUser } from './auth.middleware';
 import { notify } from './bugsnag.middleware';
 
 export async function requiresVerification(req: Request, res: Response, next: NextFunction) {
     const user = await getUser(req)
 
+    // Does the cached user have a verified email?
     if (user?.email_verified === false) {
-        // notify(new UnverifiedError(), error => {
-        //     error.setUser(user.id, user.email, user.name)
-        //     error.addMetadata('request', req)
-        // })
+        // Get updated info from Auth0
+        const token = await getToken(req)
+        const check = await getAuth0UserInfo(token)
+
+        if ( check.email_verified === true ) {
+            return next()
+        }
 
         return res.status(401)
             .render('simple', {

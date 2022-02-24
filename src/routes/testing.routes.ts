@@ -3,15 +3,10 @@ import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken } from '../middleware/auth.middleware'
-import { getSandboxes } from '../modules/sandbox'
-// import { loadFile } from '../modules/asciidoc'
-// import { flattenAttributes } from '../utils'
-import { UserEnrolled } from '../domain/events/UserEnrolled'
-import { emitter } from '../events'
+import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
-import { flattenAttributes } from '../utils'
 
 const router = Router()
 
@@ -58,6 +53,42 @@ router.get('/profile', async (req, res) => {
 
     res.json(user)
 
+})
+
+router.get('/profile/sandbox', async (req, res, next) => {
+    try {
+        const token = await getToken(req)
+        const user = await getUserInfo(token)
+
+        res.json(user)
+    }
+    catch(e) {
+        next(e)
+    }
+})
+
+router.get('/profile/oidc', async (req, res, next) => {
+    try {
+        const user = await req.oidc.fetchUserInfo()
+
+        res.json(user)
+    }
+    catch(e) {
+        next(e)
+    }
+})
+
+router.get('/profile/auth0', async (req, res, next) => {
+    try {
+        const token = await getToken(req)
+        const user = await getAuth0UserInfo(token)
+
+        res.json(user)
+    }
+    catch(e) {
+        // @ts-ignore
+        next(e)
+    }
 })
 
 
