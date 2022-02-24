@@ -31,5 +31,5 @@ window.addEventListener('DOMContentLoaded', () => {
     courseOverview()
 
     // Lazyload images
-    new lazyload()
+    const ll = new lazyload()
 })
