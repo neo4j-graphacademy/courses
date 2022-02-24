@@ -554,7 +554,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         // Add sandbox attributes to Page Attributes?
         let sandbox: Sandbox | undefined
 
-        if ( course.usecase ) {
+        if ( course.usecase && course.completed === false ) {
             try {
                 sandbox = await createAndSaveSandbox(token, course)
             }

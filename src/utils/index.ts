@@ -102,20 +102,35 @@ interface SandboxConfig {
     sandboxUrl: string | undefined;
 }
 
-export function getSandboxConfig(course: Course, lesson?: Lesson): Promise<SandboxConfig> {
-    const showSandbox = (course.usecase !== undefined && course.usecase !== null) || (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false')
-    const sandboxVisible = typeof lesson?.sandbox === 'string'
+export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: Lesson | LessonWithProgress): Promise<SandboxConfig> {
+    let showSandbox: boolean = false
+    let sandboxVisible = typeof lesson?.sandbox === 'string'
+
+    // If usecase is set and it is not null, show sandbox
+    if ( (course.usecase !== undefined && course.usecase !== null) ) {
+        showSandbox = true
+    }
+    // If :sandbox: is set to 'true' in lesson.adoc (eg. set and not false)
+    else if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false') {
+        showSandbox = true
+    }
 
     let sandboxUrl = `${course.link}browser/`
 
-    // Show sandbox?
+    // Does the sandbox URL need a Cypher query appended to it?
     if (showSandbox === true && lesson?.cypher) {
         sandboxUrl += `?cmd=edit&arg=${encodeURIComponent(lesson?.cypher)}`
     }
 
-    // Overwrite
+    // Overwrite Sandbox URL if set in :sandbox: page attribute
     if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true') {
         sandboxUrl = lesson!.sandbox
+    }
+
+    // If course has already been completed, hide the sandbox completely
+    if ( (course as CourseWithProgress)?.completed === true ) {
+        showSandbox = false
+        sandboxVisible = false
     }
 
     return Promise.resolve({
