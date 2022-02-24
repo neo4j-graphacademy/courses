@@ -1,4 +1,4 @@
-import lazyload from 'lazyload'
+import lazyload from 'lazyload/lazyload.min.js'
 
 import account from './account'
 import classroom from './classroom'
@@ -31,5 +31,5 @@ window.addEventListener('DOMContentLoaded', () => {
     courseOverview()
 
     // Lazyload images
-    lazyload()
+    new lazyload()
 })
