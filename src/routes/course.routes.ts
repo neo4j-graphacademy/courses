@@ -30,6 +30,7 @@ import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'
 import { UserViewedLesson } from '../domain/events/UserViewedLesson'
+import { getRef } from '../middleware/save-ref.middleware'
 
 const router = Router()
 
@@ -236,8 +237,9 @@ router.get('/:course/enrol', requiresAuth(), requiresVerification, async (req, r
     try {
         const user = await getUser(req)
         const token = await getToken(req)
+        const ref = await getRef(req)
 
-        const enrolment = await enrolInCourse(req.params.course, user!, token)
+        const enrolment = await enrolInCourse(req.params.course, user!, token, ref)
 
         const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 

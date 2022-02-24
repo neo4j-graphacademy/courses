@@ -10,7 +10,7 @@ import { User } from "../model/user";
 import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
 
-export async function enrolInCourse(slug: string, user: User, token: string): Promise<Enrolment> {
+export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined): Promise<Enrolment> {
     const output = await writeTransaction(async tx => {
         const res = await tx.run(`
             MATCH (c:Course {slug: $slug})
@@ -20,12 +20,15 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
                 u.givenName = $givenName,
                 u.name = $name,
                 u.picture = $picture
-            SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid())
+            SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid()),
+                u.refs = CASE WHEN $ref IS NOT NULL THEN apoc.coll.toSet(coalesce(u.refs, []) + $ref)
+                    ELSE u.refs END
 
             MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
             ON CREATE SET e.createdAt = datetime()
             ON MATCH SET e.updatedAt = datetime()
-            SET e.lastSeenAt = datetime()
+            SET e.lastSeenAt = datetime(),
+                e.ref = $ref
 
             MERGE (u)-[:HAS_ENROLMENT]->(e)
             MERGE (e)-[:FOR_COURSE]->(c)
@@ -48,6 +51,7 @@ export async function enrolInCourse(slug: string, user: User, token: string): Pr
             email: user.email,
             givenName: user.name,
             picture: user.picture,
+            ref: ref || null,
         }))
 
         if (res.records.length === 0) {

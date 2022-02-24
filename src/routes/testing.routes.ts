@@ -91,6 +91,16 @@ router.get('/profile/auth0', async (req, res, next) => {
     }
 })
 
+router.get('/session', async (req, res, next) => {
+    const session = req.session
+
+    if ( req.query.ref ) {
+        // @ts-ignore
+        session.ref = req.query.ref
+    }
+
+    res.json(session)
+})
 
 router.get('/email/:template', async (req, res) => {
     const result = await read(`

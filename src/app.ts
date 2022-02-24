@@ -20,6 +20,7 @@ import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
 import { initAnalytics } from './modules/analytics'
+import { saveRef } from './middleware/save-ref.middleware'
 
 
 export default function initApp(driver: Driver) {
@@ -52,6 +53,9 @@ export default function initApp(driver: Driver) {
 
     // Apply Session/Flash
     registerSession(app)
+
+    // Save ?ref=xxx in Session
+    app.use(saveRef)
 
     // Bugsnag Request Handler
     useRequestHandler(app)
