@@ -1,4 +1,4 @@
-= Returning properties
+= Returning Property Data
 :type: quiz
 :sandbox: true
 
@@ -6,73 +6,59 @@
 //video::ImKvXY72SA0[youtube,width=560,height=315]
 
 [.transcript]
-== Retur
+== Returning data
 
-Whether you return results as nodes or as properties of node, you can specify a property value for the ordering.
-Strings are ordered by their ASCII values, Booleans are ordered by their values, and numeric data (including date and datetime properties) are ordered by their numeric value.
-
-You specify `ORDER BY` in the RETURN clause where you specify the property for the ordering.
-
-Here is an example:
+Many applications that access Neo4j via their drivers use Cypher to retrieve data from the graph as objects that will be used by the application.
+In Neo4j Browser, when nodes are returned, you can either view them as a graph, or you can view them in table view where all properties for a node  are a single row.
+The data is returned as rows of data where each row represents a JSON-style object for a node.
 
 [source,cypher]
 ----
 MATCH (p:Person)
-WHERE p.born.year = 1980
-RETURN p.name AS Name, p.born AS `Birth Date` ORDER BY p.born
+WHERE p.name CONTAINS "Thomas"
+RETURN p AS person ORDER BY p.name ASC
 ----
 
-In this query, we find all Person nodes with a born year of 1980.
-The born property of Person nodes is a Cypher Date type so we can use the year method to return the year value.
-Notice that is this code we are specifyng aliases for the column headers for each row.
-The rows wil be ordered by the value of the born property.
+This query returns all Person nodes that contain the string "Thomas".
+If you view the data returned as a table, it returns internal node information such as labels and identity, along with the property values.
 
-The default ordering is ascending, but you can specify descending as follows:
+Another way that you can return data is without the internal node information, that is, only property values.
 
 [source,cypher]
 ----
 MATCH (p:Person)
-WHERE p.born.year = 1980
-RETURN p.name AS Name, p.born AS `Birth Date` ORDER BY p.born DESC
+WHERE p.name CONTAINS "Thomas"
+RETURN p { .* } AS person
+ORDER BY p.name ASC
 ----
 
-=== Eliminating null values returned
+This query returns an object named person that contains all of the property values for the node.
+It does not contain any of the internal information for the node such as its labels or id.
 
-For some queries, you may want to not return null values, especially if you are ordering the data.
-
-Here is an example:
+Additionally, you can customize what properties you return in the objects.
 
 [source,cypher]
 ----
 MATCH (p:Person)
-RETURN p.name AS Name, p.born AS `Birth Date` ORDER BY p.born DESC
+WHERE p.name CONTAINS "Thomas"
+RETURN p { .name, .born } AS person
+ORDER BY p.name
 ----
 
-This query returns many rows at the beginning of result set that have a null value for the born  property.
-In this case, we don't want those nodes to be retrieved.
-We adjust the query as follows:
+Here the person objects returned will include the name and born properties.
+
+Being able to customize how data is returned is useful, especially if you are using a programming language that can work with JSON-style objects.
+
+Here is an example, where we are adding information to the objects returned that are not part of the data in the graph.
 
 [source,cypher]
 ----
-MATCH (p:Person)
-WHERE p.born IS NOT NULL
-RETURN p.name AS Name, p.born AS `Birth Date` ORDER BY p.born DESC
+MATCH (m:Movie)<-[:DIRECTED]-(d:Director)
+WHERE d.name = 'Woody Allen'
+RETURN m {.*, favorite: true} AS Movie
 ----
 
-== Ordering multiple results
-
-You can provide multiple sort expressions and the result will be sorted in that order.
-
-[source,cypher]
-----
-MATCH (p:Person)-[:DIRECTED | ACTED_IN]->(m:Movie)
-WHERE p.name = 'Tom Hanks' OR p.name = 'Keanu Reeves'
-RETURN  m.year, m.title ORDER BY m.year DESC , m.title
-----
-
-In this query we return the movies in descending year order and then the movie titles in ascending order.
-
-There is no limit to the number of properties you can order by.
+In addition to returning all property values for each Woody Allen movie, we are returning a property of favorite with a value of true for each Movie object returned.
 
 == Check your understanding
 
