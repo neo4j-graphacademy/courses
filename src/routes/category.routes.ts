@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
-import { PUBLIC_DIRECTORY } from '../constants'
+import { BASE_URL, PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
 import { Course, CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
@@ -110,6 +110,7 @@ router.get('/:slug', async (req, res, next) => {
 
         res.render('course/list', {
             title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
+            canonical: `${BASE_URL}/categories/${slug}/`,
             slug,
             categories,
             category,
