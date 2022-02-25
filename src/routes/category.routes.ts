@@ -9,6 +9,7 @@ import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth.middleware'
 
 import { categoryBannerPath, flattenCategories, groupCoursesByStatus } from '../utils'
+import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 
 const router = Router()
 
@@ -83,7 +84,7 @@ router.get('/banner', (req: Request, res: Response, next: NextFunction) => {
     res.sendFile(filePath)
 })
 
-router.get('/:slug', async (req, res, next) => {
+router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
     try {
         const { slug } = req.params
         const user = await getUser(req)

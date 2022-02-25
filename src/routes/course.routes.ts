@@ -31,6 +31,7 @@ import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'
 import { UserViewedLesson } from '../domain/events/UserViewedLesson'
 import { getRef } from '../middleware/save-ref.middleware'
+import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 
 const router = Router()
 
@@ -71,7 +72,7 @@ router.get('/', async (req, res, next) => {
  *
  * Render course information from course.adoc in the course root
  */
-router.get('/:course', async (req, res, next) => {
+router.get('/:course', forceTrailingSlash, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -430,7 +431,7 @@ router.get('/:course/:module/browser', requiresAuth(), requiresVerification, bro
  * If none of the routes matched above, this URL must be a module page.
  * Render courseindex.adoc in the course root
  */
-router.get('/:course/:module', requiresAuth(), classroomLocals, async (req, res, next) => {
+router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
@@ -524,7 +525,7 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, classroomLocals, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
