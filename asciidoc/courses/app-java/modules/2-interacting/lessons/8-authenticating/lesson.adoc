@@ -1,19 +1,19 @@
 = Authenticating a User
 :type: challenge
 :branch: 05-authentication
-:test-number: 05
+:test-filename: _05_AuthenticationTest
+:test-method: authenticateUser
 
-At stage of the application,  a user can register, but they are still unable to sign in.
+At stage of the application, a user can register, but they are still unable to sign in.
 As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
 
-In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/src/routes/auth.services.js[`AuthService`^] to do the following:
+In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] to do the following:
 
 1. <<Open a new Session>>
 2. <<Find the User node within a Read Transaction>>
 3. <<Verify The User Exists>>
 4. <<Compare Passwords>>
-5. <<Close the Session>>
-6. <<Return User Details>>
+5. <<Return User Details>>
 
 
 But first, let's take a look at how Authentication works in the application.
@@ -21,29 +21,28 @@ If you prefer, you can skip straight to <<Implementing Authentication>>.
 
 == Passport & Authentication
 
-This project uses a _Local Strategy_ exported from the `passport-local` library to handle the authentication request.
-The purpose of a Local Strategy is to authenticate a user using a username and password.
+This project uses the Auth0 JWT library to handle the authentication request.
+The purpose of the JWT library is to authenticate a user using a username and password with a secret token.
 
 When a user submits the Sign In form from the UI, the following process occurs:
 
-1. A route handler in link:{repository-blob}/main/src/routes/auth.routes.js[`src/routes/auth.routes.js`^] listens for a `POST` request.
-2. The `passport.authenticate` middleware triggers the _local_ authentication strategy.
-3. This calls the callback function defined in link:{repository-blob}/main/src/passport/neo4j.strategy.js[`src/passport/neo4j.strategy.js`^].
-4. The strategy creates a new instance of the link:{repository-blob}main/src/routes/auth.services.js[`AuthService`^] and calls the `authenticate()` method with the username and password defined in the request.
+1. A route handler in link:{repository-blob}/main/src/main/java/neoflix/routes/AuthRoutes.java[`src/main/java/neoflix/routes/AuthRoutes.java`^] listens for a `POST` request.
+2. The `AuthRoutes` calls the `authenticate()` method in the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] with the username and password from the request.
 
 
 The `authenticate()` method performs the following actions:
 
 1. Attempt to find the user by their email address.
+//MH: Doesn't look like we return false if user not found. Should we fix that?
 2. If the user does not exist, return `false`.
 3. Compare the encrypted password in the database against the unencrypted password sent with the request.
-4. If the passwords do not match, return `false`.
+4. If the passwords do not match, throw a new RuntimeException.
 5. Otherwise, return an object containing the user's _safe_ properties, and a JWT token with a set of claims that can be used in the UI.
 
 
 For this strategy to work correctly, the `authenticate()` method must return an object which represents the user on successful login, or return `false` if the credentials are incorrect.
 
-If the returned value is anything other than false, the value will be appended to the request, and will be accessible through `req.user` on any route handlers that use the `passport.authenticate` middleware.
+If the returned value is anything other than false, the value will be appended to the request, and will be accessible through `req.user` on any route handlers that use the `AppUtils` class.
 
 
 == Implementing Authentication
@@ -53,7 +52,7 @@ To implement database authentication, you will modify the `authenticate` method 
 .src/services/auth.service.js
 [source,java,indent=0]
 ----
-include::{repository-raw}/main/src/services/auth.service.java[tag=authenticate]
+include::{repository-raw}/main/src/main/java/neoflix/services/AuthService.java[tag=authenticate]
 ----
 
 Your challenge is to update the `authenticate()` method to perform the following actions:
@@ -74,42 +73,34 @@ Use a `MATCH` query to find a `:User` node with the email address passed to the 
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.java[tag="query"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="query"]
 ----
 
 
 === Verify The User Exists
 
 If no records are returned, you can safely assume that the user does not exist in the database.
-In this case, a `false` value should be returned.
-
-[source,java,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/auth.service.java[tag="norecords"]
-----
+//MH: Is that what we should return for a Java program? Or an exception?
+//In this case, a `false` value should be returned.
+//
+//[source,java,indent=0]
+//----
+//include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="norecords"]
+//----
+//MH: This tag currently does not exist in our code
 
 
 === Compare Passwords
 
 Next, you must verify that the unencrypted password matches the encrypted password saved as a property against the `:User` node.
 
-The `bcrypt` library used to encrypt the password also includes a `compare()` function that can be used to compare a string against a previously encrypted value.
+The `bcrypt` library used to encrypt the password also includes a `verify()` function that can be used to compare a string against a previously encrypted value.
 
-If the `compare()` function returns false, the passwords do not match and the method should also return false
-
-[source,java,indent=0]
-----
-include::{repository-raw}/{branch}/src/services/auth.service.java[tag="password"]
-----
-
-
-=== Close the Session
-
-Before the user information is returned, make sure that the session is closed.
+If the `verify()` function returns false, the passwords do not match and the method should throw a new RuntimeException.
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/main/src/main/java/example/index.java[tag="session.close"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="password"]
 ----
 
 
@@ -121,7 +112,7 @@ The code is already written to the example, so this can be re-purposed at the en
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.java[tag="return"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="return"]
 ----
 
 Once you have applied these changes to the `authenticate()` method, scroll to <<Testing>> to verify that the method works as expected.
@@ -133,10 +124,10 @@ Once you have applied these changes to the `authenticate()` method, scroll to <<
 .Click here to reveal the completed `authenticate()` method:
 ====
 
-.src/services/auth.service.js
+.src/main/java/neoflix/services/AuthService.java
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/auth.service.java[tag="authenticate"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="authenticate"]
 ----
 
 ====
