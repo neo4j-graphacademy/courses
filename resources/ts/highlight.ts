@@ -2,8 +2,10 @@ import hljs from 'highlight.js/lib/core'
 
 import bash from 'highlight.js/lib/languages/bash'
 import c from 'highlight.js/lib/languages/c-like'
+import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import javascript from 'highlight.js/lib/languages/javascript'
+import json from 'highlight.js/lib/languages/json'
 import python from 'highlight.js/lib/languages/python'
 import properties from 'highlight.js/lib/languages/properties'
 import shell from 'highlight.js/lib/languages/shell'
@@ -36,12 +38,15 @@ export default function highlight() {
   hljs.registerLanguage('conf', properties)
   hljs.registerLanguage('graphql', graphql)
   hljs.registerLanguage('c', c)
+  hljs.registerLanguage('go', go)
   hljs.registerLanguage('java', java)
   hljs.registerLanguage('js', javascript)
   hljs.registerLanguage('javascript', javascript)
+  hljs.registerLanguage('json', json)
   hljs.registerLanguage('sql', sql)
   hljs.registerLanguage('sql_more', sql_more)
   hljs.registerLanguage('yaml', yaml)
+  hljs.registerLanguage('python', python)
   hljs.registerLanguage('python', python)
 
   hljs.highlightAll()
