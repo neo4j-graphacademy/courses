@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { User } from '../domain/model/user'
 import { notify } from '../middleware/bugsnag.middleware'
@@ -22,11 +22,19 @@ export interface Sandbox {
     [key: string]: any;
 }
 
-const { SANDBOX_URL } = process.env
+let api: AxiosInstance
 
-const api = axios.create({
-    baseURL: SANDBOX_URL,
-})
+export function sandboxApi() {
+    const { SANDBOX_URL } = process.env
+
+    if ( api === undefined ) {
+        api = axios.create({
+            baseURL: SANDBOX_URL,
+        })
+    }
+
+    return api
+}
 
 
 export async function getAuth0UserInfo(token: string):  Promise<Partial<User>> {
@@ -38,7 +46,7 @@ export async function getAuth0UserInfo(token: string):  Promise<Partial<User>> {
 }
 
 export async function getUserInfo(token: string): Promise<Partial<User>> {
-    const res = await api.get(`SandboxGetUserInfo`, {
+    const res = await sandboxApi().get(`SandboxGetUserInfo`, {
         headers: {
             authorization: `${token}`
         },
@@ -60,7 +68,7 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
     }
 
     try {
-        const res = await api.get(
+        const res = await sandboxApi().get(
             `SandboxGetRunningInstancesForUser`,
             {
                 headers: {
@@ -118,9 +126,23 @@ export async function createSandbox(token: string, usecase: string): Promise<San
         return existing
     }
 
-    const res = await api.post(
+    const res = await sandboxApi().post(
         `SandboxRunInstance`,
         { usecase, },
+        {
+            headers: {
+                authorization: `${token}`
+            },
+        }
+    )
+
+    return res.data
+}
+
+export async function stopSandbox(token: string, sandboxHashKey: string) {
+    const res = await sandboxApi().post(
+        `SandboxStopInstance`,
+        { sandboxHashKey, },
         {
             headers: {
                 authorization: `${token}`
