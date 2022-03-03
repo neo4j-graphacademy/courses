@@ -20,7 +20,7 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
 
     const query = `
         MERGE (e:Enrolment {id: $id})
-        MERGE (s:Sandbox {id: $sandbox.hashKey})
+        MERGE (s:Sandbox {id: $sandbox.id})
         SET s += $sandbox,
                 s.createdAt = datetime(),
                 s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)}),
@@ -32,7 +32,8 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
     const params = {
         id: enrolmentId,
         sandbox: {
-            id: sandboxOutput.sandboxId,
+            id: sandboxOutput.sandboxHashKey,
+            sandboxId: sandboxOutput.sandboxId,
             hashKey: sandboxOutput.sandboxHashKey,
             host: sandboxOutput.host,
             ip: sandboxOutput.ip,
