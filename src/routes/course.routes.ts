@@ -161,7 +161,7 @@ router.get('/:course/banner', async (req, res, next) => {
         let filePath = courseBannerPath({ slug: req.params.course } as Course)
 
         if (!existsSync(filePath)) {
-            filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-layout.png`)
+            filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-landing.png`)
         }
 
         res.header('Content-Type', 'image/png')
