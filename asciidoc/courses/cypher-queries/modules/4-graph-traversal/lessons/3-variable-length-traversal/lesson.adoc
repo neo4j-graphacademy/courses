@@ -14,181 +14,96 @@ Think of the _connected_ relationship in _LinkedIn_ and how connections are made
 There are two use cases for this type of traversal:
 
 * Finding the shortest path between two nodes.
-* Finding out how close nodes are to each other in the graph.
+* Finding out how "close" nodes are to each other in the graph.
 
-The Neo4j Graph Data Science Library has many methods you can call to discover these characteristics of the graph.
-In this training, we cover the basic connectedness that you can query with Cypher.
+The Neo4j Graph Data Science Library has many methods you can call to discover these characteristics and patterns of the graph.
+In this training, we cover the basic connectedness between nodes that you can query with Cypher.
 
 === Shortest path
 
-
-Next, we will look at some examples of how queries are anchored based upon the hueristics used by the graph engine.
-
-[source,cypher]
-----
-PROFILE MATCH (p:Person)-[:ACTED_IN]->(m)
-RETURN p.name, m.title
-----
-
-In this query, the _Person_ nodes are the anchor for the query. This is because there are a total of 28,863 nodes in the graph which is what _m_ represents. There are only 19,047 _Person_ nodes so the execution will retrieve fewer nodes if it anchors with the _Person_ nodes.
+Cypher has a built-in function that returns the shortest path between any two nodes, if one exists.
 
 [source,cypher]
 ----
-PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-RETURN p.name, m.title
+MATCH p = shortestPath((p1:Person)-[*]-(p2:Person))
+WHERE p1.name = "Eminem" AND
+      p2.name = "Charlton Heston"
+RETURN  p
 ----
 
-In this query the _Movie_ nodes will be the anchor for the query because there are fewer _Movie_ nodes (9,125) than _Person_ nodes (19,047).
+This query calculates and returns the shortest pateh between the Eminem node and the Charlton Heston node in the graph.
+Because * is specified for the relationship it finds the shortest path regardless of the relationship type.
+That is, Eminem is 4 hops away from Charlton Heston using the ACTED_IN and RATED relationships.
+
+You can also limit the relationship types to a specific relationship:
 
 [source,cypher]
 ----
-PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-WHERE p.name = 'Eminem'
-RETURN p.name, m.title
+MATCH p = shortestPath((p1:Person)-[:ACTED_IN*]-(p2:Person))
+WHERE p1.name = "Eminem" AND
+      p2.name = "Charlton Heston"
+RETURN  p
 ----
 
-In this query, a filter is specified which reduces the number of nodes that will be retrieved for the _Person_ node.
-Satisfying the filter is the anchor for the query.
-If the _Person_ nodes has an index on _name_, it only retrieves one record.
-If there is no index, it needs to scan/filter all _Person_ nodes for the _name_ property.
+This query returns a longer path because the relationship must be ACTED_IN.
 
+=== Varying length traversal
 
-==== Multiple anchors
-
-By default, an anchor set of nodes is determined by the metadata related to the query path and `WHERE` clauses to filter the query.
-In some cases you may have more than one set of anchor nodes.
+Suppose you want to retrieve all Person nodes that are exactly 2 hops away from Eminem using the ACTED_IN relationship.
 
 [source,cypher]
 ----
-PROFILE
-MATCH (p1:Person)-[:ACTED_IN]->(m1)
-MATCH (m2)<-[:ACTED_IN]-(p2:Person)
-WHERE p1.name = 'Tom Hanks'
-  AND p2.name = 'Meg Ryan'
-  AND m1 = m2
-RETURN m1.title
-----
-
-
-In this query, all _p1_ nodes are retrieved as well as all _p2_ nodes.
-This query has two sets of anchor nodes.
-It retrieves the anchor nodes before the equality filter is applied.
-The query planner tries to apply filters as early as possible to reduce cardinality (number of rows).
-
-
-=== Expand to follow paths
-
-After the anchor nodes have been retrieved, the next step if the query specifies a path is to follow the path.
-The loaded, initial nodes that are part of the anchor set have pointers to relationships that point to nodes on the other end of the relationships.
-
-The goal here is to eliminate paths from the nodes in memory to nodes that will need to be retrieved.
-This is where specificity in the relationship types is important in your data model.
-
-[source,cypher]
-----
-PROFILE MATCH (m:Movie)<--(p:Person)
-WHERE p.name = 'Clint Eastwood'
-RETURN  m.title
-----
-
-This query expands to 70 rows because Clint Eastwood has relationships to that many movies.
-
-[source,cypher]
-----
-PROFILE MATCH (m:Movie)<-[:DIRECTED]-(p:Person)
-WHERE p.name = 'Clint Eastwood'
-RETURN  m.title
-----
-
-This query expands to fewer rows because Clint Eastwood has fewer DIRECTED relationships to movies.
-
-[IMPORTANT]
---
-In addition, the expansion may lead to the need to inspect properties of the relationship and/or the properties of the _Movie_ node.
-This inspection means that the nodes are brought into memory and possibly eliminated from the nodes in memory after they have been retrieved.
---
-
-Cypher queries with multiple `MATCH` statements may execute differently than what you may expect.
-You should always profile your queries to understand how the graph is traversed.
-
-=== Basic query traversal
-
-Now let's learn a little more about how traversal works in Neo4j.
-
-With this query:
-
-[source,cypher]
-----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-WHERE p.name = 'Eminem'
-RETURN  m.title AS Movies
+MATCH (p:Person {name: 'Eminem'})-[:ACTED_IN*2]-(others:Person)
+RETURN  others.name
 ----
 
 Here is what happens when this query executes:
 
-image::images/traverse-Eminem-movies.gif[Traverse to Eminem Movies,width=400,align=center]
+image::images/2-hops-Eminem.gif[People 2 hops away from Eminem,width=400,align=center]
 
 The Eminem Person node is retrieved.
-Then the first ACTED_IN relationship is traversed to retrieve the Movie node for 8 Mile.
-Then the second ACTED_IN relationship is traversed to retrieve the Movie node for Hip Hop Witch, Da.
-If the title property for the Movie node is not stored with the node, it is retrieved so that the results can be returned.
+Then the two ACTED_IN relationship are traversed through the Movie node for 8 Mile to return the three Person nodes.
+Then the two ACTED_IN relationships are traversed through the Movie node for Hip Hop Witch, Da to return the three Person nodes.
 
-[NOTE]
---
-A node has at most 4 properties co-located with it.
-If a node has more than 4 properties, more data may need to be retrieved to return the values in the result.
---
-=== Query traversal using multiple patterns
+==== 4 hops away
 
-Here is another query that contains two patterns:
+Suppose you want to retrieve all Person nodes that are exactly 4 hops away from Eminem using the ACTED_IN relationship.
 
 [source,cypher]
 ----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie), ,(coActors:Person)-[:ACTED_IN]->(m)
-WHERE p.name = ‘Eminem’
-RETURN m.title as Movie ,collect(coActors.name) AS `Co-Actors`
+MATCH (p:Person {name: 'Eminem'})-[:ACTED_IN*4]-(others:Person)
+RETURN  others.name
 ----
 
 Here is what happens when this query executes:
 
-image::images/traverse-Eminem-coactors.gif[Traverse to Eminem's Co-actors,width=400,align=center]
+image::images/4-hops-Eminem.gif[People 4 hops away from Eminem,width=400,align=center]
 
-For the first pattern in the query, the Eminem Person node is retrieved.
-Then the first ACTED_IN relationship is traversed to retrieve the Movie node for 8 Mile.
-The second pattern in the query is then used.
-Each ACTED_IN relationship to the same 8 Mile movie is traversed to retrieve three co-actors.
-Then the second ACTED_IN relationship is traversed to retrieve the Movie node for Hip Hop Witch, Da.
-Each ACTED_IN relationship to the same Hip Hop Witch, Da movie is traversed to retrieve three co-actors.
-If the title property for the Movie node is not stored with the node, it is retrieved so that the results can be returned.
-Notice that for this query, a depth-first traversal occurs.
+The Eminem Person node is retrieved.
+Then the ACTED_IN relationships are traversed through the Movie node where Brittany Murphy for 8 Mile is retrieved  and Little Black Book to return the two Person nodes.
+Then the four ACTED_IN relationships are traversed through the Movie node for 8 Mile and The Prophecy II to return the two Person nodes.
+Only Person nodes that are exactly 4 hops from Eminem are returned.
 
-=== Query traversal using `MATCH` clauses
+====  Up to 4 hops away
 
-Here is another query that contains two `MATCH` clauses:
+Suppose you want to retrieve all Person nodes that are up to 4 hops away from Eminem using the ACTED_IN relationship.
 
 [source,cypher]
 ----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-WHERE p.name = ‘Eminem’
-MATCH (allActors:Person)-[:ACTED_IN]->(m)
-RETURN m.title as Movie, collect(allActors.name) as `All Actors`
+MATCH (p:Person {name: 'Eminem'})-[:ACTED_IN*1..4]-(others:Person)
+RETURN  others.name
 ----
 
 Here is what happens when this query executes:
 
-image::images/traverse-multiple_match.gif[Traverse using multiple Match clauses,width=400,align=center]
+image::images/up-to-4-hops-Eminem.gif[People 4 hops away from Eminem,width=400,align=center]
 
-For the first `MATCH` clause in the query, the Eminem Person node is retrieved.
-Then the first ACTED_IN relationship is traversed to retrieve the Movie node for 8 Mile.
-The second `MATCH` clause in the query is then executed.
-Each ACTED_IN relationship to the same 8 Mile movie is traversed to retrieve three co-actors.
-In addition, the second `MATCH` clause uses the Eminem node also which is already in memory and adds it to the list returned.
-Then the query returns back to the first `MATCH` clause to traverse the ACTED_IN relationship to the Hip Hop Witch, Da movie.
-The second `MATCH` clause in the query is then executed.
-Each ACTED_IN relationship to the same Hip Hop Witch, Da movie is traversed to retrieve three co-actors.
-In addition, the second `MATCH` clause uses the Eminem node also which is already in memory and adds it to the list returned.
-Notice that for this query, a depth-first traversal occurs just as it did for the previous query.
-The one difference in the outcome, however is that the Eminem node is added as a result of the second `MATCH`.
+The Eminem Person node is retrieved.
+Then the ACTED_IN relationships are traversed through the Movie node for 8 Mile and for the Little Black Book.
+During this traversal we retrieve the Person node 2 hops away and the 2 Person nodes that are 4 hops away.
+Then the ACTED_IN relationships are traversed through the Movie node for 8 Mile and for The Prophecy II.
+We have already retrieved Brittany Murphy who is 2 hops away, but we add 2 more Person nodes.
+This depth-first traversal and retrieval continues until all Person nodes that are 2 hops away and 4 hops away are retrieved.
 
 == Check your understanding
 
