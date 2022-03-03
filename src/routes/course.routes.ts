@@ -98,13 +98,22 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
 
         res.render('course/overview', {
             classes: `course ${course.slug}`,
+
+            // For analytics.pug
+            analytics: {
+                course: {
+                    slug: course.slug,
+                    title: course.title,
+                },
+            },
+
+            course,
             ...course,
 
             ogDescription: course.caption,
             ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
             ogImage: `${course.link}banner/`,
 
-            course: { modules: course.modules },
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
             feedback: true,
@@ -467,6 +476,16 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
 
         res.render('course/module', {
             classes: `module ${req.params.course}-${req.params.module}  ${course!.completed ? 'course--completed' : ''} ${module!.completed ? 'module--completed' : ''}`,
+            analytics: {
+                course: {
+                    slug: course.slug,
+                    title: course.title,
+                },
+                module: {
+                    slug: module.slug,
+                    title: module.title,
+                },
+            },
             feedback: true,
             ...module,
             type: 'module overview',
@@ -617,6 +636,20 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
 
         res.render('course/lesson', {
             classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson!.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
+            analytics: {
+                course: {
+                    slug: course.slug,
+                    title: course.title,
+                },
+                module: {
+                    slug: module.slug,
+                    title: module.title,
+                },
+                lesson: {
+                    slug: lesson.slug,
+                    title: lesson.title,
+                },
+            },
             feedback: true,
             ...lesson,
             path: req.originalUrl,
