@@ -249,7 +249,7 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
             )
         )
 
-        res.status(201).send()
+        res.status(201).send({status: 'created'})
     }
     catch(e) {
         next(e)
@@ -274,7 +274,7 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
             )
         )
 
-        res.status(201).send()
+        res.status(201).send({status: 'created'})
     }
     catch(e) {
         next(e)

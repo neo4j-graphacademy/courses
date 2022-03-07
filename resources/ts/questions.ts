@@ -460,7 +460,7 @@ const displayCourseCompleted = (res) => {
             'View Course Summary',
         ])
         // @ts-ignore
-        button.setAttribute('href', `${window.course.link}summary/`)
+        button.setAttribute('href', `${window.analytics.course.link}summary/`)
         button.setAttribute('target', '_blank')
 
         actions.push(button)
@@ -479,7 +479,7 @@ const displayCourseCompleted = (res) => {
             span
         ])
         // @ts-ignore
-        button.setAttribute('href', `/u/${window.user.id}/${window.course.slug}`)
+        button.setAttribute('href', `/u/${window.user.id}/${window.analytics.course.slug}`)
 
         actions.push(button)
     }
