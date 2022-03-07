@@ -1,7 +1,6 @@
-import { AxiosError } from "axios";
 import { Transaction } from "neo4j-driver";
 import { write } from "../../modules/neo4j";
-import { createSandbox, getSandboxForUseCase, Sandbox } from "../../modules/sandbox";
+import { createSandbox, Sandbox } from "../../modules/sandbox";
 import { CourseWithProgress } from "../model/course";
 
 export async function createAndSaveSandbox(token: string, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
