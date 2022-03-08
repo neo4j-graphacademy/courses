@@ -30,6 +30,13 @@ router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
     ])
 })
 
+router.post('/sandbox/SandboxRunInstance', (req, res) => {
+    res.json({
+        ...devSandbox(),
+        usecase: req.body.usecase,
+    })
+})
+
 router.get('/sandbox/SandboxRunInstance', (req, res) => {
     res.json(devSandbox())
 })

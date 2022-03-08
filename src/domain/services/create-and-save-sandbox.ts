@@ -1,7 +1,6 @@
-import { AxiosError } from "axios";
 import { Transaction } from "neo4j-driver";
 import { write } from "../../modules/neo4j";
-import { createSandbox, getSandboxForUseCase, Sandbox } from "../../modules/sandbox";
+import { createSandbox, Sandbox } from "../../modules/sandbox";
 import { CourseWithProgress } from "../model/course";
 
 export async function createAndSaveSandbox(token: string, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
@@ -20,7 +19,7 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
 
     const query = `
         MERGE (e:Enrolment {id: $id})
-        MERGE (s:Sandbox {id: $sandbox.hashKey})
+        MERGE (s:Sandbox {id: $sandbox.id})
         SET s += $sandbox,
                 s.createdAt = datetime(),
                 s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)}),
@@ -32,7 +31,8 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
     const params = {
         id: enrolmentId,
         sandbox: {
-            id: sandboxOutput.sandboxId,
+            id: sandboxOutput.sandboxHashKey,
+            sandboxId: sandboxOutput.sandboxId,
             hashKey: sandboxOutput.sandboxHashKey,
             host: sandboxOutput.host,
             ip: sandboxOutput.ip,
