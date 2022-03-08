@@ -7,217 +7,27 @@ video::xxxx[youtube,width=560,height=315]
 
 
 [.transcript]
-== GDS Projections
-In GDS there are two primary types of projections, native projections and cypher projections. Native projections are optimized for scale and performance to robustly support graph data science workloads. Cypher projections are optimized for flexibility and customizability to support developmental analysis and experimentation.
+== Introduction
+In the last lesson you learned about the graph catalog. We briefly introduced graph projections there, but we didn't go into much depth. Understanding Graph projections is foundational to success in GDS, so we will spend the next two lessons covering them in more detail.
 
-== Native Projections
-In the last lesson you learned about the graph catalog.  In this lesson we will go into more depth with native projections specifically- what exactly they are and how to use them. We actually used native projections in our last lesson.  When you call `gds.graph.project`  you are using a native projection. In this lesson, we will go into more depth on the various options you have
+In GDS there are two primary types of projections, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
 
-== The Purose of Native Projections and What They do
+In this lesson we will cover native projections specifically - what exactly they are and how to use them. In the next lesson we will do the same for Cypher projections.
 
-Native projections are all about performance, reliability, and eas-of-use. They are certainly what you will use for large graphs and for when you want to move fast.
+== What is a Native Projection?
 
-Native projections can be used for projecting all nodes and relationships in the database.  They also have the ability to subset the graph by filtering down to specific node labels and/or relationship types.  Native Projections also provide the option to include numeric properties from the database for both nodes and relationships this can be useful for some graph algorithms down the road, particularly things like weighted centrality measures, similarity calcvulations, and node embeddings.
-
-
-There are actually many different ways to configure native projections.  We won't have time to into detail on all of them here.  Instead, lets take a high level look by use case
+We actually used a native projection in our last lesson.  When you call `gds.graph.project` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
 
 
-== Simple Native Projections
-The first use case is simple native projections - those without properties, aggregations, or relationship orientation changes. With a simple native projection we just choose the node labels and relationship types we want in our graph.
+Below we go over the basic syntax for native projections and walk through common configurations for a simple practical use case.
 
-For example, in the last lesson we projected a graph that looked
+== Basic Syntax
 
-== Changing Relationship Orientation
+== Basic Native Projections
 
-== Including Node Properties
-
-== Including Relationship Properties
+== Including Node and Relationship Properties
 
 == Relationship Aggregations
-
-
-== Syntax
-
-
-A native projection takes three mandatory arguments: `graphName`, `nodeProjection` and `relationshipProjection`. In addition, the optional `configuration` parameter allows us to further configure the graph creation.
-
-It looks like this:
-----
-CALL gds.graph.create(
-    graphName: String,
-    nodeProjection: String or List or Map,
-    relationshipProjection: String or List or Map,
-    configuration: Map
-)
-YIELD
-  graphName: String,
-  nodeProjection: Map,
-  nodeCount: Integer,
-  relationshipProjection: Map,
-  relationshipCount: Integer,
-  createMillis: Integer
-----
-
-The graph name acts as a unique identifier for the graph, so you can refer to it later
-
-The nodeProjection is responsible for projecting nodes. This includes which node labels to include, how to map them to node label names in the projected graph, and also what node properties, if any, to include. There are multiple ways to complete the syntax for a node projection.
-
-wildcard means include all labels
-----
-'*'
-----
-
-*Short-hand String-syntax to include one label, i.e. Actor
-----
-'Actor'
-----
-
-Short-hand List-syntax to include multiple labels
-----
-['Actor', 'Movie']
-----
-
-Extended Map-syntax to add properties to nodes.
-
-ex 1.
-
-----
-{
-    <projected-label>: {
-        label: <neo4j-label>,
-        properties: <neo4j-property-key>
-    },
-    <projected-label>: {
-        label: <neo4j-label>,
-        properties: [<neo4j-property-key>, <neo4j-property-key>, ...]
-    },
-    ...
-    <projected-label>: {
-        label: <neo4j-label>,
-        properties: {
-            <projected-property-key>: {
-                property: <neo4j-property-key>,
-                defaultValue: <fallback-value>
-            },
-            ...
-            <projected-property-key>: {
-                property: <neo4j-property-key>,
-                defaultValue: <fallback-value>
-            }
-        }
-    }
-}
-----
-
-
-== What is Native Projection
-A native projection is the default, opt
-
-* creating (a.k.a projecting) graphs
-* viewing details about graphs
-* dropping graph projections
-* export graphs projections
-* subsetting graph projections (aka subgraph projection)
-* writing graph projection properties back to the database
-
-== How the Graph Catalog Works
-
-You can call graph catalog operations with commands of the form
-[source,Partial,role=nocopy noplay]
-----
-CALL gds.graph.<command>
-----
-
-for example, we can list the graph projections that currently exist in our database with the below command.
-----
-CALL gds.graph.list()
-----
-
-This will return an empty list since we haven't created any projections yet.
-
-In the recommendations graph, we can create a projection from the `Actor` and `Movie` nodes and the `ACTED_IN` relationship with the below command.
-----
-CALL gds.graph.project('my-graph-projection', ['Actor','Movie'], 'ACTED_IN')
-----
-
-If we now list graphs again we should see information on the graph we just made
-----
-CALL gds.graph.list() YIELD graphName, nodeCount, relationshipCount, schema
-----
-|====
-| "graphName"          |"nodeCount"|"relationshipCount"|"schema"
-
-| "my-graph-projection"|24568      |35910              |`{"relationships":{"ACTED_IN":{}},"nodes":{"Movie":{},"Actor":{}}}`
-
-|====
-
-== Running Algorithms
-As mentioned in previous lessons, the purpose of creating a projection is to provide a space for running graph algorithms and doing graph data science efficiently.
-
-As a simple example of a graph algorithm, we will run degree centrality on `Actor` nodes.  We will go over the degree centrality algorithm and execution modes in other lessons. For now, just know that this will count the number of movies each actor was in and store it on a node property called `numberOfMoviesActedIn` inside the projection (it will not be written back to the database yet).
-
-----
-CALL gds.degree.mutate('my-graph-projection', {mutateProperty:'numberOfMoviesActedIn'})
-----
-
-== Streaming and Writing Node Properties
-
-There will be times when we want to take the results from our algorithm calculations and either stream them into another process or write them back to the database. The graph catalog has methods to stream and write both node properties and relationship properties for these purposes. We will go over this for the case of node properties below.
-
-
-Using our `numberOfMoviesActedIn` example, we can stream the top 10 most prolific actors by movie count using the `streamNodeProperty` graph catalog operation.
-
-----
-CALL gds.graph.streamNodeProperty('my-graph-projection','numberOfMoviesActedIn')
-YIELD nodeId, propertyValue
-RETURN gds.util.asNode(nodeId).name AS actorName, propertyValue AS numberOfMoviesActedIn
-ORDER BY numberOfMoviesActedIn DESCENDING, actorName LIMIT 10
-----
-
-If we instead wanted to write the property back to the database we could use the `writeNodeProperty` operation.
-
-----
-CALL gds.graph.writeNodeProperties('my-graph-projection',['numberOfMoviesActedIn'], ['Actor'])
-----
-
-We could then query the top 10 most prolific actors by movie count with Cypher.
-
-----
-MATCH(a:Actor)
-RETURN a.name, a.numberOfMovies
-ORDER BY a.numberOfMoviesActedIn DESCENDING, a.name LIMIT 10
-----
-
-== Exporting Graphs
-//Not offering hands-on examples for export operations because it is not possible to do with sandbox
-In a Data Science workflow, you may encounter situations where you need to bulk export data from a graph projection after performing graph algorithms and other analytics. For example,
-
-* export graph features for training a machine learning model in another environment
-* create separate analytical views for downstream analytics and/or sharing with colleagues.
-* produce snapshots of analytical results and persist to the filesystem
-
-The graph catalog has two methods for export:
-
-. `gds.graph.export` to export a graph into a new database - effectively copying the projection into a separate Neo4j database
-. `gds.beta.graph.export.csv` to export a graph to csv files
-
-
-== Dropping Graphs
-Projected graphs take up space in memory so once we are done working with a graph projection it is smart to remove it. We can do this with the drop command below:
-----
-CALL gds.graph.drop('my-graph-projection')
-----
-
-Now when we list graphs it will be empty again.
-----
-CALL gds.graph.list()
-----
-
-== Other Graph Catalog Operations
-
-There are a few other management operations in the graph catalog that we will not be going over in detail inside this module such as delete and remove operations. You can read about all of them in our  https://neo4j.com/docs/graph-data-science/current/management-ops/graph-catalog-ops/[documentation].
-
 
 == Check your understanding
 
@@ -231,4 +41,3 @@ include::questions/3-cypher-projection-usage.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-xxx
