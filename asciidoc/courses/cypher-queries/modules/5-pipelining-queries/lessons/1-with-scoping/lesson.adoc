@@ -1,0 +1,124 @@
+= Scoping Variables
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::ImKvXY72SA0[youtube,width=560,height=315]
+
+[.transcript]
+== Scoping variables for a query
+
+You have already learned how you can specify a variable for a node or relationship in a query:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title AS Movies
+----
+
+You can define and initialize variables be used in the query with a `WITH` clause.
+
+[source,cypher]
+----
+WITH 'Tom Hanks' AS actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = actorName
+RETURN m.title AS Movies
+----
+
+Before the `MATCH` clause, we define a variable, actorName to have a value of Tom Hanks.
+The variable, actorName is in the scope of the query so it can be used like a parameter.
+The query itself can be reused with a different value for actorName.
+
+[NOTE]
+--
+You will learn about using parameters in Cypher later in this course.
+--
+
+=== Using `WITH` to redefine scope
+
+Let's look at scoping variables in more detail. Suppose we have this query:
+
+[source,cypher]
+----
+WITH  'toy story' AS mt, 'Tom Hanks' AS actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = actorName AND toLower(m.title) CONTAINS mt
+RETURN m.title AS Movies
+----
+
+For this query, mt and actorName are within scope of the `MATCH` clause that also uses the `WHERE` clause.
+It retrieves the Person node, then all of the movies that Tom Hanks acted in, then it filters and returns the movies that contain mt.
+
+Now, let's look at this query:
+
+[source,cypher]
+----
+WITH  'toy story' AS mt, 'Tom Hanks' as actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WITH m, toLower(m.title) AS movieTitle
+WHERE p.name = actorName AND movieTitle CONTAINS mt
+RETURN m.title AS Movies, movieTitle
+----
+
+The variables mt, and actorName are available to the `MATCH` clause and the `WHERE` clause just like the previous query.
+What is different here, however, is that we must add the m to the second `WITH` clause so that the node can be used to return the title of the node.
+A `WITH` clause is used to define or redefine the scope of variables.
+Because we want to redefine what is used for the `WHERE` clause, we add a new `WITH` clause.
+This creates a new scope for the remainder of the query so that m and movieTitle can be used to return values.
+If you were to remove the m in the second `WITH` clause, the query would not compile.
+
+Note if you were to profile this last query, you would find that it performs much worse than the previous query.
+
+=== Limiting results
+
+Suppose we have this query where we want to return only two rows:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+RETURN m.title AS Movies LIMIT 5
+----
+
+Another way to write this query is:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+WITH m  LIMIT 5
+// possibly do more with the five m nodes
+RETURN m.title AS Movies
+----
+
+With this query, five Movie nodes are retrieved. What is different here is that you can use `WITH` to limit how many m nodes are used later in the query.
+Passing nodes on to the next `MATCH` clause is called pipelining that you will learn about in the next lesson.
+
+=== Ordering results
+
+If you are limiting the nodes to process further on in the query or for the `RETURN` clause, you can also order them:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+WITH m   ORDER BY m.year LIMIT 5
+// possibly do more with the five m nodes in a particular order
+RETURN m.title AS Movies, m.year as `Year Released`
+----
+
+== Check your understanding
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, how `WITH` is used to scope variables in a query and how you can limit scope to a subset of data.
+In the next challenge, you will write a query that scopes variables.
