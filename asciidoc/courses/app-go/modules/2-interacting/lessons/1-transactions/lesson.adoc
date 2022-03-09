@@ -36,7 +36,11 @@ include::{repository-raw}/15-person-profile/example/main.go[tag=sessionWithArgs,
 If no database is supplied, the default database will be used.  This is configured in the `dbms.default_database` in `neo4j.conf`, the default value is `neo4j`.
 You cannot create multiple databases in Neo4j Aura or in Neo4j Community Edition.
 
-The default access mode is set to write, but this can be overwritten by explicitly calling the `ReadTransaction()` or `WriteTransaction()` functions.
+The default access mode is set to **write**, but this can be overwritten by explicitly calling the `ReadTransaction()` or `WriteTransaction()` functions.
+
+Within a session, only one result stream can be active at any one time. Therefore, if the result of one query is not fully consumed before another query is executed, the remainder of the first result will be automatically buffered within the result object.
+
+This buffer provides a staging point for results, and divides result handling into fetching (moving from the network to the buffer) and consuming (moving from the buffer to the application).
 
 
 == Transactions
@@ -68,11 +72,12 @@ There are three types of transaction exposed by the driver:
 Auto-commit transactions are a single unit of work that are immediately executed against the DBMS and acknowledged immediately.
 You can run an auto-commit transaction by calling the `run()` method on the session object, passing in a Cypher query as a string and optionally an object containing a set of parameters.
 
+.Auto-commit Transactions
 [source,go,role=nocopy,subs="attributes+",indent=0]
 ----
 include::{repository-raw}/15-person-profile/example/main.go[tag=session.run]
-// include::{repository-raw}/main/example/main.go[tag=session.run]
 ----
+// include::{repository-raw}/main/example/main.go[tag=session.run]
 
 
 [WARNING]
@@ -94,8 +99,8 @@ As with the `session.run` example above, the first argument for the `run()` func
 [source,go,role=nocopy,subs="attributes+",indent=0]
 ----
 include::{repository-raw}/15-person-profile/example/main.go[tag=session.readTransaction]
-// include::{repository-raw}/main/example/main.go[tag=session.readTransaction]
 ----
+// include::{repository-raw}/main/example/main.go[tag=session.readTransaction]
 
 [TIP]
 .Parameterized Queries
@@ -143,11 +148,12 @@ This method differs from the `ReadTransaction` and `WriteTransaction()` function
 You can commit a transaction by calling the `tx.commit()` function, or roll back the transaction by calling `tx.rollback()`.
 
 
+.Commit and Rollback
 [source,go,role=nocopy,subs="attributes+",indent=0]
 ----
 include::{repository-raw}/15-person-profile/example/main.go[tag=session.beginTransaction.Try]
-// include::{repository-raw}/main/example/main.go[tag=session.beginTransaction.Try]
 ----
+// include::{repository-raw}/main/example/main.go[tag=session.beginTransaction.Try]
 
 
 == Closing the Session

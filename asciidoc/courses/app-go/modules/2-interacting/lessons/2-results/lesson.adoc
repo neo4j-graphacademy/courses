@@ -11,138 +11,104 @@ Here is an example query which retrieves a list of `:Person` nodes related to a 
 .Get Actors by Movie title
 [source,go,indent=0]
 ----
-include::{repository-raw}/main/example/results.py[tag="get_actors"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="getActors"]
 ----
 
+In this example, the following things happen:
+
+1. A new instance of the Driver is created
+2. If an error occurs when creating the driver instance, it can be handled by checking the error returned by the declaration
+3. Once the function returns, close the driver instance and release any resources
+4. Create a new session with the intention of queryig the `movies` database
+5. Close the session once the function returns
+6. Execute a Cypher query and get the result
+7. If any errors occur during the execution of the query, for example connection errors, timeouts or syntax errors
+8. Loop through the results
+9. Consume the next result from the stream
 
 
-The code can be broken down into two elements:
 
-1. The `get_actors()` function defines a _unit of work_ to be executed within a transaction, passed as the first argument of the function, in this case referenced as `tx`
-2. The `ReadTransaction()` method executes the unit of work within a Read Transaction
+=== Accessing a Record using `.Record()`
 
-The result of the `ReadTransaction()` is a **Result** object.
-// This object provides a number of options to iterate through the stream of *records*.
+In the above example, the `for` loop will iterate through the results using the `.Next()` function
 
-The result object acts as a buffer for an iterable list of records and provides a number of options for accessing those records.
-Once a result is _consumed_, it is removed from the buffer.
-// provides a number of options to iterate through a stream of records.
+While `.Next()` returns `true`, you can call the `.Record()` method to get the next record from the stream.
 
-=== Peeking at Results
-
-If you wish to preview a result without consuming it, you can use the `peek` method.
-
-.Peek
-[source,go,indent=0]
-----
-include::{repository-raw}/main/example/results.py[tag="peek"]
-----
-
-This can be used to preview the first record in the result without removing it from the buffer.
-
-=== Keys
-
-To get the keys for each record in the result, you can call the `keys()` method.
-
-.Get Keys
-[source,go,indent=0]
-----
-include::{repository-raw}/main/example/results.py[tag="keys"]
-----
-
-
-=== Single Result
-
-If you only expect a single record, you can use the `single()` method on the `result` to return the first record.
-
-.First Result
+.Accessing a Record
 [source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="single"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="Next"]
 ----
 
-If more than one record is available from the result then a warning will be generated, but the first result will still be returned.
-If no results are available, then the method call will return `None`.
+It is important to verify the value returned by the `.Err()` is `false` after calling the `.Next()` method to find out whether the the last result is the final result witin the stream, or an error has occurred to cause the end of result consumption.
 
 
-=== Value
+// === `NextRecord()`
 
-If you wish to extract a single value from the remaining list of results, you can use the `value()` method.
+Alternatively, you can use the `.NextRecord()` method which has the same outcome with slightly less code.
 
-.Extract a value
+.The NextRecord() Method
 [source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="value"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="NextRecord"]
 ----
 
-This method two parameters:
+== Getting the only result with `.Single()`
 
-1. The key or index of the field to return for each remaining record, and returns a list of single values.
-2. Optionally, you can provide a default value to be used if the value is `None` or unavailable.
+If you are expecting a single result, you can call the `.Single()` method to access the first and only result.
 
-
-=== Values
-
-If you need to extract more than item from each record, you can use the `values()` method.
-The method expects one parameter per item requested from the `RETURN` statement of the query.
-
-.Extract values
+.The Single() Method
 [source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="values"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="Single"]
 ----
 
-In the above example, a `list` will be returned, with each entry containing values representing `name`, `title`, and `roles`.
+If the result stream contains zero or more than one records, an error is returned.
 
 
-=== Consume
+== Get all remaining results with `.Collect()`
 
-The `consume()` method will consume the remainder of the results and return a **Result Summary**.
+The `.Collect()` method fetches all remaining records and returns them as an array.
 
-.Result Summary
+.The Collect() Method
 [source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="consume"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="Collect"]
 ----
 
-The Result Summary contains a information about the server, the query, execution times and a `counters` object which provide statistics about the query.
+== Consume remaining results with `.Consume()`
 
-.Query Execution Times
-[source,go,indent=0]
-----
-include::{repository-raw}/main/example/results.py[tag="times"]
-----
+Calling the `.Consume()` method will discard any remaining records from the stream and return a `ResultSummary` object which holds information about the statement execution, including database information, execution time and in the case of a write query, statistics on changes made to the database as a result of the statement execution.
 
-The `counters` object can be used to retrieve the number of nodes, relationships, properties or labels that were affected during a write transaction.
-
-.Write Statement Counters
-[source,go,indent=0]
+.The Consume() Method
+[source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="counters"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="Consume"]
 ----
-
-You can link:https://neo4j.com/docs/api/Go-driver/4.4/api.html#neo4j.ResultSummary[read more about the result summary here^].
 
 
 == Exploring Records
 
-When accessing a record, either within a loop, list comprehension or within a single record, you can use the `[]` bracket syntax.
+The `record` variable above provides an interface to retrieve individual values.
+Take the example above, each record will contain information on `:Movie` and `:Person` nodes, and the `:ACTED_IN` relationship.
 
-The following example extracts the `p` value from each `record` in the result buffer.
+To access the keys available in each record, you can use the `.Keys` property.
+This is an array of strings.
 
-.For Loop
+.The Keys Array
 [source,go,indent=0]
 ----
-include::{repository-raw}/main/example/results.py[tag="for"]
+include::{repository-raw}/15-person-profile/example/main.go[tag="keys"]
 ----
 
-You can also access a value using its index, as it relates to the value contained in the keys array:
+To access these values, we can either use the index of the key above, or the alias specified in the `RETURN` portion of the Cypher statement.
 
-.Get Available Keys
-[source,go,indent=0]
+
+[source,go]
 ----
-include::{repository-raw}/main/example/results.py[tag="keys"]
+include::{repository-raw}/15-person-profile/example/main.go[tags="index,alias",indent=0]
 ----
+
 
 
 == Check Your Understanding
@@ -151,7 +117,7 @@ include::./questions/1-first-method.adoc[leveloffset=+1]
 
 include::./questions/2-consume-method.adoc[leveloffset=+1]
 
-include::./questions/3-get-name.adoc[leveloffset=+1]
+include::./questions/3-collect.adoc[leveloffset=+1]
 
 
 [.summary]
