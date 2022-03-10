@@ -1,6 +1,6 @@
 = The Home Page
 :type: challenge
-:branch: 15-person-profile
+:branch: working
 // :branch: 02-movie-lists
 :test-filename: 02_movie_list_test
 :test-function: TestMovieList
@@ -9,13 +9,14 @@
 Now for another challenge.
 
 In this challenge, you will use the knowledge gained so far in this course to add new functionality to the API.
-You will modify the `all()` method of the link:{repository-blob}main/api/dao/movies.py[`MovieDAO`^] to do the following:
+You will modify the `FindAll()` method of the link:{repository-blob}main/pkg/services/movies.go[`MovieService`^] to do the following:
 
 
-1. <<Create a Unit of Work>>
-2. <<Open a new Session>>
+1. <<Open a new Session>>
+2. <<Execute a Cypher query within a new Read Transaction>>
 3. <<Extract a list of Movies from the Result>>
 4. <<Return the Results>>
+
 
 Once you have completed the challenge, you will be asked to run a unit test to verify that the code has been correctly implemented.
 If the test runs correctly, the title of the highest rated movie will be logged.
@@ -27,36 +28,39 @@ You will need this value to verify that the test has run correctly.
 Before you start, let's take a look at the code.
 If you are not interested in exploring the code, you can skip straight to <<Implementing Read Transactions>>.
 
-If you start the application and access the app at http://localhost:5000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
-Both of these lists are populated by a request to link:http://localhost:5000/api/movies[`http://localhost:5000/api/movies`^] with some additional parameters.
+If you start the application and access the app at http://localhost:3000, you will see two lists on the home page; one for Popular Movies and one for Latest Releases.
+Both of these lists are populated by a request to link:http://localhost:3000/api/movies[`http://localhost:3000/api/movies`^] with some additional parameters.
 
 === Route Handler
 
-You can find the route handler, the function that handles the request, in the movies blueprint at link:{repository-blob}main/api/routes/movies.py[`api/routes/movies.py`^]:
+You can find the route handler, the function that handles the request, in the movies blueprint at link:{repository-blob}main/pkg/routes/movies.go[`pkg/routes/movies.go`^]:
 
-.api/routes/movie.py
+.pkg/routes/movies.go
 [source,go,role=nocopy]
 ----
-include::{repository-raw}/main/api/routes/movies.py[tag=list]
+// include::{repository-raw}/main/pkg/routes/movies.go[tag=list]
+include::{repository-raw}/working/pkg/routes/movies.go[tag=list]
 ----
 
 Within the route handler, you can see that:
 
-1. The `sort`, `order`, `limit` and `skip` values are extracted from the query string.  This allows us to apply sorting and pagination to the results.
-2. A new instance of the `MovieDAO` is created with the Driver instance that you created in link:../../1-driver/3-connecting/[Adding the Driver] passed to the constructor.
-3. The results are retrieved via the `all()` method and are returned by the handler as JSON.
+1. The _paging_ values, `sort`, `order`, `limit` and `skip` values are extracted from the HTTP request.  This allows us to apply sorting and pagination to the results.
+2. The User's ID is extracted from the request
+3. The `FindAll` services is called on the `MovieService` with the paging values and User ID and the results are serialized as JSON.
 
-=== The Movie DAO
 
-The magic happens in the `MovieDAO`, located at link:{repository-blob}main/api/dao/movies.py[`api/dao/movies.py`^].
-For this route we are concerned with the `all()` method.
+=== The Movie Service
 
-If we take a closer look at the `all()` method, we can see that it currently returns a hardcoded list of popular movies from a another file in the repository.
+The magic happens in the `MovieService`, located at link:{repository-blob}main/pkg/services/movies.go[`pkg/services/movies.go`^].
+For this route we are concerned with the `FindAll()` method.
+
+If we take a closer look at the `FindAll()` method, we can see that it currently returns a hardcoded list of popular movies from a another file in the repository.
 
 [source,go,indent=0]
-.api/dao/movies.py
+.pkg/services/movies.go
 ----
-include::{repository-raw}/main/api/dao/movies.py[tag=all]
+// include::{repository-raw}/main/pkg/services/movies.go[tag=all]
+include::{repository-raw}/working/pkg/services/movies.go[tag=all]
 ----
 
 You will need to replace these `TODO` comments with working code to complete the challenge.
@@ -68,78 +72,80 @@ As you learned in the Sessions and Transactions lesson, you will complete code t
 Once the query has run, you add code to close the session.
 Then, finally you add code to extract and return the results.
 
-=== Create a Unit of Work
+=== Open a new Session
 
-First, create a new `get_movies` to represent the unit of work.
+// TODO: Is this a class?
+Within the `FindAll` method, first open a new session by calling the `.NewSession()` method on the Driver instance injected into the `MovieService`.
+Once this function is completed, the newly opened session will need to be closed.
+You can do this by deferring a function which calls the `.Close()` method on the session
 
-This function will have one mandatory argument passed to it, a `Transaction` instance that you can use to execute a Cypher statement using the `run()` method.
-The function should also have the `sort`, `order`, `skip`, `limit` and `userId` parameters passed through as named parameters - these will be referenced in the query by prefixing the name with a dollar sign (`$`).
 
-.Define the function
+.Open a new Session
 [source,go]
 ----
-include::{repository-raw}/{branch}/api/dao/movies.py[tag=get_movies,indent=0]
-    # Code will go here...
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag=session,indent=0]
 ----
 
-You will need to call the `run()` method on the `tx` argument, passing a Cypher query to retrieve a list of paginated movie results along with named arguments `sort`, `order`, `skip`, `limit` and `userId`.
 
-.Define and Execute a Cypher Query
-[source,go,indent=0]
+=== Execute a Cypher query within a new Read Transaction
+
+The `session` object provides a `.ReadTransaction()` method for which you pass a function to represent the unit of work.
+The unit of work is passed a single argument, an instance of `neo4j.Transaction`. which has a `.Run()` method that you can use to execute a Cypher statement.
+The `.Run()` method accepts two arguments:
+
+1. The Cypher query as a parameterised string.
+2. A map containing the values for the parameters prefixed in the query with a dollar sign ($).
+
+.Execute the Query
+[source,go]
 ----
-include::{repository-raw}/{branch}/api/dao/movies.py[tag=allcypher]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag=allcypher,indent=0]
 ----
 
+[TIP]
+.User Favorites
+====
+This method includes a call to the `getUserFavorites()` function.
+At this stage the function returns an empty array, but we will implement this feature in a future lesson.
+====
 
 === Extract a list of Movies from the Result
 
-The individual movie values can then be extracted from the `result` variable using a list comprehension.
+The result of the query is now available in the `result` variable.
 
-[source,go,indent=0]
+These results must be consumed within the function passed to the `.ReadTransaction()` call.
+As mentioned in link:../2-results[Processing Results^], you can either use a `for` loop or use `result.Collect()` to extract the `movie` values returned from Neo4j.
+
+.Extract Movie Values
+[source,go]
 ----
-include::{repository-raw}/{branch}/api/dao/movies.py[tag=allmovies]
-----
-
-[WARNING]
-.Consuming Results
-====
-Make sure that you extract the results within the unit of work.
-Once the transaction function ends, any results that have not been consumed will be lost.
-====
-
-
-=== Open a new Session
-
-To execute the `get_movies` function within a Read Transaction, first open a new session:
-
-.Open a new Session
-[source,go,indent=0]
-----
-include::{repository-raw}/main/example/index.py[tag=driver.session]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag=allmovies,indent=0]
 ----
 
 
 === Return the Results
 
-Then the output of the `get_movies` function can then be returned.
+Finally, check whether the call `session.ReadTransaction()` has returned an error.
+If so, return that error.  Otherwise, the function should return the values returned from the call to `.ReadTransaction()`.
 
-.Return the results from the Unit of Work
-[source,go,indent=0]
+
+.Return the Results
+[source,go]
 ----
-include::{repository-raw}/{branch}/api/dao/movies.py[tag=return]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag=return,indent=0]
 ----
 
 
 == Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `all()` method
+.Click here to reveal the completed `FindAll()` method
 ====
 
-.api/dao/movies.py
+.pkg/services/movies.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/movies.py[tag=all]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag=all]
 ----
 ====
 
