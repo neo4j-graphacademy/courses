@@ -10,7 +10,7 @@ video::xxxx[youtube,width=560,height=315]
 == Introduction
 In the last lesson you learned about the graph catalog. We briefly introduced graph projections there, but we didn't go into much depth. Understanding Graph projections is foundational to success in GDS, so we will spend the next two lessons covering them in more detail.
 
-In GDS there are two primary types of projections, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
+There are 2 primary types of projections in GDS, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
 
 In this lesson we will cover native projections specifically - what exactly they are and how to use them. In the next lesson we will do the same for Cypher projections.
 
@@ -19,15 +19,210 @@ In this lesson we will cover native projections specifically - what exactly they
 We actually used a native projection in our last lesson.  When you call `gds.graph.project` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
 
 
-Below we go over the basic syntax for native projections and walk through common configurations for a simple practical use case.
+In addition to just projecting node and relationship elements as-is from the database, projections offer a variety of other features.  Below are a few of the big ones
+
+* The inclusion of numeric node and relationship properties
+* Altering relationship direction or "orientation"
+* aggregating parallel relationships
+
+These options help prepare the projection for different types of analytical workflows and algorithms.
+
+Below we cover the basic syntax for native projections and walk through a couple common configurations.
 
 == Basic Syntax
 
+The native projection takes three mandatory arguments: `graphName`, `nodeProjection` and `relationshipProjection`. In addition, the optional configuration parameter allows us to further configure the graph creation.
+
+
+[opts="header",cols="1,1,1, 4"]
+|===
+| Name                  | Type                | Optional | Description
+| graphName             | String              | no       | The name under which the graph is stored in the catalog.
+| nodeProjection        | String, List or Map | no       | The configuration for projecting nodes.
+| relationshipProjection| String, List or Map | no       | The configuration for projecting relationships.
+| configuration         | Map                 | yes      | Additional parameters to configure the native projection.
+|===
+
+There are multiple different options for the `nodeProjection` and `relationshipProjection`.  To introduce the basics it is helpful to walk through by use case.
+
 == Basic Native Projections
+Let's first consider the very basic scenario where we want to project nodes and relationships as-is without any properties. You can use a list-like syntax for both the node labels and relationships you want to include. Take the below example where we project the `User` and `Movie` nodes with the `RATED` Relationship.  This type of projection is very common for graph data science based Recommendation Systems as it supports variations of Implicit Collaborative Filtering - a memory based approach to recommendation.
+
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
+----
+
+There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relation type you can just use single string. we could for example just enter the single string 'RATED' for the `relationshipProjection` and get an equivalent projection.
+
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], 'RATED');
+----
+
+The Wildcard character '*' can be used to include all nodes and/or relationships in the database. The below projections all nodes and relatonships.
+----
+CALL gds.graph.project('native-proj','*', '*');
+----
+
+== Changing Relationship Orientation
+
+Native projections allow you to change the relationship orientation as well. To best describe the concept of orientation and why we would want to change it, we need to cover the difference between a directed and an undirected relationship.
+
+A directed relationship is non-symmetrical. It goes from a source node to a target node, illustrated by the image below.
+
+image::images/directed-relationship.png[directed,400]
+
+An undirected relationship is symmetric with no directional character, it is simply between two nodes instead of having a source and target.
+
+image::images/undirected-relationship.png[undirected,400]
+
+Every relationship in the neo4j database is directed by design. However, some graph algorithms are designed to work on undirected relationships. Other algorithms are directed, but we may want to reverse the direction of the relationship in the database to get the analytic we want.
+
+To accommodate this there are three orientation options we can apply to relationship types in the `relationshipProjection`:
+
+* `NATURAL`: Same direction as in the database (default)
+* `REVERSE`: opposite direction as in the database
+* `UNDIRECTED`: undirected
+
+Take the graph we just projected as an example.  Say we want to count the number of user ratings each movie has.  If we try to use the degree call like we did last lesson we will get all zeros.
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
+CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+----
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','ratingCount', ['Movie'])
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+ORDER BY movieTitle DESCENDING LIMIT 10
+----
+
+[options="header"]
+|==================================================
+| movieTitle                          | ratingCount
+| İtirazım Var                        | 0.0
+| À nous la liberté (Freedom for Us)  | 0.0
+| ¡Three Amigos!                      | 0.0
+| xXx: State of the Union             | 0.0
+| xXx                                 | 0.0
+|==================================================
+
+This has to do with the direction of the relationships. Let's delete that graph and project a new one where we reverse the RATED relationship direction
+----
+//drop our last projection
+CALL gds.graph.drop('native-proj');
+
+//replace with a project that has reversed relationship orientation
+CALL gds.graph.project(
+    'native-proj',
+    ['User', 'Movie'],
+    {RATED_BY: {type: 'RATED', orientation: 'REVERSE'}}
+);
+
+CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+----
+
+Now when we use the degree algorithm we will get the rating counts we need.
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','ratingCount', ['Movie'])
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+ORDER BY movieTitle DESCENDING LIMIT 5
+----
+
+[options="header"]
+|==================================================
+| movieTitle                          | ratingCount
+| İtirazım Var                        | 1.0
+| À nous la liberté (Freedom for Us)  | 1.0
+| ¡Three Amigos!                      | 31.0
+| xXx: State of the Union             | 1.0
+| xXx                                 | 23.0
+|==================================================
+
+
 
 == Including Node and Relationship Properties
 
-== Relationship Aggregations
+Node and relationship properties may be useful to consider in graph analytics, they can be used as weights in graph algorithms and features for machine learning.
+
+Let's be ambitious and take on a quick example around graph feature engineering for ML.  Suppose you wanted to train a model to predict whether a movie is a "family film" based on the movie properties and user rating behavior in the graph. The theory for using rating behavior is that family films will be viewed and rated somewhat similarly by similar users. We will us node embeddings to generate graph structure and properties.  FastRP is the name of the specific algorithm we will use.  We will cover node embeddings and FastRP in more depth later on in this course.  For now, think of this a sort of word2vec for graph.  Loosely speaking, node embeddings are vectors of numbers that represent node position in graph, if nodes are highly related via the graph structure then they will also have very similar embedding vectors and vice versa.
+
+
+If we want our embedding to consider rating similarities then we can include the `rating` property as a weight, but to do this we need to add the property to our projection
+
+Below is an example of including the `rating` relationship property.  I am also including an example of some node properties as reference though we won't use them in FastRP. The syntax for node and relationship projections is the same, but there are different options in terms of setting defaults, setting properties for multiple labels and or relationship types, and a few other things.  If you want to go into more depth, please review our documentation.
+
+
+----
+//drop our last projection
+CALL gds.graph.drop('native-proj');
+
+//replace with a projection that has node and relationship properties
+CALL gds.graph.project(
+    'native-proj',
+    ['User', 'Movie'],
+    {RATED: {orientation: 'UNDIRECTED'}}, //undirected relationship works best for FastRP on this graph structure
+    {
+        nodeProperties:{
+            revenue: {defaultValue: 0}, //the defaultValue parameter allows us to fill in missing values with a default.  In this case we will use 0.
+            budget: {defaultValue: 0},
+            runtime: {defaultValue: 0}
+        },
+        relationshipProperties: ['rating'] //simpler syntax with no default values. These should not be missing
+    }
+);
+----
+
+----
+CALL gds.alpha.scaleProperties.mutate('native-proj', {
+  nodeProperties: ['revenue', 'budget', 'runtime'],
+  scaler: 'Mean',
+  mutateProperty: 'movieFeatures'
+}) YIELD nodePropertiesWritten
+----
+Once we do that we can run fastRP
+
+----
+//don't worry if you don't get this syntax yet.  We will go over it in another module.  We are just using the relationship and node properties to wieght an embedding calculation
+CALL gds.fastRP.mutate('native-proj', {
+    embeddingDimension:12,
+    mutateProperty: 'nodeEmbedding',
+    relationshipWeightProperty: 'rating',
+    featureProperties: ['movieFeatures'],
+    propertyRatio: 0.2,
+    randomSeed: 7474
+});
+----
+
+Then stream out the results
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','nodeEmbedding', ['Movie'])
+YIELD nodeId, propertyValue
+WITH gds.util.asNode(nodeId) AS m, [x IN propertyValue | round(x,4)] AS nodeEmbeddingFeatures LIMIT 5
+MATCH (m)-[:IN_GENRE]->(g)
+WITH m, collect(DISTINCT g.name) as genres, nodeEmbeddingFeatures
+RETURN m.title AS movie, toInteger("Children" IN genres) AS isFamilyFilm, nodeEmbeddingFeatures
+----
+
+[options=header]
+|===========================================================================================================================
+| movie                        | isFamilyFilm      | features
+| Toy Story                    | 1                 | [8.3, 81, 0.9099, -0.1892, -0.1795, -0.1462, 0.1184, 0.807, 0.2213, 0.1777]
+| Jumanji                      | 1                 | [6.9, 104, 0.7141, -0.0799, -0.1459, -0.0045, 0.2142, 0.9908, -0.0347, 0.3353]
+| Grumpier Old Men             | 0                 | [6.6, 101, 0.6641, 0.008, -0.1126, -0.5597, 0.1045, 0.9455, -0.4104, 0.9189]
+| Waiting to Exhale            | 0                 | [5.6, 124, 0.7593, -0.0618, 0.0386, -0.4767, 0.0135, 0.6265, 0.0559, 0.464]
+| Father of the Bride Part II  | 0                 | [5.9, 106, 0.7581, -0.066, 0.0023, -0.5064, -0.058, 0.8345, -0.4046, 0.6486]
+|===========================================================================================================================
+
+
+These results have what you need to train a graph machine learning model to for "family film" prediction. You can export this data and load into Python, R, or whatever else to use your model of choice, whether it be regression, tree based, nural networks etc. - and just like that you are doing Graph Machine learning! GDS also has native pipelines to train, evaluate, predict with, and publish graph native machine learning models.  We will go over that in a future module.
+
+
+== Relationship Aggregations and Other Native Projection Features
+
+The Neo4j database allows you to store multiple relationships of the same type and direction between two nodes.  These are colloquially known as parallel relationships.  Sometimes we will want to aggregate parallel relationships into a single relationship in preparation for running graph algorithms or machine learning.
 
 == Check your understanding
 
