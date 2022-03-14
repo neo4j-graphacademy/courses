@@ -1,14 +1,17 @@
 = Adding The Favorite Flag
 :type: challenge
-:branch: 08-favorite-flag
-:previous-branch: 07-favorites-list
-:test-filename: 08_favorite_flag__test
+:branch: working
+:previous-branch: working
+// :branch: 08-favorite-flag
+// :previous-branch: 07-favorites-list
+:test-filename: 08_favorite_flag_test
+:test-function: TestFavoritesFlag
 
 In the previous Challenge, we hardcoded a `favorite` property on the return to the calls in the `FavoriteService`.
 We did this because we could guarantee the value based on the query being executed.
 This won't be possible in the `MovieService`.
 
-Your next challenge is to modify the link:{repository-raw}/main/api/services/movies.go[`MovieService`] to dynamically determine whether a movie is on the current user's My Favorite List.
+Your next challenge is to modify the link:{repository-raw}/main/pkg/services/movies.go[`MovieService`] to dynamically determine whether a movie is on the current user's My Favorite List.
 
 This challenge has two parts:
 
@@ -25,33 +28,19 @@ This will be fine for the majority of cases, but there may also be scenarios whe
 === User Favorites
 
 One way that we could find the user's favorites would be to run a separate `MATCH` clause within the same query.
-But as all of the routes that interact with the `MovieService` are used by both anonymous and logged in users, this could add unwanted complexity to the service.
+But as all of the routes that interact with the `MovieService` are used by both anonymous and logged in users, this could add unwanted complexity to the Cypher query or the service.
 
 Instead, it would be cleaner to execute two separate queries within the same transaction; one query to fetch a list of the user's favorites, and another to retrieve a list of movies.
 
-Fortunately, with only a few minor tweaks to the code, we can create a
-// private
-method that can be used to populate the `favorite` flag in the every other method in the `MovieService`.
+The methods in `MovieService` already make a call to the `getUserFavorites()` function within `pkg/services/movies.go` but this currently returns `nil`.
+This method expects an instance of `neo4j.Transaction` as the first parameter and the user's ID as the second.
+
+If the `userId` parameter is set, the function should use the `tx` object to run a Cypher query to find the User's favorites and return the `tmdbId` property to be used in the search queries.
 
 
-== Creating a Reusable Method
+== Finding Favorites
 
-
-At the bottom of the `MovieService`, a placeholder `get_user_favorites()` method exists which is currently hardcoded to return an empty array.
-
-[source,go,indent=0]
-----
-include::{repository-raw}/main/api/services/movies.go[tag="getUserFavorites"]
-----
-
-The purpose of this function is to run a Cypher query against the `Transaction` object passed as the first parameter, which will find all of the user's favorite movies and return a list of `tmdbId` properties.
-
-Your challenge is to modify this method to retrieve that list of Movie ID's and then call this function from the Read Transaction in the `all()` method.
-
-
-=== Finding Favorites
-
-Modify the `get_user_favorites()` method to run the following query against the `tx` object to return a list of IDs for each movie that the user has added to their favorites.
+For the first part of this challenge, modify the `getUserFavorites()` function  to run the following query against the `tx` object to return a list of IDs for each movie that the user has added to their favorites.
 
 [%collapsible]
 .Click here to reveal the Cypher query
@@ -74,30 +63,40 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/10-favorite-flag/user
 .
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/services/movies.go[tag="getUserFavorites"]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag="getUserFavorites"]
 ----
 
 ====
 
+
 === Multiple Transaction Calls
 
-The `get_movies` function defined in the `all` method of the `MoviesService` already uses `tx.run()` to run a Cypher query within the current transaction.
+Now that the `getUserFavorites()` function has been implemented, we can call it within the `.FindAll()` method.
+The `tx` object can be used to run as many queries as necessary within the transaction.
+Running multiple queries within a transaction limits the amount of work the server has to do when writing data, but you must also be careful not to overload the server within a single transaction otherwise you may experience out-of-memory errors.
 
-To use the list of Movie IDs in the query, you can simply add a call to the `self.get_user_favorites()` method above the `cypher` variable.
-The output of the function can then be passed as a named parameter in the existing call to `tx.run()`.
+To get a list of favorite movies for the user, call `getUserFavorites()` with the `tx` object available within the transaction function and the `userId` passed to the `FindAll` method.  Assign this value to the `favorites` variable.
 
-All that is left to do is to add a new item to `m { .* }` in the Cypher query to check whether the `tmdbId` property of the current movie is in the favorites array.
-
-
+.Get User Favorites
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/services/movies.go[tag="allcypher"]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag="favorites"]
+----
+
+To use these values in the succeeding query, you can add the `favorites` variable as a parameter in the next `tx.run()` call.
+
+Then, finally, in the Cypher query, add a condition to the return clause to check whther the ID of the current movie is contained in the `$favorites` parameter.
+
+.Using User Favorites
+[source,go,indent=0]
+----
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag="usefavorites"]
 ----
 
 
 === Comparing Versions
 
-If we take a look at the two versions of the `all()` method, not much has changed.
+If we take a look at the two versions of the `FindAll()` method, not much has changed.
 The `favorites` array has been passed through as a parameter to the query, and the query now uses the Cypher `IN` clause to check if the ID is included in the array.
 
 
@@ -105,29 +104,26 @@ The `favorites` array has been passed through as a parameter to the query, and t
 .Updated Method
 ====
 
-.api/services/movies.go
+.pkg/services/movies.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/services/movies.go[tag="allcypher"]
+include::{repository-raw}/{branch}/pkg/services/movies.go[tag="allcypher"]
 ----
 
 ====
-
 
 
 [.tab]
 .Previous Version
 ====
 
-.api/services/movies.go
+.pkg/services/movies.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{previous-branch}/api/services/movies.go[tag="allcypher"]
+include::{repository-raw}/{previous-branch}/pkg/services/movies.go[tag="allcypher"]
 ----
 
 ====
-
-
 
 
 include::../../../../includes/test.adoc[]

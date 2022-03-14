@@ -1,13 +1,15 @@
 = Unique Email Addresses
 :type: challenge
-:branch: 04-handle-constraint-errors
-:previous-branch: 03-registering-a-user
-:test-filename: 04_handle_constraint_errors__test
+:branch: working
+:previous-branch: working
+// :branch: 04-handle-constraint-errors
+// :previous-branch: 03-registering-a-user
+:test-filename: 04_handle_constraint_errors_test
+:test-function: TestHandleUniqueConstraints
 
+In the link:../5-registering[Registering a User challenge^], you updated the `Save()` method in the link:{repository-blob}main/pkg/services/auth.go[`AuthService`^] to create a new User node in the database.
 
-In the link:../5-registering[Registering a User challenge^], you updated the `register()` method in the link:{repository-blob}main/api/services/auth.go[`AuthService`^] to create a new User node in the database.
-
-There is still one `# TODO` comment remaining in this file.
+There is still one `// TODO` comment remaining in this file.
 
 Currently, it is still possible to use the same email address twice, we should take advantage of Unique Constraints in the database to guard against that.
 
@@ -20,17 +22,17 @@ This will create a potential error case that will need to be handled in the code
 To pass this challenge, you will need to:
 
 1. <<Create a Unique Constraint>>
-2. <<Add a Try/Catch Block>>
+2. <<Handle the Resulting Error>>
 
 
 == Handling Constraint Errors
 
-If we take a look at `register()` method, it has been hardcoded to throw a new `ValidationError` if the email address is anything other than `graphacademy@neo4j.com`.
+If we take a look at `Save()` method, it has been hardcoded to throw a new `ValidationError` if the email address is anything other than `graphacademy@neo4j.com`.
 
-.api/services/auth.go
+.pkg/services/auth.go
 [source,go,subs="attributes+",indent=0]
 ----
-include::{repository-raw}/{previous-branch}/api/services/auth.go[tag=register]
+include::{repository-raw}/{previous-branch}/pkg/services/auth.go[tag=register]
 ----
 
 The code also has no explicit error handling.
@@ -38,25 +40,20 @@ Any errors will be sent back up the stack and will result in a `500 Bad Request`
 Instead, this error should be caught and reformatted in such a way that the server would return a `422 Unprocessable Entity` error.
 This way, the error can be better handled by the UI.
 
-To do this, you will need to rearange the code into `try`/`catch` blocks.
+To do this, you will need to cast the `err` returned by the call to `session.ReadTransaction()` as a `neo4j.`
 
-.Try/Catch Example
-[source,go]
+.Error Handling Example
+[source,go,indent=0]
 ----
-try:
-  # Attempt the code inside the block
-
-except ConstraintError:
-  # If a ConstraintError is thrown in the try block,
-  # then handle the error here
-
+include::{repository-raw}/working/pkg/challenges/error_test.go[tag="constrainterror"]
 ----
 
-When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error, at which point the driver will raise a `neo4j.exceptions.ConstraintError`.
+When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error.
 Instead of this being treated as an internal server error, it should instead be treated as a `422 Unprocessable Entity`.
 This will allow the front end to handle the error appropriately.
 
-A `ValidationError` class already exists in the codebase which is handled by a Flask middleware.
+// TODO: How is this handled in the front end?
+// A `ValidationError` class already exists in the codebase which is handled by a Flask middleware.
 
 
 == Completing the Challenge
@@ -70,37 +67,43 @@ In this case, we need to ensure that the `email` property is unique across all n
 
 Click the **Run in Sandbox** button to create the constraint on your Sandbox.
 
+.pkg/services/auth.go
 [source,cypher]
 ----
 include::{cypher-repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.cypher[]
 ----
 
 
-=== Add a Try/Catch Block
+=== Handle the Resulting Error
 
-In the method, we should:
+Now, when a user attempts to register with an email address that already exists in the database, a `Neo.ClientError.Schema.ConstraintValidationFailed` error will be thrown.
 
-1. **Try** to create a User with the supplied email, password and name.
-2. **Catch** a `neo4j.exception.ConstraintError` error if it is thrown and instead throw an `api.exceptions.ValidationException`
+In the application, first cast the error as a `neo4j.Neo4jError`, this will allow you to check the individual parts of the error code.
+If the `.Title()` function equals `ConstraintValidationFailed`, return a modified error informing the user that an account already exists with the supplied email address.
+
+// TODO: How will this translate to a 422 in the route handler?
+
+
 
 Your code should look like this:
 
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/services/auth.go[tag="catch"]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="catch"]
 ----
 
-Update the `register()` method to reflect the changes above, then scroll to <<Testing>> to verify that the code works as expected.
+After modifying the `Save()` , scroll to <<Testing>> to verify that the code works as expected.
 
 
 == Working Solution
 
-.Click here to reveal the fully-implemented `register()` method.
+.Click here to reveal the fully-implemented `Save()` method.
 [%collapsible]
 ====
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/services/auth.go[tag="register"]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="register"]
 ----
 ====
 
@@ -113,8 +116,8 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Lesson Summary
 
-In this Challenge, you have modified the `register()` function to catch specific errors thrown by the database.
+In this Challenge, you have modified the `Save()` function to catch specific errors thrown by the database.
 
 If you wanted to go further, you could use a Regular Expression to extract more specific information about the `ConstraintValidationFailed` error.
 
-Now that a user is able to successfully register, in the next Challenge, you will update the `authenticate()` method to find our user in the database.
+Now that a user is able to successfully register, in the next Challenge, you will update the `FindOneByEmailAndPassword()` method to find our user in the database.
