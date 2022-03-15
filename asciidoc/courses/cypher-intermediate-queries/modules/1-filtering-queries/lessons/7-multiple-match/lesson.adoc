@@ -1,0 +1,110 @@
+= Multiple `MATCH` clauses
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::ImKvXY72SA0[youtube,width=560,height=315]
+
+[.transcript]
+== Using multiple `MATCH` clauses
+
+As you learned in the previous lesson, it is possible to profile your queries to understand the performance of the queries.
+Here is an example of a query that contains two explicit `MATCH` clauses:
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+WHERE m.year > 2000
+MATCH (m)<-[:DIRECTED]-(d:Person)
+RETURN a.name, m.title, d.name
+----
+
+This query retrieves the anchor nodes (movies released after the year 2000) and the set of actors for each movie.
+It then follows the DIRECTED relationships to each Movie node to retrieve the director of each mofie.
+This query returns the a triple of actor name, movie title, director name.
+Notice that actors, movie titles, directors are repeated in the rows returned.
+
+If you execute the profile for this query twice, you will see that it executes in 11 ms.
+
+=== Using multiple patterns in the `MATCH` clause
+
+An alternative to using multiple `MATCH` clauses is to specify multiple patterns:
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie),
+      (m)<-[:DIRECTED]-(d:Person)
+WHERE m.year > 2000
+RETURN a.name, m.title, d.name
+----
+
+In this query, multiple patterns are specified. In the second pattern, the variable m is used from the first pattern.
+
+If you execute the profile for this query twice, you will see that it executes in 10 ms which is slightly better.
+
+=== Using a single pattern
+
+And finally, the same query can be written as follows:
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
+WHERE m.year > 2000
+RETURN a.name, m.title, d.name
+----
+
+In most cases, specifying a single pattern will yield the best performance.
+
+In this case, if you execute the profile for this query twice, it executes in 10 ms.
+The performance of your queries will depend greatly upon your data model and the size of the graph.
+
+== Optionally matching rows
+
+Cypher has a clause that allows you to return partial matches.
+
+Here is an example of a query that we will start with:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.title = "Kiss Me Deadly"
+MATCH (m)-[:IN_GENRE]->(g:Genre)<-[:IN_GENRE]-(rec:Movie)
+MATCH (m)<-[:ACTED_IN]-(a:Actor)-[:ACTED_IN]->(rec)
+RETURN rec.title, a.name
+----
+
+In this query, we find the movie node for Kiss Me Deadly.
+Then we find all movies, rec that are in the same genre as Kiss Me Deadly.
+Then we find the actors that acted in both rec and Kiss Me Deadly.
+
+The result is one actor who acted in both Kiss Me Deadly and The Killers.
+
+What if we wanted to expand the results returned to return all movies that are in the same genre, and the actor that acted in both movies.
+
+`OPTIONAL MATCH` matches patterns with your graph, just like `MATCH` does.
+The difference is that if no matches are found, `OPTIONAL MATCH` will use nulls for missing parts of the pattern.
+`OPTIONAL MATCH` could be considered the Cypher equivalent of the outer join in SQL.
+
+Here is how you specify `OPTIONAL MATCH` in Cypher:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.title = "Kiss Me Deadly"
+MATCH (m)-[:IN_GENRE]->(g:Genre)<-[:IN_GENRE]-(rec:Movie)
+OPTIONAL MATCH (m)<-[:ACTED_IN]-(a:Actor)-[:ACTED_IN]->(rec)
+RETURN rec.title, a.name
+----
+
+This query returns rows where the pattern where an actor acted in both movies is optional and a null value is returned for any row that has no value.
+In general, and depending on your graph, an optional match will return more rows.
+
+== Check your understanding
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned the difference between multiple match clauses and multiple match patterns in a query. as well as optional matches.
+
+In the next challenge, you will have an opportunity to perform partial matches.
