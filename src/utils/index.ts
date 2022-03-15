@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants';
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants';
 import { Course, CoursesByStatus, CourseStatus, CourseStatusInformationWithCourses, CourseWithProgress, STATUS_COMPLETED, STATUS_PRIORITIES } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
@@ -288,6 +288,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
 
     const attributes: Record<string, any> = {
         name: user?.nickname,
+        'cdn-url': CDN_URL,
     }
 
     if (req && course.usecase) {

@@ -4,7 +4,7 @@ const {
     DISCOURSE_BASE_URL,
     DISCOURSE_CATEGORY_ID,
     DISCOURSE_CATEGORY_SLUG,
-    DISCORD_ID
+    DISCORD_ID,
 } = process.env
 
 export const BASE_URL = process.env.BASE_URL
@@ -25,3 +25,6 @@ export const COMMUNITY_POSTS = `${DISCOURSE_BASE_URL}/c/${DISCOURSE_CATEGORY_SLU
 export const CHAT_TITLE = 'Neo4j Discord'
 export const CHAT_LINK = 'https://discord.gg/adFrdwKrvf'
 export const CHAT_JSON = `https://discord.com/api/guilds/${DISCORD_ID}/widget.json`
+
+// CDN
+export const CDN_URL = process.env.CDN_URL
