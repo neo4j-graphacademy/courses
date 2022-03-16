@@ -1,6 +1,6 @@
 import path from 'path'
-import fs from 'fs'
 import express, { RequestHandler } from 'express'
+import compression from 'compression'
 import applyAuth from './middleware/auth.middleware'
 import { registerLocals } from './middleware/locals.middleware'
 
@@ -42,6 +42,9 @@ export default function initApp(driver: Driver) {
 
     // Pre-auth static routes
     app.use(express.static(path.join(__dirname, '..', 'public')))
+
+    // Gzip
+    app.use(compression())
 
     // Apply locals
     registerLocals(app)
