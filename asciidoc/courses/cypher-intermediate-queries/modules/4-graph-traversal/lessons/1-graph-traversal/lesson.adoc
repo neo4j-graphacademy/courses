@@ -16,7 +16,6 @@ To understand the execution plan, you must understand how a query starts and the
 When the execution plan is created, it determines the set of nodes that will be the starting points for the query.
 The anchor for a query is often based upon a `MATCH` clause.
 The anchor is typically determined by meta-data that is stored in the graph or a filter that is provided inline or in a `WHERE` clause.
-This meta-data is the count store that you will learn about later in this lesson.
 The anchor for a query will be based upon the fewest number of nodes that need to be retrieved into memory.
 
 Next, we will look at some examples of how queries are anchored based upon the hueristics used by the graph engine.
@@ -27,7 +26,7 @@ PROFILE MATCH (p:Person)-[:ACTED_IN]->(m)
 RETURN p.name, m.title
 ----
 
-In this query, the _Person_ nodes are the anchor for the query. This is because there are a total of 28,863 nodes in the graph which is what _m_ represents. There are only 19,047 _Person_ nodes so the execution will retrieve fewer nodes if it anchors with the _Person_ nodes.
+In the above query, the _Person_ nodes are the anchor for the query. This is because there are a total of 28,863 nodes in the graph which is what _m_ represents. There are only 19,047 _Person_ nodes so the execution will retrieve fewer nodes if it anchors with the _Person_ nodes.
 
 [source,cypher]
 ----
@@ -35,7 +34,7 @@ PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 RETURN p.name, m.title
 ----
 
-In this query the _Movie_ nodes will be the anchor for the query because there are fewer _Movie_ nodes (9,125) than _Person_ nodes (19,047).
+In the above query the _Movie_ nodes will be the anchor for the query because there are fewer _Movie_ nodes (9,125) than _Person_ nodes (19,047).
 
 [source,cypher]
 ----
@@ -44,7 +43,7 @@ WHERE p.name = 'Eminem'
 RETURN p.name, m.title
 ----
 
-In this query, a filter is specified which reduces the number of nodes that will be retrieved for the _Person_ node.
+In the above query, a filter is specified which reduces the number of nodes that will be retrieved for the _Person_ node.
 Satisfying the filter is the anchor for the query.
 If the _Person_ nodes has an index on _name_, it only retrieves one record.
 If there is no index, it needs to scan/filter all _Person_ nodes for the _name_ property.
@@ -88,7 +87,7 @@ WHERE p.name = 'Clint Eastwood'
 RETURN  m.title
 ----
 
-This query expands to 70 rows because Clint Eastwood has relationships to that many movies.
+This query expands to 70 rows because Clint Eastwood has 70 relationships to movies.
 
 [source,cypher]
 ----
@@ -141,8 +140,8 @@ Here is another query that contains two patterns:
 
 [source,cypher]
 ----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie), ,(coActors:Person)-[:ACTED_IN]->(m)
-WHERE p.name = ‘Eminem’
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie),(coActors:Person)-[:ACTED_IN]->(m)
+WHERE p.name = 'Eminem'
 RETURN m.title as Movie ,collect(coActors.name) AS `Co-Actors`
 ----
 
@@ -159,14 +158,14 @@ Each ACTED_IN relationship to the same Hip Hop Witch, Da movie is traversed to r
 If the title property for the Movie node is not stored with the node, it is retrieved so that the results can be returned.
 Notice that for this query, a depth-first traversal occurs.
 
-=== Query traversal using `MATCH` clauses
+=== Query traversal using multiple `MATCH` clauses
 
 Here is another query that contains two `MATCH` clauses:
 
 [source,cypher]
 ----
 MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-WHERE p.name = ‘Eminem’
+WHERE p.name = 'Eminem'
 MATCH (allActors:Person)-[:ACTED_IN]->(m)
 RETURN m.title as Movie, collect(allActors.name) as `All Actors`
 ----
