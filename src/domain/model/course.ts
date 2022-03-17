@@ -46,7 +46,8 @@ export interface Course {
     thumbnail: string;
     caption: string;
     status: CourseStatus;
-    interested?: string;
+    interested?: string[];
+    isInterested?: boolean;
     usecase: string | undefined;
     modules: Module[];
     categories: Category<any>[];

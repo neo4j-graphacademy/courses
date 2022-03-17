@@ -1,7 +1,8 @@
 = My Favorites List
 :type: challenge
 :branch: 07-favorites-list
-:test-filename: 07_favorites_list__test
+:test-filename: 07_favorites_list_test
+:test-function: TestMyFavoritesList
 
 This challenge has three parts:
 
@@ -13,17 +14,17 @@ This challenge has three parts:
 
 image::images/movie-cards.png[Add a Movie to your Favorites, role=right]
 
-Clicking the link:http://localhost:5000/favorites[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can revisit later.
+Clicking the link:http://localhost:3000/favorites[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can revisit later.
 
 When a logged in user hovers their mouse cursor over a Movie on the website, a bookmark icon appears in the top right hand corner.
 Clicking this icon will either add or remove the Movie from the user's Favorites list.
 
 When adding a Movie to the list, a  `POST` request it sent to the `/api/favorites/{id}` endpoint.  When this happens, the following chain of events will occur:
 
-1. The server directs the request to the route handler in link:{repository-blob}/main/api/routes/account.py[`api/routes/account.py`^], which verifies the user's JWT token before handling the request
-2. The route handler creates an instance of the link:{repository-blob}/main/api/dao/favorites.py[`FavoriteDAO`^].
-3. The `add()` method is then called on the `FavoriteDAO` instance with the user's ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
-4. It is then the responsibility of the `FavoriteDAO` to find the `:User` and `:Movie` nodes and create the `:HAS_FAVORITE` relationship between them.
+1. The server directs the request to the route handler in link:{repository-blob}main/pkg/routes/account.go[`api/routes/account.go`^], which verifies the user's JWT token before handling the request
+2. The route handler creates an instance of the link:{repository-blob}main/pkg/services/favorites.go[`FavoriteService`^].
+3. The `Save()` method is then called on the `FavoriteService` instance with the user's ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
+4. It is then the responsibility of the `FavoriteService` to find the `:User` and `:Movie` nodes and create the `:HAS_FAVORITE` relationship between them.
 
 Likewise, when it is clicked for a Movie that has already been favorited, a `DELETE` request is sent to the same URL, and the Movie is removed from the list.
 
@@ -32,9 +33,9 @@ Likewise, when it is clicked for a Movie that has already been favorited, a `DEL
 
 == Adding a Movie to My Favorites
 
-For the first part of this challenge, modify the `add()` method to open a new database session, run the Cypher query to create te relationship, close the session and return the movie details along with an additional `favorite` property.
+For the first part of this challenge, modify the `Save()` method to open a new database session, run the Cypher query to create the `:HAS_FAVORITE` relationship, close the session and return the movie details along with an additional `favorite` property.
 
-=== 1. Define a new Transaction Function
+=== Create the Relationship within a Write Transaction
 
 Define a new transaction function to execute the Cypher query below to create the `:HAS_FAVORITE` relationship between the User and the Movie.
 
@@ -47,54 +48,34 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/9-user-favorites/crea
 ----
 ====
 
-The function should expect a transaction object as the first parameter and also accept the `user_id` and `movie_id` as named parameters to the function.
+There should only be one result, so you can use the `Single()` method to get the first result.
 
-There should only be one result, so you can call the `single()` method to instantly consume the first result.
+If zero or more records are found, the transaction function will return an error.
+Otherwise, get the `movie` element and return it from the transaction function.
 
-.Run the Cypher Query
+
+
+If an error occurs at any point during the transaction, throw that error.
+Otherwise return the movie cast as the `Movie` struct.
+
+
+.Adding a Favorite
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag=add_to_favorites_run]
-----
-
-
-If no records are returned, you can safely assume that the either the User or Movie do not exist.
-In this case, raise a `NotFoundException` with an appropriate error message.
-
-[source,go,indent=0]
-----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag="throw"]
-----
-
-
-Otherwise, use the `get()` method on the record to return the `movie` value from the first row.
-
-
-[source,go,indent=0]
-----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag="return"]
-----
-
-=== 2. Call the Transaction Function
-
-In a new session, call the new method in a new Write Transaction and return the results.
-
-[source,go,indent=0]
-----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag="call_add_to_favorites"]
+include::{repository-raw}/{branch}/pkg/services/favorites.go[tag=create]
 ----
 
 
 === Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `add()` method
+.Click here to reveal the completed `Save()` method
 ====
 
-.api/dao/favorites.py
+.pkg/services/favorites.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag=add]
+include::{repository-raw}/{branch}/pkg/services/favorites.go[tag=add]
 
 ----
 ====
@@ -118,19 +99,19 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/9-user-favorites/dele
 ----
 ====
 
-Use the code from the `add()` method above to implement the `remove()` function.
+Use the code from the `Save()` method above to implement the `Delete()` function.
 If you get stuck, you can reveal the completed method below.
 
 === Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `remove()` method
+.Click here to reveal the completed `Delete()` method
 ====
 
-.api/dao/favorites.py
+.pkg/services/favorites.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag=remove]
+include::{repository-raw}/{branch}/pkg/services/favorites.go[tag=remove]
 ----
 ====
 
@@ -138,12 +119,12 @@ include::{repository-raw}/{branch}/api/dao/favorites.py[tag=remove]
 
 == Listing My Favorites
 
-Finally, the `all()` method in the `FavoriteDAO` currently returns a hardcoded list of Movies.
+Finally, the `FindAllByUserId()` method in the `FavoriteService` currently returns a hardcoded list of Movies.
 
-.api/dao/favorites.py
+.pkg/services/favorites.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/main/api/dao/favorites.py[tag=all]
+include::{repository-raw}/main/pkg/services/favorites.go[tag=all]
 ----
 
 Update this method to return a paginated list of movies that the user has added to their My Favorites list.
@@ -158,32 +139,41 @@ include::{cypher-repository-raw}/main/cypher/2-interacting/9-user-favorites/crea
 ----
 ====
 
-This time, as the query is simpler, you can use a lambda function to represent the transaction function.
+To do this, you will need to open a session, execute the above Cypher query in a read transaction and then consume the results.
 
+One method we haven't explored so far is the `Collect()` method mentioned in link:../2-results[Processing Results^].
+In the code snippet below, the `Collect()` method is called on the result to fetch all remaining records.
+
+The `for` loop then iterates over the values within the record and appends them to the `movies` array, before returning them.
+
+
+.Using Collect()
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag=lambda]
+include::{repository-raw}/{branch}/pkg/services/favorites.go[tag=collect]
 ----
 
-[NOTE]
-.Escaped Braces
-====
-You may have noticed that the code block above features double curly braces (`{{` and `}}`) within the `MATCH` clause rather than the single braces used within the Cypher query.
 
-`MATCH (u:User {{userId: $userId}})`
 
-Braces need to be escaped within a Go string, and we do this by using double quotes.
-====
+// [NOTE]
+// .Escaped Braces
+// ====
+// You may have noticed that the code block above features double curly braces (`{{` and `}}`) within the `MATCH` clause rather than the single braces used within the Cypher query.
+
+// `MATCH (u:User {{userId: $userId}})`
+
+// Braces need to be escaped within a Go string, and we do this by using double quotes.
+// ====
 
 
 [%collapsible]
-.Click here to reveal the completed `all()` method
+.Click here to reveal the completed `FindAllByUserId()` method
 ====
 
-.api/dao/favorites.py
+.pkg/services/favorites.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/favorites.py[tag=all]
+include::{repository-raw}/{branch}/pkg/services/favorites.go[tag=all]
 ----
 ====
 
@@ -196,6 +186,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Module Summary
 
-In this Challenge, you have written the code to create a `:HAS_FAVORITE` relationship between a `User` and a `Movie` within a write transaction.
+In this Challenge, you have written the code to find or create a `:HAS_FAVORITE` relationship between a `User` and a `Movie` within a write transaction.
 
 In the next Challenge, you will write code to execute multiple queries in the same transaction.
