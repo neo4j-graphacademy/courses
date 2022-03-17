@@ -1,7 +1,6 @@
 = The Home Page
 :type: challenge
-:branch: working
-// :branch: 02-movie-lists
+:branch: 02-movie-lists
 :test-filename: 02_movie_list_test
 :test-function: TestMovieList
 :test-output: true
@@ -38,29 +37,27 @@ You can find the route handler, the function that handles the request, in the mo
 .pkg/routes/movies.go
 [source,go,role=nocopy]
 ----
-// include::{repository-raw}/main/pkg/routes/movies.go[tag=list]
-include::{repository-raw}/working/pkg/routes/movies.go[tag=list]
+include::{repository-raw}/main/pkg/routes/movies.go[tag=list]
 ----
 
 Within the route handler, you can see that:
 
 1. The _paging_ values, `sort`, `order`, `limit` and `skip` values are extracted from the HTTP request.  This allows us to apply sorting and pagination to the results.
-2. The User's ID is extracted from the request
-3. The `FindAll` services is called on the `MovieService` with the paging values and User ID and the results are serialized as JSON.
+2. The User's ID is extracted from the `Authorization` header, if provided
+3. The `FindAll` method is called on the `MovieService` with the paging values and User ID and the results are serialized as JSON.
 
 
 === The Movie Service
 
-The magic happens in the `MovieService`, located at link:{repository-blob}main/pkg/services/movies.go[`pkg/services/movies.go`^].
+The magic happens in the `MovieService` implementation, located at link:{repository-blob}main/pkg/services/movies.go[`pkg/services/movies.go`^].
 For this route we are concerned with the `FindAll()` method.
 
-If we take a closer look at the `FindAll()` method, we can see that it currently returns a hardcoded list of popular movies from a another file in the repository.
+If we take a closer look at the `FindAll()` method, we can see that it currently returns a hardcoded list of popular movies from another file in the repository.
 
 [source,go,indent=0]
 .pkg/services/movies.go
 ----
-// include::{repository-raw}/main/pkg/services/movies.go[tag=all]
-include::{repository-raw}/working/pkg/services/movies.go[tag=all]
+include::{repository-raw}/main/pkg/services/movies.go[tag=all]
 ----
 
 You will need to replace these `TODO` comments with working code to complete the challenge.
@@ -74,12 +71,11 @@ Then, finally you add code to extract and return the results.
 
 === Open a new Session
 
-// TODO: Is this a class?
-Within the `FindAll` method, first open a new session by calling the `.NewSession()` method on the Driver instance injected into the `MovieService`.
+Within the `FindAll()` method, first open a new session by calling the `.NewSession()` method on the Driver instance injected into the `MovieService` implementation.
 Once this function is completed, the newly opened session will need to be closed.
-You can do this by deferring a function which calls the `.Close()` method on the session.
+You can do this by deferring a function which calls the `Close()` method on the session.
 
-The `DeferredClose` function within the `ioutils` package has been provided to attempt to call the `.Close()` method on the provided object and handle any errors.
+The `DeferredClose` function within the link:{repository-blob}/main/pkg/ioutils/errors.go[`ioutils` package^] has been provided to attempt to call the `Close()` method on the provided object and handle any errors.
 
 
 .Open a new Session
@@ -91,9 +87,9 @@ include::{repository-raw}/{branch}/pkg/services/movies.go[tag=session,indent=0]
 
 === Execute a Cypher query within a new Read Transaction
 
-The `session` object provides a `.ReadTransaction()` method for which you pass a function to represent the unit of work.
-The unit of work is passed a single argument, an instance of `neo4j.Transaction`. which has a `.Run()` method that you can use to execute a Cypher statement.
-The `.Run()` method accepts two arguments:
+The `session` object provides a `ReadTransaction()` method for which you pass a function to represent the unit of work.
+The unit of work is passed a single argument, an instance of `neo4j.Transaction`.  This object provides a `Run()` method that you can call to execute a Cypher statement.
+The `Run()` method accepts two arguments:
 
 1. The Cypher query as a parameterised string.
 2. A map containing the values for the parameters prefixed in the query with a dollar sign ($).
@@ -108,7 +104,7 @@ include::{repository-raw}/{branch}/pkg/services/movies.go[tag=allcypher,indent=0
 
 The result of the query is now available in the `result` variable.
 
-These results must be consumed within the function passed to the `.ReadTransaction()` call.
+These results must be consumed within the function passed to the `ReadTransaction()` call.
 As mentioned in link:../2-results[Processing Results^], you can either use a `for` loop or use `result.Collect()` to extract the `movie` values returned from Neo4j.
 
 .Extract Movie Values
@@ -121,7 +117,7 @@ include::{repository-raw}/{branch}/pkg/services/movies.go[tag=allmovies,indent=0
 === Return the Results
 
 Finally, check whether the call `session.ReadTransaction()` has returned an error.
-If so, return that error.  Otherwise, the function should return the values returned from the call to `.ReadTransaction()`.
+If so, return that error.  Otherwise, the function should return the values returned from the call to `ReadTransaction()`.
 
 
 .Return the Results
@@ -151,7 +147,6 @@ include::../../../../includes/test.adoc[]
 
 include::./questions/verify.adoc[leveloffset=+1]
 
-// TODO: Make sure output is printed AND the filtering works
 
 [.summary]
 == Lesson Summary
