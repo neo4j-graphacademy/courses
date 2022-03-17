@@ -750,11 +750,15 @@ const setupMarkAsReadButton = () => {
             button.addEventListener('click', readClickEvent => {
                 readClickEvent.preventDefault()
 
+                button.classList.add(BUTTON_LOADING)
+                button.setAttribute('disabled', 'disabled')
+
                 post(`${document.location.pathname}read`)
                     .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(error => handleError(button.parentElement, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
+                        button.removeAttribute('disabled')
                     })
             })
         })
