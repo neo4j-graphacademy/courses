@@ -128,7 +128,7 @@ router.get('/:id/:course', async (req, res, next) => {
             ogDescription = `${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
 
-        const ogImage = `${course.link}badge/`
+        const ogImage = `${course.link}banner/`
 
         res.render('profile/certificate', {
             title,

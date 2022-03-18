@@ -530,7 +530,7 @@ const displayCourseCompleted = (res) => {
         <p>
             Congratulations on completing this course!  We hope that you have found the
             course useful and are now feeling more confident using Neo4j.
-            if you enjoyed the course, please <strong>share your certificate</strong>
+            If you enjoyed the course, why not <strong>share your certificate</strong>
             with your friends and colleagues?
         </p>
         <p>
