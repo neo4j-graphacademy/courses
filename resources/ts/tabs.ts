@@ -3,7 +3,7 @@ import { createElement } from './modules/dom'
 const TAB_TARGET = 'tab-target'
 const TAB_TARGET_VISIBLE = 'tab-target--visible'
 
-const TAB = 'tab'
+const TAB = 'tab-element'
 const TAB_SELECTED = 'tab--selected'
 
 const ATTRIBUTE_TARGET = 'data-target'
@@ -81,7 +81,7 @@ function convertClassroomTabs() {
         return
     }
 
-    classroom.querySelectorAll('.tab')
+    classroom.querySelectorAll(`.${TAB}`)
         .forEach((tabElement: Element) => {
             // Only get the first tab in a list of siblings
             if ( tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab') ) {
@@ -104,6 +104,9 @@ function convertClassroomTabs() {
                 nextSibling = (nextSibling as HTMLElement).nextElementSibling
             }
 
+            console.log(targets);
+
+
             targets.forEach((target, index) => {
                 // Generate tab ID
                 lastTabId++
@@ -115,11 +118,13 @@ function convertClassroomTabs() {
                 target.classList.add('tab-target')
 
                 // Get the title and create a tab element
+                console.log(target, target.querySelector('.title'));
+
                 const title = target.querySelector('.title')!.innerHTML.replace(/Example ([0-9]+)./, '').trim()
 
                 target.setAttribute(ATTRIBUTE_TITLE, title)
 
-                const tab = createElement('a', 'tab', [title])
+                const tab = createElement('a', 'tab-element', [title])
                 tab.setAttribute('href', `#${thisTabId}`)
 
                 tab.setAttribute(ATTRIBUTE_TARGET, title)

@@ -130,7 +130,10 @@ export async function saveLessonProgress(user: User, course: string, module: str
         const shouldComplete: boolean = courseResult.records[0].get('shouldComplete')
 
         return {
-            lessonWithProgress: lessonOutput,
+            lessonWithProgress: {
+                ...lessonOutput,
+                courseCompleted: courseOutput.completed,
+            },
             moduleWithProgress: moduleOutput,
             moduleCompletedInTransaction: moduleShouldComplete,
             courseWithProgress: courseOutput,
