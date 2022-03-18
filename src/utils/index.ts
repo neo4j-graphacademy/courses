@@ -289,6 +289,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     const attributes: Record<string, any> = {
         name: user?.nickname,
         'cdn-url': CDN_URL || '',
+        'shared': path.join(ASCIIDOC_DIRECTORY, 'shared'),
     }
 
     if (req && course.usecase) {

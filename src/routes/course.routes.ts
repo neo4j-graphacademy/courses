@@ -104,7 +104,11 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
                 course: {
                     slug: course.slug,
                     title: course.title,
+                    link: course.link,
                 },
+                user: {
+                    id: user?.id
+                }
             },
 
             course,
@@ -480,11 +484,16 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
                 course: {
                     slug: course.slug,
                     title: course.title,
+                    summary: course.summary,
+                    link: course.link,
                 },
                 module: {
                     slug: module.slug,
                     title: module.title,
                 },
+                user: {
+                    id: user!.id,
+                }
             },
             feedback: true,
             ...module,
@@ -640,6 +649,8 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
                 course: {
                     slug: course.slug,
                     title: course.title,
+                    summary: course.summary,
+                    link: course.link,
                 },
                 module: {
                     slug: module.slug,
@@ -649,6 +660,9 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
                     slug: lesson.slug,
                     title: lesson.title,
                 },
+                user: {
+                    id: user!.id,
+                }
             },
             feedback: true,
             ...lesson,
