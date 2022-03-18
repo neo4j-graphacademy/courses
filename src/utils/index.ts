@@ -288,7 +288,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
 
     const attributes: Record<string, any> = {
         name: user?.nickname,
-        'cdn-url': CDN_URL,
+        'cdn-url': CDN_URL || '',
     }
 
     if (req && course.usecase) {

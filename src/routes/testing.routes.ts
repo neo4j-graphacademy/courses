@@ -125,8 +125,9 @@ router.get('/email/:template', async (req, res) => {
 
     if ( req.query.send === 'true' ) {
         await send('adam.cowley@neo4j.com', email.subject, email.html)
-        console.log('Email sent');
 
+        // tslint:disable-next-line:no-console
+        console.log('Email sent');
     }
 
     res.send(email.html)
