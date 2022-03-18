@@ -146,12 +146,7 @@ ORDER BY movieTitle DESCENDING LIMIT 5
 
 Node and relationship properties may be useful to consider in graph analytics, they can be used as weights in graph algorithms and features for machine learning.
 
-Let's be ambitious and take on a quick example around graph feature engineering for ML.  Suppose you wanted to train a model to predict whether a movie is a "family film" based on the movie properties and user rating behavior in the graph. The theory for using rating behavior is that family films will be viewed and rated somewhat similarly by similar users. We will us node embeddings to generate graph structure and properties.  FastRP is the name of the specific algorithm we will use.  We will cover node embeddings and FastRP in more depth later on in this course.  For now, think of this a sort of word2vec for graph.  Loosely speaking, node embeddings are vectors of numbers that represent node position in graph, if nodes are highly related via the graph structure then they will also have very similar embedding vectors and vice versa.
-
-
-If we want our embedding to consider rating similarities then we can include the `rating` property as a weight, but to do this we need to add the property to our projection
-
-Below is an example of including the `rating` relationship property.  I am also including an example of some node properties as reference though we won't use them in FastRP. The syntax for node and relationship projections is the same, but there are different options in terms of setting defaults, setting properties for multiple labels and or relationship types, and a few other things.  If you want to go into more depth, please review our documentation.
+Below is an example of including multiple movie node properties and the `rating` relationship property.
 
 
 ----
@@ -174,28 +169,7 @@ CALL gds.graph.project(
 );
 ----
 
-----
-CALL gds.alpha.scaleProperties.mutate('native-proj', {
-  nodeProperties: ['revenue', 'budget', 'runtime'],
-  scaler: 'Mean',
-  mutateProperty: 'movieFeatures'
-}) YIELD nodePropertiesWritten
-----
-Once we do that we can run fastRP
-
-----
-//don't worry if you don't get this syntax yet.  We will go over it in another module.  We are just using the relationship and node properties to wieght an embedding calculation
-CALL gds.fastRP.mutate('native-proj', {
-    embeddingDimension:12,
-    mutateProperty: 'nodeEmbedding',
-    relationshipWeightProperty: 'rating',
-    featureProperties: ['movieFeatures'],
-    propertyRatio: 0.2,
-    randomSeed: 7474
-});
-----
-
-Then stream out the results
+We will go over how to leverage properties like these in  more detail in the algorithms and machine learning courses. For now, you can verify these properties are in the projection by using the node and relationship property streaming operations.  There are a variety of different options for setting defaults and for alternative configurations, such as setting properties for all node labels and relationship types instead for doing so for each one separately.  Please refer to the TK[documentation] if you want more details on these.
 
 ----
 CALL gds.graph.streamNodeProperty('native-proj','nodeEmbedding', ['Movie'])
@@ -206,33 +180,90 @@ WITH m, collect(DISTINCT g.name) as genres, nodeEmbeddingFeatures
 RETURN m.title AS movie, toInteger("Children" IN genres) AS isFamilyFilm, nodeEmbeddingFeatures
 ----
 
-[options=header]
-|===========================================================================================================================
-| movie                        | isFamilyFilm      | features
-| Toy Story                    | 1                 | [8.3, 81, 0.9099, -0.1892, -0.1795, -0.1462, 0.1184, 0.807, 0.2213, 0.1777]
-| Jumanji                      | 1                 | [6.9, 104, 0.7141, -0.0799, -0.1459, -0.0045, 0.2142, 0.9908, -0.0347, 0.3353]
-| Grumpier Old Men             | 0                 | [6.6, 101, 0.6641, 0.008, -0.1126, -0.5597, 0.1045, 0.9455, -0.4104, 0.9189]
-| Waiting to Exhale            | 0                 | [5.6, 124, 0.7593, -0.0618, 0.0386, -0.4767, 0.0135, 0.6265, 0.0559, 0.464]
-| Father of the Bride Part II  | 0                 | [5.9, 106, 0.7581, -0.066, 0.0023, -0.5064, -0.058, 0.8345, -0.4046, 0.6486]
-|===========================================================================================================================
+
+== Parallel Relationship Aggregations
+
+The Neo4j database allows you to store multiple relationships of the same type and direction between two nodes.  These are colloquially known as _parallel_ relationships. For example, consider a graph of financial transaction data where users send money to one another.  If a user sends money to the same user multiple times this can form multiple parallel relationships.
+
+image::images/parallell-relationships.png[title="Nodes with Parallel Relationships",600]
+
+Sometimes you will want to aggregate these parallel relationships into a single relationship in preparation for running graph algorithms or machine learning as illustrated below.
+
+This is because graph algorithms may count each relationship between two nodes separately when all we need to consider is whether a single relationship exists between them. Other times we may want to weight the connection between two nodes higher if more parallel relationships exists, but it's not always easy to do so without aggregating the relationships first depending on which algorithm you use.
+
+Native projections allow for this aggregation. When you conduct relationship aggregation you can generate aggregate statics too, such as parallel relationship counts or sums or averages of relationship properties which can then be used as weights. Below is an example of aggregating relationships without any properties
+
+[source, cypher, role=noplay]
+----
+CALL gds.graph.project(
+  'user-proj',
+  ['User'],
+  {
+    SENT_MONEY_TO: { aggregation: 'SINGLE' }
+  }
+);
+----
+image::images/parallell-rels-agg-1.png[title="Aggregate the SENT_MONEY_TO Realtionship With no Properties",800]
+
+We can create a property with the count of the relationships as well - like so:
+
+[source, cypher, role=noplay]
+----
+CALL gds.graph.project(
+  'user-proj',
+  ['User'],
+  {
+    SENT_MONEY_TO: {
+      properties: {
+        numberOfTransactions: {
+          property: '*', //the windlcard '*' is a placeholder, signaling that the value of the relationship property is derived and not based on Neo4j property.
+          aggregation: 'COUNT'
+        }
+      }
+    }
+  }
+);
+----
+image::images/parallell-rels-agg-2.png[title="Aggregate the SENT_MONEY_TO Realtionship With a Trancastion Count",800]
+We can also take the sum, min or max of relationship properties during aggregation.  Below is an example with sum.
+
+[source, cypher, role=noplay]
+----
+CALL gds.graph.project(
+  'user-proj',
+  ['User'],
+  {
+    SENT_MONEY_TO: {
+      properties: {
+        totalAmount: {
+          property: 'amount'
+          aggregation: 'SUM'
+        }
+      }
+    }
+  }
+);
+----
 
 
-These results have what you need to train a graph machine learning model to for "family film" prediction. You can export this data and load into Python, R, or whatever else to use your model of choice, whether it be regression, tree based, nural networks etc. - and just like that you are doing Graph Machine learning! GDS also has native pipelines to train, evaluate, predict with, and publish graph native machine learning models.  We will go over that in a future module.
+image::images/parallell-rels-agg-3.png[title="Aggregate the SENT_MONEY_TO Realtionship With a Property Sum",800]
 
 
-== Relationship Aggregations and Other Native Projection Features
+== Other Native Projection Configuration and Features
 
-The Neo4j database allows you to store multiple relationships of the same type and direction between two nodes.  These are colloquially known as parallel relationships.  Sometimes we will want to aggregate parallel relationships into a single relationship in preparation for running graph algorithms or machine learning.
+We covered the basics here but there are actually many different extended syntax and configuration options available for native projections which are detailed in the linkTK:[documentation].  In general, if you are trying to do something in native projection and can't quite express the thing you want with the current syntax, check the docs to see if there are additional configurations or syntax extensions to support.
 
 == Check your understanding
 
 
-include::questions/1-graph-projection-using-cypher.adoc[leveloffset=+1]
-
-include::questions/2-cypher-projection-use-cases.adoc[leveloffset=+1]
-
-include::questions/3-cypher-projection-usage.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
+In theis lesson we went over native projections, the primary graph projection mechanism in GDS.  Native Projections are optimized for efficiency and performance to support graph data science at scale.  Native projections have a rich syntax and set of configuration options that allow you to
 
+. filter the graph by node label and relationship types
+. include node and relationship properties
+. alter relationship orientation
+. aggregate parallel relationships
+
+In the next lesson we will go over Cypher projections, an alternative mechanism for projecting graphs in GDS.
