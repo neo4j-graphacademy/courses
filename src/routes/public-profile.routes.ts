@@ -124,7 +124,7 @@ router.get('/:id/:course', async (req, res, next) => {
             ogDescription = `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt?.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
         else {
-            ogTitle = `${own ? 'I' : userName} am working towards the ${course.title} badge on #Neo4j #GraphAcademy`
+            ogTitle = `${own ? 'I a,' : `${userName} is`} working towards the ${course.title} badge on #Neo4j #GraphAcademy`
             ogDescription = `${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
 
