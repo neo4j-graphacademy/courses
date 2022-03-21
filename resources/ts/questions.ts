@@ -353,12 +353,11 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             element.classList.add('summary--visible')
         }
 
-        if (res.data.next) {
-            displayLessonCompleted(res)
-
+        if (res.data.courseCompleted) {
+            displayCourseCompleted(res)
         }
         else {
-            displayCourseCompleted(res)
+            displayLessonCompleted(res)
         }
 
         parent.classList.remove(QUESTION_INCORRECT)
@@ -395,11 +394,22 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
     }
 }
 
+const modalCloseButton = () => {
+    const container = document.createElement('span')
+    container.classList.add('modal-outcome-close')
+    container.innerHTML = `<svg width="14px" height="22px" viewBox="0 0 22 22" role="button" class="close" aria-label="Close"><line x1="19.5833333" y1="0.416666667" x2="0.416666667" y2="19.5833333"></line><line x1="19.5833333" y1="19.5833333" x2="0.416666667" y2="0.416666667"></line></svg>`
+
+    return container
+}
+
+
 const buildModuleOutcome = (title: string, buttons: HTMLElement[]): HTMLElement => {
     const summary = document.querySelector('.summary') as (HTMLElement | undefined)
+    const close = modalCloseButton()
 
     const titleElement = createElement('h2', 'module-outcome-title', [
-        title
+        title,
+        close,
     ])
 
     const container = createElement('div', 'module-outcome-container', [
@@ -409,6 +419,12 @@ const buildModuleOutcome = (title: string, buttons: HTMLElement[]): HTMLElement 
     ])
 
     const output = createElement('div', 'module-outcome', [ container ])
+
+    close.addEventListener('click', e => {
+        e.preventDefault()
+
+        output.parentElement!.removeChild(output)
+    })
 
     return output
 }
@@ -452,7 +468,7 @@ const displayCourseCompleted = (res) => {
 
     // Course Summary Link
     // @ts-ignore
-    if ( window.course.summary ) {
+    if ( window.analytics.course.summary ) {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
@@ -470,7 +486,7 @@ const displayCourseCompleted = (res) => {
 
     // Certificate Link
     // @ts-ignore
-    if ( window.user.id ) {
+    if ( window.analytics.user.id ) {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
@@ -479,7 +495,7 @@ const displayCourseCompleted = (res) => {
             span
         ])
         // @ts-ignore
-        button.setAttribute('href', `/u/${window.user.id}/${window.analytics.course.slug}`)
+        button.setAttribute('href', `/u/${window.analytics.user.id}/${window.analytics.course.slug}`)
 
         actions.push(button)
     }
@@ -497,10 +513,33 @@ const displayCourseCompleted = (res) => {
         actions.push(button)
     }
 
+
+
     const confirmation = buildModuleOutcome(
         'You have completed this course!',
         actions,
     )
+
+    const summary = confirmation.querySelector('.summary')
+
+
+    // Add Congratulations
+    const congratulations = document.createElement('div')
+    congratulations.classList.add('module-outcome-congratulations')
+    congratulations.innerHTML=`
+        <p>
+            Congratulations on completing this course!  We hope that you have found the
+            course useful and are now feeling more confident using Neo4j.
+            If you enjoyed the course, why not <strong>share your certificate</strong>
+            with your friends and colleagues?
+        </p>
+        <p>
+            If you have any feedback on this course, you can email us at
+            <a href="mailto:graphacademy@neo4j.com">graphacademy@neo4j.com</a>.
+        </p>
+    `
+
+    summary?.parentElement!.insertBefore(congratulations, summary)
 
     const content = document.querySelector(`.${CONTENT_SELECTOR}`)
 
@@ -750,11 +789,15 @@ const setupMarkAsReadButton = () => {
             button.addEventListener('click', readClickEvent => {
                 readClickEvent.preventDefault()
 
+                button.classList.add(BUTTON_LOADING)
+                button.setAttribute('disabled', 'disabled')
+
                 post(`${document.location.pathname}read`)
                     .then(res => handleResponse(button.parentElement, button, res, [], [], true))
                     .catch(error => handleError(button.parentElement, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
+                        button.removeAttribute('disabled')
                     })
             })
         })

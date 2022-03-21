@@ -1,12 +1,13 @@
 = Authenticating a User
 :type: challenge
 :branch: 05-authentication
-:test-filename: 05_authentication__test
+:test-filename: 05_authentication_test
+:test-function: TestAuthentication
 
 At stage of the project,  a user can register, but they are still unable to sign in.
-As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
+As with the previous Challenge, the `FindOneByEmailAndPassword()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
 
-In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/api/dao/auth.py[`AuthDAO`^] to find the User node with the corresponding email and compare the password before issuing a JWT token.
+In this challenge you will rewrite the `FindOneByEmailAndPassword()` function of the link:{repository-blob}main/pkg/services/auth.go[`AuthService`^] to find the User node with the corresponding email and compare the password before issuing a JWT token.
 
 But first, let's take a look at how Authentication works in the application.
 If you prefer, you can skip straight to <<Implementing Authentication>>.
@@ -18,102 +19,118 @@ When a user attempts to access an API endpoint that requires authentication, the
 When a user registers or signs in, a JWT token is generated and appended to the User record.
 This token is then stored by the UI and appended to `Bearer` to create an `authorization` header.
 
-The token generation happens in the link:{repository-blob}/main/api/dao/auth.py[`AuthDAO`^] using the `_generate_token()` method.
+The token generation happens in the link:{repository-blob}main/pkg/services/auth.go[`AuthService`^] by calling the `Sign()` method in the {repository-blob}main/pkg/services/jwtutils/jwt.go[`jwtutils`^] package.
 
-When The API receives a request which includes the `authorization` header, the link:https://Gohosted.org/Flask-JWT/[Flask-JWT] library attempts to decode the value and makes the payload available by importing `current_user` from `flask_jwt`.
+When The API receives a request which includes the `authorization` header, this token is decoded to verify the identify of the user.
 
 
 === Login Route
 
-When a user submits the login form on the website, a request is sent to `http://localhost:5000/api/login` with a username and password.
+When a user submits the login form on the website, a request is sent to `http://localhost:3000/api/login` with a username and password.
 
 
 == Implementing Authentication
 
-To implement database authentication, you will modify the `authenticate` method in the `AuthDAO`.
+To implement database authentication, you will modify the `FindOneByEmailAndPassword()` method in the `AuthService`.
 
-.api/dao/auth.py
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/main/api/dao/auth.py[tag=authenticate]
+include::{repository-raw}/main/pkg/services/auth.go[tag=authenticate]
 ----
 
-Your challenge is to update the `authenticate()` method to perform the following actions:
+Your challenge is to update the `FindOneByEmailAndPassword()` method to perform the following actions:
 
-1. <<Create a transaction function to find the User>>
-2. <<Execute the function within a Read Transaction>>
+1. <<Open a new Session>>
+2. <<Find the User node within a Read Transaction>>
 3. <<Verify the User exists>>
 4. <<Compare Passwords>>
 5. <<Return User Details>>
 
-=== Create a transaction function to find the User
 
-The Transaction function should be a simple query that uses Cypher to look up a `:User` node by the `email` parameter provided and return a single result.
+=== Open a new Session
 
+Use the `as` variable to access the Driver, and call the `NewSession()` method to open a new session.
 
-.Get User by Email
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag=get_user]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="session"]
 ----
 
 
-=== Execute the function within a Read Transaction
+=== Find the User node within a Read Transaction
 
-After opening up a new session, call the `read_transaction` method to execute the `get_user` function above.
+Within the session, execute a Read Transaction to execute the following Cypher query:
 
-.Call the Transaction Function
+.Find User by Email
+[source,cypher]
+----
+MATCH (u:User {email: $email}) RETURN u
+----
+
+You execute a new read transaction by calling the `ReadTransaction()` method on the `session` variable, providing a function represent the unit of work.
+
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag=call_get_user]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="query"]
 ----
+
 
 === Verify the User exists
 
-If the user does not exist, then `get_user` will return `None`.
-In this case, return `False`.
+As this query should only return a single result, so you can call the `Single()` method on the result to get the first and only record.
 
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag=user_not_found]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="exists"]
 ----
+
+The `Single()` method expects one result, and will return an error if zero or more than one records are returned.
+In the example above, both of these cases are handled by returning an error informing the user that the account cannot be found.
+
+If a single result is successfully returned, then the next step is to verify the password.
+
 
 === Compare Passwords
 
-The `authenticate()` method uses the `hashpw` function imported from `bcrypt` to encrypt the password.
-The library also provides a `checkpw` function for comparing a plain text value against the previously encrypted value.
+An encrypted version of the password is stored in the `password` property.
+A helper function called `verifyPassword` is included in `auth.go` which uses bcrypt to compare the supplied password with user's password property.
 
-If the check fails, return `False`.
-
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag=compare_passwords]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="password"]
 ----
+
 
 === Return User Details
 
 Finally, if the user exists and the password comparison returns true, generate a JWT token and return it along with information about the User.
 
 
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag=auth_jwt]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="authreturn"]
 ----
 
 
-Once you have applied these changes to the `authenticate()` method, scroll to <<Testing>> to verify that the method works as expected.
+Once you have applied these changes to the `FindOneByEmailAndPassword()` method, scroll to <<Testing>> to verify that the method works as expected.
 
 
 == Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `authenticate()` method:
+.Click here to reveal the completed `FindOneByEmailAndPassword()` method:
 ====
 
-.api/dao/auth.py
+.pkg/services/auth.go
 [source,go,indent=0]
 ----
-include::{repository-raw}/{branch}/api/dao/auth.py[tag="authenticate"]
+include::{repository-raw}/{branch}/pkg/services/auth.go[tag="authenticate"]
 ----
 
 ====
@@ -126,6 +143,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Lesson Summary
 
-In this Challenge, you have updated the `AuthDAO` to authenticate a User using the data held in the Sandbox database.
+In this Challenge, you have updated the `AuthService` to authenticate a User using the data held in the Sandbox database.
 
 In the next Challenge, you will save user ratings to the database.

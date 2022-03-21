@@ -7,6 +7,7 @@ import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
+import { send } from '../modules/mailer'
 
 const router = Router()
 
@@ -121,6 +122,13 @@ router.get('/email/:template', async (req, res) => {
 
     const data = { user, course, sandbox }
     const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
+
+    if ( req.query.send === 'true' ) {
+        await send('adam.cowley@neo4j.com', email.subject, email.html)
+
+        // tslint:disable-next-line:no-console
+        console.log('Email sent');
+    }
 
     res.send(email.html)
 

@@ -2,7 +2,7 @@ import { EventEmitter } from 'events'
 import { DomainEvent } from './domain-event'
 
 
-type Listener<T extends DomainEvent> = (event: T) => void;
+export type Listener<T extends DomainEvent> = (event: T) => void;
 
 export interface Disposable {
     dispose: () => void;

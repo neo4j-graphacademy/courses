@@ -21,7 +21,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL AND size((c)-[:HAS_MODULE|HAS_LESSON*2]->()) > 0 THEN toString(toInteger((1.0 * size([ (${enrolment})-[:COMPLETED_LESSON]->(x) WHERE not x:OptionalLesson | x ]) / size([ (${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->(x) WHERE not x:OptionalLesson | x ]))*100)) ELSE coalesce(${enrolment}.percent, 0) END ,` : ''}
             ${enrolment !== undefined ? `sandbox: [ (${enrolment})-[:HAS_SANDBOX]->(sbx) WHERE sbx.expiresAt >= datetime() | sbx { .* } ][0],` : ''}
-            ${user !== undefined ? `interested: exists((${course})<-[:INTERESTED_IN]-(${user})),` : ''}
+            ${user !== undefined ? `isInterested: exists((${course})<-[:INTERESTED_IN]-(${user})),` : ''}
             modules: [ (${course})-[:HAS_MODULE]->(${module}) |
                 ${moduleCypher(enrolment, course, module, lesson)}
             ],
