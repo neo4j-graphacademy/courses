@@ -3,7 +3,7 @@ import { createElement } from './modules/dom'
 const TAB_TARGET = 'tab-target'
 const TAB_TARGET_VISIBLE = 'tab-target--visible'
 
-const TAB = 'tab-element'
+const TAB = 'tab'
 const TAB_SELECTED = 'tab--selected'
 
 const ATTRIBUTE_TARGET = 'data-target'
@@ -13,7 +13,7 @@ function setTabSelectedInTabSet(activeElement: HTMLAnchorElement) {
     const tabElements = activeElement.parentNode!
 
     // Set all tabs to inactive
-    tabElements.querySelectorAll(`.${TAB}`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
+    tabElements.querySelectorAll(`.tab-element`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
 
     // Set this tab as active
     activeElement.classList.add(TAB_SELECTED)
@@ -33,7 +33,7 @@ function findTargets(activeElement: HTMLAnchorElement) {
     }
 
     if ( target ) {
-        document.querySelectorAll(`a.tab[${ATTRIBUTE_TARGET}="${target}"]`)
+        document.querySelectorAll(`a.tab-element[${ATTRIBUTE_TARGET}="${target}"]`)
             .forEach(targetTab => setTabSelectedInTabSet(targetTab as HTMLAnchorElement))
 
         document.querySelectorAll(`.tab-target[${ATTRIBUTE_TITLE}="${target}"]`)
@@ -54,7 +54,7 @@ function setTargetVisibleInTabSet(target: HTMLDivElement) {
 function handleGenericTabs() {
     document.querySelectorAll(`.${TAB}s`)
         .forEach(element => {
-            element.querySelectorAll('.tab').forEach(tabElement => {
+            element.querySelectorAll('.tab-element').forEach(tabElement => {
                 tabElement.addEventListener('click', e => {
                     e.preventDefault()
 
@@ -81,7 +81,7 @@ function convertClassroomTabs() {
         return
     }
 
-    classroom.querySelectorAll(`.${TAB}`)
+    classroom.querySelectorAll('.tab')
         .forEach((tabElement: Element) => {
             // Only get the first tab in a list of siblings
             if ( tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab') ) {
@@ -104,9 +104,6 @@ function convertClassroomTabs() {
                 nextSibling = (nextSibling as HTMLElement).nextElementSibling
             }
 
-            console.log(targets);
-
-
             targets.forEach((target, index) => {
                 // Generate tab ID
                 lastTabId++
@@ -118,8 +115,6 @@ function convertClassroomTabs() {
                 target.classList.add('tab-target')
 
                 // Get the title and create a tab element
-                console.log(target, target.querySelector('.title'));
-
                 const title = target.querySelector('.title')!.innerHTML.replace(/Example ([0-9]+)./, '').trim()
 
                 target.setAttribute(ATTRIBUTE_TITLE, title)
