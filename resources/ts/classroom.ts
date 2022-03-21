@@ -84,7 +84,7 @@ function videoTabs() {
     const TAB_TARGET = 'tab-target'
     const TAB_TARGET_VISIBLE = 'tab-target--visible'
 
-    const TAB = 'tab'
+    const TAB = 'tab-element'
     const TAB_SELECTED = 'tab--selected'
 
 
@@ -112,37 +112,7 @@ function videoTabs() {
             transcriptTab,
         ])
 
-
         doc.prepend(tabs)
-
-        // Tab Clicks
-        document.querySelectorAll('.tab').forEach(element => {
-            element.addEventListener('click', e => {
-                e.preventDefault()
-
-                const tabElements = document.querySelectorAll(`.${TAB}`)
-                const tabTargets = document.querySelectorAll(`.${TAB_TARGET}`)
-
-                const link: HTMLAnchorElement = e.target as HTMLAnchorElement
-                const id = link.getAttribute('href')!.replace('#', '')
-
-                // Remove active tab states
-                tabElements.forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
-
-                // Add active state to clicked tab
-                link.classList.add(TAB_SELECTED)
-
-                // Tab targets
-                tabTargets.forEach(target => {
-                    if (target.getAttribute('id') === id) {
-                        target.classList.add(TAB_TARGET_VISIBLE)
-                    }
-                    else {
-                        target.classList.remove(TAB_TARGET_VISIBLE)
-                    }
-                })
-            })
-        })
     }
 }
 
