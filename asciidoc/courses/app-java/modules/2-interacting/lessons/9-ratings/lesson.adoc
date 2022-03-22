@@ -6,7 +6,7 @@
 
 The challenges in this course come thick and fast!
 
-In this challenge, you will modify the `add()` method in the link:{repository-blob}main/src/main/java/neoflix/services/RatingService.java[`RatingService`^] to save ratings into Neo4j.
+In this challenge, you will modify the `add()` method in the link:{repository-blob}/main/src/main/java/neoflix/services/RatingService.java[`RatingService`^] to save ratings into Neo4j.
 As part of the challenge, you will:
 
 1. <<Convert the Rating>>
@@ -24,16 +24,18 @@ If you prefer, you can skip to <<Saving a Rating>>.
 On every Movie page, the user is invited to rate a movie on scale of 1 to 5.
 The form pictured to the right gives the user the ability to select a rating between 1 and 5 and click submit to save the rating.
 
-When the form is submitted, the website sends a request to `/api/account/ratings/{movieId}` and the following will happen:
+When the form is submitted, the website sends a POST request to `/api/account/ratings/{movieId}` and the following will happen:
 
-1. The server directs the request to the route handler in link:{repository-blob}/main/src/main/java/neoflix/routes/AccountRoutes.java[`src/main/java/neoflix/routes/AccountRoutes.java`^], which verifies the user's JWT token before handling the request.
-2. The route handler creates an instance of the link:{repository-blob}/main/src/main/java/neoflix/services/RatingService.java[`RatingService`^].
-3. The `add()` method is called on the `RatingService`, and is passed the ID of the current user plus the ID of the movie and a rating from the request body.
+1. The server directs the request to the route handler in link:{repository-blob}/main/src/main/java/neoflix/routes/AccountRoutes.java[`src/main/java/neoflix/routes/AccountRoutes.java`^], whose `/ratings/` route gets the authenticated user's id from the request.
+2. The route handler uses an instance of the link:{repository-blob}/main/src/main/java/neoflix/services/RatingService.java[`RatingService`^].
+3. The `add()` method is called on the `RatingService`, and is passed the id of the current user plus the id of the movie and a rating value from the request body.
 4. It is then the responsibility of the `add()` method to save this information to the database and return an appropriate response.
 
 A rating is represented in the graph a relationship going from a `:User` to a `:Movie` node with the type `:RATED`.  The relationship has two properties; the rating (an integer) and a timestamp to represent when the relationship was created.
 
-After the data is saved, the UI expects the movie details to be returned, with an additional property called `rating`, which will be the rating that the user has given for the movie.
+// TODO arrows image
+
+After the data is saved, the UI expects the movie details to be returned, with an additional property called `rating`, which will be the rating that the current user has given for the movie.
 
 Let's take a look at the existing method in the `RatingService`.
 
@@ -45,36 +47,10 @@ include::{repository-raw}/main/src/main/java/neoflix/services/RatingService.java
 
 Your challenge is to replace the `TODO` comments in this method with working code.
 
-//MH: We don't need to convert the integer, right? I don't see any conversion
-//== Saving a Rating
-//
-//If you take the comments one-by-one, you will need to convert the native integer into a Neo4j Integer, save the rating in the database, and then return movie details and a rating.
-//
-//=== Convert the Rating
-//
-//To convert the native Java integer to a Neo4j Integer, we can use the `int()` function exported from `neo4j-driver`.
-//
-//[source,java]
-//----
-//include::{repository-raw}/main/src/main/java/example/integers.java[tag=import]
-//
-//// ...
-//
-//include::{repository-raw}/{branch}/src/main/services/rating.service.java[tag=convert,indent=0]
-//----
-//
-//[TIP]
-//====
-//We could also use the `toInteger()` function in Cypher to convert the value sent by the driver.
-//
-//[source,cypher,rel=norun]
-//toInteger(20.0) // 20
-//====
-
 === Save the Rating in a Write Transaction
 
 For this part of the challenge, open a new session and execute the query within a _write_ transaction.
-Each `movie` result should be converted to a map and returned as a list.
+The singular `movie` result should be converted to a map.
 
 [source,java]
 ----
@@ -82,10 +58,11 @@ include::{repository-raw}/{branch}/src/main/java/neoflix/services/RatingService.
 ----
 
 [TIP]
-By using the `MERGE` keyword here, we will overwrite an existing rating if one already exists.
+By using the `MERGE` keyword for the relationship, we will reuse an existing rating if one already exists but override its attributes.
+
 This way, we don't need to worry about duplicates or deleting existing records.
 
-Then, take the first row of the results and use the `findFirst()` function to get the first `movie` object returned by the query. If the `Movie` can not be found, throw a `RuntimeException`.
+If no movie or user is found, the statement will return no records, then the `single()` method will throw an `NoSuchRecordException` error which we convert to a `ValidationException`.
 
 [source,java,indent=0]
 ----

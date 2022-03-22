@@ -1,7 +1,12 @@
 = My Favorites List
 :type: challenge
 :branch: 07-favorites-list
-:test-number: 07
+:test-filename: _07_FavoritesListTest
+
+:branch: main
+:repository-raw: /tmp/app-java
+
+:repository-cypher-raw: https://raw.githubusercontent.com/neo4j-graphacademy/neoflix-cypher/main/cypher
 
 This challenge has three parts:
 
@@ -13,27 +18,27 @@ This challenge has three parts:
 
 image::images/movie-cards.png[Add a Movie to your Favorites, role=right]
 
-Clicking the link:http://localhost:3000/favorites[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can revisit later.
+Clicking the link:http://localhost:3000/[My Favorites^] link in the main navigation will take you to page which contains a list of Movies that you can want to revisit later.
 
-When a logged in user hovers their mouse over a Movie on the website, a bookmark icon appears in the top right hand corner.
+When a logged in user hovers their mouse over a Movie on the website, a bookmark icon appears in the top left hand corner.
 Clicking this icon will either add or remove the Movie from the user's Favorites list.
 
 When adding a Movie to the list, a  `POST` request it sent to the `/api/favorites/{id}` endpoint.  When this happens, the following chain of events will occur:
 
-1. The server directs the request to the route handler in link:{repository-blob}/main/src/routes/account.routes.js[`src/routes/account.routes.js`^], which verifies the user's JWT token before handling the request
-2. The route handler creates an instance of the link:{repository-blob}/main/src/services/favorites.service.js[`FavoriteService`^].
-3. The `add()` method is then called on the `FavoriteService` instance with the ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
+1. The server directs the request to the route handler in link:{repository-blob}/src/main/java/neoflix/routes/AccountRoutes.java[`AccountRoutes`^], which verifies the user's JWT token and stores it in the request, before handling the request
+2. The route handler uses an instance of the link:{repository-blob}/src/main/java/neoflix/services/FavoriteService.java[`FavoriteService`^].
+3. The `add()` method is then called on the `FavoriteService` instance with the user ID taken from the JWT token, and the ID of the movie that has been extracted from the request URL.
 4. It is then the responsibility of the `FavoriteService` to persist this information and format a response.
 
 Likewise, when it is clicked for a Movie that has already been favorited, a `DELETE` request is sent to the same URL, and the Movie is removed from the list.
 
 
-When adding a Movie to a User's Favorite list, a relationship is created between the `:User` and `:Movie` with the type `:HAS_FAVORITE`.
+When adding a Movie to a User's Favorite list, a relationship is created between the `User` and `Movie` with the type `HAS_FAVORITE`.
 
 
 == Adding a Movie to My Favorites
 
-For the first part of this challenge, modify the `add()` method to open a new database session, run the Cypher query to create te relationship, close the session and return the movie details along with an additional `favorite` property.
+For the first part of this challenge, modify the `add()` method to open a new database session, run the Cypher statement to create te relationship, close the session and return the movie details along with an additional `favorite` property.
 
 === 1. Open the Session
 
@@ -46,50 +51,41 @@ include::{repository-raw}/main/src/main/java/example/index.java[tag=session]
 
 === 2. Create the Relationship
 
-In a write transaction, run a Cypher query to create the `:HAS_RELATIONSHIP` relationship between the `User` and `Movie` nodes, with a `createdAt` property to represent when the relationship was created.
+In a write transaction, run a Cypher query to create the `HAS_FAVORITE` relationship between the `User` and `Movie` nodes, with a `createdAt` property to represent when the relationship was created.
 
 [%collapsible]
 .Click here to reveal the Cypher query
 ====
 [source,cypher]
 ----
-include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/creating-the-relationship.cypher[]
+include::{repository-cypher-raw}/2-interacting/9-user-favorites/creating-the-relationship.cypher[]
 ----
 ====
 
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag="create"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag="create"]
 ----
 
 
 === 3. Does the Movie exist?
 
 If no records are returned, you can safely assume that the either the User or Movie do not exist.
-In this case, throw a `NotFoundError` with an appropriate error message.
+In this case, throw a `ValidationException` with an appropriate error message.
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag="throw"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag="throw"]
 ----
 
-=== 4. Close the Session
-
-Before the movie information information is returned, ensure that the session is closed.
-
-[source,java,indent=0]
-----
-include::{repository-raw}/main/src/main/java/example/index.java[tag="session.close"]
-----
-
-=== 5. return results
+=== 4. Return results
 
 Then, finally, use the `toNativeTypes()` function to return the `movie` value from the first record returned from the database.
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag="return",indent=0]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag="return",indent=0]
 ----
 
 === Working Solution
@@ -98,11 +94,10 @@ include::{repository-raw}/{branch}/src/services/favorite.service.java[tag="retur
 .Click here to reveal the completed `add()` method
 ====
 
-.src/services/favorite.service.js
+.src/main/java/neoflix/services/FavoriteService.java
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag=add]
-
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag=add]
 ----
 ====
 
@@ -112,14 +107,14 @@ include::{repository-raw}/{branch}/src/services/favorite.service.java[tag=add]
 The second part of this challenge is to write the code to remove a movie from the My Favorites list.
 
 
-The code for deleting the `:HAS_FAVORITE` relationship will be similar, only the Cypher statement will change.
+The code for deleting the `HAS_FAVORITE` relationship will be similar, only the Cypher statement will change.
 
 Instead of two separate `MATCH` clauses, we can instead attempt to find the pattern within a single clause.
-If the relationship (with an alias of `r`) exists, we will delete it and then return the movie information with `favorite` set to `false`.
+If the relationship (with an variable of `r`) exists, we will delete it and then return the movie information with `favorite` set to `false`.
 
 [source,cypher,rel=norun]
 ----
-include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/deleting-the-relationship.cypher[]
+include::{repository-cypher-raw}/2-interacting/9-user-favorites/deleting-the-relationship.cypher[]
 ----
 
 Use the code from the `add()` method above to implement the `remove()` function.
@@ -131,52 +126,47 @@ If you get stuck, you can reveal the completed method below.
 .Click here to reveal the completed `remove()` method
 ====
 
-.src/services/favorite.service.js
+.src/main/java/neoflix/services/FavoriteService.java
 [source,java]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag=remove]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag=remove]
 ----
 ====
 
-
-
 == Listing My Favorites
 
-Finally, the `all()` method in the `FavoriteService` currently returns a hardcoded list of Movies.
+Finally, the `all()` method in the `FavoriteService` currently returns a hardcoded list of Movies from the fixture `popular.json`.
 
-.src/services/favorite.service.js
+./src/main/java/neoflix/services/FavoriteService.java
 [source,java]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag=all]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag=all]
 ----
 
-
 Update this method to return a paginated list of movies that the user has added to their My Favorites list.
-
 
 [%collapsible]
 .Click here to reveal the Cypher query
 ====
 [source,cypher]
 ----
-include::{repository-raw}/main/cypher/2-interacting/9-user-favorites/creating-the-relationship.cypher[]
+include::{repository-cypher-raw}/2-interacting/9-user-favorites/listing-favorites.cypher[]
 ----
 ====
 
+In the query the method we should also add dynamic sorting and pagination, with the string substitution for the sorting like we did in other places.
+
 You have already written similar code a few times, so try to implement this one on your own.
 If you get stuck, you can view the full solution below.
-
-Remember to also import the `int()` function from `neo4j-driver`.
-This is required to convert the `skip` and `limit` values to Neo4j integers.
 
 [%collapsible]
 .Click here to reveal the completed `all()` method
 ====
 
-.src/services/favorite.service.js
+.src/main/java/neoflix/services/FavoriteService.java
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/services/favorite.service.java[tag=all]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/FavoriteService.java[tag=all]
 ----
 ====
 
@@ -189,6 +179,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Module Summary
 
-In this Challenge, you have written the code to create a `:HAS_FAVORITE` relationship between a `User` and a `Movie` within a write transaction.
+In this Challenge, you have written the code to manage a `HAS_FAVORITE` relationship between a `User` and a `Movie` within a write transaction.
 
 In the next Challenge, you will write code to execute multiple queries in the same transaction.

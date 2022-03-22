@@ -5,7 +5,8 @@
 :test-method: authenticateUser
 
 At stage of the application, a user can register, but they are still unable to sign in.
-As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein`.
+
+As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein` from the fixture `users.json`.
 
 In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] to do the following:
 
@@ -19,37 +20,39 @@ In this challenge you will rewrite the `authenticate()` function of the link:{re
 But first, let's take a look at how Authentication works in the application.
 If you prefer, you can skip straight to <<Implementing Authentication>>.
 
-== Passport & Authentication
+== Authorization & Authentication
 
-This project uses the Auth0 JWT library to handle the authentication request.
-The purpose of the JWT library is to authenticate a user using a username and password with a secret token.
+Authorizing users works by checking the email and hashed password against information in the database.
 
-When a user submits the Sign In form from the UI, the following process occurs:
+When a user submits the *Sign In* form from the UI, the following process occurs:
 
-1. A route handler in link:{repository-blob}/main/src/main/java/neoflix/routes/AuthRoutes.java[`src/main/java/neoflix/routes/AuthRoutes.java`^] listens for a `POST` request.
-2. The `AuthRoutes` calls the `authenticate()` method in the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] with the username and password from the request.
-
+1. A route handler `login` in link:{repository-raw}/main/src/main/java/neoflix/routes/AuthRoutes.java[`src/main/java/neoflix/routes/AuthRoutes.java`^] listens for a `POST` request.
+2. The `login` route calls the `authenticate()` method in the link:{repository-raw}/main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] with the username and password from the request.
 
 The `authenticate()` method performs the following actions:
 
 1. Attempt to find the user by their email address.
-//MH: Doesn't look like we return false if user not found. Should we fix that?
-2. If the user does not exist, return `false`.
+2. If the user can't be found, throw a ValidationException.
 3. Compare the encrypted password in the database against the unencrypted password sent with the request.
-4. If the passwords do not match, throw a new RuntimeException.
-5. Otherwise, return an object containing the user's _safe_ properties, and a JWT token with a set of claims that can be used in the UI.
+4. If the passwords do not match, throw a ValidationException.
+5. Otherwise, return an object containing the user's _safe_ properties (email, name, userId), and a JWT token with a set of claims that can be used in the UI.
 
 
-For this strategy to work correctly, the `authenticate()` method must return an object which represents the user on successful login, or return `false` if the credentials are incorrect.
+For this strategy to work correctly, the `authenticate()` method must return an object which represents the user on successful login, or return null or an error if the credentials are incorrect.
 
-If the returned value is anything other than false, the value will be appended to the request, and will be accessible through `req.user` on any route handlers that use the `AppUtils` class.
+Once a user is authorized a JWT token is generated (using the Auth0 JWT library) and passed back to the front-end to be used in the `Authorization` header until the user signs out or the token expires.
+
+For authenticated users the application uses a pre-processor `before()` the routes to verify the authentication for each request, which is delegated to: `AppUtils.handleAuthAndSetUser`.
+
+There the `Authorization` header is extracted and validated using the Auth0 JWT library.
+If that is successful the userId is set as a request attribute which can be accessed by the route implementation.
 
 
 == Implementing Authentication
 
 To implement database authentication, you will modify the `authenticate` method in the `AuthService`.
 
-.src/services/auth.service.js
+.src/main/java/neoflix/services/AuthService.java
 [source,java,indent=0]
 ----
 include::{repository-raw}/main/src/main/java/neoflix/services/AuthService.java[tag=authenticate]
@@ -79,24 +82,22 @@ include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.ja
 
 === Verify The User Exists
 
-If no records are returned, you can safely assume that the user does not exist in the database.
-//MH: Is that what we should return for a Java program? Or an exception?
-//In this case, a `false` value should be returned.
-//
-//[source,java,indent=0]
-//----
-//include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="norecords"]
-//----
-//MH: This tag currently does not exist in our code
+If no records are returned, you can safely assume that the user does not exist in the database, then the `single()` method on `Result` will throw a `NoSuchRecordException`.
 
+In this case, an `ValidationException` is thrown.
+
+[source,java,indent=0]
+----
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="auth-catch"]
+----
 
 === Compare Passwords
 
 Next, you must verify that the unencrypted password matches the encrypted password saved as a property against the `:User` node.
 
-The `bcrypt` library used to encrypt the password also includes a `verify()` function that can be used to compare a string against a previously encrypted value.
+The `bcrypt` library used to encrypt the password also includes a `verify()` function that can be used to compare a string against a previously encrypted value, we encapsulate that in `AuthUtils.verifyPassword()`.
 
-If the `verify()` function returns false, the passwords do not match and the method should throw a new RuntimeException.
+If the `AuthUtils.verifyPassword()` method returns false, the passwords do not match and the method should throw a new ValidationException.
 
 [source,java,indent=0]
 ----
@@ -112,7 +113,7 @@ The code is already written to the example, so this can be re-purposed at the en
 
 [source,java,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="return"]
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="auth-return"]
 ----
 
 Once you have applied these changes to the `authenticate()` method, scroll to <<Testing>> to verify that the method works as expected.

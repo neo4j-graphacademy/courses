@@ -5,8 +5,7 @@
 :test-filename: _04_ConstraintErrorTest
 :test-method: checkConstraintWithDuplicateUser
 
-
-In the link:../5-registering[Registering a User challenge^], you updated the `authenticate()` method in the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] to create a new User node in the database.
+In the link:../5-registering[Registering a User challenge^], you updated the `register()` method in the link:{repository-blob}main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] to create a new User node in the database.
 
 There is still one `// TODO` comment remaining in the application.
 
@@ -24,16 +23,18 @@ To pass this challenge, you will need to:
 
 == Handling Constraint Errors
 
-If we take a look at `register()` method, it has been hardcoded to throw a new `RuntimeException` if the email address is anything other than `graphacademy@neo4j.com`.
+If we take a look at `register()` method, it had been hardcoded to throw a new `RuntimeException` if the email address is anything other than `graphacademy@neo4j.com` from the fixture in `users.json`.
 
 .src/main/java/neoflix/services/AuthService.java
 [source,java,subs="attributes+",indent=0]
 ----
-include::{repository-raw}/{previous-branch}/src/main/java/neoflix/services/AuthService.java[tag=register]
+include::{repository-raw}/main/src/main/java/neoflix/services/AuthService.java[tag=register]
 ----
 
-The code also has no explicit error handling.
+The code we added had no explicit error handling.
+
 Any errors will be sent back up the stack and will result in a `500 Bad Request` error.
+
 Instead, this error should be caught and reformatted in such a way that the server would return a `422 Unprocessable Entity` error.
 This way, the error can be better handled by the UI.
 
@@ -44,10 +45,10 @@ If we take a look at a generic `try`/`catch`,  it can be broken down into three 
 .Try/Catch/Finally
 [source,java]
 ----
-try {
+try (/* allocate resources */) {
   // Attempt the code inside the block
 }
-catch (e) {
+catch (Exception e) {
   // If anything goes wrong in the try block,
   // deal with the error here
 }
@@ -56,12 +57,11 @@ finally {
   // is thrown or not
 }
 ----
-//MH: In Java, do we need a custom error or just work with the Runtime Exception and custom message?
-When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error.
-Instead of this being treated as an internal server error, it should instead be treated as a `422 Unprocessable Entity`.
-//Adam: need to complete this sentence.
-This will allow the front end to
 
+When a user _tries_ to register with an email address that has already been taken, the database will throw an `Neo.ClientError.Schema.ConstraintViolation` error.
+
+Instead of this being treated as an internal server error, it should instead be treated as a `422 Unprocessable Entity`.
+This will allow the front end to render an appropriate error page.
 
 == Completing the Challenge
 
@@ -84,10 +84,9 @@ include::{repository-raw}/main/cypher/2-interacting/6-unique-emails/constraint.c
 
 In the method, we should:
 
-1. **Try** to create a User with the supplied email, password and name.
-2. **Catch** an error when it is thrown, using the `code` property to check and reformat a `Neo.ClientError.Schema.ConstraintValidationFailed` error into a `ValidationError`.
-//MH: Finally not needed because the session auto-closes, right?
-//3. **Finally** ensure that the session is closed regardless of whether the query is successful or an error is thrown.
+1. **Try** to create a User with the supplied email, encrypted password and name.
+2. **Catch** an error when it is thrown, using the `code()` method to check and turn a `Neo.ClientError.Schema.ConstraintValidationFailed` error into a `ValidationException`.
+3. The session is auto-closed because we allocated it in the try-with-resources block.
 
 Your code should look like this:
 
