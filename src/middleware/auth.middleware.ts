@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Request, Response, Express, NextFunction } from 'express';
-import { auth, OpenidRequest, OpenidResponse, Session } from 'express-openid-connect'
+import { auth, Session } from 'express-openid-connect'
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { UserLogin } from '../domain/events/UserLogin';
 import { User } from '../domain/model/user';
@@ -19,7 +19,7 @@ const config = {
         login: false as false,
     },
     // Send event to segment
-    afterCallback: async (req: OpenidRequest, res: OpenidResponse, session: Session, decodedState: { [key: string]: any }) => {
+    afterCallback: async (req: Request, res:Response, session: Session, decodedState: { [key: string]: any }) => {
         const decoded: JwtPayload = jwt.decode(session.id_token) as JwtPayload
 
         if (decoded && decoded.sub) {

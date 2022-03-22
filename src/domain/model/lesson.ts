@@ -43,4 +43,5 @@ export interface Lesson {
 export interface LessonWithProgress extends Lesson {
     completed: boolean;
     moduleCompleted?: boolean;
+    courseCompleted?: boolean;
 }

@@ -27,9 +27,8 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
         return app
     })
     .then((app: Express) => {
-        app.listen(PORT || 3000, () => {
-            // console.clear()
-            emitter.emit(new AppInit(app))
+        const server = app.listen(PORT || 3000, () => {
+            emitter.emit(new AppInit(app, server))
         })
 
         // Load Course Catalogue

@@ -13,7 +13,7 @@ function setTabSelectedInTabSet(activeElement: HTMLAnchorElement) {
     const tabElements = activeElement.parentNode!
 
     // Set all tabs to inactive
-    tabElements.querySelectorAll(`.${TAB}`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
+    tabElements.querySelectorAll(`.tab-element`).forEach(tabElement => tabElement.classList.remove(TAB_SELECTED))
 
     // Set this tab as active
     activeElement.classList.add(TAB_SELECTED)
@@ -33,7 +33,7 @@ function findTargets(activeElement: HTMLAnchorElement) {
     }
 
     if ( target ) {
-        document.querySelectorAll(`a.tab[${ATTRIBUTE_TARGET}="${target}"]`)
+        document.querySelectorAll(`a.tab-element[${ATTRIBUTE_TARGET}="${target}"]`)
             .forEach(targetTab => setTabSelectedInTabSet(targetTab as HTMLAnchorElement))
 
         document.querySelectorAll(`.tab-target[${ATTRIBUTE_TITLE}="${target}"]`)
@@ -54,7 +54,7 @@ function setTargetVisibleInTabSet(target: HTMLDivElement) {
 function handleGenericTabs() {
     document.querySelectorAll(`.${TAB}s`)
         .forEach(element => {
-            element.querySelectorAll('.tab').forEach(tabElement => {
+            element.querySelectorAll('.tab-element').forEach(tabElement => {
                 tabElement.addEventListener('click', e => {
                     e.preventDefault()
 
@@ -119,7 +119,7 @@ function convertClassroomTabs() {
 
                 target.setAttribute(ATTRIBUTE_TITLE, title)
 
-                const tab = createElement('a', 'tab', [title])
+                const tab = createElement('a', 'tab-element', [title])
                 tab.setAttribute('href', `#${thisTabId}`)
 
                 tab.setAttribute(ATTRIBUTE_TARGET, title)
