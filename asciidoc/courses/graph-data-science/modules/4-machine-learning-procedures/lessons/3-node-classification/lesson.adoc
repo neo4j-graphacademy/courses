@@ -1,0 +1,206 @@
+= Native Projections
+:type: quiz
+:order: 1
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== Introduction
+In the last lesson you learned about the graph catalog. We briefly introduced graph projections there, but we didn't go into much depth. Understanding Graph projections is foundational to success in GDS, so we will spend the next two lessons covering them in more detail.
+
+There are 2 primary types of projections in GDS, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
+
+In this lesson we will cover native projections specifically - what exactly they are and how to use them. In the next lesson we will do the same for Cypher projections.
+
+== What is a Native Projection?
+
+We actually used a native projection in our last lesson.  When you call `gds.graph.project` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
+
+
+In addition to just projecting node and relationship elements as-is from the database, projections offer a variety of other features.  Below are a few of the big ones
+
+* The inclusion of numeric node and relationship properties
+* Altering relationship direction or "orientation"
+* aggregating parallel relationships
+
+These options help prepare the projection for different types of analytical workflows and algorithms.
+
+Below we cover the basic syntax for native projections and walk through a couple common configurations.
+
+== Basic Syntax
+
+The native projection takes three mandatory arguments: `graphName`, `nodeProjection` and `relationshipProjection`. In addition, the optional configuration parameter allows us to further configure the graph creation.
+
+
+[opts="header",cols="1,1,1, 4"]
+|===
+| Name                  | Type                | Optional | Description
+| graphName             | String              | no       | The name under which the graph is stored in the catalog.
+| nodeProjection        | String, List or Map | no       | The configuration for projecting nodes.
+| relationshipProjection| String, List or Map | no       | The configuration for projecting relationships.
+| configuration         | Map                 | yes      | Additional parameters to configure the native projection.
+|===
+
+There are multiple different options for the `nodeProjection` and `relationshipProjection`.  To introduce the basics it is helpful to walk through by use case.
+
+== Basic Native Projections
+Let's first consider the very basic scenario where we want to project nodes and relationships as-is without any properties. You can use a list-like syntax for both the node labels and relationships you want to include. Take the below example where we project the `User` and `Movie` nodes with the `RATED` Relationship.  This type of projection is very common for graph data science based Recommendation Systems as it supports variations of Implicit Collaborative Filtering - a memory based approach to recommendation.
+
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
+----
+
+There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relation type you can just use single string. we could for example just enter the single string 'RATED' for the `relationshipProjection` and get an equivalent projection.
+
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], 'RATED');
+----
+
+The Wildcard character '*' can be used to include all nodes and/or relationships in the database. The below projections all nodes and relatonships.
+----
+CALL gds.graph.project('native-proj','*', '*');
+----
+
+== Changing Relationship Orientation
+
+Native projections allow you to change the relationship orientation as well. To best describe the concept of orientation and why we would want to change it, we need to cover the difference between a directed and an undirected relationship.
+
+A directed relationship is non-symmetrical. It goes from a source node to a target node, illustrated by the image below.
+
+image::images/directed-relationship.png[directed,400]
+
+An undirected relationship is symmetric with no directional character, it is simply between two nodes instead of having a source and target.
+
+image::images/undirected-relationship.png[undirected,400]
+
+Every relationship in the neo4j database is directed by design. However, some graph algorithms are designed to work on undirected relationships. Other algorithms are directed, but we may want to reverse the direction of the relationship in the database to get the analytic we want.
+
+To accommodate this there are three orientation options we can apply to relationship types in the `relationshipProjection`:
+
+* `NATURAL`: Same direction as in the database (default)
+* `REVERSE`: opposite direction as in the database
+* `UNDIRECTED`: undirected
+
+Take the graph we just projected as an example.  Say we want to count the number of user ratings each movie has.  If we try to use the degree call like we did last lesson we will get all zeros.
+----
+CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
+CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+----
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','ratingCount', ['Movie'])
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+ORDER BY movieTitle DESCENDING LIMIT 10
+----
+
+[options="header"]
+|==================================================
+| movieTitle                          | ratingCount
+| İtirazım Var                        | 0.0
+| À nous la liberté (Freedom for Us)  | 0.0
+| ¡Three Amigos!                      | 0.0
+| xXx: State of the Union             | 0.0
+| xXx                                 | 0.0
+|==================================================
+
+This has to do with the direction of the relationships. Let's delete that graph and project a new one where we reverse the RATED relationship direction
+----
+//drop our last projection
+CALL gds.graph.drop('native-proj');
+
+//replace with a project that has reversed relationship orientation
+CALL gds.graph.project(
+    'native-proj',
+    ['User', 'Movie'],
+    {RATED_BY: {type: 'RATED', orientation: 'REVERSE'}}
+);
+
+CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+----
+
+Now when we use the degree algorithm we will get the rating counts we need.
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','ratingCount', ['Movie'])
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+ORDER BY movieTitle DESCENDING LIMIT 5
+----
+
+[options="header"]
+|==================================================
+| movieTitle                          | ratingCount
+| İtirazım Var                        | 1.0
+| À nous la liberté (Freedom for Us)  | 1.0
+| ¡Three Amigos!                      | 31.0
+| xXx: State of the Union             | 1.0
+| xXx                                 | 23.0
+|==================================================
+
+
+
+== Including Node and Relationship Properties
+
+Node and relationship properties may be useful to consider in graph analytics, they can be used as weights in graph algorithms and features for machine learning.
+
+Below is an example of including multiple movie node properties and the `rating` relationship property.
+
+
+----
+//drop our last projection
+CALL gds.graph.drop('native-proj');
+
+//replace with a projection that has node and relationship properties
+CALL gds.graph.project(
+    'native-proj',
+    ['User', 'Movie'],
+    {RATED: {orientation: 'UNDIRECTED'}}, //undirected relationship works best for FastRP on this graph structure
+    {
+        nodeProperties:{
+            revenue: {defaultValue: 0}, //the defaultValue parameter allows us to fill in missing values with a default.  In this case we will use 0.
+            budget: {defaultValue: 0},
+            runtime: {defaultValue: 0}
+        },
+        relationshipProperties: ['rating'] //simpler syntax with no default values. These should not be missing
+    }
+);
+----
+
+We will go over how to leverage properties like these in  more detail in the algorithms and machine learning courses. For now, you can verify these properties are in the projection by using the node and relationship property streaming operations.  There are a variety of different options for setting defaults and for alternative configurations, such as setting properties for all node labels and relationship types instead for doing so for each one separately.  Please refer to the TK[documentation] if you want more details on these.
+
+----
+CALL gds.graph.streamNodeProperty('native-proj','nodeEmbedding', ['Movie'])
+YIELD nodeId, propertyValue
+WITH gds.util.asNode(nodeId) AS m, [x IN propertyValue | round(x,4)] AS nodeEmbeddingFeatures LIMIT 5
+MATCH (m)-[:IN_GENRE]->(g)
+WITH m, collect(DISTINCT g.name) as genres, nodeEmbeddingFeatures
+RETURN m.title AS movie, toInteger("Children" IN genres) AS isFamilyFilm, nodeEmbeddingFeatures
+----
+
+
+== Relationship Aggregations
+
+The Neo4j database allows you to store multiple relationships of the same type and direction between two nodes.  These are colloquially known as _parallel_ relationships. For example, consider a graph of financial transaction data where Users send money to one another.  If a user sends money to the same user multiple times this can form multiple parellel relationships.
+
+
+
+Sometimes you will want to aggregate these parallel relationships into a single relationship in preparation for running graph algorithms or machine learning.
+
+This is because graph algorithms may count each relationship between two nodes separately when all we need to consider is whether a single relationship exists between them. Other times we may want to weight the connection between two nodes higher if more parallel relationships exists, but it's not always easy to do so without aggregating the relationships first depdending on which algorithm you use.
+
+Native projections allow for this aggregation. When you conduct relationship aggregation you can generate aggregate statics too, such as parallel relationship counts or sums or averages of relationship properties which can then be used as weights. Below is an illustration of native projections and resulting aggregations
+
+== Other Native Projection Configuration and Features
+
+We covered the basics here but there are actually many different extended syntax and configuration options available for native projections which are detailed in the TK:[documentation].  In general, if you are trying to do something in native projection and can't quite express the thing you want with the current syntax, check the docs to see if there are additional configurations or syntax extensions to support.
+
+== Check your understanding
+
+
+
+[.summary]
+== Summary
+

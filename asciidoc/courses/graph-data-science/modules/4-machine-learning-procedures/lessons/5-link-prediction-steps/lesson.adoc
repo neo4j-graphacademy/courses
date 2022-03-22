@@ -1,0 +1,192 @@
+= Link Prediction
+:type: quiz
+:order: 1
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== Introduction
+
+Link Prediction is the machine learning task of predicting relationships or “links” between nodes. It has broad applications across recommendation systems, fraud detection, entity resolution, social networks, supply chain & logics, and more.
+
+While of high utility, Link prediction is susceptible to many of the model design issues we discussed at the beginning of this module, namely severe class imbalance, data leakage and performance issues when data sampling is not approached thoughtfully.
+
+Going into full detail on proper model design for link prediction is out of scope of this course.  It is a rather involved subject that requires an intermediate understanding of data modeling and statistical concepts.  In fact, this is a primary reason for why we developed Link Prediction pipelines in the first place: to solve for the class imbalance, data leakage, and performance issues in our implementation, so you can avoid common pitfalls and focus more on higher-level Machine Learning strategy.
+
+As such we will go over link prediction in GDS at only a high-level in this lesson so you are able to use it within the GDS ecosystem.  We will spare lower level model & pipeline design details and reference documentation for further explanation on some of the more nuanced concepts where they are written to in more length.
+
+== Link Prediction in GDS?
+
+At Neo4j, we are quickly iterating and developing upon our link prediction model and pipeline.  GDS currently offers a binary classifier where the target is a 0-1 indicator, 0 for no link, 1 for a link.  The general form of the model is
+//this isn't technically accurate equation
+stem:[\hatY_{i,j} = p( f(n_i,n_j) )]
+
+Where : stem:[\hatY_{i,j}] is the (0,1) probability for a link between node stem:[i] and stem:[j], stem:[n_i] and stem:[n_j] are property vectors for the stem:[i] and stem:[j] nodes respectively,  stem:[f(n_i,n_j)] is the link feature function - a symmetric function that outputs a feature vector describing the similarity between the two node property vectors.
+
+This type of link prediction works really where you are predicting one type of relationship between nodes of a single label, such as for social network and entity resolution problems.
+
+=== Link Prediction in Social Networks
+Users who were friends with each other, we could use a model like this to make friend recommendations.  Likewise in fraud detection and law enforcement applications, if we have communities of suspects and victims who know or interact with each other, we could use link prediction to infer real-world relationships not reflected in the graph.
+
+=== Link Prediction for Entity Resolution
+...
+
+== Link Prediction Pipeline Steps
+
+At a high-level link prediction has the following pipeline steps
+
+. *Create the Pipeline*
+. *Add Node Properties* - Calculated node properties for generating model features
+. *Add Link Features* - functions to generate model features from the node properties
+. *Configure Relationship Splits* - The data splitting into train, test, and feature-input steps
+. *Add Model Candidates* - configure one model or multiple models with different hyperparameters to be trained and evaluated
+. *Train the Pipeline* - Train and evaluate the model(s). If there are multiple, the best performing is automatically selected
+. *Prediction with the Model* - Used the trained pipeline object to cast predictions
+
+We will go over all these steps n more detail with an applied example below.
+
+
+== Setting up a Dataset for Link Prediction
+
+Our movie recommendations dataset, as-is, is not the best candidate for this type of link prediction since it is a https://en.wikipedia.org/wiki/Multipartite_graph:[k-partite graph], i.e. relationships only go between disjoint sets of nodes. In this case those sets can align with the node labels: `User`, `Movie`, `Person`, and `Genre`. For sake of showing you an example, we will manufacture a social network out of our recommendations graph.  We will filter down to just big high grossing movies then create `ACTED_WITH` relationships between actors that were in the same movies together as we did in the Cypher projection lesson in the graph management module.  THere are a couple extra steps here to get the graph truly undirected as we need it.
+
+----
+//set a node label based on recent release and revenue conditions
+MATCH(m:Movie)
+WHERE m.year >= 1990 AND m.revenue >= 1000000
+SET m:RecentBigMovie;
+
+//native projection with reverse relationships
+CALL gds.graph.project('proj-native',
+  ['Actor','RecentBigMovie'],
+  {
+  	ACTED_IN:{type:'ACTED_IN'},
+    HAS_ACTOR:{type:'ACTED_IN', orientation: 'REVERSE'}
+  }
+);
+
+//collapse path utility for relationship aggregation - no weight property
+CALL gds.alpha.collapsePath.mutate('proj-native',{
+    relationshipTypes: ['ACTED_IN', 'HAS_ACTOR'],
+    allowSelfLoops: false,
+    mutateRelationshipType: 'ACTED_WITH'
+});
+
+//write relationships back to graph
+CALL gds.graph.writeRelationship('proj-native', 'ACTED_WITH')
+
+//drop duplicates
+MATCH(a1:Actor)-[s:ACTED_WITH]->(a2)
+WHERE id(a1) < id(a2)
+DELETE s;
+
+//clean up extra labels
+MATCH (m:RecentBigMovie) REMOVE m:RecentBigMovie;
+
+//project the graph
+CALL gds.graph.project('proj', 'Actor', {ACTED_WITH:{orientation: 'UNDIRECTED'}});
+----
+
+This gives us a graph projection with just `Actor` nodes and `ACTED_WITH` relationships, like a 'co-acting' social network. When we use link prediction in this context, we will be training a model to predict which actors are most likely to be in the same movies together given other `ACTED_WITH` relationships already present in the graph.  This same methodology can be used for different social network recommendation problems.  For example, if instead of actors acting with each other we had Users who were friends with each other, we could use a model like this to make friend recommendations.  Likewise in fraud detection and law enforcement applications, if we have communities of suspects and victims who know or interact with each other, we could use link prediction to infer real-world relationships not already known in the graph.
+
+
+== Notes on Model Design
+Before going step by step through the pipeline calls it is helpful to have a high level discussion about how to approach the model design.
+
+=== Choosing the Right Node Properties for Feature Engineering
+There are two general categories of node properties that are useful for link Prediction:
+1. Properties for Similairty: Node properties that when we
+2. Properties for Magnitude: properties that when combined go over the full magnitude of the equation.
+
+=== Dealing with Class Imbalance
+
+=== Dealing with Data Leakage Risk
+
+
+== Link Prediction Example
+
+=== Create the Pipeline
+
+The first step in Link Prediction is to create the pipeline object like so:
+
+The stores the pipeline in the pipeline catalog. If we list the pipeline you will notice multiple configuration parameters under ....
+
+We will adjust those configurations in the proceeding steps.  until we reach the training step, when we run the below commands, we aren’t actually executing the steps just configuring them.
+
+=== Add Node Properties
+
+A link prediction pipeline can execute one or several GDS algorithms in mutate mode that create node properties in the projected graph.
+Such steps producing node properties can be chained one after another and created properties can also be used to add features.
+Moreover, the node property steps that are added to the pipeline will be executed both when training a pipeline and when the trained model is applied for prediction>>.
+
+The name of the procedure that should be added can be a fully qualified GDS procedure name ending with `.mutate`.
+The ending `.mutate` may be omitted and one may also use shorthand forms such as `fastRP` instead of `gds.fastRP.mutate`.
+
+For this example lets use a FastRP node embeddings with the logic that if two actors are close to each other in the `ACTED_WITH` network they are more likely to also play roles in the same movies.  Degree centrality is also another potentially interesting feature, i.e. more prolific actors are more likely to be in the same movies with other actors.
+
+=== Add Link Features
+In this step we configure how features will be engineered from node properties for model training and predictions. We can engineer features from either the node properties calculated in the previous `addNodeProperty` step, or properties that already exist on the nodes, pre-pipeline.
+
+There are currently 3 supported link feature functions
+
+[options="header"]
+|==============================================================================================================================================
+| Link Feature Type  | Formula                                                                                                          | Description
+| L2                 | stem:[f_{i,j} = \[(n_{i,1} - n_{j,1})^2, (n_{i,2} - n_{j,2})^2,..., (n_{i,K} - n_{j,K})^2\] ]                    | Squared Difference
+| HADAMARD           | stem:[f_{i,j} = \[n_{i,1} * n_{j,1}, n_{i,2} * n_{j,2},..., n_{i,K} * n_{j,K}\] ]                                | Hadamard product
+| COSINE             | stem:[f_{i,j} = \frac{sum_(k=1)^K n_{i,k} * n_{j,k}}{sqrt(sum_(k=1)^K n_{i,k}^2)sqrt(sum_(k=1)^K n_{j,k}^2)}]    | Cosine Similarity
+|==============================================================================================================================================
+
+For this let's use cosine and L2 for the FastRP embeddings, which are good measure of similarity/distance and hadamard for the degree centrality which is a good measure of total magnitude between the 2 nodes.
+
+=== Configure Relationship Splits
+In this step we decide two crucial aspects of the pipeline
+
+. *Data Splitting:* How the data is split into test, train and feature-input sets
+. *Negative Sampling Ratio:* The rate of negative examples relative to positive node pairs
+
+==== Data Splitting
+There are 3 sets that we split relationships between.  The Train, Test, and Feature-Input sets. The Train and Test set are the same as for a traditional ML pipeline, sefving as the sets for training and evaluating the models respectively. The Feature-Input set is hold-out we use for generating features.  Relationships are randomly selected to go into each of three sets including the Feature-Input set.  When we calculate the properties in the `nodeProperties` step we will only use the feature-input set. This fixes the data leakage problem, as the relationships set aside in the feature set will now be completely seperated from the relationships used for training and evalaution.
+
+==== Negative sampling ratio
+The Negative sampling ratio determines how we select negative examples.  Within the context of link prediction a negative example is any node pair that doesn’t have a relationship or “link” between it.
+The number of possible links in an undirected graph is stem:[{N(N-1)}/2] where stem:[N] is the number of nodes.  In most real-world graph use cases you will have far fewer relationships than this maximum possible in the graph, meaning that most node pairs will not have relationships between them and the number of possible pairs is very, very large. For example, if you have 100,000 nodes in your graph you have almost 5,000,000,0000 possible links.  This leads to a very extreme class imbalance problem and a very large potential sample size.  The negative sampling ratio helps adjust for this by allowing you to sample negative examples at a provided rate relative to the number of positive links. For example, setting the negative sample ratio to 3.0 would randomly select node pairs at 3 times the rate of positive node pairs, So if there are 100 links in the train/test set 300 node pairs without links between them will be selected randomly to serve as negative examples.
+
+//this is one of the more difficult concepts to explain - but you pretty much need to understand it to use link prediction correctly.
+//come back to this explanation and refine...currently links to documentation are TBD since the preview doc have different URLs then the current ones.
+The default value for the negative sampling ratio is 1.0.  In general, we recommend taking one of two approaches when setting this parameter, either making it as close to the true class ratio as possible or making the product between the negative sampling ratio and the negative class weight (a parameter set during training) to be as close to the true class ration as possible. We cover the tradeoffs between these two approaches in our TK_Link:[documentation]. The first approach will train the model on imbalanced data but evaluate AUCPR on a rebalanced probability mass, this gives you an idea of how the model performs on balanced data.  The second approach trains on either imbalanced or balanced data and evaluates on imbalanced probability mass that reflects the real world data, giving you a better picture into how the model will perform in a real-world production setting.  In general, the true class ratio will be extremely large, and the larger you make the negative sampling the more data you need to train and test on.  It is a trade-off between accuracy and speed + required memory. It usually isn't feasible to set the negative sampling ratio tob the true class ratio exactly.
+
+
+==== Example Setup
+For our example, we will split the dataset 20% test, 40% train, and 40% feature-input. This gives us a good balance between all the sets. We will set the negative sampling ratio to 5.0, giving us a sizable negative example for demonstration that won't take too long to demonstrate.
+
+=== Add Model Candidates
+
+A pipeline contains a collection of configurations for model candidates which is initially empty. This collection is called the `parameter space`. One or more model configurations must be added to the parameter space of the pipeline. Each candidate represents a model to be trained and evaluated and the model candidate configuration itself is made up of hyperparameter settings.  If there are multiple model candidates, the best performing one will be automatically selected in the training step.
+
+There are two model choices for link prediction: Logistic Regression and Random Forest.  They have slightly different configurations which are covered in more depth in the TK_LINK:[documentation]. These consists of fairly traditional hyperparameters you would encounter in a general machine learning workflow - i.e. batchSize, tolerance, numberOfDecisionTrees (for random Forest), etc.
+
+For our example we will a single random forest and logistic regression configuration.
+
+
+=== Train the Pipeline
+In this step we train and evaluate the model candidates.  The best performing model is selected and registered in the model catalog.  Speficially
+
+A couple notable option you can set:
+1. NodeLabels and RelationshipTypes: This allows you to filter the graph by node labels and relation types. This filtering is the first step in the pipeline.  As such all the other steps in the pipeline, including relationship splits, generation of node properties, link features etc. are claculated on the graph post nodel label and relationship filtering
+
+==== Negative Class Weight
+
+
+=== Prediction with the Model
+Used the trained pipeline object to cast predictions
+
+
+== Check your understanding
+
+[.summary]
+== Summary
+
+In this lesson we learned about Cypher projections. What they are, how and when to use them, their pros and cons relative to Native projections, and how to transition between Cypher and native projection strategies.
