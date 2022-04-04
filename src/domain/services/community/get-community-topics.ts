@@ -8,7 +8,7 @@ let topics: Topic[] = []
 let updatedAt: Date;
 
 export async function getCommunityTopics(): Promise<Topic[]> {
-    if ( COMMUNITY_HAS_BASE_URL === true ) {
+    if ( COMMUNITY_HAS_BASE_URL !== true ) {
         return Promise.resolve([])
     }
 
