@@ -1,0 +1,129 @@
+= Graph Management
+:type: quiz
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== What is the Graph Catalog?
+
+The graph catalog is a concept that allows you to manage graph projections in GDS.  This includes
+
+* creating (a.k.a projecting) graphs
+* viewing details about graphs
+* dropping graph projections
+* export graphs projections
+* writing graph projection properties back to the database
+
+=== How the Graph Catalog Works
+
+You can call graph catalog operations with commands of the form
+[source,Partial,role=nocopy noplay]
+----
+CALL gds.graph.<command>
+----
+
+for example, we can list the graph projections that currently exist in our database with the below command.
+----
+CALL gds.graph.list()
+----
+
+This will return an empty list since we haven't created any projections yet.
+
+In the recommendations graph, we can create a projection from the `Actor` and `Movie` nodes and the `ACTED_IN` relationship with the below command.
+----
+CALL gds.graph.project('my-graph-projection', ['Actor','Movie'], 'ACTED_IN')
+----
+
+If we now list graphs again we should see information on the graph we just made
+----
+CALL gds.graph.list() YIELD graphName, nodeCount, relationshipCount, schema
+----
+|====
+| "graphName"          |"nodeCount"|"relationshipCount"|"schema"
+
+| "my-graph-projection"|24568      |35910              |`{"relationships":{"ACTED_IN":{}},"nodes":{"Movie":{},"Actor":{}}}`
+
+|====
+
+=== Running Algorithms
+As mentioned in previous lessons, the purpose of creating a projection is to provide a space for running graph algorithms and doing graph data science efficiently.
+
+As a simple example of a graph algorithm, we will run degree centrality on `Actor` nodes.  We will go over the degree centrality algorithm and execution modes in other lessons. For now, just know that this will count the number of movies each actor was in and store it on a node property called `numberOfMoviesActedIn` inside the projection (it will not be written back to the database yet).
+
+----
+CALL gds.degree.mutate('my-graph-projection', {mutateProperty:'numberOfMoviesActedIn'})
+----
+
+=== Streaming and Writing Node Properties
+
+There will be times when we want to take the results from our algorithm calculations and either stream them into another process or write them back to the database. The graph catalog has methods to stream and write both node properties and relationship properties for these purposes. We will go over this for the case of node properties below.
+
+
+Using our `numberOfMoviesActedIn` example, we can stream the top 10 most prolific actors by movie count using the `streamNodeProperty` graph catalog operation.
+
+----
+CALL gds.graph.streamNodeProperty('my-graph-projection','numberOfMoviesActedIn')
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).name AS actorName, propertyValue AS numberOfMoviesActedIn
+ORDER BY numberOfMoviesActedIn DESCENDING, actorName LIMIT 10
+----
+
+If we instead wanted to write the property back to the database we could use the `writeNodeProperty` operation.
+
+----
+CALL gds.graph.writeNodeProperties('my-graph-projection',['numberOfMoviesActedIn'], ['Actor'])
+----
+
+We could then query the top 10 most prolific actors by movie count with Cypher.
+
+----
+MATCH(a:Actor)
+RETURN a.name, a.numberOfMovies
+ORDER BY a.numberOfMoviesActedIn DESCENDING, a.name LIMIT 10
+----
+
+=== Exporting Graphs
+//Not offering hands-on examples for export operations because it is not possible to do with sandbox
+In a Data Science workflow, you may encounter situations where you need to bulk export data from a graph projection after performing graph algorithms and other analytics. For example,
+
+* export graph features for training a machine learning model in another environment
+* create separate analytical views for downstream analytics and/or sharing with colleagues.
+* produce snapshots of analytical results and persist to the filesystem
+
+The graph catalog has two methods for export:
+
+. `gds.graph.export` to export a graph into a new database - effectively copying the projection into a separate Neo4j database
+. `gds.beta.graph.export.csv` to export a graph to csv files
+
+
+=== Dropping Graphs
+Projected graphs take up space in memory so once we are done working with a graph projection it is smart to remove it. We can do this with the drop command below:
+----
+CALL gds.graph.drop('my-graph-projection')
+----
+
+Now when we list graphs it will be empty again.
+----
+CALL gds.graph.list()
+----
+
+=== Other Graph Catalog Operations
+
+There are a few other management operations in the graph catalog that we will not be going over in detail inside this module such as subsetting projections (a.k.a subgraph projections), delete, and remove operations. You can read about all of them in our  https://neo4j.com/docs/graph-data-science/current/management-ops/graph-catalog-ops/[Graph Catalog documentation^].
+
+
+== Check your understanding
+
+
+include::questions/1-creating-graph-projection.adoc[leveloffset=+1]
+
+include::questions/2-export-to-csv.adoc[leveloffset=+1]
+
+include::questions/3-saving-properties-in-the-database.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned about the graph catalog and basic mechanisms for managing graph projections. In the upcoming lessons we will go into more depth with different projection types and how and when to use them.
