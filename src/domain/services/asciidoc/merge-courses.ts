@@ -33,6 +33,9 @@ const loadCourse = (courseFolder: string): CourseToImport => {
             .map(item => loadModule(path.join(courseFolder, 'modules', item)))
         : []
 
+    // Sort Modules
+    modules.sort((a, b) => a.order < b.order ? -1 : 1)
+
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
         .split(',')
         .map((e: string) => e?.trim() || '')
@@ -75,7 +78,10 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         prerequisiteSlugs,
         progressToSlugs,
         categories,
-        modules,
+        modules: modules.map((module, index) => ({
+            ...module,
+            order: index,
+        })),
     }
 }
 
@@ -89,15 +95,17 @@ const loadModule = (folder: string): Module => {
         ? fs.readdirSync(lessonsDir)
             .filter(filename => fs.lstatSync(path.join(lessonsDir, filename)).isDirectory() && fs.existsSync(path.join(lessonsDir, filename, 'lesson.adoc')))
             .map(filename => loadLesson(path.join(folder, 'lessons', filename)))
-            .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
+
+    // Sort Lessons
+    lessons.sort((a, b) => a.order < b.order ? -1 : 1)
 
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
-    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
-
-        order = orderNumber
+    // If order is undefined, use the folder name to order
+    if ( order === undefined ) {
+        const parts = folder.split('/')
+        order = parts[ parts.length -1 ]
     }
 
     return {
@@ -105,7 +113,10 @@ const loadModule = (folder: string): Module => {
         slug,
         title: file.getTitle() as string,
         order,
-        lessons,
+        lessons: lessons.map((lesson, index) => ({
+            ...lesson,
+            order: index
+        })),
     }
 }
 
@@ -123,10 +134,10 @@ const loadLesson = (folder: string): Lesson => {
 
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
-    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
-
-        order = orderNumber
+    // If order is undefined, use the folder name to order
+    if ( order === undefined ) {
+        const parts = folder.split('/')
+        order = parts[ parts.length -1 ]
     }
 
     return {
