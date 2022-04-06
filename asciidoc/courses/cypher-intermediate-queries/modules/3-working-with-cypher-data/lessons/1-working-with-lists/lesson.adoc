@@ -1,4 +1,4 @@
-= Working with Lists and Maps
+= Aggregating Data
 :type: quiz
 :sandbox: true
 
@@ -10,23 +10,52 @@
 
 In this lesson you will learn how aggregation works in a Cypher query and how to work with properties that contain multiple values.
 
+== Using `count()` to aggregate data
+
+Cypher has a `count()` function that you can use to perform a count of nodes, relationships, paths, rows during query processing.
+When you aggregate in a Cypher query, this means that the query must process all patterns in the `MATCH` clause to complete the aggregation to either return results or perform the next part of the query.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+WHERE a.name = 'Tom Hanks'
+RETURN a.name AS actorName, count(*) AS numMovies
+----
+
+This query returns the number of movies Tom Hanks acted in.
+
+Here is another example:
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
+RETURN a.name AS actorName, d.name AS directorName, count(*) AS numMovies ORDER BY numMovies DESC
+----
+
+In this query we can see that actors and directors worked together in the same movie and how many collaborations there were.
+
+=== Eager aggregation
+
 When you aggregate in a Cypher query, the query must process all patterns in the `MATCH` clause to complete the aggregation to  return results.
+This is called eager aggregation.
 
 Here is an example:
 
 [source,cypher]
 ----
 MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-RETURN a.name, d.name, count(m) ORDER BY count(m) DESC
+RETURN a.name, d.name, count(*) AS numMovies ORDER BY numMovies DESC
 ----
 
-The query engine processes all nodes and relationships in the pattern so that it could perform a count of all movies for a particular actor/director pair in the graph.
+The query engine processes all nodes and relationships in the pattern so that it can perform a count of all movies for a particular actor/director pair in the graph.
 Then, it returns the results grouped by the name of the director and actor pair.
 
 For this query, Clint Eastwood acted in and directed 20 movies, Woody Allen acted in and directed 19 movies, and Adam Sandler acted in the same 8 movies that Dennis Dugan directed.
 Aggregation in Cypher is different from aggregation in SQL.
 In Cypher, you need not specify a grouping key.
-As soon as an aggregation function, `count()` is used, all non-aggregated result columns become grouping keys.
+As soon as an aggregation function like `count()` is used, all non-aggregated result columns become grouping keys.
 
 The grouping is implicitly done, based upon the fields in the `RETURN` clause.
 
@@ -43,25 +72,39 @@ You have already seen data in the graph that is stored as lists:
 [source,cypher]
 ----
 MATCH (m:Movie)
-RETURN m.languages AS Languages, m.countries AS Countries LIMIT 10
+RETURN m.languages AS languages, m.countries AS countries LIMIT 10
 ----
 
 For this query, notice that these lists are shown in square brackets and each element of the list is separated by a comma.
 These lists contain a set of strings.
 
-=== Using collect() to create a list
+=== Returning a list
 
-Cypher has a built-in function, `collect()` that enables you to aggregate values into a list.
-The value can be a property value, a node, a relationship, or a path.
+You can return a list by specifying the square brackets:
 
 [source,cypher]
 ----
-MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-RETURN a.name, d.name, count(m), collect(m.title) as Movies  ORDER BY count(m) DESC
+MATCH (p:Person)
+RETURN p.name, [p.born, p.died] AS lifeTime
+LIMIT 10
 ----
 
-This query returns a list of movie titles associated with each actor/director name pair.
-The rows are presented such that the pairs with the most number of titles are returned first.
+
+=== Using collect() to create a list
+
+Cypher has a built-in aggregation function, `collect()` that enables you to aggregate values into a list.
+The value can be any expression, for instance a property value, a node, or result of a function or operation.
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+RETURN a.name AS actor, count(*) as total, collect(m.title) AS movies
+ORDER BY total DESC LIMIT 10
+
+----
+
+This query returns a list of movie titles associated with each actor.
+The rows are presented such that actors with the most number of titles are returned first.
 
 === Eliminating duplication in lists
 
@@ -90,7 +133,7 @@ RETURN  collect( DISTINCT m.title) AS Movies, collect( a.name) AS Actors
 === Collecting nodes
 
 Rather than collecting the values of the _title_ properties for  movies, you can collect the nodes.
-For this simple query, it is the same as returning _m_, but for more complex queries, you will learn later in this course that collecting nodes and using them for a later step of the query is useful.
+For this simple query, it is the same visual result as returning _m_, but for more complex queries, you will learn later in this course that collecting nodes and using them for a later step of the query is useful.
 
 [source,cypher]
 ----
@@ -112,14 +155,37 @@ In this example we return the first cast member for each movie.
 [source,cypher]
 ----
 MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
-RETURN m.title, collect(a.name)[0] as `A cast member`,
+RETURN m.title AS movie, collect(a.name)[0] AS castMember,
        size(collect(a.name)) as castSize
 ----
 
-===  `count()` versus `size()`
+You can also return a slice of a collection.
 
-There are more aggregating functions such as `min()` or `max()` that you can also use in your queries.
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+RETURN m.title AS movie, collect(a.name)[2..] AS castMember,
+       size(collect(a.name)) as castSize
+----
+
+This query returns the second to the end of the list names of actors.
+
+You can read about the many ways you can access and work with lists in Cypher such as using head(), tail(), etc. in the
+link:https://neo4j.com/docs/cypher-manual/current/functions/list/[Neo4j Cypher Manual^].
+
+=== Other aggregating functions
+
+There are more aggregating functions that may be useful for your application such as:
+
+* min()
+* max()
+* avg()
+* stddev()
+* sum()
+
 These are described in the link:https://neo4j.com/docs/cypher-manual/current/functions/aggregating/[Aggregating Functions section of the Neo4j Cypher Manual^].
+
+===  `count()` versus `size()`
 
 You can either use `count()` to count the number of rows, or alternatively, you can return the size of the collected results.
 The `size()` function returns the number of elements in a list.
@@ -135,7 +201,7 @@ RETURN actor.name, director.name, size(collect(m)) AS collaborations,
 
 [NOTE]
 --
-As you gain more experience with query tuning, you will learn that `count()` may be more efficient because it gets its values from the internal count store of the graph.
+As you gain more experience with query tuning, you will learn that `count()` may be more efficient because it get its values for node counts or relationships from a node from the internal count store of the graph.
 --
 
 If we profile this query (run it at least twice):
@@ -161,13 +227,27 @@ And you can answer the question, What genre of movies is the highest and how man
 
 [source,cypher]
 ----
-PROFILE MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
+MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
 RETURN g.name AS Genre, count(m) as `Num Movies` ORDER BY count(m) DESC LIMIT 1
+----
+
+=== List comprehension
+
+You can create a list by evaluating an expression that tests for list ihclusioh.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+RETURN m.title as movie,
+[x IN m.countries WHERE x = 'USA' OR x = 'Germany']
+AS country LIMIT 500
 ----
 
 === Pattern comprehension
 
-Pattern comprehension is a very powerful way to create lists.
+Pattern comprehension is a very powerful way to create lists without changing the cardinality of the query.
 It behaves like an `OPTIONAL MATCH` combined with `collect()`.
 
 Here is an example:
@@ -201,7 +281,10 @@ For this pattern comprehension, the title of the movie is concatenated with the 
 
 == Working with maps
 
-A Cypher `map` is list of key/value pairs where each element of the list is of the format 'key': value. For example, a map of months and the number of days per month could be:
+A Cypher `map` is list of key/value pairs where each element of the list is of the format 'key': value.
+A node or relationship can have a property that is a map.
+
+For example, a map of months and the number of days per month could be:
 
 `{Jan: 31, Feb: 28, Mar: 31, Apr: 30 , May: 31, Jun: 30 , Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31}`
 
@@ -210,10 +293,26 @@ Using this map, we can return the value for one of its elements:
 [source,cypher]
 ----
 RETURN {Jan: 31, Feb: 28, Mar: 31, Apr: 30 , May: 31, Jun: 30 ,
-       Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31}['Feb'] AS DaysInFeb
+       Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31}['Feb'] AS daysInFeb
 ----
 
 Here we use the key, `'Feb'` to access its value.
+
+Alternatively, you can access a value with the '.' notation:
+
+[source,cypher]
+----
+RETURN {Jan: 31, Feb: 28, Mar: 31, Apr: 30 , May: 31, Jun: 30 ,
+       Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31}.Feb AS daysInFeb
+----
+
+And you can return a list of keys of a map as follows:
+
+[source,cypher]
+----
+RETURN keys({Jan: 31, Feb: 28, Mar: 31, Apr: 30 , May: 31, Jun: 30 ,
+       Jul: 31, Aug: 31, Sep: 30, Oct: 31, Nov: 30, Dec: 31}) AS months
+----
 
 A node in the graph, when returned in Neo4j Browser is a map, when displayed as table rows. For example, a Movie node:
 
@@ -222,6 +321,8 @@ A node in the graph, when returned in Neo4j Browser is a map, when displayed as 
 MATCH (m:Movie)
 RETURN m LIMIT 1
 ----
+
+Read more in the link:https://neo4j.com/docs/cypher-manual/current/syntax/maps/[Neo4j Cypher Manual^] about maps.
 
 === Map projections
 

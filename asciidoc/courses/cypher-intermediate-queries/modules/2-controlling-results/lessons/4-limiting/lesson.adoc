@@ -15,7 +15,8 @@ You can use the `LIMIT` keyword to specify the number of results returned.
 ----
 MATCH (m:Movie)
 WHERE m.released IS NOT NULL
-RETURN m.title AS title, m.released AS `Release Date` ORDER BY m.released DESC LIMIT 100
+RETURN m.title AS title, m.released AS `Release Date`
+ORDER BY m.released DESC LIMIT 100
 ----
 
 In this query we filter out movie nodes that have no value for the released property.
@@ -32,7 +33,8 @@ RETURN p.name as Name, p.born AS `Birth Date` ORDER BY p.born DESC LIMIT 1
 
 === Skipping some results
 
-In an ordered result set, you may want to reduce the number returned by eliminating results at the beginning or end of the result set.
+In an ordered result set, you may want to control what results are returned.
+This is useful in an application where pagination is required.
 
 In this query we are returning the names of people born in 1980 ordered by their birth date.
 
@@ -43,41 +45,17 @@ WHERE p.born.year = 1980
 RETURN  p.name as Name, p.born AS `Birth Date` ORDER BY p.born
 ----
 
-You can add a `SKIP` keyword to reduce the number of results returned by skipping the first 10:
+You can add a `SKIP`  and `LIMIT` keyword to control what page of results are returned.
 
 [source,cypher]
 ----
 MATCH (p:Person)
 WHERE p.born.year = 1980
-RETURN  p.name as Name, p.born AS `Birth Date` ORDER BY p.born SKIP 10
+RETURN  p.name as Name, p.born AS `Birth Date` ORDER BY p.born SKIP 40 LIMIT 10
 ----
 
-== Using `count()` to aggregate data
+In this query, we return 10 rows representing page 5, where each page will contain 10 rows.
 
-A common way to aggregate data in Cypher is to count.
-Cypher has a `count()` function that you can use to perform a count of nodes, relationships, paths, rows during query processing.
-When you aggregate in a Cypher query, this means that the query must process all patterns in the `MATCH` clause to complete the aggregation to either return results or perform the next part of the query.
-
-Here is an example:
-
-[source,cypher]
-----
-MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
-WHERE a.name = 'Tom Hanks'
-RETURN a.name AS `Actor Name`, count(m) AS `Number Movies`
-----
-
-This query returns the number of movies Tom Hanks acted in.
-
-Here is another example:
-
-[source,cypher]
-----
-MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-RETURN a.name AS `Actor Name`, d.name AS `Director Name`, count(m) AS `Num Movies` ORDER BY count(m) DESC
-----
-
-In this query we can see that actors and directors worked together in the same movie and how many collaborations there were.
 
 == Eliminating duplicate records
 
@@ -106,6 +84,35 @@ RETURN DISTINCT m.title, m.released ORDER BY m.title
 ----
 
 Using `DISTINCT` in the `RETURN` clause here means that rows with identical values will not be returned.
+
+=== Uses of DISTINCT
+
+You can use `DISTINCT` to eliminate duplication of:
+
+* rows returned (you have just learned this)
+* property values
+* nodes
+
+Here is an example where we eliminate duplicate property values:
+
+[source,cypher]
+----
+MATCH (m:Movie) RETURN DISTINCT m.year ORDER BY m.year
+----
+
+In the above query, only a single value will be returned for each Movie year.
+If you were to not use `DISTINCT`, all Movie year values would be returned.
+
+And here is an example where we eliminate duplicate nodes:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:DIRECTED | ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN  DISTINCT m
+----
+
+If we do not specify `DISTINCT` in the above query, the query returns a duplicate movie node.
 
 == Check your understanding
 
