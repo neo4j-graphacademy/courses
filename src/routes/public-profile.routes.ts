@@ -124,11 +124,16 @@ router.get('/:id/:course', async (req, res, next) => {
             ogDescription = `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt?.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
         else {
-            ogTitle = `${own ? 'I a,' : `${userName} is`} working towards the ${course.title} badge on #Neo4j #GraphAcademy`
+            ogTitle = `${own ? 'I am' : `${userName} is`} working towards the ${course.title} badge on #Neo4j #GraphAcademy`
             ogDescription = `${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
 
         const ogImage = `${course.link}banner/`
+
+        // Year and month for LinkedIn
+        const year = course.completedAt ? course.completedAt.getFullYear() : null
+        const month = course.completedAt ? course.completedAt.getMonth() +1 : null
+        const url = `${BASE_URL}/u/${req.params.id}/${req.params.course}/`
 
         res.render('profile/certificate', {
             title,
@@ -138,6 +143,9 @@ router.get('/:id/:course', async (req, res, next) => {
             ogTitle,
             ogDescription,
             ogImage,
+            year,
+            month,
+            url,
         })
     }
     catch (e) {

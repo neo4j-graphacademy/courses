@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { COMMUNITY_POSTS } from '../../../constants';
+import { COMMUNITY_HAS_BASE_URL, COMMUNITY_POSTS } from '../../../constants';
 import { Topic } from '../../model/topic';
 
 const { THIRD_PARTY_UPDATE_INTERAL } = process.env
@@ -8,6 +8,10 @@ let topics: Topic[] = []
 let updatedAt: Date;
 
 export async function getCommunityTopics(): Promise<Topic[]> {
+    if ( COMMUNITY_HAS_BASE_URL !== true ) {
+        return Promise.resolve([])
+    }
+
     const now = new Date()
 
     if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {

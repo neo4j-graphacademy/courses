@@ -1,0 +1,119 @@
+= Limiting or Counting Results Returned
+:sandbox: true
+
+//[.video]
+//video::ImKvXY72SA0[youtube,width=560,height=315]
+
+//[.transcript]
+== Limiting results
+
+Although you can filter queries to reduce the number of results returned, you may also want to limit the number of results returned.
+This is useful if you have very large result sets and you only need to see the beginning or end of a set of ordered results.
+You can use the `LIMIT` keyword to specify the number of results returned.
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.released IS NOT NULL
+RETURN m.title AS title, m.released AS `Release Date` ORDER BY m.released DESC LIMIT 100
+----
+
+In this query we filter out movie nodes that have no value for the released property.
+Then we return the 100 most-recently released movies in our graph.
+
+Or, we may want to determine the youngest person in the graph:
+
+[source,cypher]
+----
+MATCH (p:Person) WHERE
+p.born IS NOT NULL
+RETURN p.name as Name, p.born AS `Birth Date` ORDER BY p.born DESC LIMIT 1
+----
+
+=== Skipping some results
+
+In an ordered result set, you may want to reduce the number returned by eliminating results at the beginning or end of the result set.
+
+In this query we are returning the names of people born in 1980 ordered by their birth date.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WHERE p.born.year = 1980
+RETURN  p.name as Name, p.born AS `Birth Date` ORDER BY p.born
+----
+
+You can add a `SKIP` keyword to reduce the number of results returned by skipping the first 10:
+
+[source,cypher]
+----
+MATCH (p:Person)
+WHERE p.born.year = 1980
+RETURN  p.name as Name, p.born AS `Birth Date` ORDER BY p.born SKIP 10
+----
+
+== Using `count()` to aggregate data
+
+A common way to aggregate data in Cypher is to count.
+Cypher has a `count()` function that you can use to perform a count of nodes, relationships, paths, rows during query processing.
+When you aggregate in a Cypher query, this means that the query must process all patterns in the `MATCH` clause to complete the aggregation to either return results or perform the next part of the query.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (a:Actor)-[:ACTED_IN]->(m:Movie)
+WHERE a.name = 'Tom Hanks'
+RETURN a.name AS `Actor Name`, count(m) AS `Number Movies`
+----
+
+This query returns the number of movies Tom Hanks acted in.
+
+Here is another example:
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
+RETURN a.name AS `Actor Name`, d.name AS `Director Name`, count(m) AS `Num Movies` ORDER BY count(m) DESC
+----
+
+In this query we can see that actors and directors worked together in the same movie and how many collaborations there were.
+
+== Eliminating duplicate records
+
+You have seen a number of query results where there is duplication in the results returned.
+In some cases, you may want to eliminate duplicated results.
+You do so by using the `DISTINCT` keyword.
+
+Here is a simple example where duplicate data is returned.
+
+[source,cypher]
+----
+MATCH (p:Person)-[:DIRECTED | ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title, m.released ORDER BY m.title
+----
+
+Tom Hanks both acted in and directed the movie, Larry Crowne, so the movie is returned twice in the result stream.
+
+We can eliminate the duplication by specifying the `DISTINCT` keyword as follows:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:DIRECTED | ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN DISTINCT m.title, m.released ORDER BY m.title
+----
+
+Using `DISTINCT` in the `RETURN` clause here means that rows with identical values will not be returned.
+
+== Check your understanding
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how you can limit results returned, count results returned, and eliminate duplication im the rows returned.
+In the next challenge, you will write queries to limit, count, or reduce duplication.
