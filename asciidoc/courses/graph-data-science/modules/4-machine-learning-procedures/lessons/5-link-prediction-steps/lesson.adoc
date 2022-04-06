@@ -1,0 +1,191 @@
+= Link Prediction
+:type: quiz
+:order: 1
+
+[.video]
+video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== Introduction
+
+In the last lesson we went over link prediction structure at a high level.  Here we will go over an applied example.
+
+=== Link Prediction Pipeline Steps
+
+At a high-level link prediction has the following pipeline steps
+
+. *Create the Pipeline*
+. *Add Node Properties* - Calculated node properties for generating model features
+. *Add Link Features* - functions to generate model features from the node properties
+. *Configure Relationship Splits* - The data splitting into train, test, and feature-input steps
+. *Add Model Candidates* - configure one model or multiple models with different hyperparameters to be trained and evaluated
+. *Train the Pipeline* - Train and evaluate the model(s). If there are multiple, the best performing is automatically selected
+. *Prediction with the Model* - Used the trained pipeline object to cast predictions
+
+=== Setting up a Dataset for Link Prediction
+
+Our movie recommendations dataset, as-is, is not the best candidate for this type of link prediction since it is a https://en.wikipedia.org/wiki/Multipartite_graph:[k-partite graph], i.e. relationships only go between disjoint sets of nodes. In this case those sets can align with the node labels: `User`, `Movie`, `Person`, and `Genre`. For sake of showing you an example, we will manufacture a social network out of our recommendations graph.  We will filter down to just big high grossing movies then create `ACTED_WITH` relationships between actors that were in the same movies together as we did in the Cypher projection lesson in the graph management module.  There are a couple extra steps here to get the graph truly undirected as we need it.
+
+----
+//set a node label based on recent release and revenue conditions
+MATCH(m:Movie)
+WHERE m.year >= 1990 AND m.revenue >= 1000000
+SET m:RecentBigMovie;
+
+//native projection with reverse relationships
+CALL gds.graph.project('proj',
+  ['Actor','RecentBigMovie'],
+  {
+  	ACTED_IN:{type:'ACTED_IN'},
+    HAS_ACTOR:{type:'ACTED_IN', orientation: 'REVERSE'}
+  }
+);
+
+//collapse path utility for relationship aggregation - no weight property
+CALL gds.alpha.collapsePath.mutate('proj',{
+    relationshipTypes: ['ACTED_IN', 'HAS_ACTOR'],
+    allowSelfLoops: false,
+    mutateRelationshipType: 'ACTED_WITH'
+});
+
+//write relationships back to graph
+CALL gds.graph.writeRelationship('proj', 'ACTED_WITH')
+
+//drop duplicates
+MATCH(a1:Actor)-[s:ACTED_WITH]->(a2)
+WHERE id(a1) < id(a2)
+DELETE s;
+
+//clean up extra labels
+MATCH (m:RecentBigMovie) REMOVE m:RecentBigMovie;
+
+//project the graph
+CALL gds.graph.project('proj', 'Actor', {ACTED_WITH:{orientation: 'UNDIRECTED'}});
+----
+
+This gives us a graph projection with just `Actor` nodes and `ACTED_WITH` relationships, like a 'co-acting' social network. When we use link prediction in this context, we will be training a model to predict which actors are most likely to be in the same movies together given other `ACTED_WITH` relationships already present in the graph.  This same methodology can be used for different social network recommendation problems.  For example, if instead of actors co-acting with each other we had Users who were friends with each other, we could use a model like this to make friend recommendations.  Likewise in fraud detection and law enforcement applications, if we have communities of suspects and victims who know or interact with each other, we could use link prediction to infer real-world relationships not already known in the graph.
+
+
+=== Create the Pipeline
+
+The first step in Link Prediction is to create the pipeline object like so:
+
+----
+CALL gds.beta.pipeline.linkPrediction.create('pipe');
+----
+
+The stores the pipeline in the pipeline catalog.
+
+The above command will return multiple configuration parameters with default settings. We will adjust those configurations in the proceeding steps.  Note that as we run the below commands we aren’t actually executing the steps just configuring them, at least until we hit the training step.
+
+=== Add Node Properties
+In this step we can run gds algorithms to calculate the "endogenous" node properties; the ones that are calculated from relationships which we are predicting in the graph.
+A link prediction pipeline can execute one or several GDS algorithms to create node properties. These node properties will be creating when training the pipeline and when the trained model is applied for prediction. The name of the procedure that should be added can be a fully qualified GDS procedure name ending with `.mutate`.
+The ending `.mutate` may be omitted and one may also use shorthand forms such as `fastRP` instead of `gds.fastRP.mutate`.
+
+For this example lets use a FastRP node embeddings with the logic that if two actors are close to each other in the `ACTED_WITH` network they are more likely to also play roles in the same movies.  Degree centrality is also another potentially interesting feature, i.e. more prolific actors are more likely to be in the same movies with other actors.
+
+----
+CALL gds.beta.pipeline.linkPrediction.addNodeProperty('pipe', 'fastRP', {
+    mutateProperty: 'embedding',
+    embeddingDimension: 128,
+    randomSeed: 7474
+}) YIELD nodePropertySteps;
+
+CALL gds.beta.pipeline.linkPrediction.addNodeProperty('pipe', 'degree', {
+    mutateProperty: 'degree'
+}) YIELD nodePropertySteps;
+----
+
+=== Add Link Features
+In this step we configure how features will be engineered from node properties for model training and predictions. We can engineer features from either the "endogenous" node properties calculated in the previous `addNodeProperty` step, the "exogenous" node properties that already exist on the nodes pre-pipeline, or a combination of the two.  For this we just have endogenous node properties.  Let's use cosine and L2 for the FastRP embeddings, which are good measure of similarity/distance and hadamard for the degree centrality which is a good measure of total magnitude between the 2 nodes.
+
+----
+CALL gds.beta.pipeline.linkPrediction.addFeature('pipe', 'l2', {
+  nodeProperties: ['embedding']
+}) YIELD featureSteps;
+
+CALL gds.beta.pipeline.linkPrediction.addFeature('pipe', 'cosine', {
+  nodeProperties: ['embedding']
+}) YIELD featureSteps;
+
+CALL gds.beta.pipeline.linkPrediction.addFeature('pipe', 'hadamard', {
+  nodeProperties: ['degree']
+}) YIELD featureSteps;
+----
+
+=== Configure Relationship Splits
+In this step we set a few crucial parameters for the pipeline: the relationship splitting proportions, the negative sampling ratio, and the number of validations folds used in-cross validation. For our example, we will split the relationship into 20% test, 40% train, and 40% feature-input. This gives us a good balance between all the sets. We will also use 2.0 for the negative sampling ratio, giving us a sizable negative example for demonstration that won't take too long to estimate.  You can read more on different strategies for setting the negative sample ratio https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#linkprediction-pipelines-classimbalance:[here].
+
+
+----
+CALL gds.beta.pipeline.linkPrediction.configureSplit('pipe', {
+    testFraction: 0.2,
+    trainFraction: 0.4,
+    negativeSamplingRatio: 2.0
+}) YIELD splitConfig;
+----
+
+=== Add Model Candidates
+
+A pipeline contains a collection of configurations for model candidates which is initially empty. This collection is called the `parameter space`. One or more model configurations must be added to the parameter space of the pipeline. Each candidate represents a model to be trained and evaluated and the model candidate configuration itself is made up of hyperparameter settings.  If there are multiple model candidates, the best performing one will be automatically selected in the training step.
+
+There are two model choices for link prediction: Logistic Regression and Random Forest.  They have slightly different configurations which are covered in more depth in the https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#linkprediction-configure-model-parameters:[documentation]. These consists of fairly traditional hyperparameters you would encounter in a general machine learning workflow - i.e. batchSize, tolerance, numberOfDecisionTrees (for random Forest), etc.
+
+For our example we will stick to a couple different configurations for logistic regression
+
+----
+CALL gds.beta.pipeline.linkPrediction.addLogisticRegression('pipe', {
+    penalty: 0.001,
+    patience: 2
+}) YIELD parameterSpace;
+
+CALL gds.beta.pipeline.linkPrediction.addLogisticRegression('pipe', {
+    penalty: 1.0,
+    patience: 2
+}) YIELD parameterSpace;
+----
+
+=== Train the Pipeline
+In this step we train and evaluate the model candidates.  The best performing model, according to AUCPR, is selected and registered in the model catalog.  The negative sample weight can be used here to effectively tune the class imbalance when evaluating with AUCPR, this can be useful to adjust model selection depending on use case. A more complete explanation of how to set this and what to consider is located here: https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#linkprediction-pipelines-classimbalance:[documentation]. For this example we will keep it at 1, the default, which means we are evaluating under a 2:1 negative class ratio (per us setting `negativeSampleRatio=2` in the relationshipSplit set)
+//The documentation recommends making negativeSampleWeight * negativeSamplingRatio = 1 but if you think about it this seems to defeat the purpose of using AUCPR in the first place because you are taking away the data imbalance in the probability mass, this will usually be too optimistic and is susceptible to misinterpretation by the user. I think the alternative recommendation to set negativeSampleWeight * negativeSamplingRatio = trueClassRatio is on point - However for larger graphs it may not be feasible to set it to that extreme.  I have found that for the use cases I am exposed to, the size of a graph is often correlated to its class imbalance in this link prediction framework. This violates some important statistical assumptions that underpin convergence in model parameter estimation. In application this will manifest itself as ballooning class imbalance with an unstable model in the limit, it will at a certain point be infeasible to set the negativeSampleRatio close to the true class ratio, and likewise setting negative sample weight to offset this will result in a very high variance AUCPR metric (one that will converge to zero in the limit nonetheless though).  This effects both the scalability and validity of link prediction in GDS.
+
+----
+CALL gds.beta.pipeline.linkPrediction.train('proj', {
+    pipeline: 'pipe',
+    modelName: 'lp-pipe-model',
+    randomSeed: 7474 //usually a good idea to set a random seed for reproducibility.
+}) YIELD modelInfo
+RETURN
+modelInfo.bestParameters AS winningModel,
+modelInfo.metrics.AUCPR.train.avg AS avgTrainScore,
+modelInfo.metrics.AUCPR.outerTrain AS outerTrainScore,
+modelInfo.metrics.AUCPR.test AS testScore
+----
+
+=== Prediction with the Model
+Once the pipeline is trained we can use it to predict new links in the graph. The pipeline can be re-applied to data with the same schema.  Below is the syntax for applying for prediction.  We will have you execute this in the upcoming challenge problem so please make sure you have run and trained the pipeline above.
+
+----
+CALL gds.beta.pipeline.linkPrediction.predict.mutate(
+  graphName: String,
+  configuration: Map
+)
+YIELD
+  preProcessingMillis: Integer,
+  computeMillis: Integer,
+  postProcessingMillis: Integer,
+  mutateMillis: Integer,
+  relationshipsWritten: Integer,
+  probabilityDistribution: Integer,
+  samplingStats: Map,
+  configuration: Map
+----
+
+=== Check your understanding
+
+[.summary]
+== Summary
+
+In this lesson we learned about the different steps in the link prediction pipeline and how to run the pipeline in GDS.
