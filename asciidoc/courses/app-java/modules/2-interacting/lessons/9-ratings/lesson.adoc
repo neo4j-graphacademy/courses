@@ -1,0 +1,107 @@
+= Rating Movies
+:type: challenge
+:order: 9
+:branch: 06-rating-movies
+:test-filename: _06_RatingMoviesTest
+:test-method: writeMovieRatingAsInt
+
+The challenges in this course come thick and fast!
+
+In this challenge, you will modify the `add()` method in the link:{repository-blob}/main/src/main/java/neoflix/services/RatingService.java[`RatingService`^] to save ratings into Neo4j.
+As part of the challenge, you will:
+
+1. <<Save the Rating in a Write Transaction>>
+2. <<Return the Results>>
+
+
+== The Request Lifecycle
+
+image::images/rating-form.png[Rating a Movie, role=right]
+
+Before we start, let's take a look at the request lifecycle when saving a review.
+If you prefer, you can skip to <<Save the Rating in a Write Transaction>>.
+
+On every Movie page, the user is invited to rate a movie on scale of 1 to 5.
+The form pictured to the right gives the user the ability to select a rating between 1 and 5 and click submit to save the rating.
+
+When the form is submitted, the website sends a POST request to `/api/account/ratings/{movieId}` and the following will happen:
+
+1. The server directs the request to the route handler in link:{repository-blob}/main/src/main/java/neoflix/routes/AccountRoutes.java#L80[`AccountRoutes.java`^], whose `/ratings/` route gets the authenticated user's id from the request.
+2. The route handler uses an instance of the link:{repository-blob}/main/src/main/java/neoflix/services/RatingService.java#L62[`RatingService`^].
+3. The `add()` method is called on the `RatingService`, and is passed the id of the current user plus the id of the movie and a rating value from the request body.
+4. It is then the responsibility of the `add()` method to save this information to the database and return an appropriate response.
+
+A rating is represented in the graph as a relationship going from a `:User` to a `:Movie` node with the type `:RATED`.  The relationship has two properties; the rating (an integer) and a timestamp to represent when the relationship was created.
+
+// TODO arrows image
+
+After the data is saved, the UI expects the movie details to be returned, with an additional property called `rating`, which will be the rating that the current user has given for the movie.
+
+Let's take a look at the existing method in the `RatingService`.
+
+.neoflix/services/RatingService.java
+[source,java,indent=0]
+----
+include::{repository-raw}/main/src/main/java/neoflix/services/RatingService.java[tag=add]
+----
+
+Your challenge is to replace the `TODO` comments in this method with working code.
+
+=== Save the Rating in a Write Transaction
+
+For this part of the challenge, open a new session and execute the query within a _write_ transaction.
+The singular `movie` result should be converted to a map.
+
+[source,java]
+----
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/RatingService.java[tag=write,indent=0]
+----
+
+[TIP]
+By using the `MERGE` keyword for the relationship, we will reuse an existing rating if one already exists but override its attributes.
+
+This way, we don't need to worry about duplicates or deleting existing records.
+
+If no movie or user is found, the statement will return no records, then the `single()` method will throw an `NoSuchRecordException` error which we convert to a `ValidationException`.
+
+[source,java,indent=0]
+----
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/RatingService.java[tag=throw,indent=0]
+----
+
+
+=== Return the Results
+
+Finally, return the movie.
+
+[source,java]
+----
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/RatingService.java[tag=addreturn,indent=0]
+----
+
+
+== Working Solution
+
+[%collapsible]
+.Click here to reveal the Working Solution.
+====
+
+.src/services/rating.service.js
+[source,java,indent=0]
+----
+include::{repository-raw}/{branch}/src/main/java/neoflix/services/RatingService.java[tag=add]
+----
+====
+
+include::../../../../includes/test.adoc[]
+
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this Challenge, you have updated the `RatingService` to save a relationship between a User and Movie to represent a Rating.
+
+In the next Challenge, we will implement the My Favorites feature.

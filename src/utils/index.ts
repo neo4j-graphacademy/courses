@@ -314,7 +314,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         if ( key.endsWith('repository') ) {
             attributes[ key ] = value
             attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
-            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob/`
+            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob`
         }
     }
 
