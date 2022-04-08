@@ -159,6 +159,7 @@ const loadLesson = (folder: string): LessonToImport => {
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
+
     let order = getOrderAttribute(folder, file)
 
     return {
