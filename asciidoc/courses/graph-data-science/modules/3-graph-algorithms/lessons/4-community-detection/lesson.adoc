@@ -13,11 +13,11 @@ Common use cases of community detection include:
 
 === Louvain Community Detection
 image::images/louvain-modularity.png[float="right", title="Louvain Modularity Optimization",width=500]
-A common community detection algorithm is Louvain. Louvain maximizes a modularity score for each community, where the modularity quantifies the quality of an assignment of nodes to communities. This means evaluating how much more densely connected the nodes within a community are, compared to how connected they would be in a random network. Louvain optimizes this modularity with hierarchical clustering approach that recursively merges communities together. There are multiple parameters that can be used to tune Louvain to control its performance and the number and size of communities produced.  We will not cover them in depth here, but they are important to consider when applying Louvain to your use case. This includes the maximum number of iterations and hierarchical levels to use as well as the tolerance parameter for assessing convergence/stopping condition. This is fully covered in the https://neo4j.com/docs/graph-data-science/current/algorithms/louvain/[Louvain documentation].
+A common community detection algorithm is Louvain. Louvain maximizes a modularity score for each community, where the modularity quantifies the quality of an assignment of nodes to communities. This means evaluating how much more densely connected the nodes within a community are, compared to how connected they would be in a random network.
 
-An additional important thing to consider is that Louvain is a stochastic algorithm.  As such, the community assignments may change a bit when re-run. When the graph does not have a naturally well-defined community structure the changes between runs can be more significant. Louvain includes a `seedProperty` parameter which can be used to assign initial community ids and help with consistency between runs.
+Louvain optimizes this modularity with a hierarchical clustering approach that recursively merges communities together. There are multiple parameters that can be used to tune Louvain to control its performance and the number and size of communities produced. This includes the maximum number of iterations and hierarchical levels to use as well as the tolerance parameter for assessing convergence/stopping conditions. Our https://neo4j.com/docs/graph-data-science/current/algorithms/louvain/[Louvain documentation] covers these parameters and tuning in more detail.
 
-Other community detection algorithms, such as Weakly Connected Components (WWC) take a more deterministic partitioning approach to assigning communities and thus will not change significantly between runs.
+An additional important consideration is that Louvain is a stochastic algorithm.  As such, the community assignments may change a bit when re-run. When the graph does not have a naturally well-defined community structure the changes between runs can become more significant. Louvain includes a `seedProperty` parameter which can be used to assign initial community ids and help with consistency between runs. Also, if consistency is important for your use case, other community detection algorithms, such as Weakly Connected Components (WWC), take a more deterministic partitioning approach to assigning communities and thus will not change between runs.
 
 '''
 
@@ -33,19 +33,35 @@ CALL gds.graph.project('proj', ['Movie', 'Person'], {
 });
 ----
 
-Then we can run Louvain.  In this case we will stream the results and display the count of actors by community id. I am setting the `maxLevel` parameter to 5 (10 is the default) to
+Then we can run Louvain.  Here we will run Louvain in mutate mode to save community Ids and return high level statistics on the community counts, distribution, modularity score, and information for how Louvain processed the graph.
+
 [source,cypher]
 ----
-CALL gds.louvain.stream('proj', {maxLevels:5, maxIterations:100})
-YIELD nodeId, communityId
-WITH gds.util.asNode(nodeId) AS n, communityId
-WHERE n:Person
-RETURN communityId, count(n) AS communitySize
-ORDER BY communitySize DESC
+CALL gds.louvain.mutate('proj', {mutateProperty:'communityId'})
 ----
-\You can see that we get a few
-== Check your understanding
 
+We can verify the communityId node properties in the projection with a stream operation.
+[source,cypher]
+----
+CALL gds.graph.streamNodeProperty('proj','communityId', ['Person'])
+YIELD nodeId, propertyValue
+WITH gds.util.asNode(nodeId) AS n, propertyValue AS communityId
+WHERE n:Person
+RETURN n.name, communityId LIMIT 10
+----
+=== Other Community Detection Algorithms
+Below are some of the other production tier community detection algorithms.  A full list of all community detection algorithms can be found https://neo4j.com/docs/graph-data-science/current/algorithms/community/[here].
+
+* *Label Propagation:* Similar intent as Louvain. Fast algorithm that parallelizes well. Great for large graphs.
+* *Weakly Connected Components (WCC):* Partitions the graph into sets of connected nodes such that
+        .. Every node is reachable from any other node in the same set
+        .. No path exists between nodes from different sets
+* *Triangle Count:* Counts the number of triangles for each node. Can be used to detect the cohesiveness of communities and stability of the graph.
+* *Local Clustering Coefficient:* Computes the local clustering coefficient for each node in the graph which is an indicator for how the node clusters with its neighbors.
+
+== Check your understanding
+TBD
 
 [.summary]
 == Summary
+In this lesson we covered community detection algorithms in GDS and how to apply them to actual data.
