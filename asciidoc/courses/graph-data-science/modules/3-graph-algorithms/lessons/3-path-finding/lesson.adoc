@@ -16,15 +16,8 @@ A common, industry standard, similarity algorithm is dijkstra. It computes the s
 
 Below is an example of using dijkstra source-target shortest path to find the shortest path between the actors "Kevin Bacon" and "Denzel Washington".
 
-First, confirm we have the two actor names right and that they are present in the graph. This will give us the node ids we need as input to  dijkstra shortest path.
-[source,cypher]
-----
-MATCH(a:Actor)
-WHERE a.name IN ['Kevin Bacon', 'Denzel Washington']
-RETURN a.name, id(a)
-----
 
-Next, create the graph projection.
+First, create the graph projection.
 [source,cypher]
 ----
 // include to clean up if there is a previous 'proj' graph
@@ -42,13 +35,14 @@ CALL gds.graph.project('proj',
 Then we can run dijkstra's shortest path.
 [source,cypher]
 ----
-CALL gds.shortestPath.dijkstra.stream('proj', {sourceNode:14487, TargetNode:16395})
-YIELD index, sourceNode, targetNode, path
-RETURN index,
-    gds.util.asNode(sourceNode).name AS sourceNodeName,
+MATCH(a:Actor)
+WHERE a.name IN ['Kevin Bacon', 'Denzel Washington']
+WITH collect(id(a)) AS nodeIds
+CALL gds.shortestPath.dijkstra.stream('proj', {sourceNode:nodeIds[0], TargetNode:nodeIds[1]})
+YIELD sourceNode, targetNode, path
+RETURN gds.util.asNode(sourceNode).name AS sourceNodeName,
     gds.util.asNode(targetNode).name AS targetNodeName,
-    nodes(path) as path
-ORDER BY index;
+    nodes(path) as path;
 ----
 
 This should give you a 4 hop path between Kevin Bacon and Denzel Washington.
