@@ -1,8 +1,8 @@
 = Native Projections
 :type: quiz
 
-[.video]
-video::xxxx[youtube,width=560,height=315]
+// [.video]
+// video::xxxx[youtube,width=560,height=315]
 
 
 [.transcript]
@@ -11,17 +11,17 @@ In the last lesson you learned about the graph catalog. We briefly introduced gr
 
 There are 2 primary types of projections in GDS, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
 
-In this lesson we will cover native projections specifically - what exactly they are and how to use them. In the next lesson we will do the same for Cypher projections.
+In this lesson we will cover native projections specifically - what they are and how to use them. In the next lesson we will do the same for Cypher projections.
 
 === What is a Native Projection?
 
-We actually used a native projection in our last lesson.  When you call `gds.graph.project` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
+We actually used a native projection in our last lesson.  When you call `gds.graph.project()` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
 
 
-In addition to just projecting node and relationship elements as-is from the database, projections offer a variety of other features.  Below are a few of the big ones
+In addition to just projecting node and relationship elements as-is from the database, projections offer a variety of other features.  Below are a few of the big ones:
 
-* The inclusion of numeric node and relationship properties
-* Altering relationship direction or "orientation"
+* the inclusion of numeric node and relationship properties
+* altering relationship direction or "orientation"
 * aggregating parallel relationships
 
 These options help prepare the projection for different types of analytical workflows and algorithms.
@@ -49,12 +49,12 @@ Let's first consider the very basic scenario where we want to project nodes and 
 
 
 .First Graph Projection
-[source,cypher,rel=nocopy]
+[source,cypher,role=nocopy]
 ----
 CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
 ----
 
-There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relation type you can just use single string. we could for example just enter the single string 'RATED' for the `relationshipProjection` and get an equivalent projection.
+There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relation type you can just use a single string value. we could for example just enter the value 'RATED' for the `relationshipProjection` and get an equivalent projection.
 
 [source, cypher]
 ----
@@ -68,11 +68,24 @@ The wildcard character '*' can be used to include all nodes and/or relationships
 CALL gds.graph.project('native-proj','*', '*');
 ----
 
+[NOTE]
+.A graph with name 'native-proj' already exists.
+====
+If you attempt to create a new graph projection with a name that already exists, you will receieve an error.
+To continue you will first have to run the `gds.graph.drop()` procedure to drop the existing graph projection.
+
+.Dropping a Graph
+[source,cypher]
+----
+CALL gds.graph.drop('native-proj');
+----
+====
+
 === Changing Relationship Orientation
 
 Native projections allow you to change the relationship orientation as well. To best describe the concept of orientation and why we would want to change it, we need to cover the difference between a directed and an undirected relationship.
 
-A directed relationship is non-symmetrical. It goes from a source node to a target node, illustrated by the image below.
+A directed relationship is non-symmetrical. It goes from a source node to a target node, illustrated by the image below.  This type of relationship may contain additional qualifying properties, for example a weighting or strength indicator.
 
 image::images/directed-relationship.png[directed,400]
 
@@ -84,7 +97,7 @@ Every relationship in the neo4j database is directed by design. However, some gr
 
 To accommodate this there are three orientation options we can apply to relationship types in the `relationshipProjection`:
 
-* `NATURAL`: Same direction as in the database (default)
+* `NATURAL`: same direction as in the database (default)
 * `REVERSE`: opposite direction as in the database
 * `UNDIRECTED`: undirected
 
@@ -168,19 +181,26 @@ CALL gds.graph.drop('native-proj');
 CALL gds.graph.project(
     'native-proj',
     ['User', 'Movie'],
-    {RATED: {orientation: 'UNDIRECTED'}}, //undirected relationship works best for FastRP on this graph structure
+    {RATED: {orientation: 'UNDIRECTED'}}, // <1>
     {
         nodeProperties:{
-            revenue: {defaultValue: 0}, //the defaultValue parameter allows us to fill in missing values with a default.  In this case we will use 0.
+            revenue: {defaultValue: 0}, // <2>
             budget: {defaultValue: 0},
             runtime: {defaultValue: 0}
         },
-        relationshipProperties: ['rating'] //simpler syntax with no default values. These should not be missing
+        relationshipProperties: ['rating'] // <3>
     }
 );
 ----
 
-We will go over how to leverage properties like these in  more detail in the algorithms and machine learning courses. For now, you can verify these properties are in the projection by using the node and relationship property streaming operations.  There are a variety of different options for setting defaults and for alternative configurations, such as setting properties for all node labels and relationship types instead for doing so for each one separately.  Please refer to the TK[documentation] if you want more details on these.
+**Notes:**
+
+1. the `defaultValue` parameter allows us to fill in missing values with a default.  In this case we will use `0`.
+2. undirected relationship works best for FastRP on this graph structure
+3. simpler syntax with no default values. These should not be missing
+
+
+We will go over how to leverage properties like these in  more detail in the algorithms and machine learning courses. For now, you can verify these properties are in the projection by using the node and relationship property streaming operations.  There are a variety of different options for setting defaults and for alternative configurations, such as setting properties for all node labels and relationship types instead for doing so for each one separately.  Please refer to the TK[documentation^] if you want more details on these.
 
 [source, cypher]
 ----
@@ -228,7 +248,10 @@ CALL gds.graph.project(
     SENT_MONEY_TO: {
       properties: {
         numberOfTransactions: {
-          property: '*', //the windlcard '*' is a placeholder, signaling that the value of the relationship property is derived and not based on Neo4j property.
+          // the wildcard '*' is a placeholder, signaling that
+          // the value of the relationship property is derived
+          // and not based on Neo4j property.
+          property: '*',
           aggregation: 'COUNT'
         }
       }
@@ -263,7 +286,7 @@ image::images/parallell-rels-agg-3.png[title="Aggregate the SENT_MONEY_TO Realti
 
 === Other Native Projection Configuration and Features
 
-We covered the basics here but there are actually many extended syntax and configuration options available for native projections which are detailed in the linkTK:[documentation].  In general, if you are trying to do something in native projection and can't quite express the thing you want with the current syntax, check the docs to see if there are additional configurations or syntax extensions to support.
+We covered the basics here but there are actually many extended syntax and configuration options available for native projections which are detailed in the linkTK:[documentation^].  In general, if you are trying to do something in native projection and can't quite express the thing you want with the current syntax, check the docs to see if there are additional configurations or syntax extensions to support.
 
 == Check your understanding
 
@@ -273,8 +296,8 @@ include::questions/2-native-projection-use-cases.adoc[leveloffset=+1]
 
 
 [.summary]
-=== Summary
-In theis lesson we went over native projections, the primary graph projection mechanism in GDS.  Native Projections are optimized for efficiency and performance to support graph data science at scale.  Native projections have a rich syntax and set of configuration options that allow you to
+== Summary
+In this lesson we went over native projections, the primary graph projection mechanism in GDS.  Native Projections are optimized for efficiency and performance to support graph data science at scale.  Native projections have a rich syntax and set of configuration options that allow you to
 
 . filter the graph by node label and relationship types
 . include node and relationship properties
