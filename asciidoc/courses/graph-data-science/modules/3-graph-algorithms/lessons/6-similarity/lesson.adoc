@@ -8,8 +8,8 @@ Similarity algorithms, as the name implies, are used to infer similarity between
 Common use cases for similarity include:
 
 * *Fraud detection:* finding potential fraud user accounts by analyzing how similar a set of new user accounts is to flagged accounts
-* *Recommendation Systems:* In an online retail store, identify items that pair to the one currently being viewed by a user to inform impressions and increase rate of purchase
-* *Entity Resolution*: Identify nodes that are similar to one another based on activity otr identifying information in the graph
+* *Recommendation Systems:* In an online retail store, identifying items that pair to the one currently being viewed by a user to inform impressions and increase rate of purchase
+* *Entity Resolution*: Identify nodes that are similar to one another based on activity or identifying information in the graph
 
 === Similarity Algorithms in GDS
 GDS has two primary similarity algorithms:
@@ -19,7 +19,7 @@ GDS has two primary similarity algorithms:
 * *K-Nearest Neighbor (KNN):* Determines similarity based off node properties.  The GDS KNN implementation can scale well for global inference over large graphs when tuned appropriately. it can be used in conjunction with embeddings and other graph algorithms to determine the similarity between nodes based on proximity in the graph, node properties, community structure, importance/centrality, etc.
 
 === Choice of Similarity Metric
-Both Node Similarity and KNN provide choices between different similarity metrics. Node Similarity has choices between jaccard and overlap similarity. KNN choice of metric is driven by the node property types. list of integers are subject to jaccard and overlap, list of floating point numbers to cosine similarity, pearson, and euclidean. Using different metrics will of course alter the similarity score and change the interpretation slightly. You can read more about the different metrics for Node Similairty here[] and for KNN here[].
+Both Node Similarity and KNN provide choices between different similarity metrics. Node Similarity has choices between jaccard and overlap similarity. KNN choice of metric is driven by the node property types. list of integers are subject to jaccard and overlap, list of floating point numbers to cosine similarity, pearson, and euclidean. Using different metrics will of course alter the similarity score and change the interpretation slightly. You can read more about the different metrics for Node Similarity https://neo4j.com/docs/graph-data-science/current/algorithms/node-similarity/#algorithms-node-similarity-syntax[here] and for KNN https://neo4j.com/docs/graph-data-science/current/algorithms/knn/#algorithms-knn-introduction-metrics[here].
 
 
 === Controlling Scope of Comparisons
@@ -27,20 +27,54 @@ Comparing every node to every other node in the graph is a computationally expen
 
 Node Similarity has a `degreeCutoof` for nodes which allows you to select a lower limit on nodes to be selected.
 
-KNN has various parameters that can be tuned to effect the speed vs completeness trade-off of node comparisons.
+KNN has various parameters that can be tuned to effect the speed vs completeness trade-off of node comparisons, including sampling rate, initial sampler methodology, random join counts between iteration, and a few others.  You can read more about how these work in the https://neo4j.com/docs/graph-data-science/current/algorithms/knn/#algorithms-knn-syntax[documentation].
 
 === Controlling Scope of Results
-
+For similarity comparisons we may also want to control the number of results returned to only consider the most relevant node pairs. Both Node Similarity and KNN have a `topK` parameter to limit the number similarity comparisons returned per node. With node similarity there is also the capability to limit the results globally as opposed to just a per node basis.
 
 === Applied Example with KNN
-Let's take the embeddings we calculated on actors from the previous example and use it to determine similarity between the actors based on movies they have acted and or directed. If you do not have the graph projection from the previous node embeddings lesson saved you can regenerate the embeddings with the below code:
+Let's take the embeddings we calculated from the node embedding lesson and use them to determine similarity between the actors and directors based on movies they have been involved with. If you do not have the graph projection from the previous node embeddings lesson saved you can regenerate it with the below:
 
+[source,cypher]
+----
+CALL gds.graph.project('proj', ['Movie', 'Person'], {
+    ACTED_IN:{orientation:'UNDIRECTED'},
+    DIRECTED:{orientation:'UNDIRECTED'}
+});
+----
+
+
+We will then run FastRP like in the last lesson except in mutate mode so the embeddings will be saved in the projection.
+[source,cypher]
+----
+CALL gds.fastRP.mutate('proj',  {
+    embeddingDimension:64,
+    randomSeed:7474,
+    mutateProperty:'embedding'
+})
+----
+
+
+After that we can run similarity.  We will use the default cosine metric. For purposes of demonstrationI will limit `topK` to one so we can see the top pairs for each node.
+[source,cypher]
+----
+CALL gds.knn.stream('proj', {nodeLabels:['Person'], nodeProperties:['embedding'], topK:1})
+YIELD  node1, node2, similarity
+RETURN gds.util.asNode(node1).name AS actorName1,
+    gds.util.asNode(node2).name AS actorName2,
+    similarity
+LIMIT 10
+----
 
 === Similarity Functions
-In addition to the node similarity and KNN algorithms, GDS also provides a set of functions that can be used to calculate similarity between two arrays of numbers using various similarity metrics including jaccard, overlap, Pearson, cosine  similarity and a few others.  The full documentation can be found https://neo4j.com/docs/graph-data-science/current/algorithms/similarity-functions/[here]. These functions are useful when you are interested in measuring similarity between a single select node pair at a time as opposed to calculating similarity over the entire graph.
+In addition to the node similarity and KNN algorithms, GDS also provides a set of functions that can be used to calculate similarity between two arrays of numbers using various similarity metrics including jaccard, overlap, pearson, cosine similarity and a few others.  The full documentation can be found https://neo4j.com/docs/graph-data-science/current/algorithms/similarity-functions/[here]. These functions are useful when you are interested in measuring similarity between a single select node pair at a time as opposed to calculating similarity over the entire graph.
 
 == Check your Understanding
 
+include::questions/1-algorithm-purpose.adoc[leveloffset=+1]
+
+include::questions/2-name-the-algorithm.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
+In this lesson you learned about similarity algorithms and how to practically apply them in GDS.
