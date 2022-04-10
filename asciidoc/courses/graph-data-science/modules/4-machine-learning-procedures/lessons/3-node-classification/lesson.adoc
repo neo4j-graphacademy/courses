@@ -37,6 +37,7 @@ For this example, we will train a model to predict which movies in the graph are
 
 `Genre` is currently represented by its own node in the graph.  For this problem we need it represented as a property of the `Movie` node.  For demonstration purposes we will assign a `cls` property which is 1 if the movie is a comedy and 0 otherwise.
 
+[source,cypher]
 ----
 MATCH(m:Movie)-[:IN_GENRE]->(g)
 WITH m , collect(g.name) AS genres
@@ -46,6 +47,7 @@ RETURN count(m), m.cls;
 
 The `Movie` node also has some missing property values for runtime and 'imdbRating which could carry predictive sdiginal for this problem. In a real-world scenario we may want to impute values for these, for purposes of quick demonstration we will just exclude them from the sample via label assignment. While we do this we will filter the movies to only consider those released on or after 2010 as this type of data may drift overtime making data further in the past less relevant.
 
+[source,cypher]
 ----
 MATCH(m:Movie)
 WHERE m.year >= 2010
@@ -57,6 +59,7 @@ RETURN count(m)
 
 Now we can project a graph using the `TrainMovie` node label. We will project mirroring natural and reverse relationships then use `collapsePath` to provide a monopartite projection which will make the graph easier to handle inside the pipeline for a quick demonstration.
 
+[source,cypher]
 ----
 CALL gds.graph.project('proj',
     {
@@ -81,7 +84,7 @@ CALL gds.alpha.collapsePath.mutate('proj',
 
 ==== Configure the Pipeline
 
-The configuration steps will roughly follow the the steps in the [REFERENCE DIAGRAM]
+The configuration steps are as follows. Technically they need not be configured in order, though it helps to do so to make things easy to follow.
 
 . Create the Pipeline
 . Add Node Properties
@@ -91,6 +94,7 @@ The configuration steps will roughly follow the the steps in the [REFERENCE DIAG
 
 To get started, create the pipeline by running the following command
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.create('pipe')
 ----
@@ -101,6 +105,7 @@ For our problem, let’s do a few things
 
 First, lets generate FastRP embeddings which will encapsulate the locality of movie nodes in the graph
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addNodeProperty('pipe', 'fastRP', {
   embeddingDimension: 32,
@@ -112,6 +117,7 @@ YIELD name, nodePropertySteps;
 
 Next, we can add degree centrality which will measure the number of other movies that share actors.
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addNodeProperty('pipe', 'degree', {
   mutateProperty:'degree'
@@ -121,6 +127,7 @@ YIELD name, nodePropertySteps;
 
 Lastly, we will scale the runtime property which is good practice for values like this one that are relatively high magnitude compared to the other properties.
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addNodeProperty('pipe', 'alpha.scaleProperties', {
   nodeProperties: ['runtime'],
@@ -132,6 +139,7 @@ YIELD name, nodePropertySteps;
 
 Once the properties are configured, we can configure the subset of node properties that we want to use as features for the model
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.selectFeatures(
     'pipe',
@@ -141,6 +149,7 @@ YIELD name, featureProperties;
 
 After that we can configure the data splitting. In this case, it is fairly straightforward.  We configure a `testFraction` which determines how to randomly split between test and training nodes. Since the pipeline uses a cross-validation strategy, we can also set the number of validation folds we want here.
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.configureSplit('pipe', {
  testFraction: 0.2,
@@ -154,16 +163,19 @@ The final step to pipeline configuration is creating model candidates.  The pipe
 
 To demonstrate, we will just add a few different logistic regressions here with different penalty hyperparameters. GDS also has a random forest model and there are more hyperparameters for each that we could adjust, see the https://neo4j.com/docs/graph-data-science/current/machine-learning/training-methods/[docs] for more details.
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addLogisticRegression('pipe', {penalty: 0.0})
 YIELD parameterSpace;
 ----
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addLogisticRegression('pipe', {penalty: 0.1})
 YIELD parameterSpace;
 ----
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.addLogisticRegression('pipe', {penalty: 1.0})
 YIELD parameterSpace;
@@ -174,12 +186,13 @@ YIELD parameterSpace;
 The following command will train the pipeline. This process will
 
 . Apply node and relationship filters
-. Executing the above pipeline configuration steps
-. Training and cross-validation for all the candidate models
-. Selecting the best candidate according to the `metric` parameter.  We will use `ACCURACY` for ease of interpretation but other F1 and precision/recall metrics exists, you can reference them in the documentation https://neo4j.com/docs/graph-data-science/current/machine-learning/nodeclassification-pipelines/#nodeclassification-pipeline-metrics[here]
+. Execute the above pipeline configuration steps
+. Train with cross-validation for all the candidate models
+. Select the best candidate according to the `metric` parameter.  We will use `ACCURACY` for ease of interpretation but other F1 and precision/recall metrics exists, you can reference them in the documentation https://neo4j.com/docs/graph-data-science/current/machine-learning/nodeclassification-pipelines/#nodeclassification-pipeline-metrics[here]
 . Retrain the winning model on the entire training set and do a final evaluating on the test set according to the `metric`
-. Registering the winning model in the model catalog
+. Register the winning model in the model catalog
 
+[source,cypher]
 ----
 CALL gds.beta.pipeline.nodeClassification.train('proj', {
   pipeline: 'pipe',
@@ -203,6 +216,7 @@ This command should output training scores according to `metric`. In this case w
 
 The operation for predicting with the trained model and writing back to the graph has the following form
 
+[source,cypher,role=noplay]
 ----
 CALL gds.beta.pipeline.nodeClassification.predict.write(
   graphName: String,
