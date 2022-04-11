@@ -75,11 +75,18 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
 
     modules.sort((a, b) => a.order < b.order ? -1 : 1)
 
+    const createdAt = course.createdAt ? new Date(course.createdAt.toString()) : undefined
+    const completedAt = course.completedAt ? new Date(course.completedAt.toString()) : undefined
+    const lastSeenAt = course.lastSeenAt ? new Date(course.lastSeenAt.toString()) : undefined
+
     return {
         ...course,
         summary: courseSummaryExists(course.slug),
         modules,
         badge,
+        createdAt,
+        completedAt,
+        lastSeenAt,
     }
 }
 
@@ -307,7 +314,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         if ( key.endsWith('repository') ) {
             attributes[ key ] = value
             attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
-            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob/`
+            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob`
         }
     }
 

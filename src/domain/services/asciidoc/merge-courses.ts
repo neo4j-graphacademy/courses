@@ -7,11 +7,44 @@ import { ATTRIBUTE_ORDER, Module } from '../../model/module';
 import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, } from '../../model/lesson';
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
+import { Asciidoctor } from '@asciidoctor/core/types';
 
 interface CourseToImport extends Partial<Course> {
     attributes: Record<string, any>;
     prerequisiteSlugs: string[];
     progressToSlugs: string[];
+}
+
+/**
+ * Attributes or folder slugs used to determine the order
+ * are converted into a string so they can be compared
+ */
+type LessonToImport = Omit<Lesson, 'order'> & { order: string }
+type ModuleToImport = Omit<Module, 'order'> & { order: string }
+
+
+const padOrder = (order: string | number): string => {
+    return ('0000'+ order).slice(-4)
+}
+
+const getOrderAttribute = (folder: string, file: Asciidoctor.Document): string => {
+    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+
+    if ( typeof order === 'string' ) {
+        order = padOrder(order)
+    }
+
+    // If order is undefined, use the first part of folder name to order
+    // eg: 1-first or 10-tenth
+    if ( order === undefined ) {
+        const folderParts = folder.split('/')
+        const folderName = folderParts[ folderParts.length -1 ]
+
+        const orderParts = folderName.split('-')
+        order = padOrder(orderParts[0])
+    }
+
+    return order
 }
 
 const loadCourses = (): CourseToImport[] => {
@@ -32,6 +65,9 @@ const loadCourse = (courseFolder: string): CourseToImport => {
             .filter(item => fs.existsSync(path.join(moduleDir, item, 'module.adoc')))
             .map(item => loadModule(path.join(courseFolder, 'modules', item)))
         : []
+
+    // Sort Modules
+    modules.sort((a, b) => a.order < b.order ? -1 : 1)
 
     const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, '')
         .split(',')
@@ -75,11 +111,14 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         prerequisiteSlugs,
         progressToSlugs,
         categories,
-        modules,
+        modules: modules.map((module, index) => ({
+            ...module,
+            order: index,
+        })),
     }
 }
 
-const loadModule = (folder: string): Module => {
+const loadModule = (folder: string): ModuleToImport => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
     const file = loadFile(path.join(folder, 'module.adoc'), {parse_header_only: true})
 
@@ -89,27 +128,26 @@ const loadModule = (folder: string): Module => {
         ? fs.readdirSync(lessonsDir)
             .filter(filename => fs.lstatSync(path.join(lessonsDir, filename)).isDirectory() && fs.existsSync(path.join(lessonsDir, filename, 'lesson.adoc')))
             .map(filename => loadLesson(path.join(folder, 'lessons', filename)))
-            .sort((a, b) => a.order > b.order ? -1 : 1)
         : []
 
-    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+    // Sort Lessons
+    lessons.sort((a, b) => a.order < b.order ? -1 : 1)
 
-    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
-
-        order = orderNumber
-    }
+    let order = getOrderAttribute(folder, file)
 
     return {
         path: path.join(folder, 'module.adoc'),
         slug,
         title: file.getTitle() as string,
         order,
-        lessons,
+        lessons: lessons.map((lesson, index) => ({
+            ...lesson,
+            order: index
+        })),
     }
 }
 
-const loadLesson = (folder: string): Lesson => {
+const loadLesson = (folder: string): LessonToImport => {
     const slug = folder.split('/').filter(a => !!a).pop()! as string
     const file = loadFile(path.join(folder, 'lesson.adoc'), {parse_header_only: true})
 
@@ -121,13 +159,8 @@ const loadLesson = (folder: string): Lesson => {
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
         : []
 
-    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
-    if ( order === undefined && slug.match(/^([0-9]+)-/) ) {
-        const [ _, orderNumber] = slug.match(/^([0-9]+)-/)!
-
-        order = orderNumber
-    }
+    let order = getOrderAttribute(folder, file)
 
     return {
         path: folder,
@@ -140,7 +173,7 @@ const loadLesson = (folder: string): Lesson => {
         optional: file.getAttribute(ATTRIBUTE_OPTIONAL, false) === 'true',
         disableCache: file.getAttribute(ATTRIBUTE_DISABLE_CACHE, false) === 'true',
         questions,
-    } as Lesson
+    } as LessonToImport
 }
 
 const generateQuestionId = (title: string): string => {

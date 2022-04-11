@@ -10,6 +10,10 @@ let cache: ChatStatistics;
 let updatedAt: Date;
 
 export async function getChatStatistics(): Promise<ChatStatistics> {
+    if ( DISCORD_ID === undefined ) {
+        return Promise.resolve({ online: 0 })
+    }
+
     const now = new Date()
 
     if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {

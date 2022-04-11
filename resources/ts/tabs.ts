@@ -64,7 +64,7 @@ function handleGenericTabs() {
                     setTabSelectedInTabSet(link)
 
                     // Hide all visible tab elements
-                    document.querySelectorAll(`.${TAB_TARGET_VISIBLE}`).forEach(element => element.classList.remove(TAB_TARGET_VISIBLE))
+                    document.querySelectorAll(`.${TAB_TARGET_VISIBLE}`).forEach(otherTabElement => otherTabElement.classList.remove(TAB_TARGET_VISIBLE))
 
                     // Set target to active within
                     findTargets(link)
