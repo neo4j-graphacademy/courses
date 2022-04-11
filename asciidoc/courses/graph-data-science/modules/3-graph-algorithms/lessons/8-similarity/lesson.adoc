@@ -12,27 +12,32 @@ Common use cases for similarity include:
 * *Entity Resolution*: Identify nodes that are similar to one another based on activity or identifying information in the graph
 
 === Similarity Algorithms in GDS
+
 GDS has two primary similarity algorithms:
 
-* *Node Similarity*: Determines similarity between nodes based on the relative proportion of shared neighboring nodes in the graph. Node Similarity is a good choice where explainable is important, and you can narrow down the universe of comparisons to a subset of your data. Examples of narrowing down include focusing on just single communities, newly added nodes, or nodes within a specific proximity to a subgraph of interest.
+* *Node Similarity*: Determines similarity between nodes based on the relative proportion of shared neighboring nodes in the graph. Node Similarity is a good choice where explainability is important, and you can narrow down the universe of comparisons to a subset of your data. Examples of narrowing down include focusing on just single communities, newly added nodes, or nodes within a specific proximity to a subgraph of interest.
 
 * *K-Nearest Neighbor (KNN):* Determines similarity based off node properties.  The GDS KNN implementation can scale well for global inference over large graphs when tuned appropriately. it can be used in conjunction with embeddings and other graph algorithms to determine the similarity between nodes based on proximity in the graph, node properties, community structure, importance/centrality, etc.
 
 === Choice of Similarity Metric
+
 Both Node Similarity and KNN provide choices between different similarity metrics. Node Similarity has choices between jaccard and overlap similarity. KNN choice of metric is driven by the node property types. list of integers are subject to jaccard and overlap, list of floating point numbers to cosine similarity, pearson, and euclidean. Using different metrics will of course alter the similarity score and change the interpretation slightly. You can read more about the different metrics for Node Similarity https://neo4j.com/docs/graph-data-science/current/algorithms/node-similarity/#algorithms-node-similarity-syntax[in the Node Similarity documentation^] and for KNN https://neo4j.com/docs/graph-data-science/current/algorithms/knn/#algorithms-knn-introduction-metrics[in the K-Nearest Neighbors documentation].
 
 
 === Controlling Scope of Comparisons
+
 Comparing every node to every other node in the graph is a computationally expensive task of roughly `O(n^2)` complexity. The GDS implementations for both Node Similarity and KNN have internal mechanisms to intelligently select node pairs for comparison allowing them to work faster and scale better. They also have parameters that can be adjusted by the user to tune how node pairs are sampled and selected for comparison.
 
-Node Similarity has a `degreeCutoof` for nodes which allows you to select a lower limit on nodes to be selected.
+Node Similarity has a `degreeCutOff` parameter for nodes which allows you to select a lower limit on nodes to be selected.
 
-KNN has various parameters that can be tuned to effect the speed vs completeness trade-off of node comparisons, including sampling rate, initial sampler methodology, random join counts between iteration, and a few others.  You can read more about how these work in the https://neo4j.com/docs/graph-data-science/current/algorithms/knn/#algorithms-knn-syntax[K-Nearest Neighbors documentation^].
+KNN has various parameters that can be tuned to affect the speed vs completeness trade-off of node comparisons, including sampling rate, initial sampler methodology, random join counts between iteration, and a few others.  You can read more about how these work in the https://neo4j.com/docs/graph-data-science/current/algorithms/knn/#algorithms-knn-syntax[K-Nearest Neighbors documentation^].
 
 === Controlling Scope of Results
+
 For similarity comparisons we may also want to control the number of results returned to only consider the most relevant node pairs. Both Node Similarity and KNN have a `topK` parameter to limit the number similarity comparisons returned per node. With node similarity there is also the capability to limit the results globally as opposed to just a per node basis.
 
 === Applied Example with KNN
+
 Let's take the embeddings we calculated from the node embedding lesson and use them to determine similarity between the actors and directors based on movies they have been involved with. If you do not have the graph projection from the previous node embeddings lesson saved you can regenerate it with the below:
 
 [source,cypher]
@@ -43,8 +48,8 @@ CALL gds.graph.project('proj', ['Movie', 'Person'], {
 });
 ----
 
-
 We will then run FastRP like in the last lesson except in mutate mode so the embeddings will be saved in the projection.
+
 [source,cypher]
 ----
 CALL gds.fastRP.mutate('proj',  {
@@ -55,7 +60,8 @@ CALL gds.fastRP.mutate('proj',  {
 ----
 
 
-After that we can run similarity.  We will use the default cosine metric. For purposes of demonstrationI will limit `topK` to one so we can see the top pairs for each node.
+After that we can run similarity.  We will use the default cosine metric. For purposes of demonstration, I will limit `topK` to one so we can see the top pairs for each node.
+
 [source,cypher]
 ----
 CALL gds.knn.stream('proj', {nodeLabels:['Person'], nodeProperties:['embedding'], topK:1})
