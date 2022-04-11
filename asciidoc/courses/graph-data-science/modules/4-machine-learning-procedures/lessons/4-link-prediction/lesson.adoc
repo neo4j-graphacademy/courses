@@ -127,13 +127,13 @@ CALL gds.beta.pipeline.linkPrediction.addFeature('pipe', 'hadamard', {
 }) YIELD featureSteps;
 ----
 
-After that we configure the relationship splitting which sets the train/test/feature set proportions, the negative sampling ratio, and the number of validations folds used in-cross validation. For our example, we will split the relationship into 20% test, 40% train, and 40% feature-input. This gives us a good balance between all the sets. We will also use 2.0 for the negative sampling ratio, giving us a sizable negative example for demonstration that won't take too long to estimate.  In the context of link prediction, a negative example is any node pair without a link between it. These are randomnly sampled in the relationship splitting step. You can read more on different strategies for setting the negative sample ratio in the https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#linkprediction-pipelines-classimbalance:[Link Prediction Pipelines documentation^].
+After that we configure the relationship splitting which sets the train/test/feature set proportions, the negative sampling ratio, and the number of validations folds used in-cross validation. For our example, we will split the relationship into 20% test, 40% train, and 40% feature-input. This gives us a good balance between all the sets. We will also use 2.0 for the negative sampling ratio, giving us a sizable negative example for demonstration that won't take too long to estimate.  In the context of link prediction, a negative example is any node pair without a link between it. These are randomly sampled in the relationship splitting step. You can read more on different strategies for setting the negative sample ratio in the https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#linkprediction-pipelines-classimbalance:[Link Prediction Pipelines documentation^].
 
 [source,cypher]
 ----
 CALL gds.beta.pipeline.linkPrediction.configureSplit('pipe', {
     testFraction: 0.2,
-    trainFraction: 0.4,
+    trainFraction: 0.5,
     negativeSamplingRatio: 2.0
 }) YIELD splitConfig;
 ----
@@ -182,19 +182,27 @@ modelInfo.metrics.AUCPR.test AS testScore
 
 
 === Prediction with the Model
-Once the pipeline is trained we can use it to predict new links in the graph. The pipeline can be re-applied to data with the same schema.  Below we show a streaming example, but this alos has a mutate mode which can then be used
+Once the pipeline is trained you can use it to predict new links in the graph. The pipeline can be re-applied to data with the same schema.  Below we show a streaming example.
 
 [source,cypher]
 ----
 CALL gds.beta.pipeline.linkPrediction.predict.stream('proj', {
   modelName: 'lp-pipeline-model',
-  topN: 5,
-  initialSampler:'randomWalk'
+  sampleRate:0.1,
+  topK:1,
+  randomSeed: 7474,
+  concurrency: 1
 })
  YIELD node1, node2, probability
  RETURN gds.util.asNode(node1).name AS actor1, gds.util.asNode(node2).name AS actor2, probability
  ORDER BY probability DESC, actor1
 ----
+
+This operation supports a `mutate` execution mode to save the predicted links in the graph projection. If you want to write back to the database you can use the `mutate` mode followed by the `gds.graph.writeRelationship` command covered in the https://neo4j.com/docs/graph-data-science/current/graph-catalog-relationship-ops/[graph catalog documentation].
+
+This predict operation also has various sampling parameters that can be leveraged to more efficiently evaluate the large number of possible node pairs.  The procedure will only select node pairs that do not currently have a link between them. You can read more about the procedure and parameters for sampling https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/#algorithms-link-prediction-pipelines-predict[here].
+
+
 
 === Check your understanding
 
