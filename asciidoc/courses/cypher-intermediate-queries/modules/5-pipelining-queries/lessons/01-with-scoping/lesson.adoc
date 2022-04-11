@@ -1,0 +1,163 @@
+= Scoping Variables
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::ImKvXY72SA0[youtube,width=560,height=315]
+
+//[.transcript]
+== Scoping variables for a query
+
+You have already learned how you can specify a variable for a node or relationship in a query:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title AS movies
+----
+In this query the variable p is used to test each Person node against the value Tom Hanks.
+The variable m is used to return the movie titles.
+
+You can define and initialize variables be used in the query with a `WITH` clause.
+
+[source,cypher]
+----
+WITH 'Tom Hanks' AS actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = actorName
+RETURN m.title AS movies
+----
+
+Before the `MATCH` clause, we define a variable, actorName to have a value of Tom Hanks.
+The variable, actorName is in the scope of the query so it can be used like a parameter.
+The query itself can be reused with a different value for actorName.
+
+[NOTE]
+--
+You will learn about using parameters in Cypher later in this course.
+--
+
+=== Using `WITH` to redefine scope
+
+Let's look at scoping variables in more detail. Suppose we have this query:
+
+[source,cypher]
+----
+WITH  'toy story' AS mt, 'Tom Hanks' AS actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = actorName AND toLower(m.title) CONTAINS mt
+RETURN m.title AS movies
+----
+
+For this query, mt and actorName are within scope of the `MATCH` clause that also uses the `WHERE` clause.
+It retrieves the Person node, then all of the movies that Tom Hanks acted in, then it filters and returns the movies that contain mt.
+
+Now, let's look at this query:
+
+[source,cypher]
+----
+WITH  'toy story' AS mt, 'Tom Hanks' AS actorName
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WITH m, toLower(m.title) AS movieTitle
+WHERE p.name = actorName AND movieTitle CONTAINS mt
+RETURN m.title AS movies, movieTitle
+----
+
+The variables mt, and actorName are available to the `MATCH` clause and the `WHERE` clause just like the previous query.
+What is different here, however, is that we must add the m to the second `WITH` clause so that the node can be used to return the title of the node.
+A `WITH` clause is used to define or redefine the scope of variables.
+Because we want to redefine what is used for the `WHERE` clause, we add a new `WITH` clause.
+This creates a new scope for the remainder of the query so that m and movieTitle can be used to return values.
+If you were to remove the m in the second `WITH` clause, the query would not compile.
+
+Notice also that you can define expressions using `WITH`.
+When you define an expression (for example, toLower(m.title), you must specify an alias defined with the `AS` keyword.
+
+//Note if you were to profile this last query, you would find that it performs much worse than the previous query.
+
+=== Limiting results
+
+Suppose we have this query where we want to return only two rows:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+RETURN m.title AS movies LIMIT 2
+----
+
+Another way to write this query is:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+WITH m  LIMIT 2
+// possibly do more with the two m nodes
+RETURN m.title AS movies
+----
+
+With this query, two Movie nodes are retrieved. What is different here is that you can use `WITH` to limit how many m nodes are used later in the query.
+Passing nodes on to the next `MATCH` clause is called pipelining that you will learn about in the next lesson.
+
+=== Ordering results
+
+If you are limiting the nodes to process further on in the query or for the `RETURN` clause, you can also order them:
+
+[source,cypher]
+----
+WITH  'Tom Hanks' AS theActor
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = theActor
+WITH m   ORDER BY m.year LIMIT 5
+// possibly do more with the five m nodes in a particular order
+RETURN m.title AS movies, m.year AS yearReleased
+----
+
+=== Using map projections in a `WITH` clause
+
+Here is another example where we want to customize the properties of nodes that are returned.
+Using a map projection, you can specify which properties are returned.
+This type of customization of nodes returned is very useful when you are integrating with an application.
+
+
+[source,cypher]
+----
+MATCH (n:Movie)
+WHERE n.imdbRating IS NOT NULL AND n.poster IS NOT NULL
+WITH n {
+  .title,
+  .year,
+  .languages,
+  .plot,
+  .poster,
+  .imdbRating,
+  directors: [ (n)<-[:DIRECTED]-(d) | d { tmdbId:d.imdbId, .name } ]
+}
+ORDER BY n.imdbRating DESC LIMIT 4
+RETURN collect(n)
+----
+
+This query returns a subset of the data in a Movie node. It returns the top four rated movies.
+Because we have specified a limit of four, only 4 objects  with the specified properties are added to the list.
+This type of data returned is commonly used by GraphQL and JavaScript applications.
+
+[NOTE]
+--
+Although this is nice for processing on the client side, it takes more memory on the server as records cannot be streamed to the client but are collected into the list structure on the server.
+--
+
+== Check your understanding
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, how `WITH` is used to scope variables in a query and how you can limit scope to a subset of data.
+
+In the next challenge, you will write a query that scopes variables.
