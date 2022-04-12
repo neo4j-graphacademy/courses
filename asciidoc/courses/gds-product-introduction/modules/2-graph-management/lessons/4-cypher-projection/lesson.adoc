@@ -18,7 +18,7 @@ In this lesson, we will go over the cypher projection syntax, an applied example
 
 === Syntax
 
-A Cypher projection takes three mandatory arguments: `graphName`, `nodeQuery`, and `relationshipQuery`. In addition, the optional configuration parameter allows us to further configure graph creation.
+A Cypher projection takes three mandatory arguments: `graphName`, `nodeQuery`, and `relationshipQuery`. In addition, the optional `configuration` parameter allows us to further configure graph creation.
 
 [opts="header",cols="1,1,8"]
 |===
@@ -81,7 +81,7 @@ The results include some big name actors as we would expect.
 In the above example, there were two things that prevented us from directly using a native projection. They also happen to be two of the most common cases for using Cypher Projections.
 
 . *Complex Filtering:* Using node and/or relationship property conditions or other more complex MATCH/WHERE conditions to filter the graph, rather than just node label and relationship types.
-. *Aggregating Multi-Hop Paths with Weights:* The relationship projection required aggregating the `(Actor)-[ACTED_IN]-(Movie)-[ACTED_IN]-(Actor)` pattern to a `(Actor)-[ACTED_WITH {actedWithCount}]-(Actor)` where the `actedWithCount` acts as a relationship weight property. This type of projection, where we need to transform multi-hop paths into an aggregated relationship that connects the source and target node, is a commonly occurring pattern in graph analytics.
+. *Aggregating Multi-Hop Paths with Weights:* The relationship projection required aggregating the `(Actor)-[ACTED_IN]-(Movie)-[ACTED_IN]-(Actor)` pattern to a `(Actor)-[ACTED_WITH {actedWithCount}]-(Actor)` pattern where the `actedWithCount` is a relationship weight property. This type of projection, where we need to transform multi-hop paths into an aggregated relationship that connects the source and target node, is a commonly occurring pattern in graph analytics.
 
 There are a few other special use cases for Cypher projections too, including merging different node labels and relationship types and defining virtual relationships between nodes based on property conditions or other query logic.
 
@@ -90,7 +90,7 @@ There are a few other special use cases for Cypher projections too, including me
 
 While Cypher projections are great for experimenting with these patterns and for small subsets of the graph, we encourage you to transition to native projections as workflows mature, graph projections become larger, and fast performance becomes more important.
 
-For example, with the calculations we made above, we can instead use the following workflow which takes advantage of collapse path in a native projection. This technique does not weight the resulting relationships, the ranking of top actors is not exactly the same but still very similar.
+For example, with the calculations we made above, we can instead use the following workflow which takes advantage of collapse path in a native projection. This technique does not weight the resulting relationships, so while the ranking of top actors is not exactly the same it is still very similar.
 
 [source, cypher]
 ----
@@ -114,14 +114,16 @@ CALL gds.alpha.collapsePath.mutate('proj-native',{
     allowSelfLoops: false,
     mutateRelationshipType: 'ACTED_WITH'
 });
+----
 
+[source, cypher]
+----
 //count actors that acted with the most other actors in recent high grossing movies and stream the top 15
 CALL gds.degree.stream('proj-native', {nodeLabels:['Actor'], relationshipTypes: ['ACTED_WITH']})
 YIELD nodeId, score
 RETURN gds.util.asNode(nodeId).name AS name, score
 ORDER BY score DESC LIMIT 15
 ----
-
 
 [options="header"]
 |===========================
@@ -146,7 +148,7 @@ ORDER BY score DESC LIMIT 15
 Here are some general tips for transition workflow from cypher to native projections depending on the initial use case:
 
 . *Filtering with Node Property Conditions*: Add a label to nodes that meet the property condition(s) so you can filter in the native projection
-. *Filtering with Relationship Property Conditions:* If possible, add a label to source and target nodes for each relationship that meets the property condition. Otherwise consider adding an Additional Relationship type to your data model to capture the relationships that meet the condition.
+. *Filtering with Relationship Property Conditions:* If possible, add a label to source and target nodes for each relationship that meets the property condition. Otherwise, consider adding an additional relationship type to your data model to capture the relationships that meet the condition.
 . *Aggregating Multi-Hop Paths:*
     .. See if collapse-path can meet your use case needs.  It doesn’t weight relationships, but results can often be very similar to weighted aggregations
     .. For certain types of problems on large projections, similarity and embedding algorithms can be used to approximate the aggregated relationships.
