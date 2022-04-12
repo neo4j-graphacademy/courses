@@ -17,7 +17,7 @@ MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 WHERE p.name = theActor
 WITH m  LIMIT 5
 // possibly do more with the five m nodes
-RETURN m.title AS Movies
+RETURN m.title AS movies
 ----
 
 This query limits the query to retrieve five nodes.
@@ -31,12 +31,14 @@ MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 WHERE p.name = theActor
 WITH m  LIMIT 5
 MATCH (d:Person)-[:DIRECTED]->(m)
-RETURN d.name as Director, m.title AS Movies
+RETURN d.name AS director,
+m.title AS movies
 ----
 
 The five Movie nodes are used for the second `MATCH` clause and five rows are returned.
 The `WITH` clause enables us to pipeline the results of the first query into the second query.
 With this simple query, m need not be redefined or scoped.
+
 Next you will learn how pipelining is really useful.
 
 === Using WITH for aggregation
@@ -49,8 +51,12 @@ Here is an example:
 ----
 MATCH (:Movie {title: 'Toy Story'})-[:IN_GENRE]->(g:Genre)<-[:IN_GENRE]-(m)
 WHERE m.imdbRating IS NOT NULL
-WITH g.name as Genre, count(m) as moviesInCommon, sum(m.imdbRating) as total
-RETURN Genre, moviesInCommon as `Movies in Common`,  total/moviesInCommon as Score ORDER by Score DESC
+WITH g.name AS genre,
+count(m) AS moviesInCommon,
+sum(m.imdbRating) AS total
+RETURN genre, moviesInCommon,
+total/moviesInCommon AS score
+ORDER By score DESC
 ----
 
 In this query we are counting the number of movies that share the same Genre node.
@@ -66,11 +72,13 @@ MATCH (u:User {name: "Misty Williams"})-[r:RATED]->(:Movie)
 WITH u, avg(r.rating) AS average
 MATCH (u)-[r:RATED]->(m:Movie)
 WHERE r.rating > average
-RETURN average , m.title AS Movie, r.rating as Rating ORDER BY Rating DESC
+RETURN average , m.title AS movie,
+r.rating as rating
+ORDER BY rating DESC
 ----
 
 For this query, we first calculate the average rating for all movies that Misty Williams rated.
-Then we use this calcuated value, average as a test for the second `MATCH`.
+Then we use this calculated value, average as a test for the second `MATCH`.
 
 === Using WITH for collecting
 
@@ -80,8 +88,10 @@ Another common use for the `WITH` clause is to collect results into a list that 
 ----
 MATCH (m:Movie)--(a:Actor)
 WHERE m.title CONTAINS 'New York'
-WITH m, collect (a.name) AS actors, count(*) AS numActors
-RETURN m.title AS `Movie title`, actors ORDER BY numActors DESC
+WITH m, collect (a.name) AS actors,
+count(*) AS numActors
+RETURN m.title AS movieTitle, actors
+ORDER BY numActors DESC
 ----
 
 This query collects the names of actors who acted in the movies containing the string 'New York'.
@@ -93,10 +103,11 @@ Here is another example where we perform a 2-step aggregation for collecting a l
 ----
 MATCH (m:Movie)<-[:ACTED_IN]-(a:Actor)
 WHERE m.title CONTAINS 'New York'
-WITH m, collect (a.name) AS actors, count(*) AS numActors ORDER BY numActors DESC
+WITH m, collect (a.name) AS actors,
+count(*) AS numActors
+ORDER BY numActors DESC
 RETURN collect(m { .title, actors, numActors }) AS movies
 ----
-
 
 === Using LIMIT early
 
@@ -108,10 +119,11 @@ For example, this query limits during the aggregation:
 
 [source,cypher]
 ----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 WHERE p.born.year = 1980
-WITH p, collect(m.title) AS Movies LIMIT 3
-RETURN p.name as Actor, Movies
+WITH p,
+collect(m.title) AS movies LIMIT 3
+RETURN p.name AS actor, movies
 ----
 
 A better way to do this query is to limit early.
@@ -123,8 +135,8 @@ PROFILE MATCH (p:Actor)
 WHERE p.born.year = 1980
 WITH p  LIMIT 3
 MATCH (p)-[:ACTED_IN]->(m:Movie)
-WITH p, collect(m.title) AS Movies
-RETURN p.name AS Actor,  Movies
+WITH p, collect(m.title) AS movies
+RETURN p.name AS actor,  movies
 ----
 
 === Use DISTINCT when necessary
@@ -137,8 +149,8 @@ MATCH (p:Actor)
 WHERE p.born.year = 1980
 WITH p  LIMIT 3
 MATCH (p)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)
-WITH p, collect(g.name) AS Genres
-RETURN p.name as Actor, Genres
+WITH p, collect(g.name) AS genres
+RETURN p.name AS actor, genres
 ----
 
 Notice that for this query, the collected genre names are repeated.
@@ -150,8 +162,8 @@ MATCH (p:Actor)
 WHERE p.born.year = 1980
 WITH p  LIMIT 3
 MATCH (p)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)
-WITH p, collect(DISTINCT g.name) AS Genres
-RETURN p.name as Actor, Genres
+WITH p, collect(DISTINCT g.name) AS genres
+RETURN p.name AS actor, genres
 ----
 
 == Check your understanding
