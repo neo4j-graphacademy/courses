@@ -69,6 +69,7 @@ const main = async () => {
         u.auth0_key AS sub,
         CASE c.name WHEN 'neo4j-gds-test' THEN 'gds-certification' ELSE 'neo4j-certification' END AS slug,
         c {
+            .certificateNumber,
             .percent,
             .certificatePath,
             completedAt: datetime({epochSeconds: c.finished})
@@ -88,7 +89,8 @@ const main = async () => {
         MERGE (e:Enrolment {id: apoc.text.base64Encode(row.slug +'--'+ row.sub)})
         ON CREATE SET e.createdAt = datetime()
         SET e:CompletedEnrolment, e:FromCommunityGraph,
-            e += row.certification
+            e += row.certification,
+            e.certificateNumber = toInteger(row.certificateNumber)
 
         MERGE (u)-[:HAS_ENROLMENT]->(e)
         MERGE (e)-[:FOR_COURSE]->(c)

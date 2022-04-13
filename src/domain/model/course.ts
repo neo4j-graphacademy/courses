@@ -2,6 +2,7 @@ import { Sandbox } from "../../modules/sandbox";
 import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
 import { Pagination } from "./pagination";
+import { Integer } from "neo4j-driver";
 
 // Status
 export const STATUS_COMPLETED = 'completed'
@@ -57,6 +58,7 @@ export interface Course {
     verify: string | undefined;
     cypher: string | undefined;
     summary: boolean;
+    certificateNumber: Integer | boolean | undefined;
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }
