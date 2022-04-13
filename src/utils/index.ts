@@ -10,6 +10,7 @@ import { Category } from '../domain/model/category';
 import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc';
 import { getToken, getUser } from '../middleware/auth.middleware';
 import { getSandboxForUseCase } from '../modules/sandbox';
+import { isInt } from 'neo4j-driver';
 
 export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -78,6 +79,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const createdAt = course.createdAt ? new Date(course.createdAt.toString()) : undefined
     const completedAt = course.completedAt ? new Date(course.completedAt.toString()) : undefined
     const lastSeenAt = course.lastSeenAt ? new Date(course.lastSeenAt.toString()) : undefined
+    const certificateNumber = isInt(course.certificateNumber) ? course.certificateNumber.toNumber() : course.certificateNumber
 
     return {
         ...course,
@@ -87,6 +89,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         createdAt,
         completedAt,
         lastSeenAt,
+        certificateNumber,
     }
 }
 
