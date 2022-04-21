@@ -15,6 +15,8 @@
 
 // Import commands.js using ES2015 syntax:
 import './commands'
+import './course.commands'
+import './lesson.commands'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

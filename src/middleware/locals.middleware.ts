@@ -39,6 +39,8 @@ export function registerLocals(app: Express) {
         res.locals.baseUrl = process.env.BASE_URL
         res.locals.cdnUrl = process.env.CDN_URL || ''
 
+        res.locals.env = process.env.NODE_ENV
+
         // Load CSVs from resources/svg
         res.locals.svg = getSvgs()
 
