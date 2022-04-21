@@ -1,5 +1,5 @@
 import path from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import express, { Router, Request, Response, NextFunction } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { enrolInCourse } from '../domain/services/enrol-in-course'
@@ -737,6 +737,25 @@ router.use('/:course/:module/:lesson/images', (req, res, next) => {
     const { course, module, lesson } = req.params
 
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(req, res, next)
+})
+
+
+/**
+ * Static routing for module images
+ */
+router.use('/:course/:module/:lesson/:filename.cypher', (req, res, next) => {
+    const { course, module, lesson, filename } = req.params
+    const filepath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${filename}.cypher`)
+
+    if ( existsSync(filepath) ) {
+        // res.sendFile(filepath)
+        const contents = readFileSync(filepath)
+
+        return res.send(contents.toString())
+    }
+    else {
+        next(new NotFoundError(`The file ${filename}.cypher doesn't exist for this lesson`))
+    }
 })
 
 /**
