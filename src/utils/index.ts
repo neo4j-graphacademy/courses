@@ -62,8 +62,6 @@ export async function formatLesson(course: string, module: string, lesson: Lesso
 export async function formatModule(course: string, module: Module | ModuleWithProgress): Promise<Module | ModuleWithProgress> {
     const lessons = await Promise.all((module.lessons || []).map((lesson: Lesson | LessonWithProgress) => formatLesson(course, module.slug, lesson)))
 
-    lessons.sort((a, b) => a.order < b.order ? -1 : 1)
-
     return {
         ...module,
         lessons,
@@ -73,8 +71,6 @@ export async function formatModule(course: string, module: Module | ModuleWithPr
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
     const badge = await getBadge(course)
-
-    modules.sort((a, b) => a.order < b.order ? -1 : 1)
 
     const createdAt = course.createdAt ? new Date(course.createdAt.toString()) : undefined
     const completedAt = course.completedAt ? new Date(course.completedAt.toString()) : undefined
