@@ -133,7 +133,7 @@ const loadModule = (folder: string): ModuleToImport => {
     // Sort Lessons
     lessons.sort((a, b) => a.order < b.order ? -1 : 1)
 
-    let order = getOrderAttribute(folder, file)
+    const order = getOrderAttribute(folder, file)
 
     return {
         path: path.join(folder, 'module.adoc'),
@@ -160,7 +160,7 @@ const loadLesson = (folder: string): LessonToImport => {
         : []
 
 
-    let order = getOrderAttribute(folder, file)
+    const order = getOrderAttribute(folder, file)
 
     return {
         path: folder,
