@@ -1,6 +1,19 @@
 import { createElement } from './modules/dom'
 import { post } from './modules/http'
 
+declare global {
+    interface Window {
+        env: 'dev' | undefined;
+        user?: {sub:string, id: string};
+        analytics: {
+            course: Record<string, any>;
+            module: Record<string, any>;
+            lesson: Record<string, any>;
+            user: Record<string, any>;
+        };
+    }
+}
+
 interface Question {
     parent: Element;
     element: Element,
@@ -26,7 +39,9 @@ const LESSON_COMPLETED = 'lesson--completed'
 const CORRECT_INDICATOR = '✓'
 const INCORRECT_INDICATOR = '❏'
 const ADMONITION_VISIBLE = 'admonition--visible'
-const ADMONITION_SHOW = 'admonition-show'
+
+const ADMONITION_SHOW_HINT = 'admonition-show-hint'
+const ADMONITION_SHOW_SOLUTION = 'admonition-show-solution'
 const ADMONITION_SHOW_VISIBLE = 'admonition-show--visible'
 
 const QUESTION = 'question'
@@ -52,7 +67,19 @@ const ANSWER_TYPE_CHECKED = 'checked'
 
 const BUTTON_LOADING = 'btn--loading'
 
+let attempts = 0
+const ATTEMPTS_BEFORE_SOLUTION = 2 // Show solution tab on third attempt
+
 const cleanAnswer = (element: any) => {
+    if (window.env === 'dev') {
+        if (element.textContent!.includes(CORRECT_INDICATOR)) {
+            element.classList.add('__dev_correct')
+        }
+        else if (element.textContent!.includes(INCORRECT_INDICATOR)) {
+            element.classList.add('__dev_incorrect')
+        }
+    }
+
     return element.textContent!.replace(CORRECT_INDICATOR, '').replace(INCORRECT_INDICATOR, '').replace(/^\s+|\s+$/g, '')
 }
 
@@ -81,14 +108,34 @@ const getQuestionDetails = (element: Element): Question => {
 }
 
 const addHintListeners = (element: Element): void => {
-    element.querySelectorAll('.admonition')
+    element.querySelectorAll('.admonition.hint')
         .forEach(block => {
             const parent = block.parentElement
 
-            const show = createElement('button', ADMONITION_SHOW, ['Show Hint'])
+            const show = createElement('button', ADMONITION_SHOW_HINT, ['Show Hint'])
             show.addEventListener('click', e => {
                 e.preventDefault()
 
+                block.classList.add(ADMONITION_VISIBLE)
+                // show.classList.remove(ADMONITION_SHOW_VISIBLE)
+                show.parentElement?.removeChild(show)
+            })
+
+            parent?.insertBefore(show, block)
+        })
+
+    element.querySelectorAll('.admonition.solution')
+        .forEach(block => {
+            const parent = block.parentElement
+
+            const show = createElement('button', ADMONITION_SHOW_SOLUTION, ['Reveal Solution'])
+            show.addEventListener('click', e => {
+                e.preventDefault()
+
+                // Hide any hints
+                document.querySelectorAll('.hint').forEach(hintElement => {
+                    hintElement.parentElement!.removeChild(hintElement)
+                })
                 block.classList.add(ADMONITION_VISIBLE)
                 // show.classList.remove(ADMONITION_SHOW_VISIBLE)
                 show.parentElement?.removeChild(show)
@@ -109,6 +156,18 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
 
     const multiple = options.filter(answer => answer.correct).length > 1
 
+    if ( window.env === 'dev' ) {
+        element.setAttribute('data-question',
+            JSON.stringify({
+                multiple,
+                options: options.map(option => ({
+                    value: option.value,
+                    correct: option.correct,
+                }))
+            })
+        )
+    }
+
     options.map(answer => {
         const input = createElement('input', '')
         input.setAttribute('id', `${id}--${answer.value}`)
@@ -122,7 +181,6 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
             document.querySelectorAll(`input[name="${target.getAttribute('name')}"]`)
                 .forEach((inputElement) => {
                     const li: HTMLLIElement = inputElement.parentNode!.parentNode as HTMLLIElement
-
 
                     // @ts-ignore
                     if (inputElement.checked) {
@@ -307,7 +365,7 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             question.element.classList.remove(QUESTION_CORRECT)
 
             // Show hints links
-            question.element.querySelectorAll(`.${ADMONITION_SHOW}`)
+            question.element.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
                 .forEach((element) => {
                     element.classList.add(ADMONITION_SHOW_VISIBLE)
                 })
@@ -383,10 +441,24 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
         ]))
 
         if (showHint) {
-            // Show hints links
-            parent.querySelectorAll(`.${ADMONITION_SHOW}`)
-                .forEach((element) => {
-                    element.classList.add(ADMONITION_SHOW_VISIBLE)
+            // Show hints link
+            parent.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
+                .forEach((showHintElement) => {
+                    showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
+                })
+        }
+
+        if (attempts > ATTEMPTS_BEFORE_SOLUTION && parent.querySelector(`.${ADMONITION_SHOW_SOLUTION}`)) {
+            // Remove Show Hint buttons
+            parent.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
+                .forEach((showHintElement) => {
+                    showHintElement.parentElement!.removeChild(showHintElement)
+                })
+
+            // Show solution link
+            parent.querySelectorAll(`.${ADMONITION_SHOW_SOLUTION}`)
+                .forEach((showSolutionElement) => {
+                    showSolutionElement.classList.add(ADMONITION_SHOW_VISIBLE)
                 })
         }
 
@@ -440,7 +512,7 @@ const displayLessonCompleted = (res) => {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
-        const button = createElement('a', 'btn', [
+        const button = createElement('a', 'btn btn-primary', [
             'Advance to ',
             res.data.next.title,
             span
@@ -466,46 +538,41 @@ const displayLessonCompleted = (res) => {
 const displayCourseCompleted = (res) => {
     const actions: HTMLElement[] = []
 
+    const arrow = document.createElement('span')
+    arrow.innerHTML = ' &rarr;'
+
+    // Certificate Link
+    if ( window.analytics.user.id ) {
+        const button = createElement('a', 'btn btn-secondary', [
+            'View Certificate'
+        ])
+        // @ts-ignore
+        button.setAttribute('href', `/u/${window.analytics.user.id}/${window.analytics.course.slug}`)
+        button.setAttribute('target', '_blank')
+
+        actions.push(button)
+    }
+
+    actions.push(createElement('span', 'spacer', []))
+
     // Course Summary Link
-    // @ts-ignore
     if ( window.analytics.course.summary ) {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
-        const button = createElement('a', 'btn btn-secondary', [
+        const button = createElement('a', 'btn btn-primary', [
             'View Course Summary',
+            arrow,
         ])
         // @ts-ignore
         button.setAttribute('href', `${window.analytics.course.link}summary/`)
-        button.setAttribute('target', '_blank')
-
-        actions.push(button)
-
-        actions.push(createElement('span', 'spacer', []))
-    }
-
-    // Certificate Link
-    // @ts-ignore
-    if ( window.analytics.user.id ) {
-        const span = document.createElement('span')
-        span.innerHTML = ' &rarr;'
-
-        const button = createElement('a', 'btn', [
-            'View Certificate',
-            span
-        ])
-        // @ts-ignore
-        button.setAttribute('href', `/u/${window.analytics.user.id}/${window.analytics.course.slug}`)
 
         actions.push(button)
     }
     else {
-        const span = document.createElement('span')
-        span.innerHTML = ' &rarr;'
-
-        const button = createElement('a', 'btn', [
+        const button = createElement('a', 'btn btn-primary', [
             'My Courses',
-            span
+            arrow,
         ])
         // @ts-ignore
         button.setAttribute('href', `/account/courses`)
@@ -528,9 +595,21 @@ const displayCourseCompleted = (res) => {
     congratulations.classList.add('module-outcome-congratulations')
     congratulations.innerHTML=`
         <p>
+            <a href="${window.analytics.course.link}certificate/" target="_blank">
+                <img class="module-outcome-badge" src="${window.analytics.course.link}badge/" alt="${window.analytics.course.title} Badge" width="120">
+            </a>
             Congratulations on completing this course!  We hope that you have found the
             course useful and are now feeling more confident using Neo4j.
-            If you enjoyed the course, why not <strong>share your certificate</strong>
+        </p>
+        <p>
+
+            As part of this course, you have earned the
+            <strong>${window.analytics.course.title}</strong> badge
+            badge, which will appear on your
+            <a href="${window.analytics.course.link}certificate/" target="_blank">course certificate</a>.
+
+            If you enjoyed the course, why not
+            <a href="${window.analytics.course.link}certificate/" target="_blank">share your certificate</a>
             with your friends and colleagues?
         </p>
         <p>
@@ -649,6 +728,9 @@ const setupQuestions = async () => {
         button.addEventListener('click', (buttonClickEvent) => {
             buttonClickEvent.preventDefault()
 
+            // Increase number of attempts
+            attempts++
+
             // Gather answers
             const responses: Answer[] = questionsOnPage.map(question => {
                 let answers: string[] = [];
@@ -762,6 +844,9 @@ const setupVerify = () => {
 
                 setButtonLoadingState(button as HTMLButtonElement)
 
+                // Increment Attempts
+                attempts++
+
                 post(`${document.location.pathname}verify`)
                     .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
                     .catch(error => handleError(button.parentElement!.parentElement!, button, error))
@@ -792,8 +877,11 @@ const setupMarkAsReadButton = () => {
                 button.classList.add(BUTTON_LOADING)
                 button.setAttribute('disabled', 'disabled')
 
+                // Increment Attempts
+                attempts++
+
                 post(`${document.location.pathname}read`)
-                    .then(res => handleResponse(button.parentElement, button, res, [], [], true))
+                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
                     .catch(error => handleError(button.parentElement, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
