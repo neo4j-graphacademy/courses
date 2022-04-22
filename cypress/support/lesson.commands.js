@@ -24,13 +24,16 @@ Cypress.Commands.add('attemptLesson', lesson => {
                 cy.markAsRead(lesson)
             }
 
+            else if ( $body.find('.btn-verify').length > 0 ) {
+                cy.attemptVerification(lesson)
+            }
+
             // Answer Questions?
             else if ( $body.find('.section.question').length ) {
                 // Provide incorrect answer(s)
                 cy.failLesson()
 
                 // Check hint buttons
-                // TODO: Reinstate cy.checkAndShowHint
                 cy.get('.section.question')
                     .within(() => {
                         // Check Show Hint button
@@ -41,15 +44,10 @@ Cypress.Commands.add('attemptLesson', lesson => {
                         cy.get('.hint').should('be.visible')
                     })
 
-                // cy.get('.section.question .admonition-show-hint').click({multiple: true})
-                // cy.get('.section.question .hint').scrollIntoView().should('be.visible')
 
-
-
-                // // Provide incorrect answer(s) twice more to reveal solution button
-                // // TODO: Make this mandatory for all courses!
+                // Provide incorrect answer(s) twice more to reveal solution button
+                // TODO: Make this mandatory for all courses!
                 if ( $body.find('.solution').length ) {
-                    cy.failLesson()
                     cy.failLesson()
 
                     // Check solution buttons
@@ -57,14 +55,21 @@ Cypress.Commands.add('attemptLesson', lesson => {
                         .within(() => {
                             // Check Show Solution button
                             cy.get('.admonition-show-solution')
-                                .should('exist').click({multiple: true})
+                            .should('exist').click({multiple: true})
 
                             // Clicking shold show the solution
                             cy.get('.solution').should('be.visible')
                         })
+
+                    cy.failLesson()
+
+                    cy.get('.section.question')
+                        .within(() => {
+                            // Clicking shold show the solution
+                            cy.get('.solution').should('be.visible')
+                        })
+
                 }
-
-
 
                 // Provide Correct Answer(s)
                 cy.passLesson()
@@ -76,10 +81,54 @@ Cypress.Commands.add('attemptLesson', lesson => {
                 else {
                     cy.checkCourseCompletedOutcome()
                 }
-
             }
             else {
+                cy.fail('oops')
                 console.log('Dont know how to handle: ', lesson.link);
+            }
+        })
+})
+
+Cypress.Commands.add('attemptVerification', (lesson) => {
+    // Fail Verification
+    cy.get('.btn-verify').click()
+
+    // Check Hint
+    cy.get('.admonition-show-hint')
+        .should('exist').click({multiple: true})
+
+    // Clicking shold show the hint
+    cy.get('.hint').should('be.visible')
+
+    // Fail Verification
+    cy.get('.btn-verify').click()
+
+    // Check Solution
+    cy.get('.admonition-show-solution')
+        .should('exist').click({multiple: true})
+
+    // Clicking shold show the solution
+    cy.get('.solution').should('be.visible')
+
+    // Get and run solution.cypher
+    cy.request(`${lesson.link}solution.cypher`)
+        .then(response => {
+            cy.log(response.body)
+
+            // Execute the solution Cypher in the Sandbox
+            cy.executeCypher(response.body)
+
+            cy.wait(5000)
+
+            // Pass Lesson
+            cy.get('.btn-verify').click()
+
+            // Check verified & go to next
+            if (lesson.next) {
+                cy.checkLessonSuccessfulOutcome(lesson.next)
+            }
+            else {
+                cy.checkCourseCompletedOutcome()
             }
         })
 })
@@ -89,14 +138,15 @@ Cypress.Commands.add('failLesson', () => {
         const config = JSON.parse($el.attr('data-question'))
 
         /**
+         * type: 'select-in-source' | 'input-in-source' | 'freetext'
          * multiple: boolean,
          * options: [{ value: string, correct: boolean }]
          */
-        const { multiple, options } = config
+        const { type, multiple, options } = config
         const incorrect = options.filter(option => !option.correct)
         const correct = options.filter(option => option.correct)
 
-        cy.setAnswer(index, multiple ? options: incorrect, multiple)
+        cy.setAnswer(index, type, multiple ? options: incorrect, multiple)
 
         // TODO: Check indicators
     })
@@ -127,13 +177,14 @@ Cypress.Commands.add('passLesson', () => {
         const config = JSON.parse($el.attr('data-question'))
 
         /**
+         * type: 'select-in-source' | 'input-in-source' | 'freetext'
          * multiple: boolean,
          * options: [{ value: string, correct: boolean }]
          */
-        const { multiple, options } = config
+        const { type, multiple, options } = config
         const correct = options.filter(option => option.correct)
 
-        cy.setAnswer(index, correct, multiple)
+        cy.setAnswer(index, type, correct, multiple)
     })
 
     // Submit
@@ -162,7 +213,7 @@ Cypress.Commands.add('checkAndShowSolution', () => {
     cy.get('.solution').should('exist')
 })
 
-Cypress.Commands.add('setAnswer', (index, options, multiple) => {
+Cypress.Commands.add('setAnswer', (index, type, options, multiple) => {
     cy.get('.question').eq(index)
         .within(() => {
             // Uncheck any checkboxes
@@ -170,15 +221,19 @@ Cypress.Commands.add('setAnswer', (index, options, multiple) => {
                 cy.get('input[type=checkbox]').uncheck({force: true})
             }
 
+            cy.log('wtf are', options)
+
             options.forEach(option => {
-                if (option.type === 'select') {
+                if (type === 'select-in-source') {
                     cy.get('select').select(option.value)
                 }
-                else if (option.type === 'text') {
+                else if (type === 'freetext') {
                     cy.get('input, textarea').clear().type(option.value)
                 }
                 else {
-                    cy.get('.question-option').contains(option.value).click()
+                    // cy.get('.question-option').contains(option.value).click()
+                    cy.get('.question-option input[value="'+ option.value +'"]').check()
+
                 }
             })
         })
@@ -198,7 +253,7 @@ Cypress.Commands.add('checkLessonSuccessfulOutcome', next => {
     cy.get('.module-outcome').should('not.exist')
 })
 
-Cypress.Commands.add('checkCourseCompletedOutcome', (next) => {
+Cypress.Commands.add('checkCourseCompletedOutcome', () => {
     cy.get('.module-outcome').should('exist')
     cy.get('.module-outcome-actions .btn-primary').should('exist')
 

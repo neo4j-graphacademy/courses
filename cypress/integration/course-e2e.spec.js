@@ -56,7 +56,8 @@ describe('End to End Course', () => {
         cy.login()
 
         // for (const course of courses.slice(0, 1)) {
-        for (const course of courses.filter(course => course.slug == 'cypher-fundamentals')) {
+        const qa = ['neo4j-fundamentals'] //, 'cypher-fundamentals']
+        for (const course of courses.filter(course => qa.includes(course.slug))) {
             cy.enrol(course)
         }
     })
