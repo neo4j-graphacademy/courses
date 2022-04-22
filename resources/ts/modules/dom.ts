@@ -12,3 +12,7 @@ export function createElement(element: string, classes: string, children?: (HTML
 
     return output
 }
+
+export function removeElement(parent: HTMLElement, selector: string) {
+    parent.querySelectorAll(`.${selector}`).forEach(showHintButton => showHintButton.parentElement!.removeChild(showHintButton))
+}
