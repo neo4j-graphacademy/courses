@@ -8,6 +8,7 @@ export const ATTRIBUTE_SANDBOX = 'sandbox'
 export const ATTRIBUTE_REPOSITORY = 'repository'
 export const ATTRIBUTE_OPTIONAL = 'optional'
 export const ATTRIBUTE_DISABLE_CACHE = 'disable-cache'
+export const ATTRIBUTE_UPDATED_AT = 'updated-at'
 
 export const LESSON_TYPE_VIDEO = 'video'
 export const LESSON_TYPE_DEFAULT = 'lesson'
@@ -15,6 +16,7 @@ export const LESSON_TYPE_TEXT = 'text' // TODO: Page?
 export const LESSON_TYPE_QUIZ = 'quiz'
 export const LESSON_TYPE_ACTIVITY = 'activity'
 export const LESSON_TYPE_CHALLENGE = 'challenge'
+
 
 type LessonType =  typeof LESSON_TYPE_VIDEO
     | typeof LESSON_TYPE_TEXT
@@ -27,6 +29,7 @@ export interface Lesson {
     slug: string;
     title: string;
     type: LessonType;
+    updatedAt?: Date | undefined;
     order: number;
     duration: number;
     sandbox: boolean | string;

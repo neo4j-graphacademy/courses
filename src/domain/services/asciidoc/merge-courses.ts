@@ -4,7 +4,7 @@ import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREV
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, } from '../../model/lesson';
+import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_UPDATED_AT, } from '../../model/lesson';
 import { Question } from '../../model/question';
 import { write } from '../../../modules/neo4j';
 import { Asciidoctor } from '@asciidoctor/core/types';
@@ -19,7 +19,7 @@ interface CourseToImport extends Partial<Course> {
  * Attributes or folder slugs used to determine the order
  * are converted into a string so they can be compared
  */
-type LessonToImport = Omit<Lesson, 'order'> & { order: string }
+type LessonToImport = Omit<Lesson, 'order'> & { order: string, updatedAt: string }
 type ModuleToImport = Omit<Module, 'order'> & { order: string }
 
 
@@ -45,6 +45,12 @@ const getOrderAttribute = (folder: string, file: Asciidoctor.Document): string =
     }
 
     return order
+}
+
+const getDateAttribute = (file: Asciidoctor.Document, attribute: string): string | undefined => {
+    const date = file.getAttribute(attribute)
+
+    return date !== undefined ? new Date(date.replace(/\s/g, '')).toISOString() : undefined
 }
 
 const loadCourses = (): CourseToImport[] => {
@@ -161,6 +167,7 @@ const loadLesson = (folder: string): LessonToImport => {
 
 
     const order = getOrderAttribute(folder, file)
+    const updatedAt = getDateAttribute(file, ATTRIBUTE_UPDATED_AT)
 
     return {
         path: folder,
@@ -173,6 +180,7 @@ const loadLesson = (folder: string): LessonToImport => {
         optional: file.getAttribute(ATTRIBUTE_OPTIONAL, false) === 'true',
         disableCache: file.getAttribute(ATTRIBUTE_DISABLE_CACHE, false) === 'true',
         questions,
+        updatedAt,
     } as LessonToImport
 }
 
@@ -297,7 +305,7 @@ export async function mergeCourses(): Promise<void> {
             l.status = 'active',
             l.link = '/courses/'+ c.slug + '/'+ m.slug +'/'+ l.slug +'/',
             l.disableCache = lesson.disableCache,
-            l.updatedAt = datetime()
+            l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
 
         REMOVE l:DeletedLesson
 
