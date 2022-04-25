@@ -8,11 +8,17 @@ Cypress.Commands.add('attemptLesson', lesson => {
     // Check Lesson Title
     cy.get('.classroom-content h1').contains(lesson.title)
 
-    // TODO: Check all links open in a new window
+
+
 
     // Conditional Checks
     cy.get('body')
         .then($body => {
+            // Check all links open in a new window
+            if ( $body.find('.module-content a:not([href^="#"])').length > 0) {
+                cy.checkClassroomLinks()
+            }
+
             // Check Video and transcript tabs
             if ( $body.find('#transcript').length > 0 && $body.find('#video').length > 0 ) {
                 cy.checkVideoTabs()
@@ -89,6 +95,12 @@ Cypress.Commands.add('attemptLesson', lesson => {
         })
 })
 
+Cypress.Commands.add('checkClassroomLinks', () => {
+    cy.get('.module-content a:not([href^="#"])')
+        .should('have.attr', 'target')
+        .and('eq', '_blank')
+})
+
 Cypress.Commands.add('attemptVerification', (lesson) => {
     // Fail Verification
     cy.get('.btn-verify').click()
@@ -103,12 +115,17 @@ Cypress.Commands.add('attemptVerification', (lesson) => {
     // Fail Verification
     cy.get('.btn-verify').click()
 
-    // Check Solution
-    cy.get('.admonition-show-solution')
-        .should('exist').click({multiple: true})
+    // Check (Optional) Solution
+    cy.get('body')
+        .then($body => {
+            if ( $body.find('.solution').length ) {
+                cy.get('.admonition-show-solution')
+                    .should('exist').click({multiple: true})
 
-    // Clicking shold show the solution
-    cy.get('.solution').should('be.visible')
+                // Clicking shold show the solution
+                cy.get('.solution').should('be.visible')
+            }
+        })
 
     // Get and run solution.cypher
     cy.request(`${lesson.link}solution.cypher`)
@@ -220,8 +237,6 @@ Cypress.Commands.add('setAnswer', (index, type, options, multiple) => {
             if ( multiple ) {
                 cy.get('input[type=checkbox]').uncheck({force: true})
             }
-
-            cy.log('wtf are', options)
 
             options.forEach(option => {
                 if (type === 'select-in-source') {
