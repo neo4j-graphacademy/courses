@@ -48,7 +48,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
         id: '_challenge',
         correct,
         answers: [ verify ]
-    } ])
+    } ], token)
 
     return output
 }
