@@ -490,7 +490,7 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
         oops.scrollIntoView()
 
         // Show hints?
-        document.querySelectorAll(`.${QUESTION}, .${VERIFY}`)
+        document.querySelectorAll(`.${QUESTION}.${QUESTION_INCORRECT}, .${VERIFY}`)
             .forEach(questionElement => handleShowHints(questionElement as HTMLElement))
     }
 }
@@ -537,7 +537,7 @@ const handleShowHints = (questionElement: HTMLElement) => {
     // Attempt 4: Solution button is visible, just show the solution
     else if ( solution && showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true ) {
          // Remove the Hint Admonition
-        // hint.parentElement!.removeChild(hint)
+        hint?.parentElement!.removeChild(hint)
 
         // Remove Reveal Solution Button
         showSolutionButton.parentElement!.removeChild(showSolutionButton)
