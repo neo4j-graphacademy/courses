@@ -692,11 +692,12 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
  */
 router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) => {
     try {
+        const token = await getToken(req)
         const { course, module, lesson } = req.params
         const answers: Answer[] = req.body
 
         const user = await getUser(req)
-        const output = await saveLessonProgress(user!, course, module, lesson, answers)
+        const output = await saveLessonProgress(user!, course, module, lesson, answers, token)
 
         res.json(output)
     }
@@ -748,10 +749,14 @@ router.use('/:course/:module/:lesson/:filename.cypher', (req, res, next) => {
     const filepath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${filename}.cypher`)
 
     if ( existsSync(filepath) ) {
-        // res.sendFile(filepath)
         const contents = readFileSync(filepath)
 
-        return res.send(contents.toString())
+        const output = contents.toString()
+            .split("\n")
+            .filter(line => !line.startsWith("//"))
+            .join("\n")
+
+        return res.send(output)
     }
     else {
         next(new NotFoundError(`The file ${filename}.cypher doesn't exist for this lesson`))
@@ -792,9 +797,10 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
 router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, next) => {
     try {
         const { course, module, lesson } = req.params
+        const token = await getToken(req)
         const user = await getUser(req)
 
-        const outcome = await saveLessonProgress(user!, course, module, lesson, [])
+        const outcome = await saveLessonProgress(user!, course, module, lesson, [], token)
 
         res.json(outcome)
     }
