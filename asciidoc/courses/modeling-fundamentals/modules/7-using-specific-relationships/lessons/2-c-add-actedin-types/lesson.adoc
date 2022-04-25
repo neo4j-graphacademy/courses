@@ -3,59 +3,70 @@
 :order: 2
 :sandbox: true
 
-In this Challenge, you will turn the instance model into the following:
+In this Challenge, you will modify the instance model to match the following diagram.
+This diagram uses spcialized ACTED_IN and DIRECTED relationships.
+
 
 image::images/instance-specialize-acted-directed.png[Specialized ACTED_IN and DIRECTED relationships,width=400,align=center]
 
-where we specialize the ACTED_IN and DIRECTED relationships.
+This Challenge has 2 steps:
 
-This Challenge has 4 steps.
+1. <<Refactor all ACTED_IN relationships>>
+2. <<Refactor all DIRECTED relationships>>
 
-*Step 1:* Execute this code to refactor the ACTED_IN relationships in the graph:
 
+== Refactor all ACTED_IN relationships
+
+Execute the following code to create a new set of relationships based on the year of the `released` property for each Node.
+
+For example, _Apollo 13_ was released in 1995, so an additional `ACTED_IN_1995` will be created between Apollo 13 and any actor that acted in the movie.
+
+.Creating Specialized Relationships
 [source,cypher]
 ----
-MATCH (n:Actor)-[r:ACTED_IN]->(m:Movie)
-CALL apoc.merge.relationship(n,
-                              'ACTED_IN_' + left(m.released,4),
-                              {},
-                              {},
-                              m ,
-                              {}) YIELD rel
-RETURN COUNT(*) AS `Number of relationships merged`
+include::solution.cypher[tag="actedin"]
 ----
 
 It should create 5 relationships.
 
 With this refactoring, we can now confirm that our rewritten query works for the use case:
 
-Use case #12: What movies did an actor act in for a particular year?
+**Use case #12: What movies did an actor act in for a particular year?**
 
-*Step 2:* Run this query:
+To verify the query has run successfully, we can attempt to use the newly created `ACTED_IN_1995` relationship to see which Movies Tom Hanks acted in that were released in 1995.
 
+.Tom Hanks Movies released in 1995
 [source,cypher]
 ----
-MATCH (p:Actor)-[:ACTED_IN_1995]-(m:Movie)
+MATCH (p:Actor)-[:ACTED_IN_1995]->(m:Movie)
 WHERE p.name = 'Tom Hanks'
 RETURN m.title AS Movie
 ----
 
-It should return the movie, Apollo 13.
+It should return one movie from our dataset, **Apollo 13**.
 
-*Step 3:* Next, modify the code you executed in Step 1 to refactor the graph so that all DIRECTED relationships will be specialized.
-Run the refactoring code.
+== Refactor all DIRECTED relationships
+
+We can use the same method to create `DIRECTED_{year}` relationships between the Director and the Movie.
+
+Modify the code you have just run to match the following pattern.
+
+`MATCH (n:Director)-[:DIRECTED]->(m:Movie)`
+
+Then modify the procedure call change the prefix of the relationship to `DIRECTED_`.
 
 It should create 2 relationships.
 
+
+== Testing the Model
+
 With this refactoring and the previous refactoring, we can now confirm that our rewritten query works for the use case:
 
-Use case #12: What movies did an actor act in for a particular year?
-
-*Step 4:* Run this query:
+**Use case #12: What movies did an actor act in for a particular year?**
 
 [source,cypher]
 ----
-MATCH (p:Person)-[:ACTED_IN_1995|DIRECTED_1995]-()
+MATCH (p:Person)-[:ACTED_IN_1995|DIRECTED_1995]->()
 RETURN p.name as `Actor or Director`
 ----
 

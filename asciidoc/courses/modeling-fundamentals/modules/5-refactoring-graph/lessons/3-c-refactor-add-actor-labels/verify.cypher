@@ -1,1 +1,1 @@
-MATCH (a:Actor) RETURN count (*) = 4 as outcome
+MATCH (:Actor) RETURN count (*) >= 4 as outcome

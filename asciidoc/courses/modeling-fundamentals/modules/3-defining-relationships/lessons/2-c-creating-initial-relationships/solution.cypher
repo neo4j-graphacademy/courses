@@ -1,0 +1,15 @@
+MATCH (apollo:Movie {title: 'Apollo 13'})
+MATCH (tom:Person {name: 'Tom Hanks'})
+MATCH (meg:Person {name: 'Meg Ryan'})
+MATCH (danny:Person {name: 'Danny DeVito'})
+MATCH (sleep:Movie {title: 'Sleepless in Seattle'})
+MATCH (hoffa:Movie {title: 'Hoffa'})
+MATCH (jack:Person {name: 'Jack Nicholson'})
+
+// create the relationships between nodes
+MERGE (tom)-[:ACTED_IN {role: 'Jim Lovell'}]->(apollo)
+MERGE (tom)-[:ACTED_IN {role: 'Sam Baldwin'}]->(sleep)
+MERGE (meg)-[:ACTED_IN {role: 'Annie Reed'}]->(sleep)
+MERGE (danny)-[:ACTED_IN {role: 'Bobby Ciaro'}]->(hoffa)
+MERGE (danny)-[:DIRECTED]->(hoffa)
+MERGE (jack)-[:ACTED_IN {role: 'Jimmy Hoffa'}]->(hoffa)

@@ -1,4 +1,5 @@
-MATCH (p:Actor)-[:ACTED_IN]-(m:Movie)-[:IN_GENRE]-(g:Genre)
-  WHERE p.name = 'Tom Hanks' AND
-  g.name = 'Drama'
-RETURN m.title AS Movie
+MATCH (m:Movie)
+UNWIND m.genres AS genre
+MERGE (g:Genre {name: genre})
+MERGE (m)-[:IN_GENRE]->(g)
+SET m.genres = null

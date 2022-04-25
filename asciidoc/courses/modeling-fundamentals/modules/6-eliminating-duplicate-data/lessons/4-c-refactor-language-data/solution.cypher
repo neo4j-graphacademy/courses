@@ -1,3 +1,10 @@
-MATCH (m:Movie)-[:IN_LANGUAGE]-(l:Language)
-  WHERE  l.name = 'Italian'
-RETURN m.title
+MATCH (m:Movie)
+UNWIND m.languages AS language
+WITH  language, collect(m) AS movies
+MERGE (l:Language {name:language})
+WITH l, movies
+UNWIND movies AS m
+WITH l,m
+MERGE (m)-[:IN_LANGUAGE]->(l);
+MATCH (m:Movie)
+SET m.languages = null

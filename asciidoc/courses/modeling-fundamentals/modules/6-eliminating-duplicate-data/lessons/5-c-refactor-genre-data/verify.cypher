@@ -1,5 +1,2 @@
-MATCH (g:Genre)
-WITH count(g) AS gcount
-MATCH (:Genre)-[r:IN_GENRE]-()
-WITH count(r) + gcount AS tcount
-RETURN tcount = 16  AS outcome
+MATCH (m:Movie {title: "Apollo 13"})-[:IN_GENRE]->(g:Genre {name: "Drama"})
+RETURN m.genres IS NULL AS outcome

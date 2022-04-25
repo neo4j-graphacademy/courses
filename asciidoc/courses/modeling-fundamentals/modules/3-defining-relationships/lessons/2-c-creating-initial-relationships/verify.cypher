@@ -1,1 +1,1 @@
-MATCH (:Person)-[r]->(:Movie)  RETURN count(r) = 6 AS outcome
+MATCH (:Person)-[r]->(:Movie)  RETURN count(r) >= 6 AS outcome
