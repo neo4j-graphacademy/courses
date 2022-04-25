@@ -1,4 +1,3 @@
-import { AppInit } from '../domain/events/AppInit'
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserCompletedLesson } from '../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
@@ -9,7 +8,20 @@ import { UserUnenrolled } from '../domain/events/UserUnenrolled'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedLesson } from '../domain/events/UserViewedLesson'
 import { emitter } from '../events'
-import { analyticsApiKey, ANALYTICS_EVENT_COMMAND_CYPHER, ANALYTICS_EVENT_COURSE_COMPLETION, ANALYTICS_EVENT_COURSE_ENROLL, ANALYTICS_EVENT_COURSE_UNENROLL, ANALYTICS_EVENT_COURSE_VIEW, ANALYTICS_EVENT_LESSON_COMPLETION, ANALYTICS_EVENT_LESSON_VIEW, ANALYTICS_EVENT_LOGIN, ANALYTICS_EVENT_TOGGLE_SANDBOX, ANALYTICS_EVENT_TOGGLE_SUPPORT, trackEvent } from '../modules/analytics'
+import { analyticsApiKey,
+    ANALYTICS_EVENT_COMMAND_CYPHER,
+    ANALYTICS_EVENT_COURSE_COMPLETION,
+    ANALYTICS_EVENT_COURSE_ENROLL,
+    ANALYTICS_EVENT_COURSE_UNENROLL,
+    ANALYTICS_EVENT_COURSE_VIEW,
+    ANALYTICS_EVENT_LESSON_COMPLETION,
+    ANALYTICS_EVENT_LESSON_VIEW,
+    ANALYTICS_EVENT_LOGIN,
+    ANALYTICS_EVENT_TOGGLE_SANDBOX,
+    ANALYTICS_EVENT_TOGGLE_SUPPORT,
+    ANALYTICS_EVENT_SHOW_HINT,
+    ANALYTICS_EVENT_SHOW_SOLUTION,
+    trackEvent } from '../modules/analytics'
 
 export default async function initAnalyticsListeners(): Promise<void> {
     if ( !analyticsApiKey() ) {
@@ -88,12 +100,10 @@ export default async function initAnalyticsListeners(): Promise<void> {
     emitter.on<UserUiEvent>(UserUiEvent, event => {
         switch (event.type) {
             case UI_EVENT_SANDBOX_TOGGLE:
-                trackEvent(ANALYTICS_EVENT_TOGGLE_SANDBOX, event.user.sub, event.meta)
-                break;
-
             case UI_EVENT_SUPPORT_TOGGLE:
-                trackEvent(ANALYTICS_EVENT_TOGGLE_SUPPORT, event.user.sub, event.meta)
-                break;
+            case UI_EVENT_SUPPORT_TOGGLE:
+            case UI_EVENT_SUPPORT_TOGGLE:
+                trackEvent(event.type, event.user.sub, event.meta)
         }
     })
 

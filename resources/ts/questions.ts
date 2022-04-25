@@ -1,4 +1,5 @@
 import { createElement } from './modules/dom'
+import { logUiEvent } from './modules/events';
 import { post } from './modules/http'
 
 declare global {
@@ -121,6 +122,8 @@ const addHintListeners = (element: Element): void => {
                 block.classList.add(ADMONITION_VISIBLE)
                 // show.classList.remove(ADMONITION_SHOW_VISIBLE)
                 show.parentElement?.removeChild(show)
+
+                logUiEvent('show-hint')
             })
 
             parent?.insertBefore(show, block)
@@ -141,6 +144,8 @@ const addHintListeners = (element: Element): void => {
                 block.classList.add(ADMONITION_VISIBLE)
                 // show.classList.remove(ADMONITION_SHOW_VISIBLE)
                 show.parentElement?.removeChild(show)
+
+                logUiEvent('show-solution')
             })
 
             parent?.insertBefore(show, block)
@@ -514,7 +519,7 @@ const handleShowHints = (questionElement: HTMLElement) => {
     // Attempt 2: Hint button is visible, just show the hint
     else if ( hint && hint.classList.contains(ADMONITION_VISIBLE) === false ) {
         // Remove show hint button
-        showHintButton.parentElement!.removeChild(showHintButton)
+        showHintButton!.parentElement!.removeChild(showHintButton as Node)
 
         // Show hint admonition
         hint.classList.add(ADMONITION_VISIBLE)
@@ -530,7 +535,7 @@ const handleShowHints = (questionElement: HTMLElement) => {
 
 
     // Attempt 4: Solution button is visible, just show the solution
-    else if ( showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true ) {
+    else if ( solution && showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true ) {
          // Remove the Hint Admonition
         // hint.parentElement!.removeChild(hint)
 

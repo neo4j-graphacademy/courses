@@ -1,15 +1,8 @@
 import { createElement } from "./modules/dom"
-import { post } from "./modules/http"
+import { logUiEvent } from "./modules/events"
 
-function logToggle(type, visible) {
-    post(`/account/event/${type}`, {
-        // @ts-ignore
-        courseName: window.analytics.course.title, courseSlug: window.analytics.course.slug,
-        // @ts-ignore
-        moduleName: window.analytics.module?.title, moduleSlug: window.analytics.module?.slug,
-        // @ts-ignore
-        lessonName: window.analytics.lesson?.title, lessonSlug: window.analytics.lesson?.slug,
-        pageName: document.title,
+export function logToggle(type, visible) {
+    logUiEvent(type, {
         visible,
     })
 }
