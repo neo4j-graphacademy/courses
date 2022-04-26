@@ -1,3 +1,55 @@
+const neo4j = require('neo4j-driver')
+
+Cypress.Commands.add('getCourseDetails', (slug) => {
+    // Get Course Details
+    const driver = neo4j.driver(
+        Cypress.env('neo4j_uri'),
+        neo4j.auth.basic(
+            Cypress.env('neo4j_username'),
+            Cypress.env('neo4j_password')
+        )
+    )
+
+    return driver.session().run(`
+        MATCH (c:Course)
+        WHERE $slug IS NULL AND c.status = 'active' OR c.slug = $slug
+        RETURN c {
+            .slug,
+            .title,
+            .link,
+            modules: apoc.coll.sortMaps([ (c)-[:HAS_MODULE]->(m) | m {
+                .slug,
+                .title,
+                .link,
+                .order,
+                next: [ (m)-[:NEXT]->(n) | n.link ][0],
+                lessons: apoc.coll.sortMaps([ (m)-[:HAS_LESSON]->(l) | l {
+                    .slug,
+                    .title,
+                    .link,
+                    .order,
+                    .sandbox,
+                    next: [ (l)-[:NEXT]->(n) | n.link ][0],
+                    questions: apoc.coll.sortMaps([ (l)-[:HAS_QUESTION]->(q) | q {
+                        .id,
+                        .order,
+                        .slug,
+                        .text,
+                        .type,
+                        .answers
+                    }], '^slug')
+                } ], '^order')
+            }], '^order')
+        }
+    `, { slug: slug || null })
+        .then(res => {
+            const courses = res.records.map(record => record.toObject().c)
+
+            return driver.close()
+                .then(() => courses)
+        })
+})
+
 Cypress.Commands.add('enrol', (course) => {
     const [ firstModule ] = course.modules
     const [ firstLesson ] = firstModule.lessons
@@ -28,7 +80,6 @@ Cypress.Commands.add('enrol', (course) => {
     cy.url().should('contain', firstLesson.link)
     cy.get('.classroom-content h1').contains(firstLesson.title)
 
-
     // Recursively visit Modules
     for (const module of course.modules) {
         cy.visit(module.link)
@@ -54,6 +105,26 @@ Cypress.Commands.add('enrol', (course) => {
             cy.attemptLesson(lesson)
         }
     }
+
+    // Refresh current page for summary link
+    cy.reload()
+
+    cy.get('.lesson-outcome.lesson-outcome--passed')
+        .should('exist')
+        .should('contain', 'Course Completed')
+
+    cy.get('.toc-course-summary')
+        .should('exist')
+        .should('contain', 'Course Summary')
+
+    cy.get('.toc-course-achievement')
+        .should('exist')
+
+    // Test Completion on Course Overview
+    cy.visit(course.link)
+
+    cy.get('.course-overview.course--completed')
+        .should('exist')
 })
 
 Cypress.Commands.add('paginationNext', () => {
