@@ -706,6 +706,13 @@ const displayCourseCompleted = (res) => {
     if ( content ) {
         content.appendChild(confirmation)
     }
+
+    // Hide Sandbox
+    const sandbox = document.querySelector('.classroom-sandbox')
+    sandbox?.parentElement!.removeChild(sandbox)
+
+    const sandboxToggle = document.querySelector('.classroom-sandbox-toggle')
+    sandboxToggle?.parentElement!.removeChild(sandboxToggle)
 }
 
 const handleError = (parent, button, error) => {
