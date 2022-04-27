@@ -15,6 +15,6 @@ export default async function initEmailListeners(): Promise<void> {
 
     emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
         const email = event.user.email
-        prepareAndSend('user-completed-course', email, { ...event })
+        prepareAndSend('user-completed-course', email, { ...event } as Record<string, any>)
     })
 }

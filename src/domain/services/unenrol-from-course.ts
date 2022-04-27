@@ -30,6 +30,6 @@ export async function unenrolFromCourse(course: string, user: User, token: strin
 
     if ( first ) {
         const courseInfo: Course = first.get('course')
-        emitter.emit( new UserUnenrolled(user, courseInfo) )
+        emitter.emit( new UserUnenrolled(user, token, courseInfo) )
     }
 }

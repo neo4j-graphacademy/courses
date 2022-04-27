@@ -1,4 +1,5 @@
 import { createElement } from './modules/dom'
+import { logUiEvent } from './modules/events';
 import { post } from './modules/http'
 
 declare global {
@@ -50,6 +51,8 @@ const QUESTION_CORRECT = 'question--correct'
 const QUESTION_INCORRECT = 'question--incorrect'
 const QUESTION_SELECTOR_SELECT_IN_SOURCE = 'select-in-source'
 const QUESTION_SELECTOR_INPUT_IN_SOURCE = 'input-in-source'
+
+const VERIFY = 'verify'
 
 const OPTION = 'question-option'
 const OPTION_SELECTED = 'question-option--selected'
@@ -119,6 +122,8 @@ const addHintListeners = (element: Element): void => {
                 block.classList.add(ADMONITION_VISIBLE)
                 // show.classList.remove(ADMONITION_SHOW_VISIBLE)
                 show.parentElement?.removeChild(show)
+
+                logUiEvent('show-hint')
             })
 
             parent?.insertBefore(show, block)
@@ -133,12 +138,14 @@ const addHintListeners = (element: Element): void => {
                 e.preventDefault()
 
                 // Hide any hints
-                document.querySelectorAll('.hint').forEach(hintElement => {
+                show.parentElement?.querySelectorAll('.hint').forEach(hintElement => {
                     hintElement.parentElement!.removeChild(hintElement)
                 })
                 block.classList.add(ADMONITION_VISIBLE)
                 // show.classList.remove(ADMONITION_SHOW_VISIBLE)
                 show.parentElement?.removeChild(show)
+
+                logUiEvent('show-solution')
             })
 
             parent?.insertBefore(show, block)
@@ -159,6 +166,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
     if ( window.env === 'dev' ) {
         element.setAttribute('data-question',
             JSON.stringify({
+                type: 'select',
                 multiple,
                 options: options.map(option => ({
                     value: option.value,
@@ -233,6 +241,19 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
     // Get options from checklist
     const options: Option[] = extractAnswersFromBlock(element)
 
+    // Dev Mode
+    if ( window.env === 'dev' ) {
+        element.setAttribute('data-question',
+            JSON.stringify({
+                type: QUESTION_SELECTOR_SELECT_IN_SOURCE,
+                options: options.map(option => ({
+                    value: option.value,
+                    correct: option.correct,
+                }))
+            })
+        )
+    }
+
     // Remove checklist
     element.querySelectorAll('.checklist').forEach(el => {
         el.parentElement!.removeChild(el)
@@ -280,6 +301,19 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
     // Get options from checklist
     const options: Option[] = extractAnswersFromBlock(element)
 
+    // Dev Mode
+    if ( window.env === 'dev' ) {
+        element.setAttribute('data-question',
+            JSON.stringify({
+                type: QUESTION_SELECTOR_INPUT_IN_SOURCE,
+                options: options.map(option => ({
+                    value: option.value,
+                    correct: option.correct,
+                }))
+            })
+        )
+    }
+
     // Remove checklist
     element.querySelectorAll('.checklist').forEach(el => {
         el.parentElement!.removeChild(el)
@@ -313,6 +347,19 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
 
 const formatFreeTextQuestion = async (element: Element): Promise<Question> => {
     const options: Option[] = extractAnswersFromBlock(element)
+
+    // Dev Mode
+    if ( window.env === 'dev' ) {
+        element.setAttribute('data-question',
+            JSON.stringify({
+                type: QUESTION_SELECTOR_FREE_TEXT,
+                options: options.map(option => ({
+                    value: option.value,
+                    correct: option.correct,
+                }))
+            })
+        )
+    }
 
     // Remove Answers
     element.querySelectorAll('.checklist').forEach(el => {
@@ -351,7 +398,7 @@ const removeFailedMessages = (parent) => {
         .forEach(el => el.parentElement!.removeChild(el))
 }
 
-const handleResponse = (parent, button, res, questionsOnPage: Question[], answers: Answer[], showHint = false) => {
+const handleResponse = (parent, button, res, questionsOnPage: Question[], answers: Answer[]) => {
     // Removed failed messages
     removeFailedMessages(parent)
 
@@ -363,12 +410,6 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             // Set class on question
             question.element.classList.add(QUESTION_INCORRECT)
             question.element.classList.remove(QUESTION_CORRECT)
-
-            // Show hints links
-            question.element.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
-                .forEach((element) => {
-                    element.classList.add(ADMONITION_SHOW_VISIBLE)
-                })
         }
         else {
             // Set class on question
@@ -423,7 +464,7 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
     else {
         setButtonNegativeState(button)
 
-        let children: any[] = ['It looks like you haven\'t passed the test, please try again.']
+        let children: any[] = ['It looks like you haven\'t passed the test, please check your answers and try again.']
 
         // Show hint text?
         if (parent.querySelector('.admonition')) {
@@ -435,34 +476,74 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             )
         }
 
-        parent.appendChild(createElement('div', `admonition admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
+        // Add error message
+        const oops = createElement('div', `admonition admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
             createElement('h3', 'admonition-title', ['Oops!']),
             createElement('p', '', children)
-        ]))
+        ])
 
-        if (showHint) {
-            // Show hints link
-            parent.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
-                .forEach((showHintElement) => {
-                    showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
-                })
-        }
+        const firstIncorrect = document.querySelector(`.${QUESTION_INCORRECT}`)
 
-        if (attempts > ATTEMPTS_BEFORE_SOLUTION && parent.querySelector(`.${ADMONITION_SHOW_SOLUTION}`)) {
-            // Remove Show Hint buttons
-            parent.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
-                .forEach((showHintElement) => {
-                    showHintElement.parentElement!.removeChild(showHintElement)
-                })
+        parent.insertBefore(oops, firstIncorrect!)
 
-            // Show solution link
-            parent.querySelectorAll(`.${ADMONITION_SHOW_SOLUTION}`)
-                .forEach((showSolutionElement) => {
-                    showSolutionElement.classList.add(ADMONITION_SHOW_VISIBLE)
-                })
-        }
+        // Scroll to error message
+        oops.scrollIntoView()
 
-        document.querySelector(`.${QUESTION_INCORRECT}`)?.scrollIntoView()
+        // Show hints?
+        document.querySelectorAll(`.${QUESTION}.${QUESTION_INCORRECT}, .${VERIFY}`)
+            .forEach(questionElement => handleShowHints(questionElement as HTMLElement))
+    }
+}
+
+const handleShowHints = (questionElement: HTMLElement) => {
+    const showHintButton = questionElement.querySelector(`.${ADMONITION_SHOW_HINT}`)
+    const hint = questionElement.querySelector(`.hint`)
+
+    const showSolutionButton = questionElement.querySelector(`.${ADMONITION_SHOW_SOLUTION}`)
+    const solution = questionElement.querySelector(`.solution`)
+
+
+    // No buttons?  Ignore...
+    if ( !showHintButton && !showSolutionButton ) {
+        return
+    }
+
+    // Attempt 1: Hint button not visible, Show the hint button
+    if ( showHintButton && showHintButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false ) {
+        questionElement.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
+            .forEach((showHintElement) => {
+                showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
+            })
+    }
+
+    // Attempt 2: Hint button is visible, just show the hint
+    else if ( hint && hint.classList.contains(ADMONITION_VISIBLE) === false ) {
+        // Remove show hint button
+        showHintButton!.parentElement!.removeChild(showHintButton as Node)
+
+        // Show hint admonition
+        hint.classList.add(ADMONITION_VISIBLE)
+    }
+
+    // Attempt 3: Hint is visible, show the solution button?
+    else if ( showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false ) {
+        questionElement.querySelectorAll(`.${ADMONITION_SHOW_SOLUTION}`)
+            .forEach((showHintElement) => {
+                showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
+            })
+    }
+
+
+    // Attempt 4: Solution button is visible, just show the solution
+    else if ( solution && showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true ) {
+         // Remove the Hint Admonition
+        hint?.parentElement!.removeChild(hint)
+
+        // Remove Reveal Solution Button
+        showSolutionButton.parentElement!.removeChild(showSolutionButton)
+
+        // Show the Solution
+        solution.classList.add(ADMONITION_VISIBLE)
     }
 }
 
@@ -625,6 +706,13 @@ const displayCourseCompleted = (res) => {
     if ( content ) {
         content.appendChild(confirmation)
     }
+
+    // Hide Sandbox
+    const sandbox = document.querySelector('.classroom-sandbox')
+    sandbox?.parentElement!.removeChild(sandbox)
+
+    const sandboxToggle = document.querySelector('.classroom-sandbox-toggle')
+    sandboxToggle?.parentElement!.removeChild(sandboxToggle)
 }
 
 const handleError = (parent, button, error) => {
@@ -822,7 +910,6 @@ const setupVerify = () => {
             const parent = button.parentElement
             const b = button as HTMLButtonElement
 
-
             // Don't run if lesson is already completed
             if (body && body.classList.contains(LESSON_COMPLETED)) {
                 parent?.classList.add(QUESTION_CORRECT)
@@ -848,7 +935,7 @@ const setupVerify = () => {
                 attempts++
 
                 post(`${document.location.pathname}verify`)
-                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
+                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], []))
                     .catch(error => handleError(button.parentElement!.parentElement!, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)
@@ -881,7 +968,7 @@ const setupMarkAsReadButton = () => {
                 attempts++
 
                 post(`${document.location.pathname}read`)
-                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], [], true))
+                    .then(res => handleResponse(button.parentElement!.parentElement!, button, res, [], []))
                     .catch(error => handleError(button.parentElement, button, error))
                     .finally(() => {
                         button.classList.remove(BUTTON_LOADING)

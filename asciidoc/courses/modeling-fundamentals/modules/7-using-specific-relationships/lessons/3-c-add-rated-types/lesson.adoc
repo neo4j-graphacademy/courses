@@ -2,6 +2,7 @@
 :type: challenge
 :order: 3
 :sandbox: true
+:updated-at: 2022-04-25 T 21:00:00 Z
 
 In the previous Challenge, you added a number of specialized relationships to the graph for the _ACTED_IN_ and _DIRECTED_ relationships.
 This Challenge has 3 steps.
@@ -10,19 +11,22 @@ In our current graph, there are _RATED_ relationships between _User_ nodes and _
 
 Suppose we wanted to improve the performance of this query:
 
-Use case #9: What users gave a movie a rating of 5?
+**Use case #9: What users gave a movie a rating of 5?**
 
-*Step 1:* Run this Cypher code to test this use case with the movie, Apollo 13.
+== Why create specialized relationships?
+
+Let's take a practical example.
+Run this Cypher code to test this use case with the movie, Apollo 13.
 
 [source,cypher]
 ----
-MATCH (u:User)-[r:RATED]-(m:Movie)
+MATCH (u:User)-[r:RATED]->(m:Movie)
 WHERE m.title = 'Apollo 13' AND
 r.rating = 5
 RETURN u.name as Reviewer
 ----
 
-It should return Sandy Jones.
+It should return one User, _Sandy Jones_.
 
 What if there were thousands of Users in the graph. This query would need to traverse all _RATED_ relationships and evaluate the _rating_ property.
 For a large graph, more evaluations mean longer query processing time.
@@ -35,47 +39,19 @@ This is the instance model you will refactor toward:
 
 image::images/instance-specialize-rated.png[Specializing RATED,width=400,align=center]
 
-This challenge has two more steps:
+== Creating specialized RATED_{rating} Relationships
 
-[start=2]
-. Modify and run the query to specialize the _RATED_ relationship.
-. Rewrite and run the query using the specialized relationships for the use case:  *What users gave a movie a rating of 5?*
+To pass this challenge, you must use the knowledge you gained in the previous lesson to merge a relationship between the graph using `apoc.merge.relationship`.
 
-*Step 2:* Copy the query below into the query pane, modify it to refactor the graph as described above, and then run it:
+The pattern you must search for is:
 
-[TIP]
---
-Change the from node to be _User_, the relationship to _RATED_ and use [copy]#toString(r.rating)# to dynamically create the relationship.
---
+> `MATCH (u:User)-[r:RATED]->(m:Movie)`
 
-[source,cypher, role=noplay]
-----
-MATCH (n:Director)-[r:DIRECTED]->(m:Movie)
-CALL apoc.merge.relationship(n,
-                              'DIRECTED_' + left(m.released,4),
-                              {},
-                              {},
-                              m,
-                              {}) YIELD rel
-RETURN COUNT(*) AS `Number of relationships merged`
-----
+The relationship type passed as the second parameter should be:
 
-Your modified code should create 5 relationships.
+> 'RATED_'+ r.rating
 
-*Step 3:* Modify and run this query for the use case so that it uses the specialized relationships.
-
-Copy this query into the query pane, modify it use the specialized relationship, and then run it:
-
-[source,cypher, role=noplay]
-----
-MATCH (u:User)-[r:RATED]-(m:Movie)
-WHERE m.title = 'Apollo 13' AND
-r.rating = 5
-RETURN u.name as Reviewer
-----
-
-It should return Sandy Jones.
-
+== Verifying the Refactoring
 
 include::./questions/verify.adoc[leveloffset=+1]
 

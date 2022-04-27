@@ -17,6 +17,7 @@
 import './commands'
 import './course.commands'
 import './lesson.commands'
+import './sandbox.commands'
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

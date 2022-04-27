@@ -5,5 +5,6 @@ export class UserCompletedCourse {
     constructor(
         public readonly user: User,
         public readonly course: Course,
+        public readonly token: string | undefined,
     ) {}
 }

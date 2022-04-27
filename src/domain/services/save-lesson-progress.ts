@@ -14,7 +14,7 @@ import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
-export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[]): Promise<LessonWithProgress> {
+export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string): Promise<LessonWithProgress> {
     const {
         lessonWithProgress,
         moduleWithProgress,
@@ -159,7 +159,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
             // Emit if user has completed the course
             if (courseCompletedInTransaction && courseWithProgress.completed) {
-                emitter.emit(new UserCompletedCourse(user, courseWithProgress))
+                emitter.emit(new UserCompletedCourse(user, courseWithProgress, token))
             }
         }
     }
