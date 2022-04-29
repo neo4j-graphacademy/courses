@@ -1,17 +1,14 @@
-import { config } from 'dotenv'
 import { Session, Transaction, Record } from 'neo4j-driver'
 import { createDriver } from "../modules/neo4j"
 
-config()
-
-const {
+import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD,
     COMMUNITY_GRAPH_HOST,
     COMMUNITY_GRAPH_USERNAME,
     COMMUNITY_GRAPH_PASSWORD,
-} = process.env
+} from '../constants'
 
 const getLastCertification = async (session: Session) : Promise<string> => {
     const res = await session.readTransaction((tx: Transaction) => tx.run(`MATCH (c:FromCommunityGraph) RETURN max(c.completedAt) AS date`))

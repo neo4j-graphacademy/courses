@@ -1,13 +1,10 @@
-import { config } from 'dotenv'
 import initNeo4j, { write } from '../modules/neo4j'
 
-config()
-
-const {
+import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD
-} = process.env
+} from '../constants'
 
 
 const main = async () => {
