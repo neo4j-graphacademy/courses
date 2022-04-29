@@ -1,5 +1,12 @@
+import { config } from 'dotenv'
 import path from 'path'
 import { STATUS_DRAFT } from './domain/model/course'
+
+// Load from .env
+config({
+    path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env'
+})
+
 const {
     DISCOURSE_BASE_URL,
     DISCOURSE_CATEGORY_ID,
@@ -29,3 +36,21 @@ export const CHAT_JSON = `https://discord.com/api/guilds/${DISCORD_ID}/widget.js
 
 // CDN
 export const CDN_URL = process.env.CDN_URL
+
+// Port
+export const PORT: string = process.env.PORT || '3000' as string
+
+// Neo4j Credentials
+export const NEO4J_HOST: string = process.env.NEO4J_HOST as string
+export const NEO4J_USERNAME: string = process.env.NEO4J_USERNAME as string
+export const NEO4J_PASSWORD: string = process.env.NEO4J_PASSWORD as string
+
+// Community Graph
+export const COMMUNITY_GRAPH_HOST: string = process.env.COMMUNITY_GRAPH_HOST as string
+export const COMMUNITY_GRAPH_USERNAME: string = process.env.COMMUNITY_GRAPH_USERNAME as string
+export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASSWORD as string
+
+
+// Enrolment Reminder Emails
+export const ENROLMENT_REMINDER_LIMIT: string = process.env.ENROLMENT_REMINDER_LIMIT as string
+export const ENROLMENT_REMINDER_DAYS: string = process.env.ENROLMENT_REMINDER_DAYS as string

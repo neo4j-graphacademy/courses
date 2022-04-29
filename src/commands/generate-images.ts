@@ -2,24 +2,22 @@ import path from 'path'
 import fs from 'fs'
 import pug from 'pug'
 import nodeHtmlToImage from 'node-html-to-image'
-
-import dotenv from 'dotenv'
 import initNeo4j, { read, close } from '../modules/neo4j';
 import { categoryBannerPath, courseBannerPath, formatCourse, getSvgs } from '../utils';
 import { courseCypher } from '../domain/services/cypher'
 import { Course, NEGATIVE_STATUSES } from '../domain/model/course'
 import { Category } from '../domain/model/category'
 
-dotenv.config()
+
 
 /* tslint:disable-next-line */
 // console.clear();
 
-const {
+import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD
-} = process.env
+} from '../constants'
 
 
 const svg = getSvgs()

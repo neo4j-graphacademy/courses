@@ -1,17 +1,14 @@
-import { config } from 'dotenv'
 import { int } from 'neo4j-driver-core'
 import { prepareAndSend } from '../modules/mailer'
 import initNeo4j, { close, read, write } from "../modules/neo4j"
 
-config()
-
-const {
+import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD,
     ENROLMENT_REMINDER_LIMIT,
     ENROLMENT_REMINDER_DAYS,
-} = process.env
+} from '../constants'
 
 const main = async () => {
     await initNeo4j(NEO4J_HOST!, NEO4J_USERNAME!, NEO4J_PASSWORD!)
