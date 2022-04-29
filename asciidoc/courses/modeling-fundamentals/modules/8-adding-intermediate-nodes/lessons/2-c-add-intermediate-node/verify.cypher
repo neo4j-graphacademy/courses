@@ -1,4 +1,4 @@
-MATCH (a:Actor)-[r:ACTED_IN]-(m:Movie)
-WITH * ORDER BY rand() LIMIT 1
-MATCH (a)-[:PLAYED]->(role)-[:IN_MOVIE]->(m)
+MATCH (a:Actor)-[:PLAYED]->(role:Role)-[:IN_MOVIE]->(m:Movie),
+    (a)-[r:ACTED_IN]->(m)
+WITH * LIMIT 1
 RETURN role.name = r.role AS outcome;

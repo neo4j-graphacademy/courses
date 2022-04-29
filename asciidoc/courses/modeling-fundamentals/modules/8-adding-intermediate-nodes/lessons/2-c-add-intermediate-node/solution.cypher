@@ -1,5 +1,5 @@
 // Find an actor that acted in a Movie
-MATCH (a:Actor)-[r:ACTED_IN]-(m:Movie)
+MATCH (a:Actor)-[r:ACTED_IN]->(m:Movie)
 
 // Create a Role node
 MERGE (x:Role {name: r.role})
