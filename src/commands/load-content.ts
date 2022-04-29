@@ -11,6 +11,17 @@ import {
     NEO4J_PASSWORD
 } from '../constants'
 
+if ( !NEO4J_HOST || !NEO4J_USERNAME || !NEO4J_PASSWORD ) {
+    /* tslint:disable-next-line */
+    console.log('Credentials missing:', {
+        NEO4J_HOST,
+        NEO4J_USERNAME,
+        NEO4J_PASSWORD,
+    });
+
+    throw new Error(`neo4j credentials not defined`)
+}
+
 initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
     .then(() => mergeCourses())
     .then(() => mergeCategories())
