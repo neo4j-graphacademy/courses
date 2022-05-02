@@ -4,9 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "cmd:certifications": "node dist/commands/load-certifications.js",
-    "cmd:reminders": "node dist/commands/send-reminder-emails.js",
     "dev": "NODE_ENV=dev npm run dev:serve & npm run dev:css & npm run dev:ui & npm run dev:cmd",
     "dev:serve": "nodemon --ignore './asciidoc' --ignore './resources' --exec ts-node src/main.ts",
     "dev:cmd": "nodemon -e adoc --ignore 'asciidoc/pages/*.adoc' --exec ts-node src/commands/load-content.ts",
@@ -16,22 +13,35 @@
     "uglify": "npm run uglify:css && npm run uglify:ui",
     "uglify:css": "uglifycss public/css/app.css > public/css/app.min.css && rm public/css/app.css && mv public/css/app.min.css public/css/app.css",
     "uglify:ui": "uglifyjs public/js/bundle.js > public/js/bundle.min.js && rm public/js/bundle.js && mv public/js/bundle.min.js public/js/bundle.js",
-    "build": "tsc && npm run build:css && npm run build:ui",
+    "watch": "nodemon --exec ts-node -e adoc src/commands/load-content.ts",
+
+    "cmd:certifications": "node dist/commands/load-certifications.js",
+    "cmd:reminders": "node dist/commands/send-reminder-emails.js",
+    "og:generate": "ts-node src/commands/generate-images.ts",
+
+    "build": "npm run build:src && npm run build:css && npm run build:ui",
+    "build:src": "tsc",
     "build:css": "sass resources/scss/app.scss public/css/app.css && npm run uglify:css",
     "build:ui": "webpack --config webpack-prod.config.js  && npm run uglify:ui",
-    "start": "NODE_ENV=prod node --max-http-header-size=24000 dist/main.js",
-    "watch": "nodemon --exec ts-node -e adoc src/commands/load-content.ts",
-    "cypress:open": "CYPRESS_BASE_URL=http://localhost:3000 cypress open",
-    "cypress:prod": "CYPRESS_BASE_URL=https://graphacademy.neo4j.com cypress open",
+    "cdn": "npm run build && npm run cdn:sync && npm run cdn:invalidate",
+    "cdn:sync": "aws s3 cp --acl public-read --recursive public s3://cdn.graphacademy.neo4j.com/assets",
+    "cdn:invalidate": "aws cloudfront create-invalidation --distribution-id EKCSCZ2A93Q3N --paths '/*'",
     "lint": "npm run lint:app && npm run lint:ui",
     "lint:app": "./node_modules/.bin/tslint -c tslint.json 'src/**/*.ts'",
     "lint:ui": "./node_modules/.bin/tslint -c tslint.json 'resources/**/*.ts'",
-    "og:generate": "ts-node src/commands/generate-images.ts",
-    "browser": "open https://8ee9d883.databases.neo4j.io/browser/",
+
+    "test": "jest",
     "test:watch": "jest --watch",
-    "cdn": "npm run build && npm run cdn:sync && npm run cdn:invalidate",
-    "cdn:sync": "aws s3 cp --acl public-read --recursive public s3://cdn.graphacademy.neo4j.com/assets",
-    "cdn:invalidate": "aws cloudfront create-invalidation --distribution-id EKCSCZ2A93Q3N --paths '/*'"
+    "cypress:open": "CYPRESS_BASE_URL=http://localhost:3000 cypress open",
+    "cypress:prod": "CYPRESS_BASE_URL=https://graphacademy.neo4j.com cypress open",
+
+    "browser": "open https://8ee9d883.databases.neo4j.io/browser/",
+
+    "start": "npm run prod:serve",
+    "prod:serve": "NODE_ENV=prod node --max-http-header-size=24000 dist/main.js",
+
+    "deploy": "npm run build:src && npm run deploy:content",
+    "deploy:content": "ENV_FILE=.env.production node dist/commands/load-content.js"
   },
   "keywords": [],
   "author": "",
