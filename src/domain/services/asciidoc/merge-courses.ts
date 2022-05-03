@@ -255,7 +255,7 @@ export async function mergeCourses(): Promise<void> {
             SET m:DeletedModule
         )
 
-        FOREACH (r IN [ (m)-[r:HAS_MODULE|FIRST_MODULE]->() | r ] |
+        FOREACH (r IN [ (m)-[r:HAS_MODULE|FIRST_MODULE|NEXT]->() | r ] |
             DELETE r
         )
 
