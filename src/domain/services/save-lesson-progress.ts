@@ -142,7 +142,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
     })
 
     // Emit that the user as attempted the lesson
-    emitter.emit(new UserAttemptedLesson(user, lessonWithProgress, lessonWithProgress.completed, answers))
+    emitter.emit(new UserAttemptedLesson(user, courseWithProgress, moduleWithProgress, lessonWithProgress, lessonWithProgress.completed, answers))
 
     // Emit individual Answers
     answers.forEach(answer => {

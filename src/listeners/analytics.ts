@@ -1,3 +1,4 @@
+import { UserAttemptedLesson } from '../domain/events/UserAttemptedLesson'
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserCompletedLesson } from '../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
@@ -21,7 +22,8 @@ import { analyticsApiKey,
     ANALYTICS_EVENT_TOGGLE_SUPPORT,
     ANALYTICS_EVENT_SHOW_HINT,
     ANALYTICS_EVENT_SHOW_SOLUTION,
-    trackEvent } from '../modules/analytics'
+    trackEvent,
+    ANALYTICS_EVENT_LESSON_ATTEMPT} from '../modules/analytics'
 
 export default async function initAnalyticsListeners(): Promise<void> {
     if ( !analyticsApiKey() ) {
@@ -63,6 +65,21 @@ export default async function initAnalyticsListeners(): Promise<void> {
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
+        })
+    })
+
+    emitter.on<UserAttemptedLesson>(UserAttemptedLesson, event => {
+        trackEvent(ANALYTICS_EVENT_LESSON_ATTEMPT, event.user.sub, {
+            courseSlug: event.course.slug,
+            courseName: event.course.title,
+            moduleSlug: event.module.slug,
+            moduleName: event.module.title,
+            lessonSlug: event.lesson.slug,
+            lessoneName: event.lesson.title,
+            usecase: event.course.usecase,
+            categories: event.course.categories.map(category => category.title),
+            passed: event.passed,
+            answers: event.answers,
         })
     })
 
