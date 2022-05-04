@@ -4,7 +4,7 @@ MATCH (a:Actor)-[r:ACTED_IN]->(m:Movie)
 // Create a Role node
 MERGE (x:Role {name: r.role})
 
-// Create the PLAYED
+// Create the PLAYED relationship
 // relationship between the Actor and the Role nodes.
 MERGE (a)-[:PLAYED]->(x)
 
