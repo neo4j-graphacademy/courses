@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { COMMUNITY_HAS_BASE_URL, COMMUNITY_POSTS } from '../../../constants';
+import { notify } from '../../../middleware/bugsnag.middleware';
 import { Topic } from '../../model/topic';
 
 const { THIRD_PARTY_UPDATE_INTERAL } = process.env
@@ -15,10 +16,16 @@ export async function getCommunityTopics(): Promise<Topic[]> {
     const now = new Date()
 
     if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {
-        const res = await axios.get(COMMUNITY_POSTS)
+        try {
+            const res = await axios.get(COMMUNITY_POSTS)
 
-        topics = res.data.topic_list.topics.filter((topic: Topic) => topic.pinned === false && topic.closed === false)
-            .slice(0, 5)
+            topics = res.data.topic_list.topics.filter((topic: Topic) => topic.pinned === false && topic.closed === false)
+                .slice(0, 5)
+        }
+        catch(e) {
+            notify(e as Error)
+        }
+
         updatedAt = now
     }
 
