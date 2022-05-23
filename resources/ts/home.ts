@@ -2,7 +2,7 @@ export default function home() {
     const hero = document.querySelector('.hero')
     const body = document.querySelector('body')
 
-    if ( body && hero ) {
+    if (body && hero) {
         setTimeout(() => body.classList.remove('preload'), 4000)
 
         window.onscroll = (e) => {
@@ -59,25 +59,25 @@ export default function home() {
     document.querySelectorAll('.horizontal-controls')
         .forEach(element => {
             const target: HTMLDivElement = element.parentElement!.querySelector('.course-list') as HTMLDivElement
-            // const firstCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
 
-            element.querySelector('.horizontal-control--right')!.addEventListener('click', e => {
-                e.preventDefault()
+            const scrollOffset = 0 // flexbox column-gap between items
+            const itemCount = target.children.length || 0;
 
-                const firstCard: HTMLLIElement = target.querySelector('.course-list-item:first-child') as HTMLLIElement
+            element.querySelectorAll('.horizontal-control')!.forEach(controlElement => {
+                controlElement.addEventListener('click', e => {
+                    e.preventDefault()
+                    const isLeftScroll = (e.currentTarget as Element).classList.contains('horizontal-control--left');
 
-                target.removeChild(firstCard)
-                target.appendChild(firstCard)
+                    // Needs to be computed on click because on page load this section can be hidden under a tab leading to 0px width
+                    const width = target.scrollWidth || 0;
+                    const widthPerItem = width / itemCount + scrollOffset || 0;
+                    const currentScroll = target.parentElement?.scrollLeft || 0;
+                    const scrollMovement = isLeftScroll ? 0 - widthPerItem : widthPerItem;
+
+                    if (target.parentElement) {
+                        target.parentElement.scrollLeft = Math.floor(currentScroll / itemCount) * itemCount + scrollMovement;
+                    }
+                })
             })
-
-            element.querySelector('.horizontal-control--left')!.addEventListener('click', e => {
-                e.preventDefault()
-
-                const lastCard: HTMLLIElement = target.querySelector('.course-list-item:last-child') as HTMLLIElement
-
-                target.removeChild(lastCard)
-                target.prepend(lastCard)
-            })
-
         })
 }
