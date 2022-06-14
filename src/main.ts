@@ -28,7 +28,6 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
             emitter.emit(new AppInit(app, server))
         })
 
-
         // Cache Asciidoc into HTML
         cacheHTML()
     })
