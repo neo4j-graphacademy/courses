@@ -1,0 +1,131 @@
+= Identifying What Constraints and Indexes to Create
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::Po4k7vXGBIE[youtube,width=560,height=315]
+
+//https://youtu.be/Po4k7vXGBIE
+
+[.transcript]
+== Data model for this course
+
+This course uses the movie recommendations dataset as a starting point for your learning.
+
+This is the same dataset that will be used for the application development courses in GraphAcademy.
+
+Here is the graph data model:
+
+image::images/movie-data-model.png[Movie Data Model,width=600,align=center]
+
+The node labels for the graph include:
+
+* Person
+* Actor
+* Director
+* Movie
+* Genre
+* User
+
+The relationships for the graph include:
+
+* ACTED_IN (with an  optional role property)
+* DIRECTED (with an optional role property)
+* RATED (with rating  and timestamp properties)
+* IN_GENRE
+
+Also notice that the nodes have a number of properties, along with the type of data that will be used for each property.
+
+=== Step 1: Identify constraints
+
+You use constraints to:
+
+* Uniquely identify a node.
+* Ensure a property exists for a node or relationship.
+* Ensure a set of properties is unique and exists for a node (node key).
+
+==== Uniqueness constraints
+
+You analyze the data requirements for the application and determine how each node will be uniquely identified.
+In our Movie graph, we will define uniqueness constraints for these node labels:
+
+* Movie nodes use  _movieId_.
+* Person nodes use _tmdbId_.
+* User nodes use _userId_.
+* Genre nodes use _name_.
+
+==== Existence constraints
+
+Depending on how data is loaded or updated in the graph, you may want to further constrain that specific properties must exist
+for nodes or relationships. These constraints are separate from the uniqueness constraints.
+
+For example, you may want to enforce that every _role_ property of the _ACTED_IN_ relationship must have a value. Or that a _Person_ node must have a value for the _name_ property.
+
+==== Node key constraints
+
+In addition, there may be a combination of property values for a node that you want to ensure exist and are unique for every node with that label.
+
+For example, there cannot be two Movie nodes in the graph that have the same title and year.
+
+=== Step 2: Create constraints
+
+Next you create the constraints per your analysis.
+
+=== Step 3: Load the data
+
+You typically load the data for your application and ensure that all data loaded correctly adhering to the constraints defined.
+If a constraint is violoated, the Cypher load will fail.
+
+A best practice is to always use `MERGE` for creating nodes and relationships. `MERGE` first does a lookup (using the uniqueness constraint which is an index), then creates the node if it does not exist.
+
+You can use `LOAD CSV` to load data or you can use the Neo4j Data Importer App. The Data Importer App actually creates the uniqueness constraints for you.
+
+=== Step 4: Identify indexes
+
+Identifying the indexes for you graph depends on the most important use cases (queries) of your application.
+
+For example, if this is an important query in your application:
+
+[source,cypher,rel="norun nocopy"]
+----
+// Find all movies for this actor
+MATCH (p:Person)-[:ACTED]_IN]->(m)
+WHERE p.name = $aname
+RETURN m.title
+----
+
+The anchor of the query is the Person node with a specific name value.
+This query can benefit from a b-tree index on the name property.
+
+But if your important query is the following:
+
+[source,cypher,rel="norun nocopy"]
+----
+// Find all actors for a movie with this in the title
+MATCH (p)-[:ACTED]_IN]->(m:Movie)
+WHERE t.title CONTAINS $titleSubString
+RETURN p.name, m.title
+----
+
+The anchor of the query is the title property of Movie nodes.
+The test is `CONTAINS`. A b-tree index will help this query, but a TEXT index will do better.
+
+Through the remainder of this course, you will have an opportunity to create and use constraints and indexes.
+
+=== Step 5: Create indexes
+
+After you have loaded the data and identified the indexes you will need, you create the indexes.
+
+As you test your application, an important part is testing the performance of the queries.
+Use cases for the application may change so the identifying and creating indexes to improved query performance may be an ongoing process during the lifecycle of your application.
+
+== Check your understanding
+
+include::questions/1-select-answer.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to identify the constraints and indexes you will need in your graph.
+In the next module, you will learn about creating and using constraints.
