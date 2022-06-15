@@ -1,0 +1,127 @@
+= Person Profile
+:type: challenge
+:optional: true
+:branch: 15-person-profile
+:test-filename: 15-PersonProfile
+:test-pattern: _15_PersonProfile
+
+If you click on a Person card anywhere on the website, you will be taken to a Person profile.
+This API call is the same regardless of whether the person is an actor, director, or both.
+
+We have already implemented the methods that populate the endpoints in the `MovieService` to get a list of movies that the person has either acted in or directed.
+
+But if you take a look at the link:{repository-blob}/main/Neoflix/Services/PeopleService.cs[`PeopleService`^], you will see two methods that need to be implemented to complete this page:
+
+* <<FindByIdAsync()>> - should find a person by their ID.
+* <<GetSimilarPeopleAsync()>> - should return a list of similar people who are commonly connected through the same movies.
+
+
+== FindByIdAsync()
+
+The `FindByIdAsync()`  method is currently hardcoded to return data by id from the `people.json` list.
+
+.Neoflix/Services/PeopleService.cs
+[source,c#,indent=0]
+----
+include::{repository-raw}/main/Neoflix/Services/PeopleService.cs[tag="findById"]
+----
+
+You will update this method to run the following cypher statement in a **read transaction**.
+
+.Get Person information
+[source,cypher,indent=0]
+----
+include::{cypher-repository-raw}/main/cypher/3-backlog/7-person-view/person-profile.cypher[]
+----
+
+The query will return the properties for the person with the corresponding `tmdbId`, along with a count of the number of movies that the person has acted in and directed.
+
+=== Your Task
+
+* Modify the `FindByIdAsync()` method to query Neo4j and return details for the requested person.
+* The returned object should include counts of the number of movies that the person has acted in or directed.
+* If not exactly one record is returned, the method will throw a `NotFoundError` by using the `result.single()` API call.
+* Remember to auto-close the session and use the `ToListAsync()` function to convert the object into native C# types.
+
+
+[%collapsible]
+.Click here to reveal the final `FindByIdAsync()` method.
+====
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/PeopleService.cs[tag="findById"]
+----
+
+====
+
+
+
+== GetSimilarPeopleAsync()
+
+The `GetSimilarPeopleAsync()` method should return a paginated list of similar people based on their second degree connections - either people who have acted in or have directed the same movies as our person.
+
+.Neoflix/Services/PeopleService.cs
+[source,c#,indent=0]
+----
+include::{repository-raw}/main/Neoflix/Services/PeopleService.cs[tag="getSimilarPeople"]
+----
+
+There could be a more clever algorithm for finding similar people by weighting the type of relationship differently, but for now, the following query will find a list of similar people based on the number of relationships in common.
+
+.Get Similar People
+[source,cypher,indent=0]
+----
+include::{cypher-repository-raw}/main/cypher/3-backlog/7-person-view/similar-people.cypher[]
+----
+
+[IMPORTANT]
+.Parameters in Neo4j Browser
+====
+To run this query in Neo4j Sandbox, you will have to define a parameter in your Neo4j Browser session.
+To do so, you can use the `:param` command.
+
+For example, to view **Kevin Bacon**, you can set the `id` parameter to "4724":
+
+[source,cypher]
+----
+:param id: "4724"
+----
+
+====
+
+=== Your Task
+
+* Modify the `GetSimilarPeopleAsync()` method to query Neo4j and return a list of similar people.
+* The returned objects should include a list of actors and
+* An `inCommon` property to show how the two people are related (a list of the movies they in common, with their `tmbdId`, `title`, and type of relationship).
+* Here we order by the number of entries that two people have in common
+* The pagination information is passed as parameters
+* Remember to auto-close the session and use the `ToListAsync()` function within a `list()` function on `Result` to convert the values to native C# types.
+
+
+[%collapsible]
+.Click here to reveal the final `GetSimilarPeopleAsync()` method.
+====
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/PeopleService.cs[tag="getSimilarPeople"]
+----
+
+====
+
+
+// Testing
+include::../../../../includes/test.adoc[]
+
+
+== Verifying the Test
+
+include::./questions/1-similar-people.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this Challenge, you have implemented the final methods in the `PeopleService`.

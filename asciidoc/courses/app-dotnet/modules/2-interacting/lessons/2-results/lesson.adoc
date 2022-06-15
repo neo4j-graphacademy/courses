@@ -1,0 +1,119 @@
+= Processing Results
+:type: quiz
+:order: 2
+
+// The Neo4j .NET Driver provides you with two APIs for consuming results:
+
+// * **Synchronous** API
+// * **Asynchronous** API
+
+Throughout this course, we will use the **Asynchronous** API to retreive and process results from Neo4j.
+To use the  you will need to to define `async` methods and use the `await` keyword to await the results.
+
+Results can also be retrieved synchronously by ommiting the `Async` suffix,
+
+
+== Result Cursors
+
+The `IResultCursor` implementation returned by calls to `session.Run()` or `tx.RunAsync()` provides access to the result as an asynchronous stream of `IRecord` s along with additional meta data about the query and result.
+
+The records in the result is lazily retrieved and could only be visited once in a sequential order.
+A `Record` refers to the keyed set of values specified in the `RETURN` portion of the statement.
+
+
+.Using Cursors
+[source,c#,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Program.cs[tag=session.readTransaction]
+----
+
+In the previous code block, the `ToListAsync()` method is called on the cursor implementation to convert all results returned by the Neo4j DBMS as a list.
+The `Select()` method is then called to retrieve the `name` value returned in each Record.
+
+
+Records can be consumed in order using a `while` loop, or more the commonly used approach is to use the `ToListAsync()` function as above, which will consume the results in order and return a set.
+
+.Accessing Records
+[source,c#,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=records]
+----
+
+Where a singe result is expected, you can call the `SingleAsync()` function to retrieve the first record.
+If zero, or more than one record are retrieve an error will be thrown.
+
+=== Records
+
+The `IRecord` interface provides access to an individual record returned by Neo4j.
+
+.Accessing Records
+[source,c#,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=record]
+----
+
+The `.Keys` property provides the available keys for the record.
+These relate to the aliases referenced in the `RETURN` clause of the Cypher statement.
+
+You can use the square-bracket syntax to access a value, for example `row["movie"].As<INode>()` will access the `movie` item defined in the, cast as an implementation of the `INode` interface.
+
+
+
+
+
+
+// A `Result` is an `Iterator<Record>` there are `stream()` and `list()` accessors for streaming and materialization/conversion.
+
+// .Iterating over Records
+// [source,c#,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=records]
+// ----
+
+
+// .Accessing record column values
+// [source,c#,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=record]
+// ----
+
+=== Result Summary
+
+The meta data `IResultCursor` accessed by calling `.Consume()` include:
+
+* statistics on how many nodes and relationships were created, updated, or deleted as a result of the query,
+* the query type
+* database and server info
+* query plan with and without profile
+* notifications
+
+You can find more detail in the https://neo4j.com/docs/api/dotnet-driver/current/html/17958e2b-d923-ab62-bb96-697556493c2e.htm[API docs for `IResultSummary`^]
+
+For example, to get information about how long the query took to complete, you can use the following property:
+
+.Using the Result Summary
+[source,c#,role=nocopy,indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=summary]
+----
+
+Another interesting part of the summary is the `SummaryCounters` available via the `Counters` property, which has update counts about a write-statement's execution.
+You can check via `counters.ContainsUpdates` if there were any updates.
+
+.Result Counters
+[source,c#,role=nocopy,indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=summary:counters]
+----
+
+== Check Your Understanding
+
+include::./questions/1-method.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+You now have all the information required to send Cypher queries to Neo4j and consume the results.
+
+Next, we will look at the Cypher Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Java application.

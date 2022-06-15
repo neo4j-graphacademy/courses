@@ -1,0 +1,126 @@
+= Registering a User
+:type: challenge
+:order: 5
+:branch: 03-registering-a-user
+:test-filename: _03_RegisterUsers
+:test-pattern: _03_RegisterUsers
+
+Now that you have read data from the database, you are now ready to write data to the database.
+
+In this challenge, you will rewrite the `RegisterAsync()` method in the link:{repository-blob}/main/Neoflix/Services/AuthService.cs[`AuthService`^] to do the following:
+
+1. <<Open a new Session>>
+2. <<Execute a Cypher statement within a new Write Transaction>>
+3. <<Extract the User from the Result>>
+4. <<Return the Results>>
+
+
+== Registering Users
+
+A key piece of functionality that the application should provide is for new users to be able to register themselves with the site.
+This functionality is already built into the front end, but at the moment the credentials are hard coded in the API using a fixture.
+This might be fine for demo purposes, but limiting the number of users to one is bad for Neoflix's bottom line.
+
+The dummy register logic is already written into the `RegisterAsync()` method of the `AuthService` in `Neoflix/Services/AuthService.cs`.
+As we can see from the snippet below, at the moment, it loads the fixture from `user.json` and will only accept an email address of `graphacademy@neo4j.com`.
+
+You also see that the password is hashed/encrypted using `BCryptNet.HashPassword()`, we will use that later.
+
+[source,c#,indent=0]
+.Neoflix/Services/AuthService.cs
+----
+include::{repository-raw}/main/Neoflix/Services/AuthService.cs[tag="register"]
+----
+
+From the last line, you can see that an additional `token` property is added to the return.
+This represents the JWT token required to authenticate the user on any future requests.
+This token is generated in `JwtHelper.CreateToken()` which is provided for us.
+
+You will replace these `TODO` comment with working code to complete the challenge.
+
+
+== Implementing Write Transactions
+
+You will follow similar steps to the previous challenge, with the one change that the Cypher statement will be executed within a *Write Transaction*.
+
+To do so, you will need to call the `WriteTransactionAsync()` method on the `session` object with a function to represent unit of work.
+
+Here are the steps to complete the challenge.
+
+=== Open a new Session
+
+First, open a new session (preferably in a try block):
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Program.cs[tag=session]
+----
+
+=== Execute a Cypher statement within a new Write Transaction
+
+Next, within that session, run the `WriteTransactionAsync()` method with two arguments:
+
+1. The Cypher statement as a parameterized string
+2. An object containing the names and values for the parameters
+
+You will need to pass three parameters to the query:
+
+* `email` the user's email
+* `encrypted` an encrypted version of the password provided
+* `name` the users's name
+
+The user's `userId` is generated via the `randomUuid()` in Cypher.
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="create"]
+----
+
+
+=== Extract the User from the Result
+
+The Cypher statement above returns the newly-created `:User` node as `u`.
+
+As this query creates a single node, it will only ever return one result, so the `u` value is can be extracted by calling the `SingleAsync()` method.
+That method will fail with an error, if zero, or more than one row returned.
+
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="extract"]
+----
+
+
+=== Return the Results
+
+The return statement has already been written, so this can be left as it is.
+
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="return-register"]
+----
+
+
+== Working Solution
+
+.Click here to reveal the fully-implemented `RegisterAsync()` method.
+[%collapsible]
+====
+[source,c#,indent=0]
+----
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="register"]
+----
+====
+
+include::../../../../includes/test.adoc[]
+
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this Challenge, you wrote the code to create a new User node to Neo4j.
+
+We still have `TODO` comments in the query for handling unique constraint violations in the database, so let's learn about that in the next lesson.

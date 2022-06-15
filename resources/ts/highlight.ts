@@ -38,6 +38,7 @@ export default function highlight() {
   hljs.registerLanguage('conf', properties)
   hljs.registerLanguage('graphql', graphql)
   hljs.registerLanguage('c', c)
+  hljs.registerLanguage('c#', c)
   hljs.registerLanguage('go', go)
   hljs.registerLanguage('java', java)
   hljs.registerLanguage('js', javascript)
