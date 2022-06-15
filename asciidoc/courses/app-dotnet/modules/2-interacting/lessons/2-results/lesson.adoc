@@ -2,91 +2,84 @@
 :type: quiz
 :order: 2
 
-The Neo4j .NET Driver provides you with three APIs for consuming results:
+// The Neo4j .NET Driver provides you with two APIs for consuming results:
 
-* **Synchronous** API
-* **Async** API
-* **Reactive** API
+// * **Synchronous** API
+// * **Asynchronous** API
 
+Throughout this course, we will use the **Asynchronous** API to retreive and process results from Neo4j.
+To use the  you will need to to define `async` methods and use the `await` keyword to await the results.
 
-== The Three APIs
-
-The most common and straightforward method of consuming results is with the synchronous API.
-
-When using `session.run()`, `tx.run()`, or one of the two transaction functions, the query will return a `Result` object that you can process incrementally and then return the results of that processing.
-
-For the asynchronous and reactive APIs you need to use different entry-points and API methods and helpers like a reactive framework.
-In return you get more efficient resource usage in the database, middleware and client by using the non-synchronous APIs.
-
-[.tab]
-.Synchronous API
-====
-[source,c#,role=nocopy,subs="attributes+",indent=0]
-----
-
-include::{repository-raw}/main/src/main/java/example/AsyncApi.java[tag=sync]
-----
-
-====
-
-[.tab]
-.Async API
-====
-[source,c#,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/src/main/java/example/AsyncApi.java[tag=async]
-----
-
-====
-
-[.tab]
-.Reactive API
-====
-[source,c#,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/src/main/java/example/AsyncApi.java[tag=reactive]
-----
-
-====
+Results can also be retrieved synchronously by ommiting the `Async` suffix,
 
 
-== The Result
+== Result Cursors
 
-The `Result` object, contains the records received by the Driver along with a set of additional meta data about the query execution and results.
+The `IResultCursor` implementation returned by calls to `session.Run()` or `tx.RunAsync()` provides access to the result as an asynchronous stream of `IRecord` s along with additional meta data about the query and result.
 
-An individual row of results is referred to as a `Record`, and can be accessed from the result various ways, as `Iterator<Record>` and via the `stream()`, the `list()` or `single()` methods.
-
+The records in the result is lazily retrieved and could only be visited once in a sequential order.
 A `Record` refers to the keyed set of values specified in the `RETURN` portion of the statement.
 
-If no `RETURN` values are specified, the query will not return any results, and record results will be empty or throw an error in the case of `single()`.
 
-Additional meta data about the result and query is accessible from `Result` too (see below).
+.Using Cursors
+[source,c#,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Program.cs[tag=session.readTransaction]
+----
+
+In the previous code block, the `ToListAsync()` method is called on the cursor implementation to convert all results returned by the Neo4j DBMS as a list.
+The `Select()` method is then called to retrieve the `name` value returned in each Record.
+
+
+Records can be consumed in order using a `while` loop, or more the commonly used approach is to use the `ToListAsync()` function as above, which will consume the results in order and return a set.
+
+.Accessing Records
+[source,c#,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=records]
+----
+
+Where a singe result is expected, you can call the `SingleAsync()` function to retrieve the first record.
+If zero, or more than one record are retrieve an error will be thrown.
 
 === Records
 
-You can access the records returned by the query through several means.
-A `Result` is an `Iterator<Record>` there are `stream()` and `list()` accessors for streaming and materialization/conversion.
+The `IRecord` interface provides access to an individual record returned by Neo4j.
 
-.Iterating over Records
+.Accessing Records
 [source,c#,role=nocopy,subs="attributes+",indent=0]
 ----
-include::{repository-raw}/main/src/main/java/example/Results.java[tag=records]
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=record]
 ----
 
-[TIP]
-.Key or Index
-You can either access a value within the record by using the alias as specified in the `RETURN` portion of the Cypher statement or by specifying the column index (not recommended).
-The available keys can be accessed through `res.keys()`.
+The `.Keys` property provides the available keys for the record.
+These relate to the aliases referenced in the `RETURN` clause of the Cypher statement.
 
-.Accessing record column values
-[source,c#,role=nocopy,subs="attributes+",indent=0]
-----
-include::{repository-raw}/main/src/main/java/example/Results.java[tag=record]
-----
+You can use the square-bracket syntax to access a value, for example `row["movie"].As<INode>()` will access the `movie` item defined in the, cast as an implementation of the `INode` interface.
+
+
+
+
+
+
+// A `Result` is an `Iterator<Record>` there are `stream()` and `list()` accessors for streaming and materialization/conversion.
+
+// .Iterating over Records
+// [source,c#,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=records]
+// ----
+
+
+// .Accessing record column values
+// [source,c#,role=nocopy,subs="attributes+",indent=0]
+// ----
+// include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=record]
+// ----
 
 === Result Summary
 
-The meta data `ResultSummary` accessed from `Result.consume()` include
+The meta data `IResultCursor` accessed by calling `.Consume()` include:
 
 * statistics on how many nodes and relationships were created, updated, or deleted as a result of the query,
 * the query type
@@ -94,23 +87,23 @@ The meta data `ResultSummary` accessed from `Result.consume()` include
 * query plan with and without profile
 * notifications
 
-You can find more detail in the https://neo4j.com/docs/api/java-driver/current/org/neo4j/driver/summary/ResultSummary.html[API docs for ResultSummary^]
+You can find more detail in the https://neo4j.com/docs/api/dotnet-driver/current/html/17958e2b-d923-ab62-bb96-697556493c2e.htm[API docs for `IResultSummary`^]
 
 For example, to get information about how long the query took to complete, you can use the following property:
 
 .Using the Result Summary
 [source,c#,role=nocopy,indent=0]
 ----
-include::{repository-raw}/main/src/main/java/example/Results.java[tag=summary]
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=summary]
 ----
 
-Another interesting part of the summary is the `SummaryCounters` available via `counters()`, which has update counts about a write-statement's execution.
-You can check via `counters.containsUpdates()` if there were any updates.
+Another interesting part of the summary is the `SummaryCounters` available via the `Counters` property, which has update counts about a write-statement's execution.
+You can check via `counters.ContainsUpdates` if there were any updates.
 
 .Result Counters
 [source,c#,role=nocopy,indent=0]
 ----
-include::{repository-raw}/main/src/main/java/example/Results.java[tag=summary:counters]
+include::{repository-raw}/main/Examples/Neo4jExamples/Results.cs[tag=summary:counters]
 ----
 
 == Check Your Understanding

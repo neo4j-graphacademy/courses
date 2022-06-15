@@ -2,14 +2,14 @@
 :type: challenge
 :order: 8
 :branch: 05-authentication
-:test-filename: _05_AuthenticationTest
-:test-pattern: authenticateUser
+:test-filename: 05-Authentication
+:test-pattern: _05_Authentication
 
 At stage of the application, a user can register, but they are still unable to sign in.
 
-As with the previous Challenge, the `authenticate()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein` from the fixture `users.json`.
+As with the previous Challenge, the `AuthenticateAsync()` method is currently hard coded to accept only the email `graphacademy@neo4j.com` and password `letmein` from the fixture `users.json`.
 
-In this challenge you will rewrite the `authenticate()` function of the link:{repository-blob}/main/src/main/java/neoflix/services/AuthService.java[`AuthService`^] to do the following:
+In this challenge you will rewrite the `AuthenticateAsync()` function of the link:{repository-blob}/main/Neoflix/Services/AuthService.cs[`AuthService`^] to do the following:
 
 1. <<Open a new Session>>
 2. <<Find the User node within a Read Transaction>>
@@ -27,19 +27,19 @@ Authorizing users works by checking the email and hashed password against inform
 
 When a user submits the *Sign In* form from the UI, the following process occurs:
 
-1. A route handler for the `/login` route in link:{repository-blob}/main/src/main/java/neoflix/routes/AuthRoutes.java#L32[`src/main/java/neoflix/routes/AuthRoutes.java`^] listens for a `POST` request.
-2. The `login` route calls the `authenticate()` method in the link:{repository-blob}/main/src/main/java/neoflix/services/AuthService.java#L89[`AuthService`^] with the username and password from the request.
+1. A route handler for the `/login` route in link:{repository-blob}/main/Neoflix/Controllers/AuthController.cs[`Neoflix/Controllers/AuthController.cs`^] listens for a `POST` request.
+2. The `login` route calls the `AuthenticateAsync()` method in the link:{repository-blob}/main/Neoflix/Services/AuthService.cs[`AuthService`^] with the username and password from the request.
 
-The `authenticate()` method performs the following actions:
+The `AuthenticateAsync()` method performs the following actions:
 
 1. Attempt to find the user by their email address.
-2. If the user can't be found, throw a ValidationException.
+2. If the user can't be found, return `null`.
 3. Compare the encrypted password in the database against the unencrypted password sent with the request.
-4. If the passwords do not match, throw a ValidationException.
+4. If the passwords do not match, return `null`
 5. Otherwise, return an object containing the user's _safe_ properties (email, name, userId), and a JWT token with a set of claims that can be used in the UI.
 
 
-For this strategy to work correctly, the `authenticate()` method must return an object which represents the user on successful login, or return null or an error if the credentials are incorrect.
+For this strategy to work correctly, the `AuthenticateAsync()` method must return an object which represents the user on successful login, or return null or an error if the credentials are incorrect.
 
 Once a user is authorized a JWT token is generated (using the Auth0 JWT library) and passed back to the front-end to be used in the `Authorization` header until the user signs out or the token expires.
 
@@ -53,15 +53,15 @@ If that is successful the userId is set as a request attribute which can be acce
 
 == Implementing Authentication
 
-To implement database authentication, you will modify the `authenticate` method in the `AuthService`.
+To implement database authentication, you will modify the `AuthenticateSync()` method in the `AuthService`.
 
-.neoflix/services/AuthService.java
+.Neoflix/Services/AuthService.cs
 [source,c#,indent=0]
 ----
-include::{repository-raw}/main/src/main/java/neoflix/services/AuthService.java[tag=authenticate]
+include::{repository-raw}/main/Neoflix/Services/AuthService.cs[tag=authenticate]
 ----
 
-Your challenge is to update the `authenticate()` method to perform the following actions:
+Your challenge is to update the `AuthenticateAsync()` method to perform the following actions:
 
 === Open a new Session
 
@@ -79,7 +79,7 @@ Use a `MATCH` query to find a `:User` node with the email address passed to the 
 
 [source,c#,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="query"]
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="query"]
 ----
 
 
@@ -87,51 +87,51 @@ include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.ja
 
 If no records are returned, you can safely assume that the user does not exist in the database, then the `single()` method on `Result` will throw a `NoSuchRecordException`.
 
-In this case, an `ValidationException` is thrown.
+In this case, return `null`
 
 [source,c#,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="auth-catch"]
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="norecords"]
 ----
 
 === Compare Passwords
 
 Next, you must verify that the unencrypted password matches the encrypted password saved as a property against the `:User` node.
 
-The `bcrypt` library used to encrypt the password also includes a `verify()` function that can be used to compare a string against a previously encrypted value, we encapsulate that in `AuthUtils.verifyPassword()`.
+The `BCryptNet` library used to encrypt the password also includes a `Verify()` function that can be used to compare a string against a previously encrypted value.
 
-If the `AuthUtils.verifyPassword()` method returns false, the passwords do not match and the method should throw a new ValidationException.
+If the `BCryptNet.Verify()` function returns false, the passwords do not match and the method should return null.
 
 [source,c#,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="password"]
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="password"]
 ----
 
 
 === Return User Details
 
-As with the `register()` method, the UI expects a JWT token to be returned along with the response.
+As with the `RegisterSync()` method, the UI expects a JWT token to be returned along with the response.
 
 The code is already written to the example, so this can be re-purposed at the end of the method.
 
 [source,c#,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="auth-return"]
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="return"]
 ----
 
-Once you have applied these changes to the `authenticate()` method, scroll to <<Testing>> to verify that the method works as expected.
+Once you have applied these changes to the `AuthenticateAsync()` method, scroll to <<Testing>> to verify that the method works as expected.
 
 
 == Working Solution
 
 [%collapsible]
-.Click here to reveal the completed `authenticate()` method:
+.Click here to reveal the completed `AuthenticateAsync()` method:
 ====
 
-.neoflix/services/AuthService.java
+.Neoflix/Services/AuthService.cs
 [source,c#,indent=0]
 ----
-include::{repository-raw}/{branch}/src/main/java/neoflix/services/AuthService.java[tag="authenticate"]
+include::{repository-raw}/{branch}/Neoflix/Services/AuthService.cs[tag="authenticate"]
 ----
 
 ====
