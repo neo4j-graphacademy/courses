@@ -32,6 +32,7 @@ import { UserViewedModule } from '../domain/events/UserViewedModule'
 import { UserViewedLesson } from '../domain/events/UserViewedLesson'
 import { getRef } from '../middleware/save-ref.middleware'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
+import { requiredCompletedProfile } from '../middleware/profile.middleware'
 
 const router = Router()
 
@@ -247,7 +248,7 @@ router.get('/:course/badge', (req, res, next) => {
  *
  * Create an :Enrolment node between the user and the course within the database
  */
-router.get('/:course/enrol', requiresAuth(), requiresVerification, async (req, res, next) => {
+router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompletedProfile, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
