@@ -1,4 +1,3 @@
-import { rejects } from 'assert'
 import { config } from 'dotenv'
 import initNeo4j, { close } from '../../modules/neo4j'
 import { getSandboxForUseCase, stopSandbox } from '../../modules/sandbox'

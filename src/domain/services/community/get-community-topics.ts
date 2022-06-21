@@ -1,5 +1,5 @@
-import axios from 'axios'
-import { COMMUNITY_HAS_BASE_URL, COMMUNITY_POSTS } from '../../../constants';
+import Parser from 'rss-parser'
+import { COMMUNITY_RSS_URL } from '../../../constants';
 import { notify } from '../../../middleware/bugsnag.middleware';
 import { Topic } from '../../model/topic';
 
@@ -8,8 +8,18 @@ const { THIRD_PARTY_UPDATE_INTERAL } = process.env
 let topics: Topic[] = []
 let updatedAt: Date;
 
+interface RssItem {
+    title?: string;
+    link?: string;
+    description?: string;
+    pubDate?: string;
+    guid?: string;
+    ['dc:creator']?: string;
+    ['dc:date']?: string;
+}
+
 export async function getCommunityTopics(): Promise<Topic[]> {
-    if ( COMMUNITY_HAS_BASE_URL !== true ) {
+    if ( typeof COMMUNITY_RSS_URL !== 'string' ) {
         return Promise.resolve([])
     }
 
@@ -17,10 +27,21 @@ export async function getCommunityTopics(): Promise<Topic[]> {
 
     if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {
         try {
-            const res = await axios.get(COMMUNITY_POSTS)
+            const parser = new Parser<Record<string, any>, RssItem>({
+                customFields: {
+                    item: ['description'],
+                }
+            })
+            const feed = await parser.parseURL(COMMUNITY_RSS_URL!)
 
-            topics = res.data.topic_list.topics.filter((topic: Topic) => topic.pinned === false && topic.closed === false)
-                .slice(0, 5)
+            topics = feed.items.slice(0, 5)
+                .map(item => ({
+                    title: item.title,
+                    link: item.link,
+                    description: item.description,
+                    author: item['dc:creator'],
+                    publishedAt: new Date(item.pubDate!),
+                } as Topic))
         }
         catch(e) {
             notify(e as Error)

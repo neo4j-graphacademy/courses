@@ -12,7 +12,9 @@ import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
+import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
+import { getCountries } from '../utils'
 
 const router = Router()
 
@@ -39,10 +41,11 @@ const router = Router()
  *
  * Display user account details
  */
-router.get('/', requiresAuth(), async (req, res, next) => {
+router.get('/', requiresAuth(),  async (req, res, next) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
+        const countries = await getCountries()
 
         // Get Sandboxes
         const sandboxes: Sandbox[] = await getSandboxes(token)
@@ -53,8 +56,51 @@ router.get('/', requiresAuth(), async (req, res, next) => {
                 title: 'My Account',
             },
             user,
+            countries,
             sandboxes,
         })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /account/complete/
+ *
+ * Prompt the user to enter their details or explicitly skip
+ */
+router.get('/complete', requiresAuth(), async (req, res) => {
+    const user = await getUser(req)
+    const countries = await getCountries()
+
+    res.render('account/complete', {
+        title: 'Complete Account | My Account',
+        hero: {
+            title: 'Complete Your Account',
+            byline: 'We would like to know more about you.',
+        },
+        user,
+        countries,
+        returnTo: req.query.returnTo || '/account/'
+    })
+})
+
+/**
+ * @GET /account/skip
+ *
+ * Skip the account completion step
+ */
+router.get('/skip', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+
+        // @ts-ignore
+        await updateUser(user!, {})
+
+        req.flash('success', 'Your personal information has been updated')
+
+        res.redirect((req.query.returnTo || '/account/') as string)
     }
     catch (e) {
         next(e)
@@ -71,13 +117,13 @@ router.post('/', requiresAuth(), async (req, res, next) => {
         const user = await getUser(req)
 
         // TODO: Validation
-        const { nickname, givenName, position, company } = req.body
+        const { nickname, givenName, position, company, country } = req.body
 
-        await updateUser(user!, { nickname, givenName, position, company })
+        await updateUser(user!, { nickname, givenName, position, company, country, })
 
         req.flash('success', 'Your personal information has been updated')
 
-        res.redirect(req.params.returnTo || '/account')
+        res.redirect(req.params.returnTo || req.body.returnTo || '/account/')
     }
     catch (e) {
         next(e)
@@ -123,7 +169,7 @@ router.post('/delete', requiresAuth(), async (req, res, next) => {
         await deleteUser(user!)
 
         // @ts-ignore
-        res.oidc.logout({ returnTo: '/account/deleted' })
+        res.oidc.logout({ returnTo: '/account/deleted/' })
     }
     catch (e) {
         next(e)

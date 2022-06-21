@@ -95,9 +95,13 @@ export function getUserName(user: User): string {
 
 export function formatUser(user: User): User {
     const publicProfile = `${BASE_URL}/u/${user.id}/`
+    const profileCompletedAt = user.profileCompletedAt && typeof user.profileCompletedAt === 'string'
+        ? new Date(user.profileCompletedAt)
+        : undefined;
 
     return {
         ...user,
+        profileCompletedAt,
         publicProfile,
     }
 }
@@ -318,4 +322,20 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     }
 
     return attributes
+}
+
+
+let countries: Record<string, any>
+
+/**
+ * A list of contries in {[2 letter code]: "country name"} format
+ * @returns Record<string, any>
+ */
+export async function getCountries(): Promise<Record<string, any>> {
+    if (!countries) {
+        countries = require('../../resources/json/countries.json')
+    }
+
+
+    return countries
 }

@@ -8,9 +8,9 @@ config({
 })
 
 const {
-    DISCOURSE_BASE_URL,
-    DISCOURSE_CATEGORY_ID,
-    DISCOURSE_CATEGORY_SLUG,
+    KHOROS_BASE_URL,
+    KHOROS_CATEGORY_URL,
+    KHOROS_RSS_URL,
     DISCORD_ID,
 } = process.env
 
@@ -23,11 +23,11 @@ export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCI
 export const PUBLIC_DIRECTORY = path.resolve(__dirname, '..', 'public')
 
 // Community
-export const COMMUNITY_HAS_BASE_URL = !!DISCOURSE_BASE_URL
-export const COMMUNITY_BASE_URL = DISCOURSE_BASE_URL
+export const COMMUNITY_HAS_BASE_URL = !!KHOROS_BASE_URL
+export const COMMUNITY_BASE_URL = KHOROS_BASE_URL
 export const COMMUNITY_TITLE = 'Neo4j Community Site'
-export const COMMUNITY_LINK = `${DISCOURSE_BASE_URL}/c/${DISCOURSE_CATEGORY_SLUG}`
-export const COMMUNITY_POSTS = `${DISCOURSE_BASE_URL}/c/${DISCOURSE_CATEGORY_SLUG}/${DISCOURSE_CATEGORY_ID}.json`
+export const COMMUNITY_LINK = KHOROS_CATEGORY_URL
+export const COMMUNITY_RSS_URL = KHOROS_RSS_URL
 
 // Chat
 export const CHAT_TITLE = 'Neo4j Discord'
