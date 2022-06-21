@@ -10,80 +10,30 @@
 [.transcript]
 == Constraints in Neo4j
 
-A constraint is implemented internally as an index.
-It is used to constrain what is added to the graph.
-There are two types of constraints you can define:
+A constraint is implemented internally as an index and is used to constrain what is added to the graph.
+There are three types of constraints you can define:
 
-* Uniqueness
-* Existence
-* Node key
+* Uniqueness for a single node property value.
+* Existence for a property of a node or relationship.
+* Existence and uniqueness for a set of node property values.
 
 A best practice is to create constraints before you load your data.
 
 [NOTE]
-Some constraints are only supported in Enterprise Edition of Neo4j. You should consult the link:https://neo4j.com/docs/cypher-manual/current/constraints[Neo4j Cypher Manual^] for details.
-
-=== Uniqueness constraint
-
-A uniqueness constraint can be defined for a property of a node with a given label.
-
-For example, in the Movie graph, we must uniquely identify every Person node.
-To do this, you identify a property whose value will be unique for all nodes with the Person label.
-
-Execute this query that returns all Person nodes for a person named _Austin Green_:
-
-[source,cypher]
-----
-MATCH (p:Person)
-WHERE p.name = 'Austin Green'
-RETURN p
-----
-
-This query returns two Person nodes for two different people.
-Their names are the same, but their tmdbId values (and other property values) are different.
-In our Movie graph, the tmdbId value for every Person node is unique.
-
-[NOTE]
-If you took the GraphAcademy course  link:/courses/importing-data/[Importing CSV Data into Neo4j^], you have already used uniqueness constraints to load the data.
-
-If we define a uniqueness constraint on a property for a labeled node, an error is raised if we attempt to create another labeled node with the same property value or if we set the value of an existing node property to a value that already exists in the graph.
-
-[IMPORTANT]
-A graph data modeling best practice is to always uniquely identify a node with a given label in the graph where a node will typically represent your business entities in your application.
-
-=== Existence constraint
-
-An existence constraint for a node label or relationship type property means that a property must exist.
-Even though, by default, you need not create all nodes or relationships with the same property keys, your graph data model may benefit from requiring that a particular property key exists.
-
-For example, in the Movie graph, we want to enforce that all Person nodes have a name property with a value.
-Remember that a node with a property with a null value is the same as that node not having that property.
-
-You can create an existence constraint for a node label or relationship type property.
-When the node or relationship is created or updated, it must have that property with a value, otherwise and error is raised.
-
-=== Node key constraint
-
-A node key is specialized type of constraint in the graph that enables you to define a set of properties for a node label that must:
-
-. Exist for all nodes with that label.
-. Be unique for all values.
-
-For example, suppose you want to ensure that all Person nodes in the graph have unique values for Person.name and Person.tmdbId.
-In the previous Austin Green example, we have two nodes with the same Person.name value, but we have unique nodes for the Person.name and Person.tmdbId value.
-The constraint would prevent more than one Person node to exist in the graph with this combination of values.
-In addition to enforcing uniqueness and existence, this type of constraint is very efficient for looking up data where multiple property valuess are tested.
+--
+Some constraints are only supported in Enterprise Edition of Neo4j.
+You should consult the link:https://neo4j.com/docs/cypher-manual/current/constraints[Neo4j Cypher Manual^] for details.
+--
 
 == Indexes in Neo4j
 
 An index in Neo4j is a data structure that allows the graph engine to retrieve data quickly.
 All indexes in Neo4j require more storage in the graph, so you must ensure that you do not index everything!
 
-A best practice is to create uniqueness constraints before you load your data.
 After the data is loaded, you create additional indexes to make your queries perform faster.
 Using indexes makes writing data slower, but retrieving it faster.
 
-Constraints are implemented as indexes, but there are more types of indexes that you can create:
+The types of indexes that you can create include:
 
 * b-tree
 * Composite
@@ -91,75 +41,11 @@ Constraints are implemented as indexes, but there are more types of indexes that
 * TEXT
 * Full-text
 
-=== b-tree indexes
-
-A b-tree is a common implementation of an index that enables you to sort values.
-You can define a b-tree index on a property of a node label or relationship type.
-
-A b-tree index can speed up the following  in your Cypher code:
-
-* Equality checks `=`
-* Range comparisons `>`,`+>=+`,`<`, `+<=+`
-* List membership `IN`
-* String comparisons `STARTS WITH`, `ENDS WITH`, `CONTAINS`
-* Existence checks `IS NOT NULL`
-* Spatial distance searches `distance()`
-* Spatial bounding searches `point()`
-
-This query could benefit from a b-tree index in the graph for the name property and the Person label:
-
-[source,cypher]
-----
-MATCH (p:Person)
-WHERE p.name CONTAINS 'Green'
-RETURN p
-----
-
-=== Composite indexes
-
-A composite index combines values from multiple properties for a node label or relationship type.
-You create composite indexes when multiple properties are always tested together in a query.
-During query planning, at most one index is used so it is beneficial in come cases to create a composite index when multiple properties need to be retrieved quickly.
-
-For example, you might want to index on the Movie.year and the Movie.imdbRating.
-If you created a composite index on these two properties, then this query would perform better:
-
-
-[source,cypher]
-----
-MATCH (m:Movie) WHERE m.year > 1999 AND m.imdbRating = 8
-RETURN m.title, m.year, m.imdbRating
-----
-
-=== LOOKUP indexes
-
-There are two types of  LOOKUP indexes in a Neo4j database (release 4.3 and later).
-These indexes are created automatically for you.
-
-LOOKUP indexes are used to look up a node by its label or a relationship by its type.
-Without these indexes queries would need to scan the entire set of nodes or relationships for some queries which is very inefficient.
-
-[WARN]
-You should not create or remove these types of indexes in the database as they are automatically created for you.
-
-=== TEXT indexes
-
-A TEXT index supports node or relationship property types that are strings.
-It is optimized for queries that may specify `CONTAINS` or `ENDS WITH` in their filtering, but is also used for any type of test of a string property.
-
-=== Full-text indexes
-
-Full-text indexes are useful in applications that must parse property values for evaluating whether the property satisfies the criteria.
-Full-text indexes rely on Apache Lucene for their implementation which makes their parsing capabilities very powerful.
-
-For example, you may want to find all Movies that have certain phrases in their plots.
-Performing this type of retrieval using b-tree or TEXT indexes could be very  expensive, especially if the `WHERE` clause must logically specify criteria of two or more parts of a string.
-Using a b-tree or TEXT index, the index is only used for the first criteria specified in the `WHERE` clause.
-If you use a full-text index, you can use a regular expression to express how the values will be matched.
-In addition, a full-text index can be defined for multiple labels and/or properties or for multiple relationship types and/or properties.
-
-Unlike b-tree and TEXT indexes, you must call a procedure to use a full-text index at runtime.
-That is, the query planner will not automatically use a full-text index unless you specify it in your Cypher code.
+[NOTE]
+--
+Full-text indexes are used differently from the other types of indexes in Neo4j.
+Full-text indexes will be covered separately in a later module.
+--
 
 == Check your understanding
 
@@ -170,4 +56,4 @@ include::questions/2-select-answer.adoc[leveloffset=+1]
 == Summary
 
 In this lesson, you learn about the types of constraints and indexes that Neo4j supports.
-In the next lesson, you will learn about determining what indexes to create in your graph.
+In the next lesson, you will learn about determining what constraints and indexes to create in your graph.
