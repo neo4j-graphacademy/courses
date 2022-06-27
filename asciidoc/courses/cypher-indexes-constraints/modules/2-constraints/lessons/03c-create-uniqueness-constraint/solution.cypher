@@ -1,3 +1,3 @@
-CREATE CONSTRAINT Person_tmdbId_uniqueness IF NOT EXISTS ON (x:Person) REQUIRE x.tmdbId IS UNIQUE;
-CREATE CONSTRAINT User_userId_uniqueness IF NOT EXISTS ON (x:User) REQUIRE x.userId IS UNIQUE;
-CREATE CONSTRAINT Genre_name_uniqueness IF NOT EXISTS ON (x:Genre) REQUIRE x.name IS UNIQUE
+CREATE CONSTRAINT Person_tmdbId_uniqueness IF NOT EXISTS FOR (x:Person) REQUIRE x.tmdbId IS UNIQUE;
+CREATE CONSTRAINT User_userId_uniqueness IF NOT EXISTS FOR (x:User) REQUIRE x.userId IS UNIQUE;
+CREATE CONSTRAINT Genre_name_uniqueness IF NOT EXISTS FOR (x:Genre) REQUIRE x.name IS UNIQUE
