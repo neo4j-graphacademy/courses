@@ -14,14 +14,14 @@ import testRoutes from './routes/testing.routes'
 import pageRoutes from './routes/asciidoc.routes'
 import browserRoutes from './routes/browser.routes'
 
-import { applyErrorhandlers } from './middleware/error-handlers.middleware'
+import { applyErrorHandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
 import { initAnalytics } from './modules/analytics'
 import { saveRef } from './middleware/save-ref.middleware'
-
+import { endProfiling, startProfiling } from './middleware/profiling.middleware'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -45,6 +45,9 @@ export default function initApp(driver: Driver) {
 
     // Gzip
     app.use(compression())
+
+    // Start Profiling
+    app.use(startProfiling)
 
     // Apply locals
     registerLocals(app)
@@ -85,7 +88,10 @@ export default function initApp(driver: Driver) {
     useErrorHandler(app)
 
     // Generic Error Handlers
-    applyErrorhandlers(app)
+    applyErrorHandlers(app)
+
+    // End Profiling
+    app.use(endProfiling)
 
     return app
 }

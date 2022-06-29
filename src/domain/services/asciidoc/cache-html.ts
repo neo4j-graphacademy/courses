@@ -1,10 +1,11 @@
+import { ASCIIDOC_CACHING_ENABLED } from "../../../constants";
 import { addToCache, convertLessonOverview, generateLessonCacheKey } from "../../../modules/asciidoc";
 import { read } from "../../../modules/neo4j";
 import { getPageAttributes } from "../../../utils";
 import { STATUS_ACTIVE } from "../../model/course";
 
 export async function cacheHTML(): Promise<void> {
-    if ( process.env.NODE_ENV !== 'production' ) {
+    if ( ! ASCIIDOC_CACHING_ENABLED ) {
         return
     }
 

@@ -8,12 +8,15 @@ config({
 })
 
 const {
+    PROFILE,
+    CACHE_ASCIIDOC,
     KHOROS_BASE_URL,
     KHOROS_CATEGORY_URL,
     KHOROS_RSS_URL,
     DISCORD_ID,
 } = process.env
 
+export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 export const BASE_URL = process.env.BASE_URL
 
 export const DEFAULT_COURSE_THUMBNAIL = '/img/course-placeholder.jpg'
@@ -54,3 +57,13 @@ export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASS
 // Enrolment Reminder Emails
 export const ENROLMENT_REMINDER_LIMIT: string = process.env.ENROLMENT_REMINDER_LIMIT as string
 export const ENROLMENT_REMINDER_DAYS: string = process.env.ENROLMENT_REMINDER_DAYS as string
+
+
+const truthy = (value: string | undefined) => value && value !== 'false'
+
+// Enable Profiling
+// TODO: Remove undefined
+export const PROFILING_ENABLED = PROFILE === undefined || truthy(PROFILE)
+
+// Cache Asciidoc content?
+export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)

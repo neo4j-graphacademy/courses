@@ -2,7 +2,7 @@ import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
 import NotFoundError from '../errors/not-found.error';
 
-export function applyErrorhandlers(app: Express) {
+export function applyErrorHandlers(app: Express) {
     const notFoundError = (req: Request, res: Response) => {
         res.status(404)
             .render('simple', {
