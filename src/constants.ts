@@ -62,8 +62,7 @@ export const ENROLMENT_REMINDER_DAYS: string = process.env.ENROLMENT_REMINDER_DA
 const truthy = (value: string | undefined) => value && value !== 'false'
 
 // Enable Profiling
-// TODO: Remove undefined
-export const PROFILING_ENABLED = PROFILE === undefined || truthy(PROFILE)
+export const PROFILING_ENABLED = truthy(PROFILE)
 
 // Cache Asciidoc content?
 export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)
