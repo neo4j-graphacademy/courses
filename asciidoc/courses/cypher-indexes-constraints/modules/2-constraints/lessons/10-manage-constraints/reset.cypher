@@ -9,4 +9,6 @@ CREATE CONSTRAINT Genre_name_unique IF NOT EXISTS FOR (x:Genre) REQUIRE x.name I
 CREATE CONSTRAINT Person_name_exists IF NOT EXISTS FOR (x:Person) REQUIRE x.name IS NOT NULL;
 CREATE CONSTRAINT Movie_title_exists IF NOT EXISTS FOR (x:Movie) REQUIRE x.title IS NOT NULL;
 CREATE CONSTRAINT User_name_exists IF NOT EXISTS FOR (x:User) REQUIRE x.name IS NOT NULL;
-CREATE CONSTRAINT RATED_timestamp_exists IF NOT EXISTS FOR ()-[x:RATED]-() REQUIRE x.timestamp IS NOT NULL
+CREATE CONSTRAINT RATED_timestamp_exists IF NOT EXISTS FOR ()-[x:RATED]-() REQUIRE x.timestamp IS NOT NULL;
+CREATE CONSTRAINT Movie_imdbId_nodekey IF NOT EXISTS FOR (x:Movie) REQUIRE x.imdbId IS NODE KEY;
+CREATE CONSTRAINT Person_name_url_nodekey IF NOT EXISTS FOR (x:Person) REQUIRE (x.name,x.url) IS NODE KEY
