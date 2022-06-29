@@ -253,11 +253,12 @@ export async function mergeCourses(): Promise<void> {
         // Set old modules to "deleted"
         FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] |
             SET m:DeletedModule
+
+            FOREACH (r IN [ (m)-[r:HAS_MODULE|FIRST_MODULE|NEXT]->() | r ] |
+                DELETE r
+            )
         )
 
-        FOREACH (r IN [ (m)-[r:HAS_MODULE|FIRST_MODULE|NEXT]->() | r ] |
-            DELETE r
-        )
 
         WITH c, course
 
