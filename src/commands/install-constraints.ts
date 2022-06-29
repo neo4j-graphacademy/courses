@@ -43,7 +43,7 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
             count++
         }
 
-        await driver.close()
+        await close()
 
         return count
     })
