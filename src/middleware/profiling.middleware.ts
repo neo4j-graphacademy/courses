@@ -59,6 +59,8 @@ export function endProfiling(req: Request, res: Response): void {
         const timeTaken: number = endTime.getTime() - req.startTime?.getTime();
 
         console.log(req.originalUrl, ': ', timeTaken, 'ms');
-        console.table(req.profilerEvents)
+        if ( req.profilerEvents.length ) {
+            console.table(req.profilerEvents)
+        }
     }
 }

@@ -44,6 +44,8 @@ export function registerLocals(app: Express) {
         // Load CSVs from resources/svg
         res.locals.svg = getSvgs()
 
+        res.locals.translate = (_: string, defaultValue: string) => defaultValue
+
         next()
     })
 }

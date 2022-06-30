@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -100,10 +100,13 @@ const loadCourse = (courseFolder: string): CourseToImport => {
             .filter(([key]) => key.endsWith('repository'))
     )
 
+    const language = file.getAttribute(ATTRIBUTE_LANGUAGE, LANGUAGE_EN)
+
     // @ts-ignore
     return {
         slug,
         link: `/courses/${slug}/`,
+        language,
         title: file.getTitle() as string,
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
@@ -216,6 +219,7 @@ export async function mergeCourses(): Promise<void> {
         SET
             c.id = apoc.text.base64Encode(course.slug),
             c.title = course.title,
+            c.language = course.language,
             c.thumbnail = course.thumbnail,
             c.caption = course.caption,
             c.status = course.status,
@@ -226,7 +230,6 @@ export async function mergeCourses(): Promise<void> {
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime(),
-
             c += course.attributes
 
         // Assign Categories

@@ -13,6 +13,7 @@ import certificateRoutes from './routes/certificate.routes'
 import testRoutes from './routes/testing.routes'
 import pageRoutes from './routes/asciidoc.routes'
 import browserRoutes from './routes/browser.routes'
+import languageRoutes from './routes/language.routes'
 
 import { applyErrorHandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
@@ -22,6 +23,7 @@ import { verifyJwt } from './middleware/verify-jwt.middleware'
 import { initAnalytics } from './modules/analytics'
 import { saveRef } from './middleware/save-ref.middleware'
 import { endProfiling, startProfiling } from './middleware/profiling.middleware'
+import { initLocalisation } from './modules/localisation'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -52,6 +54,9 @@ export default function initApp(driver: Driver) {
     // Apply locals
     registerLocals(app)
 
+    // Load in languages
+    initLocalisation()
+
     // Apply auth headers
     applyAuth(app)
 
@@ -78,6 +83,7 @@ export default function initApp(driver: Driver) {
     app.use('/u', publicProfileRoutes)
     app.use('/certificates', certificateRoutes)
     app.use('/browser', browserRoutes)
+    app.use('/', languageRoutes)
     app.use('/', pageRoutes)
 
     if ( process.env.NODE_ENV === 'dev' ) {

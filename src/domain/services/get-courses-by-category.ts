@@ -1,19 +1,19 @@
 import { read } from "../../modules/neo4j";
 import { formatCourse, sortCourses } from "../../utils";
 import { Category } from "../model/category";
-import { Course } from "../model/course";
+import { Course, Language, LANGUAGE_EN } from "../model/course";
 import { User } from "../model/user";
-import { appendParams } from "./cypher";
+import { appendParams, categoryCypher } from "./cypher";
 
 interface DbCategory extends Category<any> {
     order: number;
     parents: string[]
 }
 
-export async function getCoursesByCategory<T extends Course>(user?: User): Promise<Category<T>[]> {
+export async function getCoursesByCategory<T extends Course>(user?: User, language: Language = LANGUAGE_EN): Promise<Category<T>[]> {
     const res = await read(`
         MATCH (c:Course)
-        WHERE NOT c.status IN $exclude
+        WHERE NOT c.status IN $exclude AND c.language = $language
         ${user !== undefined ? 'OPTIONAL MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
 
         WITH collect(c {
@@ -25,7 +25,7 @@ export async function getCoursesByCategory<T extends Course>(user?: User): Promi
             categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
             categories: [(c)-[r:IN_CATEGORY]->(ct) | ct {
                 .*,
-                link: '/categories/'+ ct.slug +'/',
+                link: coalesce(ct.link, '/categories/'+ ct.slug +'/'),
                 order: r.order
             }],
             modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
@@ -34,12 +34,8 @@ export async function getCoursesByCategory<T extends Course>(user?: User): Promi
         MATCH (ct:Category)
         WHERE exists((ct)<-[:IN_CATEGORY]-()) OR exists((ct)-[:HAS_CHILD]->())
         RETURN courses,
-            collect(ct {
-                .*,
-                link: '/categories/'+ ct.slug +'/',
-                parents: [(ct)<-[:HAS_CHILD]-(p) | p.id ]
-            }) AS categories
-    `, appendParams({ sub: user?.sub  }))
+            collect( ${categoryCypher('ct', true)}) AS categories
+    `, appendParams({ sub: user?.sub, language }))
 
     const courses = await Promise.all(res.records[0].get('courses').map(async (course: T) => await formatCourse<T>(course))) as T[]
     const categories = res.records[0].get('categories')

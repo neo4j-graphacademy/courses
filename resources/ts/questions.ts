@@ -101,6 +101,9 @@ const getQuestionDetails = (element: Element): Question => {
     const question = element.querySelector('h3, h2')
     const id = question?.getAttribute('id')!
 
+    console.log(id);
+
+
     return {
         parent,
         element,

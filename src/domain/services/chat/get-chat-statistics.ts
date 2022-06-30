@@ -11,18 +11,23 @@ let updatedAt: Date;
 
 export async function getChatStatistics(): Promise<ChatStatistics> {
     if ( DISCORD_ID === undefined ) {
-        return Promise.resolve({ online: 0 })
+        return { online: 0 }
     }
 
-    const now = new Date()
+    try {
+        const now = new Date()
 
-    if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {
-        const res = await axios.get(`https://discord.com/api/guilds/${DISCORD_ID}/widget.json`)
+        if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {
+            const res = await axios.get(`https://discord.com/api/guilds/${DISCORD_ID}/widget.json`)
 
-        cache = {
-            online: res.data.presence_count || 0
+            cache = {
+                online: res.data.presence_count || 0
+            }
+            updatedAt = now
         }
-        updatedAt = now
+    }
+    catch(e) {
+        // Do nothing...
     }
 
     return cache

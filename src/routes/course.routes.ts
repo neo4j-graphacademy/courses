@@ -33,6 +33,7 @@ import { UserViewedLesson } from '../domain/events/UserViewedLesson'
 import { getRef } from '../middleware/save-ref.middleware'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 import { requiredCompletedProfile } from '../middleware/profile.middleware'
+import { translate } from '../modules/localisation'
 
 const router = Router()
 
@@ -114,6 +115,8 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
 
             course,
             ...course,
+
+            translate: translate(course.language),
 
             ogDescription: course.caption,
             ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
