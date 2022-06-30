@@ -16,7 +16,7 @@ import browserRoutes from './routes/browser.routes'
 
 import { applyErrorHandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
-import { registerSession } from './middleware/session-redis.middleware'
+import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
 import { initAnalytics } from './modules/analytics'

@@ -66,3 +66,6 @@ export const PROFILING_ENABLED = truthy(PROFILE)
 
 // Cache Asciidoc content?
 export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)
+
+// Redis host
+export const REDIS_HOST = process.env.REDIS_HOST

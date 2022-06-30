@@ -34,6 +34,7 @@ export function startProfiling(req: Request, res: Response, next: NextFunction):
         res.render = (view, locals, cb) => {
             // @ts-ignore
             render.call(res, view, locals, cb)
+console.log('render');
 
             // @ts-ignore
             endProfiling(req, res)
