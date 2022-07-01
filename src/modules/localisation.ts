@@ -17,17 +17,26 @@ export function initLocalisation() {
         const path = `languages/${language}.adoc`
         const file = loadFile(path)
 
-        const attributes = file.getAttributes()
+        const attributes = Object.assign({}, file.getAttributes())
 
         file.getBlocks().map(block => {
-            attributes[ block.getId() ] = `<h2>${block.getTitle()}</h2>${block.getContent()}`
+            let html = ``
+
+            if ( block.getTitle() ) {
+                const level = block.getLevel()+1
+                html += `<h${level}>${block.getTitle()}</h${level}>`
+            }
+
+            html += block.getContent()
+
+            attributes[ block.getId() ] = html
         })
 
         languages.set(language, attributes)
     })
 }
 
-export function getPhrase(language: Language, phrase: string, defaultValue?: any): string {
+export function getPhrase(language: Language, phrase: string, defaultValue: any = ''): string {
     const found = languages.get(language)
     const foundPhrase = found ? found[phrase] : undefined
 

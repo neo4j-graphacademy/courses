@@ -333,7 +333,7 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
             title: 'Course Summary',
             course,
             doc,
-
+            translate: translate(course.language),
         })
     }
     catch (e) {
@@ -399,7 +399,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
             host: sandbox!.host,
             port: sandbox!.boltPort,
             username: 'neo4j',
-            password: sandbox!.password
+            password: sandbox!.password,
         })
     }
     catch (e: any) {
@@ -501,7 +501,7 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
             },
             feedback: true,
             ...module,
-            type: 'module overview',
+            type: 'module',
             path: req.originalUrl,
             enrolled: course.enrolled,
             course,
@@ -509,6 +509,7 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
             showSandbox,
             sandboxVisible,
             sandboxUrl,
+            translate: translate(course.language),
         })
     }
     catch (e) {
@@ -549,8 +550,6 @@ router.use('/:course/:module/images', (req, res, next) => {
 
     express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'images'))(req, res, next)
 })
-
-
 
 /**
  * @GET /:course/:module/:lesson
@@ -680,6 +679,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
             sandboxUrl,
             sandboxVisible,
             summary: await courseSummaryExists(req.params.course),
+            translate: translate(course.language),
         })
     }
     catch (e) {

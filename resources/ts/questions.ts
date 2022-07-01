@@ -14,6 +14,15 @@ declare global {
         };
 
         i18n: {
+            feedbackFollowup: string;
+            feedbackThankyou: string;
+            missing: string;
+            hardToFollow: string;
+            inaccurate: string;
+            other: string;
+            moreInformation: string;
+            feedbackSubmit: string;
+            feedbackSkip: string;
             advanceTo: string;
             [key: string]: any;
         }
@@ -105,9 +114,6 @@ const getQuestionDetails = (element: Element): Question => {
 
     const question = element.querySelector('h3, h2')
     const id = question?.getAttribute('id')!
-
-    console.log(id);
-
 
     return {
         parent,
