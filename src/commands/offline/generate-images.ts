@@ -2,11 +2,11 @@ import path from 'path'
 import fs from 'fs'
 import pug from 'pug'
 import nodeHtmlToImage from 'node-html-to-image'
-import initNeo4j, { read, close } from '../modules/neo4j';
-import { categoryBannerPath, courseBannerPath, formatCourse, getSvgs } from '../utils';
-import { courseCypher } from '../domain/services/cypher'
-import { Course, NEGATIVE_STATUSES } from '../domain/model/course'
-import { Category } from '../domain/model/category'
+import initNeo4j, { read, close } from '../../modules/neo4j';
+import { categoryBannerPath, courseBannerPath, formatCourse, getSvgs } from '../../utils';
+import { courseCypher } from '../../domain/services/cypher'
+import { Course, NEGATIVE_STATUSES } from '../../domain/model/course'
+import { Category } from '../../domain/model/category'
 
 
 
@@ -17,7 +17,7 @@ import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD
-} from '../constants'
+} from '../../constants'
 
 
 const svg = getSvgs()
@@ -82,8 +82,8 @@ const renderCategories = async () => {
 
 
 export async function render(outputTo: string, overline: string | undefined, title: string, byline: string, badge?: string) {
-    const bannerFunction = pug.compileFile(path.join(__dirname, '..', '..', 'views', 'layouts', 'banner.pug'))
-    const css = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'css', 'app.css'))
+    const bannerFunction = pug.compileFile(path.join(__dirname, '..', '..', '..', 'views', 'layouts', 'banner.pug'))
+    const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'public', 'css', 'app.css'))
 
     const html = bannerFunction({
         overline,
