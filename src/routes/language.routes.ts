@@ -1,16 +1,15 @@
 import { Router } from "express";
-import { LANGUAGE_JP } from "../domain/model/course";
+import { Language, LANGUAGE_CN, LANGUAGE_JP } from "../domain/model/course";
 import { getCoursesByCategory } from "../domain/services/get-courses-by-category";
 import { getUser } from "../middleware/auth.middleware";
 import { forceTrailingSlash } from "../middleware/trailing-slash.middleware";
 import { loadFile } from "../modules/asciidoc";
-import { getPhrase, translate } from "../modules/localisation";
+import { translate } from "../modules/localisation";
 
 const router = Router()
 
-router.get(`/${LANGUAGE_JP}`, forceTrailingSlash, async (req, res, next) => {
-    // TODO: Make this dynamic
-    const language = LANGUAGE_JP
+router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, async (req, res, next) => {
+    const language = req.params.language as Language
 
     try {
         const user = await getUser(req)

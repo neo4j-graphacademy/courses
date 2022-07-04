@@ -41,6 +41,8 @@ export const LANGUAGE_EN = 'en'
 export const LANGUAGE_JP = 'jp'
 export const LANGUAGE_CN = 'cn'
 
+export const LANGUAGES = [ LANGUAGE_EN, LANGUAGE_JP,  LANGUAGE_CN, ]
+
 export type Language = typeof LANGUAGE_EN | typeof LANGUAGE_JP | typeof LANGUAGE_CN
 
 export interface Course {
