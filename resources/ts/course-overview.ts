@@ -1,5 +1,5 @@
 export default function courseOverview() {
-    document.querySelectorAll('.course-enrol-link').forEach(el => {
+    document.querySelectorAll('.btn--enrol').forEach(el => {
         el.addEventListener('click', () => {
             el.classList.add('btn--loading')
             el.innerHTML = 'Enrolling, please wait&hellip;'
@@ -10,7 +10,7 @@ export default function courseOverview() {
         })
     })
 
-    document.querySelectorAll('.course-unenrol-link')
+    document.querySelectorAll('.btn--unenrol')
         .forEach(element => {
             element.addEventListener('click', e => {
                 if ( !confirm('Are you sure you want to unenroll?  All of your current progress will be lost.')) {
