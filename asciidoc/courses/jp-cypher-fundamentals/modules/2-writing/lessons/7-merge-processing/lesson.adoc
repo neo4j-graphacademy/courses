@@ -1,0 +1,114 @@
+= マージ処理
+:type: quiz
+:order: 7
+
+[.video]
+video::3zHH1ei5eCw[youtube,width=560,height=315]
+
+
+//https://youtu.be/3zHH1ei5eCw
+
+
+////
+
+2-Writing-MergeProcessing
+
+https://docs.google.com/document/d/1AFfffANGSB6-YpfjFJ6qRkxONnsw-PMrhFp1dz0qtLo/edit?usp=sharing
+
+////
+[.transcript]
+== マージ処理
+MERGE` を使って、グラフにノードやリレーションシップを作成できることを学びました。
+MERGE` 操作は、まずグラフの中にパターンを見つけようとします。
+もしパターンが見つかれば、そのデータはすでに存在しており、作成されることはありません。
+もし、パターンが見つからなければ、データを作成することができる。
+
+=== `MERGE` の動作のカスタマイズ
+
+ノードが作成されたときやノードが見つかったときにプロパティを設定できるように、実行時の振る舞いを指定することもできます。
+ON CREATE SET` や `ON MATCH SET` 条件、あるいは `SET` キーワードを使って、任意の追加プロパティを設定することができます。
+
+この例では、_McKenna Grace_ の _Person_ ノードが存在しない場合、そのノードが作成され、 _createdAt_ プロパティが設定されます。
+ノードが見つかった場合は、_updatedAt_ プロパティが設定されます。
+どちらの場合も、_born_ プロパティが設定されます。
+
+このCypherのコードを少なくとも2回実行して、どのようなプロパティが設定されるかを観察してください。プロパティはテーブルビューで見ることができます。
+
+[source,cypher]
+----
+// Find or create a person with this name
+MERGE (p:Person {name: 'McKenna Grace'})
+
+// Only set the `createdAt` property if the node is created during this query
+ON CREATE SET p.createdAt = datetime()
+
+// Only set the `updatedAt` property if the node was created previously
+ON MATCH SET p.updatedAt = datetime()
+
+// Set the `born` property regardless
+SET p.born = 2006
+
+RETURN p
+----
+
+ON CREATE SET` 節または `ON MATCH SET` 節に複数のプロパティを設定したい場合は、カンマで区切って指定します。
+例えば
+
+`ON CREATE SET
+  m.released = 2020, m.tagline = `A great ride!'`
+
+=== リレーションシップのマージ
+
+リレーションシップも厄介なことがあります。
+
+例えば、_The Cider House Rules という映画を表す _Movie_ ノードを作成したいとします。
+次のようなクエリを書きます。
+
+このCypherのコードを実行してみると、エラーが発生します。
+
+[source,cypher]
+----
+MERGE (p:Person {name: 'Michael Cain'})-[:ACTED_IN]->(m:Movie {title: 'The Cider House Rules'})
+RETURN p, m
+----
+
+以下は、クエリプロセッサーでの処理内容である。
+
+1.Neo4jは、_Michael Cain_という名前を持つ_Person_ノードを見つけようとします。
+2.2. 次に、グラフ内の_ACTED_IN_リレーションを展開しようとします。
+3.3. 関係のもう一方の端にあるノードについて、_Michael Cain_ノードをチェックします。
+
+現在のデータベースの状態では、_Person_ノードはありますが、_Movie_ノードは**ありません**。
+そのため、Neo4jはパターン全体を作成しようとします。まず、新しい_Person_ノードを作成し、次に_Movie_ ノードを作成し、その後にリレーションシップを作成します。
+
+これは、このコードによって一意性制約に違反することを伝えるエラーをスローする原因となります。
+
+代わりに、このコードを3つの部分に分解することができます。  まず_Person_ノードをマージし、次に_Movie_をマージし、そして2つの間の_ACTED_IN_リレーションシップをマージします。
+
+[source,cypher]
+----
+// Find or create a person with this name
+MERGE (p:Person {name: 'Michael Cain'})
+
+// Find or create a movie with this title
+MERGE (m:Movie {title: 'The Cider House Rules'})
+
+// Find or create a relationship between the two nodes
+MERGE (p)-[:ACTED_IN]->(m)
+----
+
+このコードでは、_Movie_ ノードとリレーションシップを作成しています。
+
+
+== 理解度の確認
+
+include::questions/1-what-merge-does.adoc[leveloffset=+1]]
+
+include::questions/2-complete-code.adoc[leveloffset=+1]]
+
+[.summary]
+== まとめ
+
+このレッスンでは、グラフ内でノードを作成したり見つけたりするときに、プロパティの追加設定を実行する方法を学びました。
+次の課題では、グラフ内でノードが作成されたり見つかったりしたときに、プロパティを追加または更新する方法を説明します。
+
