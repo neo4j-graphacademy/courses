@@ -249,7 +249,7 @@ export async function mergeCourses(): Promise<void> {
         // Translations
         FOREACH (slug IN course.translations |
             MERGE (translated:Course {slug: slug})
-            MERGE (c)-[:HAS_TRANSLATION]->(translated)
+            MERGE (c)-[:HAS_TRANSLATION]-(translated)
         )
 
         // Previous courses
