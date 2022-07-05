@@ -15,9 +15,9 @@ Cypress.Commands.add('attemptLesson', lesson => {
     cy.get('body')
         .then($body => {
             // Check all links open in a new window
-            if ( $body.find('.module-content a:not([href^="#"])').length > 0) {
-                cy.checkClassroomLinks()
-            }
+            // if ( $body.find('.module-content a:not([href^="#"])').length > 0) {
+            //     cy.checkClassroomLinks()
+            // }
 
             // Check Video and transcript tabs
             if ( $body.find('#transcript').length > 0 && $body.find('#video').length > 0 ) {
@@ -175,7 +175,7 @@ Cypress.Commands.add('failLesson', () => {
         // Loading state
         // .should('have.class', 'btn-loading')
         // .should('not.have.class', 'btn-loading')
-        .should('contain', 'Try again')
+        .should('contain', '...')
 
 
     // Error block
@@ -273,8 +273,8 @@ Cypress.Commands.add('checkCourseCompletedOutcome', () => {
     cy.get('.module-outcome-actions .btn-primary').should('exist')
 
     // Check links in modal
-    cy.get('.module-outcome-actions .btn-secondary').contains('Certificate')
-    cy.get('.module-outcome-actions .btn-primary').contains('Summary')
+    cy.get('.module-outcome-actions .btn--summary').should('exist')
+    cy.get('.module-outcome-actions .btn--certificate').should('exist')
 
 
     // Close Modal

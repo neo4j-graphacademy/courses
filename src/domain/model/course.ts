@@ -35,9 +35,21 @@ export const ATTRIBUTE_CATEGORIES = 'categories'
 export const ATTRIBUTE_REDIRECT = 'redirect'
 export const ATTRIBUTE_PREVIOUS = 'previous'
 export const ATTRIBUTE_NEXT = 'next'
+export const ATTRIBUTE_LANGUAGE = 'lang'
+export const ATTRIBUTE_TRANSLATIONS = 'translations'
+
+export const LANGUAGE_EN = 'en'
+export const LANGUAGE_JP = 'jp'
+export const LANGUAGE_CN = 'cn'
+
+export const LANGUAGES = [ LANGUAGE_EN, LANGUAGE_JP,  LANGUAGE_CN, ]
+
+export type Language = typeof LANGUAGE_EN | typeof LANGUAGE_JP | typeof LANGUAGE_CN
+
 
 export interface Course {
     slug: string;
+    language: Language;
     title: string;
     link: string;
     video?: string;
@@ -59,6 +71,7 @@ export interface Course {
     cypher: string | undefined;
     summary: boolean;
     certificateNumber: Integer | boolean | undefined;
+    translations: Course[];
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }

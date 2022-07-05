@@ -34,7 +34,6 @@ export function startProfiling(req: Request, res: Response, next: NextFunction):
         res.render = (view, locals, cb) => {
             // @ts-ignore
             render.call(res, view, locals, cb)
-console.log('render');
 
             // @ts-ignore
             endProfiling(req, res)
@@ -59,6 +58,8 @@ export function endProfiling(req: Request, res: Response): void {
         const timeTaken: number = endTime.getTime() - req.startTime?.getTime();
 
         console.log(req.originalUrl, ': ', timeTaken, 'ms');
-        console.table(req.profilerEvents)
+        if ( req.profilerEvents.length ) {
+            console.table(req.profilerEvents)
+        }
     }
 }

@@ -16,7 +16,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
         ${course} {
             // .slug, .title, .thumbnail, .caption, .status, .usecase, .redirect, .link, .duration, .repository, .video,
             .*,
-            categories: [ (${course})-[:IN_CATEGORY]->(category) | category { .id, .slug, .title, .description, link: '/categories/'+ category.slug +'/' }],
+            categories: [ (${course})-[:IN_CATEGORY]->(category) | ${categoryCypher('category')} ],
             ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, certificateNumber: ${enrolment}.certificateNumber, enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL AND size((c)-[:HAS_MODULE|HAS_LESSON*2]->()) > 0 THEN toString(toInteger((1.0 * size([ (${enrolment})-[:COMPLETED_LESSON]->(x) WHERE not x:OptionalLesson | x ]) / size([ (${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->(x) WHERE not x:OptionalLesson | x ]))*100)) ELSE coalesce(${enrolment}.percent, 0) END ,` : ''}
@@ -26,6 +26,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
                 ${moduleCypher(enrolment, course, module, lesson)}
             ], '^order'),
             prerequisites: [ (${course})-[:PREREQUISITE]->(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
+            translations: [ (${course})-[:HAS_TRANSLATION]-(translation) | translation { .language, .link, .slug, .title, .caption, .thumbnail } ],
             progressTo: [ (${course})<-[:PREREQUISITE]-(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ]
         }
     `
@@ -70,4 +71,9 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
                             ]
                         }
     `
+}
+
+export function categoryCypher(alias: string = 'category', parents: boolean = false) {
+    const parentsCypher = parents ? `, parents: [(${alias})<-[:HAS_CHILD]-(p) | p.id ] ` : ''
+    return `${alias} { .id, .slug, .title, .description, link: coalesce(${alias}.link, '/categories/'+ ${alias}.slug +'/') ${parentsCypher} }`
 }

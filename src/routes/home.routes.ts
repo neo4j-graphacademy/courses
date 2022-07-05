@@ -1,9 +1,10 @@
 import { Router } from 'express'
 import { BASE_URL } from '../constants'
-import { CourseWithProgress, NEGATIVE_STATUSES } from '../domain/model/course'
+import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
+import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
 
 const router = Router()
@@ -44,6 +45,8 @@ router.get('/',  async (req, res, next) => {
 
         const activePath = 'developer'
 
+        const translateEn = translate(LANGUAGE_EN)
+
         res.render('home', {
             title: 'Free, Self-Paced, Hands-on Online Training ',
             hero: {
@@ -59,6 +62,7 @@ router.get('/',  async (req, res, next) => {
             paths,
             certification,
             activePath,
+            translate: translateEn,
         })
     }
     catch (e) {
@@ -90,6 +94,5 @@ router.get('/sitemap.txt', async (req, res, next) => {
         next(e)
     }
 })
-
 
 export default router

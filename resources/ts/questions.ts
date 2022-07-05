@@ -12,6 +12,20 @@ declare global {
             lesson: Record<string, any>;
             user: Record<string, any>;
         };
+
+        i18n: {
+            feedbackFollowup: string;
+            feedbackThankyou: string;
+            missing: string;
+            hardToFollow: string;
+            inaccurate: string;
+            other: string;
+            moreInformation: string;
+            feedbackSubmit: string;
+            feedbackSkip: string;
+            advanceTo: string;
+            [key: string]: any;
+        }
     }
 }
 
@@ -464,21 +478,24 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
     else {
         setButtonNegativeState(button)
 
-        let children: any[] = ['It looks like you haven\'t passed the test, please check your answers and try again.']
+        let children: any[] = [window.i18n.lessonFailed]
 
         // Show hint text?
         if (parent.querySelector('.admonition')) {
-            // TODO: Show after a couple of incorrect attempts
             children = children.concat(
-                '  If you are stuck, try clicking the ',
-                createElement('strong', '', ['Show Hint']),
-                ' button'
+                window.i18n.checkHintPrefix,
+                createElement('strong', '', [
+                    window.i18n.showHint,
+                ]),
+                window.i18n.checkHintSuffix,
             )
         }
 
         // Add error message
         const oops = createElement('div', `admonition admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
-            createElement('h3', 'admonition-title', ['Oops!']),
+            createElement('h3', 'admonition-title', [
+                window.i18n.lessonFailedTitle
+            ]),
             createElement('p', '', children)
         ])
 
@@ -594,7 +611,7 @@ const displayLessonCompleted = (res) => {
         span.innerHTML = ' &rarr;'
 
         const button = createElement('a', 'btn btn-primary', [
-            'Advance to ',
+            window.i18n.advanceTo,
             res.data.next.title,
             span
         ])
@@ -605,7 +622,7 @@ const displayLessonCompleted = (res) => {
 
 
     const confirmation = buildModuleOutcome(
-        'You have passed this lesson!',
+        window.i18n.lessonPassed,
         actions,
     )
 
@@ -624,8 +641,8 @@ const displayCourseCompleted = (res) => {
 
     // Certificate Link
     if ( window.analytics.user.id ) {
-        const button = createElement('a', 'btn btn-secondary', [
-            'View Certificate'
+        const button = createElement('a', 'btn btn-secondary btn--certificate', [
+            window.i18n.viewCertificate
         ])
         // @ts-ignore
         button.setAttribute('href', `/u/${window.analytics.user.id}/${window.analytics.course.slug}`)
@@ -641,8 +658,8 @@ const displayCourseCompleted = (res) => {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
-        const button = createElement('a', 'btn btn-primary', [
-            'View Course Summary',
+        const button = createElement('a', 'btn btn-primary btn--summary', [
+            window.i18n.viewCourseSummary,
             arrow,
         ])
         // @ts-ignore
@@ -652,7 +669,7 @@ const displayCourseCompleted = (res) => {
     }
     else {
         const button = createElement('a', 'btn btn-primary', [
-            'My Courses',
+            window.i18n.myCourses,
             arrow,
         ])
         // @ts-ignore
@@ -674,6 +691,7 @@ const displayCourseCompleted = (res) => {
     // Add Congratulations
     const congratulations = document.createElement('div')
     congratulations.classList.add('module-outcome-congratulations')
+    // TODO: i18n - redirect to summary?
     congratulations.innerHTML=`
         <p>
             <a href="${window.analytics.course.link}certificate/" target="_blank">
@@ -720,7 +738,9 @@ const handleError = (parent, button, error) => {
     removeFailedMessages(parent)
 
     parent.appendChild(createElement('div', `admonition admonition--show admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
-        createElement('h3', 'admonition-title', ['Error!']),
+        createElement('h3', 'admonition-title', [
+            window.i18n.error,
+        ]),
         createElement('p', '', [
             error.message,
         ])
@@ -898,7 +918,7 @@ const setButtonNegativeState = (button: HTMLButtonElement) => {
     const label = button.querySelector('.btn-label')
 
     if (label) {
-        label.innerHTML = 'Try again&hellip;'
+        label.innerHTML = window.i18n.tryAgain
     }
 }
 
@@ -915,7 +935,7 @@ const setupVerify = () => {
                 parent?.classList.add(QUESTION_CORRECT)
 
                 b.disabled = true
-                b.innerHTML = 'Challenge Completed'
+                b.innerHTML = window.i18n.challengeCompleted
 
                 b.classList.add('btn--correct')
 
