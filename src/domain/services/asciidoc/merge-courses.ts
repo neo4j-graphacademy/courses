@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
@@ -101,12 +101,17 @@ const loadCourse = (courseFolder: string): CourseToImport => {
     )
 
     const language = file.getAttribute(ATTRIBUTE_LANGUAGE, LANGUAGE_EN)
+    const translations = file.getAttribute(ATTRIBUTE_TRANSLATIONS, '')
+        .split(',')
+        .filter((e: string) => e !== '')
+
 
     // @ts-ignore
     return {
         slug,
         link: `/courses/${slug}/`,
         language,
+        translations,
         title: file.getTitle() as string,
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
@@ -239,6 +244,12 @@ export async function mergeCourses(): Promise<void> {
             MERGE (ct:Category {id: apoc.text.base64Encode(row.category)})
             MERGE (c)-[r:IN_CATEGORY]->(ct)
             SET r.order = row.order
+        )
+
+        // Translations
+        FOREACH (slug IN course.translations |
+            MERGE (translated:Course {slug: slug})
+            MERGE (c)-[:HAS_TRANSLATION]->(translated)
         )
 
         // Previous courses
