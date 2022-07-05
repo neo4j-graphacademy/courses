@@ -273,8 +273,8 @@ Cypress.Commands.add('checkCourseCompletedOutcome', () => {
     cy.get('.module-outcome-actions .btn-primary').should('exist')
 
     // Check links in modal
-    cy.get('.module-outcome-actions .btn-secondary').contains('Certificate')
-    cy.get('.module-outcome-actions .btn-primary').contains('Summary')
+    cy.get('.module-outcome-actions .btn--summary').should('exist')
+    cy.get('.module-outcome-actions .btn--certificate').should('exist')
 
 
     // Close Modal
