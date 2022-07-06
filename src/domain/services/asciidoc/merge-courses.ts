@@ -299,7 +299,7 @@ const mergeCourseDetails = (tx: Transaction, course: CourseToImport) => tx.run(`
         c.duration = $course.duration,
         c.repository = $course.repository,
         c.video = $course.video,
-        c.link = '/$courses/'+ c.slug +'/',
+        c.link = '/courses/'+ c.slug +'/',
         c.updatedAt = datetime(),
         c += $course.attributes
 `, { course })
@@ -493,7 +493,7 @@ export async function mergeCourses(): Promise<void> {
 
         // Create -[:NEXT]-> between last (:Lesson) and next (:Modle)
         await tx.run(`
-            MATCH (last:Question)<-[:LAST_QUESTION]-()-[:NEXT_MODULE]->(next)
+            MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
             MERGE (last)-[:NEXT]->(next)
         `)
 
