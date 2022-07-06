@@ -641,7 +641,7 @@ const displayCourseCompleted = (res) => {
 
     // Certificate Link
     if ( window.analytics.user.id ) {
-        const button = createElement('a', 'btn btn-secondary', [
+        const button = createElement('a', 'btn btn-secondary btn--certificate', [
             window.i18n.viewCertificate
         ])
         // @ts-ignore
@@ -658,7 +658,7 @@ const displayCourseCompleted = (res) => {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
-        const button = createElement('a', 'btn btn-primary', [
+        const button = createElement('a', 'btn btn-primary btn--summary', [
             window.i18n.viewCourseSummary,
             arrow,
         ])

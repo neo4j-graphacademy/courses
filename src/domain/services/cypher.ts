@@ -26,6 +26,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
                 ${moduleCypher(enrolment, course, module, lesson)}
             ], '^order'),
             prerequisites: [ (${course})-[:PREREQUISITE]->(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
+            translations: [ (${course})-[:HAS_TRANSLATION]-(translation) | translation { .language, .link, .slug, .title, .caption, .thumbnail } ],
             progressTo: [ (${course})<-[:PREREQUISITE]-(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ]
         }
     `
