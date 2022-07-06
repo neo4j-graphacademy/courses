@@ -1,0 +1,1 @@
+CREATE INDEX Movie_year_indbRating IF NOT EXISTS FOR (x:Movie) ON (x.year, x.imdbRating)
