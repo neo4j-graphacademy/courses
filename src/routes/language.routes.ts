@@ -6,7 +6,9 @@ import { forceTrailingSlash } from "../middleware/trailing-slash.middleware";
 import { loadFile } from "../modules/asciidoc";
 import { translate } from "../modules/localisation";
 
-const router = Router()
+const router = Router({
+    caseSensitive: true,
+})
 
 router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, async (req, res, next) => {
     const language = req.params.language as Language
