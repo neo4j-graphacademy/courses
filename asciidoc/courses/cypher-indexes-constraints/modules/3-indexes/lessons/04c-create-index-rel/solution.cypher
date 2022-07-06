@@ -1,0 +1,1 @@
+CREATE INDEX RATED_rating IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.rating)
