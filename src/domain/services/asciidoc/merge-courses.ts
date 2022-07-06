@@ -84,11 +84,6 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         // @ts-ignore
         .map(([category, order]) => ({ order: order || '1', category: category?.trim() }))
 
-    const prerequisiteSlugs = file.getAttribute(ATTRIBUTE_PREVIOUS, '')
-        .split(',')
-        .map((e: string) => e?.trim() || '')
-        .filter((e: string) => e !== '')
-
     const progressToSlugs = file.getAttribute(ATTRIBUTE_NEXT, '')
         .split(',')
         .map((e: string) => e?.trim() || '')
@@ -123,7 +118,6 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
         attributes,
-        prerequisiteSlugs,
         progressToSlugs,
         categories,
         modules: modules.map((module, index) => ({
@@ -226,10 +220,8 @@ const loadQuestion = (filepath: string): Question => {
     await deleteCourseRelationships(tx, course.slug!, 'HAS_TRANSLATION', course.translations?.map(translation => translation.slug))
     await mergeTranslations(tx, course)
 
-    // Previous courses
-    await mergePreviousCourses(tx, course)
-
     // Next courses
+    await deleteCourseRelationships(tx, course.slug!, 'PREREQUISITE', course.translations?.map(translation => translation.slug))
     await mergeNextCourses(tx, course)
 
     // Set old modules to "deleted"
@@ -239,20 +231,6 @@ const loadQuestion = (filepath: string): Question => {
     if (course.modules?.length) {
         await mergeCourseModules(tx, course)
     }
-
-
-
-    // Set old lessons to "deleted"
-
-    // Detach old lessons
-
-    // Load Questions
-
-    // Reconstruct :FIRST relationships
-    // Reconstruct :NEXT relationships
-    // Module
-    // Lesson
-
 }
 
 const mergeCourseModules = (tx: Transaction, course: CourseToImport) => Promise.all(course.modules!.map(async module => {
@@ -319,22 +297,9 @@ const mergeTranslations = (tx: Transaction, course: CourseToImport) => tx.run(`
         MERGE (c)-[:HAS_TRANSLATION]->(t)
 `, { course })
 
-const mergePreviousCourses = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})
-
-    FOREACH (r IN [ ()-[r:PREREQUISITE]->(c) | r ] | DELETE r)
-
-    WITH c
-
-    UNWIND $course.prerequisites AS slug
-        MERGE (prev:Course {slug: slug}) ON CREATE SET c.status = $STATUS_DISABLED
-        MERGE (c)-[:PREREQUISITE]->(prev)
-`, { course, STATUS_DISABLED })
 
 const mergeNextCourses = (tx: Transaction, course: CourseToImport) => tx.run(`
     MATCH (c:Course {slug: $course.slug})
-
-    FOREACH (r IN [ (c)-[r:PREREQUISITE]->() | r ] | DELETE r)
 
     WITH c
 
@@ -424,7 +389,6 @@ const mergeLessonQuestion = (tx: Transaction, course: CourseToImport, module: Mo
 
 // Integrity Checks
 const checkSchema = (session: Session) => session.readTransaction(async tx => {
-
     // Next Links?
     const next = await tx.run(`
         MATCH (a)-[:NEXT]->(b)
@@ -438,9 +402,6 @@ const checkSchema = (session: Session) => session.readTransaction(async tx => {
     if ( next.records.length > 1 ) {
         throw new Error(`Too many next links: \n ${JSON.stringify(next.records.map(row => row.toObject()), null, 2)}`)
     }
-
-
-
 })
 
 export async function mergeCourses(): Promise<void> {
