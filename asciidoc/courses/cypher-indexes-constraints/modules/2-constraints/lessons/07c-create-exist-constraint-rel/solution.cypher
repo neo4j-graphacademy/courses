@@ -1,0 +1,1 @@
+CREATE CONSTRAINT RATED_timestamp_exists IF NOT EXISTS FOR ()-[x:RATED]-() REQUIRE x.timestamp IS NOT NULL
