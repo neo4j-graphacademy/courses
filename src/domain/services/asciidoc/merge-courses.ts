@@ -23,7 +23,6 @@ interface CourseToImport extends Partial<Course> {
 type LessonToImport = Omit<Lesson, 'order'> & { order: string, updatedAt: string }
 type ModuleToImport = Omit<Module, 'order'> & { order: string }
 
-
 const padOrder = (order: string | number): string => {
     return ('0000'+ order).slice(-4)
 }
@@ -206,186 +205,43 @@ const loadQuestion = (filepath: string): Question => {
 
 
 /**
- * Functional
- */
- const mergeCourse = async (tx: Transaction, course: CourseToImport) => {
-    // Merge Course Details
-    await mergeCourseDetails(tx, course)
-
-    // Assign Categories
-    await deleteCourseRelationships(tx, course.slug!, 'IN_CATEGORY', course.categories?.map(category => category.slug))
-    await mergeCourseCategories(tx, course)
-
-    // Translations
-    await deleteCourseRelationships(tx, course.slug!, 'HAS_TRANSLATION', course.translations?.map(translation => translation.slug))
-    await mergeTranslations(tx, course)
-
-    // Next courses
-    await deleteCourseRelationships(tx, course.slug!, 'PREREQUISITE', course.translations?.map(translation => translation.slug))
-    await mergeNextCourses(tx, course)
-
-    // Set old modules to "deleted"
-    await setModulesToDeleted(tx, course)
-
-    // Merge Modules ( + lessons, + questions)
-    if (course.modules?.length) {
-        await mergeCourseModules(tx, course)
-    }
-}
-
-const mergeCourseModules = (tx: Transaction, course: CourseToImport) => Promise.all(course.modules!.map(async module => {
-    await mergeCourseModule(tx, course, module)
-
-    if ( module.lessons.length ) {
-        await mergeModuleLessons(tx, course, module)
-    }
-}))
-
-const mergeModuleLessons = (tx: Transaction, course: CourseToImport, module: Module) => Promise.all(module.lessons.map(async lesson => {
-    await mergeModuleLesson(tx, course, module, lesson)
-
-    if ( lesson.questions.length ) {
-        await mergeLessonQuestions(tx, course, module, lesson)
-    }
-}))
-
-const mergeLessonQuestions = (tx: Transaction, course: CourseToImport, module: Module, lesson: Lesson) => Promise.all(lesson.questions.map(question => mergeLessonQuestion(tx, course, module, lesson, question)))
-
-
-/**
  * Transaction Functions
  */
-const deleteCourseRelationships = (tx: Transaction, slug: string, type: string, valid: string[] = []) => tx.run(`
-    MATCH (c:Course {slug: $slug})-[r:\`${type}\`]->(target)
-    WHERE NOT target.slug IN $valid
-    DELETE r
-`, { slug, valid })
-
 const disableAllCourses = (tx: Transaction, valid: string[]) => tx.run(`MATCH (c:Course) WHERE NOT c.slug IN $valid SET c.status = $status`, { valid, status: STATUS_DISABLED })
 
-const mergeCourseDetails = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MERGE (c:Course {slug: $course.slug})
+const mergeCourseDetails = (session: Session, courses: CourseToImport[]) => session.writeTransaction(tx => tx.run(`
+    UNWIND $courses AS course
+    MERGE (c:Course {slug: course.slug})
     SET
-        c.id = apoc.text.base64Encode($course.slug),
-        c.title = $course.title,
-        c.language = $course.language,
-        c.thumbnail = $course.thumbnail,
-        c.caption = $course.caption,
-        c.status = $course.status,
-        c.usecase = $course.usecase,
-        c.redirect = $course.redirect,
-        c.duration = $course.duration,
-        c.repository = $course.repository,
-        c.video = $course.video,
+        c.id = apoc.text.base64Encode(course.slug),
+        c.title = course.title,
+        c.language = course.language,
+        c.thumbnail = course.thumbnail,
+        c.caption = course.caption,
+        c.status = course.status,
+        c.usecase = course.usecase,
+        c.redirect = course.redirect,
+        c.duration = course.duration,
+        c.repository = course.repository,
+        c.video = course.video,
         c.link = '/courses/'+ c.slug +'/',
         c.updatedAt = datetime(),
-        c += $course.attributes
-`, { course })
+        c += course.attributes
 
-const mergeCourseCategories = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})
-    UNWIND $course.categories AS row
-        MERGE (ct:Category {id: apoc.text.base64Encode(row.category)})
-        MERGE (c)-[r:IN_CATEGORY]->(ct)
-        SET r.order = row.order
-`, { course })
+    FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
+    FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
+    FOREACH (r IN [(c)-[r:PREREQUISITE]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
 
-const mergeTranslations = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})
-    UNWIND $course.translations AS slug
-        MERGE (t:Course {slug: slug})
-        MERGE (c)-[:HAS_TRANSLATION]->(t)
-`, { course })
+    UNWIND course.categories AS slug
+    MERGE (cat:Category {slug: slug})
+    MERGE (c)-[:IN_CATEGORY]->(cat)
+
+    // await deleteCourseRelationships(tx, course.slug!, 'IN_CATEGORY', course.categories?.map(category => category.slug))
+        // await deleteCourseRelationships(tx, course.slug!, 'HAS_TRANSLATION', course.translations?.map(translation => translation.slug))
+        // await deleteCourseRelationships(tx, course.slug!, 'PREREQUISITE', course.translations?.map(translation => translation.slug))
+`, { courses }))
 
 
-const mergeNextCourses = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})
-
-    WITH c
-
-    UNWIND $course.progressToSlugs AS slug
-        MERGE (next:Course {slug: slug}) ON CREATE SET c.status = $STATUS_DISABLED
-        MERGE (c)<-[:PREREQUISITE]-(next)
-`, { course, STATUS_DISABLED })
-
-const setModulesToDeleted = (tx: Transaction, course: CourseToImport) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})-[:HAS_MODULE]->(m)
-    SET m:DeletedModule
-
-    FOREACH (r IN [ (c)-[r:HAS_MODULE|FIRST_MODULE|NEXT]->() | r ] |
-        DELETE r
-    )
-`, { course })
-
-const mergeCourseModule = (tx: Transaction, course: CourseToImport, module: Module) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})
-
-    MERGE (m:Module {id: apoc.text.base64Encode($course.slug +'--'+ $module.slug) })
-    SET
-        m.title = $module.title,
-        m.slug = $module.slug,
-        m.order = toInteger($module.order),
-        m.status = 'active',
-        m.duration = $module.duration,
-        m.link = '/courses/'+ $course.slug + '/'+ $module.slug +'/',
-        m.updatedAt = datetime()
-
-    // Restore current modules
-    REMOVE m:DeletedModule
-
-    MERGE (c)-[:HAS_MODULE]->(m)
-`, { course, module })
-
-const mergeModuleLesson = (tx: Transaction, course: CourseToImport, module: Module, lesson: Lesson) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})-[:HAS_MODULE]->(m {slug: $module.slug})
-
-    MERGE (l:Lesson {id: apoc.text.base64Encode(c.slug +'--'+ m.slug +'--'+ $lesson.slug) })
-        SET
-            l.slug = $lesson.slug,
-            l.type = $lesson.type,
-            l.title = $lesson.title,
-            l.order = toInteger($lesson.order),
-            l.duration = $lesson.duration,
-            l.sandbox = $lesson.sandbox,
-            l.cypher = $lesson.cypher,
-            l.verify = $lesson.verify,
-            l.status = 'active',
-            l.link = '/courses/'+ c.slug + '/'+ m.slug +'/'+ l.slug +'/',
-            l.disableCache = $lesson.disableCache,
-            l.updatedAt = CASE WHEN $lesson.updatedAt IS NOT NULL THEN datetime($lesson.updatedAt) ELSE null END
-
-        REMOVE l:DeletedLesson
-
-        FOREACH (_ IN CASE WHEN $lesson.optional THEN [1] ELSE [] END |
-            SET l:OptionalLesson
-        )
-
-        FOREACH (_ IN CASE WHEN $lesson.optional = false THEN [1] ELSE [] END |
-            REMOVE l:OptionalLesson
-        )
-
-        MERGE (m)-[:HAS_LESSON]->(l)
-
-        // Clean up questions
-        FOREACH (q IN [ (l)-[:HAS_QUESTION]->(q) | q ] |
-            SET q:DeletedQuestion
-        )
-
-        // Detach question
-        FOREACH (r IN [ (l)-[r:HAS_QUESTION]->() | r ] |
-            DELETE r
-        )
-`, { course, module, lesson })
-
-const mergeLessonQuestion = (tx: Transaction, course: CourseToImport, module: Module, lesson: Lesson, question: Question) => tx.run(`
-    MATCH (c:Course {slug: $course.slug})-[:HAS_MODULE]->(m {slug: $module.slug})-[:HAS_LESSON]->(l {slug: $lesson.slug})
-
-    MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ $question.id)})
-    SET q.slug = $question.id, q.text = $question.text
-
-    REMOVE q:DeletedQuestion
-    MERGE (l)-[:HAS_QUESTION]->(q)
-`, { course, module, lesson, question })
 
 // Integrity Checks
 const checkSchema = (session: Session) => session.readTransaction(async tx => {
@@ -404,112 +260,142 @@ const checkSchema = (session: Session) => session.readTransaction(async tx => {
     }
 })
 
+
+const mergeModuleDetails = (session: Session, modules: Module[]) => session.writeTransaction(tx => tx.run(`
+    UNWIND $modules AS module
+    //     MATCH (c:Course {slug: $course.slug})
+
+//     MERGE (m:Module {id: apoc.text.base64Encode($course.slug +'--'+ $module.slug) })
+//     SET
+//         m.title = $module.title,
+//         m.slug = $module.slug,
+//         m.order = toInteger($module.order),
+//         m.status = 'active',
+//         m.duration = $module.duration,
+//         m.link = '/courses/'+ $course.slug + '/'+ $module.slug +'/',
+//         m.updatedAt = datetime()
+
+//     // Restore current modules
+//     REMOVE m:DeletedModule
+
+//     MERGE (c)-[:HAS_MODULE]->(m)
+
+`, { modules }))
+
+
+
 export async function mergeCourses(): Promise<void> {
     const courses = loadCourses()
 
     const driver = getDriver()
     const session = driver.session()
 
+    const modules = courses.flatMap(course => course.modules?.flatMap(module => ({
+        courseSlug: course.slug,
+        ...module,
+    })))
+
+    const lessons = courses.flatMap(course => course.modules?.flatMap(module => module.lessons.map(lesson => ({
+        courseSlug: course.slug,
+        moduleSlug: module.slug,
+        ...module,
+    }))))
+
+    const questions = courses.flatMap(course => course.modules?.flatMap(module => module.lessons.map(lesson => lesson.questions.map(question => ({
+        courseSlug: course.slug,
+        moduleSlug: module.slug,
+        lessonSlug: lesson.slug,
+        ...question,
+    })))))
+
+    // console.clear()
+    // console.log(modules.length, lessons.length, questions.length, questions[0]);
+
+
+
+
     const count = await session.writeTransaction(async tx => {
         // Disable all courses
         const valid = courses.map(course => course.slug!)
         await disableAllCourses(tx, valid)
 
-        // Merge Course
-        const res = await Promise.all(courses.map(course => mergeCourse(tx, course)))
-
-        // Remove (:Module) Next chain
-        await tx.run(`MATCH (:Module)-[r:NEXT_MODULE|FIRST_MODULE|LAST_MODULE|NEXT]->() DELETE r`)
-
-        // Remove (:Lesson) Next chain
-        await tx.run(`MATCH (:Lesson)-[r:NEXT_LESSON|FIRST_LESSON|LAST_LESSON|NEXT]->() DELETE r`)
-
-
-        // Recreate (:Module) NEXT chain
-        await tx.run(`
-            MATCH (c:Course)-[:HAS_MODULE]->(m)
-            WITH c, m ORDER BY m.order ASC
-            WITH c, collect(m) AS modules
-
-            WITH c, modules, modules[0] AS first, modules[-1] AS last
-            CALL apoc.nodes.link(modules, 'NEXT_MODULE')
-
-            MERGE (c)-[:FIRST_MODULE]->(first)
-            MERGE (c)-[:LAST_MODULE]->(last)
-        `)
-
-        // Recreate (:Lesson) NEXT chain
-        await tx.run(`
-            MATCH (m:Module)-[:HAS_LESSON]->(l)
-            WITH m, l ORDER BY l.order ASC
-            WITH m, collect(l) AS lessons
-
-            WITH m, lessons, lessons[0] AS first, lessons[-1] AS last
-            CALL apoc.nodes.link(lessons, 'NEXT')
-
-            MERGE (m)-[:NEXT]->(first)
-            MERGE (m)-[:FIRST_LESSON]->(first)
-            MERGE (m)-[:LAST_LESSON]->(last)
-        `)
-
-        // Create -[:NEXT]-> between last (:Lesson) and next (:Modle)
-        await tx.run(`
-            MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
-            MERGE (last)-[:NEXT]->(next)
-        `)
-
-        // Calculate progressPercentage
-        await tx.run(`
-            MATCH p = (c:Course)-[:FIRST_MODULE]->()-[:NEXT*]->(end:Lesson)
-            WHERE not (end)-[:NEXT]->()
-            WITH c, nodes(p) AS nodes, size(nodes(p)) AS size
-
-            UNWIND range(0, size(nodes)-1) AS idx
-            WITH size, idx, nodes[idx] AS node
-            WHERE NOT node:Course
-
-            SET node.progressPercentage = round((1.0 * idx / size) * 100)
-        `)
-
-        return res.length
+        await mergeCourseDetails(session, courses)
     })
 
+    // await session.writeTransaction(async tx => {
+
+
+
+    //     return courses.length
+    // })
+
+    // await session.writeTransaction(async tx => {
+    //     // // Merge Course
+    //     // const res = await Promise.all(courses.map(course => mergeCourse(tx, course)))
+
+    //     // // Remove (:Module) Next chain
+    //     // await tx.run(`MATCH (:Module)-[r:NEXT_MODULE|FIRST_MODULE|LAST_MODULE|NEXT]->() DELETE r`)
+
+    //     // // Remove (:Lesson) Next chain
+    //     // await tx.run(`MATCH (:Lesson)-[r:NEXT_LESSON|FIRST_LESSON|LAST_LESSON|NEXT]->() DELETE r`)
+
+
+    //     // // Recreate (:Module) NEXT chain
+    //     // await tx.run(`
+    //     //     MATCH (c:Course)-[:HAS_MODULE]->(m)
+    //     //     WITH c, m ORDER BY m.order ASC
+    //     //     WITH c, collect(m) AS modules
+
+    //     //     WITH c, modules, modules[0] AS first, modules[-1] AS last
+    //     //     CALL apoc.nodes.link(modules, 'NEXT_MODULE')
+
+    //     //     MERGE (c)-[:FIRST_MODULE]->(first)
+    //     //     MERGE (c)-[:LAST_MODULE]->(last)
+    //     // `)
+
+    //     // // Recreate (:Lesson) NEXT chain
+    //     // await tx.run(`
+    //     //     MATCH (m:Module)-[:HAS_LESSON]->(l)
+    //     //     WITH m, l ORDER BY l.order ASC
+    //     //     WITH m, collect(l) AS lessons
+
+    //     //     WITH m, lessons, lessons[0] AS first, lessons[-1] AS last
+    //     //     CALL apoc.nodes.link(lessons, 'NEXT')
+
+    //     //     MERGE (m)-[:NEXT]->(first)
+    //     //     MERGE (m)-[:FIRST_LESSON]->(first)
+    //     //     MERGE (m)-[:LAST_LESSON]->(last)
+    //     // `)
+
+    //     // // Create -[:NEXT]-> between last (:Lesson) and next (:Modle)
+    //     // await tx.run(`
+    //     //     MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
+    //     //     MERGE (last)-[:NEXT]->(next)
+    //     // `)
+
+    //     // // Calculate progressPercentage
+    //     // await tx.run(`
+    //     //     MATCH p = (c:Course)-[:FIRST_MODULE]->()-[:NEXT*]->(end:Lesson)
+    //     //     WHERE not (end)-[:NEXT]->()
+    //     //     WITH c, nodes(p) AS nodes, size(nodes(p)) AS size
+
+    //     //     UNWIND range(0, size(nodes)-1) AS idx
+    //     //     WITH size, idx, nodes[idx] AS node
+    //     //     WHERE NOT node:Course
+
+    //     //     SET node.progressPercentage = round((1.0 * idx / size) * 100)
+    //     // `)
+
+    //     // return res.length
+
+    //     return courses.length
+    // })
+
     // Integrity Checks
-    await checkSchema(session)
+    // await checkSchema(session)
 
 
-    console.log(`📚 ${count} Courses merged into graph`);
+    // console.log(`📚 ${count} Courses merged into graph`);
 
     return
-
-
-
-    return;
-
-    // Import the courses that exist in the array
-    await write(`
-
-
-        WITH c, m, lessons, lessons[0] as first, lessons[ size(lessons)-1 ] AS last
-
-        WITH c, m ORDER BY m.order ASC
-        WITH c, collect(m) AS modules
-
-
-
-        WITH c, modules[0] AS first
-
-
-
-
-        WITH c
-        MATCH p = (c)-[:FIRST_MODULE]->()-[:NEXT*]->(end)
-        WHERE not (end)-[:NEXT]->()
-
-        WITH c, nodes(p) as nodes, size(nodes(p)) AS size
-
-    `, { courses, STATUS_DISABLED })
-
-    /* tslint:disable-next-line */
-    console.log(`📚 ${courses.length} Courses merged into graph`);
 }
