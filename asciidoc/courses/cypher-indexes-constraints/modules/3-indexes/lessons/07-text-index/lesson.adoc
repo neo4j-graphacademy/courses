@@ -1,0 +1,108 @@
+= Creating TEXT Indexes
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::Po4k7vXGBIE[youtube,width=560,height=315]
+
+//https://youtu.be/Po4k7vXGBIE
+
+[.transcript]
+== TEXT Indexes in Neo4j
+
+A TEXT index is designed for single properties of nodes or relationships that are strings.
+A TEXT index can be used for the same types of tests on strings that are performed for b-tree indexes:
+
+* Equality checks `=`
+* Range comparisons `>`,`+>=+`,`<`, `+<=+`
+* List membership `IN`
+* String comparisons `STARTS WITH`, `ENDS WITH`, `CONTAINS`
+
+[NOTE]
+--
+TEXT indexes cannot be used for existence checks like b-tree indexes can.
+
+In addition, you should only create a TEXT index if you want to optimize `ENDS WITH` or `CONTAINS` tests which are faster with TEXT indexes.
+In all other cases, you should use a b-tree index.
+--
+
+== Syntax for creating a TEXT index for node property
+
+Here is the syntax for creating a b-tree index for a single property of a node:
+
+[source,cypher,rel="norun nocopy"]
+----
+CREATE TEXT INDEX <index_name> IF NOT EXISTS FOR (x:<node_label>) ON x.<property_key>
+----
+
+You specify the name of the index, the node label it will be associated with, and the name of the property.
+
+* If an index already exists in the graph with the same name, no index is created.
+* If an index does not exist in the graph with the same name:
+** No index is created if there already is a TEXT index for that node label and property key.
+** Otherwise, the TEXT index is created.
+
+== b-tree vs. TEXT for `CONTAINS` or `ENDS WITH` predicates
+
+In some cases, TEXT indexes will outperform b-tree indexes.
+Here is a query to find all Person nodes with a name that contains "Robert".
+
+[source,cypher]
+----
+PROFILE MATCH (p:Person)
+WHERE p.name CONTAINS 'Robert'
+RETURN p.name
+----
+
+Your graph should already have a b-tree index on the name property of Person nodes.
+
+If you run this query, you will see it uses the b-tree index.
+
+Now, let's create a TEXT index for this property. Execute this code:
+
+[source,cypher]
+----
+CREATE TEXT INDEX Person_name_text IF NOT EXISTS FOR (x:Person) ON (x.name)
+----
+
+You can list the indexes to see that there are now two indexes on this Person node property:
+
+* Person_name  (b-tree)
+* Person_name_text (TEXT)
+
+Repeat the above query for the Person nodes that contain the string "Robert".
+Notice that it uses the TEXT index.
+Notice also that it has more db hits than the query that uses the btree.
+This is because this graph is not large enough to demonstrate the benefit of the TEXT index over the b-tree index.
+
+It is important to ensure that whatever indexes you create for your graph will truly benefit the queries.
+
+Here are some reasons why you may choose a TEXT index over a b-tree index:
+
+* TEXT indexes perform better than b-tree indexes if there is a lot of duplicate data in the properties.
+* TEXT indexes take up less space in the graph
+
+== Syntax for creating a TEXT index for a relationship property
+
+Here is the syntax for creating a TEXT index for a property of a relationship:
+
+[source,cypher,rel="norun nocopy"]
+----
+CREATE TEXT INDEX <index_name> IF NOT EXISTS FOR ()-[x:<RELATIONSHIP_TYPE>]-() ON (x.<property_key>)
+----
+
+You specify the name of the index, the relationship type it will be associated with, and the name of the property.
+
+* If an index already exists in the graph with the same relationship type, no index is created.
+* If an index does not exist in the graph with the same name:
+** No index is created if there already is TEXT index for that relationship type and property key.
+** Otherwise, the TEXT index is created.
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to create a TEXT index for a property of a node or relationship.
+In the next xxx

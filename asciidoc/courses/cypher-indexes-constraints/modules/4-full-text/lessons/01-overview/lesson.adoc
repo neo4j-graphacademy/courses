@@ -9,19 +9,42 @@
 
 [.transcript]
 
-=== Full-text indexes
+== Full-text indexes
 
 Full-text indexes are useful in applications that must parse property values for evaluating whether the property satisfies the criteria.
 Full-text indexes rely on Apache Lucene for their implementation which makes their parsing capabilities very powerful.
 
-For example, you may want to find all Movies that have certain phrases in their plots.
-Performing this type of retrieval using b-tree or TEXT indexes could be very  expensive, especially if the `WHERE` clause must logically specify criteria of two or more parts of a string.
-Using a b-tree or TEXT index, the index is only used for the first criteria specified in the `WHERE` clause.
-If you use a full-text index, you can use a regular expression to express how the values will be matched.
-In addition, a full-text index can be defined for multiple labels and/or properties or for multiple relationship types and/or properties.
+With a full-text index, you can use a regular expression to express how the values will be matched in a query.
+A full-text index can be defined for multiple labels and/or properties, or for multiple relationship types and/or properties.
 
 Unlike b-tree and TEXT indexes, you must call a procedure to use a full-text index at runtime.
 That is, the query planner will not automatically use a full-text index unless you specify it in your Cypher code.
+
+== Why use a full-text index?
+
+Suppose you want to find all Movies that have certain phrases in their plots.
+Performing this type of retrieval using b-tree or TEXT indexes could be very  expensive. For example:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WHERE m.plot CONTAINS "murder" and m.plot CONTAINS "drugs"
+RETURN m.title,m.plot
+----
+
+In the graph engine, only one index can be used for a query. So for this query, the query engine needs to determine which query will be more efficient.
+The query that returns all "murder" rows or the query that returns all "drugs" rows.
+The index is used to select all properties that contain "drugs".
+For those rows, the query engine, then tests the properties for "murder".
+That is, the index can only be used once for this query.
+
+When using a full-text index, you can specify an expression that will find all properties that contain both strings, anywhere in them.
+For example, if we had a full-text index on the Movie plot property named Movie_plot_ft, we could return the nodes that have both "murder" and "drugs" in them with this code:
+
+[source,cypher,rel="norun nocopy"]
+----
+CALL db.index.fulltext.queryNodes('Movie_plot_ft', 'murder AND drugs') YIELD node
+----
 
 == Check your understanding
 
