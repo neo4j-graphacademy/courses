@@ -20,4 +20,7 @@ CREATE INDEX IF NOT EXISTS FOR (n:Enrolment) ON (n.reminderSentAt);
 CREATE INDEX IF NOT EXISTS FOR (n:Enrolment) ON (n.lastSeenAt);
 CREATE INDEX IF NOT EXISTS FOR (n:FromCommunityGraph) ON (n.completedAt);
 
+DROP INDEX IF NOT EXISTS FOR (n:Module) ON (n.link);
+DROP INDEX IF NOT EXISTS FOR (n:Lesson) ON (n.link);
+
 CREATE CONSTRAINT IF NOT EXISTS ON (c:Session) ASSERT c.id IS UNIQUE;
