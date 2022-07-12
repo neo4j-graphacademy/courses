@@ -276,7 +276,7 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
         l.cypher = lesson.cypher,
         l.verify = lesson.verify,
         l.status = 'active',
-        l.link = m.link +'/'+ lesson.slug +'/',
+        l.link = m.link + lesson.slug +'/',
         l.disableCache = lesson.disableCache,
         l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
 
@@ -352,7 +352,7 @@ export async function mergeCourses(): Promise<void> {
     })))
 
     const questions = lessons.flatMap(lesson => lesson?.questions.map(question => ({
-        lessonLink: `${lesson.moduleLink}/${lesson.slug}/`,
+        lessonLink: `${lesson.moduleLink}${lesson.slug}/`,
         ...question,
     })))
 
