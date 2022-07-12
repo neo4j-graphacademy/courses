@@ -209,7 +209,7 @@ const loadQuestion = (filepath: string): Question => {
  */
 const disableAllCourses = (tx: Transaction, valid: string[]) => tx.run(`MATCH (c:Course) WHERE NOT c.slug IN $valid SET c.status = $status`, { valid, status: STATUS_DISABLED })
 
-const mergeCourseDetails = (session: Session, courses: CourseToImport[]) => session.writeTransaction(tx => tx.run(`
+const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => tx.run(`
     UNWIND $courses AS course
     MERGE (c:Course {slug: course.slug})
     SET
@@ -232,16 +232,87 @@ const mergeCourseDetails = (session: Session, courses: CourseToImport[]) => sess
     FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
     FOREACH (r IN [(c)-[r:PREREQUISITE]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
 
-    UNWIND course.categories AS slug
-    MERGE (cat:Category {slug: slug})
-    MERGE (c)-[:IN_CATEGORY]->(cat)
+    WITH c, course
 
-    // await deleteCourseRelationships(tx, course.slug!, 'IN_CATEGORY', course.categories?.map(category => category.slug))
-        // await deleteCourseRelationships(tx, course.slug!, 'HAS_TRANSLATION', course.translations?.map(translation => translation.slug))
-        // await deleteCourseRelationships(tx, course.slug!, 'PREREQUISITE', course.translations?.map(translation => translation.slug))
-`, { courses }))
+    UNWIND course.categories AS row
+    MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
+    MERGE (c)-[r:IN_CATEGORY]->(cat)
+    SET r.order = toInteger(row.order)
+`, { courses })
 
+const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
+    UNWIND $modules AS module
+        MATCH (c:Course {slug: module.courseSlug})
 
+    MERGE (m:Module {id: apoc.text.base64Encode(c.slug +'--'+ module.slug) })
+    SET
+        m.title = module.title,
+        m.slug = module.slug,
+        m.order = toInteger(module.order),
+        m.status = 'active',
+        m.duration = module.duration,
+        m.link = '/courses/'+ c.slug + '/'+ module.slug +'/',
+        m.updatedAt = datetime()
+
+    // Restore current modules
+    REMOVE m:DeletedModule
+
+    MERGE (c)-[:HAS_MODULE]->(m)
+
+`, { modules })
+
+const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
+    UNWIND $lessons AS lesson
+        MATCH (m:Module {link: lesson.moduleLink})
+
+    MERGE (l:Lesson {id: apoc.text.base64Encode(m.slug +'--'+ lesson.slug) })
+    SET
+        l.slug = lesson.slug,
+        l.type = lesson.type,
+        l.title = lesson.title,
+        l.order = toInteger(lesson.order),
+        l.duration = lesson.duration,
+        l.sandbox = lesson.sandbox,
+        l.cypher = lesson.cypher,
+        l.verify = lesson.verify,
+        l.status = 'active',
+        l.link = m.link +'/'+ lesson.slug +'/',
+        l.disableCache = lesson.disableCache,
+        l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
+
+    REMOVE l:DeletedLesson
+
+    FOREACH (_ IN CASE WHEN lesson.optional THEN [1] ELSE [] END |
+        SET l:OptionalLesson
+    )
+
+    FOREACH (_ IN CASE WHEN lesson.optional = false THEN [1] ELSE [] END |
+        REMOVE l:OptionalLesson
+    )
+
+    MERGE (m)-[:HAS_LESSON]->(l)
+
+    // Clean up questions
+    FOREACH (q IN [ (l)-[:HAS_QUESTION]->(q) | q ] |
+        SET q:DeletedQuestion
+    )
+
+    // Detach question
+    FOREACH (r IN [ (l)-[r:HAS_QUESTION]->() | r ] |
+        DELETE r
+    )
+`, { lessons })
+
+const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
+    UNWIND $questions AS question
+    MATCH (l:Lesson {link: question.lessonLink})
+
+    MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ question.id)})
+    SET q.slug = question.id, q.text = question.text
+
+    REMOVE q:DeletedQuestion
+    MERGE (l)-[:HAS_QUESTION]->(q)
+`, { questions })
 
 // Integrity Checks
 const checkSchema = (session: Session) => session.readTransaction(async tx => {
@@ -260,30 +331,6 @@ const checkSchema = (session: Session) => session.readTransaction(async tx => {
     }
 })
 
-
-const mergeModuleDetails = (session: Session, modules: Module[]) => session.writeTransaction(tx => tx.run(`
-    UNWIND $modules AS module
-    //     MATCH (c:Course {slug: $course.slug})
-
-//     MERGE (m:Module {id: apoc.text.base64Encode($course.slug +'--'+ $module.slug) })
-//     SET
-//         m.title = $module.title,
-//         m.slug = $module.slug,
-//         m.order = toInteger($module.order),
-//         m.status = 'active',
-//         m.duration = $module.duration,
-//         m.link = '/courses/'+ $course.slug + '/'+ $module.slug +'/',
-//         m.updatedAt = datetime()
-
-//     // Restore current modules
-//     REMOVE m:DeletedModule
-
-//     MERGE (c)-[:HAS_MODULE]->(m)
-
-`, { modules }))
-
-
-
 export async function mergeCourses(): Promise<void> {
     const courses = loadCourses()
 
@@ -292,110 +339,178 @@ export async function mergeCourses(): Promise<void> {
 
     const modules = courses.flatMap(course => course.modules?.flatMap(module => ({
         courseSlug: course.slug,
+        link: `/courses/${course.slug}/${module.slug}/`,
         ...module,
     })))
 
-    const lessons = courses.flatMap(course => course.modules?.flatMap(module => module.lessons.map(lesson => ({
-        courseSlug: course.slug,
-        moduleSlug: module.slug,
-        ...module,
-    }))))
+    const lessons = modules.flatMap(module => module?.lessons.map(lesson => ({
+        courseSlug: module.courseSlug,
+        moduleSlug: module.link,
+        moduleLink: `/courses/${module.courseSlug}/${module.slug}/`,
+        link: `/courses/${module.courseSlug}/${module.slug}/${lesson.slug}/`,
+        ...lesson,
+    })))
 
-    const questions = courses.flatMap(course => course.modules?.flatMap(module => module.lessons.map(lesson => lesson.questions.map(question => ({
-        courseSlug: course.slug,
-        moduleSlug: module.slug,
-        lessonSlug: lesson.slug,
+    const questions = lessons.flatMap(lesson => lesson?.questions.map(question => ({
+        lessonLink: `${lesson.moduleLink}/${lesson.slug}/`,
         ...question,
-    })))))
+    })))
 
-    // console.clear()
-    // console.log(modules.length, lessons.length, questions.length, questions[0]);
+    console.clear()
 
-
-
-
-    const count = await session.writeTransaction(async tx => {
+    const courseCount = await session.writeTransaction(async tx => {
         // Disable all courses
         const valid = courses.map(course => course.slug!)
         await disableAllCourses(tx, valid)
 
-        await mergeCourseDetails(session, courses)
+        await mergeCourseDetails(tx, courses)
+
+        return courses.length
+    })
+    console.log(`📚 ${courseCount} Courses merged into graph`);
+
+
+    const moduleCount = await session.writeTransaction(async tx => {
+        await mergeModuleDetails(tx, modules)
+
+        return modules.length
+    })
+    console.log(`    -- 📦 ${moduleCount} modules`);
+
+
+    const lessonCount = await session.writeTransaction(async tx => {
+        const remaining = lessons.slice(0)
+        const batchSize = 100
+
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
+
+            await mergeLessonDetails(tx, batch)
+        }
+
+        return lessons.length
+    })
+    console.log(`    -- 📄 ${lessonCount} lessons`);
+
+
+    const questionCount = await session.writeTransaction(async tx => {
+        const remaining = questions.slice(0)
+        const batchSize = 100
+
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
+
+            await mergeQuestionDetails(tx, batch)
+        }
+
+        return questions.length
     })
 
-    // await session.writeTransaction(async tx => {
+    console.log(`    -- 🤨 ${questionCount} questions`);
 
 
+    // Clean NEXT chain
+    await session.writeTransaction(async tx => {
+        // Recreate (:Lesson) NEXT chain
+        await tx.run(`
+            MATCH ()-[r:NEXT]->()
+            DELETE r
+        `)
+    })
+    console.log(`    -- Removed -[:NEXT]-> chain`);
 
-    //     return courses.length
-    // })
+    await session.writeTransaction(async tx => {
+        const remaining = modules.slice(0).map(module => module!.link)
+        const batchSize = 1000
 
-    // await session.writeTransaction(async tx => {
-    //     // // Merge Course
-    //     // const res = await Promise.all(courses.map(course => mergeCourse(tx, course)))
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
 
-    //     // // Remove (:Module) Next chain
-    //     // await tx.run(`MATCH (:Module)-[r:NEXT_MODULE|FIRST_MODULE|LAST_MODULE|NEXT]->() DELETE r`)
+            // Recreate (:Lesson) NEXT chain
+            await tx.run(`
+                MATCH (m:Module)-[:HAS_LESSON]->(l)
+                WHERE m.link IN $batch
+                WITH m, l ORDER BY l.order ASC
+                WITH m, collect(l) AS lessons
 
-    //     // // Remove (:Lesson) Next chain
-    //     // await tx.run(`MATCH (:Lesson)-[r:NEXT_LESSON|FIRST_LESSON|LAST_LESSON|NEXT]->() DELETE r`)
+                WITH m, lessons, lessons[0] AS first, lessons[-1] AS last
+
+                MERGE (m)-[:NEXT]->(first)
+                MERGE (m)-[:FIRST_LESSON]->(first)
+                MERGE (m)-[:LAST_LESSON]->(last)
+
+                WITH *
+
+                UNWIND range(0, size(lessons)-2) AS idx
+                WITH lessons[idx] AS last, lessons[idx+1] AS next
+                MERGE (last)-[:NEXT]->(next)
+
+                RETURN *
+
+            `, { batch })
+        }
+    })
+    console.log(`    -- Recreated (:Lesson) NEXT chain`);
 
 
-    //     // // Recreate (:Module) NEXT chain
-    //     // await tx.run(`
-    //     //     MATCH (c:Course)-[:HAS_MODULE]->(m)
-    //     //     WITH c, m ORDER BY m.order ASC
-    //     //     WITH c, collect(m) AS modules
+    await session.writeTransaction(async tx => {
+        // Create -[:NEXT]-> between last (:Lesson) and next (:Module)
+        await tx.run(`
+            MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
+            MERGE (last)-[:NEXT]->(next)
+        `)
+    })
+    console.log(`    -- Recreated -[:NEXT]-> between last (:Lesson) and next (:Module)`);
 
-    //     //     WITH c, modules, modules[0] AS first, modules[-1] AS last
-    //     //     CALL apoc.nodes.link(modules, 'NEXT_MODULE')
+    await session.writeTransaction(async tx => {
+        const remaining = courses.slice(0).map(course => course.slug)
+        const batchSize = 100
 
-    //     //     MERGE (c)-[:FIRST_MODULE]->(first)
-    //     //     MERGE (c)-[:LAST_MODULE]->(last)
-    //     // `)
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
 
-    //     // // Recreate (:Lesson) NEXT chain
-    //     // await tx.run(`
-    //     //     MATCH (m:Module)-[:HAS_LESSON]->(l)
-    //     //     WITH m, l ORDER BY l.order ASC
-    //     //     WITH m, collect(l) AS lessons
+            // Calculate progressPercentage
+            await tx.run(`
+                MATCH p = (c:Course)-[:FIRST_MODULE]->()-[:NEXT*..200]->(end:Lesson)
+                WHERE c.slug IN $batch
+                AND NOT (end)-[:NEXT]->()
+                WITH c, nodes(p) AS nodes, size(nodes(p)) AS size
 
-    //     //     WITH m, lessons, lessons[0] AS first, lessons[-1] AS last
-    //     //     CALL apoc.nodes.link(lessons, 'NEXT')
+                UNWIND range(0, size(nodes)-1) AS idx
+                WITH size, idx, nodes[idx] AS node
+                WHERE NOT node:Course
 
-    //     //     MERGE (m)-[:NEXT]->(first)
-    //     //     MERGE (m)-[:FIRST_LESSON]->(first)
-    //     //     MERGE (m)-[:LAST_LESSON]->(last)
-    //     // `)
+                SET node.progressPercentage = round((1.0 * idx / size) * 100)
+            `, { batch })
+        }
+    })
+    console.log(`    -- Calculated progressPercentage`);
 
-    //     // // Create -[:NEXT]-> between last (:Lesson) and next (:Modle)
-    //     // await tx.run(`
-    //     //     MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
-    //     //     MERGE (last)-[:NEXT]->(next)
-    //     // `)
+    await session.writeTransaction(async tx => {
+        const remaining = courses.slice(0).map(course => course.slug)
+        const batchSize = 10
 
-    //     // // Calculate progressPercentage
-    //     // await tx.run(`
-    //     //     MATCH p = (c:Course)-[:FIRST_MODULE]->()-[:NEXT*]->(end:Lesson)
-    //     //     WHERE not (end)-[:NEXT]->()
-    //     //     WITH c, nodes(p) AS nodes, size(nodes(p)) AS size
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
 
-    //     //     UNWIND range(0, size(nodes)-1) AS idx
-    //     //     WITH size, idx, nodes[idx] AS node
-    //     //     WHERE NOT node:Course
+            // Recreate (:Module) NEXT chain
+            await tx.run(`
+                MATCH (c:Course)-[:HAS_MODULE]->(m)
+                WHERE c.slug IN $batch
+                WITH c, m ORDER BY m.order ASC
+                WITH c, collect(m) AS modules
 
-    //     //     SET node.progressPercentage = round((1.0 * idx / size) * 100)
-    //     // `)
+                WITH c, modules, modules[0] AS first, modules[-1] AS last
+                CALL apoc.nodes.link(modules, 'NEXT_MODULE')
 
-    //     // return res.length
+                MERGE (c)-[:FIRST_MODULE]->(first)
+                MERGE (c)-[:LAST_MODULE]->(last)
+            `, { batch })
+        }
+    })
+    console.log(`    -- Calculated progressPercentage`);
 
-    //     return courses.length
-    // })
 
     // Integrity Checks
-    // await checkSchema(session)
-
-
-    // console.log(`📚 ${count} Courses merged into graph`);
-
-    return
+    await checkSchema(session)
 }
