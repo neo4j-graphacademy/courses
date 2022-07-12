@@ -14,6 +14,7 @@ interface CourseToImport extends Partial<Course> {
     attributes: Record<string, any>;
     prerequisiteSlugs: string[];
     progressToSlugs: string[];
+    translationSlugs: string[];
 }
 
 /**
@@ -96,7 +97,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
     )
 
     const language = file.getAttribute(ATTRIBUTE_LANGUAGE, LANGUAGE_EN)
-    const translations = file.getAttribute(ATTRIBUTE_TRANSLATIONS, '')
+    const translationSlugs = file.getAttribute(ATTRIBUTE_TRANSLATIONS, '')
         .split(',')
         .filter((e: string) => e !== '')
 
@@ -106,7 +107,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         slug,
         link: `/courses/${slug}/`,
         language,
-        translations,
+        translationSlugs,
         title: file.getTitle() as string,
         status: file.getAttribute(ATTRIBUTE_STATUS, DEFAULT_COURSE_STATUS),
         thumbnail: file.getAttribute(ATTRIBUTE_THUMBNAIL, DEFAULT_COURSE_THUMBNAIL),
@@ -209,36 +210,60 @@ const loadQuestion = (filepath: string): Question => {
  */
 const disableAllCourses = (tx: Transaction, valid: string[]) => tx.run(`MATCH (c:Course) WHERE NOT c.slug IN $valid SET c.status = $status`, { valid, status: STATUS_DISABLED })
 
-const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => tx.run(`
-    UNWIND $courses AS course
-    MERGE (c:Course {slug: course.slug})
-    SET
-        c.id = apoc.text.base64Encode(course.link),
-        c.title = course.title,
-        c.language = course.language,
-        c.thumbnail = course.thumbnail,
-        c.caption = course.caption,
-        c.status = course.status,
-        c.usecase = course.usecase,
-        c.redirect = course.redirect,
-        c.duration = course.duration,
-        c.repository = course.repository,
-        c.video = course.video,
-        c.link = '/courses/'+ c.slug +'/',
-        c.updatedAt = datetime(),
-        c += course.attributes
+const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
+    tx.run(`
+        UNWIND $courses AS course
+        MERGE (c:Course {slug: course.slug})
+        SET
+            c.id = apoc.text.base64Encode(course.link),
+            c.title = course.title,
+            c.language = course.language,
+            c.thumbnail = course.thumbnail,
+            c.caption = course.caption,
+            c.status = course.status,
+            c.usecase = course.usecase,
+            c.redirect = course.redirect,
+            c.duration = course.duration,
+            c.repository = course.repository,
+            c.video = course.video,
+            c.link = '/courses/'+ c.slug +'/',
+            c.updatedAt = datetime(),
+            c += course.attributes
 
-    FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
-    FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
-    FOREACH (r IN [(c)-[r:PREREQUISITE]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
+        FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
+        FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
+        FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
 
-    WITH c, course
+        WITH c, course
 
-    UNWIND course.categories AS row
-    MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
-    MERGE (c)-[r:IN_CATEGORY]->(cat)
-    SET r.order = toInteger(row.order)
-`, { courses })
+        UNWIND course.categories AS row
+        MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
+        MERGE (c)-[r:IN_CATEGORY]->(cat)
+        SET r.order = toInteger(row.order)
+    `, { courses })
+
+    // Translations
+    tx.run(`
+        UNWIND $courses AS course
+        MATCH (c:Course {slug: course.slug})
+
+        FOREACH (slug IN course.translationSlugs |
+            MERGE (t:Course {slug: slug})
+            MERGE (c)-[:HAS_TRANSLATION]->(t)
+        )
+    `, { courses })
+
+    // Next Courses
+    tx.run(`
+        UNWIND $courses AS course
+        MATCH (c:Course {slug: course.slug})
+
+        FOREACH (slug IN course.progressToSlugs |
+            MERGE (t:Course {slug: slug})
+            MERGE (c)-[:PROGRESS_TO]->(t)
+        )
+    `, { courses })
+}
 
 const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
     UNWIND $modules AS module
