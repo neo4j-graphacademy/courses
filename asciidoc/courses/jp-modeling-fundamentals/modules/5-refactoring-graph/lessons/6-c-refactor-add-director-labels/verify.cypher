@@ -1,0 +1,1 @@
+MATCH (d:Director) WHERE d.name = 'Danny DeVito' OR d.name = 'Martin Scorsese' RETURN count (*) = 2 as outcome
