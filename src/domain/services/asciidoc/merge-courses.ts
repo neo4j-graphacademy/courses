@@ -213,7 +213,7 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => tx.ru
     UNWIND $courses AS course
     MERGE (c:Course {slug: course.slug})
     SET
-        c.id = apoc.text.base64Encode(course.slug),
+        c.id = apoc.text.base64Encode(course.link),
         c.title = course.title,
         c.language = course.language,
         c.thumbnail = course.thumbnail,
@@ -244,7 +244,7 @@ const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
     UNWIND $modules AS module
         MATCH (c:Course {slug: module.courseSlug})
 
-    MERGE (m:Module {id: apoc.text.base64Encode(c.slug +'--'+ module.slug) })
+    MERGE (m:Module {id: apoc.text.base64Encode(module.link) })
     SET
         m.title = module.title,
         m.slug = module.slug,
@@ -265,7 +265,7 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
     UNWIND $lessons AS lesson
         MATCH (m:Module {link: lesson.moduleLink})
 
-    MERGE (l:Lesson {id: apoc.text.base64Encode(m.slug +'--'+ lesson.slug) })
+    MERGE (l:Lesson {id: apoc.text.base64Encode(lesson.link) })
     SET
         l.slug = lesson.slug,
         l.type = lesson.type,
@@ -314,6 +314,8 @@ const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
     MERGE (l)-[:HAS_QUESTION]->(q)
 `, { questions })
 
+
+
 // Integrity Checks
 const checkSchema = (session: Session) => session.readTransaction(async tx => {
     // Next Links?
@@ -345,7 +347,7 @@ export async function mergeCourses(): Promise<void> {
 
     const lessons = modules.flatMap(module => module?.lessons.map(lesson => ({
         courseSlug: module.courseSlug,
-        moduleSlug: module.link,
+        moduleSlug: module.slug,
         moduleLink: `/courses/${module.courseSlug}/${module.slug}/`,
         link: `/courses/${module.courseSlug}/${module.slug}/${lesson.slug}/`,
         ...lesson,
@@ -355,8 +357,6 @@ export async function mergeCourses(): Promise<void> {
         lessonLink: `${lesson.moduleLink}${lesson.slug}/`,
         ...question,
     })))
-
-    console.clear()
 
     const courseCount = await session.writeTransaction(async tx => {
         // Disable all courses
@@ -395,7 +395,7 @@ export async function mergeCourses(): Promise<void> {
 
     const questionCount = await session.writeTransaction(async tx => {
         const remaining = questions.slice(0)
-        const batchSize = 100
+        const batchSize = 1000
 
         while (remaining.length) {
             const batch = remaining.splice(0, batchSize)
