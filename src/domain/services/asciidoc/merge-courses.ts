@@ -445,6 +445,30 @@ export async function mergeCourses(): Promise<void> {
     console.log(`    -- Removed -[:NEXT]-> chain`);
 
     await session.writeTransaction(async tx => {
+        const remaining = courses.slice(0).map(course => course.slug)
+        const batchSize = 10
+
+        while (remaining.length) {
+            const batch = remaining.splice(0, batchSize)
+
+            // Recreate (:Module) NEXT chain
+            await tx.run(`
+                MATCH (c:Course)-[:HAS_MODULE]->(m)
+                WHERE c.slug IN $batch
+                WITH c, m ORDER BY m.order ASC
+                WITH c, collect(m) AS modules
+
+                WITH c, modules, modules[0] AS first, modules[-1] AS last
+                CALL apoc.nodes.link(modules, 'NEXT_MODULE')
+
+                MERGE (c)-[:FIRST_MODULE]->(first)
+                MERGE (c)-[:LAST_MODULE]->(last)
+            `, { batch })
+        }
+    })
+    console.log(`    -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
+
+    await session.writeTransaction(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
         const batchSize = 1000
 
@@ -506,30 +530,6 @@ export async function mergeCourses(): Promise<void> {
                 WHERE NOT node:Course
 
                 SET node.progressPercentage = round((1.0 * idx / size) * 100)
-            `, { batch })
-        }
-    })
-    console.log(`    -- Calculated progressPercentage`);
-
-    await session.writeTransaction(async tx => {
-        const remaining = courses.slice(0).map(course => course.slug)
-        const batchSize = 10
-
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
-
-            // Recreate (:Module) NEXT chain
-            await tx.run(`
-                MATCH (c:Course)-[:HAS_MODULE]->(m)
-                WHERE c.slug IN $batch
-                WITH c, m ORDER BY m.order ASC
-                WITH c, collect(m) AS modules
-
-                WITH c, modules, modules[0] AS first, modules[-1] AS last
-                CALL apoc.nodes.link(modules, 'NEXT_MODULE')
-
-                MERGE (c)-[:FIRST_MODULE]->(first)
-                MERGE (c)-[:LAST_MODULE]->(last)
             `, { batch })
         }
     })
