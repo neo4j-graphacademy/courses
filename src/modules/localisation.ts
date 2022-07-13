@@ -1,4 +1,4 @@
-import { Language, LANGUAGE_EN, LANGUAGE_JP } from "../domain/model/course";
+import { Language, LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP } from "../domain/model/course";
 import { loadFile } from "./asciidoc";
 
 type Phrase = string
@@ -11,6 +11,7 @@ export function initLocalisation() {
     const enabled: Language[] = [
         LANGUAGE_EN,
         LANGUAGE_JP,
+        LANGUAGE_CN,
     ]
 
     enabled.forEach((language: Language) => {
