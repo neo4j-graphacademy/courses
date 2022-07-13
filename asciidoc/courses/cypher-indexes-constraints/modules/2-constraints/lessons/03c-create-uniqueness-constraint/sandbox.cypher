@@ -1,0 +1,1 @@
+CREATE CONSTRAINT Movie_movieId_unique IF NOT EXISTS FOR (x:Movie) REQUIRE x.movieId IS UNIQUE

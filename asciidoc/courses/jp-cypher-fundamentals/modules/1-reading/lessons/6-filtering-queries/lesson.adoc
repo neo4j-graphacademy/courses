@@ -1,0 +1,189 @@
+= クエリーのフィルタリング
+:type: quiz
+:order: 6
+
+// [.video]
+// video::ZBbH5p-5Gt8[youtube,width=560,height=315]
+
+
+//https://youtu.be/ZBbH5p-5Gt8
+
+
+////
+
+1-Reading-FilteringQueries
+https://docs.google.com/document/d/1mZ6afZ6CfN0XADSc80NQS3kXxFN9hT_5qAYVVUeKr5c/edit?usp=sharing
+
+////
+
+
+[.transcript]
+== クエリーのフィルタリング
+
+以前、`WHERE`句は、グラフから取得するノードをフィルタリングするようクエリエンジンに指示するために使用されることを学びました。
+このレッスンでは、クエリをフィルタリングするためのいくつかの方法について学びます。
+
+すでに、ノードのプロパティの等質性をテストする方法や、論理式を使って取得するものをさらにフィルタリングする方法について学びました。
+
+たとえば、このクエリは、_Person_ ノードと _Movie_ ノードを取得し、その人物が _2008_ または _2009_ に公開された映画に出演していることを示します。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE m.released = 2008 OR m.released = 2009
+RETURN p, m
+----
+
+=== ノードラベルによるフィルタリング
+
+このタイプのクエリはすでに見たことがあると思います。これは、映画「マトリックス」に出演していたすべての人の名前を返します。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE m.title='The Matrix'
+RETURN p.name
+----
+
+このクエリの代替案として、`WHERE`節でノードラベルをテストする次のような方法があります。
+
+[source,cypher]
+----
+MATCH (p)-[:ACTED_IN]->(m)
+WHERE p:Person AND m:Movie AND m.title='The Matrix'
+RETURN p.name
+----
+
+どちらのクエリも同じように実行されますが、コードの中で、あるスタイルのフィルタリングを他のスタイルより使用したい場合があります。
+
+=== Filtering using ranges
+
+クエリーをフィルタリングするために範囲を指定することができます。
+ここでは、_2000_から_2003_の間に公開された映画に出演した人物の_Person_ノードを取得したいとします。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE 2000 <= m.released <= 2003
+RETURN p.name, m.title, m.released
+----
+
+=== プロパティの有無によるフィルタリング
+
+デフォルトでは、ノードやリレーションシップが与えられたプロパティを持つという要件はないことを思い出してください。
+ここでは、_Jack Nicholson_が映画に出演し、映画が_tagline_プロパティを持つ_Movie_ノードのみを返したいというクエリの例を挙げます。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name='Jack Nicholson' AND m.tagline IS NOT NULL
+RETURN m.title, m.tagline
+----
+
+=== 部分文字列によるフィルタリング
+
+Cypherには文字列に関連するキーワードが用意されており、 `WHERE` 節で文字列のプロパティ値をテストするために使用することができます。
+STARTS WITH`、`ENDS WITH`、`CONTAINS` を指定することができます。
+
+例えば、グラフの中でファーストネームが _Michael_ のアクターを全て見つけるには、次のように書きます。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->()
+WHERE p.name STARTS WITH 'Michael'
+RETURN p.name
+----
+
+文字列のテストは大文字小文字を区別するので、テストが正しい結果を返すように `toLower()` や `toUpper()` 関数を使用する必要があるかもしれません。
+例えば
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->()
+WHERE toLower(p.name) STARTS WITH 'michael'
+RETURN p.name
+----
+
+=== グラフのパターンによるフィルタリング
+
+例えば、ある映画の脚本を書いたが、その映画の監督をしなかった人たちをすべて見つけたいとします。
+以下はそのクエリの実行方法です。
+
+[source,cypher]
+----
+MATCH (p:Person)-[:WROTE]->(m:Movie)
+WHERE NOT exists( (p)-[:DIRECTED]->(m) )
+RETURN p.name, m.title
+----
+
+=== リストによるフィルタリング
+
+テストしたい値のセットがある場合、それらをリストに入れたり、グラフ内の既存のリストでテストしたりすることができます。
+Cypherのリストは、角括弧の中でカンマで区切られた値の集合です。
+
+リストは `WHERE` 節で定義します。
+クエリの間、グラフエンジンは各プロパティとリストの値 `IN` を比較します。
+リストには数値でも文字列でも入れることができますが、通常、リストの要素は同じデータ型になります。
+もし、文字列型のプロパティでテストするのであれば、リストの要素はすべて文字列になります。
+
+この例では、_1965_年、_1970_年、_1975_年生まれの人の _Person_ ノードだけを取得したいのです。
+
+[source,cypher]
+----
+MATCH (p:Person)
+WHERE p.born IN [1965, 1970, 1975]
+RETURN p.name, p.born
+----
+
+また、グラフ内の既存のリストと値を比較することも可能です。
+
+ACTED_IN_の関係には、_roles_というプロパティがあり、俳優が出演した特定の映画での役割のリストが格納されていることが分かっています。
+以下は、映画「マトリックス」で_Neo_を演じた俳優の名前を返すために書いたクエリです。
+
+[source,cypher]
+----
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+WHERE  'Neo' IN r.roles AND m.title='The Matrix'
+RETURN p.name, r.roles
+----
+
+=== ノードやリレーションシップにはどのようなプロパティがあるのでしょうか？
+
+与えられたラベルを持つノードのプロパティは、同じである必要はありません。
+ノードのプロパティを発見する一つの方法は、 `keys()` 関数を使用することです。
+この関数は、ノードのすべてのプロパティキーのリストを返します。
+
+このコードを実行することで、グラフ内のPersonノードのキーを発見することができます。
+
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN p.name, keys(p)
+----
+
+各行で返される結果には、人物の名前と、そのノードのプロパティ キーのリストが含まれます。
+結果ペインを下にスクロールすると、一部のPersonノードにはbornプロパティがないことに気づきます。
+
+=== グラフに存在するプロパティは何ですか？
+
+より一般的には、このコードを実行すると、グラフで定義されているすべてのプロパティキーを返すことができます。
+
+[source,cypher]
+----
+CALL db.propertyKeys()
+----
+
+なお、一度定義したプロパティキーは、そのプロパティキーを使用するノードやリレーションシップが現在存在しない場合でも、グラフ内に残ります。
+
+== 理解度の確認
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+
+include::questions/2-seventiespeople.adoc[leveloffset=+1]
+
+[.summary]
+== 概要
+
+このレッスンでは、グラフから取得されるものをフィルタリングする方法をいくつか学びました。
+次の課題では、取得されたノードをフィルタリングするスキルを実証します。
+
