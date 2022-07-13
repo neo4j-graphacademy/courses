@@ -18,7 +18,7 @@ Cypress.Commands.add('executeCypher', (query, options = {}) => {
     const cleaned = query.replace(/{/g, '{{}')
         .replace(/\n/g, ' ')
 
-    getSandboxBody().find(VisibleEditor, {timeout: 20000}).click()
+    getSandboxBody().find(VisibleEditor).click()
     getSandboxBody().find(EditorTextField).clear().type(cleaned, { force: true, ...options })
     cy.wait(100)
     getSandboxBody().find(SubmitQueryButton).click()
