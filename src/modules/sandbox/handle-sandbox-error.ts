@@ -6,18 +6,17 @@ import { SandboxServerError } from "./sandbox-server.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
 
 export async function handleSandboxError(token: string, endpoint: string, error: any) {
-
     let output: Error
 
     const code = error.response?.status
 
     switch (code) {
         case 400:
-            output = new SandboxBadRequestError(endpoint, error);
-            break;
+            output = new SandboxBadRequestError(endpoint, error)
+            break
         case 403:
-            output = new SandboxForbiddenError(endpoint, error);
-            break;
+            output = new SandboxForbiddenError(endpoint, error)
+            break
         case 500:
         case 502:
             output = new SandboxServerError(endpoint, error)
