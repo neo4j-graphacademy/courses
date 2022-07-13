@@ -140,7 +140,7 @@ export async function createSandbox(token: string, usecase: string): Promise<San
         return res.data
     }
     catch (e: any) {
-        throw handleSandboxError(token, 'SandboxGetRunningInstancesForUser', e)
+        throw handleSandboxError(token, 'SandboxRunInstance', e)
     }
 }
 
@@ -159,6 +159,6 @@ export async function stopSandbox(token: string, sandboxHashKey: string) {
         return res.data
     }
     catch (e: any) {
-        throw handleSandboxError(token, 'SandboxGetRunningInstancesForUser', e)
+        throw handleSandboxError(token, 'SandboxStopInstance', e)
     }
 }
