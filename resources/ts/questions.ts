@@ -129,7 +129,9 @@ const addHintListeners = (element: Element): void => {
         .forEach(block => {
             const parent = block.parentElement
 
-            const show = createElement('button', ADMONITION_SHOW_HINT, ['Show Hint'])
+            const show = createElement('button', ADMONITION_SHOW_HINT, [
+                window.i18n.showHint
+            ])
             show.addEventListener('click', e => {
                 e.preventDefault()
 
@@ -147,7 +149,9 @@ const addHintListeners = (element: Element): void => {
         .forEach(block => {
             const parent = block.parentElement
 
-            const show = createElement('button', ADMONITION_SHOW_SOLUTION, ['Reveal Solution'])
+            const show = createElement('button', ADMONITION_SHOW_SOLUTION, [
+                    window.i18n.showSolution
+            ])
             show.addEventListener('click', e => {
                 e.preventDefault()
 

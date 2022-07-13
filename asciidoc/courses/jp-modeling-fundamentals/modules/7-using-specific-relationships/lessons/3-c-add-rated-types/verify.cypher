@@ -1,0 +1,1 @@
+MATCH (:User)-[r:RATED_5|RATED_4|RATED_3]-() RETURN count(r) >= 5 AS outcome
