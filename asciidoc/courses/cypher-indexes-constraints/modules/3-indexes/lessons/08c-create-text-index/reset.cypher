@@ -14,6 +14,4 @@ CREATE INDEX Person_name IF NOT EXISTS FOR (x:Person) ON (x.name);
 CREATE INDEX RATED_rating IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.rating);
 CREATE INDEX Movie_year_runtime IF NOT EXISTS FOR (x:Movie) ON (x.year, x.runtime);
 CREATE INDEX Movie_year_imdbRating IF NOT EXISTS FOR (x:Movie) ON (x.year, x.imdbRating);
-CREATE TEXT INDEX Person_name_text IF NOT EXISTS FOR (x:Person) ON (x.name);
-CREATE  INDEX RATED_ratingY IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY);
-CREATE  TEXT INDEX RATED_ratingY_text IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY)
+CREATE TEXT INDEX Person_name_text IF NOT EXISTS FOR (x:Person) ON (x.name)
