@@ -11,7 +11,7 @@ export async function requiresVerification(req: Request, res: Response, next: Ne
     if (user?.email_verified === false) {
         // Get updated info from Auth0
         const token = await getToken(req)
-        const check = await getAuth0UserInfo(token)
+        const check = await getAuth0UserInfo(token, user)
 
         if ( check.email_verified === true ) {
             return next()

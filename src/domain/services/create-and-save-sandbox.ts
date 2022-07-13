@@ -2,8 +2,9 @@ import { Transaction } from "neo4j-driver";
 import { write } from "../../modules/neo4j";
 import { createSandbox, Sandbox } from "../../modules/sandbox";
 import { CourseWithProgress } from "../model/course";
+import { User } from "../model/user";
 
-export async function createAndSaveSandbox(token: string, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
+export async function createAndSaveSandbox(token: string, user: User, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
     if ( !course.usecase ) {
         return
     }
@@ -15,7 +16,7 @@ export async function createAndSaveSandbox(token: string, course: CourseWithProg
 
     const { enrolmentId, usecase, } = course
 
-    const sandboxOutput: Sandbox = await createSandbox(token, usecase)
+    const sandboxOutput: Sandbox = await createSandbox(token, user, usecase)
 
     const query = `
         MERGE (e:Enrolment {id: $id})

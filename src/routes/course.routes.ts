@@ -386,7 +386,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
 
         // If sandbox doesn't exist then recreate it
         if (!sandbox) {
-            sandbox = await createAndSaveSandbox(token, course)
+            sandbox = await createAndSaveSandbox(token, user!, course)
         }
 
         // Pre-fill credentials and redirect to browser
@@ -403,22 +403,23 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         })
     }
     catch (e: any) {
-        notify(e, (event) => {
-            event.setUser(user?.sub, user?.email, user?.name)
+        // Notification happens in sandbox module
+        // notify(e, (event) => {
+        //     event.setUser(user?.sub, user?.email, user?.name)
 
-            event.addMetadata('request', {
-                data: e.request.data,
-                headers: e.request.headers,
-                status: e.request.status,
-                statusText: e.request.statusText,
-            })
-            event.addMetadata('response', {
-                data: e.response.data,
-                headers: e.response.headers,
-                status: e.response.status,
-                statusText: e.response.statusText,
-            })
-        })
+        //     event.addMetadata('request', {
+        //         data: e.request.data,
+        //         headers: e.request.headers,
+        //         status: e.request.status,
+        //         statusText: e.request.statusText,
+        //     })
+        //     event.addMetadata('response', {
+        //         data: e.response.data,
+        //         headers: e.response.headers,
+        //         status: e.response.status,
+        //         statusText: e.response.statusText,
+        //     })
+        // })
 
         // 400/401 on sandbox API - redirect to login
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
@@ -588,28 +589,30 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         // Add sandbox attributes to Page Attributes?
         let sandbox: Sandbox | undefined
 
-        if ( course.usecase && course.completed === false ) {
+        if ( course.usecase && user && course.completed === false ) {
             try {
-                sandbox = await createAndSaveSandbox(token, course)
+                sandbox = await createAndSaveSandbox(token, user, course)
             }
             catch(e: any) {
-                // Sandbox API error?
-                notify(e, event => {
-                    event.setUser(user?.sub, user?.email, user?.name)
+                // Silent error, already reported in sandbox module
+                if ( !e.isSandboxError ) {
+                    notify(e, event => {
+                        event.setUser(user?.sub, user?.email, user?.name)
 
-                    event.addMetadata('request', {
-                        data: e.request.data,
-                        headers: e.request.headers,
-                        status: e.request.status,
-                        statusText: e.request.statusText,
+                        event.addMetadata('request', {
+                            data: e.request.data,
+                            headers: e.request.headers,
+                            status: e.request.status,
+                            statusText: e.request.statusText,
+                        })
+                        event.addMetadata('response', {
+                            data: e.response.data,
+                            headers: e.response.headers,
+                            status: e.response.status,
+                            statusText: e.response.statusText,
+                        })
                     })
-                    event.addMetadata('response', {
-                        data: e.response.data,
-                        headers: e.response.headers,
-                        status: e.response.status,
-                        statusText: e.response.statusText,
-                    })
-                })
+                }
             }
         }
 
@@ -629,8 +632,8 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         } = await getSandboxConfig(course, lesson)
 
         // Reset Database?
-        if (course.usecase && !lesson?.completed) {
-            await resetDatabase(token, req.params.course, req.params.module, req.params.lesson, course.usecase)
+        if (user && course.usecase && !lesson?.completed) {
+            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
         }
 
         // Next link in pagination?

@@ -2,7 +2,7 @@
 import { Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
-import { getToken } from '../middleware/auth.middleware'
+import { getToken, getUser } from '../middleware/auth.middleware'
 import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
@@ -46,7 +46,8 @@ router.get('/sandbox/SandboxRunInstance', (req, res) => {
 router.get('/sandboxes', async (req, res, next) => {
     try {
         const token = await getToken(req)
-        const sandboxes = await getSandboxes(token)
+        const user = await getUser(req)
+        const sandboxes = await getSandboxes(token, user!)
 
         res.json(sandboxes)
     }
@@ -66,9 +67,10 @@ router.get('/profile', async (req, res) => {
 router.get('/profile/sandbox', async (req, res, next) => {
     try {
         const token = await getToken(req)
-        const user = await getUserInfo(token)
+        const user = await getUser(req)
+        const profile = await getUserInfo(token, user!)
 
-        res.json(user)
+        res.json(profile)
     }
     catch(e) {
         next(e)
@@ -89,9 +91,10 @@ router.get('/profile/oidc', async (req, res, next) => {
 router.get('/profile/auth0', async (req, res, next) => {
     try {
         const token = await getToken(req)
-        const user = await getAuth0UserInfo(token)
+        const user = await getUser(req)
+        const profile = await getAuth0UserInfo(token, user!)
 
-        res.json(user)
+        res.json(profile)
     }
     catch(e) {
         // @ts-ignore

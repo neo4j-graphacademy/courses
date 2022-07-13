@@ -48,7 +48,7 @@ router.get('/', requiresAuth(),  async (req, res, next) => {
         const countries = await getCountries()
 
         // Get Sandboxes
-        const sandboxes: Sandbox[] = await getSandboxes(token)
+        const sandboxes: Sandbox[] = await getSandboxes(token, user!)
 
         res.render('account/edit', {
             title: 'My Account',

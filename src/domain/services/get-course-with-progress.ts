@@ -22,8 +22,8 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
 
     // Attempt to find a Sandbox instance
     try {
-        if (token && course.usecase) {
-            course.sandbox = await getSandboxForUseCase(token, course.usecase)
+        if (user && token && course.usecase) {
+            course.sandbox = await getSandboxForUseCase(token, user, course.usecase)
         }
     }
     catch(e) {

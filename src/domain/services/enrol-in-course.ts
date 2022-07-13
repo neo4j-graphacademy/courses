@@ -67,7 +67,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         // Create and save sandbox details
         if (course.usecase && !enrolment.sandbox) {
             try {
-                sandbox = await createAndSaveSandbox(token, course, tx)
+                sandbox = await createAndSaveSandbox(token, user, course, tx)
             }
             catch (e: any) {
                 notify(e, event => {

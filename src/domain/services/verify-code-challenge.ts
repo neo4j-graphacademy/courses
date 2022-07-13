@@ -18,7 +18,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     }
 
     // No sandbox? Return false
-    const sandbox = await getSandboxForUseCase(token, usecase)
+    const sandbox = await getSandboxForUseCase(token, user, usecase)
 
     if ( !sandbox ) {
         return false

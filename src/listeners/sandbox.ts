@@ -7,7 +7,7 @@ import { getSandboxForUseCase, stopSandbox } from '../modules/sandbox'
 export default async function initSandboxListeners(): Promise<void> {
 
     const stopSandboxHandler = async (event: UserCompletedCourse | UserUnenrolled) => {
-        const { course, token } = event
+        const { course, token, user } = event
         const { usecase } = course
 
         // If no token or usecase, ignore
@@ -16,11 +16,11 @@ export default async function initSandboxListeners(): Promise<void> {
         }
 
         // Try to get a sandbox for the user
-        const sandbox = await getSandboxForUseCase(token, usecase)
+        const sandbox = await getSandboxForUseCase(token,user, usecase)
 
         // If it exists, stop it
         if ( sandbox ) {
-            await stopSandbox(token, sandbox.sandboxHashKey)
+            await stopSandbox(token, user, sandbox.sandboxHashKey)
         }
     }
 

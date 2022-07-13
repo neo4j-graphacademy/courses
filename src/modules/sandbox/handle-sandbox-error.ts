@@ -1,3 +1,4 @@
+import { User } from "@bugsnag/js";
 import { AxiosError } from "axios";
 import { notify } from "../../middleware/bugsnag.middleware";
 import { SandboxBadRequestError } from "./sandbox-bad-request.error";
@@ -5,7 +6,7 @@ import { SandboxForbiddenError } from "./sandbox-forbidden.error";
 import { SandboxServerError } from "./sandbox-server.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
 
-export async function handleSandboxError(token: string, endpoint: string, error: any) {
+export async function handleSandboxError(token: string, user: User, endpoint: string, error: any) {
     let output: Error
 
     const code = error.response?.status
@@ -28,6 +29,8 @@ export async function handleSandboxError(token: string, endpoint: string, error:
 
     // Notify Bugsnag
     notify(output, event => {
+        event.setUser(user.id, user.email, user.name)
+
         event.addMetadata('auth', {
             token,
         })

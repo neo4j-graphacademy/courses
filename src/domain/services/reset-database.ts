@@ -3,9 +3,10 @@ import { createDriver } from '../../modules/neo4j';
 import { Transaction } from 'neo4j-driver';
 import { notify } from '../../middleware/bugsnag.middleware';
 import { getLessonCypherFile } from '../../utils';
+import { User } from "../model/user";
 
 
-export async function resetDatabase(token: string, course: string, module: string, lesson: string, usecase: string): Promise<boolean> {
+export async function resetDatabase(token: string, user: User, course: string, module: string, lesson: string, usecase: string): Promise<boolean> {
     // Check that a reset.cypher file exists
     const cypher = await getLessonCypherFile(course, module, lesson, 'reset')
 
@@ -14,7 +15,7 @@ export async function resetDatabase(token: string, course: string, module: strin
     }
 
     // Check that a sandbox exists
-    const sandbox = await getSandboxForUseCase(token, usecase)
+    const sandbox = await getSandboxForUseCase(token, user, usecase)
 
     if (!sandbox) {
         return false

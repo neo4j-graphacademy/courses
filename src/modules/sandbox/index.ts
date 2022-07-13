@@ -1,7 +1,6 @@
-import axios, { AxiosError, AxiosInstance } from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
-import { notify } from '../../middleware/bugsnag.middleware'
 import { isVerified } from '../jwt'
 import { handleSandboxError } from './handle-sandbox-error'
 
@@ -38,7 +37,7 @@ export function sandboxApi() {
 }
 
 
-export async function getAuth0UserInfo(token: string):  Promise<Partial<User>> {
+export async function getAuth0UserInfo(token: string, user: User):  Promise<Partial<User>> {
     try {
         const res = await axios.post(`${process.env.AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
             id_token: token
@@ -47,11 +46,11 @@ export async function getAuth0UserInfo(token: string):  Promise<Partial<User>> {
         return res.data
     }
     catch(e) {
-        throw handleSandboxError(token, 'tokeninfo', e)
+        throw handleSandboxError(token, user, 'tokeninfo', e)
     }
 }
 
-export async function getUserInfo(token: string): Promise<Partial<User>> {
+export async function getUserInfo(token: string, user: User): Promise<Partial<User>> {
     try {
         const res = await sandboxApi().get(`SandboxGetUserInfo`, {
             headers: {
@@ -64,12 +63,12 @@ export async function getUserInfo(token: string): Promise<Partial<User>> {
         return user as Partial<User>
     }
     catch(e) {
-        throw handleSandboxError(token, 'SandboxGetUserInfo', e)
+        throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
     }
 }
 
 
-export async function getSandboxes(token: string): Promise<Sandbox[]> {
+export async function getSandboxes(token: string, user: User): Promise<Sandbox[]> {
     if (!isVerified(token)) {
         return []
     }
@@ -97,14 +96,14 @@ export async function getSandboxes(token: string): Promise<Sandbox[]> {
     }
     catch (e: any) {
         // Report Error
-        handleSandboxError(token, 'SandboxGetRunningInstancesForUser', e)
+        handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
 
         // Fail Silently
         return []
     }
 }
 
-export async function getSandboxForUseCase(token: string, usecase: string): Promise<Sandbox | undefined> {
+export async function getSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox | undefined> {
     if (!isVerified(token)) {
         return undefined
     }
@@ -113,14 +112,14 @@ export async function getSandboxForUseCase(token: string, usecase: string): Prom
         return devSandbox()
     }
 
-    const sandboxes = await getSandboxes(token)
+    const sandboxes = await getSandboxes(token, user)
 
     return sandboxes.find(sandbox => sandbox.usecase === usecase)
 }
 
-export async function createSandbox(token: string, usecase: string): Promise<Sandbox> {
+export async function createSandbox(token: string, user: User, usecase: string): Promise<Sandbox> {
     // Prefer existing to avoid 400 errors
-    const existing = await getSandboxForUseCase(token, usecase)
+    const existing = await getSandboxForUseCase(token, user, usecase)
 
     if ( existing ) {
         return existing
@@ -140,11 +139,11 @@ export async function createSandbox(token: string, usecase: string): Promise<San
         return res.data
     }
     catch (e: any) {
-        throw handleSandboxError(token, 'SandboxRunInstance', e)
+        throw handleSandboxError(token, user, 'SandboxRunInstance', e)
     }
 }
 
-export async function stopSandbox(token: string, sandboxHashKey: string) {
+export async function stopSandbox(token: string, user: User, sandboxHashKey: string) {
     try {
         const res = await sandboxApi().post(
             `SandboxStopInstance`,
@@ -159,6 +158,6 @@ export async function stopSandbox(token: string, sandboxHashKey: string) {
         return res.data
     }
     catch (e: any) {
-        throw handleSandboxError(token, 'SandboxStopInstance', e)
+        throw handleSandboxError(token, user, 'SandboxStopInstance', e)
     }
 }

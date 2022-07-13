@@ -302,10 +302,10 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         'shared': path.join(ASCIIDOC_DIRECTORY, 'shared'),
     }
 
-    if (req && course.usecase) {
+    if (req && user && course.usecase) {
         const token = await getToken(req)
 
-        const sandboxConfig = await getSandboxForUseCase(token, course.usecase)
+        const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
 
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['sandbox-username'] = sandboxConfig?.username;
