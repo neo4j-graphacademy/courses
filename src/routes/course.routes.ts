@@ -403,24 +403,24 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         })
     }
     catch (e: any) {
-        // Notification happens in sandbox module
-        // notify(e, (event) => {
-        //     event.setUser(user?.sub, user?.email, user?.name)
+        if ( !e.isSandboxError ) {
+            notify(e, event => {
+                event.setUser(user?.sub, user?.email, user?.name)
 
-        //     event.addMetadata('request', {
-        //         data: e.request.data,
-        //         headers: e.request.headers,
-        //         status: e.request.status,
-        //         statusText: e.request.statusText,
-        //     })
-        //     event.addMetadata('response', {
-        //         data: e.response.data,
-        //         headers: e.response.headers,
-        //         status: e.response.status,
-        //         statusText: e.response.statusText,
-        //     })
-        // })
-
+                event.addMetadata('request', {
+                    data: e.request.data,
+                    headers: e.request.headers,
+                    status: e.request.status,
+                    statusText: e.request.statusText,
+                })
+                event.addMetadata('response', {
+                    data: e.response.data,
+                    headers: e.response.headers,
+                    status: e.response.status,
+                    statusText: e.response.statusText,
+                })
+            })
+        }
         // 400/401 on sandbox API - redirect to login
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
