@@ -1,3 +1,4 @@
+/* tslint:disable:no-console */
 import initNeo4j, { close } from '../modules/neo4j';
 import { mergeCourses } from '../domain/services/asciidoc/merge-courses';
 import { mergeCategories } from '../domain/services/asciidoc/merge-categories';

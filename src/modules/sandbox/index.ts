@@ -58,9 +58,9 @@ export async function getUserInfo(token: string, user: User): Promise<Partial<Us
             },
         })
 
-        const [ user ] = res.data
+        const [ profile ] = res.data
 
-        return user as Partial<User>
+        return profile as Partial<User>
     }
     catch(e) {
         throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
