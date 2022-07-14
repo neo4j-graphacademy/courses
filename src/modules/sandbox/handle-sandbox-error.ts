@@ -6,7 +6,7 @@ import { SandboxForbiddenError } from "./sandbox-forbidden.error";
 import { SandboxServerError } from "./sandbox-server.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
 
-export async function handleSandboxError(token: string, user: User, endpoint: string, error: any) {
+export function handleSandboxError(token: string, user: User, endpoint: string, error: any): Error {
     let output: Error
 
     const code = error.response?.status
@@ -24,7 +24,6 @@ export async function handleSandboxError(token: string, user: User, endpoint: st
 
         default:
             output = new SandboxUnknownError(endpoint, error)
-
     }
 
     // Notify Bugsnag
