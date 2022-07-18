@@ -401,7 +401,7 @@ export async function mergeCourses(): Promise<void> {
 
         return modules.length
     })
-    console.log(`    -- 📦 ${moduleCount} modules`);
+    console.log(`   -- 📦 ${moduleCount} modules`);
 
 
     const lessonCount = await session.writeTransaction(async tx => {
@@ -416,7 +416,7 @@ export async function mergeCourses(): Promise<void> {
 
         return lessons.length
     })
-    console.log(`    -- 📄 ${lessonCount} lessons`);
+    console.log(`   -- 📄 ${lessonCount} lessons`);
 
 
     const questionCount = await session.writeTransaction(async tx => {
@@ -432,7 +432,7 @@ export async function mergeCourses(): Promise<void> {
         return questions.length
     })
 
-    console.log(`    -- 🤨 ${questionCount} questions`);
+    console.log(`   -- 🤨 ${questionCount} questions`);
 
 
     // Clean NEXT chain
@@ -443,7 +443,7 @@ export async function mergeCourses(): Promise<void> {
             DELETE r
         `)
     })
-    console.log(`    -- Removed -[:NEXT]-> chain`);
+    console.log(`   -- Removed -[:NEXT]-> chain`);
 
     await session.writeTransaction(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
@@ -467,7 +467,7 @@ export async function mergeCourses(): Promise<void> {
             `, { batch })
         }
     })
-    console.log(`    -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
+    console.log(`   -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
 
     await session.writeTransaction(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
@@ -500,7 +500,7 @@ export async function mergeCourses(): Promise<void> {
             `, { batch })
         }
     })
-    console.log(`    -- Recreated (:Lesson) NEXT chain`);
+    console.log(`   -- Recreated (:Lesson) NEXT chain`);
 
 
     await session.writeTransaction(async tx => {
@@ -510,7 +510,7 @@ export async function mergeCourses(): Promise<void> {
             MERGE (last)-[:NEXT]->(next)
         `)
     })
-    console.log(`    -- Recreated -[:NEXT]-> between last (:Lesson) and next (:Module)`);
+    console.log(`   -- Recreated (:Module)-[:NEXT]->(:Lesson)`);
 
     await session.writeTransaction(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
@@ -534,7 +534,7 @@ export async function mergeCourses(): Promise<void> {
             `, { batch })
         }
     })
-    console.log(`    -- Calculated progressPercentage`);
+    console.log(`   -- Calculated progressPercentage`);
 
 
     // Integrity Checks
