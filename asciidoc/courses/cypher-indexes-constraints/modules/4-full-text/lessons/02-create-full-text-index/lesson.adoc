@@ -23,7 +23,7 @@ For example:
 Some of these types of queries can be very expensive using standard b-tree or TEXT indexes. A full-text index may perform better.
 You create a full-text index on node properties or on relationship properties.
 
-You use the `CREATE` clause to create a full-text index, but what makes full-text indexes different from other index types (b-tree, TEXT, RANGE, POINT), is that they are not automatically used in your Cypher queries.
+You use the `CREATE` clause to create a full-text index, but what makes full-text indexes different from other index types (b-tree, TEXT), is that they are not automatically used in your Cypher queries.
 You must call a special procedure, `db.index.fulltext.queryNodes()` to query node properties using the index.
 And you call `db.index.fulltext.queryRelationships()` to query relationship properties using the index.
 
@@ -194,11 +194,29 @@ RETURN node.name AS Name, node.bio AS Bio, node.title AS Title,  node.plot AS Pl
 This query returns both movie and actor nodes that match the properties specified in the second argument to queryNodes().
 This query returns in 5 ms, much faster than the previous query that used the TEXT indexes.
 
-You can explore some ways that full-text indexes can be used in the https://neo4j.com/docs/cypher-manual/current/indexes-for-full-text-search/[Cypher Reference Manual^].
-Some of your queries may want to rank how close a pattern is found in the properties for the index.
-The db.index.fulltext.queryNodes() procedure can return a score that reflects how close a match a property is to the test string.
+== Retrieving the score for a full-text search
 
+When a full-text  index is used, it calculates a "hit score" that represents the closeness of the values in the graph to the query string.
+
+Here is an example where our search is for any node that contains matrix or reloaded in its title:
+
+[source,cypher]
+----
+CALL db.index.fulltext.queryNodes(
+     'Actor_bio_Movie_plot_title_ft', 'title: matrix reloaded') YIELD node, score
+WITH score, node
+WHERE node:Movie
+RETURN node.title, score
+----
+
+The nodes returned have a Lucene score based upon how much of matrix and reloaded was in the title.
+
+You can explore some ways that full-text indexes can be used in the https://neo4j.com/docs/cypher-manual/current/indexes-for-full-text-search/[Cypher Reference Manual^].
+
+[NOTE]
+--
 To get the most out of queries that use full-text indexes, you should also refer to the https://lucene.apache.org/core/2_9_4/queryparsersyntax.html[Lucene Query Language^]
+--
 
 == Dropping full-text indexes
 
