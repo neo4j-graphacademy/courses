@@ -65,6 +65,7 @@ export default async function initAnalyticsListeners(): Promise<void> {
             courseName: event.course.title,
             usecase: event.course.usecase,
             categories: event.course.categories.map(category => category.title),
+            ref: event.course.ref,
         })
     })
 

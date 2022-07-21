@@ -17,6 +17,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
             // .slug, .title, .thumbnail, .caption, .status, .usecase, .redirect, .link, .duration, .repository, .video,
             .*,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | ${categoryCypher('category')} ],
+            ${enrolment !== undefined ? `ref: ${enrolment}.ref,` : ''}
             ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, certificateNumber: ${enrolment}.certificateNumber, enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE WHEN ${enrolment} IS NOT NULL AND size((c)-[:HAS_MODULE|HAS_LESSON*2]->()) > 0 THEN toString(toInteger((1.0 * size([ (${enrolment})-[:COMPLETED_LESSON]->(x) WHERE not x:OptionalLesson | x ]) / size([ (${course})-[:HAS_MODULE]->()-[:HAS_LESSON]->(x) WHERE not x:OptionalLesson | x ]))*100)) ELSE coalesce(${enrolment}.percent, 0) END ,` : ''}
