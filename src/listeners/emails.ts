@@ -4,13 +4,15 @@ import { emitter } from '../events'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
 
 export default async function initEmailListeners(): Promise<void> {
-    if ( !isEnabled() ) {
+    if (!isEnabled()) {
         return
     }
 
     emitter.on<UserEnrolled>(UserEnrolled, event => {
         const email = event.user.email
-        prepareAndSend('user-enrolled', email, { ...event })
+        if (!event.course.certification) {
+            prepareAndSend('user-enrolled', email, { ...event })
+        }
     })
 
     emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
