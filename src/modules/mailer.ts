@@ -1,8 +1,7 @@
 import pug from 'pug'
 import Mailgun from 'mailgun.js'
-import formData from 'form-data'
 import { flattenAttributes } from '../utils'
-import { convert, loadFile } from './asciidoc'
+import { loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag.middleware'
 
 export function isEnabled(): boolean {
@@ -16,7 +15,7 @@ export function send(to: string, subject: string, html: string): void {
 
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
         // @ts-ignore
-        const mailgun = new Mailgun(formData)
+        const mailgun = new Mailgun(URLSearchParams)
 
         const mailer = mailgun.client({
             username: 'api',
@@ -30,11 +29,11 @@ export function send(to: string, subject: string, html: string): void {
             subject,
             html,
         })
-        .catch(err => {
-            notify(err, event => {
-                event.setUser(undefined, to)
+            .catch(err => {
+                notify(err, event => {
+                    event.setUser(undefined, to)
+                })
             })
-        })
     }
 }
 

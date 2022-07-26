@@ -60,7 +60,7 @@ router.post('/webhook', async (req, res, next) => {
             view_results_url
         )
 
-        res.sendStatus(201)
+        res.sendStatus(200)
     }
     catch (e: any) {
         notify(e, event => {
