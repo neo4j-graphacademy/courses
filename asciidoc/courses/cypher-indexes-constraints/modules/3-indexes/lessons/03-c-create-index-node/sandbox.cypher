@@ -1,1 +1,0 @@
-CREATE INDEX Movie_title IF NOT EXISTS FOR (x:Movie) ON (x.title)
