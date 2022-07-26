@@ -60,14 +60,20 @@ router.post('/webhook', async (req, res, next) => {
             view_results_url
         )
 
-        res.send(201)
+        res.sendStatus(201)
     }
     catch (e: any) {
-        notify(e)
+        notify(e, event => {
+            if (req.body?.result) {
+                event.setUser(req.body.result.cm_user_id)
+            }
+            event.addMetadata('request', {
+                body: req.body,
+                headers: req.headers,
+            })
+        })
 
-        res.send(200)
-
-        next(e)
+        res.sesendStatusnd(200)
     }
 })
 
