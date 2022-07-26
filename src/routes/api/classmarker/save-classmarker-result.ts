@@ -3,7 +3,9 @@ import { CourseWithProgress } from "../../../domain/model/course"
 import { User } from "../../../domain/model/user"
 import { appendParams, courseCypher } from "../../../domain/services/cypher"
 import { emitter } from "../../../events"
+import { notify } from "../../../middleware/bugsnag.middleware"
 import { write } from "../../../modules/neo4j"
+import { ClassmarkerResultError } from "./classmarker-result.error"
 
 export async function saveClassmarkerResult(sub: string, first: string, last: string, classmarkerId: number, certificateSerial: string, passed: boolean, percentage: number, timeFinished: number, viewResultsUrl: string): Promise<CourseWithProgress> {
     const res = await write(`
@@ -46,6 +48,10 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
     }))
 
     const [record] = res.records
+
+    if (res.records.length === 0) {
+        throw new ClassmarkerResultError(`Could not find enrolment for ${sub} and classmarkerId: ${classmarkerId}`)
+    }
 
     const user: User = record.get('u')!
     const course: CourseWithProgress = record.get('course')

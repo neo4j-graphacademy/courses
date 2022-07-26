@@ -59,9 +59,13 @@ router.post('/webhook', async (req, res, next) => {
             time_finished,
             view_results_url
         )
+
+        res.send(201)
     }
     catch (e: any) {
         notify(e)
+
+        res.send(200)
 
         next(e)
     }
