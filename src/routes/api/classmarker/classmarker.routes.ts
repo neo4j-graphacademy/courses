@@ -73,7 +73,7 @@ router.post('/webhook', async (req, res, next) => {
             })
         })
 
-        res.sesendStatusnd(200)
+        res.sendStatus(200)
     }
 })
 
