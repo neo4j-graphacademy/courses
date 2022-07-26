@@ -1,13 +1,13 @@
 /* tslint:disable:no-console */
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
 import { ATTRIBUTE_ORDER, Module } from '../../model/module';
 import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_UPDATED_AT, } from '../../model/lesson';
 import { Question } from '../../model/question';
-import { getDriver, write } from '../../../modules/neo4j';
+import { getDriver } from '../../../modules/neo4j';
 import { Asciidoctor } from '@asciidoctor/core/types';
 import { Session, Transaction } from 'neo4j-driver';
 
@@ -102,6 +102,8 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         .split(',')
         .filter((e: string) => e !== '')
 
+    // Certification?
+    const certification = file.getAttribute(ATTRIBUTE_CERTIFICATION, 'false') === 'true'
 
     // @ts-ignore
     return {
@@ -118,6 +120,9 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
+        certification,
+        classmarkerId: file.getAttribute(ATTRIBUTE_CLASSMARKER_ID, null),
+        classmarkerReference: file.getAttribute(ATTRIBUTE_CLASSMARKER_REFERENCE, null),
         attributes,
         progressToSlugs,
         categories,
@@ -229,8 +234,11 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime(),
+            c.classmarkerId = course.classmarkerId,
+            c.classmarkerReference = course.classmarkerReference,
             c += course.attributes
 
+        FOREACH (_ IN CASE WHEN course.certification THEN [1] ELSE [] END | SET c:Certification)
         FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
         FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
         FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)

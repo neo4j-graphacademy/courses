@@ -3,11 +3,6 @@ include ./sandbox
 
 block main
   .course-container
-    //- .course-header.hero
-    //-   .container
-    //-     h1 !{title}
-    //-     p.heading-5 !{caption}
-
     +hero(
       title,
       caption
@@ -20,17 +15,19 @@ block main
             .card-header
               h2.card-title #{translate('course-overview', 'Course Overview')}
 
-              if !completed
-                if interested
-                  a.course-bookmark.course-bookmark--remove(href=`${link}bookmark/remove/`)
-                    | #{translate('remove-bookmark', 'Remove Bookmark')}
-                    | !{svg.iconBookmark}
-                else
-                  a.course-bookmark(href=`${link}bookmark/`)
-                    | #{translate('add-bookmark', 'Bookmark Course')}
-                    | !{svg.iconBookmark}
-
+              if isInterested
+                a.course-bookmark.course-bookmark--remove(href=`${link}bookmark/remove/`)
+                  | #{translate('remove-bookmark', 'Remove Bookmark')}
+                  | !{svg.iconBookmark}
+              else
+                a.course-bookmark(href=`${link}bookmark/`)
+                  | #{translate('add-bookmark', 'Bookmark Course')}
+                  | !{svg.iconBookmark}
+            
             .card-body
+              //- Picture & Video
+              //- If completed, show congratulations
+
               if completed
                 .course-completed
                   .course-badge
@@ -42,16 +39,16 @@ block main
                       |
                       | !{title}
                       |
+                      if !certification
                       | #{translate('completed-suffix', ' course!')}
               else if video
-                iframe(src=video, width="560" height="280", frameborder, allowfullscreen="")
+                iframe.course-video(src=video, width="560" height="280", frameborder, allowfullscreen="")
               else
                 img(src='/img/course-placeholder.jpg', alt=title, width=448, height=279)
 
-            if user && enrolled && completed === false && next
+            //- Completed Percentage?
+            if !completed && completedPercentage
               .card-body
-                //- if completedPercentage
-
                 .progress-container
                   .progress-header
                     h2 #{translate('your-progress', 'Your Progress')}
@@ -62,16 +59,14 @@ block main
                     div.progress-bar-container
                       span(style=`width: ${completedPercentage}%`) #{completedPercentage}%
 
-                a.btn.btn--primary.btn--continue(href=next.link) #{translate('continue-course', 'Continue Course')}
-            else if status == statuses.STATUS_DRAFT
+            //- Draft course
+            if status == statuses.STATUS_DRAFT
               .card-body.course-coming-soon
-                if isInterested === true || (messages['success'] && messages['success'][0].includes('Your interest'))
+                if isInterested || (messages['success'] && messages['success'][0].includes('Your interest'))
                   .admonition.admonition--positive #{translate('interest-confirmation', 'Thank you for registering your interest. We will contact you when the course is available.')}
-                else
-                  //- h3.card-title #{translate('coming-soon-title', 'Course Coming Soon')}
-                  //- p #{translate('coming-soon-text', 'We are currently working on this course.  Fill in the form below to register your interest and we will contact you when it is ready.')}
-
-                  | !{translate('course-coming-soon', 'Coming Soon')}
+                else 
+                  h3.card-title #{translate('coming-soon-title', 'Course Coming Soon')}
+                  p #{translate('coming-soon-text', 'We are currently working on this course.  Fill in the form below to register your interest and we will contact you when it is ready.')}
 
                   form.form(method='POST' action=`${link}interested`)
                     .form-group
@@ -79,28 +74,54 @@ block main
                       input#email(type="email" name="email", value=user ? user.email : '' placeholder=translate('email-address-placeholder', 'Your email address'))
                     .form-buttons
                       button.btn !{translate('register-interest', 'Register Interest')}
-            else if user && completed
-              .card-body
-                //- .progress-container
-                //-   .progress-header
-                //-     h2 Your Progress
-                //-     .progress-percentage
-                //-       | 100%
 
-                  div.progress-bar
-                    div.progress-bar-container
-                      span(style=`width: 100%`) 100%
 
-                a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+            //- Actions for Non-DRAFT courses
+            else 
 
-            else if user
+              //- Actions
               .card-actions
-                a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('enroll-now', 'Enroll Now')}
+                //- Certification
+                if certification
+                  //- If logged in
+                  if user 
+                    //- If enrolment exists and is completed, show congratulations and link to certification
+                    if completed
+                      a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+                    else if failed
+                      //- If certification was failed, show a try again message
+                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('try-again', 'Try Again')}
+                    else if enrolled
+                      //- If enrolment exists, but isn't completed, show pending message
+                      div.btn Pending Result...
+                    else
+                      //- Else, invite the user to enrol
+                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('enroll-now', 'Enroll Now')}
 
+                  //- If logged in, show attempt button 
+                  else
+                    //- If not logged in, show sign in or register to continue 
+                    a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+                
+                //- Course
+                else
+                  //- If logged in
+                  if user
+                    //- is completed? show certificate link
+                    if completed
+                      a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
 
-            else
-              .card-actions
-                a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+                    //- is enrolled? show continue button
+                    else if enrolled
+                      a.btn.btn--primary.btn--continue(href=link + '/continue/') #{translate('continue-course', 'Continue Course')}
+
+                    //- is logged in? show enroll button?
+                    else
+                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('enroll-now', 'Enroll Now')}
+
+                  //- If not logged in, show sign in or register to continue 
+                  else
+                    a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
 
           if status == statuses.STATUS_DRAFT && user && user.email.endsWith('@neotechnology.com') && modules.length && !enrolled
             .course-sandbox.card
@@ -141,8 +162,12 @@ block main
           include ./partials/translations
 
           if user && enrolled
-            .course-unenrol
-              a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('unenroll', 'Unenroll from course')}
+            if certification
+              .course-unenrol
+                a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('delete-certification', 'Delete Certification')}
+            else
+              .course-unenrol
+                a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('unenroll', 'Unenroll from course')}
 
         .course-details
           //- .course-meta

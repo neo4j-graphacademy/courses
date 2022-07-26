@@ -34,7 +34,6 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         RETURN user, [ cat in categories where any(c in cat.courses where c.completed = true) ] AS categories
     `, appendParams({ id }))
 
-
     if ( res.records.length === 0 ) {
         throw new NotFoundError(`User with id ${id} not found`)
     }

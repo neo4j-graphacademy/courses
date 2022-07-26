@@ -69,3 +69,6 @@ export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)
 
 // Redis host
 export const REDIS_HOST = process.env.REDIS_HOST
+
+// Classmarker secret for webhook
+export const CLASSMARKER_SECRET: string = process.env.CLASSMARKER_SECRET || 'BlxUltVa0j8rlwl'

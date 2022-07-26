@@ -37,6 +37,9 @@ export const ATTRIBUTE_PREVIOUS = 'previous'
 export const ATTRIBUTE_NEXT = 'next'
 export const ATTRIBUTE_LANGUAGE = 'lang'
 export const ATTRIBUTE_TRANSLATIONS = 'translations'
+export const ATTRIBUTE_CERTIFICATION = 'certification'
+export const ATTRIBUTE_CLASSMARKER_ID = 'classmarker-id'
+export const ATTRIBUTE_CLASSMARKER_REFERENCE = 'classmarker-reference'
 
 export const LANGUAGE_EN = 'en'
 export const LANGUAGE_JP = 'jp'
@@ -70,6 +73,11 @@ export interface Course {
     verify: string | undefined;
     cypher: string | undefined;
     summary: boolean;
+    passed: boolean;
+    failed: boolean;
+    certification: boolean;
+    classmarkerId?: string;
+    classmarkerReference?: string;
     certificateNumber: Integer | boolean | undefined;
     translations: Course[];
     // Additional attributes extracted from Asciidoc

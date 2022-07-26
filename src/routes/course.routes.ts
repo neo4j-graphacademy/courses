@@ -259,7 +259,12 @@ router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompl
 
         const enrolment = await enrolInCourse(req.params.course, user!, token, ref)
 
-        const goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
+
+        let goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
+
+        if ( enrolment.course.classmarkerReference ) {
+            goTo = `https://www.classmarker.com/online-test/start/?quiz=${enrolment.course.classmarkerReference}&cm_fn=${user?.givenName}&cm_user_id=${user!.sub}&cm_e=${user!.email}`
+        }
 
         res.redirect(goTo)
     }
