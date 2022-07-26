@@ -5,7 +5,7 @@ import { post } from './modules/http'
 declare global {
     interface Window {
         env: 'dev' | undefined;
-        user?: {sub:string, id: string};
+        user?: { sub: string, id: string };
         analytics: {
             course: Record<string, any>;
             module: Record<string, any>;
@@ -150,7 +150,7 @@ const addHintListeners = (element: Element): void => {
             const parent = block.parentElement
 
             const show = createElement('button', ADMONITION_SHOW_SOLUTION, [
-                    window.i18n.showSolution
+                window.i18n.showSolution
             ])
             show.addEventListener('click', e => {
                 e.preventDefault()
@@ -181,7 +181,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
 
     const multiple = options.filter(answer => answer.correct).length > 1
 
-    if ( window.env === 'dev' ) {
+    if (window.env === 'dev') {
         element.setAttribute('data-question',
             JSON.stringify({
                 type: 'select',
@@ -260,7 +260,7 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
     const options: Option[] = extractAnswersFromBlock(element)
 
     // Dev Mode
-    if ( window.env === 'dev' ) {
+    if (window.env === 'dev') {
         element.setAttribute('data-question',
             JSON.stringify({
                 type: QUESTION_SELECTOR_SELECT_IN_SOURCE,
@@ -320,7 +320,7 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
     const options: Option[] = extractAnswersFromBlock(element)
 
     // Dev Mode
-    if ( window.env === 'dev' ) {
+    if (window.env === 'dev') {
         element.setAttribute('data-question',
             JSON.stringify({
                 type: QUESTION_SELECTOR_INPUT_IN_SOURCE,
@@ -367,7 +367,7 @@ const formatFreeTextQuestion = async (element: Element): Promise<Question> => {
     const options: Option[] = extractAnswersFromBlock(element)
 
     // Dev Mode
-    if ( window.env === 'dev' ) {
+    if (window.env === 'dev') {
         element.setAttribute('data-question',
             JSON.stringify({
                 type: QUESTION_SELECTOR_FREE_TEXT,
@@ -488,9 +488,11 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
         if (parent.querySelector('.admonition')) {
             children = children.concat(
                 window.i18n.checkHintPrefix,
+                ' ',
                 createElement('strong', '', [
                     window.i18n.showHint,
                 ]),
+                ' ',
                 window.i18n.checkHintSuffix,
             )
         }
@@ -525,12 +527,12 @@ const handleShowHints = (questionElement: HTMLElement) => {
 
 
     // No buttons?  Ignore...
-    if ( !showHintButton && !showSolutionButton ) {
+    if (!showHintButton && !showSolutionButton) {
         return
     }
 
     // Attempt 1: Hint button not visible, Show the hint button
-    if ( showHintButton && showHintButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false ) {
+    if (showHintButton && showHintButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false) {
         questionElement.querySelectorAll(`.${ADMONITION_SHOW_HINT}`)
             .forEach((showHintElement) => {
                 showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
@@ -538,7 +540,7 @@ const handleShowHints = (questionElement: HTMLElement) => {
     }
 
     // Attempt 2: Hint button is visible, just show the hint
-    else if ( hint && hint.classList.contains(ADMONITION_VISIBLE) === false ) {
+    else if (hint && hint.classList.contains(ADMONITION_VISIBLE) === false) {
         // Remove show hint button
         showHintButton!.parentElement!.removeChild(showHintButton as Node)
 
@@ -547,7 +549,7 @@ const handleShowHints = (questionElement: HTMLElement) => {
     }
 
     // Attempt 3: Hint is visible, show the solution button?
-    else if ( showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false ) {
+    else if (showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === false) {
         questionElement.querySelectorAll(`.${ADMONITION_SHOW_SOLUTION}`)
             .forEach((showHintElement) => {
                 showHintElement.classList.add(ADMONITION_SHOW_VISIBLE)
@@ -556,8 +558,8 @@ const handleShowHints = (questionElement: HTMLElement) => {
 
 
     // Attempt 4: Solution button is visible, just show the solution
-    else if ( solution && showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true ) {
-         // Remove the Hint Admonition
+    else if (solution && showSolutionButton && showSolutionButton.classList.contains(ADMONITION_SHOW_VISIBLE) === true) {
+        // Remove the Hint Admonition
         hint?.parentElement!.removeChild(hint)
 
         // Remove Reveal Solution Button
@@ -592,7 +594,7 @@ const buildModuleOutcome = (title: string, buttons: HTMLElement[]): HTMLElement 
         createElement('div', 'module-outcome-actions', buttons),
     ])
 
-    const output = createElement('div', 'module-outcome', [ container ])
+    const output = createElement('div', 'module-outcome', [container])
 
     close.addEventListener('click', e => {
         e.preventDefault()
@@ -608,7 +610,7 @@ const displayLessonCompleted = (res) => {
     const actions: HTMLElement[] = []
 
     // Next Link
-    if ( res.data.next ) {
+    if (res.data.next) {
         actions.push(createElement('span', 'spacer', []))
 
         const span = document.createElement('span')
@@ -616,7 +618,9 @@ const displayLessonCompleted = (res) => {
 
         const button = createElement('a', 'btn btn-primary', [
             window.i18n.advanceTo,
+            ' ',
             res.data.next.title,
+            ' ',
             span
         ])
         button.setAttribute('href', res.data.next.link)
@@ -632,7 +636,7 @@ const displayLessonCompleted = (res) => {
 
     const content = document.querySelector(`.${CONTENT_SELECTOR}`)
 
-    if ( content ) {
+    if (content) {
         content.appendChild(confirmation)
     }
 }
@@ -644,7 +648,7 @@ const displayCourseCompleted = (res) => {
     arrow.innerHTML = ' &rarr;'
 
     // Certificate Link
-    if ( window.analytics.user.id ) {
+    if (window.analytics.user.id) {
         const button = createElement('a', 'btn btn-secondary btn--certificate', [
             window.i18n.viewCertificate
         ])
@@ -658,7 +662,7 @@ const displayCourseCompleted = (res) => {
     actions.push(createElement('span', 'spacer', []))
 
     // Course Summary Link
-    if ( window.analytics.course.summary ) {
+    if (window.analytics.course.summary) {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
@@ -696,7 +700,7 @@ const displayCourseCompleted = (res) => {
     const congratulations = document.createElement('div')
     congratulations.classList.add('module-outcome-congratulations')
     // TODO: i18n - redirect to summary?
-    congratulations.innerHTML=`
+    congratulations.innerHTML = `
         <p>
             <a href="${window.analytics.course.link}certificate/" target="_blank">
                 <img class="module-outcome-badge" src="${window.analytics.course.link}badge/" alt="${window.analytics.course.title} Badge" width="120">
@@ -725,7 +729,7 @@ const displayCourseCompleted = (res) => {
 
     const content = document.querySelector(`.${CONTENT_SELECTOR}`)
 
-    if ( content ) {
+    if (content) {
         content.appendChild(confirmation)
     }
 
@@ -855,7 +859,7 @@ const setupQuestions = async () => {
 
                             // Remove start and end quotes
                             if (output.startsWith('"') && output.endsWith('"')) {
-                                output = output.substr(1, output.length-2)
+                                output = output.substr(1, output.length - 2)
                             }
 
                             return output
