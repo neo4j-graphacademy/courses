@@ -10,9 +10,9 @@ import {
     COMMUNITY_GRAPH_PASSWORD,
 } from '../constants'
 
-const getLastCertification = async (session: Session) : Promise<string> => {
+const getLastCertification = async (session: Session): Promise<string> => {
     const res = await session.readTransaction((tx: Transaction) => tx.run(`MATCH (c:FromCommunityGraph) RETURN max(c.completedAt) AS date`))
-    const [ first ] = res.records
+    const [first] = res.records
     const value = first.get('date')
 
     return value !== null ? value.toString() : '1970-01-01T00:00:00.555000000Z'
@@ -27,7 +27,7 @@ const main = async () => {
         'COMMUNITY_GRAPH_USERNAME',
         'COMMUNITY_GRAPH_PASSWORD',
     ].forEach(key => {
-        if ( process.env[ key ] === undefined )  {
+        if (process.env[key] === undefined) {
             throw new Error(`Missing key ${key}`)
         }
     })
@@ -67,8 +67,8 @@ const main = async () => {
         CASE c.name WHEN 'neo4j-gds-test' THEN 'gds-certification' ELSE 'neo4j-certification' END AS slug,
         c {
             .certificateNumber,
-            .percent,
             .certificatePath,
+            percentage: c.percent,
             completedAt: datetime({epochSeconds: c.finished})
         } AS certification
     `, { lastCertification }))

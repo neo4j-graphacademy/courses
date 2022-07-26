@@ -5,7 +5,6 @@ let _driver: Driver;
 
 const { NEO4J_DATABASE } = process.env
 
-
 export async function createDriver(host: string, username: string, password: string): Promise<Driver> {
     const driver = neo4j.driver(host, neo4j.auth.basic(username, password), {
         disableLosslessIntegers: true
@@ -28,7 +27,7 @@ export async function read(query: string, params?: Record<string, any>, database
 
         return res
     }
-    catch(e: any) {
+    catch (e: any) {
         await session.close()
 
         notify(e, event => {
@@ -58,7 +57,7 @@ export async function write(query: string, params?: Record<string, any>, databas
 
         return res
     }
-    catch(e: any) {
+    catch (e: any) {
         await session.close()
 
         notify(e, event => {
