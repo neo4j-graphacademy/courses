@@ -10,7 +10,7 @@ import { ClassmarkerResultError } from "./classmarker-result.error"
 export async function saveClassmarkerResult(sub: string, first: string, last: string, classmarkerId: number, certificateSerial: string, passed: boolean, percentage: number, timeFinished: number, viewResultsUrl: string): Promise<CourseWithProgress> {
     const res = await write(`
         MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c {classmarkerId: $classmarkerId})
-        WHERE e.createdAt >= datetime() - duration('PT2H')
+        WHERE e.createdAt >= datetime() - duration('PT24H')
 
         SET
             u.classmarkerFirstName = $first,
