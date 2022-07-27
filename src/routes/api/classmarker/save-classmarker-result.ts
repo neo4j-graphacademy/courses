@@ -33,7 +33,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
                 e.failedAt = datetime({epochSeconds: toInteger($timeFinished)})
         )
 
-        RETURN u,
+        RETURN u { .* } AS user,
             ${courseCypher('e', 'u')} AS course
     `, appendParams({
         sub,
