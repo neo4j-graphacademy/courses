@@ -15,7 +15,7 @@ export async function cacheHTML(): Promise<void> {
         RETURN c AS course, m.slug AS module, l.slug AS lesson
     `, { active: STATUS_ACTIVE })
 
-    res.records.forEach(async record => {
+    res.records.forEach(async row => {
         const { course, module, lesson } = row.toObject()
 
         // Generate Attributes for the page
