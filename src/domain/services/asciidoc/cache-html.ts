@@ -5,11 +5,9 @@ import { getPageAttributes } from "../../../utils";
 import { STATUS_ACTIVE } from "../../model/course";
 
 export async function cacheHTML(): Promise<void> {
-    if ( ! ASCIIDOC_CACHING_ENABLED ) {
+    if (!ASCIIDOC_CACHING_ENABLED) {
         return
     }
-
-    const start = new Date()
 
     const res = await read(`
         MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
@@ -17,8 +15,7 @@ export async function cacheHTML(): Promise<void> {
         RETURN c AS course, m.slug AS module, l.slug AS lesson
     `, { active: STATUS_ACTIVE })
 
-
-    for (const row of res.records) {
+    res.records.forEach(async record => {
         const { course, module, lesson } = row.toObject()
 
         // Generate Attributes for the page
@@ -32,15 +29,8 @@ export async function cacheHTML(): Promise<void> {
 
         // Cache it
         addToCache(key, html)
-    }
-
-    const end = new Date()
-
-    const interval = end.getTime() - start.getTime()
-    const difference = new Date(interval)
-
-    const lpad = (value: number): string => ('00'+value).substr(-2)
+    })
 
     /* tslint:disable-next-line */
-    console.log(`🧠 Cached ${res.records.length} lessons in ${lpad(difference.getMinutes())}:${lpad(difference.getSeconds())}.${difference.getMilliseconds()}`)
+    console.log(`🧠 Caching ${res.records.length} lessons`)
 }
