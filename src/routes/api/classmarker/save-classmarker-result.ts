@@ -53,7 +53,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
         throw new ClassmarkerResultError(`Could not find enrolment for ${sub} and classmarkerId: ${classmarkerId}`)
     }
 
-    const user: User = record.get('u')!
+    const user: User = record.get('user')!
     const course: CourseWithProgress = record.get('course')
 
     if (passed) {
