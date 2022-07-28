@@ -16,12 +16,12 @@ import { saveClassmarkerResult } from "./save-classmarker-result";
 
 const router = Router()
 
-function verifyData(body: object, headerHmacSignature: string, secret: string) {
+function verifyData(body: object, headerHmacSignature: string, secret: string): boolean {
     const jsonHmac = computeHmac(body, secret);
     return jsonHmac === headerHmacSignature;
 }
 
-function computeHmac(body: object, secret: string) {
+function computeHmac(body: object, secret: string): string {
     const hmac = forge.hmac.create();
     hmac.start('sha256', secret);
     const jsonString = JSON.stringify(body)
@@ -43,7 +43,11 @@ router.post('/webhook', async (req, res, next) => {
 
         // Verify header
         if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
-            throw new ClassmarkerHeaderVerificationFailedError(`Invalid X-Classmarker-Hmac-Sha256 header sent: ${header} `)
+            throw new ClassmarkerHeaderVerificationFailedError(
+                `Invalid X-Classmarker-Hmac-Sha256 header`,
+                header,
+                computeHmac(req.body, CLASSMARKER_SECRET)
+            )
         }
 
         const body: ClassmarkerResponseBody = req.body
@@ -75,6 +79,13 @@ router.post('/webhook', async (req, res, next) => {
                 body: req.body,
                 headers: req.headers,
             })
+
+            if (e.actual || e.expected) {
+                event.addMetadata('hash', {
+                    actual: e.actual,
+                    expected: e.expected,
+                })
+            }
         })
 
         res.sendStatus(200)
