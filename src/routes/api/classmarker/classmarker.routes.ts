@@ -10,6 +10,8 @@ import { emitter } from "../../../events";
 import { notify } from "../../../middleware/bugsnag.middleware";
 import { write } from "../../../modules/neo4j";
 import { ClassmarkerResponseBody } from "./classmarker-response-body.interface";
+import { ClassmarkerHeaderVerificationFailedError } from "./errors/classmarker-header-verification-failed.error";
+import { ClassmarkerNoHeaderError } from "./errors/classmarker-no-header.error";
 import { saveClassmarkerResult } from "./save-classmarker-result";
 
 const router = Router()
@@ -33,13 +35,15 @@ function computeHmac(body: object, secret: string) {
 router.post('/webhook', async (req, res, next) => {
     try {
         // Check for header
-        if (!req.header("X-Classmarker-Hmac-Sha256")) {
-            return res.status(404)
+        const header = req.header("X-Classmarker-Hmac-Sha256")
+
+        if (!header) {
+            throw new ClassmarkerNoHeaderError(`No header passed using X-Classmarker-Hmac-Sha256`)
         }
 
         // Verify header
-        if (!verifyData(req.body, req.header("X-Classmarker-Hmac-Sha256")!, CLASSMARKER_SECRET)) {
-            return res.sendStatus(400)
+        if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
+            throw new ClassmarkerHeaderVerificationFailedError(`Invalid X-Classmarker-Hmac-Sha256 header sent: ${header} `)
         }
 
         const body: ClassmarkerResponseBody = req.body
@@ -60,7 +64,7 @@ router.post('/webhook', async (req, res, next) => {
             view_results_url
         )
 
-        res.sendStatus(200)
+        res.sendStatus(201)
     }
     catch (e: any) {
         notify(e, event => {
