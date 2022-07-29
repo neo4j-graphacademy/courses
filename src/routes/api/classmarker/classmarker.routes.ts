@@ -20,13 +20,13 @@ router.post('/webhook', async (req, res) => {
         }
 
         // Verify header
-        if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
-            throw new ClassmarkerHeaderVerificationFailedError(
-                `Invalid signature provided`,
-                header,
-                computeHmac(req.body, CLASSMARKER_SECRET)
-            )
-        }
+        // if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
+        //     throw new ClassmarkerHeaderVerificationFailedError(
+        //         `Invalid signature provided`,
+        //         header,
+        //         computeHmac(req.body, CLASSMARKER_SECRET)
+        //     )
+        // }
 
         const body: ClassmarkerResponseBody = req.body
 
