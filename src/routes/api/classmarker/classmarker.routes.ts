@@ -1,14 +1,8 @@
-import bodyParser from "body-parser";
-import express, { Request, Response, Router } from "express";
+import * as http from 'http';
+import express, { RequestHandler, Router } from "express";
 import forge from 'node-forge'
 import { CLASSMARKER_SECRET } from "../../../constants";
-import { UserCompletedCourse } from "../../../domain/events/UserCompletedCourse";
-import { CourseWithProgress } from "../../../domain/model/course";
-import { User } from "../../../domain/model/user";
-import { appendParams, courseCypher } from "../../../domain/services/cypher";
-import { emitter } from "../../../events";
 import { notify } from "../../../middleware/bugsnag.middleware";
-import { write } from "../../../modules/neo4j";
 import { ClassmarkerResponseBody } from "./classmarker-response-body.interface";
 import { ClassmarkerHeaderVerificationFailedError } from "./errors/classmarker-header-verification-failed.error";
 import { ClassmarkerNoHeaderError } from "./errors/classmarker-no-header.error";
@@ -16,23 +10,36 @@ import { saveClassmarkerResult } from "./save-classmarker-result";
 
 const router = Router()
 
-function verifyData(body: object, headerHmacSignature: string, secret: string): boolean {
+function verifyData(body: string, headerHmacSignature: string, secret: string): boolean {
     const jsonHmac = computeHmac(body, secret);
     return jsonHmac === headerHmacSignature;
 }
 
-function computeHmac(body: object, secret: string): string {
+function computeHmac(body: string, secret: string): string {
     const hmac = forge.hmac.create();
     hmac.start('sha256', secret);
-    const jsonString = JSON.stringify(body)
-    const jsonBytes = Buffer.from(jsonString, 'ascii');
+    const jsonBytes = Buffer.from(body, 'ascii');
 
     hmac.update(jsonBytes);
     return forge.util.encode64(hmac.digest().bytes());
 }
 
+declare module 'http' {
+    interface IncomingMessage {
+        rawBody: any;
+    }
+}
 
-router.post('/webhook', async (req, res, next) => {
+router.use(express.raw({
+    verify: (req: http.IncomingMessage, res: http.ServerResponse, buf: Buffer, encoding: string) => {
+        if (buf && buf.length) {
+            req.rawBody = buf.toString(encoding as BufferEncoding || 'utf8');
+        }
+    }, type: '*/*',
+}) as RequestHandler)
+
+
+router.post('/webhook', async (req, res) => {
     try {
         // Check for header
         const header = req.header("X-Classmarker-Hmac-Sha256")
@@ -42,7 +49,7 @@ router.post('/webhook', async (req, res, next) => {
         }
 
         // Verify header
-        if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
+        if (!verifyData(req.rawBody, header, CLASSMARKER_SECRET)) {
             throw new ClassmarkerHeaderVerificationFailedError(
                 `Invalid X-Classmarker-Hmac-Sha256 header`,
                 header,
@@ -78,6 +85,7 @@ router.post('/webhook', async (req, res, next) => {
             event.addMetadata('request', {
                 body: req.body,
                 headers: req.headers,
+                rawBody: req.rawBody,
             })
 
             if (e.actual || e.expected) {
