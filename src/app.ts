@@ -3,7 +3,6 @@ import express, { RequestHandler } from 'express'
 import compression from 'compression'
 import applyAuth from './middleware/auth.middleware'
 import { registerLocals } from './middleware/locals.middleware'
-
 import homeRoutes from './routes/home.routes'
 import courseRoutes from './routes/course.routes'
 import publicProfileRoutes from './routes/public-profile.routes'
@@ -16,7 +15,6 @@ import browserRoutes from './routes/browser.routes'
 import languageRoutes from './routes/language.routes'
 import certificationRoutes from './routes/certification.routes'
 import apiRoutes from './routes/api'
-
 import { applyErrorHandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
@@ -90,7 +88,7 @@ export default function initApp(driver: Driver) {
     app.use('/', pageRoutes)
     app.use('/', certificationRoutes)
 
-    if ( process.env.NODE_ENV === 'dev' ) {
+    if (process.env.NODE_ENV === 'dev') {
         app.use('/test', testRoutes)
     }
 
