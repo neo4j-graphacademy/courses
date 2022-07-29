@@ -8,9 +8,21 @@ import { write } from "../../../modules/neo4j"
 import { ClassmarkerEnrolmentNotFoundError } from "./errors/classmarker-enrolment-not-found.error"
 
 export async function saveClassmarkerResult(sub: string, first: string, last: string, classmarkerId: number, certificateSerial: string, passed: boolean, percentage: number, timeFinished: number, viewResultsUrl: string): Promise<CourseWithProgress> {
+    const params = appendParams({
+        sub,
+        first,
+        last,
+        classmarkerId: classmarkerId.toString(),
+        certificateSerial,
+        passed,
+        percentage,
+        timeFinished,
+        viewResultsUrl,
+    })
+
     const res = await write(`
         MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c {classmarkerId: $classmarkerId})
-        WHERE e.createdAt >= datetime() - duration('PT24H')
+        WHERE e.lastSeenAt >= datetime() - duration('PT24H')
 
         SET
             u.classmarkerFirstName = $first,
@@ -35,22 +47,15 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
 
         RETURN u { .* } AS user,
             ${courseCypher('e', 'u')} AS course
-    `, appendParams({
-        sub,
-        first,
-        last,
-        classmarkerId: classmarkerId.toString(),
-        certificateSerial,
-        passed,
-        percentage,
-        timeFinished,
-        viewResultsUrl,
-    }))
+    `, params))
 
     const [record] = res.records
 
     if (res.records.length === 0) {
-        throw new ClassmarkerEnrolmentNotFoundError(`Could not find enrolment for ${sub} and classmarkerId: ${classmarkerId}`)
+        throw new ClassmarkerEnrolmentNotFoundError(
+            `Could not find enrolment for ${sub} and classmarkerId: ${classmarkerId}`,
+            params
+        )
     }
 
     const user: User = record.get('user')!

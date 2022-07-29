@@ -67,6 +67,12 @@ router.post('/webhook', async (req, res) => {
                     expected: e.expected,
                 })
             }
+
+            if (e.params) {
+                event.addMetadata('query', {
+                    params: e.params,
+                })
+            }
         })
 
         res.status(200).send({
