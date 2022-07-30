@@ -47,7 +47,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
 
         RETURN u { .* } AS user,
             ${courseCypher('e', 'u')} AS course
-    `, params))
+    `, params)
 
     const [record] = res.records
 
