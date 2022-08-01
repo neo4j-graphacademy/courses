@@ -22,7 +22,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
 
     const res = await write(`
         MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c {classmarkerId: $classmarkerId})
-        WHERE e.lastSeenAt >= datetime() - duration('PT24H')
+        // WHERE e.lastSeenAt >= datetime() - duration('PT24H')
 
         SET
             u.classmarkerFirstName = $first,
