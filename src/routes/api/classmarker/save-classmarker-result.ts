@@ -23,6 +23,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
     const res = await write(`
         MATCH (c:Course {classmarkerId: $classmarkerId})
         MERGE (u:User {sub: $sub})
+        ON CREATE SET u.id = randomUuid()
 
         MERGE (e:Enrolment {id: apoc.text.base64Encode(c.slug +'--'+ u.sub)})
         ON CREATE SET e.createdAt = datetime(), e:FromClassMarker
