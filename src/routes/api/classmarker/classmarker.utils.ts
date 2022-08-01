@@ -1,11 +1,11 @@
 import forge from 'node-forge'
 
-export function verifyData(body: object, headerHmacSignature: string, secret: string): boolean {
+export function verifyData(body: Record<string, any>, headerHmacSignature: string, secret: string): boolean {
     const jsonHmac = computeHmac(body, secret);
     return jsonHmac === headerHmacSignature;
 }
 
-export function computeHmac(body: object, secret: string): string {
+export function computeHmac(body: Record<string, any>, secret: string): string {
     const hmac = forge.hmac.create();
     hmac.start('sha256', secret);
     const jsonString = JSON.stringify(body)
