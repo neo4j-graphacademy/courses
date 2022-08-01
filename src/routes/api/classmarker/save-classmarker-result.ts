@@ -21,19 +21,25 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
     })
 
     const res = await write(`
-        MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c {classmarkerId: $classmarkerId})
-        // WHERE e.lastSeenAt >= datetime() - duration('PT24H')
+        MATCH (c:Course {classmarkerId: $classmarkerId})
+        MERGE (u:User {sub: $sub})
+
+        MERGE (e:Enrolment {id: apoc.text.base64Encode(c.slug +'--'+ u.sub)})
+        ON CREATE SET e.createdAt = datetime(), e:FromClassMarker
 
         SET
             u.classmarkerFirstName = $first,
             u.classmarkerLastName = $last,
             e:FromCommunityGraph,
             e.updatedAt = datetime(),
-            e.certificateNumber = $certificateSerial,
+            e.certificateNumber = CASE WHEN $certificateSerial <> '' THEN $certificateSerial ELSE null END,
             e.percentage = toInteger($percentage),
             e.classmarkerResultsUrl = $viewResultsUrl,
             e.attempts = coalesce(e.attempts, 0) + 1,
             e.lastSeenAt = datetime()
+
+        MERGE (u)-[:HAS_ENROLMENT]->(e)
+        MERGE (e)-[:FOR_COURSE]->(c)
 
         FOREACH (_ IN CASE WHEN $passed THEN [1] ELSE [] END |
             SET e:CompletedEnrolment,
@@ -46,7 +52,10 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
         )
 
         RETURN u { .* } AS user,
-            ${courseCypher('e', 'u')} AS course
+            ${courseCypher('e', 'u')} AS course,
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt,
+            completedAt: e.completedAt
     `, params)
 
     const [record] = res.records
