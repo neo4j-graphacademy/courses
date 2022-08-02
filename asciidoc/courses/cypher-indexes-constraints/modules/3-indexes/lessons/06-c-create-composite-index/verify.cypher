@@ -1,3 +1,2 @@
-CALL apoc.schema.nodes({labels:['Movie']}) yield name
-WHERE name = ':Movie(year,imdbRating)'
-return count(*) = 1 as outcome
+WITH apoc.schema.node.indexExists('Movie',['year','imdbRating'])  AS movieIndex
+RETURN movieIndex  as outcome

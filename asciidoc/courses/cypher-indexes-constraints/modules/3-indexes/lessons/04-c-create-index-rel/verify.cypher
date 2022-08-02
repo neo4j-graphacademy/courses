@@ -1,3 +1,2 @@
-CALL apoc.schema.relationships({types:['RATED']}) yield properties, name
-where properties[0] = 'rating'
-return name = ':RATED(rating)' as outcome
+WITH apoc.schema.relationship.indexExists('RATED',['rating'])  AS RATEDConstraint
+RETURN RATEDConstraint as outcome
