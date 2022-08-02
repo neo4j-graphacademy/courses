@@ -1,6 +1,3 @@
-CALL apoc.schema.nodes({labels:['Person']}) yield  properties, type
-WHERE type = 'UNIQUENESS' AND "name" in properties AND "url" in properties
-WITH count(*) as nodekey
-CALL apoc.schema.nodes({labels:['Person']}) yield  properties, type
-WHERE type = 'INDEX' AND "name" in properties
-return nodekey + count(*) = 1 as outcome
+WITH NOT (apoc.schema.node.constraintExists('Person',['name','url']))  AS personConstraint,
+apoc.schema.node.indexExists('Person',['name'])  AS personIndex
+RETURN personConstraint  AND personIndex as outcome

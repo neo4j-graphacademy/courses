@@ -1,3 +1,2 @@
-CALL apoc.schema.relationships({types:['ACTED_IN']}) yield properties, name
-where name = ':ACTED_IN(role)'
-return count(*) = 1 as outcome
+WITH apoc.schema.relationship.indexExists('ACTED_IN',['role'])  AS ACTED_INFTIndex
+RETURN ACTED_INFTIndex as outcome

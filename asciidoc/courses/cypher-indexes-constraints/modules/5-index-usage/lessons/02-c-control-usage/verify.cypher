@@ -1,3 +1,3 @@
-CALL apoc.schema.relationships({types:['ACTED_IN']}) yield properties, name
-where name = ':ACTED_IN(role)'
+call apoc.schema.assert({},{},false) yield label, key
+WHERE label = 'ACTED_IN' AND key = 'role'
 return count(*) = 2 as outcome

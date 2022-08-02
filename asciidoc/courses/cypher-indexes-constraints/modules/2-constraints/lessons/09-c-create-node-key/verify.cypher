@@ -1,3 +1,2 @@
-CALL apoc.schema.nodes({labels:['Person']}) yield  properties, type
-WHERE type = 'UNIQUENESS' AND "name" in properties AND "url" in properties
-return  count(*) = 1 as outcome
+WITH apoc.schema.node.constraintExists('Person',['name','url'])  AS personConstraint
+RETURN personConstraint as outcome
