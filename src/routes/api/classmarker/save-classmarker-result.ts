@@ -31,6 +31,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
         SET
             u.classmarkerFirstName = $first,
             u.classmarkerLastName = $last,
+            u.displayName = coalesce(u.displayName, u.classmarkerFirstName +' '+ u.classmarkerLastName),
             e:FromCommunityGraph,
             e.updatedAt = datetime(),
             e.certificateNumber = CASE WHEN $certificateSerial <> '' THEN $certificateSerial ELSE null END,
