@@ -10,14 +10,14 @@
 [.transcript]
 == full-text indexes in Neo4j
 
-A full-text index is designed queries that need to search string properties using possibly complex search predicates.
+A full-text index is designed for queries that need to search string properties using possibly complex search predicates.
 It can also be created to index multiple properties in multiple node labels or relationship types.
 
 In many cases, a full-text index will help improve the performance of queries where the predicates test complex patterns in string properties.
 For example:
 
 * All movie titles that contain "Night" followed by "Sky" later in the title.
-* All movie plots that have "murder" but not "drugs" in them
+* All movie plots that have "murder" but not "drugs" in them.
 * All movie titles that contain "Night" and "Dead", with a plot that contains "French".
 
 Some of these types of queries can be very expensive using standard b-tree or TEXT indexes. A full-text index may perform better.
@@ -31,9 +31,11 @@ And you call `db.index.fulltext.queryRelationships()` to query relationship prop
 
 Here is the syntax for creating a full-text index for a property of  a node:
 
-[source,cypher,rel="norun nocopy"]
+[source,cypher,role=nocopy noplay]
 ----
-CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS FOR (x:<node_label>) ON EACH [x.<property_key>]
+CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS
+FOR (x:<node_label>)
+ON EACH [x.<property_key>]
 ----
 
 You specify the name of the index, the node label it will be associated with, and the name of the property.
@@ -49,7 +51,9 @@ Execute this Cypher to create your first full-text index in the graph:
 
 [source,cypher]
 ----
-CREATE FULLTEXT INDEX Movie_plot_ft IF NOT EXISTS FOR (x:Movie) ON EACH [x.plot]
+CREATE FULLTEXT INDEX Movie_plot_ft IF NOT EXISTS
+FOR (x:Movie)
+ON EACH [x.plot]
 ----
 
 You can use `SHOW INDEXES` to view your indexes in the graph.
@@ -62,11 +66,13 @@ Execute this Cypher to retrieve all Movie nodes that have both "murder" and "dru
 
 [source,cypher]
 ----
-CALL db.index.fulltext.queryNodes("Movie_plot_ft", "murder AND drugs") YIELD node
+CALL db.index.fulltext.queryNodes
+("Movie_plot_ft", "murder AND drugs")
+YIELD node
 RETURN node.title, node.plot
 ----
 
-When you profile this query, you will observe the elapsed time of 3 ms (2nd execution).
+When you profile this query, you will observe the elapsed time of ~3 ms (2nd execution).
 The db hits statistics do not reflect the true db hits because the `PROFILE` will never expose details of a procedure.
 All that you can measure for queries that call procedures is elapsed time.
 
@@ -76,7 +82,9 @@ Create a TEXT index on the plot property:
 
 [source,cypher]
 ----
-CREATE TEXT INDEX Movie_plot_text IF NOT EXISTS FOR (x:Movie) ON (x.plot)
+CREATE TEXT INDEX Movie_plot_text IF NOT EXISTS
+FOR (x:Movie)
+ON (x.plot)
 ----
 
 Now profile the query using the TEXT index (at least twice):
@@ -84,29 +92,25 @@ Now profile the query using the TEXT index (at least twice):
 [source,cypher]
 ----
 PROFILE MATCH (m:Movie)
-WHERE m.plot CONTAINS "murder" AND m.plot CONTAINS "drugs"
+WHERE m.plot CONTAINS "murder"
+AND m.plot CONTAINS "drugs"
 RETURN m.title,m.plot
 ----
 
-You will see that the more you execute this query, the shorter the elapsed time until it bottoms out at ~18 ms.
+You will see that the more you execute this query, the shorter the elapsed time until it bottoms out at ~16 ms.
 
 Performing the query using the full-text retrieval is much faster than using the TEXT index.
 
-
-[source,cypher]
-----
-PROFILE MATCH (m:Movie)
-WHERE m.plot CONTAINS "murder" AND m.plot CONTAINS "drugs"
-RETURN m.title,m.plot
-----
 
 == Syntax for creating a full-text index for a relationship property
 
 Here is the syntax for creating a full-text index for a property of  a node:
 
-[source,cypher,rel="norun nocopy"]
+[source,cypher,role=nocopy noplay]
 ----
-CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS FOR ()-[x:<RELATIONSHIP_TYPE>]-() ON EACH [x.<property_key>]
+CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS
+FOR ()-[x:<RELATIONSHIP_TYPE>]-()
+ON EACH [x.<property_key>]
 ----
 
 You specify the name of the index, the relationship type it will be associated with, and the name of the property.
@@ -118,9 +122,11 @@ You specify the name of the index, the relationship type it will be associated w
 
 == Syntax for querying relationships with the full-text index
 
-[source,cypher,rel="norun nocopy"]
+[source,cypher,role=nocopy noplay]
 ----
-CALL db.index.fulltext.queryRelationships("<index_name>", "<lucene_query>") YIELD relationship
+CALL db.index.fulltext.queryRelationships
+("<index_name>", "<lucene_query>")
+YIELD relationship
 RETURN relationship.<property>
 ----
 In the next Challenge, you will have an opportunity to create and use a full-text index on a relationship property.
@@ -131,9 +137,11 @@ The advantage of a text-index is that it can span multiple node labels and multi
 
 Here is the syntax for creating a full-text index for multiple properties of multiple node labels:
 
-[source,cypher,rel="norun nocopy"]
+[source,cypher,role=nocopy noplay]
 ----
-CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS FOR (x:<node_label1> | <node_label2> | ...) ON EACH [x.<property_key1>, x.<property_key2>,...]
+CREATE FULLTEXT INDEX <index_name> IF NOT EXISTS
+(x:<node_label1> | <node_label2> | ...)
+ON EACH [x.<property_key1>, x.<property_key2>,...]
 ----
 
 == Creating a full-text index for multiple properties and node labels
@@ -148,9 +156,18 @@ To optimize these `CONTAINS` queries, create these TEXT indexes:
 
 [source,cypher]
 ----
-CREATE TEXT INDEX Movie_plot_text IF NOT EXISTS FOR (x:Movie) ON (x.plot);
-CREATE TEXT INDEX Movie_title_text IF NOT EXISTS FOR (x:Movie) ON (x.text);
-CREATE TEXT INDEX Actor_bio_text IF NOT EXISTS FOR (x:Actor) ON (x.bio)
+CREATE TEXT INDEX Movie_plot_text
+IF NOT EXISTS
+FOR (x:Movie)
+ON (x.plot);
+
+CREATE TEXT INDEX Movie_title_text IF NOT EXISTS
+FOR (x:Movie)
+ON (x.text);
+
+CREATE TEXT INDEX Actor_bio_text IF NOT EXISTS
+FOR (x:Actor)
+ON (x.bio)
 ----
 
 Next, execute this query:
@@ -158,25 +175,35 @@ Next, execute this query:
 [source,cypher]
 ----
 PROFILE MATCH (m:Movie)
-WHERE (m.plot CONTAINS "british" OR m.plot CONTAINS "British")
-AND (m.title CONTAINS "death" OR m.title CONTAINS "Death")
-RETURN m.name AS Name, m.bio AS Bio, m.title AS Title,  m.plot AS Plot
+WHERE (m.plot CONTAINS "british"
+OR m.plot CONTAINS "British")
+AND (m.title CONTAINS "death"
+OR m.title CONTAINS "Death")
+RETURN m.name AS Name, m.bio AS Bio,
+m.title AS Title,  m.plot AS Plot
+
 UNION ALL
+
 MATCH (a:Actor)
-WHERE (a.bio CONTAINS "British" OR a.bio CONTAINS "british")
-AND (a.bio CONTAINS "actress" OR a.bio contains "Actress")
-RETURN a.name AS Name, a.bio AS Bio, a.title AS Title,  a.plot AS Plot
+WHERE (a.bio CONTAINS "British"
+OR a.bio CONTAINS "british")
+AND (a.bio CONTAINS "actress"
+OR a.bio contains "Actress")
+RETURN a.name AS Name, a.bio AS Bio,
+a.title AS Title,  a.plot AS Plot
 ----
 
 For this query, we specify both the lower and upper case beginnings of the test strings so that the TEXT index can be used.
 If we were to use toLower() or to Upper() in our predicates, the TEXT index would not be used.
-The best elapsed time for this query is 72 ms and it returns 166 rows.
+The best elapsed time for this query is ~72 ms and it returns 166 rows.
 
 Let's see if we can do better with a full-text index. Execute this code to create the full-text index:
 
 [source,cypher]
 ----
-CREATE FULLTEXT INDEX Actor_bio_Movie_plot_title_ft IF NOT EXISTS FOR (x:Actor | Movie) ON EACH [x.bio, x.plot, x.title]
+CREATE FULLTEXT INDEX Actor_bio_Movie_plot_title_ft IF NOT EXISTS
+FOR (x:Actor | Movie)
+ON EACH [x.bio, x.plot, x.title]
 ----
 
 This index is used for Actor and Movie nodes where the properties indexed are bio, plot, and title.
@@ -185,14 +212,17 @@ Now let's do the query using the full-text index:
 
 [source,cypher]
 ----
-PROFILE CALL db.index.fulltext.queryNodes("Actor_bio_Movie_plot_title_ft",
-"(plot: british AND title: death) OR (bio: british  AND bio: actress)")
+PROFILE CALL db.index.fulltext.queryNodes
+("Actor_bio_Movie_plot_title_ft",
+"(plot: british AND title: death)
+OR (bio: british  AND bio: actress)")
 YIELD node
-RETURN node.name AS Name, node.bio AS Bio, node.title AS Title,  node.plot AS Plot
+RETURN node.name AS Name, node.bio AS Bio,
+node.title AS Title,  node.plot AS Plot
 ----
 
 This query returns both movie and actor nodes that match the properties specified in the second argument to queryNodes().
-This query returns in 5 ms, much faster than the previous query that used the TEXT indexes.
+This query returns in ~10 ms, much faster than the previous query that used the TEXT indexes.
 
 == Retrieving the score for a full-text search
 
@@ -203,7 +233,9 @@ Here is an example where our search is for any node that contains matrix or relo
 [source,cypher]
 ----
 CALL db.index.fulltext.queryNodes(
-     'Actor_bio_Movie_plot_title_ft', 'title: matrix reloaded') YIELD node, score
+     'Actor_bio_Movie_plot_title_ft',
+     'title: matrix reloaded')
+     YIELD node, score
 WITH score, node
 WHERE node:Movie
 RETURN node.title, score
@@ -228,6 +260,8 @@ DROP INDEX Actor_bio_Movie_plot_title_ft
 ----
 
 You can use `SHOW INDEXES` to view your indexes in the graph.
+
+== Check your understanding
 
 include::questions/1-complete-query.adoc[leveloffset=+1]
 include::questions/2-select-answer.adoc[leveloffset=+1]
