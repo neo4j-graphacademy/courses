@@ -7,8 +7,6 @@ ENV NODE_ENV production
 ARG GITHUB_OAUTH_TOKEN
 COPY . /app/
 
-RUN echo $GITHUB_OAUTH_TOKEN
-
 RUN chmod +x /app/sync-content
 RUN /app/sync-content
 
