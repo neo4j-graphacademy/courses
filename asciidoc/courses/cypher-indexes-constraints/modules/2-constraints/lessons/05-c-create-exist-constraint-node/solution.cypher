@@ -1,2 +1,0 @@
-CREATE CONSTRAINT Movie_title_exists IF NOT EXISTS FOR (x:Movie) REQUIRE x.title IS NOT NULL;
-CREATE CONSTRAINT User_name_exists IF NOT EXISTS FOR (x:User) REQUIRE x.name IS NOT NULL

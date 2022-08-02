@@ -1,1 +1,0 @@
-CALL gds.graph.drop('my-graph-projection', false);

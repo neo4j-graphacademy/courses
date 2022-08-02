@@ -1,1 +1,0 @@
-CALL gds.graph.drop('proj', false);

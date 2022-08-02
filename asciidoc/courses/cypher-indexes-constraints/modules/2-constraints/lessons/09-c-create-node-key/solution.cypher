@@ -1,1 +1,0 @@
-CREATE CONSTRAINT Person_name_url_nodekey IF NOT EXISTS FOR (x:Person) REQUIRE (x.name,x.url) IS NODE KEY

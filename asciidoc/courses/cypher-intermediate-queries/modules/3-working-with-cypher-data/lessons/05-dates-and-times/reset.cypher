@@ -1,1 +1,0 @@
-MATCH (t:Test) DETACH DELETE t

@@ -1,1 +1,0 @@
-CREATE CONSTRAINT Movie_imdbId_nodekey IF NOT EXISTS FOR (x:Movie) REQUIRE x.imdbId IS NODE KEY
