@@ -1,33 +1,13 @@
-import * as http from 'http';
-import express, { RequestHandler, Router } from "express";
-import { CLASSMARKER_SECRET } from "../../../constants";
+import { Router } from "express";
 import { notify } from "../../../middleware/bugsnag.middleware";
-import { ClassmarkerResponseBody } from "./classmarker-response-body.interface";
-import { ClassmarkerHeaderVerificationFailedError } from "./errors/classmarker-header-verification-failed.error";
-import { ClassmarkerNoHeaderError } from "./errors/classmarker-no-header.error";
-import { saveClassmarkerResult } from "./save-classmarker-result";
-import { CLASSMARKER_SIGNATURE_HEADER, computeHmac, verifyData } from './classmarker.utils';
+import { ClassmarkerResponseBody } from "../types/classmarker-response-body.interface";
+import { saveClassmarkerResult } from "../services/save-classmarker-result";
+import verifyClassmarkerSignature from "../middleware/verify-classmarker-signature.middleware";
 
 const router = Router()
 
-router.post('/webhook', async (req, res) => {
+router.post('/webhook', verifyClassmarkerSignature, async (req, res) => {
     try {
-        // Check for header
-        const header = req.header(CLASSMARKER_SIGNATURE_HEADER)
-
-        if (!header) {
-            throw new ClassmarkerNoHeaderError(`Header missing from request`)
-        }
-
-        // Verify header
-        // if (!verifyData(req.body, header, CLASSMARKER_SECRET)) {
-        //     throw new ClassmarkerHeaderVerificationFailedError(
-        //         `Invalid signature provided`,
-        //         header,
-        //         computeHmac(req.body, CLASSMARKER_SECRET)
-        //     )
-        // }
-
         const body: ClassmarkerResponseBody = req.body
 
         const { result, test } = body

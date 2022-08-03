@@ -1,4 +1,3 @@
-
 export class ClassmarkerEnrolmentNotFoundError extends Error {
     public params: Record<string, any>
     

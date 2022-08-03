@@ -3,8 +3,8 @@ import request from 'supertest'
 import { CLASSMARKER_SECRET, NEO4J_HOST, NEO4J_PASSWORD, NEO4J_USERNAME } from '../../../constants'
 import initNeo4j, { write, close } from '../../../modules/neo4j'
 import classmarkerRoutes from './classmarker.routes'
-import { CLASSMARKER_SIGNATURE_HEADER, computeHmac, verifyData } from './classmarker.utils'
-import { testResultBody } from './fixtures/test'
+import { CLASSMARKER_SIGNATURE_HEADER, computeHmac, verifyData } from '../classmarker.utils'
+import { testResultBody } from '../fixtures/test'
 
 describe('Classmarker Webhook Integration', () => {
 

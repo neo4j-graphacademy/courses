@@ -3,9 +3,8 @@ import { CourseWithProgress } from "../../../domain/model/course"
 import { User } from "../../../domain/model/user"
 import { appendParams, courseCypher } from "../../../domain/services/cypher"
 import { emitter } from "../../../events"
-import { notify } from "../../../middleware/bugsnag.middleware"
 import { write } from "../../../modules/neo4j"
-import { ClassmarkerEnrolmentNotFoundError } from "./errors/classmarker-enrolment-not-found.error"
+import { ClassmarkerEnrolmentNotFoundError } from "../errors/classmarker-enrolment-not-found.error"
 
 export async function saveClassmarkerResult(sub: string, first: string, last: string, classmarkerId: number, certificateSerial: string, passed: boolean, percentage: number, timeFinished: number, viewResultsUrl: string): Promise<CourseWithProgress> {
     const params = appendParams({

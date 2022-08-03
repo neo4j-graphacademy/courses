@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import classmarkerRoutes from './classmarker/classmarker.routes'
+import classmarkerRoutes from '../../modules/classmarker/routes/classmarker.routes'
 
 const router = Router()
 
