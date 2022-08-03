@@ -9,7 +9,8 @@ import { mergeCategories } from '../domain/services/asciidoc/merge-categories';
 import {
     NEO4J_HOST,
     NEO4J_USERNAME,
-    NEO4J_PASSWORD
+    NEO4J_PASSWORD,
+    ASCIIDOC_DIRECTORY
 } from '../constants'
 
 if ( !NEO4J_HOST || !NEO4J_USERNAME || !NEO4J_PASSWORD ) {
@@ -24,6 +25,10 @@ if ( !NEO4J_HOST || !NEO4J_USERNAME || !NEO4J_PASSWORD ) {
 }
 
 const start = Date.now()
+
+console.log(`Connected to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
+console.log(`Loading content from ${ASCIIDOC_DIRECTORY}`);
+
 
 initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
     .then(() => mergeCourses())

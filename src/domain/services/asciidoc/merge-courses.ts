@@ -249,6 +249,10 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
         MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
         MERGE (c)-[r:IN_CATEGORY]->(cat)
         SET r.order = toInteger(row.order)
+
+        // Set all modules to deleted and detach
+        FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] | SET m:DeletedModule )
+        FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | m ] | DELETE r )
     `, { courses })
 
     // Translations
@@ -292,6 +296,10 @@ const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
     REMOVE m:DeletedModule
 
     MERGE (c)-[:HAS_MODULE]->(m)
+
+    // Set lessons to deleted and detach
+    FOREACH (m IN [ (m)-[:HAS_LESSON]->(l) | m ] | SET m:DeletedLesson )
+    FOREACH (r IN [ (m)-[r:HAS_LESSON]->() | m ] | DELETE r )
 
 `, { modules })
 
@@ -475,7 +483,7 @@ export async function mergeCourses(): Promise<void> {
             `, { batch })
         }
     })
-    console.log(`   -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
+    console.log(`   -- Recreated (:Module)-[:NEXT_MODULE]->() chain`);
 
     await session.writeTransaction(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
