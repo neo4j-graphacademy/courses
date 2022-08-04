@@ -85,7 +85,7 @@ router.get('/sitemap.txt', async (req, res, next) => {
 
         const links = result.records
             .filter(row => row.get('link') !== null)
-            .map(row => BASE_URL + row.get('link'))
+            .map(row => `${BASE_URL}${row.get('link')}`)
             .join('\n')
 
         res.send(links)

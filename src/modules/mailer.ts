@@ -14,12 +14,11 @@ export function send(to: string, subject: string, html: string): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO } = process.env
 
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
-        // @ts-ignore
         const mailgun = new Mailgun(URLSearchParams)
 
         const mailer = mailgun.client({
             username: 'api',
-            key: MAILGUN_API_KEY as string,
+            key: MAILGUN_API_KEY,
         })
 
         mailer.messages.create(MAILGUN_DOMAIN, {

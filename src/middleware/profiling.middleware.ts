@@ -1,4 +1,4 @@
-/* tslint:disable:no-console */
+/* eslint-disable */
 import { Request, Response, NextFunction } from 'express'
 import { PROFILING_ENABLED } from '../constants';
 

@@ -2,7 +2,7 @@ import NotFoundError from "../../errors/not-found.error";
 import { write } from "../../modules/neo4j";
 import { User } from "../model/user";
 
-interface UserUpdates {
+export interface UserUpdates {
     nickname: string | null;
     givenName: string | null;
     position?: string | null;

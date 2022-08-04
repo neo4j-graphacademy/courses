@@ -1,9 +1,7 @@
+/* eslint-disable */
 import fs from 'fs'
 import path from 'path'
 import initNeo4j, { close } from '../modules/neo4j';
-
-/* tslint:disable-next-line */
-// console.clear();
 
 import {
     NEO4J_HOST,
@@ -12,7 +10,6 @@ import {
 } from '../constants'
 
 if ( !NEO4J_HOST || !NEO4J_USERNAME || !NEO4J_PASSWORD ) {
-    /* tslint:disable-next-line */
     console.log('Credentials missing:', {
         NEO4J_HOST,
         NEO4J_USERNAME,
@@ -48,6 +45,5 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
         return count
     })
     .then(count => {
-        // tslint:disable-next-line
         console.log(`🔎 Created ${count} constraints on ${NEO4J_HOST}`);
     })

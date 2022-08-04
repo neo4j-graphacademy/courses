@@ -1,5 +1,6 @@
 import Analytics from 'analytics-node'
 import { Request } from 'express'
+import { BASE_URL } from '../constants'
 import { User } from '../domain/model/user'
 import { notify } from '../middleware/bugsnag.middleware'
 
@@ -49,7 +50,7 @@ export function trackPageview(user: User, req: Request) {
         analytics.page({
             userId: user.sub,
             properties: {
-                url: process.env.BASE_URL + req.originalUrl,
+                url: `${BASE_URL}${req.originalUrl}`,
                 referrer: req.get('Referrer'),
             }
         })

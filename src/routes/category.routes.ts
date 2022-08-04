@@ -3,7 +3,7 @@ import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
 import { BASE_URL, PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
-import { Course, CourseWithProgress } from '../domain/model/course'
+import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth.middleware'
@@ -76,7 +76,7 @@ router.get('/', async (req, res, next) => {
     }
 })
 
-router.get('/banner', (req: Request, res: Response, next: NextFunction) => {
+router.get('/banner', (req: Request, res: Response) => {
     const filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`)
 
     res.header('Content-Type', 'image/png')
@@ -134,7 +134,7 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
 })
 
 
-router.get('/:slug/banner', async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:slug/banner', (req: Request, res: Response, next: NextFunction) => {
     try {
         // TODO: Caching, save to S3
         const filePath =  categoryBannerPath({ slug: req.params.slug } as Category<any>)

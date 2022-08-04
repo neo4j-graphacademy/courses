@@ -12,5 +12,5 @@ export async function deleteUser(user: User): Promise<boolean> {
         RETURN true AS status
     `, { id: user.sub })
 
-    return res.records[0]?.get('status') || false as boolean
+    return res.records[0]?.get('status') as boolean || false
 }

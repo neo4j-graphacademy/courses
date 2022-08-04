@@ -6,7 +6,7 @@ const router = Router({
     caseSensitive: true,
 })
 
-router.get(`/certification`, forceTrailingSlash, async (req, res, next) => {
+router.get(`/certification`, forceTrailingSlash, (req, res, next) => {
     try {
         const file = loadFile(`pages/certification.adoc`)
 

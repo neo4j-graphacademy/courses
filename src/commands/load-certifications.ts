@@ -15,7 +15,7 @@ const getLastCertification = async (session: Session): Promise<string> => {
     const [first] = res.records
     const value = first.get('date')
 
-    return value !== null ? value.toString() : '1970-01-01T00:00:00.555000000Z'
+    return value !== null ? (value as number).toString() : '1970-01-01T00:00:00.555000000Z'
 }
 
 const main = async () => {
@@ -32,19 +32,16 @@ const main = async () => {
         }
     })
 
-    // tslint:disable-next-line
     console.log(`Connecting to GraphAcademy at ${NEO4J_HOST}`);
-    const ga = await createDriver(NEO4J_HOST!, NEO4J_USERNAME!, NEO4J_PASSWORD!)
+    const ga = await createDriver(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
     const gaSession = ga.session()
 
-    // tslint:disable-next-line
     console.log(`Connecting to Community Graph at ${COMMUNITY_GRAPH_HOST}`);
-    const community = await createDriver(COMMUNITY_GRAPH_HOST!, COMMUNITY_GRAPH_USERNAME!, COMMUNITY_GRAPH_PASSWORD!)
+    const community = await createDriver(COMMUNITY_GRAPH_HOST, COMMUNITY_GRAPH_USERNAME, COMMUNITY_GRAPH_PASSWORD)
     const communitySession = community.session()
 
     const lastCertification = await getLastCertification(gaSession)
 
-    // tslint:disable-next-line
     console.log(`\n🔎 Getting certifications since ${lastCertification}`);
 
     const readRes = await communitySession.readTransaction((tx: Transaction) => tx.run(`
@@ -93,12 +90,11 @@ const main = async () => {
         MERGE (e)-[:FOR_COURSE]->(c)
     `, { rows }))
 
-    // tslint:disable-next-line
     console.log(`🥇 Created ${writeRes.summary.counters.updates().nodesCreated} certificate nodes`)
 
     await ga.close()
     await community.close()
 }
 
-
+// eslint-disable-next-line
 main()

@@ -29,7 +29,7 @@ router.get('/:id', async (req, res, next) => {
         const { user, categories } = await getUserAchievements(req.params.id)
 
         const own = current?.id === req.params.id
-        const title = own ? 'My Achievements' : `${getUserName(user as User)}'s Achievements`
+        const title = own ? 'My Achievements' : `${getUserName(user)}'s Achievements`
 
         // Sort Courses
         for ( const category of categories ) {

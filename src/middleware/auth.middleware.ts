@@ -1,3 +1,4 @@
+/* eslint-disable */
 import axios from 'axios';
 import { Request, Response, Express, NextFunction } from 'express';
 import { auth, Session } from 'express-openid-connect'

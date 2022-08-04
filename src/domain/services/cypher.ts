@@ -11,7 +11,7 @@ export function appendParams(params: Record<string, any>): ExtendedParams {
     return params as ExtendedParams
 }
 
-export function courseCypher(enrolment?: string, user?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
+export function courseCypher(enrolment?: string, user?: string, course = 'c', module = 'm', lesson = 'l'): string {
     return `
         ${course} {
             // .slug, .title, .thumbnail, .caption, .status, .usecase, .redirect, .link, .duration, .repository, .video,
@@ -26,7 +26,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
             ${enrolment !== undefined ? `sandbox: [ (${enrolment})-[:HAS_SANDBOX]->(sbx) WHERE sbx.expiresAt >= datetime() | sbx { .* } ][0],` : ''}
             ${user !== undefined ? `isInterested: exists((${course})<-[:INTERESTED_IN]-(${user})),` : ''}
             modules: apoc.coll.sortMaps([ (${course})-[:HAS_MODULE]->(${module}) |
-                ${moduleCypher(enrolment, course, module, lesson)}
+                ${moduleCypher(enrolment, module, lesson)}
             ], '^order'),
             prerequisites: [ (${course})<-[:PROGRESS_TO]-(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
             progressTo: [ (${course})-[:PROGRESS_TO]->(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
@@ -35,7 +35,7 @@ export function courseCypher(enrolment?: string, user?: string, course: string =
     `
 }
 
-export function moduleCypher(enrolment?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
+export function moduleCypher(enrolment?: string, module = 'm', lesson = 'l'): string {
     return `
                 ${module} {
                     .*,
@@ -48,13 +48,13 @@ export function moduleCypher(enrolment?: string, course: string = 'c', module: s
                     ][0],
                     ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
                     lessons: apoc.coll.sortMaps([ (${module})-[:HAS_LESSON]->(${lesson}) |
-                        ${lessonCypher(enrolment, course, module, lesson)}
+                        ${lessonCypher(lesson)}
                     ], '^order')
                 }
     `
 }
 
-export function lessonCypher(enrolment?: string, course: string = 'c', module: string = 'm', lesson: string = 'l'): string {
+export function lessonCypher(enrolment?: string, lesson = 'l'): string {
     return `
                         ${lesson} {
                             .*,
@@ -76,7 +76,7 @@ export function lessonCypher(enrolment?: string, course: string = 'c', module: s
     `
 }
 
-export function categoryCypher(alias: string = 'category', parents: boolean = false) {
+export function categoryCypher(alias = 'category', parents = false) {
     const parentsCypher = parents ? `, parents: [(${alias})<-[:HAS_CHILD]-(p) | p.id ] ` : ''
     return `${alias} { .id, .slug, .title, .description, link: coalesce(${alias}.link, '/categories/'+ ${alias}.slug +'/') ${parentsCypher} }`
 }

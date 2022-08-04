@@ -11,7 +11,7 @@ import {
 } from '../constants'
 
 const main = async () => {
-    await initNeo4j(NEO4J_HOST!, NEO4J_USERNAME!, NEO4J_PASSWORD!)
+    await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
     const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
     const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
@@ -38,8 +38,6 @@ const main = async () => {
         LIMIT $limit
     `, { limit: int(limit) })
 
-
-    // tslint:disable-next-line
     console.log(`🚨 Preparing ${res.records.length} Reminder Email${res.records.length == 1 ? '' : 's'}`);
 
     // Send reminder emails
@@ -49,7 +47,7 @@ const main = async () => {
             .map((attributes: Record<string, any>) => {
                 prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes)
 
-                return attributes.enrolment.id
+                return attributes.enrolment.id as string
             })
             .filter(e => e !== undefined)
     )
@@ -65,5 +63,5 @@ const main = async () => {
     await close()
 }
 
-
+// eslint-disable-next-line
 main()

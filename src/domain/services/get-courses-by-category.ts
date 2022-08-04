@@ -63,5 +63,5 @@ export async function getCoursesByCategory<T extends Course>(user?: User, langua
     return root.map((category: DbCategory) => ({
         ...category,
         children: categories.filter((row: DbCategory) => row.parents.includes(category.id))
-    }))
+    })) as DbCategory[]
 }

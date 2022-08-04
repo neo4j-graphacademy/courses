@@ -1,3 +1,4 @@
+/* eslint-disable */
 import asciidoctor from "@asciidoctor/core";
 
 class GraphAcademyTemplateConverter {

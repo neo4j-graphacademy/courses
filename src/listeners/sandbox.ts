@@ -4,8 +4,7 @@ import { emitter } from '../events'
 import { getSandboxForUseCase, stopSandbox } from '../modules/sandbox'
 
 
-export default async function initSandboxListeners(): Promise<void> {
-
+export default function initSandboxListeners(): Promise<void> {
     const stopSandboxHandler = async (event: UserCompletedCourse | UserUnenrolled) => {
         const { course, token, user } = event
         const { usecase } = course
@@ -27,4 +26,5 @@ export default async function initSandboxListeners(): Promise<void> {
     emitter.on<UserCompletedCourse>(UserCompletedCourse, stopSandboxHandler)
     emitter.on<UserUnenrolled>(UserUnenrolled, stopSandboxHandler)
 
+    return Promise.resolve()
 }

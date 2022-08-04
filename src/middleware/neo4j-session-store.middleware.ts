@@ -1,11 +1,10 @@
+/* eslint-disable */
 import { SessionData, Store } from "express-session"
 import { Driver, Session, } from "neo4j-driver"
 
 type GetCallbackFunction = (err: any, session?: SessionData | null) => void;
 
-const noop: GetCallbackFunction = (err: any, session?: SessionData | null): void => {
-    // Do nothing
-}
+const noop: GetCallbackFunction = (): void => {}
 
 export default class Neo4jStore extends Store {
     constructor(private readonly driver: Driver) {

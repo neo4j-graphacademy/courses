@@ -43,7 +43,7 @@ export async function getAuth0UserInfo(token: string, user: User):  Promise<Part
             id_token: token
         })
 
-        return res.data
+        return res.data as Partial<User>
     }
     catch(e) {
         throw handleSandboxError(token, user, 'tokeninfo', e)
@@ -92,7 +92,7 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
             scheme: 'bolt+s',
             username: 'neo4j',
             host: `${row.sandboxHashKey}.neo4jsandbox.com`,
-        }))
+        })) as Sandbox[]
     }
     catch (e: any) {
         // Report Error
@@ -136,14 +136,14 @@ export async function createSandbox(token: string, user: User, usecase: string):
             }
         )
 
-        return res.data
+        return res.data as Sandbox
     }
     catch (e: any) {
         throw handleSandboxError(token, user, 'SandboxRunInstance', e)
     }
 }
 
-export async function stopSandbox(token: string, user: User, sandboxHashKey: string) {
+export async function stopSandbox(token: string, user: User, sandboxHashKey: string): Promise<Sandbox> {
     try {
         const res = await sandboxApi().post(
             `SandboxStopInstance`,
@@ -155,7 +155,7 @@ export async function stopSandbox(token: string, user: User, sandboxHashKey: str
             }
         )
 
-        return res.data
+        return res.data as Sandbox
     }
     catch (e: any) {
         throw handleSandboxError(token, user, 'SandboxStopInstance', e)

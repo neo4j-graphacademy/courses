@@ -29,7 +29,6 @@ export default function initApp(driver: Driver) {
     const app = express()
 
     app.use((req, res, next) => {
-        // @ts-ignore
         req.neo4j = driver
         next()
     })

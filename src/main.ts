@@ -6,7 +6,7 @@ import initNeo4j, { close } from './modules/neo4j';
 import initListeners from './listeners'
 import { emitter } from './events';
 import { AppInit } from './domain/events/AppInit';
-import { cacheHTML } from './domain/services/asciidoc/cache-html';
+import { cacheHTML } from './modules/asciidoc/services/cache-html';
 
 import {
     NEO4J_HOST,
@@ -17,10 +17,10 @@ import {
 
 console.log(`Connecting to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
 
-initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
+initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
     .then((driver: Driver) => initApp(driver))
-    .then((app: Express) => {
-        initListeners(app)
+    .then(async (app: Express) => {
+        await initListeners()
         return app
     })
     .then((app: Express) => {
@@ -29,9 +29,11 @@ initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as stri
         })
 
         // Cache Asciidoc into HTML
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
         cacheHTML()
     })
     .catch(e => {
         console.error(e)
-        close()
+
+        return close()
     })

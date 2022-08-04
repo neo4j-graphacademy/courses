@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { Request } from 'express'
 import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants';
-import { Course, CoursesByStatus, CourseStatus, CourseStatusInformationWithCourses, CourseWithProgress, STATUS_COMPLETED, STATUS_PRIORITIES } from "../domain/model/course";
+import { Course, CoursesByStatus, CourseStatusInformationWithCourses, CourseWithProgress, STATUS_COMPLETED, STATUS_PRIORITIES } from "../domain/model/course";
 import { User } from '../domain/model/user';
 import { Lesson, LessonWithProgress } from '../domain/model/lesson';
 import { Module, ModuleWithProgress } from '../domain/model/module';
@@ -72,9 +72,9 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
     const badge = await getBadge(course)
 
-    const createdAt = course.createdAt ? new Date(course.createdAt.toString()) : undefined
-    const completedAt = course.completedAt ? new Date(course.completedAt.toString()) : undefined
-    const lastSeenAt = course.lastSeenAt ? new Date(course.lastSeenAt.toString()) : undefined
+    const createdAt = course.createdAt ? new Date((course.createdAt as string).toString()) : undefined
+    const completedAt = course.completedAt ? new Date((course.completedAt as string).toString()) : undefined
+    const lastSeenAt = course.lastSeenAt ? new Date((course.lastSeenAt as string).toString()) : undefined
     const certificateNumber = isInt(course.certificateNumber) ? course.certificateNumber.toNumber() : course.certificateNumber
 
     return {
@@ -113,7 +113,7 @@ interface SandboxConfig {
 }
 
 export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: Lesson | LessonWithProgress): Promise<SandboxConfig> {
-    let showSandbox: boolean = false
+    let showSandbox = false
     let sandboxVisible = typeof lesson?.sandbox === 'string'
 
     // If usecase is set and it is not null, show sandbox
@@ -134,7 +134,7 @@ export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: L
 
     // Overwrite Sandbox URL if set in :sandbox: page attribute
     if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'true') {
-        sandboxUrl = lesson!.sandbox
+        sandboxUrl = lesson.sandbox
     }
 
     // If course has already been completed, hide the sandbox completely
@@ -161,14 +161,13 @@ export function getSvgs(): Record<string, string> {
 }
 
 export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
-    const output = {}
+    const output: Record<string, any> = {}
 
     for (const key in elements) {
-        if (elements.hasOwnProperty(key)) {
+        if (key in elements) {
             for (const inner in elements[key]) {
-                if (elements[key].hasOwnProperty(inner)) {
-                    // @ts-ignore
-                    output[`${key}_${inner}`] = elements[key][inner]?.toString()
+                if (inner in elements[key]) {
+                    output[`${key}_${inner}`] = elements[key][inner].toString()
                 }
             }
         }
@@ -210,14 +209,13 @@ export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesBySt
 
     // Return as { [key: CourseStatus] : value }
     const output: CoursesByStatus = Object.fromEntries(
-        statuses.map((status: CourseStatusInformationWithCourses) => [ status.slug as CourseStatus, status ])
+        statuses.map(status => [ status.slug, status ])
     ) as CoursesByStatus
 
     return output
 }
 
 export function dd(el: any): void {
-    // tslint:disable-next-line
     console.log(JSON.stringify(el, null, 2));
 }
 
@@ -226,11 +224,12 @@ export const categoryBannerPath = (category: Category<any>) => path.join(PUBLIC_
 
 /**
  * Simple object check.
+ * 
  * @param item
  * @returns {boolean}
  */
-export function isObject(item: any) {
-    return (item && typeof item === 'object' && !Array.isArray(item));
+export function isObject(item: any): boolean {
+    return (item !== undefined && typeof item === 'object' && !Array.isArray(item))
 }
 
 /**
@@ -278,7 +277,7 @@ export function sortCourses(courses: Course[]) {
         }
 
         if ( a.order && b.order ) {
-            return parseInt(a.order) < parseInt(b.order) ? -1 : 1
+            return parseInt(a.order as string) < parseInt(b.order as string) ? -1 : 1
         }
 
         return a.title.localeCompare(b.title)
@@ -331,11 +330,10 @@ let countries: Record<string, any>
  * A list of contries in {[2 letter code]: "country name"} format
  * @returns Record<string, any>
  */
-export async function getCountries(): Promise<Record<string, any>> {
+export function getCountries(): Promise<Record<string, any>> {
     if (!countries) {
         countries = require('../../resources/json/countries.json')
     }
 
-
-    return countries
+    return Promise.resolve(countries)
 }

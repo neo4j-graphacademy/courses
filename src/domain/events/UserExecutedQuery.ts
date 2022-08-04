@@ -1,12 +1,12 @@
 import { User } from "../model/user"
 
-export const QUERY_TYPE_READ = 'r'
-export const QUERY_TYPE_READ_WRITE = 'rw'
-export const QUERY_TYPE_WRITE = 'w'
-export const QUERY_TYPE_SCHEMA = 's'
-export const QUERY_TYPE_SYSTEM = 's'
+const QUERY_TYPE_READ = 'r'
+const QUERY_TYPE_READ_WRITE = 'rw'
+const QUERY_TYPE_WRITE = 'w'
+const QUERY_TYPE_SCHEMA = 's'
+const QUERY_TYPE_SYSTEM = 's'
 
-export type QueryType = typeof QUERY_TYPE_READ | typeof QUERY_TYPE_READ_WRITE | typeof QUERY_TYPE_WRITE | typeof QUERY_TYPE_SCHEMA | typeof QUERY_TYPE_SYSTEM
+type QueryType = typeof QUERY_TYPE_READ | typeof QUERY_TYPE_READ_WRITE | typeof QUERY_TYPE_WRITE | typeof QUERY_TYPE_SCHEMA | typeof QUERY_TYPE_SYSTEM
 
 interface QueryResultMeta {
     type: QueryType;

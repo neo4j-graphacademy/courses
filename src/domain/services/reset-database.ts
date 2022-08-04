@@ -45,9 +45,7 @@ export async function resetDatabase(token: string, user: User, course: string, m
                 })
 
                 event.addMetadata('query', {
-                    // @ts-ignore
-                    // tslint:disable-next-line no-string-literal
-                    instance: _driver['_address'],
+                    instance: (driver as any)['_address'],
                     query: cypher,
                 })
             })

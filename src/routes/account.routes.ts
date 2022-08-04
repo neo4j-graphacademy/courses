@@ -1,18 +1,17 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
-import { determineQueryType, QUERY_TYPE_READ, UserExecutedQuery } from '../domain/events/UserExecutedQuery'
+import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
 import { UiEventType, UI_EVENTS, UserUiEvent } from '../domain/events/UserUiEvent'
-import { CourseWithProgress } from '../domain/model/course'
 import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
+import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
-import { updateUser } from '../domain/services/update-user'
+import { updateUser, UserUpdates } from '../domain/services/update-user'
 import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
-import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
 import { getCountries } from '../utils'
 
@@ -43,12 +42,12 @@ const router = Router()
  */
 router.get('/', requiresAuth(),  async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
         const token = await getToken(req)
         const countries = await getCountries()
 
         // Get Sandboxes
-        const sandboxes: Sandbox[] = await getSandboxes(token, user!)
+        const sandboxes: Sandbox[] = await getSandboxes(token, user)
 
         res.render('account/edit', {
             title: 'My Account',
@@ -93,10 +92,9 @@ router.get('/complete', requiresAuth(), async (req, res) => {
  */
 router.get('/skip', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req)  as User
 
-        // @ts-ignore
-        await updateUser(user!, {})
+        await updateUser(user, {} as UserUpdates)
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -114,12 +112,12 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
  */
 router.post('/', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
 
         // TODO: Validation
         const { nickname, givenName, position, company, country } = req.body
 
-        await updateUser(user!, { nickname, givenName, position, company, country, })
+        await updateUser(user, { nickname, givenName, position, company, country, })
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -135,8 +133,8 @@ router.post('/', requiresAuth(), async (req, res, next) => {
  */
 router.get('/verify', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
-        await requestEmailVerification(user!)
+        const user = await getUser(req) as User
+        await requestEmailVerification(user)
 
         res.render('simple', {
             title: 'Verification Email Sent',
@@ -164,12 +162,11 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
  */
 router.post('/delete', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
 
-        await deleteUser(user!)
+        await deleteUser(user)
 
-        // @ts-ignore
-        res.oidc.logout({ returnTo: '/account/deleted/' })
+        await res.oidc.logout({ returnTo: '/account/deleted/' })
     }
     catch (e) {
         next(e)
@@ -203,7 +200,7 @@ router.get('/deleted', (req, res, next) => {
 
 const courseHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
 
         const status: EnrolmentStatus = (req.params.status || STATUS_ENROLLED) as EnrolmentStatus
 
@@ -216,7 +213,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 
         let result: EnrolmentsByStatus
         try {
-            result = await getUserEnrolments(user!.sub, 'sub', false)
+            result = await getUserEnrolments(user.sub, 'sub', false)
         }
         catch (e: any) {
             notify(e, event => {
@@ -226,7 +223,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
             result = { enrolments: {} } as EnrolmentsByStatus
         }
 
-        const courses: CourseWithProgress[] = (result.enrolments[status] || []) as CourseWithProgress[]
+        const courses = (result.enrolments[status] || [])
 
         let title = 'My Courses'
         switch (status) {
@@ -284,12 +281,12 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
     }
 
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
         const meta = req.body
 
         emitter.emit(
             new UserUiEvent(
-                user!,
+                user,
                 type,
                 meta
             )
@@ -310,12 +307,12 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
  */
 router.post('/cypher', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
         const { meta } = req.body
 
         emitter.emit(
             new UserExecutedQuery(
-                user!,
+                user,
                 meta,
             )
         )

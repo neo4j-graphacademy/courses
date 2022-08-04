@@ -3,7 +3,7 @@ import { loadFile } from "../modules/asciidoc";
 
 const router = Router()
 
-router.get('/movies', (req, res, next) => {
+router.get('/movies', (req, res) => {
     const file = loadFile('pages/movies.adoc')
 
     res.render('simple', {

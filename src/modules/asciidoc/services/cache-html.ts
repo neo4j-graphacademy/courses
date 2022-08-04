@@ -1,8 +1,8 @@
 import { ASCIIDOC_CACHING_ENABLED } from "../../../constants";
-import { addToCache, convertLessonOverview, generateLessonCacheKey } from "../../../modules/asciidoc";
-import { read } from "../../../modules/neo4j";
+import { addToCache, convertLessonOverview, generateLessonCacheKey } from "..";
+import { read } from "../../neo4j";
 import { getPageAttributes } from "../../../utils";
-import { STATUS_ACTIVE } from "../../model/course";
+import { STATUS_ACTIVE } from "../../../domain/model/course";
 
 export async function cacheHTML(): Promise<void> {
     if (!ASCIIDOC_CACHING_ENABLED) {
@@ -31,6 +31,5 @@ export async function cacheHTML(): Promise<void> {
         addToCache(key, html)
     })
 
-    /* tslint:disable-next-line */
     console.log(`🧠 Caching ${res.records.length} lessons`)
 }

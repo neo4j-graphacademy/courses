@@ -1,12 +1,12 @@
-/* tslint:disable:no-console */
+/* eslint-disable */
 import path from 'path'
 import fs from 'fs'
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREVIOUS, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../model/course';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_REDIRECT, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, Course, LANGUAGE_EN, STATUS_DISABLED } from '../../../domain/model/course';
 import { ASCIIDOC_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL } from '../../../constants'
 import { loadFile } from '../../../modules/asciidoc'
-import { ATTRIBUTE_ORDER, Module } from '../../model/module';
-import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_UPDATED_AT, } from '../../model/lesson';
-import { Question } from '../../model/question';
+import { ATTRIBUTE_ORDER, Module } from '../../../domain/model/module';
+import { ATTRIBUTE_DURATION, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_OPTIONAL, Lesson, LESSON_TYPE_DEFAULT, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_UPDATED_AT, } from '../../../domain/model/lesson';
+import { Question } from '../../../domain/model/question';
 import { getDriver } from '../../../modules/neo4j';
 import { Asciidoctor } from '@asciidoctor/core/types';
 import { Session, Transaction } from 'neo4j-driver';
@@ -237,29 +237,21 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
             c.classmarkerId = course.classmarkerId,
             c.classmarkerReference = course.classmarkerReference,
             c += course.attributes
-
         FOREACH (_ IN CASE WHEN course.certification THEN [1] ELSE [] END | SET c:Certification)
         FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
         FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
         FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
-
         WITH c, course
-
         UNWIND course.categories AS row
         MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
         MERGE (c)-[r:IN_CATEGORY]->(cat)
         SET r.order = toInteger(row.order)
-
-        // Set all modules to deleted and detach
-        FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] | SET m:DeletedModule )
-        FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | m ] | DELETE r )
     `, { courses })
 
     // Translations
     tx.run(`
         UNWIND $courses AS course
         MATCH (c:Course {slug: course.slug})
-
         FOREACH (slug IN course.translationSlugs |
             MERGE (t:Course {slug: slug})
             MERGE (c)-[:HAS_TRANSLATION]->(t)
@@ -270,7 +262,6 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
     tx.run(`
         UNWIND $courses AS course
         MATCH (c:Course {slug: course.slug})
-
         FOREACH (slug IN course.progressToSlugs |
             MERGE (t:Course {slug: slug})
             MERGE (c)-[:PROGRESS_TO]->(t)
@@ -281,7 +272,6 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
 const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
     UNWIND $modules AS module
         MATCH (c:Course {slug: module.courseSlug})
-
     MERGE (m:Module {id: apoc.text.base64Encode(module.link) })
     SET
         m.title = module.title,
@@ -291,22 +281,14 @@ const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
         m.duration = module.duration,
         m.link = '/courses/'+ c.slug + '/'+ module.slug +'/',
         m.updatedAt = datetime()
-
     // Restore current modules
     REMOVE m:DeletedModule
-
     MERGE (c)-[:HAS_MODULE]->(m)
-
-    // Set lessons to deleted and detach
-    FOREACH (m IN [ (m)-[:HAS_LESSON]->(l) | m ] | SET m:DeletedLesson )
-    FOREACH (r IN [ (m)-[r:HAS_LESSON]->() | m ] | DELETE r )
-
 `, { modules })
 
 const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
     UNWIND $lessons AS lesson
         MATCH (m:Module {link: lesson.moduleLink})
-
     MERGE (l:Lesson {id: apoc.text.base64Encode(lesson.link) })
     SET
         l.slug = lesson.slug,
@@ -321,24 +303,18 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
         l.link = m.link + lesson.slug +'/',
         l.disableCache = lesson.disableCache,
         l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
-
     REMOVE l:DeletedLesson
-
     FOREACH (_ IN CASE WHEN lesson.optional THEN [1] ELSE [] END |
         SET l:OptionalLesson
     )
-
     FOREACH (_ IN CASE WHEN lesson.optional = false THEN [1] ELSE [] END |
         REMOVE l:OptionalLesson
     )
-
     MERGE (m)-[:HAS_LESSON]->(l)
-
     // Clean up questions
     FOREACH (q IN [ (l)-[:HAS_QUESTION]->(q) | q ] |
         SET q:DeletedQuestion
     )
-
     // Detach question
     FOREACH (r IN [ (l)-[r:HAS_QUESTION]->() | r ] |
         DELETE r
@@ -348,10 +324,8 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
 const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
     UNWIND $questions AS question
     MATCH (l:Lesson {link: question.lessonLink})
-
     MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ question.id)})
     SET q.slug = question.id, q.text = question.text
-
     REMOVE q:DeletedQuestion
     MERGE (l)-[:HAS_QUESTION]->(q)
 `, { questions })
@@ -364,9 +338,7 @@ const checkSchema = (session: Session) => session.readTransaction(async tx => {
     const next = await tx.run(`
         MATCH (a)-[:NEXT]->(b)
         WITH a, b, count(*) AS count
-
         WHERE count > 1
-
         RETURN *
     `)
 
@@ -474,16 +446,14 @@ export async function mergeCourses(): Promise<void> {
                 WHERE c.slug IN $batch
                 WITH c, m ORDER BY m.order ASC
                 WITH c, collect(m) AS modules
-
                 WITH c, modules, modules[0] AS first, modules[-1] AS last
                 CALL apoc.nodes.link(modules, 'NEXT_MODULE')
-
                 MERGE (c)-[:FIRST_MODULE]->(first)
                 MERGE (c)-[:LAST_MODULE]->(last)
             `, { batch })
         }
     })
-    console.log(`   -- Recreated (:Module)-[:NEXT_MODULE]->() chain`);
+    console.log(`   -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
 
     await session.writeTransaction(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
@@ -498,21 +468,15 @@ export async function mergeCourses(): Promise<void> {
                 WHERE m.link IN $batch
                 WITH m, l ORDER BY l.order ASC
                 WITH m, collect(l) AS lessons
-
                 WITH m, lessons, lessons[0] AS first, lessons[-1] AS last
-
                 MERGE (m)-[:NEXT]->(first)
                 MERGE (m)-[:FIRST_LESSON]->(first)
                 MERGE (m)-[:LAST_LESSON]->(last)
-
                 WITH *
-
                 UNWIND range(0, size(lessons)-2) AS idx
                 WITH lessons[idx] AS last, lessons[idx+1] AS next
                 MERGE (last)-[:NEXT]->(next)
-
                 RETURN *
-
             `, { batch })
         }
     })
@@ -541,11 +505,9 @@ export async function mergeCourses(): Promise<void> {
                 WHERE c.slug IN $batch
                 AND NOT (end)-[:NEXT]->()
                 WITH c, nodes(p) AS nodes, size(nodes(p)) AS size
-
                 UNWIND range(0, size(nodes)-1) AS idx
                 WITH size, idx, nodes[idx] AS node
                 WHERE NOT node:Course
-
                 SET node.progressPercentage = round((1.0 * idx / size) * 100)
             `, { batch })
         }

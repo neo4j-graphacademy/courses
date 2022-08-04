@@ -8,6 +8,7 @@ import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
 import { send } from '../modules/mailer'
+import { User } from '../domain/model/user'
 
 const router = Router()
 
@@ -19,7 +20,6 @@ router.get('/reset', async (req, res) => {
         RETURN count(*) AS count
     `, { email: req.query.email })
 
-    // tslint:disable-next-line:no-console
     console.log('\n\n--\n', result.records[0].get('count'), ' enrolments deleted for ', req.query.email);
 
     res.redirect('/logout')
@@ -47,7 +47,7 @@ router.get('/sandboxes', async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
-        const sandboxes = await getSandboxes(token, user!)
+        const sandboxes = await getSandboxes(token, user as User)
 
         res.json(sandboxes)
     }
@@ -56,19 +56,17 @@ router.get('/sandboxes', async (req, res, next) => {
     }
 })
 
-router.get('/profile', async (req, res) => {
-    // @ts-ignore
-    const user = await req.oidc.user
+router.get('/profile', (req, res) => {
+    const user = req.oidc.user
 
     res.json(user)
-
 })
 
 router.get('/profile/sandbox', async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
-        const profile = await getUserInfo(token, user!)
+        const profile = await getUserInfo(token, user as User)
 
         res.json(profile)
     }
@@ -92,23 +90,18 @@ router.get('/profile/auth0', async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
-        const profile = await getAuth0UserInfo(token, user!)
+        const profile = await getAuth0UserInfo(token, user as User)
 
         res.json(profile)
     }
     catch(e) {
-        // @ts-ignore
         next(e)
     }
 })
 
-router.get('/session', async (req, res, next) => {
-    const session = req.session
 
-    if ( req.query.ref ) {
-        // @ts-ignore
-        session.ref = req.query.ref
-    }
+router.get('/session', (req, res) => {
+    const session = req.session
 
     res.json(session)
 })
@@ -119,17 +112,16 @@ router.get('/email/:template', async (req, res) => {
         MATCH (c:Course) WITH u, c ORDER BY rand() LIMIT 1
         RETURN u, c
     `)
-    const user = {email: 'adam@neo4j.com', ... result!.records[0].get('u').properties}
-    const course = result!.records[0].get('c').properties
+    const user = {email: 'adam@neo4j.com', ... result.records[0].get('u').properties}
+    const course = result.records[0].get('c').properties
     const sandbox = devSandbox()
 
     const data = { user, course, sandbox }
     const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
 
     if ( req.query.send === 'true' ) {
-        await send('adam.cowley@neo4j.com', email.subject, email.html)
+        send('adam.cowley@neo4j.com', email.subject, email.html)
 
-        // tslint:disable-next-line:no-console
         console.log('Email sent');
     }
 
@@ -159,7 +151,7 @@ router.get('/500', (req, res, next) => {
 })
 
 router.get('/token-expired', (req, res, next) => {
-    throw new TokenExpiredError(Date.now() / 1000)
+    next(new TokenExpiredError(Date.now() / 1000))
 })
 
 export default router

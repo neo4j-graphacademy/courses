@@ -32,7 +32,7 @@ export async function getCommunityTopics(): Promise<Topic[]> {
                     item: ['description'],
                 }
             })
-            const feed = await parser.parseURL(COMMUNITY_RSS_URL!)
+            const feed = await parser.parseURL(COMMUNITY_RSS_URL)
 
             topics = feed.items.slice(0, 5)
                 .map(item => ({
@@ -40,7 +40,7 @@ export async function getCommunityTopics(): Promise<Topic[]> {
                     link: item.link,
                     description: item.description,
                     author: item['dc:creator'],
-                    publishedAt: new Date(item.pubDate!),
+                    publishedAt: new Date(item.pubDate as string),
                 } as Topic))
         }
         catch(e) {

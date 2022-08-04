@@ -1,5 +1,5 @@
+/* eslint-disable */
 export function browserBlockProcessor(registry: any) {
-
     registry.blockMacro(function () {
         // @ts-ignore
         const self: any = this

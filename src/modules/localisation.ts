@@ -24,7 +24,7 @@ export function initLocalisation() {
             let html = ``
 
             if ( block.getTitle() ) {
-                const level = block.getLevel()+1
+                const level = block.getLevel() as number + 1
                 html += `<h${level}>${block.getTitle()}</h${level}>`
             }
 
@@ -41,7 +41,7 @@ export function getPhrase(language: Language, phrase: string, defaultValue: any 
     const found = languages.get(language)
     const foundPhrase = found ? found[phrase] : undefined
 
-    return foundPhrase || defaultValue
+    return (foundPhrase || defaultValue) as string
 }
 
 export const translate = (language: Language) =>

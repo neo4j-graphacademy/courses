@@ -18,10 +18,10 @@ export default function verifyClassmarkerSignature(req: Request, res: Response, 
         }
 
         // Verify header
-        if (!verifyData(req.body, header!, CLASSMARKER_SECRET)) {
+        if (!verifyData(req.body, header as string, CLASSMARKER_SECRET)) {
             throw new ClassmarkerHeaderVerificationFailedError(
                 `Invalid signature provided`,
-                header!,
+                header as string,
                 computeHmac(req.body, CLASSMARKER_SECRET)
             )
         }

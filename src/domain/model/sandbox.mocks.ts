@@ -19,8 +19,8 @@ export function devSandbox(): Sandbox {
         host: SANDBOX_DEV_INSTANCE_HOST || 'localhost' as string,
         port: SANDBOX_DEV_INSTANCE_PORT || '7474' as string,
         ip: SANDBOX_DEV_INSTANCE_HOST || '127.0.0.1' as string,
-        username: (SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j') as string,
-        password: (SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein') as string,
+        username: (SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j'),
+        password: (SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein'),
         usecase: 'movies',
         expires: 0
     }

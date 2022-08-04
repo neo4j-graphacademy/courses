@@ -1,3 +1,4 @@
+/* eslint-disable */
 export function verifyBlockProcessor(registry: any) {
     const svg = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M6 3.25C6.41421 3.25 6.75 2.91421 6.75 2.5V1C6.75 0.585786 6.41421 0.25 6 0.25C5.58579 0.25 5.25 0.585786 5.25 1V2.5C5.25 2.91421 5.58579 3.25 6 3.25Z" fill="black"/>

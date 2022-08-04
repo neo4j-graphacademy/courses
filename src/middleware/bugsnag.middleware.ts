@@ -43,7 +43,7 @@ export function useErrorHandler(app: Express) {
     const plugin = Bugsnag.getPlugin('express')
 
     if ( plugin ) {
-        app.use( plugin!.errorHandler )
+        app.use( plugin.errorHandler )
     }
 }
 

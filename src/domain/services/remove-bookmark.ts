@@ -8,5 +8,5 @@ export async function removeBookmark(course: string, user: User): Promise<boolea
         RETURN true AS status
     `, { course, sub: user.sub })
 
-    return res.records[0]?.get('status') || false as boolean
+    return res.records[0]?.get('status') as boolean || false
 }

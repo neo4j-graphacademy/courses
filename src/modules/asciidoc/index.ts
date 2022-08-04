@@ -20,8 +20,8 @@ const cache: Map<string, string> = new Map()
 const doc = asciidoctor()
 
 // Register Custom Blocks
-// @ts-ignore
 const registry = doc.Extensions.create()
+
 inputBlockProcessor(registry)
 browserBlockProcessor(registry)
 verifyBlockProcessor(registry)
@@ -54,7 +54,7 @@ export function convert(document: Asciidoctor.Document, options: Asciidoctor.Pro
     return document.convert(mergeDeep(baseOptions, options))
 }
 
-export async function convertCourseOverview(slug: string, attributes?: Record<string, any>) {
+export function convertCourseOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
     const folder = path.join('courses', slug)
 
     const file = path.join(folder, 'course.adoc')
@@ -65,10 +65,10 @@ export async function convertCourseOverview(slug: string, attributes?: Record<st
 
     const document = loadFile(file, { attributes })
 
-    return convert(document)
+    return Promise.resolve(convert(document))
 }
 
-export async function convertCourseSummary(slug: string, attributes: Record<string, any> = {}) {
+export function convertCourseSummary(slug: string, attributes: Record<string, any> = {}): Promise<string> {
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.adoc')
 
@@ -78,17 +78,17 @@ export async function convertCourseSummary(slug: string, attributes: Record<stri
 
     const document = loadFile(file, { attributes })
 
-    return convert(document)
+    return Promise.resolve(convert(document))
 }
 
-export async function courseSummaryExists(slug: string) {
+export function courseSummaryExists(slug: string): Promise<boolean> {
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.adoc')
 
-    return fileExists(file)
+    return Promise.resolve(fileExists(file))
 }
 
-export async function convertModuleOverview(course: string, module: string, attributes: Record<string, any> = {}) {
+export function convertModuleOverview(course: string, module: string, attributes: Record<string, any> = {}): Promise<string> {
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
@@ -98,21 +98,21 @@ export async function convertModuleOverview(course: string, module: string, attr
 
     const document = loadFile(file, { attributes })
 
-    return convert(document)
+    return Promise.resolve(convert(document))
 }
 
 export function getLessonDirectory(course: string, module: string, lesson: string): string {
     return path.join('courses', course, 'modules', module, 'lessons', lesson)
 }
 
-export async function getLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<Asciidoctor.Document> {
+export function getLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<Asciidoctor.Document> {
     const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
     if ( !fileExists(file) ) {
         throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
     }
 
-    return loadFile(file, { attributes })
+    return Promise.resolve(loadFile(file, { attributes }))
 }
 
 export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<string> {
@@ -140,7 +140,7 @@ const statusCache: Map<CourseStatus, CourseStatusInformation> = new Map()
 
 export function getStatusDetails(slug: CourseStatus): CourseStatusInformation {
     if ( statusCache.has(slug) ) {
-        return statusCache.get(slug)!
+        return statusCache.get(slug) as CourseStatusInformation
     }
 
     // Load from asciidoc/status/{status}.adoc
@@ -150,7 +150,7 @@ export function getStatusDetails(slug: CourseStatus): CourseStatusInformation {
 
     const output = {
         slug,
-        name: info.getTitle()!,
+        name: info.getTitle() as string,
         order: parseInt(info.getAttribute(ATTRIBUTE_ORDER, 999)),
         description: info.convert(),
     }

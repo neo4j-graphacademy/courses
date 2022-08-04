@@ -1,8 +1,7 @@
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
 import { notify } from "../../middleware/bugsnag.middleware";
-import { write, writeTransaction } from "../../modules/neo4j";
-import { createSandbox } from "../../modules/sandbox";
+import { writeTransaction } from "../../modules/neo4j";
 import { UserEnrolled } from "../events/UserEnrolled";
 import { STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
@@ -103,5 +102,5 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         emitter.emit(new UserEnrolled(user, output.course, output.sandbox))
     }
 
-    return output.enrolment
+    return output.enrolment as Enrolment
 }

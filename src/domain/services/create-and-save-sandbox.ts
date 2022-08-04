@@ -50,5 +50,5 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
         ? await tx.run(query, params)
         : await write(query, params)
 
-    return res.records[0].get('sandbox')
+    return res.records[0].get('sandbox') as Sandbox
 }

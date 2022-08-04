@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import UnverifiedError from '../errors/unverified.error';
 import { getAuth0UserInfo } from '../modules/sandbox';
 import { getToken, getUser } from './auth.middleware';
-import { notify } from './bugsnag.middleware';
 
 export async function requiresVerification(req: Request, res: Response, next: NextFunction) {
     const user = await getUser(req)

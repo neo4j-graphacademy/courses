@@ -68,7 +68,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
         )
     }
 
-    const user: User = record.get('user')!
+    const user: User = record.get('user')
     const course: CourseWithProgress = record.get('course')
 
     if (passed) {

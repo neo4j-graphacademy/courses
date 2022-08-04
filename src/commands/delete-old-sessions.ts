@@ -8,7 +8,7 @@ import {
 
 
 const main = async () => {
-    const driver = await initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
+    const driver = await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
     await write(`
         CALL apoc.periodic.commit("
@@ -23,4 +23,5 @@ const main = async () => {
     await driver.close()
 }
 
+// eslint-disable-next-line
 main()

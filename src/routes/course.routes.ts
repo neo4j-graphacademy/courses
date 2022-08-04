@@ -11,7 +11,7 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { ASCIIDOC_DIRECTORY, BASE_URL, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
@@ -34,6 +34,7 @@ import { getRef } from '../middleware/save-ref.middleware'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { translate } from '../modules/localisation'
+import { User } from '../domain/model/user'
 
 const router = Router()
 
@@ -60,7 +61,7 @@ router.use((req, res, next) => {
  *
  * Redirect the user to the category list
  */
-router.get('/', async (req, res, next) => {
+router.get('/', (req, res, next) => {
     try {
         res.redirect('/categories')
     }
@@ -144,7 +145,7 @@ router.post('/:course/interested', async (req, res, next) => {
     try {
         if (req.body.email) {
             const user = await getUser(req)
-            await registerInterest(req.params.course, req.body.email, user)
+            await registerInterest(req.params.course, req.body.email as string, user)
 
             req.flash('success', 'Your interest in this course has been registered')
 
@@ -163,7 +164,7 @@ router.post('/:course/interested', async (req, res, next) => {
  *
  * Create an image suitable for an og:image tag
  */
-router.get('/:course/banner', async (req, res, next) => {
+router.get('/:course/banner', (req, res, next) => {
     try {
         // TODO: Caching, save to S3
         let filePath = courseBannerPath({ slug: req.params.course } as Course)
@@ -192,7 +193,7 @@ router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
         const { course } = req.params
         const user = await getUser(req)
 
-        await bookmarkCourse(course, user!)
+        await bookmarkCourse(course, user as User)
 
         req.flash('success', 'This course has been bookmarked!')
 
@@ -213,7 +214,7 @@ router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) =>
         const { course } = req.params
         const user = await getUser(req)
 
-        await removeBookmark(course, user!)
+        await removeBookmark(course, user as User)
 
         req.flash('success', 'Your bookmark has been removed')
 
@@ -253,17 +254,16 @@ router.get('/:course/badge', (req, res, next) => {
  */
 router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompletedProfile, async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
         const token = await getToken(req)
-        const ref = await getRef(req)
+        const ref = getRef(req)
 
-        const enrolment = await enrolInCourse(req.params.course, user!, token, ref)
-
+        const enrolment = await enrolInCourse(req.params.course, user, token, ref)
 
         let goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
         if ( enrolment.course.classmarkerReference ) {
-            goTo = `https://www.classmarker.com/online-test/start/?quiz=${enrolment.course.classmarkerReference}&cm_fn=${user?.givenName}&cm_user_id=${user!.sub}&cm_e=${user!.email}`
+            goTo = `https://www.classmarker.com/online-test/start/?quiz=${enrolment.course.classmarkerReference}&cm_fn=${user.givenName}&cm_user_id=${user.sub}&cm_e=${user.email}`
         }
 
         res.redirect(goTo)
@@ -280,10 +280,10 @@ router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompl
  */
 router.get('/:course/unenrol', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)
+        const user = await getUser(req) as User
         const token = await getToken(req)
 
-        await unenrolFromCourse(req.params.course, user!, token)
+        await unenrolFromCourse(req.params.course, user, token)
 
         req.flash('success', 'You have been successfully unenrolled from this course')
 
@@ -357,10 +357,10 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
         const course = await getCourseWithProgress(req.params.course, user)
 
         if (!course.completed) {
-            return res.redirect(course.link!)
+            return res.redirect(course.link)
         }
 
-        return res.redirect(`/u/${user!.id}/${course.slug}/`)
+        return res.redirect(`/u/${(user as User).id}/${course.slug}/`)
     }
     catch (e) {
         next(e)
@@ -390,8 +390,12 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         let { sandbox } = course
 
         // If sandbox doesn't exist then recreate it
+        if (!sandbox === undefined) {
+            sandbox = await createAndSaveSandbox(token, user as User, course)
+        }
+
         if (!sandbox) {
-            sandbox = await createAndSaveSandbox(token, user!, course)
+            throw new NotFoundError(`No sandbox found`)
         }
 
         // Pre-fill credentials and redirect to browser
@@ -400,11 +404,11 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
             referrer: req.originalUrl,
             classes: `course ${req.params.course}`,
             layout: 'empty',
-            scheme: sandbox!.scheme,
-            host: sandbox!.host,
-            port: sandbox!.boltPort,
+            scheme: sandbox.scheme,
+            host: sandbox.host,
+            port: sandbox.boltPort,
             username: 'neo4j',
-            password: sandbox!.password,
+            password: sandbox.password,
         })
     }
     catch (e: any) {
@@ -486,10 +490,10 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
         } = await getSandboxConfig(course)
 
         // Emit user viewed module
-        emitter.emit(new UserViewedModule(user!, course, module))
+        emitter.emit(new UserViewedModule(user as User, course, module))
 
         res.render('course/module', {
-            classes: `module ${req.params.course}-${req.params.module}  ${course!.completed ? 'course--completed' : ''} ${module!.completed ? 'module--completed' : ''}`,
+            classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''} ${module.completed ? 'module--completed' : ''}`,
             analytics: {
                 course: {
                     slug: course.slug,
@@ -502,7 +506,7 @@ router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSla
                     title: module.title,
                 },
                 user: {
-                    id: user!.id,
+                    id: (user as User).id,
                 }
             },
             feedback: true,
@@ -531,7 +535,7 @@ router.post('/:course/:module/feedback', requiresAuth(), async (req, res, next) 
         const user = await getUser(req)
         const { course, module } = req.params
 
-        const json = await saveModuleFeedback(user!, course, module, req.body)
+        const json = await saveModuleFeedback(user as User, course, module, req.body)
 
         if (json.status === 'ok') {
             res.status(201)
@@ -581,11 +585,11 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
             return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
         }
 
-        else if (!module!.lessons) {
+        else if (!module.lessons) {
             return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
         }
 
-        const lesson = module!.lessons.find(row => row.slug === req.params.lesson)
+        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
             return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
@@ -642,7 +646,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         }
 
         // Next link in pagination?
-        let next: Pagination | undefined = lesson!.next
+        let next: Pagination | undefined = lesson.next
 
         if (!next && course.completed) {
             next = {
@@ -652,10 +656,10 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         }
 
         // Emit user viewed lesson
-        emitter.emit(new UserViewedLesson(user!, course, module, lesson))
+        emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
 
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson!.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
             analytics: {
                 course: {
                     slug: course.slug,
@@ -672,7 +676,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
                     title: lesson.title,
                 },
                 user: {
-                    id: user!.id,
+                    id: (user as User).id,
                 }
             },
             feedback: true,
@@ -709,7 +713,7 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
         const answers: Answer[] = req.body
 
         const user = await getUser(req)
-        const output = await saveLessonProgress(user!, course, module, lesson, answers, token)
+        const output = await saveLessonProgress(user as User, course, module, lesson, answers, token)
 
         res.json(output)
     }
@@ -726,7 +730,7 @@ router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res
         const user = await getUser(req)
         const { course, module, lesson } = req.params
 
-        const json = await saveLessonFeedback(user!, course, module, lesson, req.body)
+        const json = await saveLessonFeedback(user as User, course, module, lesson, req.body)
 
         if (json.status === 'ok') {
             res.status(201)
@@ -789,7 +793,7 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         const user = await getUser(req)
         const token = await getToken(req)
 
-        const outcome = await verifyCodeChallenge(user!, token, course, module, lesson)
+        const outcome = await verifyCodeChallenge(user as User, token, course, module, lesson)
 
         res.json(outcome)
     }
@@ -812,7 +816,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         const token = await getToken(req)
         const user = await getUser(req)
 
-        const outcome = await saveLessonProgress(user!, course, module, lesson, [], token)
+        const outcome = await saveLessonProgress(user as User, course, module, lesson, [], token)
 
         res.json(outcome)
     }

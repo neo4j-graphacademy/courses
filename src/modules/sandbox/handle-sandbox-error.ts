@@ -1,5 +1,4 @@
 import { User } from "@bugsnag/js";
-import { AxiosError } from "axios";
 import { notify } from "../../middleware/bugsnag.middleware";
 import { SandboxBadRequestError } from "./sandbox-bad-request.error";
 import { SandboxForbiddenError } from "./sandbox-forbidden.error";
@@ -21,6 +20,7 @@ export function handleSandboxError(token: string, user: User, endpoint: string, 
         case 500:
         case 502:
             output = new SandboxServerError(endpoint, error)
+            break
 
         default:
             output = new SandboxUnknownError(endpoint, error)

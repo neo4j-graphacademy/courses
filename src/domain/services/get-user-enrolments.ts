@@ -8,7 +8,7 @@ import { appendParams, courseCypher } from "./cypher";
 
 type ValidLookupProperty = 'sub' | 'id'
 
-export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', throwOnNotFound: boolean = true): Promise<EnrolmentsByStatus> {
+export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', throwOnNotFound = true): Promise<EnrolmentsByStatus> {
     const res = await read(`
         OPTIONAL MATCH (u:User {${property}: $sub})
         MATCH (c:Course)

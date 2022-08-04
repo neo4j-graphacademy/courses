@@ -1,4 +1,3 @@
-import { LessonWithProgress } from "../model/lesson";
 import { User } from "../model/user";
 
 type RequestMethod = 'POST' | 'GET'
