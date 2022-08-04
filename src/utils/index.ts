@@ -11,6 +11,7 @@ import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc';
 import { getToken, getUser } from '../middleware/auth.middleware';
 import { getSandboxForUseCase } from '../modules/sandbox';
 import { isInt } from 'neo4j-driver';
+import { courseOgBadgeImage } from '../routes/route.utils';
 
 export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -82,6 +83,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         summary: courseSummaryExists(course.slug),
         modules,
         badge,
+        badgeUrl: courseOgBadgeImage(course.slug),
         createdAt,
         completedAt,
         lastSeenAt,
@@ -95,13 +97,16 @@ export function getUserName(user: User): string {
 
 export function formatUser(user: User): User {
     const publicProfile = `${BASE_URL}/u/${user.id}/`
-    const profileCompletedAt = user.profileCompletedAt && typeof user.profileCompletedAt === 'string'
-        ? new Date(user.profileCompletedAt)
-        : undefined;
+
+    let completedAt: string | Date | undefined = user.profileCompletedAt
+
+    if (completedAt && typeof completedAt !== 'string') {
+        completedAt = (completedAt as any).toString()
+    }
 
     return {
         ...user,
-        profileCompletedAt,
+        profileCompletedAt: completedAt ? new Date(completedAt) : undefined,
         publicProfile,
     }
 }

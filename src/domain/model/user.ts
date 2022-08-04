@@ -10,7 +10,7 @@ export interface User {
     picture?: string;
 
     // Profile Page
-    profileCompletedAt: Date | undefined;
+    profileCompletedAt: Date | string | undefined;
     nickname?: string;
     givenName?: string;
     position?: string;

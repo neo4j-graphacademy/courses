@@ -6,7 +6,7 @@ import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { getUserName } from '../utils'
-import { courseOgBannerImage } from './route.utils'
+import { courseOgBadgeImage, courseOgBannerImage } from './route.utils'
 
 const router = Router()
 
@@ -46,7 +46,7 @@ router.get('/:id', async (req, res, next) => {
             })
         }
 
-        const breadcrumbs = [
+        const breadcrumbs: Record<string, any>[] = [
             { link: '/', text: 'Neo4j GraphAcademy', },
             { link: req.originalUrl, text: title, },
         ]
@@ -79,7 +79,7 @@ router.get('/:id', async (req, res, next) => {
             ...user,
             own,
             categories,
-            breadcrumbs
+            breadcrumbs,
         })
     }
     catch (e) {
@@ -141,6 +141,7 @@ router.get('/:id/:course', async (req, res, next) => {
             course,
             name: getUserName(user as User),
             own,
+            badge: courseOgBadgeImage(course.slug),
             ogTitle,
             ogDescription,
             ogImage,

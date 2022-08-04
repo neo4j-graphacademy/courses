@@ -42,7 +42,7 @@ export async function getUser(req: any): Promise<User | undefined> {
     const res = await read(`MATCH (u:User {sub: $sub}) RETURN u`, { sub: req.oidc.user.sub })
 
     const dbUser = res.records.length ? res.records[0].get('u').properties : {}
-
+    
     const user = formatUser({
         ...req.oidc.user,
         ...dbUser,

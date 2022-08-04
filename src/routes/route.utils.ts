@@ -5,5 +5,5 @@ export function courseOgBannerImage(slug: string): string {
 }
 
 export function courseOgBadgeImage(slug: string): string {
-    return CDN_URL ? `${CDN_URL}/img/courses/badges/${slug}.png` : `${BASE_URL}/courses/${slug}/badge/`
+    return CDN_URL ? `${CDN_URL}/img/courses/badges/${slug}.svg` : `${BASE_URL}/courses/${slug}/badge/`
 }
