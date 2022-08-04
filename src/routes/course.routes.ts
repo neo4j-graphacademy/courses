@@ -35,8 +35,11 @@ import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { translate } from '../modules/localisation'
 import { User } from '../domain/model/user'
+import { courseOgBannerImage } from './route.utils'
 
 const router = Router()
+
+
 
 /**
  * Course Breadcrumbs
@@ -121,7 +124,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
 
             ogDescription: course.caption,
             ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
-            ogImage: `${course.link}banner/`,
+            ogImage: courseOgBannerImage(course.slug),
 
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),

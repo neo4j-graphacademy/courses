@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { BASE_URL, CDN_URL } from "../constants";
 import { forceTrailingSlash } from "../middleware/trailing-slash.middleware";
 import { loadFile } from "../modules/asciidoc";
 
@@ -22,6 +23,7 @@ router.get(`/certification`, forceTrailingSlash, (req, res, next) => {
             levelOverline: file.getAttribute('level-overline'),
             courses: false,
             classes: 'certification',
+            ogImage: CDN_URL ?  `${CDN_URL}/img/categories/banners/certification.png` : `${BASE_URL}/img/og/og-categories.png`
         })
     }
     catch (e) {

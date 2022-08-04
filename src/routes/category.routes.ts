@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
-import { BASE_URL, PUBLIC_DIRECTORY } from '../constants'
+import { BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
 import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
@@ -67,7 +67,7 @@ router.get('/', async (req, res, next) => {
             },
 
             ogDescription: 'Hands-on training. No installation required.',
-            ogImage: `/img/og/og-categories.png`,
+            ogImage: `${CDN_URL}/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',
         })
     }
@@ -80,7 +80,7 @@ router.get('/banner', (req: Request, res: Response) => {
     const filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`)
 
     res.header('Content-Type', 'image/png')
-
+ 
     res.sendFile(filePath)
 })
 
@@ -109,6 +109,9 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             text: category.title,
         })
 
+        console.log(CDN_URL, CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`);
+        
+
         res.render('course/list', {
             title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
             canonical: `${BASE_URL}/categories/${slug}/`,
@@ -125,7 +128,7 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
 
             ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free Neo4j ${category.title} Courses from GraphAcademy`,
             ogDescription: category.caption || 'Hands-on training. No installation required.',
-            ogImage: `/categories/${slug}/banner`
+            ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`
         })
     }
     catch (e) {

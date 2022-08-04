@@ -6,6 +6,7 @@ import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { getUserName } from '../utils'
+import { courseOgBannerImage } from './route.utils'
 
 const router = Router()
 
@@ -128,7 +129,7 @@ router.get('/:id/:course', async (req, res, next) => {
             ogDescription = `${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
 
-        const ogImage = `${course.link}banner/`
+        const ogImage = courseOgBannerImage(course.slug)
 
         // Year and month for LinkedIn
         const year = course.completedAt ? course.completedAt.getFullYear() : null
