@@ -1,0 +1,85 @@
+= Transforming String Properties to Dates
+:type: quiz
+
+[.video]
+video::DWJPG_FUEeI[youtube,width=560,height=315]
+
+[.transcript]
+== Moving toward the data model
+
+Our data model contains some properties that should be stored as dates.
+
+image::images/movie-data-model.png[Movie data model,width=600,align=center]
+
+We must transform these _Person_ properties to match the types in the graph data model:
+
+* born: date (store in graph as Date)
+* died: date
+
+As part of the process of ensuring the CSV data is "clean", you must ensure that values for fields that will be transformed match the type of data they are being transformed to, otherwise you will raise errors during the transformation.
+
+=== Converting to Date values
+
+To convert a string to a date value, we use `date(property)`.
+One caveat of the `date()` function is that it does not work for empty strings or strings that do not have the correct format.
+For example "abc" is not a correct string format for a date.
+You can learn more about date formats in the https://neo4j.com/docs/cypher-manual/current/syntax/temporal/[Cypher Manual^].
+
+A correct format for a date string could be "yyyy-mm-dd".
+Since both the _born_ and _died_ properties could contain empty strings (""), we use the following code to transform these properties correctly.
+
+[source,Cypher,role=nocopy noplay]
+----
+MATCH (p:Person)
+SET p.born = CASE p.born WHEN "" THEN null ELSE date(p.born) END
+WITH p
+SET p.died = CASE p.died WHEN "" THEN null ELSE date(p.died) END
+----
+
+We test whether the value of the property is an empty string. If it is, we remove it (set it to null).
+Otherwise, we transform the string to a date.
+
+=== Confirming types in the graph
+
+Neo4j Browser returns date properties as strings and it is sometimes hard to determine what the type stored in the graph is.
+
+For example, here we return the _born_ property of five _Person_ nodes.
+
+image::images/return-new-born-property.png[Born property,width=600,align=center]
+
+In Neo4j Browser, the _born_ property appears like a string, but it is not a string.
+We can actually extract the year from the property because it is a date:
+
+image::images/return-year-of-born-property.png[Born property year,width=600,align=center]
+
+As you move closer to the data model, you may want to confirm that the properties in the graph represent the types in the data model.
+
+You can use this Cypher code to show the stored type for the node properties in the graph:
+
+[source,Cypher,role=nocopy noplay]
+----
+CALL apoc.meta.nodeTypeProperties()
+----
+
+image::images/return-node-types.png[Meta types of node properties,width=600,align=center]
+
+Here we see that our properties have been properly transformed to Long, Double, Date types in the graph.
+
+And you can do the same type of investigation of types for relationship properties:
+
+[source,Cypher,role=nocopy noplay]
+----
+CALL apoc.meta.relTypeProperties()
+----
+
+image::images/return-rel-types.png[Meta types of relationship properties,width=600,align=center]
+
+== Check your understanding
+
+include::questions/2-string-to-date.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about some of transformations you need to do to load CSV data into your graph where the data types match the graph data model.
+In the next challenge, you practice transforming data the data that you previously imported from  CSV files.
