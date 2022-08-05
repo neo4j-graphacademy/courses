@@ -6,23 +6,35 @@ This repository holds the course curriculum for link:https://graphacademy.neo4j.
 
 == Starting the Server 
 
-This repository uses link:https://docs.docker.com/compose/install/[`docker-compose`] to create a local server using the latest production build of the GraphAcademy website (link:https://github.com/neo4j-labs/graphacademy-next[repo here^]).
+This repository uses link:https://docs.docker.com/compose/install/[`docker-compose`] to create a local server using the latest production build of the GraphAcademy website (link:https://github.com/neo4j-labs/graphacademy-next[repo here^]).  The docker image is stored on AWS ECR, so you will need credentials - talk to mailto:adam@neo4j.com[Adam].
 
 
-Run the following command: 
+1. Install the link:https://aws.amazon.com/cli/[AWS CLI^]
+2. Add your credentials to the `~/.aws/credentials` file. 
 
-.Start Local Preview Server
-[source,sh]
-----
-docker-compose up
-----
+   aws_access_key_id = XXX
+   aws_secret_access_key = XXX
 
-The local server will be available at http://localhost:13000.
+   a. If you already have credentials in this file, you can add a new profile by adding a header above credentials.  For example `[ga]`.
 
-A Neo4j instance will also be available on http://localhost:17474.
+    [ga]
+    aws_access_key_id = XXX
+    aws_secret_access_key = XXX+8Yk4bLQQCKOdBME1i7e
 
 
-== Contributing
+3. Log in to docker using the credentials above:
+
+    aws ecr get-login-password --region us-east-1 | docker login -u AWS --password-stdin 715633473519.dkr.ecr.us-east-1.amazonaws.com
+
+
+4. Run `docker-compose up` to start a new Neo4j instance and the GraphAcademy server. +
+  * The local server will be available at http://localhost:13000. +
+  * A Neo4j instance will also be available on http://localhost:17474.
+
+
+
+
+== File Structure
 
 All content lives in the `asciidoc/` directory.  As you modify the content, a process will sync the content
 
@@ -43,3 +55,44 @@ All content lives in the `asciidoc/` directory.  As you modify the content, a pr
 === Multi-language Support 
 
 * Coming soon
+
+
+== Contributing
+
+To create a new course or modify an existing course, please create a new branch and make your changes.
+Once you have finished, create a new PR and add `adam-cowley` as a reviewer.
+
+  git checkout -b new-course
+  mkdir asciidoc/courses/new-course/
+  echo "= New Course\n:status: draft" > asciidoc/courses/new-course/course.adoc
+
+  git add asciidoc/courses/new-course/
+  git commit -m "Added new course"
+  git push --set-upstream origin new-course
+
+Before creating the PR, please rebase your branch on the main branch.
+
+  git fetch origin main
+  git rebase main 
+
+
+
+== Deploying Changes
+
+When a new application server is created, the latest tagged version of this repository is downloaded by the server.
+
+You can use the `npm version` command to create a new tag.
+
+  npm version patch
+  git push --tags origin main
+
+
+* `npm version patch` - To be used when minor fixes are made to an existing course
+* `npm version minor` - To be used when a new course is released
+* `npm version major` - To be used when a major change is made to the repository - for example, multiple course changes, or addition of a new category
+
+
+If you have correct privileges, you can restart the cluster by running the following command:
+
+  kubectl rollout restart deployment/graphacademy -n graphacademy-prod
+
