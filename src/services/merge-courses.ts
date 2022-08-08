@@ -430,10 +430,12 @@ export async function mergeCourses(): Promise<void> {
                 WITH c, collect(m) AS modules
 
                 WITH c, modules, modules[0] AS first, modules[-1] AS last
-                CALL apoc.nodes.link(modules, 'NEXT_MODULE')
-
                 MERGE (c)-[:FIRST_MODULE]->(first)
                 MERGE (c)-[:LAST_MODULE]->(last)
+
+                UNWIND range(0, size(modules)-2) AS idx
+                WITH modules[idx] AS last, modules[idx+1] AS next
+                MERGE (last)-[:NEXT_MODULE]->(next)
             `, { batch })
         }
     })
