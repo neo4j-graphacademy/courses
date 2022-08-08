@@ -433,6 +433,7 @@ export async function mergeCourses(): Promise<void> {
                 MERGE (c)-[:FIRST_MODULE]->(first)
                 MERGE (c)-[:LAST_MODULE]->(last)
 
+                WITH modules
                 UNWIND range(0, size(modules)-2) AS idx
                 WITH modules[idx] AS last, modules[idx+1] AS next
                 MERGE (last)-[:NEXT_MODULE]->(next)
