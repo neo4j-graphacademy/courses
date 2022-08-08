@@ -16,7 +16,7 @@ const router = Router()
 /**
  * Course Breadcrumbs
  */
- router.use((req, res, next) => {
+router.use((req, res, next) => {
     res.locals.breadcrumbs = [
         {
             link: '/',
@@ -80,7 +80,7 @@ router.get('/banner', (req: Request, res: Response) => {
     const filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-categories.png`)
 
     res.header('Content-Type', 'image/png')
- 
+
     res.sendFile(filePath)
 })
 
@@ -108,9 +108,6 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             link: `/categories/${category.slug}/`,
             text: category.title,
         })
-
-        console.log(CDN_URL, CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`);
-        
 
         res.render('course/list', {
             title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
@@ -140,9 +137,9 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
 router.get('/:slug/banner', (req: Request, res: Response, next: NextFunction) => {
     try {
         // TODO: Caching, save to S3
-        const filePath =  categoryBannerPath({ slug: req.params.slug } as Category<any>)
+        const filePath = categoryBannerPath({ slug: req.params.slug } as Category<any>)
 
-        if ( ! fs.existsSync(filePath) ) {
+        if (!fs.existsSync(filePath)) {
             return next(new NotFoundError(`Banner not found for ${req.params.slug}`))
         }
 

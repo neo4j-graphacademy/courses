@@ -48,7 +48,7 @@ export function moduleCypher(enrolment?: string, module = 'm', lesson = 'l'): st
                     ][0],
                     ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_MODULE]->(${module})),` : ''}
                     lessons: apoc.coll.sortMaps([ (${module})-[:HAS_LESSON]->(${lesson}) |
-                        ${lessonCypher(lesson)}
+                        ${lessonCypher(enrolment, lesson)}
                     ], '^order')
                 }
     `

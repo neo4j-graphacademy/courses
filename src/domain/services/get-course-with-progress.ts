@@ -12,9 +12,9 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
         ${user ? 'OPTIONAL MATCH (u:User {sub: $sub}) OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
 
         RETURN ${courseCypher(user ? 'e' : undefined, user ? 'u' : undefined)} AS course
-    `, appendParams({ slug, sub: user?.sub}))
+    `, appendParams({ slug, sub: user?.sub }))
 
-    if ( res.records.length === 0 ) {
+    if (res.records.length === 0) {
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
@@ -26,7 +26,7 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
             course.sandbox = await getSandboxForUseCase(token, user, course.usecase)
         }
     }
-    catch(e) {
+    catch (e) {
         // Should be fine
     }
 
