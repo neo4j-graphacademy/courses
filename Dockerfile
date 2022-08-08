@@ -3,15 +3,13 @@ WORKDIR /app
 
 RUN apk add jq curl
 
-# Build site including dev dependencies
-ENV NODE_ENV production
 COPY . /app/
 
+# Build site including dev dependencies
+ENV NODE_ENV production
 RUN npm install --include=dev
 
 RUN npm run build
-
-ENV NODE_ENV production
 
 # Reinstall only production dependencies
 RUN npm install
