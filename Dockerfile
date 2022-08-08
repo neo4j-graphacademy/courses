@@ -4,7 +4,7 @@ WORKDIR /app
 RUN apk add jq curl
 
 # Build site including dev dependencies
-ARG GITHUB_OAUTH_TOKEN
+ENV NODE_ENV production
 COPY . /app/
 
 RUN npm install --include=dev
