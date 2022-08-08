@@ -19,7 +19,7 @@ import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
 import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig } from '../utils'
 import { Pagination } from '../domain/model/pagination'
-import { notify } from '../middleware/bugsnag.middleware'
+import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
@@ -90,7 +90,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         }
 
         // Emit user viewed course
-        if ( user ) {
+        if (user) {
             emitter.emit(new UserViewedCourse(user, course))
         }
 
@@ -265,7 +265,7 @@ router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompl
 
         let goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
-        if ( enrolment.course.classmarkerReference ) {
+        if (enrolment.course.classmarkerReference) {
             goTo = `https://www.classmarker.com/online-test/start/?quiz=${enrolment.course.classmarkerReference}&cm_fn=${user.givenName}&cm_user_id=${user.sub}&cm_e=${user.email}`
         }
 
@@ -415,23 +415,8 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         })
     }
     catch (e: any) {
-        if ( !e.isSandboxError ) {
-            notify(e, event => {
-                event.setUser(user?.sub, user?.email, user?.name)
-
-                event.addMetadata('request', {
-                    data: e.request.data,
-                    headers: e.request.headers,
-                    status: e.request.status,
-                    statusText: e.request.statusText,
-                })
-                event.addMetadata('response', {
-                    data: e.response.data,
-                    headers: e.response.headers,
-                    status: e.response.status,
-                    statusText: e.response.statusText,
-                })
-            })
+        if (!e.isSandboxError) {
+            notifyPossibleRequestError(e, user)
         }
         // 400/401 on sandbox API - redirect to login
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
@@ -601,29 +586,14 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         // Add sandbox attributes to Page Attributes?
         let sandbox: Sandbox | undefined
 
-        if ( course.usecase && user && course.completed === false ) {
+        if (course.usecase && user && course.completed === false) {
             try {
                 sandbox = await createAndSaveSandbox(token, user, course)
             }
-            catch(e: any) {
+            catch (e: any) {
                 // Silent error, already reported in sandbox module
-                if ( !e.isSandboxError ) {
-                    notify(e, event => {
-                        event.setUser(user?.sub, user?.email, user?.name)
-
-                        event.addMetadata('request', {
-                            data: e.request.data,
-                            headers: e.request.headers,
-                            status: e.request.status,
-                            statusText: e.request.statusText,
-                        })
-                        event.addMetadata('response', {
-                            data: e.response.data,
-                            headers: e.response.headers,
-                            status: e.response.status,
-                            statusText: e.response.statusText,
-                        })
-                    })
+                if (!e.isSandboxError) {
+                    notifyPossibleRequestError(e, user)
                 }
             }
         }
@@ -631,7 +601,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         // Build Attributes for adoc
         const attributes = {
             ...await getPageAttributes(req, course),
-            ...flattenAttributes({sandbox: sandbox || {}}),
+            ...flattenAttributes({ sandbox: sandbox || {} }),
         }
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
@@ -662,7 +632,7 @@ router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, cla
         emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
 
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson.completed  ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
             analytics: {
                 course: {
                     slug: course.slug,
@@ -767,7 +737,7 @@ router.use('/:course/:module/:lesson/:filename.cypher', (req, res, next) => {
     const { course, module, lesson, filename } = req.params
     const filepath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${filename}.cypher`)
 
-    if ( existsSync(filepath) ) {
+    if (existsSync(filepath)) {
         const contents = readFileSync(filepath)
 
         const output = contents.toString()
