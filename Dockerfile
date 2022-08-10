@@ -3,14 +3,20 @@ WORKDIR /app
 
 RUN apk add jq curl
 
-ENV NODE_ENV production
+# Build site including dev dependencies
 ARG GITHUB_OAUTH_TOKEN
 COPY . /app/
 
-RUN chmod +x /app/start
+RUN npm install --include=dev
 
-RUN npm install
 RUN npm run build
+
+ENV NODE_ENV production
+
+# Reinstall only production dependencies
+RUN npm install
+
+RUN chmod +x /app/start
 
 EXPOSE 3000
 CMD ["/app/start"]
