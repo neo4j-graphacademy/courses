@@ -1,17 +1,24 @@
 import path from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants';
-import { Course, CoursesByStatus, CourseStatusInformationWithCourses, CourseWithProgress, STATUS_COMPLETED, STATUS_PRIORITIES } from "../domain/model/course";
-import { User } from '../domain/model/user';
-import { Lesson, LessonWithProgress } from '../domain/model/lesson';
-import { Module, ModuleWithProgress } from '../domain/model/module';
-import { Category } from '../domain/model/category';
-import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc';
-import { getToken, getUser } from '../middleware/auth.middleware';
-import { getSandboxForUseCase } from '../modules/sandbox';
-import { isInt } from 'neo4j-driver';
-import { courseOgBadgeImage } from '../routes/route.utils';
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
+import {
+    Course,
+    CoursesByStatus,
+    CourseStatusInformationWithCourses,
+    CourseWithProgress,
+    STATUS_COMPLETED,
+    STATUS_PRIORITIES,
+} from '../domain/model/course'
+import { User } from '../domain/model/user'
+import { Lesson, LessonWithProgress } from '../domain/model/lesson'
+import { Module, ModuleWithProgress } from '../domain/model/module'
+import { Category } from '../domain/model/category'
+import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc'
+import { getToken, getUser } from '../middleware/auth.middleware'
+import { getSandboxForUseCase } from '../modules/sandbox'
+import { isInt } from 'neo4j-driver'
+import { courseOgBadgeImage } from '../routes/route.utils'
 
 export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -28,12 +35,25 @@ export async function getBadge<T extends Course>(course: T): Promise<string | un
     })
 }
 
-
 type CypherFile = 'verify' | 'reset' | 'sandbox'
 
-export function getLessonCypherFile(course: string, module: string, lesson: string, file: CypherFile): Promise<string | undefined> {
+export function getLessonCypherFile(
+    course: string,
+    module: string,
+    lesson: string,
+    file: CypherFile
+): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
-        const filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${file}.cypher`)
+        const filePath = path.join(
+            ASCIIDOC_DIRECTORY,
+            'courses',
+            course,
+            'modules',
+            module,
+            'lessons',
+            lesson,
+            `${file}.cypher`
+        )
 
         if (!fs.existsSync(filePath)) {
             return resolve(undefined)
@@ -49,8 +69,11 @@ export function getLessonCypherFile(course: string, module: string, lesson: stri
     })
 }
 
-
-export async function formatLesson(course: string, module: string, lesson: Lesson | LessonWithProgress): Promise<Lesson | LessonWithProgress> {
+export async function formatLesson(
+    course: string,
+    module: string,
+    lesson: Lesson | LessonWithProgress
+): Promise<Lesson | LessonWithProgress> {
     const cypher = await getLessonCypherFile(course, module, lesson.slug, 'sandbox')
 
     return {
@@ -59,9 +82,13 @@ export async function formatLesson(course: string, module: string, lesson: Lesso
     }
 }
 
-
-export async function formatModule(course: string, module: Module | ModuleWithProgress): Promise<Module | ModuleWithProgress> {
-    const lessons = await Promise.all((module.lessons || []).map((lesson: Lesson | LessonWithProgress) => formatLesson(course, module.slug, lesson)))
+export async function formatModule(
+    course: string,
+    module: Module | ModuleWithProgress
+): Promise<Module | ModuleWithProgress> {
+    const lessons = await Promise.all(
+        (module.lessons || []).map((lesson: Lesson | LessonWithProgress) => formatLesson(course, module.slug, lesson))
+    )
 
     return {
         ...module,
@@ -70,13 +97,17 @@ export async function formatModule(course: string, module: Module | ModuleWithPr
 }
 
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
-    const modules = await Promise.all(course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)))
+    const modules = await Promise.all(
+        course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module))
+    )
     const badge = await getBadge(course)
 
     const createdAt = course.createdAt ? new Date((course.createdAt as string).toString()) : undefined
     const completedAt = course.completedAt ? new Date((course.completedAt as string).toString()) : undefined
     const lastSeenAt = course.lastSeenAt ? new Date((course.lastSeenAt as string).toString()) : undefined
-    const certificateNumber = isInt(course.certificateNumber) ? course.certificateNumber.toNumber() : course.certificateNumber
+    const certificateNumber = isInt(course.certificateNumber)
+        ? course.certificateNumber.toNumber()
+        : course.certificateNumber
 
     return {
         ...course,
@@ -112,17 +143,20 @@ export function formatUser(user: User): User {
 }
 
 interface SandboxConfig {
-    showSandbox: boolean;
-    sandboxVisible: boolean;
-    sandboxUrl: string | undefined;
+    showSandbox: boolean
+    sandboxVisible: boolean
+    sandboxUrl: string | undefined
 }
 
-export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: Lesson | LessonWithProgress): Promise<SandboxConfig> {
+export function getSandboxConfig(
+    course: Course | CourseWithProgress,
+    lesson?: Lesson | LessonWithProgress
+): Promise<SandboxConfig> {
     let showSandbox = false
     let sandboxVisible = typeof lesson?.sandbox === 'string'
 
     // If usecase is set and it is not null, show sandbox
-    if ( (course.usecase !== undefined && course.usecase !== null) ) {
+    if (course.usecase !== undefined && course.usecase !== null) {
         showSandbox = true
     }
     // If :sandbox: is set to 'true' in lesson.adoc (eg. set and not false)
@@ -143,7 +177,7 @@ export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: L
     }
 
     // If course has already been completed, hide the sandbox completely
-    if ( (course as CourseWithProgress)?.completed === true ) {
+    if ((course as CourseWithProgress)?.completed === true) {
         showSandbox = false
         sandboxVisible = false
     }
@@ -157,24 +191,26 @@ export function getSandboxConfig(course: Course | CourseWithProgress, lesson?: L
 
 export function getSvgs(): Record<string, string> {
     const svgFolder = path.join(__dirname, '..', '..', 'resources', 'svg')
-    const svg = Object.fromEntries(fs.readdirSync(svgFolder)
-        .filter(file => file.endsWith('.svg'))
-        .map(file => [file.replace('.svg', ''), fs.readFileSync(path.join(svgFolder, file)).toString()])
+    const svg = Object.fromEntries(
+        fs
+            .readdirSync(svgFolder)
+            .filter((file) => file.endsWith('.svg'))
+            .map((file) => [file.replace('.svg', ''), fs.readFileSync(path.join(svgFolder, file)).toString()])
     )
 
     return svg
 }
 
-export function flattenAttributes(elements: Record<string, Record<string, any>>): Record<string, any> {
-    const output: Record<string, any> = {}
+export function flattenAttributes(elements: Record<string, any>, rootKey?: string): Record<string, any> {
+    let output: Record<string, any> = {}
 
     for (const key in elements) {
-        if (key in elements) {
-            for (const inner in elements[key]) {
-                if (inner in elements[key]) {
-                    output[`${key}_${inner}`] = elements[key][inner].toString()
-                }
-            }
+        const outputKey = rootKey ? `${rootKey}_${key}` : key
+
+        if (typeof elements[key] === 'object') {
+            output = Object.assign({}, output, flattenAttributes(elements[key] as Record<string, any>, outputKey))
+        } else {
+            output[outputKey] = elements[key]?.toString()
         }
     }
 
@@ -183,58 +219,62 @@ export function flattenAttributes(elements: Record<string, Record<string, any>>)
 
 export function flattenCategories<T extends Course>(categories: Category<T>[]): Category<T>[] {
     return categories.reduce((acc: Category<T>[], item: Category<T>): Category<T>[] => {
-        const output: Category<T>[] = [item].concat(...flattenCategories(item.children || []) || [])
+        const output: Category<T>[] = [item].concat(...(flattenCategories(item.children || []) || []))
 
         return acc.concat(...output)
     }, [])
 }
 
-
 export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesByStatus {
-    const statuses: CourseStatusInformationWithCourses[] = courses.reduce((acc: CourseStatusInformationWithCourses[], current: CourseWithProgress) => {
-        const statusSlug = current.completed ? STATUS_COMPLETED : current.status
+    const statuses: CourseStatusInformationWithCourses[] = courses.reduce(
+        (acc: CourseStatusInformationWithCourses[], current: CourseWithProgress) => {
+            const statusSlug = current.completed ? STATUS_COMPLETED : current.status
 
-        // Find current item in array
-        const index = acc.findIndex((item) => item.slug === statusSlug)
+            // Find current item in array
+            const index = acc.findIndex((item) => item.slug === statusSlug)
 
-        // Either extract or create a new one
-        const existing: CourseStatusInformationWithCourses = index > -1 ? acc.splice(index, 1)[0] : { ...getStatusDetails(statusSlug), courses: [] }
+            // Either extract or create a new one
+            const existing: CourseStatusInformationWithCourses =
+                index > -1 ? acc.splice(index, 1)[0] : { ...getStatusDetails(statusSlug), courses: [] }
 
-        // console.log(statusSlug, index, existing);
+            // console.log(statusSlug, index, existing);
 
-        // Add the course
-        existing.courses.push(current)
+            // Add the course
+            existing.courses.push(current)
 
-        // Append to array
-        return acc.concat(existing)
-    }, [] as CourseStatusInformationWithCourses[])
+            // Append to array
+            return acc.concat(existing)
+        },
+        [] as CourseStatusInformationWithCourses[]
+    )
 
     // Sort by order
     statuses.sort((a, b) => a.order - b.order)
 
     // Return as { [key: CourseStatus] : value }
     const output: CoursesByStatus = Object.fromEntries(
-        statuses.map(status => [ status.slug, status ])
+        statuses.map((status) => [status.slug, status])
     ) as CoursesByStatus
 
     return output
 }
 
 export function dd(el: any): void {
-    console.log(JSON.stringify(el, null, 2));
+    console.log(JSON.stringify(el, null, 2))
 }
 
 export const courseBannerPath = (course: Course) => path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'banner.png')
-export const categoryBannerPath = (category: Category<any>) => path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
+export const categoryBannerPath = (category: Category<any>) =>
+    path.join(PUBLIC_DIRECTORY, 'img', 'og', `_${category.slug}.png`)
 
 /**
  * Simple object check.
- * 
+ *
  * @param item
  * @returns {boolean}
  */
 export function isObject(item: any): boolean {
-    return (item !== undefined && typeof item === 'object' && !Array.isArray(item))
+    return item !== undefined && typeof item === 'object' && !Array.isArray(item)
 }
 
 /**
@@ -247,41 +287,39 @@ export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<s
     const output = Object.assign({}, target)
 
     while (sources.length) {
-        const source = sources.shift();
+        const source = sources.shift()
 
-        for ( const key in source ) {
-            if ( !output.hasOwnProperty(key) ) {
-                Object.assign(output, { [key]: source[key] });
-            }
-            else {
-                Object.assign(output[key], source[ key ])
+        for (const key in source) {
+            if (!output.hasOwnProperty(key)) {
+                Object.assign(output, { [key]: source[key] })
+            } else {
+                Object.assign(output[key], source[key])
             }
         }
     }
 
-    return output;
+    return output
 }
 
 export function toCamelCase(input: string): string {
     const parts = input.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g) || []
 
     return parts
-            .map(x => x.toLowerCase())
-            .map((x, index) => index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1))
-            .join('')
+        .map((x) => x.toLowerCase())
+        .map((x, index) => (index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1)))
+        .join('')
 }
-
 
 export function sortCourses(courses: Course[]) {
     courses.sort((a: Course, b: Course) => {
-        if ( a.status !== b.status ) {
+        if (a.status !== b.status) {
             const aPriority = STATUS_PRIORITIES.indexOf(a.status)
             const bPriority = STATUS_PRIORITIES.indexOf(b.status)
 
             return aPriority - bPriority
         }
 
-        if ( a.order && b.order ) {
+        if (a.order && b.order) {
             return parseInt(a.order as string) < parseInt(b.order as string) ? -1 : 1
         }
 
@@ -303,7 +341,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     const attributes: Record<string, any> = {
         name: user?.nickname,
         'cdn-url': CDN_URL || '',
-        'shared': path.join(ASCIIDOC_DIRECTORY, 'shared'),
+        shared: path.join(ASCIIDOC_DIRECTORY, 'shared'),
     }
 
     if (req && user && course.usecase) {
@@ -312,22 +350,21 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
 
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
-        attributes['sandbox-username'] = sandboxConfig?.username;
-        attributes['sandbox-password'] = sandboxConfig?.password;
+        attributes['sandbox-username'] = sandboxConfig?.username
+        attributes['sandbox-password'] = sandboxConfig?.password
     }
 
     // Course repository attributes
-    for ( const [ key, value ] of Object.entries(course) ) {
-        if ( key.endsWith('repository') ) {
-            attributes[ key ] = value
-            attributes[ `${key}-raw` ] = `https://raw.githubusercontent.com/${value}`
-            attributes[ `${key}-blob` ] = `https://github.com/${value}/blob`
+    for (const [key, value] of Object.entries(course)) {
+        if (key.endsWith('repository')) {
+            attributes[key] = value
+            attributes[`${key}-raw`] = `https://raw.githubusercontent.com/${value}`
+            attributes[`${key}-blob`] = `https://github.com/${value}/blob`
         }
     }
 
     return attributes
 }
-
 
 let countries: Record<string, any>
 

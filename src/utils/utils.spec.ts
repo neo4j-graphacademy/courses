@@ -1,5 +1,5 @@
-import { mergeDeep, sortCourses, toCamelCase } from "."
-import { Course } from "../domain/model/course"
+import { flattenAttributes, mergeDeep, sortCourses, toCamelCase } from '.'
+import { Course } from '../domain/model/course'
 
 /* global describe, it */
 describe('utils', () => {
@@ -7,14 +7,14 @@ describe('utils', () => {
         it('should deep merge objects', () => {
             const first = {
                 a: 1,
-                b: { c: 2, e: 5}
+                b: { c: 2, e: 5 },
             }
 
             const second = {
                 b: {
                     c: 3,
                     d: 4,
-                }
+                },
             }
 
             const output = mergeDeep(first, second)
@@ -24,8 +24,8 @@ describe('utils', () => {
                 b: {
                     c: 3,
                     d: 4,
-                    e: 5
-                }
+                    e: 5,
+                },
             })
         })
 
@@ -42,12 +42,12 @@ describe('utils', () => {
 
             const extended = {
                 attributes: {
-                    course_title: 'COURSE_TITLE'
-                }
+                    course_title: 'COURSE_TITLE',
+                },
             }
 
             const other = {
-                to_file: true
+                to_file: true,
             }
 
             const output = mergeDeep(baseOptions, extended, other)
@@ -58,7 +58,7 @@ describe('utils', () => {
                 template_dir: 'TEMPLATE_DIR',
                 attributes: {
                     shared: 'SHARED_PATH',
-                    course_title: 'COURSE_TITLE'
+                    course_title: 'COURSE_TITLE',
                 },
                 to_file: true,
             }
@@ -85,7 +85,6 @@ describe('utils', () => {
 
             expect(output).toEqual(expected)
         })
-
     })
 
     describe('sortCourses', () => {
@@ -97,14 +96,38 @@ describe('utils', () => {
                 { title: 'Draft 1', status: 'draft', order: 1 },
             ]
 
-            const expected = [ 'Active 1', 'Active 2', 'Draft 1', 'Draft 2' ]
+            const expected = ['Active 1', 'Active 2', 'Draft 1', 'Draft 2']
 
             sortCourses(courses as Course[])
 
             // Check Order
-            const titles = courses.map(course => course.title)
+            const titles = courses.map((course) => course.title)
             expect(titles).toEqual(expected)
         })
     })
 
+    describe('flattenAttributes', () => {
+        it('should flatten a nested object', () => {
+            const input = {
+                user: {
+                    name: 'Test',
+                    location: {
+                        name: 'London',
+                    },
+                    age: 20,
+                },
+                token: 'string',
+            }
+            const expected = {
+                user_name: 'Test',
+                user_location_name: 'London',
+                user_age: '20',
+                token: 'string',
+            }
+
+            const output = flattenAttributes(input)
+
+            expect(output).toEqual(expected)
+        })
+    })
 })

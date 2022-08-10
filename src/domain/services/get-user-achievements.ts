@@ -1,22 +1,23 @@
-import NotFoundError from "../../errors/not-found.error";
-import { read } from "../../modules/neo4j";
-import { formatCourse } from "../../utils";
-import { CourseWithProgress } from "../model/course";
-import { CategoryEnrolments } from "../model/enrolment";
-import { User } from "../model/user";
-import { appendParams, courseCypher } from "./cypher";
+import NotFoundError from '../../errors/not-found.error'
+import { read } from '../../modules/neo4j'
+import { formatCourse } from '../../utils'
+import { CourseWithProgress, STATUS_DRAFT } from '../model/course'
+import { CategoryEnrolments } from '../model/enrolment'
+import { User } from '../model/user'
+import { appendParams, courseCypher } from './cypher'
 
 interface Achievements {
-    user: User;
-    categories: CategoryEnrolments[];
+    user: User
+    categories: CategoryEnrolments[]
 }
 
 export async function getUserAchievements(id: string): Promise<Achievements> {
-    const res = await read(`
+    const res = await read(
+        `
         MATCH (u:User {id: $id})
 
         MATCH (c:Course)
-        WHERE NOT c.status IN $exclude
+        WHERE NOT c.status IN $exclude + $STATUS_DRAFT
 
         OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
@@ -32,9 +33,11 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         WITH user, collect({category: category, courses: courses}) AS categories
 
         RETURN user, [ cat in categories where any(c in cat.courses where c.completed = true) ] AS categories
-    `, appendParams({ id }))
+    `,
+        appendParams({ id, STATUS_DRAFT })
+    )
 
-    if ( res.records.length === 0 ) {
+    if (res.records.length === 0) {
         throw new NotFoundError(`User with id ${id} not found`)
     }
 
@@ -42,17 +45,24 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
 
     return {
         user,
-        categories: await Promise.all(res.records[0].get('categories').map(async ({ category, courses }: any) => {
-            const formattedCourses = await Promise.all(courses.map((course: CourseWithProgress) => formatCourse(course))) as CourseWithProgress[]
-            const completedCount = courses.reduce((acc: number, course: CourseWithProgress) => course.completed ? acc + 1 : acc, 0)
-            const completedPercentage = Math.round((completedCount / courses.length) * 100)
+        categories: await Promise.all(
+            res.records[0].get('categories').map(async ({ category, courses }: any) => {
+                const formattedCourses = (await Promise.all(
+                    courses.map((course: CourseWithProgress) => formatCourse(course))
+                )) as CourseWithProgress[]
+                const completedCount = courses.reduce(
+                    (acc: number, course: CourseWithProgress) => (course.completed ? acc + 1 : acc),
+                    0
+                )
+                const completedPercentage = Math.round((completedCount / courses.length) * 100)
 
-            return {
-                category,
-                courses: formattedCourses,
-                completedCount,
-                completedPercentage,
-            }
-        }))
+                return {
+                    category,
+                    courses: formattedCourses,
+                    completedCount,
+                    completedPercentage,
+                }
+            })
+        ),
     }
 }
