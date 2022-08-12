@@ -15,7 +15,6 @@ RUN npm run build
 RUN npm install
 
 RUN chmod +x /app/start
-RUN npm run build
 
 EXPOSE 3000
 CMD ["/app/start"]
