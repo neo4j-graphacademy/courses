@@ -11,7 +11,7 @@ import { convertCourseOverview, convertCourseSummary, convertLessonOverview, con
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { ASCIIDOC_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
@@ -169,10 +169,14 @@ router.post('/:course/interested', async (req, res, next) => {
  */
 router.get('/:course/banner', (req, res, next) => {
     try {
-        // TODO: Caching, save to S3
         let filePath = courseBannerPath({ slug: req.params.course } as Course)
 
         if (!existsSync(filePath)) {
+            // Prefer CDN
+            if (CDN_URL) {
+                return res.redirect(`${CDN_URL}/img/og/og-landing.png`)
+            }
+
             filePath = path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-landing.png`)
         }
 
