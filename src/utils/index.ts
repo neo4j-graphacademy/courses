@@ -254,11 +254,7 @@ export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesBySt
 
     // Return as { [key: CourseStatus] : value }
     const output: CoursesByStatus = Object.fromEntries(
-<<<<<<< HEAD
-        statuses.map((status) => [status.slug, status])
-=======
         statuses.map(status => [status.slug, status])
->>>>>>> c8032f81 (Elvis operator on toString)
     ) as CoursesByStatus
 
     return output
@@ -296,14 +292,8 @@ export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<s
 
         for (const key in source) {
             if (!output.hasOwnProperty(key)) {
-<<<<<<< HEAD
                 Object.assign(output, { [key]: source[key] })
             } else {
-=======
-                Object.assign(output, { [key]: source[key] });
-            }
-            else {
->>>>>>> c8032f81 (Elvis operator on toString)
                 Object.assign(output[key], source[key])
             }
         }
@@ -316,13 +306,8 @@ export function toCamelCase(input: string): string {
     const parts = input.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g) || []
 
     return parts
-<<<<<<< HEAD
-        .map((x) => x.toLowerCase())
-        .map((x, index) => (index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1)))
-=======
         .map(x => x.toLowerCase())
         .map((x, index) => index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1))
->>>>>>> c8032f81 (Elvis operator on toString)
         .join('')
 }
 
