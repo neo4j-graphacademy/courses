@@ -29,9 +29,13 @@ console.log(`Loading content from ${ASCIIDOC_DIRECTORY}`);
 initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
     .then(() => mergeCourses())
     .then(() => mergeCategories())
-    .then(() => close())
     .then(() => {
         const end = Date.now()
 
         console.log(`⌚️ Completed in ${end - start}ms`)
     })
+    .catch(e => {
+        console.log(`❌ Error loading courses: ${e.message}`);
+        console.log(e.stack);
+    })
+    .finally(() => close())
