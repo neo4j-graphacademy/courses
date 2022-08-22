@@ -26,21 +26,21 @@ type LessonToImport = Omit<Lesson, 'order'> & { order: string, updatedAt: string
 type ModuleToImport = Omit<Module, 'order'> & { order: string }
 
 const padOrder = (order: string | number): string => {
-    return ('0000'+ order).slice(-4)
+    return ('0000' + order).slice(-4)
 }
 
 const getOrderAttribute = (folder: string, file: Asciidoctor.Document): string => {
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
-    if ( typeof order === 'string' ) {
+    if (typeof order === 'string') {
         order = padOrder(order)
     }
 
     // If order is undefined, use the first part of folder name to order
     // eg: 1-first or 10-tenth
-    if ( order === undefined ) {
+    if (order === undefined) {
         const folderParts = folder.split('/')
-        const folderName = folderParts[ folderParts.length -1 ]
+        const folderName = folderParts[folderParts.length - 1]
 
         const orderParts = folderName.split('-')
         order = padOrder(orderParts[0])
@@ -58,14 +58,14 @@ const getDateAttribute = (file: Asciidoctor.Document, attribute: string): string
 const loadCourses = (): CourseToImport[] => {
     const courseDirectory = path.join(ASCIIDOC_DIRECTORY, 'courses')
 
-    return fs.readdirSync( courseDirectory )
+    return fs.readdirSync(courseDirectory)
         .filter(folder => fs.existsSync(path.join(ASCIIDOC_DIRECTORY, 'courses', folder, 'course.adoc')))
-        .map(slug => loadCourse( path.join('courses', slug) ))
+        .map(slug => loadCourse(path.join('courses', slug)))
 }
 
 const loadCourse = (courseFolder: string): CourseToImport => {
     const slug = courseFolder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(courseFolder, 'course.adoc'), {parse_header_only: true})
+    const file = loadFile(path.join(courseFolder, 'course.adoc'), { parse_header_only: true })
 
     const moduleDir = path.join(ASCIIDOC_DIRECTORY, courseFolder, 'modules')
     const modules = fs.existsSync(moduleDir)
@@ -135,7 +135,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
 
 const loadModule = (folder: string): ModuleToImport => {
     const slug = folder.split('/').filter(a => !!a).pop() as string
-    const file = loadFile(path.join(folder, 'module.adoc'), {parse_header_only: true})
+    const file = loadFile(path.join(folder, 'module.adoc'), { parse_header_only: true })
 
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
 
@@ -164,11 +164,11 @@ const loadModule = (folder: string): ModuleToImport => {
 
 const loadLesson = (folder: string): LessonToImport => {
     const slug = folder.split('/').filter(a => !!a).pop()! as string
-    const file = loadFile(path.join(folder, 'lesson.adoc'), {parse_header_only: true})
+    const file = loadFile(path.join(folder, 'lesson.adoc'), { parse_header_only: true })
 
     // Load questions and answers into database
     const questionsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'questions')
-    const questions = fs.existsSync( questionsDir ) ?
+    const questions = fs.existsSync(questionsDir) ?
         fs.readdirSync(questionsDir)
             .filter(filename => filename.endsWith('.adoc'))
             .map(filename => loadQuestion(path.join(folder, 'questions', filename)))
@@ -194,20 +194,26 @@ const loadLesson = (folder: string): LessonToImport => {
 }
 
 const generateQuestionId = (title: string): string => {
-    return '_'+ title.replace(/(<([^>]+)>)/gi, "")
+    return '_' + title.replace(/(<([^>]+)>)/gi, "")
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/_+$/g, '')
 }
 
 const loadQuestion = (filepath: string): Question => {
-    const file = loadFile(filepath, {parse_header_only: true})
-    const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
+    const file = loadFile(filepath, { parse_header_only: true })
 
-    return {
-        id,
-        text: file.getTitle(),
-    } as Question
+    try {
+        const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
+
+        return {
+            id,
+            text: file.getTitle(),
+        } as Question
+    }
+    catch (e) {
+        throw new Error(`Could not generate question id for ${filepath}.\n\nID: ${file.getAttribute('id')}\nTitle: ${file.getTitle()}`)
+    }
 }
 
 
@@ -342,7 +348,7 @@ const checkSchema = (session: Session) => session.readTransaction(async tx => {
         RETURN *
     `)
 
-    if ( next.records.length > 1 ) {
+    if (next.records.length > 1) {
         throw new Error(`Too many next links: \n ${JSON.stringify(next.records.map(row => row.toObject()), null, 2)}`)
     }
 })
