@@ -1,4 +1,4 @@
-= Importing Large Datasets with Cypher
+= Cypherによる大規模データセットのインポート
 :type: quiz
 
 [.video]
@@ -6,19 +6,19 @@ video::4DrR-xHFToY[youtube,width=560,height=315]
 
 
 [.transcript]
-== Memory requirements for import
+== インポートに必要なメモリ
 
-As you learned earlier, the Data Importer can be used for small to medium datasets containing less than 1M rows.
-The Data Importer is a generalized app as you saw that creates all properties in the graph as strings, integers, decimals, or boolean, and you need to possibly post-process or refactor the graph after the import.
-It is also designed to handle a smaller memory footprint, so it may not be useful for all of your data import needs.
+先ほど学習したように、Data Importerは1M行以下の小規模から中規模のデータセットに使用することができます。
+Data Importerは、グラフのすべてのプロパティを文字列、整数、小数、ブーリアンとして作成する、見た通りの汎用アプリで、インポート後にグラフの後処理やリファクタリングが必要になる可能性があります。
+また、より少ないメモリフットプリントを処理するように設計されているので、データインポートのすべてのニーズには有用ではないかもしれません。
 
-When you import using Cypher statements, you have control over the amount of memory used for the import.
-In Cypher, by default, the execution of your code is a single transaction.
-In order to process large CSV imports, you need to break up the execution of the Cypher into multiple transactions.
+Cypherステートメントを使用してインポートする場合、インポートに使用するメモリ量を制御することができます。
+Cypherでは、デフォルトでは、コードの実行は1つのトランザクションです。
+大規模なCSVインポートを処理するためには、Cypherの実行を複数のトランザクションに分割する必要があります。
 
-=== Using `USING PERIODIC COMMIT`
+=== `USING PERIODIC COMMIT` の使用
 
-You can use this code structure to import a large dataset:
+このコード構成で、大きなデータセットをインポートすることができます:
 
 [source,Cypher,role=nocopy noplay]
 ----
@@ -28,85 +28,85 @@ AS row
 /// add data to the graph for each row
 ----
 
-The default transaction size for this type of import is 500 rows. That is, after 500 rows have been read from the CSV file, the data will be committed to the graph and the import will continue.
-This enables you to load extremely large CSV files into the graph without running out of memory.
+このタイプのインポートのデフォルトのトランザクションサイズは500行です。つまり、CSVファイルから500行を読み込んだ後、データはグラフにコミットされ、インポートが続行されます。
+これにより、メモリ不足になることなく、非常に大きなCSVファイルをグラフに読み込むことができます。
 
 [IMPORTANT]
-In Neo4j Browser, you must prefix this Cypher with `:auto`, that is `:auto USING PERIODIC COMMIT LOAD CSV...`
-This tells Neo4j to use automatic detection of transactions.
+Neo4j Browserでは、このCypherの前に`:auto`を付ける必要があります。つまり、`:auto USING PERIODIC COMMIT LOAD CSV...`ということです。
+これは、Neo4jにトランザクションの自動検出を使用するように指示します。
 
-=== Planning for the import
+=== インポートの計画
 
-One advantage of using Cypher for loading your CSV data is that you can perform the type transformations and some of the "refactoring" during the import.
-That is, you can customize how property types are managed so you need not do any post-processing after the load.
+CSVデータの読み込みにCypherを使用する利点の1つは、インポート時に型変換やいくつかの「リファクタリング」を実行できることです。
+つまり、プロパティタイプの管理方法をカスタマイズできるので、読み込み後に後処理をする必要がありません。
 
-You must inspect and possibly clean the data before you import it.
-The large CSV data files you will be working with have already been cleaned.
+インポートする前に、データを検査し、場合によってはクリーニングする必要があります。
+今回扱う大きなCSVデータファイルは、すでにクリーンアップされています。
 
-First we determine the number of rows in each file:
+まず、各ファイルの行数を特定します。
 
 image::images/2-movie-data-count.png[Movie data rows,width=600,align=center]
 
 image::images/2-rating-data-count.png[Rating data rows,width=600,align=center]
 
-They do not exceed the 1M row limitation for the Data Importer, but you may run out of memory during the import so in this course we will use Cypher to load these CSV files.
+Data Importerの1M行の制限を超えることはありませんが、インポート中にメモリ不足になる可能性があるので、このコースではCypherを使ってこれらのCSVファイルをロードします。
 
-=== Planning the Movie, Genre, Person import
+=== Movie, Genre, Person データのインポート計画
 
-Next, we examine the fields in our first CSV file.
-Each row in the *2-movieData.csv* file represents either an Entity or a relationship between two entities.
+次に、最初の CSV ファイルのフィールドを検証します。
+*2-movieData.csv* ファイルの各行は、Entityまたは2つのEntity間のリレーションシップを表しています。
 
-==== Entities
+==== エンティティ
 
-An Entity row has a value of Person or Movie, where the Movie rows have the genre data. We will continue to use these unique IDs for our _Movie_, _Person_, and _Genre_ nodes:
+Entity行はPersonまたはMovieの値を保持し、Movie行はGenreデータを保持します。今後も、_Movie_ 、_Person_ 、_Genre_ の各ノードには、これらの一意な ID を使用する予定です。:
 
 * Movie.movieId
 * Person.tmdbId
 * Genre.name
 
-Here is what the Movie and Person entities look like in our CSV file:
+MovieとPersonのエンティティは、CSVファイルでは以下のようになります:
 
 image::images/movie-person-data.png[Movie Person data,width=600,align=center]
 
-The type of entity is either Person or Movie and each person has a value of tmdbId that uniquely identifies it.
-Each movie has a value of movieId that uniquely identifies it.
-Movies have values for things such as title and people have values for things such as name.
-How we process the data will depend upon the type of entity in the CSV file.
+エンティティのタイプはPersonまたはMovieであり、各Personはそれを一意に識別するtmdbIdの値を持ちます。
+各Movieは、それを一意に識別するmovieIdの値を持ちます。
+Movieはtitleなどの値を持ち、Personはnameなどの値を持ちます。
+データをどのように処理するかは、CSVファイル中のエンティティの種類に依存します。
 
-==== Relationships
+==== リレーションシップ
 
-A relationship row has an Entity value of Join.
+リレーションシップの行は、Entity 値が Join である。
 
 image::images/join-data-1.png[Join data IDs,width=600,align=center]
 
-Notice that for the join, we have both a movieId representing a movie and a tmdbId representing a person.
+結合のために、Movieを表すmovieIdとPersonを表すtmdbIdの両方を持っていることに注意してください。
 
-In addition, for each join row we have a Work column that describes whether the data will be used for creating the ACTED_IN or DIRECTED relationships in the graph.
-Actor rows will have a value for the role and a few director rows also have a value for role.
+さらに、各Join行にはWork列があり、グラフ内のACTED_INとDIRECTEDのどちらのリレーションシップであるかを記述しています。
+俳優の行はロールの値を持ち、少数のディレクターの行もロールの値を持っています。
 
 image::images/join-data-2.png[Join data values,width=600,align=center]
 
-==== Multi-pass import processing
+==== マルチパスインポート処理
 
-We recommend several passes to process this CSV file:
+このCSVファイルを処理するために、いくつかのパスを推奨します:
 
-. Create the Movie nodes and the Genre nodes.
-. Create the Person nodes.
-. Add the Actor labels and the ACTED_IN relationships.
-. Add the Director labels and the DIRECTED relationships.
+. MovieノードとGenreノードを作成します。
+. Person ノードを作成する。
+. アクター ラベルと ACTED_IN リレーションシップを追加する。
+. ディレクターのラベルと DIRECTED リレーションシップを追加する。
 
 
-The advantage of performing the import in multiple passes is that you can check the graph after each import to see if it is getting closer to the data model.
-If the CSV file were extremely large, you might want to consider a single pass.
+複数回に分けてインポートを行う利点は、インポートのたびにグラフがデータモデルに近づいているかどうかを確認できることです。
+CSVファイルが非常に大きい場合は、1回で済ませることを検討した方がよいでしょう。
 
-=== Planning the User import
+=== Userデータのインポート計画
 
-Here are the fields in our second CSV file.
+以下は、2つ目のCSVファイルのフィールドです。
 
 image::images/row-rating-data.png[Rating data row,width=600,align=center]
 
-These fields again are what you worked with earlier. the _userId_ is the unique ID for _User_ nodes and _movieId_ is the unique ID for _Movie_ nodes.
-We know from our previous import using the Data Importer that these constraints already exist in the graph.
+_userId_ は _User_ ノードの一意なIDで、_movieId_ は_Movie_ ノードの一意なIDです。
+Data Importerを使用した前回のインポートで、これらの制約がすでにグラフに存在することが分かっています。
 
 
 == 理解度チェック
@@ -116,5 +116,5 @@ include::questions/1-memory.adoc[leveloffset=+1]
 [.summary]
 == まとめ
 
-In this lesson, you learned some considerations for importing large CSV files and when you may want to use Cypher to import data, rather than the Data Importer.
-In the next Challenge, you will import CSV data with Cypher.
+このレッスンでは、大きなCSVファイルをインポートする際の注意点や、Data Importerではなく、Cypherを使ってデータをインポートする場合の注意点を学びました。
+次回のChallengeでは、Cypherを使ってCSVデータをインポートします。
