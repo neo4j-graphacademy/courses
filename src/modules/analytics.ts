@@ -35,6 +35,8 @@ export function initAnalytics() {
 
 export function trackEvent(event: string, userId: string, properties: Record<string, any> = {}) {
     if (analytics) {
+        console.log(`[segment] sent ${event}`);
+
         return analytics.track(
             { event, userId, properties },
             err => {
