@@ -47,6 +47,9 @@ export function trackEvent(event: string, userId: string, properties: Record<str
                 }
             })
     }
+    else {
+        console.log(`[segment] not sent ${event}: ${typeof analytics}`);
+    }
 }
 
 export function trackPageview(user: User, req: Request) {
