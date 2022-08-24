@@ -6,8 +6,6 @@ const router = Router()
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const courses = await getCoursesByCategory()
-        console.log(courses);
-
 
         res.json(courses)
     }

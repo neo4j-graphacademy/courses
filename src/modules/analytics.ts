@@ -28,6 +28,8 @@ export function initAnalytics() {
 
     if (key) {
         analytics = new Analytics(key)
+
+        console.log(`Analytics configured`);
     }
 }
 
