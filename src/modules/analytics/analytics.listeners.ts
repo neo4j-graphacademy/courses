@@ -1,14 +1,14 @@
-import { UserAttemptedLesson } from '../domain/events/UserAttemptedLesson'
-import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
-import { UserCompletedLesson } from '../domain/events/UserCompletedLesson'
-import { UserEnrolled } from '../domain/events/UserEnrolled'
-import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
-import { UserLogin } from '../domain/events/UserLogin'
-import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SUPPORT_TOGGLE, UserUiEvent } from '../domain/events/UserUiEvent'
-import { UserUnenrolled } from '../domain/events/UserUnenrolled'
-import { UserViewedCourse } from '../domain/events/UserViewedCourse'
-import { UserViewedLesson } from '../domain/events/UserViewedLesson'
-import { emitter } from '../events'
+import { UserAttemptedLesson } from '../../domain/events/UserAttemptedLesson'
+import { UserCompletedCourse } from '../../domain/events/UserCompletedCourse'
+import { UserCompletedLesson } from '../../domain/events/UserCompletedLesson'
+import { UserEnrolled } from '../../domain/events/UserEnrolled'
+import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
+import { UserLogin } from '../../domain/events/UserLogin'
+import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SUPPORT_TOGGLE, UserUiEvent } from '../../domain/events/UserUiEvent'
+import { UserUnenrolled } from '../../domain/events/UserUnenrolled'
+import { UserViewedCourse } from '../../domain/events/UserViewedCourse'
+import { UserViewedLesson } from '../../domain/events/UserViewedLesson'
+import { emitter } from '../../events'
 import {
     analyticsApiKey,
     ANALYTICS_EVENT_COMMAND_CYPHER,
@@ -21,10 +21,10 @@ import {
     ANALYTICS_EVENT_LOGIN,
     trackEvent,
     ANALYTICS_EVENT_LESSON_ATTEMPT
-} from '../modules/analytics'
+} from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
-    if (!analyticsApiKey()) {
+    if (analyticsApiKey()) {
         emitter.on<UserLogin>(UserLogin, (event: UserLogin) => {
             trackEvent(ANALYTICS_EVENT_LOGIN, event.payload.sub as string, {
                 userId: event.payload.sub,

@@ -1,8 +1,8 @@
 import Analytics from 'analytics-node'
 import { Request } from 'express'
-import { BASE_URL, SEGMENT_API_KEY } from '../constants'
-import { User } from '../domain/model/user'
-import { notify } from '../middleware/bugsnag.middleware'
+import { BASE_URL, SEGMENT_API_KEY } from '../../constants'
+import { User } from '../../domain/model/user'
+import { notify } from '../../middleware/bugsnag.middleware'
 
 let analytics: Analytics
 
@@ -29,14 +29,12 @@ export function initAnalytics() {
     if (key) {
         analytics = new Analytics(key)
 
-        console.log(`Analytics configured`);
+        console.log(`Analytics configured: ${typeof analytics}`);
     }
 }
 
 export function trackEvent(event: string, userId: string, properties: Record<string, any> = {}) {
     if (analytics) {
-        console.log(`[segment] sent ${event}`);
-
         return analytics.track(
             { event, userId, properties },
             err => {
@@ -46,9 +44,6 @@ export function trackEvent(event: string, userId: string, properties: Record<str
                     })
                 }
             })
-    }
-    else {
-        console.log(`[segment] not sent ${event}: ${typeof analytics}`);
     }
 }
 

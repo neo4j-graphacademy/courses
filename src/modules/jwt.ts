@@ -7,5 +7,5 @@ export function decode(token: string): JwtPayload {
 export function isVerified(token: string): boolean {
     const claims = decode(token)
 
-    return claims && ( !claims.hasOwnProperty('email_verified') || claims.email_verified === true )
+    return claims && (!claims.hasOwnProperty('email_verified') || claims.email_verified === true)
 }

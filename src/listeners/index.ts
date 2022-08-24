@@ -1,9 +1,9 @@
 import { AppInit } from '../domain/events/AppInit'
 import { emitter } from '../events'
-import initAnalyticsListeners from './analytics'
+import initAnalyticsListeners from '../modules/analytics/analytics.listeners'
 import initEmailListeners from './emails'
 import { AddressInfo } from 'net'
-import initSandboxListeners from './sandbox'
+import initSandboxListeners from '../modules/sandbox/listeners/sandbox.listeners'
 
 export default async function initListeners(): Promise<void> {
     emitter.on<AppInit>(AppInit, event => {

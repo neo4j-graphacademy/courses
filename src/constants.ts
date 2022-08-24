@@ -75,4 +75,3 @@ export const CLASSMARKER_SECRET: string | undefined = process.env.CLASSMARKER_SE
 
 // Segment
 export const SEGMENT_API_KEY: string | undefined = process.env.SEGMENT_API_KEY
-
