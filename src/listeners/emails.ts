@@ -16,7 +16,7 @@ export default function initEmailListeners(): Promise<void> {
             const template = 'user-completed-course'
             const email = event.user.email
 
-            const emailDirectory = event.course.emails.includes(template) ? `courses/${event.course.slug}/emails` : ''
+            const emailDirectory = event.course.emails.includes(template) ? `courses/${event.course.slug}/` : ''
 
             prepareAndSend(template, email, { ...event } as Record<string, any>, emailDirectory)
         })
