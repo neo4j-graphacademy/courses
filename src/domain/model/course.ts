@@ -45,7 +45,7 @@ export const LANGUAGE_EN = 'en'
 export const LANGUAGE_JP = 'jp'
 export const LANGUAGE_CN = 'cn'
 
-export const LANGUAGES = [ LANGUAGE_EN, LANGUAGE_JP,  LANGUAGE_CN, ]
+export const LANGUAGES = [LANGUAGE_EN, LANGUAGE_JP, LANGUAGE_CN,]
 
 export type Language = typeof LANGUAGE_EN | typeof LANGUAGE_JP | typeof LANGUAGE_CN
 
@@ -65,6 +65,7 @@ export interface Course {
     interested?: string[];
     isInterested?: boolean;
     usecase: string | undefined;
+    emails: string[];
     modules: Module[];
     categories: Category<any>[];
     prerequisites?: Course[];

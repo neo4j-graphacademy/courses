@@ -43,13 +43,13 @@ interface PreparedEmail {
     html: string;
 }
 
-export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlattened: Record<string, Record<string, any>>): PreparedEmail {
+export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlattened: Record<string, Record<string, any>>, directory = ''): PreparedEmail {
     const attributes = flattenAttributes({
         base: { url: process.env.BASE_URL },
         ...attributesToBeFlattened,
     })
 
-    const adoc = loadFile(`emails/${filename}.adoc`, { attributes })
+    const adoc = loadFile(`${directory}emails/${filename}.adoc`, { attributes })
 
     const subject = `🎓 Neo4j GraphAcademy: ${adoc.getTitle()}`
 
@@ -64,11 +64,11 @@ export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlat
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>): void {
+export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = ''): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
 
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
-        const { subject, html } = prepareEmail(filename, data)
+        const { subject, html } = prepareEmail(filename, data, directory)
 
         send(email, subject, html)
     }

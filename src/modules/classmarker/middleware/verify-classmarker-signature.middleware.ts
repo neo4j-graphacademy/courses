@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Request, Response, NextFunction } from 'express'
 import { CLASSMARKER_SECRET } from '../../../constants'
 import { notify } from '../../../middleware/bugsnag.middleware'

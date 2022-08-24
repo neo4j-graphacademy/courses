@@ -21,7 +21,7 @@ const getLastCertification = async (session: Session): Promise<string> => {
 }
 
 const main = async () => {
-    ;[
+    [
         'NEO4J_HOST',
         'NEO4J_USERNAME',
         'NEO4J_PASSWORD',

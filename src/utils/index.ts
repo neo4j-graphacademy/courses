@@ -1,4 +1,4 @@
-import path from 'path'
+import path, { basename } from 'path'
 import fs from 'fs'
 import { Request } from 'express'
 import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
@@ -109,12 +109,16 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         ? course.certificateNumber.toNumber()
         : course.certificateNumber
 
+    const emailDirectory = `${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`
+    const emails = fs.existsSync(emailDirectory) ? fs.readdirSync(`${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`).map(file => basename(file, '.adoc')) : []
+
     return {
         ...course,
-        summary: courseSummaryExists(course.slug),
+        summary: await courseSummaryExists(course.slug),
         modules,
         badge,
         badgeUrl: courseOgBadgeImage(course.slug),
+        emails,
         createdAt,
         completedAt,
         lastSeenAt,

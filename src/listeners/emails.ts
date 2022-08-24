@@ -13,10 +13,14 @@ export default function initEmailListeners(): Promise<void> {
         })
 
         emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
+            const template = 'user-completed-course'
             const email = event.user.email
-            prepareAndSend('user-completed-course', email, { ...event } as Record<string, any>)
+
+            const emailDirectory = event.course.emails.includes(template) ? `courses/${event.course.slug}/emails` : ''
+
+            prepareAndSend(template, email, { ...event } as Record<string, any>, emailDirectory)
         })
     }
-    
+
     return Promise.resolve()
 }
