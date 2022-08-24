@@ -4,6 +4,7 @@ import { User } from "../../../domain/model/user"
 import { appendParams, courseCypher } from "../../../domain/services/cypher"
 import { emitter } from "../../../events"
 import { write } from "../../../modules/neo4j"
+import { formatCourse } from "../../../utils"
 import { ClassmarkerEnrolmentNotFoundError } from "../errors/classmarker-enrolment-not-found.error"
 
 export async function saveClassmarkerResult(sub: string, first: string, last: string, classmarkerId: number, certificateSerial: string, passed: boolean, percentage: number, timeFinished: number, viewResultsUrl: string): Promise<CourseWithProgress> {
@@ -68,7 +69,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
     }
 
     const user: User = record.get('user')
-    const course: CourseWithProgress = record.get('course')
+    const course: CourseWithProgress = await formatCourse(record.get('course'))
 
     if (passed) {
         emitter.emit(new UserCompletedCourse(user, course, undefined))
