@@ -24,6 +24,7 @@ import { initAnalytics } from './modules/analytics'
 import { saveRef } from './middleware/save-ref.middleware'
 import { endProfiling, startProfiling } from './middleware/profiling.middleware'
 import { initLocalisation } from './modules/localisation'
+
 import './constants'
 
 export default function initApp(driver: Driver) {
