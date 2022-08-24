@@ -71,7 +71,7 @@ export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)
 export const REDIS_HOST = process.env.REDIS_HOST
 
 // Classmarker secret for webhook
-export const CLASSMARKER_SECRET: string = process.env.CLASSMARKER_SECRET
+export const CLASSMARKER_SECRET: string | undefined = process.env.CLASSMARKER_SECRET
 
 // Segment
 export const SEGMENT_API_KEY: string | undefined = process.env.SEGMENT_API_KEY

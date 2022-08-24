@@ -9,7 +9,7 @@ import { ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
 import { mergeDeep } from '../../utils'
 import { CourseStatus, CourseStatusInformation } from '../../domain/model/course'
-import { ATTRIBUTE_ORDER } from '../../domain/model/lesson'
+import { ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_ORDER } from '../../domain/model/lesson'
 
 
 // Cached Pages
@@ -59,7 +59,7 @@ export function convertCourseOverview(slug: string, attributes?: Record<string, 
 
     const file = path.join(folder, 'course.adoc')
 
-    if ( !fileExists(file) ) {
+    if (!fileExists(file)) {
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
 
@@ -72,7 +72,7 @@ export function convertCourseSummary(slug: string, attributes: Record<string, an
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.adoc')
 
-    if ( !fileExists(file) ) {
+    if (!fileExists(file)) {
         throw new NotFoundError(`Summary for course ${slug} could not be found`)
     }
 
@@ -92,7 +92,7 @@ export function convertModuleOverview(course: string, module: string, attributes
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
-    if ( !fileExists(file) ) {
+    if (!fileExists(file)) {
         throw new NotFoundError(`Module ${module} could not be found in ${course}`)
     }
 
@@ -108,7 +108,7 @@ export function getLessonDirectory(course: string, module: string, lesson: strin
 export function getLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<Asciidoctor.Document> {
     const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
-    if ( !fileExists(file) ) {
+    if (!fileExists(file)) {
         throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
     }
 
@@ -118,13 +118,24 @@ export function getLessonOverview(course: string, module: string, lesson: string
 export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<string> {
     const key = generateLessonCacheKey(course, module, lesson)
 
-    if ( cache.has(key) ) {
+    if (cache.has(key)) {
         return cache.get(key) as string
     }
 
     const document = await getLessonOverview(course, module, lesson, attributes)
 
-    return convert(document, { attributes })
+    const html = convert(document, { attributes })
+
+    // Cache for future visits?
+    checkAddToCache(key, html, document)
+
+    return html
+}
+
+function checkAddToCache(key: string, html: string, document: Asciidoctor.Document) {
+    if (document.getAttribute(ATTRIBUTE_DISABLE_CACHE, 'false') !== 'true') {
+        cache.set(key, html)
+    }
 }
 
 export function addToCache(key: string, html: string): void {
@@ -139,7 +150,7 @@ export function generateLessonCacheKey(course: string, module: string, lesson: s
 const statusCache: Map<CourseStatus, CourseStatusInformation> = new Map()
 
 export function getStatusDetails(slug: CourseStatus): CourseStatusInformation {
-    if ( statusCache.has(slug) ) {
+    if (statusCache.has(slug)) {
         return statusCache.get(slug) as CourseStatusInformation
     }
 
