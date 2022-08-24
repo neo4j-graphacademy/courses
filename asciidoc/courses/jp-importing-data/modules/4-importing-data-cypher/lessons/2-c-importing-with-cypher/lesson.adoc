@@ -1,0 +1,332 @@
+= Cypherを使ったインポート
+:type: challenge
+:sandbox: true
+:updated-at: 2022-05-02 T 13:00:00 Z
+
+今回のチャレンジでは、これまでとは異なる、より大きなサイズのCSVファイルを使用します。
+
+このチャレンジは7つのステップで構成されています:
+
+. グラフ内のすべてのノードとリレーションシップを削除する
+. グラフにすべての制約が存在することを確認する
+. _Movie_ と _Genre_ のデータをインポートする
+. _Person_ データをインポートする
+. ACTED_IN リレーションシップをインポートする
+. DIRECTED リレーションシップをインポートする
+. _User_ データをインポートする
+
+== Step 1: グラフ内のすべてのノードとリレーションシップを削除
+
+まずは、右のサンドボックスでこのコードを実行し、グラフ内のデータをすべて削除してください。
+
+[source,Cypher]
+----
+MATCH (n) DETACH DELETE n
+----
+
+== Step 2: グラフにすべての制約が存在することを確認
+
+このコードを右のサンドボックスで実行すると、グラフに制約が表示されます。
+
+[source,Cypher]
+----
+SHOW CONSTRAINTS
+----
+
+以下のプロパティに**一意性制約が定義されている必要**があります:
+
+* _Person.tmdbId_
+* _Movie.movieId_
+* _User.userId_
+* _Genre.name_
+
+image::images/constraints-created.png[Constraints created,width=800,align=center]
+
+[NOTE]
+Person、Movie、User制約をData Importerで以前に作成した場合、名前は異なりますが、制約がグラフにあるはずなので、名前が異なっていても問題ありません。
+
+例えば、以下は _Genre_ 制約を作成するコードです。:
+
+[source,Cypher]
+----
+CREATE CONSTRAINT Genre_name IF NOT EXISTS ON (x:Genre) ASSERT x.name IS UNIQUE
+----
+
+== Step 3: _Movie_ と _Genre_ のデータをインポートする
+
+まず、右のサンドボックスで次のコードを実行し、CSVファイルからMoviewデータがプロパティ変換されることを確認します:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+//process only Movie rows
+WITH row WHERE row.Entity = "Movie"
+RETURN
+row.tmdbId,
+row.imdbId,
+toFloat(row.imdbRating),
+row.released,
+row.title,
+toInteger(row.year),
+row.poster,
+toInteger(row.runtime),
+split(coalesce(row.countries,""), "|"),
+toInteger(row.imdbVotes),
+toInteger(row.revenue),
+row.plot,
+row.url,
+toInteger(row.budget),
+split(coalesce(row.languages,""), "|"),
+split(coalesce(row.genres,""), "|")
+LIMIT 10
+----
+
+これは、_Movie_ 、_Person_ 、_Genre_ノードを作成するために*2-movieData.csv* ファイルを通過させる最初のCypherコードです。
+このコードでは、_Movie_ ノードのプロパティを設定するときに、必要なすべての型の変換を実行していることに注意してください。
+`MERGE` を使用して、_Movie_ と _Genre_ ノードがまだ存在しない場合にのみ、_Movie_ と _Genre_ を作成します。
+そして、_IN_GENRE_のリレーションシップを作成します。
+
+右のサンドボックスでこのコードを実行すると、CSVデータが読み込まれ、_Movie_と_Genre_のノードが作成されます:
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+//process only Movie rows
+WITH row WHERE row.Entity = "Movie"
+MERGE (m:Movie {movieId: row.movieId})
+ON CREATE SET
+m.tmdbId = row.tmdbId,
+m.imdbId = row.imdbId,
+m.imdbRating = toFloat(row.imdbRating),
+m.released = row.released,
+m.title = row.title,
+m.year = toInteger(row.year),
+m.poster = row.poster,
+m.runtime = toInteger(row.runtime),
+m.countries = split(coalesce(row.countries,""), "|"),
+m.imdbVotes = toInteger(row.imdbVotes),
+m.revenue = toInteger(row.revenue),
+m.plot = row.plot,
+m.url = row.url,
+m.budget = toInteger(row.budget),
+m.languages = split(coalesce(row.languages,""), "|")
+WITH m,split(coalesce(row.genres,""), "|") AS genres
+UNWIND genres AS genre
+WITH m, genre
+MERGE (g:Genre {name:genre})
+MERGE (m)-[:IN_GENRE]->(g)
+----
+
+このコードを実行すると、次のように表示されます:
+
+Added 9145 labels, created 9145 nodes, set 146020 properties, created 20340 relationships.
+
+[NOTE]
+_Neo.ClientError.Transaction.TransactionTimedOut_ エラーが発生することがあります。これは、インポートの一部のみがグラフにコミットされたことを意味します。
+コードを再実行すればよいのですが、作成されるノード、ラベル、プロパティ、リレーションシップの数が異なる場合があります。
+
+== Step 4: _Person_ データをインポートする
+
+まず、右のサンドボックスで次のコードを実行し、CSVファイルからPersonデータがプロパティ変換されることを確認します。:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Person"
+RETURN
+row.tmdbId,
+row.imdbId,
+row.bornIn,
+row.name,
+row.bio,
+row.poster,
+row.url,
+CASE row.born WHEN "" THEN null ELSE date(row.born) END,
+CASE row.died WHEN "" THEN null ELSE date(row.died) END
+LIMIT 10
+----
+
+これは、2-movieData.csv ファイルを通過して、俳優の _Person_ ノードを作成する 2 回目のパスの Cypher コードです。
+このコードでは、_Person_ ノードのプロパティを設定する際に、必要なすべての型の変換を実行していることに注意してください。
+`MERGE`を使用して、_Person_ ノードがまだ存在しない場合にのみ作成しています。また、_Actor_ ラベルを設定し、_ACTED_IN_ リレーションシップを作成し、そのリレーションシップに _role_ プロパティを設定しています。
+
+このコードを右のサンドボックスで実行します。
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Person"
+MERGE (p:Person {tmdbId: row.tmdbId})
+ON CREATE SET
+p.imdbId = row.imdbId,
+p.bornIn = row.bornIn,
+p.name = row.name,
+p.bio = row.bio,
+p.poster = row.poster,
+p.url = row.url,
+p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END,
+p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
+----
+
+このコードを実行すると、次のように表示されるはずです:
+
+Added 19047 labels, created 19047 nodes, set 119195 properties
+
+[NOTE]
+_Neo.ClientError.Transaction.TransactionTimedOut_ エラーが発生することがあります。これは、インポートの一部のみがグラフにコミットされたことを意味します。
+コードを再実行すればよいのですが、作成されるノード、ラベル、プロパティ、リレーションシップの数が異なる場合があります。
+
+== Step 5: ACTED_IN リレーションシップをインポートする
+
+まず、右のサンドボックスで次のコードを実行し、CSVファイルからどのようなデータが読み込まれるかを確認します:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
+RETURN
+row.tmdbId,
+row.movieId,
+row.role
+LIMIT 10
+----
+
+これは、2-movieData.csv ファイルを処理して、グラフ内に ACTED_IN の関係を作成するための 3 回目のパスの Cypher コードです。
+また、_Person_ ノードに _Actor_ ラベルを追加しています。このコードを右のサンドボックスで実行してみてください。
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
+MATCH (p:Person {tmdbId: row.tmdbId})
+MATCH (m:Movie {movieId: row.movieId})
+MERGE (p)-[r:ACTED_IN]->(m)
+ON CREATE
+SET r.role = row.role
+SET p:Actor
+----
+
+このコードを実行すると、次のように表示されるはずです:
+
+Added 15443 labels, set 34274 properties, created 35910 relationships
+
+[NOTE]
+_Neo.ClientError.Transaction.TransactionTimedOut_ エラーが発生することがあります。これは、インポートの一部のみがグラフにコミットされたことを意味します。
+コードを再実行すればよいのですが、作成されるノード、ラベル、プロパティ、リレーションシップの数が異なる場合があります。
+
+== Step 6: DIRECTED リレーションシップをインポートする
+
+まず、右のサンドボックスで次のコードを実行し、CSVファイルからどのようなデータが読み込まれるかを確認します:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
+RETURN
+row.tmdbId,
+row.movieId,
+row.role
+LIMIT 10
+----
+
+CSVファイルには、"Directing" _Work_ の値が、関連するロールの値を持つ可能性のある行がいくつか存在します。
+そのような行を表示するように、上記のクエリを修正します。
+
+*Hint:* `WHERE` 節に `AND exists(row.role)` を追加します。
+
+
+これは、2-movieData.csv ファイルを通過して、グラフに DIRECTED の関係を作成するための Cypher コードです。
+また、_Person_ ノードに _Director_ ラベルを追加しています。このコードを右のサンドボックスで実行してみてください。
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-movieData.csv'
+AS row
+WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
+MATCH (p:Person {tmdbId: row.tmdbId})
+MATCH (m:Movie {movieId: row.movieId})
+MERGE (p)-[r:DIRECTED]->(m)
+ON CREATE
+SET r.role = row.role
+SET p:Director
+----
+
+このコードを実行すると、次のように表示されるはずです:
+
+Added 4091 labels, set 1152 properties, created 10007 relationships
+
+== Step 7: _User_ データをインポートする
+
+*2-ratingData.csv* ファイルには、映画を評価したユーザーのデータが格納されています。
+
+まず、右のサンドボックスで次のコードを実行し、CSVファイルからどのようなデータが読み込まれるかを確認します:
+
+[source,Cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
+AS row
+RETURN
+row.movieId,
+row.userId,
+row.name,
+toInteger(row.rating),
+toInteger(row.timestamp)
+LIMIT 100
+----
+
+
+以下は、User と _RATED_ のリレーションシップを作成するコードです。
+
+このコードを右のサンドボックスで実行してみてください。
+
+[source,Cypher]
+----
+:auto USING PERIODIC COMMIT
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
+AS row
+MATCH (m:Movie {movieId: row.movieId})
+MERGE (u:User {userId: row.userId})
+ON CREATE SET u.name = row.name
+MERGE (u)-[r:RATED]->(m)
+ON CREATE SET r.rating = toInteger(row.rating),
+r.timestamp = toInteger(row.timestamp)
+----
+
+このコードを実行すると、次のように表示されるはずです:
+
+Added 671 labels, created 671 nodes, set 201350 properties, created 100004 relationships
+
+[NOTE]
+_Neo.ClientError.Transaction.TransactionTimedOut_ エラーが発生することがあります。これは、インポートの一部のみがグラフにコミットされたことを意味します。
+コードを再実行すればよいのですが、作成されるノード、ラベル、プロパティ、リレーションシップの数が異なる場合があります。
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== まとめ
+
+今回の課題では、Cypherを使って大規模なデータセットを取り込みました。
+
+これで、CSVデータをNeo4jにインポートする方法についての紹介は終わりです。
+

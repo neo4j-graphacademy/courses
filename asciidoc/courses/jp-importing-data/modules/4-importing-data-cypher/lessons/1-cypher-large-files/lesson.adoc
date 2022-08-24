@@ -1,0 +1,120 @@
+= Cypherによる大規模データセットのインポート
+:type: quiz
+
+//[.video]
+//video::4DrR-xHFToY[youtube,width=560,height=315]
+
+
+[.transcript]
+== インポートに必要なメモリ
+
+先ほど学習したように、Data Importerは1M行以下の小規模から中規模のデータセットに使用することができます。
+Data Importerは、グラフのすべてのプロパティを文字列、整数、小数、ブーリアンとして作成する、見た通りの汎用アプリで、インポート後にグラフの後処理やリファクタリングが必要になる可能性があります。
+また、より少ないメモリフットプリントを処理するように設計されているので、データインポートのすべてのニーズには有用ではないかもしれません。
+
+Cypherステートメントを使用してインポートする場合、インポートに使用するメモリ量を制御することができます。
+Cypherでは、デフォルトでは、コードの実行は1つのトランザクションです。
+大規模なCSVインポートを処理するためには、Cypherの実行を複数のトランザクションに分割する必要があります。
+
+=== `USING PERIODIC COMMIT` の使用
+
+このコード構成で、大きなデータセットをインポートすることができます:
+
+[source,Cypher,role=nocopy noplay]
+----
+USING PERIODIC COMMIT LOAD CSV WITH HEADERS
+FROM 'url-for-CSV-file'
+AS row
+/// add data to the graph for each row
+----
+
+このタイプのインポートのデフォルトのトランザクションサイズは500行です。つまり、CSVファイルから500行を読み込んだ後、データはグラフにコミットされ、インポートが続行されます。
+これにより、メモリ不足になることなく、非常に大きなCSVファイルをグラフに読み込むことができます。
+
+[IMPORTANT]
+Neo4j Browserでは、このCypherの前に`:auto`を付ける必要があります。つまり、`:auto USING PERIODIC COMMIT LOAD CSV...`ということです。
+これは、Neo4jにトランザクションの自動検出を使用するように指示します。
+
+=== インポートの計画
+
+CSVデータの読み込みにCypherを使用する利点の1つは、インポート時に型変換やいくつかの「リファクタリング」を実行できることです。
+つまり、プロパティタイプの管理方法をカスタマイズできるので、読み込み後に後処理をする必要がありません。
+
+インポートする前に、データを検査し、場合によってはクリーニングする必要があります。
+今回扱う大きなCSVデータファイルは、すでにクリーンアップされています。
+
+まず、各ファイルの行数を特定します。
+
+image::images/2-movie-data-count.png[Movie data rows,width=600,align=center]
+
+image::images/2-rating-data-count.png[Rating data rows,width=600,align=center]
+
+Data Importerの1M行の制限を超えることはありませんが、インポート中にメモリ不足になる可能性があるので、このコースではCypherを使ってこれらのCSVファイルをロードします。
+
+=== Movie, Genre, Person データのインポート計画
+
+次に、最初の CSV ファイルのフィールドを検証します。
+*2-movieData.csv* ファイルの各行は、Entityまたは2つのEntity間のリレーションシップを表しています。
+
+==== エンティティ
+
+Entity行はPersonまたはMovieの値を保持し、Movie行はGenreデータを保持します。今後も、_Movie_ 、_Person_ 、_Genre_ の各ノードには、これらの一意な ID を使用する予定です。:
+
+* Movie.movieId
+* Person.tmdbId
+* Genre.name
+
+MovieとPersonのエンティティは、CSVファイルでは以下のようになります:
+
+image::images/movie-person-data.png[Movie Person data,width=600,align=center]
+
+エンティティのタイプはPersonまたはMovieであり、各Personはそれを一意に識別するtmdbIdの値を持ちます。
+各Movieは、それを一意に識別するmovieIdの値を持ちます。
+Movieはtitleなどの値を持ち、Personはnameなどの値を持ちます。
+データをどのように処理するかは、CSVファイル中のエンティティの種類に依存します。
+
+==== リレーションシップ
+
+リレーションシップの行は、Entity 値が Join である。
+
+image::images/join-data-1.png[Join data IDs,width=600,align=center]
+
+結合のために、Movieを表すmovieIdとPersonを表すtmdbIdの両方を持っていることに注意してください。
+
+さらに、各Join行にはWork列があり、グラフ内のACTED_INとDIRECTEDのどちらのリレーションシップであるかを記述しています。
+俳優の行はロールの値を持ち、少数のディレクターの行もロールの値を持っています。
+
+image::images/join-data-2.png[Join data values,width=600,align=center]
+
+==== マルチパスインポート処理
+
+このCSVファイルを処理するために、いくつかのパスを推奨します:
+
+. MovieノードとGenreノードを作成します。
+. Person ノードを作成する。
+. アクター ラベルと ACTED_IN リレーションシップを追加する。
+. ディレクターのラベルと DIRECTED リレーションシップを追加する。
+
+
+複数回に分けてインポートを行う利点は、インポートのたびにグラフがデータモデルに近づいているかどうかを確認できることです。
+CSVファイルが非常に大きい場合は、1回で済ませることを検討した方がよいでしょう。
+
+=== Userデータのインポート計画
+
+以下は、2つ目のCSVファイルのフィールドです。
+
+image::images/row-rating-data.png[Rating data row,width=600,align=center]
+
+_userId_ は _User_ ノードの一意なIDで、_movieId_ は_Movie_ ノードの一意なIDです。
+Data Importerを使用した前回のインポートで、これらの制約がすでにグラフに存在することが分かっています。
+
+
+== 理解度チェック
+
+include::questions/1-memory.adoc[leveloffset=+1]
+
+[.summary]
+== まとめ
+
+このレッスンでは、大きなCSVファイルをインポートする際の注意点や、Data Importerではなく、Cypherを使ってデータをインポートする場合の注意点を学びました。
+次回のChallengeでは、Cypherを使ってCSVデータをインポートします。

@@ -1,0 +1,85 @@
+= 文字列のプロパティから日付への変換
+:type: quiz
+
+//[.video]
+//video::DWJPG_FUEeI[youtube,width=560,height=315]
+
+[.transcript]
+== データモデルへの移行
+
+私たちのデータモデルには、日付として保存されるべきいくつかのプロパティが含まれています。
+
+image::images/movie-data-model.png[Movie data model,width=600,align=center]
+
+これらの_Person_プロパティは、グラフデータモデルの型と一致するように変換する必要があります:
+
+* born: date (グラフに日付として保存)
+* died: date
+
+CSVデータが Clean であることを確認するプロセスの一環として、変換されるフィールドの値が変換先のデータの種類と一致していることを確認する必要があり、そうでない場合は変換中にエラーが発生します。
+
+=== 日付の値への変換
+
+文字列を日付の値に変換するには、`date(property)` を使う。
+`date()` 関数の注意点として、空の文字列や正しい書式でない文字列には使えないことが挙げられます。
+例えば、"abc" は日付の文字列フォーマットとしては正しくありません。
+日付の書式については、https://neo4j.com/docs/cypher-manual/current/syntax/temporal/[Cypher Manual^]で詳しく説明されています。
+
+日付文字列の正しいフォーマットは "yyyy-mm-dd "であろう。
+born_と_died_の両プロパティは空文字列 ("") を含むことができるので、これらのプロパティを正しく変換するために以下のコードを使用します。
+
+[source,Cypher,role=nocopy noplay]
+----
+MATCH (p:Person)
+SET p.born = CASE p.born WHEN "" THEN null ELSE date(p.born) END
+WITH p
+SET p.died = CASE p.died WHEN "" THEN null ELSE date(p.died) END
+----
+
+プロパティの値が空文字列であるかどうかをテストします。もしそうなら、それを削除する (nullに設定)
+そうでない場合は、文字列を日付に変換します。
+
+=== グラフで種類を確認する
+
+Neo4j Browser は日付プロパティを文字列で返すため、グラフに格納されている型が何であるかを判断するのが難しい場合があります。
+
+例えば、ここでは5つの _Person_ ノードの _born_ プロパティを返しています。
+
+image::images/return-new-born-property.png[Born property,width=600,align=center]
+
+Neo4j Browserでは、_born_ プロパティは文字列のように表示されますが、文字列ではありません。
+実はこのプロパティは日付なので、年を取り出すことができます:
+
+image::images/return-year-of-born-property.png[Born property year,width=600,align=center]
+
+データモデルに近づくにつれ、グラフのプロパティがデータモデルの型を表していることを確認したくなるかもしれない。
+
+次のCypherコードを使用すると、グラフ内のノードプロパティの保存型を表示することができます:
+
+[source,Cypher,role=nocopy noplay]
+----
+CALL apoc.meta.nodeTypeProperties()
+----
+
+image::images/return-node-types.png[Meta types of node properties,width=600,align=center]
+
+ここで、私たちのプロパティがグラフ上でLong、Double、Date型に適切に変換されたことを確認します。
+
+また、リレーションシッププロパティについても同様に型の調査を行うことができます:
+
+[source,Cypher,role=nocopy noplay]
+----
+CALL apoc.meta.relTypeProperties()
+----
+
+image::images/return-rel-types.png[Meta types of relationship properties,width=600,align=center]
+
+== 理解度チェック
+
+include::questions/2-string-to-date.adoc[leveloffset=+1]
+
+[.summary]
+== まとめ
+
+このレッスンでは、CSVデータをグラフに読み込むために必要な変換のうち、データ型がグラフのデータモデルと一致するものについて学習しました。
+次の課題では、以前にCSVファイルからインポートしたデータを変換する練習をします。
