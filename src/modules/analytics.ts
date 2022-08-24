@@ -1,6 +1,6 @@
 import Analytics from 'analytics-node'
 import { Request } from 'express'
-import { BASE_URL } from '../constants'
+import { BASE_URL, SEGMENT_API_KEY } from '../constants'
 import { User } from '../domain/model/user'
 import { notify } from '../middleware/bugsnag.middleware'
 
@@ -26,17 +26,17 @@ export const ANALYTICS_EVENT_SHOW_SOLUTION = 'GA_SHOW_SOLUTION'
 export function initAnalytics() {
     const key = analyticsApiKey()
 
-    if ( key ) {
+    if (key) {
         analytics = new Analytics(key)
     }
 }
 
 export function trackEvent(event: string, userId: string, properties: Record<string, any> = {}) {
-    if  ( analytics ) {
+    if (analytics) {
         return analytics.track(
             { event, userId, properties },
             err => {
-                if ( err ) {
+                if (err) {
                     notify(err, e => {
                         e.addMetadata('event', { event, properties })
                     })
@@ -46,7 +46,7 @@ export function trackEvent(event: string, userId: string, properties: Record<str
 }
 
 export function trackPageview(user: User, req: Request) {
-    if  ( analytics ) {
+    if (analytics) {
         analytics.page({
             userId: user.sub,
             properties: {
@@ -58,5 +58,5 @@ export function trackPageview(user: User, req: Request) {
 }
 
 export function analyticsApiKey() {
-    return process.env.SEGMENT_API_KEY
+    return SEGMENT_API_KEY
 }
