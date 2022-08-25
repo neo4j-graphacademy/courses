@@ -20,7 +20,11 @@ import {
     ANALYTICS_EVENT_LESSON_VIEW,
     ANALYTICS_EVENT_LOGIN,
     trackEvent,
-    ANALYTICS_EVENT_LESSON_ATTEMPT
+    ANALYTICS_EVENT_LESSON_ATTEMPT,
+    ANALYTICS_EVENT_TOGGLE_SANDBOX,
+    ANALYTICS_EVENT_TOGGLE_SUPPORT,
+    ANALYTICS_EVENT_SHOW_HINT,
+    ANALYTICS_EVENT_SHOW_SOLUTION
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -48,7 +52,7 @@ export default function initAnalyticsListeners(): Promise<void> {
                 moduleSlug: event.module.slug,
                 moduleName: event.module.title,
                 lessonSlug: event.lesson.slug,
-                lessoneName: event.lesson.title,
+                lessonName: event.lesson.title,
                 usecase: event.course.usecase,
                 categories: event.course.categories.map(category => category.title),
             })
@@ -71,7 +75,7 @@ export default function initAnalyticsListeners(): Promise<void> {
                 moduleSlug: event.module.slug,
                 moduleName: event.module.title,
                 lessonSlug: event.lesson.slug,
-                lessoneName: event.lesson.title,
+                lessonName: event.lesson.title,
                 usecase: event.course.usecase,
                 categories: event.course.categories.map(category => category.title),
                 passed: event.passed,
@@ -113,10 +117,20 @@ export default function initAnalyticsListeners(): Promise<void> {
         emitter.on<UserUiEvent>(UserUiEvent, event => {
             switch (event.type) {
                 case UI_EVENT_SANDBOX_TOGGLE:
+                    trackEvent(ANALYTICS_EVENT_TOGGLE_SANDBOX, event.user.sub, event.meta)
+                    break;
+
                 case UI_EVENT_SUPPORT_TOGGLE:
+                    trackEvent(ANALYTICS_EVENT_TOGGLE_SUPPORT, event.user.sub, event.meta)
+                    break;
+
                 case UI_EVENT_SHOW_HINT:
+                    trackEvent(ANALYTICS_EVENT_SHOW_HINT, event.user.sub, event.meta)
+                    break;
+
                 case UI_EVENT_SHOW_SOLUTION:
-                    trackEvent(event.type, event.user.sub, event.meta)
+                    trackEvent(ANALYTICS_EVENT_SHOW_SOLUTION, event.user.sub, event.meta)
+                    break;
             }
         })
 
