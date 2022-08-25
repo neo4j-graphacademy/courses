@@ -33,6 +33,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             MERGE (a:Attempt { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime())) })
             SET a.createdAt = datetime()
             MERGE (e)-[:HAS_ATTEMPT]->(a)
+            MERGE (a)-[:ATTEMPTED_LESSON]->(l)
 
             // Log Answers
             FOREACH (row in $answers |
@@ -71,7 +72,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             answers,
         })
 
-        if ( lessonResult.records.length === 0 ) {
+        if (lessonResult.records.length === 0) {
             throw new NotFoundError(`Enrolment not found for ${user.sub} on ${course}/`)
         }
 
@@ -150,11 +151,11 @@ export async function saveLessonProgress(user: User, course: string, module: str
     })
 
     // Emit if user has completed the lesson
-    if ( lessonWithProgress.completed ) {
+    if (lessonWithProgress.completed) {
         emitter.emit(new UserCompletedLesson(user, courseWithProgress, moduleWithProgress, lessonWithProgress))
 
         // Emit if user has completed the module
-        if ( moduleCompletedInTransaction && moduleWithProgress.completed ) {
+        if (moduleCompletedInTransaction && moduleWithProgress.completed) {
             emitter.emit(new UserCompletedModule(user, moduleWithProgress))
 
             // Emit if user has completed the course
