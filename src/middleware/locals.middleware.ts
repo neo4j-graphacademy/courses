@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import { STATUS_DRAFT } from '../domain/model/course'
+import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT } from '../domain/model/course'
 import {
     LESSON_TYPE_VIDEO,
     LESSON_TYPE_TEXT,
@@ -7,6 +7,7 @@ import {
     LESSON_TYPE_ACTIVITY,
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
+import { getPhrase, translate } from '../modules/localisation'
 const { GOOGLE_ANALYTICS_MEASUREMENT_ID, TWITTER_TAG_ID } = process.env
 import { getSvgs } from '../utils'
 
@@ -32,6 +33,13 @@ export function registerLocals(app: Express) {
 
         res.locals.twitter = {
             tagId: TWITTER_TAG_ID,
+        }
+
+        // Language Dropdown
+        res.locals.languages = {
+            [LANGUAGE_EN]: getPhrase(LANGUAGE_EN, 'language', LANGUAGE_EN),
+            [LANGUAGE_CN]: getPhrase(LANGUAGE_CN, 'language', LANGUAGE_CN),
+            [LANGUAGE_JP]: getPhrase(LANGUAGE_JP, 'language', LANGUAGE_JP),
         }
 
         res.locals.path = req.path
