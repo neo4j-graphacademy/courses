@@ -7,7 +7,7 @@ import {
     LESSON_TYPE_ACTIVITY,
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
-import { getPhrase, translate } from '../modules/localisation'
+import { getPhrase } from '../modules/localisation'
 const { GOOGLE_ANALYTICS_MEASUREMENT_ID, TWITTER_TAG_ID } = process.env
 import { getSvgs } from '../utils'
 
