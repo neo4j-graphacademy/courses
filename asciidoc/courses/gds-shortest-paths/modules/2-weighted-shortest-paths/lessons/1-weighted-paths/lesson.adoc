@@ -1,0 +1,127 @@
+= Weighted shortest paths
+:type: quiz
+
+[.transcript]
+== What is a weighted relationship?
+
+Relationships can have properties assigned to them.
+In graph theory, relationship properties are called weights.
+Relationship weights must be a number and can be used to represent various information regarding relationships.
+In the context of finding the shortest paths, the weights can be used to store information about the cost of traversing the relationship.
+
+image::images/WeightedRel.png[title="Weighted relationships",1200]
+
+In this visualization, the relationship weight is used to represent the cost of flying between airports in monetary value.
+For example, it costs 123€ to fly from Paris to Lisbon.
+However, flying from Paris to Lisbon via Madrid would actually be cheaper as it costs 121€, which is 2€ less than a direct route.
+Therefore, the shortest weighted path between Paris and Lisbon follows through Madrid and is not actually the direct connection between the two.
+
+Your application could use the shortest weighted path algorithm to find flight routes that:
+
+* produce the least CO2
+* cost the least money
+* take the least time
+* or a combination of the three
+
+=== Projecting a weighted graph
+
+This section is only a quick refresher about Native Projection since you have already learned about projecting graphs in the Graph Data Science Fundamentals course.
+When dealing with a single relationship type or having identical weights on all relationship types, you can use the *relationshipProperties* configuration parameter.
+The *relationshipProperties* has three possible inputs:
+
+* string: When you want to add a single relationship property
+* list: When you want to add mulitple relationship properties
+* map: When you want to add one or multiple relationship properties and also provide default values
+
+Only one relationship property is present in the Airport sandbox you are using.
+The relationship property is *distance* and stores the distance between airports in miles.
+Since there is only one relationship property present and you don't need to define the default value, you can use the string format for the *relationshipProperties* configuration parameter.
+
+The following Cypher statement will project the airport routes graph along with the *distance* relationship weight.
+
+[source, cypher]
+----
+CALL gds.graph.project('routes', 'Airport', 'HAS_ROUTE',
+  {relationshipProperties:'distance'});
+----
+
+=== Dijkstra Source-Target Shortest Path algorithm
+
+The Dijkstra Source-Target algorithm computes the shortest weighted path between a *source* and a *target* node.
+The algorithm supports weighted graphs with only positive relationship weights. 
+If you have any negative weights, the algorithm will not work correctly.
+
+The following Cypher statement will calculate the shortest weighted path between *Paris Charles de Gaulle* and *Lisbon Portela Airport* airports.
+
+[source, cypher]
+----
+MATCH (source:Airport {iata: "CDG"}), (target:Airport {iata:"LIS"})
+CALL gds.shortestPath.dijkstra.stream('routes', 
+  {sourceNode:source, targetNode:target, relationshipWeightProperty:'distance'})
+YIELD nodeIds, totalCost
+RETURN [nodeId in nodeIds | gds.util.asNode(nodeId).descr] AS airports, costs, totalCost
+---- 
+
+[options="header"]
+|==================================================
+| airports                                              | costs      | totalCost
+| ["Paris Charles de Gaulle","Lisbon Portela Airport"]  | [0, 913.0] | 913.0  
+|==================================================
+
+As mentioned, you need to provide the *source* and *target* nodes to the algorithm.
+Therefore, you must use the *MATCH* clause to identify them.
+Since you are finding the shortest _weighted_ path, you must specify the *relationshipWeightParameter*.
+With the *relationshipWeightParameter*, you define which relationship property the algorithm should consider as the weight.
+In this example, the *distance* relationship property is used.
+If a direct connection exists between the two airports, it's more likely than not that the direct connection will be the shortest by distance.
+
+The *costs* output provides the accumulated cost of traversing to each node in the path, while the *totalCost* provides the total cost of traversing from source to target.
+
+=== Yen's k-shortest path algorithm
+
+Users probably wouldn't have a great experience in your route recommendation application if you didn't present them with any alternatives.
+You can use Yen's Shortest Path algorithm to calculate the k-shortest paths, where the *k* represents the number of shortest paths.
+For example, if you wanted to identify the five shortest weighted paths, you would set the *k* value to five.
+
+For the actual path computation, Yen’s algorithm uses the Dijkstra shortest path algorithm.
+Therefore, the Yen's algorithm also doesn't support negative weights.
+
+For k = 1, the algorithm behaves exactly like Dijkstra’s shortest path algorithm and returns the shortest path. For k = 2, the algorithm returns the shortest path and the second shortest path between the same source and target node. Generally, for k = n, the algorithm computes at most n paths which are discovered in the order of their total cost.
+
+The following Cypher statement will calculate the three shortest weighted path between *Paris Charles de Gaulle* and *Lisbon Portela Airport* airports using the Yen's algorithm.
+
+[source, cypher]
+----
+MATCH (source:Airport {iata: "CDG"}), (target:Airport {iata:"LIS"})
+CALL gds.shortestPath.yens.stream('routes', 
+  {sourceNode:source, targetNode:target, 
+     relationshipWeightProperty:'distance', k:3})
+YIELD index, nodeIds, totalCost
+RETURN index, [nodeId in nodeIds | gds.util.asNode(nodeId).descr] AS airports, totalCost
+----
+
+[options="header"]
+|==================================================
+| index |  airports                                               | totalCost
+| 0     |["Paris Charles de Gaulle","Lisbon Portela Airport"]     | 913.0  
+| 1     |["Paris Charles de Gaulle", "Nantes Atlantique Airport", "Lisbon Portela Airport"]  | 922.0  
+| 2     |["Paris Charles de Gaulle", "Bilbao Airport", "Lisbon Portela Airport"]  | 923.0  
+|==================================================
+
+You can observe that the shortest path remains the same, which is the direct connection.
+If you were to fly from Paris to Lisbon via Nantes, you would make additional 9 miles or additional 10 miles via Bilbao.
+
+== Check your understanding
+
+
+include::questions/1-weights.adoc[leveloffset=+1]
+
+include::questions/2-export-to-csv.adoc[leveloffset=+1]
+
+include::questions/3-saving-properties-in-the-database.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson we went over weighted relationships and finding shortest weighted paths with Dijkstra and Yen's algorithms.
+Weights can be used to represent the cost of traversing the relationships.
