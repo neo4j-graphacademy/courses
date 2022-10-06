@@ -1,0 +1,162 @@
+= Cypher shortest paths
+:type: quiz
+
+
+[.transcript]
+== Introduction
+
+Imagine that you are asked to build a web application that will allow users to find the shortest, or cheapest route between two airports.
+The user selects a origin and destination airport, and it is the responsibility of the application to suggest routes between them.
+
+As you might imagine, finding the best connections between various airports is a graph problem in a nutshell.
+You could easily represent airports as nodes, and use relationships to model the possible relationships between them.
+
+The Cypher query language was designed to efficiently match patterns in a graph using a declarative syntax.
+Writing a Cypher query to identify possible routes between two airports becomes a trivial task compared to other database query languages.
+
+== Unweighted Shortest Path
+
+Cypher supports the calculation of the shortest unweighted path between a pair of nodes with the `shortestPath()` function.
+
+In an _unweighted_ path, the traversal of each relationship has an identical cost, so the shortest path between two nodes will always be the sum of the total relationships in a path between them.
+
+=== How it works
+
+The `shortestPath()` function expects a definition of a Cypher path between an _origin_ and _destination_ node. 
+The calculation is then made by traversing through the graph from both nodes, finding where the two paths meet in the middle.  
+The traversal is _breadth first_, meaning that all relationships from a node will be followed before traversing further through the graph.
+
+The _state_ of the traversal is held in memory, _pruning_ or removing paths that are shorter than the current shortest path as it goes.  The overall shortest path is calculated as the smallest path length between the two nodes, or in other words, the smallest number of relationships in the path. 
+
+The output of the function is the _single_ shortest path between the two nodes.
+
+=== An example
+
+Say we would like to find the shortest route between Montana and Paris, we could run the following query.
+
+.Finding the Shortest Path
+[source,Cypher Syntax,role=noplay nocopy]
+----
+MATCH (source:Airport {name:"Montana"}),
+      (target:Airport {name:"Paris"}) //<1>
+MATCH p = shortestPath((source)-[:HAS_ROUTE*1..10]->(target)) //<2>, <3>
+RETURN p
+----
+
+**Notes:**
+
+1. We start off by using the `MATCH` clause to find the source and destination `(:Airport)` nodes.
+2. The `shortestPath()` function calculates and returns a link:https://neo4j.com/docs/cypher-manual/current/syntax/patterns/#cypher-pattern-path-variables[`Path` object^].
+3. The `*1..10` portion of the statement specifies that the path should contain between 1 and 10 relationships.
+
+// image::images/Airports.png[title="Model of airport routes",1200]
+
+[TIP]
+.Multiple Relationship Types
+====
+The pattern defined in the query above instructs the algorithm to follow any  `[:HAS_ROUTE]` relationship type in an outgoing direction from the source node until it reaches the target.
+
+You can further extend the types of relationships by using the pipe operator (`|`) to add additional relationship types.  For example, the below statement will follow either `[:HAS_ROUTE]`, `[:CAN_WALK_TO]` or `[:CAN_SWIM_TO]` relationships until it reaches the destination.
+
+.More Complex Patterns
+[source,Cypher Syntax,role=noplay nocopy]
+----
+// example code - do not run
+MATCH (source:Airport {name:"Montana"}),
+      (target:Airport {name:"Paris"})
+MATCH p=shortestPath((source)-[:HAS_ROUTE|CAN_WALK_TO|CAN_SWIM_TO*1..10]->(target))
+RETURN p
+----
+
+// TODO: Add 5.0 Syntax for more complex patterns
+====
+
+
+
+=== Finding All Shortest Paths
+
+The `allShortestPaths()` function works in the same way as the `shortestPath()` function, but instead of returning the _first_ shortest path, the function will return all paths that contain the shortest number of relationships.
+
+
+.All Shortest Paths
+[source,Cypher Syntax,role=noplay nocopy]
+----
+// example - do not run
+MATCH (source:Airport {name:"Montana"}),
+      (target:Airport {name:"Paris"})
+MATCH p = allShortestPaths((source)-[:HAS_ROUTE*1..10]->(target))
+RETURN p
+----
+
+
+
+
+// === Single shortest path
+
+// First, you will implement a function that recommends to users the shortest path between two airports based on the number of stops.
+// Essentially, you can find the shortest number of stops between two airports by finding the shortest unweighted path between the two.
+// Since the cost of traversing all relationships in an unweighted network is identical, the shortest path function optimizes the number of stops or intermediate nodes.
+
+// The following syntax identifies the shortest path between the *Montana* and *Paris* airports.
+
+
+// You must define the graph pattern you are looking at as an input to the `shortestPath` function.
+// The code listed above searches for the shortest path between the described `source` and `target` nodes.
+// The algorithm is allowed to traverse only the `HAS_ROUTE` relationships.
+// Other relationship types in the graph will be ignored.
+// If you want to allow the shortest path algorithm to traverse other relationship types like, for example, `REL`, you can simply describe it in the graph pattern.
+
+
+
+// **Notes:**
+
+// 1. shortest path algorithm is allowed to traverse both the `HAS_ROUTE` and the `REL` relationships
+
+// Another important syntax detail is that you allow the algorithm to traverse any number of relationships with the `*` character.
+// If you want to limit the number of allowed hops, you can use the Cypher syntax for a variable length path with a maximum number of hops allowed.
+
+// [source, cypher]
+// ----
+// MATCH (source:Airport {name:"Montana"}),
+//       (target:Airport {name:"Paris"})
+// MATCH p=shortestPath((source)-[:HAS_ROUTE|REL*..10]->(target)) <1>
+// RETURN p
+// ----
+
+// **Notes:**
+
+// 1. shortest path algorithm is allowed to at most 10 relationships. If a path with 10 or less relationships doesn't exist between the two nodes, the return will be empty.
+
+// === All shortest paths
+
+// Sometimes there is more than one shortest path available between two nodes.
+// The `shortestPath` function will always return only a single path even if, for example, there are multiple paths available with the minimum number of hops.
+// If you are looking for all the possible shortest paths between two nodes, you can use the `allShortestPaths` function.
+// This function can be used for your web application to identify all the alternative shortest connections between two airports.
+
+// The following syntax identifies all the shortest paths between the *Montana* and *Paris* airports.
+
+// [source, cypher]
+// ----
+// MATCH (source:Airport {name: "Montana"}),
+//       (target:Airport {name:"Paris"})
+// MATCH p=allShortestPaths((source)-[:ROUTE*]->(target))
+// RETURN p
+// ----
+
+// The `allShortestPath` function returns one or more path objects if a path exists between the two nodes.
+// All the resulting paths will be of the same length, the minimum number of traversals between the pair of nodes.
+// Similarly as with the `shortestPath` function, you can describe the allowed relationship types and the number of allowed hops as an input to the `allShortestPath` object.
+
+== Check your understanding
+include::questions/1-sssp.adoc[leveloffset=+1]
+
+include::questions/2-path.adoc[leveloffset=+1]
+
+include::questions/3-allpaths.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson you learned how to find the shortest unweighted paths using the built-in Cypher functions.
+
+In the next challenge, you will use the knowledge obtained in this lesson to find the length of the shortest paths between two airports.
