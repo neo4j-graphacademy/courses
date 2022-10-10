@@ -2,4 +2,5 @@ CALL apoc.meta.nodeTypeProperties( ) yield nodeType, propertyName, propertyTypes
 WHERE nodeType = ':`Person`'
   AND (propertyName = 'born' OR propertyName = 'died')
 WITH collect(propertyTypes) AS types
-RETURN all(type IN types WHERE type = ['Date']) AS outcome
+WITH types, all(type IN types WHERE type = ['Date']) AS o
+return  o AND size(types) > 0 as outcome
