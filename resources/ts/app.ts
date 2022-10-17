@@ -12,6 +12,7 @@ import highlight from './highlight'
 import home from './home'
 import images from './images'
 import questions from './questions'
+import quiz from './quiz'
 import tabs from './tabs'
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -29,6 +30,7 @@ window.addEventListener('DOMContentLoaded', () => {
     feedback()
     images()
     courseOverview()
+    quiz()
 
     // Lazyload images
     const ll = new lazyload()

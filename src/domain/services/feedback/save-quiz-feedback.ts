@@ -2,12 +2,12 @@ import { write } from "../../../modules/neo4j";
 import { FeedbackPayload, FeedbackResponse } from "../../model/feedback";
 import { User } from "../../model/user";
 
-export async function saveCourseFeedback(user: User, course: string, feedback: FeedbackPayload): Promise<FeedbackResponse> {
+export async function saveQuizFeedback(user: User, course: string, feedback: FeedbackPayload): Promise<FeedbackResponse> {
     const res = await write(`
         MATCH (u:User {sub: $user})
         MATCH (c:Course {slug: $course})
 
-        CREATE (f:Feedback:CourseFeedback {
+        CREATE (f:Feedback:QuizFeedback {
             id: randomUuid(),
             createdAt: datetime()
         })
@@ -20,8 +20,11 @@ export async function saveCourseFeedback(user: User, course: string, feedback: F
         CREATE (f)-[:FOR_COURSE]->(c)
 
         RETURN f.id AS id
-
-    `, { user: user.sub, course, module, feedback })
+    `, {
+        user: user.sub,
+        course,
+        feedback
+    })
 
     if (res.records.length === 0) {
         return {

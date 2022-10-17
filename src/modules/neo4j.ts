@@ -1,4 +1,4 @@
-import neo4j, { Driver, Result, Transaction } from 'neo4j-driver'
+import neo4j, { Driver, QueryResult, Result } from 'neo4j-driver'
 import { notify } from '../middleware/bugsnag.middleware';
 
 let _driver: Driver;
@@ -15,17 +15,15 @@ export async function createDriver(host: string, username: string, password: str
     return driver
 }
 
-export async function read(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<Result> {
+export async function read(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult> {
     const session = _driver.session({ database })
 
     try {
-        const res = await session.readTransaction(tx => {
-            return tx.run(query, params)
-        })
+        const res = await session.executeRead(tx => tx.run(query, params) as Result)
 
         await session.close()
 
-        return res
+        return res as QueryResult
     }
     catch (e: any) {
         await session.close()
@@ -43,17 +41,15 @@ export async function read(query: string, params?: Record<string, any>, database
     }
 }
 
-export async function write(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<Result> {
+export async function write(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult> {
     const session = _driver.session({ database })
 
     try {
-        const res = await session.writeTransaction(tx => {
-            return tx.run(query, params)
-        })
+        const res = await session.executeWrite(tx => tx.run(query, params) as Result)
 
         await session.close()
 
-        return res
+        return res as QueryResult
     }
     catch (e: any) {
         await session.close()
@@ -71,10 +67,10 @@ export async function write(query: string, params?: Record<string, any>, databas
     }
 }
 
-export async function writeTransaction<T>(work: (tx: Transaction) => T, database: string | undefined = NEO4J_DATABASE): Promise<T> {
+export async function writeTransaction(work, database: string | undefined = NEO4J_DATABASE): Promise<any> {
     const session = _driver.session({ database, defaultAccessMode: 'WRITE' })
 
-    const res = await session.writeTransaction<T>(work)
+    const res = await session.executeWrite(work)
 
     await session.close()
 

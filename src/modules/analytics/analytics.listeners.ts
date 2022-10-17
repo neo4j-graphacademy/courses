@@ -111,6 +111,7 @@ export default function initAnalyticsListeners(): Promise<void> {
                 courseName: event.course.title,
                 usecase: event.course.usecase,
                 categories: event.course.categories.map(category => category.title),
+                throughQuiz: event.throughQuiz
             })
         })
 

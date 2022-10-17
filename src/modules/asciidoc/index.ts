@@ -101,6 +101,14 @@ export function convertModuleOverview(course: string, module: string, attributes
     return Promise.resolve(convert(document))
 }
 
+export function getCourseDirectory(course: string): string {
+    return path.join('courses', course)
+}
+
+export function getModuleDirectory(course: string, module: string): string {
+    return path.join('courses', course, 'modules', module)
+}
+
 export function getLessonDirectory(course: string, module: string, lesson: string): string {
     return path.join('courses', course, 'modules', module, 'lessons', lesson)
 }
@@ -131,6 +139,7 @@ export async function convertLessonOverview(course: string, module: string, less
 
     return html
 }
+
 
 function checkAddToCache(key: string, html: string, document: Asciidoctor.Document) {
     if (document.getAttribute(ATTRIBUTE_DISABLE_CACHE, 'false') !== 'true') {

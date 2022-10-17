@@ -36,9 +36,11 @@ import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { translate } from '../modules/localisation'
 import { User } from '../domain/model/user'
 import { courseOgBannerImage } from './route.utils'
+import { getQuiz } from '../domain/services/quiz/get-quiz'
+import { saveQuizResults } from '../domain/services/quiz/save-quiz-results'
+import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback'
 
 const router = Router()
-
 
 
 /**
@@ -426,14 +428,151 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
 }
+
+
 /**
  * @GET /:course/browser
  *
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
-
 router.get('/:course/browser', requiresAuth(), requiresVerification, browser)
+
+
+/**
+ * @GET /:course/quiz
+ *
+ * Take a quick quiz to pass the course
+ *
+ */
+router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            req.flash('info', 'You must be enrolled to take the quiz')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
+        // If already completed, don't show again
+        else if (course.completed) {
+            req.flash('info', 'You have already completed this course!')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
+        // Quiz available after 7 days
+        else if (!course.quizAvailable && !user.email?.includes('neotechnology.com')) {
+            req.flash('info', 'Quizzes is only available after 7 days')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
+
+        const quiz = await getQuiz(course)
+
+        return res.render('course/quiz', {
+            classes: `quiz ${req.params.course}-quiz  ${course.completed ? 'course--completed' : ''}`,
+            title: `${translate(course.language)('quiz-title', 'Pop Quiz')} | ${course.title}`,
+            analytics: {
+                course: {
+                    slug: course.slug,
+                    title: course.title,
+                    summary: course.summary,
+                    link: course.link,
+                },
+                user: {
+                    id: user.id,
+                }
+            },
+            feedback: true,
+            ...module,
+            type: 'quiz',
+            path: req.originalUrl,
+            enrolled: course.enrolled,
+            course,
+            quiz,
+            translate: translate(course.language),
+        })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+
+/**
+ * @POST /:course/quiz
+ *
+ * Save quick quiz results
+ *
+ */
+router.post('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
+        const token = await getToken(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+        const quiz = await getQuiz(course)
+
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            return res.status(400).json({
+                message: 'You must be enrolled to take the quiz'
+            })
+        }
+        // If already completed, don't show again
+        else if (course.completed) {
+            return res.status(400).json({
+                message: 'You have already completed this course!'
+            })
+        }
+
+        const answers = req.body.answers
+
+        // TODO: More robust check
+        if (!answers.length || quiz.length !== answers.length || !answers.every(el => el.correct === true)) {
+            return res.status(400).json({
+                message: 'Incorrect answers.  Please try again.'
+            })
+        }
+
+        // Save results
+        const output = await saveQuizResults(user, token, course.slug, answers)
+
+        return res.json(output)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+
+/**
+ * @POST /:course/quiz/feedback
+ *
+ * Save feedback for the quiz
+ *
+ */
+router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+        const { course } = req.params
+
+        const output = await saveQuizFeedback(user as User, course, req.body)
+
+        if (output.status === 'ok') {
+            res.status(201)
+        }
+        else {
+            res.status(404)
+        }
+
+        res.json(output)
+    }
+    catch (e) {
+        next(e)
+    }
+})
 
 /**
  * @GET /:course/:module/browser

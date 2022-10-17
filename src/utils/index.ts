@@ -1,7 +1,7 @@
 import path, { basename } from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, COURSE_QUIZ_AVAILABLE_AFTER, PUBLIC_DIRECTORY } from '../constants'
 import {
     Course,
     CoursesByStatus,
@@ -112,6 +112,10 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const emailDirectory = `${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`
     const emails = fs.existsSync(emailDirectory) ? fs.readdirSync(`${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`).map(file => basename(file, '.adoc')) : []
 
+    // If less than 7 days old, they are not allowed to take the quick quiz
+    const enrolledAt = course.enrolledAt ? new Date((course.enrolledAt as string).toString()) : undefined
+    const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
+
     return {
         ...course,
         summary: await courseSummaryExists(course.slug),
@@ -120,6 +124,8 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         badgeUrl: courseOgBadgeImage(course.slug),
         emails,
         createdAt,
+        enrolledAt,
+        quizAvailable,
         completedAt,
         lastSeenAt,
         certificateNumber,

@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT } from '../domain/model/course'
+import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT, STATUS_ACTIVE } from '../domain/model/course'
 import {
     LESSON_TYPE_VIDEO,
     LESSON_TYPE_TEXT,
@@ -17,6 +17,7 @@ export function registerLocals(app: Express) {
         // Load constants into locals
         res.locals.statuses = {
             STATUS_DRAFT,
+            STATUS_ACTIVE,
         }
         res.locals.lessonType = {
             LESSON_TYPE_VIDEO,

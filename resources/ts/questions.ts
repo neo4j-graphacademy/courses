@@ -33,6 +33,7 @@ interface Question {
     parent: Element;
     element: Element,
     id: string;
+    question: string;
     type: 'freetext' | string;
     options: Option[] | undefined;
 }
@@ -119,12 +120,13 @@ const getQuestionDetails = (element: Element): Question => {
         parent,
         element,
         id,
+        question: element.querySelector('h2')?.innerText as string,
         type: element.classList.contains(QUESTION_SELECTOR_FREE_TEXT) || element.classList.contains(QUESTION_SELECTOR_INPUT_IN_SOURCE) ? ANSWER_TYPE_FREETEXT : ANSWER_TYPE_CHECKED,
         options: undefined,
     }
 }
 
-const addHintListeners = (element: Element): void => {
+export const addHintListeners = (element: Element): void => {
     element.querySelectorAll('.admonition.hint')
         .forEach(block => {
             const parent = block.parentElement
@@ -245,10 +247,7 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
     })
 
     return {
-        id,
-        type,
-        element,
-        parent,
+        ...getQuestionDetails(element),
         options,
     }
 }
@@ -305,10 +304,7 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
         })
 
     return {
-        parent,
-        element,
-        id,
-        type,
+        ...getQuestionDetails(element),
         options,
     } as Question
 }
@@ -355,10 +351,7 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
         })
 
     return {
-        parent,
-        element,
-        id,
-        type,
+        ...getQuestionDetails(element),
         options,
     } as Question
 }
@@ -518,7 +511,7 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
     }
 }
 
-const handleShowHints = (questionElement: HTMLElement) => {
+export const handleShowHints = (questionElement: HTMLElement) => {
     const showHintButton = questionElement.querySelector(`.${ADMONITION_SHOW_HINT}`)
     const hint = questionElement.querySelector(`.hint`)
 
@@ -641,7 +634,7 @@ const displayLessonCompleted = (res) => {
     }
 }
 
-const displayCourseCompleted = (res) => {
+export const displayCourseCompleted = (res) => {
     const actions: HTMLElement[] = []
 
     const arrow = document.createElement('span')
@@ -686,10 +679,8 @@ const displayCourseCompleted = (res) => {
         actions.push(button)
     }
 
-
-
     const confirmation = buildModuleOutcome(
-        'You have completed this course!',
+        window.i18n.courseCompletedTitle || 'You have completed this course!',
         actions,
     )
 
@@ -820,6 +811,10 @@ const createSubmitButton = (text) => {
     return button
 }
 
+let questionsOnPage: Question[] = []
+
+export const getQuestionsOnPage: () => Question[] = () => questionsOnPage
+
 const setupQuestions = async () => {
     // Don't run if lesson is already completed
     const body = document.getElementsByTagName('body')[0]
@@ -829,12 +824,12 @@ const setupQuestions = async () => {
     }
 
     // Find Questions on page
-    const questionsOnPage: Question[] = await Promise.all(
+    questionsOnPage = await Promise.all(
         Array.from(document.querySelectorAll<Element>('.question'))
             .map(div => formatQuestion(div))
     )
 
-    if (questionsOnPage.length) {
+    if (questionsOnPage.length && !body.classList.contains('quiz')) {
         // Add Submit button
         const parent = questionsOnPage[0].parent;
         const button = createSubmitButton(`Check Answer${questionsOnPage.length > 1 ? 's' : ''}`)

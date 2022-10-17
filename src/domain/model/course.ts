@@ -81,6 +81,8 @@ export interface Course {
     classmarkerReference?: string;
     certificateNumber: Integer | boolean | undefined;
     translations: Course[];
+    enrolledAt: Date | string;
+    quizAvailable: boolean;
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }

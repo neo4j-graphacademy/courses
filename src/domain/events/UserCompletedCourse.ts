@@ -6,5 +6,6 @@ export class UserCompletedCourse {
         public readonly user: User,
         public readonly course: Course,
         public readonly token: string | undefined,
-    ) {}
+        public readonly throughQuiz: boolean = false
+    ) { }
 }

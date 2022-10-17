@@ -9,7 +9,7 @@ export async function saveLessonFeedback(user: User, course: string, module: str
         WHERE c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
         CREATE (f:Feedback:LessonFeedback {
-            id: apoc.text.base64Encode(l.id + '--'+ u.sub + '--'+ toString(datetime())),
+            id: randomUuid(),
             createdAt: datetime()
         })
         SET f += $feedback
@@ -24,7 +24,7 @@ export async function saveLessonFeedback(user: User, course: string, module: str
 
     `, { user: user.sub, course, module, lesson, feedback })
 
-    if ( res.records.length === 0 ) {
+    if (res.records.length === 0) {
         return {
             status: 'error',
             message: 'User or course not found',
