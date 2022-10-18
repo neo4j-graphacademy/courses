@@ -166,5 +166,5 @@ export async function saveLessonProgress(user: User, course: string, module: str
     }
 
 
-    return lessonWithProgress
+    return lessonWithProgress as LessonWithProgress
 }

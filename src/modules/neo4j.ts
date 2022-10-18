@@ -1,4 +1,4 @@
-import neo4j, { Driver, QueryResult, Result } from 'neo4j-driver'
+import neo4j, { Driver, QueryResult } from 'neo4j-driver'
 import { notify } from '../middleware/bugsnag.middleware';
 
 let _driver: Driver;
@@ -19,11 +19,11 @@ export async function read(query: string, params?: Record<string, any>, database
     const session = _driver.session({ database })
 
     try {
-        const res = await session.executeRead(tx => tx.run(query, params) as Result)
+        const res = await session.executeRead(tx => tx.run(query, params))
 
         await session.close()
 
-        return res as QueryResult
+        return res
     }
     catch (e: any) {
         await session.close()
@@ -45,11 +45,11 @@ export async function write(query: string, params?: Record<string, any>, databas
     const session = _driver.session({ database })
 
     try {
-        const res = await session.executeWrite(tx => tx.run(query, params) as Result)
+        const res = await session.executeWrite(tx => tx.run(query, params))
 
         await session.close()
 
-        return res as QueryResult
+        return res
     }
     catch (e: any) {
         await session.close()

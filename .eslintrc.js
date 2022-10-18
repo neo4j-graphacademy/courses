@@ -43,7 +43,6 @@ module.exports = {
         // catch (e: any)
         "@typescript-eslint/no-unsafe-argument": "off",
         "@typescript-eslint/no-unused-vars": "error",
-        "@typescript-eslint/no-unsafe-return": "warn"
 
         // "@typescript-eslint/adjacent-overload-signatures": "error",
         // "@typescript-eslint/array-type": [
