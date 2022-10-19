@@ -25,6 +25,15 @@ router.get('/reset', async (req, res) => {
     res.redirect('/logout')
 })
 
+router.post('/sandbox/tokeninfo', (req, res) => {
+    const json = {
+        email: 'adam+graphacademy@neo4j.com',
+        email_verified: true,
+    } as Partial<User>
+
+    res.json(json)
+})
+
 router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
     res.json([
         devSandbox()
@@ -70,7 +79,7 @@ router.get('/profile/sandbox', async (req, res, next) => {
 
         res.json(profile)
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -81,7 +90,7 @@ router.get('/profile/oidc', async (req, res, next) => {
 
         res.json(user)
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -94,7 +103,7 @@ router.get('/profile/auth0', async (req, res, next) => {
 
         res.json(profile)
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -112,14 +121,14 @@ router.get('/email/:template', async (req, res) => {
         MATCH (c:Course) WITH u, c ORDER BY rand() LIMIT 1
         RETURN u, c
     `)
-    const user = {email: 'adam@neo4j.com', ... result.records[0].get('u').properties}
+    const user = { email: 'adam@neo4j.com', ...result.records[0].get('u').properties }
     const course = result.records[0].get('c').properties
     const sandbox = devSandbox()
 
     const data = { user, course, sandbox }
     const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
 
-    if ( req.query.send === 'true' ) {
+    if (req.query.send === 'true') {
         send('adam.cowley@neo4j.com', email.subject, email.html)
 
         console.log('Email sent');
