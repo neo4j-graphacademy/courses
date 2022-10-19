@@ -1,5 +1,5 @@
 // clear the graph
-MATCH (n) DETACH DELETE n;
+CREATE OR REPLACE DATABASE neo4j;
 // make sure all constraints exist
 CREATE CONSTRAINT Genre_name IF NOT EXISTS ON (x:Genre) ASSERT x.name IS UNIQUE;
 CREATE CONSTRAINT Movie_movieId IF NOT EXISTS ON (x:Movie) ASSERT x.movieId IS UNIQUE;
@@ -14,10 +14,10 @@ AS row
 WITH row WHERE row.Entity = "Movie"
 MERGE (m:Movie {movieId: row.movieId})
 ON CREATE SET
-m.tmdbId = row.tmdbId,
-m.imdbId = row.imdbId,
+m.tmdbId = toInteger(row.tmdbId),
+m.imdbId = toInteger(row.imdbId),
 m.imdbRating = toFloat(row.imdbRating),
-m.released = row.released,
+m.released = datetime(row.released),
 m.title = row.title,
 m.year = toInteger(row.year),
 m.poster = row.poster,
@@ -42,14 +42,14 @@ AS row
 WITH row WHERE row.Entity = "Person"
 MERGE (p:Person {tmdbId: row.tmdbId})
 ON CREATE SET
-p.imdbId = row.imdbId,
+p.imdbId = toInteger(row.imdbId),
 p.bornIn = row.bornIn,
 p.name = row.name,
 p.bio = row.bio,
 p.poster = row.poster,
 p.url = row.url,
-p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END,
-p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END;
+p.born = CASE row.born WHEN "" THEN null ELSE datetime(row.born) END,
+p.died = CASE row.died WHEN "" THEN null ELSE datetime(row.died) END;
 // set ACTED_IN relationships and Actor labels
 :auto USING PERIODIC COMMIT
 LOAD CSV WITH HEADERS
