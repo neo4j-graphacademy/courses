@@ -21,3 +21,5 @@ CREATE INDEX IF NOT EXISTS FOR (n:Enrolment) ON (n.lastSeenAt);
 CREATE INDEX IF NOT EXISTS FOR (n:FromCommunityGraph) ON (n.completedAt);
 
 CREATE CONSTRAINT IF NOT EXISTS ON (c:Session) ASSERT c.id IS UNIQUE;
+
+CREATE INDEX IF NOT EXISTS FOR (n:User) ON (n.email);
