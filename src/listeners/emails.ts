@@ -6,6 +6,10 @@ import { isEnabled, prepareAndSend } from '../modules/mailer'
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
         emitter.on<UserEnrolled>(UserEnrolled, event => {
+            if (event.user.unsubscribed) {
+                return
+            }
+
             const email = event.user.email
             if (!event.course.certification) {
                 prepareAndSend('user-enrolled', email, { ...event })
@@ -13,6 +17,10 @@ export default function initEmailListeners(): Promise<void> {
         })
 
         emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
+            if (event.user.unsubscribed) {
+                return
+            }
+
             const template = 'user-completed-course'
             const email = event.user.email
 

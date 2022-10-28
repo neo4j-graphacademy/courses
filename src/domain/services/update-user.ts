@@ -8,13 +8,14 @@ export interface UserUpdates {
     position?: string | null;
     company?: string | null;
     country?: string | null;
+    unsubscribed: boolean;
 }
 
 export async function updateUser(user: User, updates: UserUpdates): Promise<User> {
     // Null keys that don't exist
-    for ( const key in updates ) {
-        if (updates[ key as keyof UserUpdates ]?.trim() === '') {
-            updates[ key as keyof UserUpdates ] = null
+    for (const key in updates) {
+        if (typeof updates[key] === 'string' && updates[key].trim() === '') {
+            updates[key] = null
         }
     }
 
@@ -28,7 +29,7 @@ export async function updateUser(user: User, updates: UserUpdates): Promise<User
         updates,
     })
 
-    if ( res.records.length === 0 ) {
+    if (res.records.length === 0) {
         throw new NotFoundError(`No user with sub ${user.sub}`)
     }
 

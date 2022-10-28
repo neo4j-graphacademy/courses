@@ -20,7 +20,8 @@ const main = async () => {
     // (but hasn't had another reminder email in the last three days)
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)-[:FOR_COURSE]->(c)
-        WHERE e.createdAt <= datetime() - duration('P${days}D')
+        WHERE e.unsubscribed IS NULL
+          AND e.createdAt <= datetime() - duration('P${days}D')
           AND e.lastSeenAt <= datetime() - duration('P${days}D')
           AND not e:CompletedEnrolment
           AND not exists(e.reminderSentAt)

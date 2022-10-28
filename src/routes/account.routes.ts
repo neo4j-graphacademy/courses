@@ -20,7 +20,7 @@ const router = Router()
 /**
  * Account Breadcrumbs
  */
- router.use((req, res, next) => {
+router.use((req, res, next) => {
     res.locals.breadcrumbs = [
         {
             link: '/',
@@ -40,7 +40,7 @@ const router = Router()
  *
  * Display user account details
  */
-router.get('/', requiresAuth(),  async (req, res, next) => {
+router.get('/', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req) as User
         const token = await getToken(req)
@@ -92,7 +92,7 @@ router.get('/complete', requiresAuth(), async (req, res) => {
  */
 router.get('/skip', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req)  as User
+        const user = await getUser(req) as User
 
         await updateUser(user, {} as UserUpdates)
 
@@ -115,9 +115,11 @@ router.post('/', requiresAuth(), async (req, res, next) => {
         const user = await getUser(req) as User
 
         // TODO: Validation
-        const { nickname, givenName, position, company, country } = req.body
+        const { nickname, givenName, position, company, country, unsubscribe } = req.body
 
-        await updateUser(user, { nickname, givenName, position, company, country, })
+        const unsubscribed = unsubscribe === 'true'
+
+        await updateUser(user, { nickname, givenName, position, company, country, unsubscribed })
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -149,7 +151,7 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
             }
         })
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -276,8 +278,8 @@ router.get('/courses/:status', requiresAuth(), courseHandler)
 router.post('/event/:type', requiresAuth(), async (req, res, next) => {
     const type: UiEventType = req.params.type as UiEventType
 
-    if ( !UI_EVENTS.includes(type) ) {
-        next( new NotFoundError('unknown event') )
+    if (!UI_EVENTS.includes(type)) {
+        next(new NotFoundError('unknown event'))
     }
 
     try {
@@ -292,9 +294,9 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
             )
         )
 
-        res.status(201).send({status: 'created'})
+        res.status(201).send({ status: 'created' })
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
@@ -317,9 +319,9 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
             )
         )
 
-        res.status(201).send({status: 'created'})
+        res.status(201).send({ status: 'created' })
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
