@@ -11,6 +11,7 @@ import properties from 'highlight.js/lib/languages/properties'
 import shell from 'highlight.js/lib/languages/shell'
 import sql from 'highlight.js/lib/languages/sql'
 import sql_more from 'highlight.js/lib/languages/sql_more'
+import ts from 'highlight.js/lib/languages/typescript'
 import yaml from 'highlight.js/lib/languages/yaml'
 import { definer as graphql } from 'highlightjs-graphql/graphql'
 import cypher from 'highlightjs-cypher/src/cypher'
@@ -44,11 +45,12 @@ export default function highlight() {
   hljs.registerLanguage('js', javascript)
   hljs.registerLanguage('javascript', javascript)
   hljs.registerLanguage('json', json)
+  hljs.registerLanguage('python', python)
   hljs.registerLanguage('sql', sql)
   hljs.registerLanguage('sql_more', sql_more)
+  hljs.registerLanguage('ts', ts)
+  hljs.registerLanguage('typescript', ts)
   hljs.registerLanguage('yaml', yaml)
-  hljs.registerLanguage('python', python)
-  hljs.registerLanguage('python', python)
 
   hljs.highlightAll()
 }
