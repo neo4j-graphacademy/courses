@@ -23,7 +23,7 @@ router.get(`/certification`, forceTrailingSlash, (req, res, next) => {
             levelOverline: file.getAttribute('level-overline'),
             courses: false,
             classes: 'certification',
-            ogImage: CDN_URL ?  `${CDN_URL}/img/categories/banners/certification.png` : `${BASE_URL}/img/og/og-categories.png`
+            ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/certification.png` : `${BASE_URL}/img/og/og-categories.png`
         })
     }
     catch (e) {
