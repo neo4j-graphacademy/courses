@@ -18,7 +18,7 @@ export const LESSON_TYPE_ACTIVITY = 'activity'
 export const LESSON_TYPE_CHALLENGE = 'challenge'
 
 
-type LessonType =  typeof LESSON_TYPE_VIDEO
+type LessonType = typeof LESSON_TYPE_VIDEO
     | typeof LESSON_TYPE_TEXT
     | typeof LESSON_TYPE_QUIZ
     | typeof LESSON_TYPE_ACTIVITY
@@ -33,6 +33,7 @@ export interface Lesson {
     order: number;
     duration: number;
     sandbox: boolean | string;
+    lab: string | undefined;
     cypher: string | undefined;
     verify: string | undefined;
     optional: boolean;

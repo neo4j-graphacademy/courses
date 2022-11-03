@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { Sandbox } from '../modules/sandbox'
+import { getSandboxForUseCase, Sandbox } from '../modules/sandbox'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
@@ -17,7 +17,7 @@ import { Course } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig } from '../utils'
+import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig, repositoryBlobUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -39,6 +39,7 @@ import { courseOgBannerImage } from './route.utils'
 import { getQuiz } from '../domain/services/quiz/get-quiz'
 import { saveQuizResults } from '../domain/services/quiz/save-quiz-results'
 import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback'
+import { URLSearchParams } from 'url'
 
 const router = Router()
 
@@ -938,6 +939,71 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
     }
     catch (e) {
         next(e)
+    }
+})
+
+/**
+ * @GET  /:course/:module/:lesson/lab
+ *
+ * Labs are hands-on coding challenges served through Gitpod.
+ * This URL
+ *
+ */
+router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, nextfn) => {
+    try {
+        const user = await getUser(req) as User
+        const token = await getToken(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+        const sandbox = await getSandboxForUseCase(token, user, course.usecase as string)
+
+        // If not enrolled, send to course home
+        if (course.enrolled === false) {
+            req.flash('info', 'You must be enrolled to view this content')
+
+            return res.redirect(`/courses/${req.params.course}/`)
+        }
+
+        if (!course.usecase) {
+            return nextfn(new NotFoundError(`Could not find usecase for course ${req.params.course}`))
+        }
+
+        const module = course.modules.find(row => row.slug === req.params.module)
+
+        if (!module) {
+            return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+        }
+
+        else if (!module.lessons) {
+            return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
+        }
+
+        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
+
+        if (!lesson) {
+            return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+        }
+
+        else if (!lesson.lab || !course.repository) {
+            return nextfn(new NotFoundError(`Could not find lab for lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+        }
+
+        else if (!sandbox) {
+            return nextfn(new NotFoundError(`Could not find sandbox for usecase ${course.usecase} : lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+        }
+
+        // Build Repository URL
+        const repositoryUrl = lesson.lab.replace('{repository-blob}', repositoryBlobUrl(course.repository))
+
+        // Build Environment Variables
+        const env = `NEO4J_URI=${encodeURIComponent(`bolt://${sandbox.ip}:${sandbox.boltPort}`)},NEO4J_USERNAME=${encodeURIComponent(sandbox.username)},NEO4J_PASSWORD=${encodeURIComponent(sandbox.password)}`
+
+        // Redirect to gitpod
+        const redirectTo = `https://gitpod.io#${env}/${repositoryUrl}`
+
+        res.redirect(redirectTo)
+    }
+    catch (e) {
+        nextfn(e)
     }
 })
 

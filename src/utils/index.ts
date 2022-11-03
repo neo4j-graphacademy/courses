@@ -192,6 +192,13 @@ export function getSandboxConfig(
         sandboxVisible = false
     }
 
+    // Lab?  Currently doesn't work due to frame-ancestors from gitpod.io, have to add a link to ./lab in text instead
+    // if (course.sandbox && course.repository && typeof lesson?.lab === 'string') {
+    //     showSandbox = true
+    //     sandboxVisible = true
+    //     sandboxUrl = './lab'
+    // }
+
     return Promise.resolve({
         showSandbox,
         sandboxVisible,
@@ -369,13 +376,35 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     for (const [key, value] of Object.entries(course)) {
         if (key.endsWith('repository')) {
             attributes[key] = value
-            attributes[`${key}-raw`] = `https://raw.githubusercontent.com/${value}`
-            attributes[`${key}-blob`] = `https://github.com/${value}/blob`
+            attributes[`${key}-raw`] = repositoryRawUrl(value)
+            attributes[`${key}-blob`] = repositoryBlobUrl(value)
         }
     }
 
     return attributes
 }
+
+/**
+ * Generate base URL for raw repository files
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryRawUrl(value: string) {
+    return `https://raw.githubusercontent.com/${value}`
+}
+
+/**
+ * Generate base URL for linking to files
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryBlobUrl(value: string) {
+    return `https://github.com/${value}/blob`
+}
+
+
 
 let countries: Record<string, any>
 
