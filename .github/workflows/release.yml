@@ -50,6 +50,16 @@ jobs:
           SOURCE_DIR: "public"
           DEST_DIR: "assets"
 
+      # Invalidate the CDN cache
+      - name: Invalidate CloudFront Cache
+        uses: chetan/invalidate-cloudfront-action@v2
+        env:
+          DISTRIBUTION: ${{ secrets.GA_CLOUDFRONT_DISTRIBUTION }}
+          PATHS: "/assets"
+          AWS_REGION: ${{ secrets.GA_AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DEVREL_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEVREL_SECRET_ACCESS_KEY }}
+
   rebuild:
     runs-on: ubuntu-latest
     steps:
@@ -63,22 +73,9 @@ jobs:
           GITHUB_OAUTH_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
 
       # Restart cluster with new image
-      - name: Trigger deploy
+      - name: Restart Cluster
         uses: kenju/kubernetes-action@master
         env:
           KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         with:
           args: "rollout restart -n graphacademy-prod deployment/graphacademy"
-
-  invalidate:
-    runs-on: ubuntu-latest
-    steps:
-      # Invalidate the CDN cache
-      - name: Invalidate CloudFront Cache
-        uses: chetan/invalidate-cloudfront-action@v2
-        env:
-          DISTRIBUTION: ${{ secrets.GA_CLOUDFRONT_DISTRIBUTION }}
-          PATHS: "/assets"
-          AWS_REGION: ${{ secrets.GA_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.DEVREL_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEVREL_SECRET_ACCESS_KEY }}
