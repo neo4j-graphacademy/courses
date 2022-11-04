@@ -4,22 +4,15 @@ import { STATUS_DRAFT } from './domain/model/course'
 
 // Load from .env
 config({
-    path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env'
+    path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env',
 })
 
-const {
-    PROFILE,
-    CACHE_ASCIIDOC,
-    KHOROS_BASE_URL,
-    KHOROS_CATEGORY_URL,
-    KHOROS_RSS_URL,
-    DISCORD_ID,
-} = process.env
+const { PROFILE, CACHE_ASCIIDOC, KHOROS_BASE_URL, KHOROS_CATEGORY_URL, KHOROS_RSS_URL, DISCORD_ID } = process.env
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 export const BASE_URL = process.env.BASE_URL
 
-export const DEFAULT_COURSE_THUMBNAIL = '/img/course-placeholder.jpg'
+export const DEFAULT_COURSE_THUMBNAIL = '/img/static/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
 
 export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCIIDOC_DIRECTORY || 'asciidoc')
@@ -41,7 +34,7 @@ export const CHAT_JSON = `https://discord.com/api/guilds/${DISCORD_ID}/widget.js
 export const CDN_URL = process.env.CDN_URL
 
 // Port
-export const PORT: string = process.env.PORT || '3000' as string
+export const PORT: string = process.env.PORT || ('3000' as string)
 
 // Neo4j Credentials
 export const NEO4J_HOST: string = process.env.NEO4J_HOST as string
@@ -53,11 +46,9 @@ export const COMMUNITY_GRAPH_HOST: string = process.env.COMMUNITY_GRAPH_HOST as 
 export const COMMUNITY_GRAPH_USERNAME: string = process.env.COMMUNITY_GRAPH_USERNAME as string
 export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASSWORD as string
 
-
 // Enrolment Reminder Emails
 export const ENROLMENT_REMINDER_LIMIT: string = process.env.ENROLMENT_REMINDER_LIMIT as string
 export const ENROLMENT_REMINDER_DAYS: string = process.env.ENROLMENT_REMINDER_DAYS as string
-
 
 const truthy = (value: string | undefined) => value && value !== 'false'
 
