@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios'
+import { IS_PRODUCTION } from '../../constants'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
 import { isVerified } from '../jwt'
@@ -89,7 +90,7 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
 
         return res.data.map((row: Sandbox) => ({
             ...row,
-            scheme: 'bolt+s',
+            scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
             username: 'neo4j',
             host: `${row.sandboxHashKey}.neo4jsandbox.com`,
         })) as Sandbox[]
@@ -102,6 +103,7 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
         return []
     }
 }
+
 
 export const SANDBOX_STATUS_PENDING = 'PENDING'
 export const SANDBOX_STATUS_READY = 'READY'
