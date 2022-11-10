@@ -1,9 +1,9 @@
 // import pug from 'pug'
-import { Router } from 'express'
+import { Request, Response, Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
+import { getAuth0UserInfo, getSandboxes, getUserInfo, Sandbox } from '../modules/sandbox'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
@@ -25,6 +25,9 @@ router.get('/reset', async (req, res) => {
     res.redirect('/logout')
 })
 
+const sandboxes: Record<string, Sandbox> = {}
+
+
 router.post('/sandbox/tokeninfo', (req, res) => {
     const json = {
         email: 'adam+graphacademy@neo4j.com',
@@ -35,20 +38,63 @@ router.post('/sandbox/tokeninfo', (req, res) => {
 })
 
 router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
-    res.json([
-        devSandbox()
-    ])
+    console.log(`[test sandbox] Sending ${Object.keys(sandboxes)}`);
+
+    res.json(Object.values(sandboxes))
 })
 
-router.post('/sandbox/SandboxRunInstance', (req, res) => {
-    res.json({
+const runInstance = (req: Request, res: Response) => {
+    const id = Object.keys(sandboxes).length + 1
+    const sandboxHashKey = `test--${id}`
+    const sandbox: Sandbox = {
         ...devSandbox(),
-        usecase: req.body.usecase,
-    })
-})
+        usecase: req.body.usecase || 'recommendations',
+        sandboxHashKey,
+        sandboxId: id.toString(),
+        createdAt: Date.now(),
+        ip: undefined,
+    }
 
-router.get('/sandbox/SandboxRunInstance', (req, res) => {
-    res.json(devSandbox())
+    sandboxes[sandboxHashKey] = sandbox
+
+    console.log(`[test sandbox] ${sandboxHashKey} created`);
+
+    res.json(sandbox)
+}
+
+router.get('/sandbox/SandboxRunInstance', runInstance)
+router.post('/sandbox/SandboxRunInstance', runInstance)
+
+
+/**
+ * Sandbox creation process:
+ *
+ * 1. Sandbox is created, IP address is undefined - sandbox returns a 404 but with error "no ip"
+ * 2. After 30 seconds - 3 minutes, the sandbox will be assigned an IP - ready to connect to
+ */
+router.get('/sandbox/getSandboxByHashKey', (req, res) => {
+    const { sandboxHashKey } = req.query
+
+    if (!sandboxHashKey || !sandboxes.hasOwnProperty(sandboxHashKey as string)) {
+        console.log(`[test sandbox] ${sandboxHashKey} not found`);
+
+        return res.status(404).send('Sandbox not found')
+    }
+
+    const sandbox = sandboxes[sandboxHashKey as string]
+
+    console.log(`[test sandbox] ${sandboxHashKey} found, created at ${sandbox.createdAt}`);
+
+    const age = Date.now() - sandbox.createdAt
+
+    if (age > 10000) {
+        console.log(`[test sandbox] ${sandboxHashKey} found, sending IP`);
+        return res.send('127.0.0.1')
+    }
+
+    console.log(`[test sandbox] ${sandboxHashKey} still too young, wait 10s`);
+
+    res.status(404).send('no ip')
 })
 
 

@@ -6,14 +6,14 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { getSandboxForUseCase, Sandbox } from '../modules/sandbox'
+import { createSandbox, getSandboxByHashKey, getSandboxForUseCase, Sandbox, SANDBOX_STATUS_NOT_FOUND } from '../modules/sandbox'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { ASCIIDOC_DIRECTORY, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
-import { Course } from '../domain/model/course'
+import { Course, CourseWithProgress } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
@@ -377,9 +377,70 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
     }
 })
 
+const checkSandboxExists = async (user: User, token: string, enrolment: CourseWithProgress): Promise<Sandbox | undefined> => {
+    // No Usecase?  No Problem
+    if (!enrolment.usecase) {
+        return Promise.resolve(undefined)
+    }
+
+    // No hash key? Create sandbox
+    if (!enrolment.sandbox) {
+        return createAndSaveSandbox(token, user, enrolment)
+    }
+
+    try {
+        const { sandbox, status } = await getSandboxByHashKey(token, user, enrolment.sandbox.sandboxHashKey)
+
+        // If sandbox isn't found (ie, terminated after 3 days), create a new one and create the enrolment node
+        if (status === SANDBOX_STATUS_NOT_FOUND) {
+            const recreated = await createAndSaveSandbox(token, user, enrolment)
+
+            return recreated
+        }
+
+        return sandbox
+    }
+    catch (e) {
+        return createSandbox(token, user, enrolment.usecase)
+    }
+}
+
+router.get('/:course/sandbox.json', async (req, res) => {
+    try {
+        const token = await getToken(req)
+        const user = await getUser(req) as User
+        const { course } = req.params
+
+        // Check Enrolment
+        const enrolment = await getCourseWithProgress(course, user, token)
+
+        if (!enrolment) {
+            return res.status(404)
+        }
+        else if (!enrolment.usecase) {
+            return res.status(404)
+        }
+
+        // Check Sandbox Exists
+        const sandbox = await checkSandboxExists(user, token, enrolment)
+
+        if (!sandbox) {
+            throw new NotFoundError(`No sandbox for course ${course}, usecase: ${enrolment.usecase}`)
+        }
+
+        res.json(sandbox)
+    }
+    catch (e: any) {
+        res.json({
+            message: e.message,
+        })
+        // next(e)
+    }
+})
+
 const browser = async (req: Request, res: Response, next: NextFunction) => {
     const token = await getToken(req)
-    const user = await getUser(req)
+    const user = await getUser(req) as User
 
     try {
         // Check that user is enrolled
@@ -391,40 +452,37 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         }
 
         // Check that a use case exists
-        // TODO: Specific 404
         if (!course.usecase) {
             return next(new NotFoundError(`No use case for ${req.params.course}`))
         }
 
         // Check that the user has created a sandbox
-        let { sandbox } = course
+        await checkSandboxExists(user, token, course)
 
-        // If sandbox doesn't exist then recreate it
-        if (!sandbox === undefined) {
-            sandbox = await createAndSaveSandbox(token, user as User, course)
-        }
-
-        if (!sandbox) {
-            throw new NotFoundError(`No sandbox found`)
-        }
-
-        // Pre-fill credentials and redirect to browser
-        res.render('browser', {
-            course,
+        const ga = JSON.stringify({
+            user: {
+                sub: user?.sub,
+            },
+            course: {
+                slug: course.slug,
+                title: course.title,
+            },
             referrer: req.originalUrl,
-            classes: `course ${req.params.course}`,
-            layout: 'empty',
-            scheme: sandbox.scheme,
-            host: sandbox.host,
-            port: sandbox.boltPort,
-            username: 'neo4j',
-            password: sandbox.password,
         })
+
+        const browserDist = path.join(__dirname, '..', '..', 'browser', 'dist')
+
+        const html = readFileSync(path.join(browserDist, 'index.html')).toString()
+            .replace('</body>', `\n<script>\nwindow.ga = ${ga}\n</script>\n</body>`)
+            .replace('</head>', `\n<base href="/browser/"></head>`)
+
+        res.send(html)
     }
     catch (e: any) {
         if (!e.isSandboxError) {
             notifyPossibleRequestError(e, user)
         }
+
         // 400/401 on sandbox API - redirect to login
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
@@ -433,11 +491,14 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
 
 /**
  * @GET /:course/browser
+ * @GET /:course/browser/:module
+ * @GET /:course/browser/:module/:lesson
  *
- * Pre-fill the login credentials into local storage and then redirect to the
- * patched version of browser hosted at /browser/
+ * Display the patched browser
  */
 router.get('/:course/browser', requiresAuth(), requiresVerification, browser)
+router.get('/:course/:module/browser', requiresAuth(), requiresVerification, browser)
+router.get('/:course/:module/:lesson/browser', requiresAuth(), requiresVerification, browser)
 
 
 /**

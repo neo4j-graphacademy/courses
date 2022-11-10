@@ -5,12 +5,12 @@ import { CourseWithProgress } from "../model/course";
 import { User } from "../model/user";
 
 export async function createAndSaveSandbox(token: string, user: User, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
-    if ( !course.usecase ) {
+    if (!course.usecase) {
         return
     }
 
     // Prefer the DB record?
-    if ( process.env.SANDBOX_PREFER_EXISTING && course.sandbox ) {
+    if (process.env.SANDBOX_PREFER_EXISTING && course.sandbox) {
         return course.sandbox
     }
 
@@ -34,7 +34,7 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
         sandbox: {
             id: sandboxOutput.sandboxHashKey,
             sandboxId: sandboxOutput.sandboxId,
-            hashKey: sandboxOutput.sandboxHashKey,
+            sandboxHashKey: sandboxOutput.sandboxHashKey,
             host: sandboxOutput.host,
             ip: sandboxOutput.ip,
             boltPort: sandboxOutput.boltPort,

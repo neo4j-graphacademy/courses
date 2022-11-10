@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
 import { isVerified } from '../jwt'
@@ -12,7 +12,7 @@ export interface Sandbox {
     usecase: string;
 
     scheme: Neo4jScheme;
-    ip: string;
+    ip: string | undefined;
     host: string;
     boltPort: string;
     username: string;
@@ -27,7 +27,7 @@ let api: AxiosInstance
 export function sandboxApi() {
     const { SANDBOX_URL } = process.env
 
-    if ( api === undefined ) {
+    if (api === undefined) {
         api = axios.create({
             baseURL: SANDBOX_URL,
         })
@@ -37,7 +37,7 @@ export function sandboxApi() {
 }
 
 
-export async function getAuth0UserInfo(token: string, user: User):  Promise<Partial<User>> {
+export async function getAuth0UserInfo(token: string, user: User): Promise<Partial<User>> {
     try {
         const res = await axios.post(`${process.env.AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
             id_token: token
@@ -45,7 +45,7 @@ export async function getAuth0UserInfo(token: string, user: User):  Promise<Part
 
         return res.data as Partial<User>
     }
-    catch(e) {
+    catch (e) {
         throw handleSandboxError(token, user, 'tokeninfo', e)
     }
 }
@@ -58,11 +58,11 @@ export async function getUserInfo(token: string, user: User): Promise<Partial<Us
             },
         })
 
-        const [ profile ] = res.data
+        const [profile] = res.data
 
         return profile as Partial<User>
     }
-    catch(e) {
+    catch (e) {
         throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
     }
 }
@@ -73,8 +73,8 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
         return []
     }
 
-    if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
-        return [ devSandbox() ]
+    if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
+        return [devSandbox()]
     }
 
     try {
@@ -103,12 +103,69 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
     }
 }
 
+export const SANDBOX_STATUS_PENDING = 'PENDING'
+export const SANDBOX_STATUS_READY = 'READY'
+export const SANDBOX_STATUS_NOT_FOUND = 'NOTFOUND'
+
+interface getSandboxByHashKeyResponse {
+    sandboxHashKey: string;
+    status: typeof SANDBOX_STATUS_PENDING | typeof SANDBOX_STATUS_READY | typeof SANDBOX_STATUS_NOT_FOUND;
+    sandbox: Sandbox | undefined;
+}
+
+export async function getSandboxByHashKey(token: string, user: User, sandboxHashKey: string): Promise<getSandboxByHashKeyResponse> {
+    const sandboxes = await getSandboxes(token, user)
+    const sandbox = sandboxes.find(row => row.sandboxHashKey === sandboxHashKey)
+
+    try {
+        const res: AxiosResponse<string> = await sandboxApi().get(`getSandboxByHashKey?sandboxHashKey=${sandboxHashKey}&verifyConnect=true`, {
+            headers: {
+                authorization: `${token}`
+            },
+        })
+
+        // Has an IP address
+        return {
+            sandbox: {
+                ...sandbox,
+                ip: res.data.toString(),
+            } as Sandbox,
+            sandboxHashKey,
+            status: SANDBOX_STATUS_READY,
+        }
+    }
+    catch (e: any) {
+        // Not found, either pending or doesn't have an IP
+        const response = e.response as AxiosResponse<string>
+
+        if (response.status === 404) {
+            return {
+                sandboxHashKey,
+                sandbox,
+                status: response.data.includes('no ip') ? SANDBOX_STATUS_PENDING : SANDBOX_STATUS_NOT_FOUND,
+            }
+        }
+
+        throw handleSandboxError(token, user, 'getSandboxByHashKey', e)
+    }
+}
+
+export async function getOrCreateSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox> {
+    let sandbox = await getSandboxForUseCase(token, user, usecase)
+
+    if (!sandbox) {
+        sandbox = await createSandbox(token, user, usecase)
+    }
+
+    return sandbox
+}
+
 export async function getSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox | undefined> {
     if (!isVerified(token)) {
         return undefined
     }
 
-    if ( process.env.SANDBOX_DEV_INSTANCE_HOST ) {
+    if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
         return devSandbox()
     }
 
@@ -121,7 +178,7 @@ export async function createSandbox(token: string, user: User, usecase: string):
     // Prefer existing to avoid 400 errors
     const existing = await getSandboxForUseCase(token, user, usecase)
 
-    if ( existing ) {
+    if (existing) {
         return existing
     }
 
@@ -139,8 +196,24 @@ export async function createSandbox(token: string, user: User, usecase: string):
         return res.data as Sandbox
     }
     catch (e: any) {
+        if (e.response) {
+            const response = e.response as AxiosResponse<{ errorString: string }>
+
+            if (response.status === 400 && response.data.errorString.includes('already exists')) {
+                await sleep()
+
+                const existing = await getSandboxForUseCase(token, user, usecase)
+
+                return existing as Sandbox
+            }
+        }
+
         throw handleSandboxError(token, user, 'SandboxRunInstance', e)
     }
+}
+
+function sleep(): Promise<void> {
+    return new Promise(resolve => setTimeout(() => resolve(), 500))
 }
 
 export async function stopSandbox(token: string, user: User, sandboxHashKey: string): Promise<Sandbox> {

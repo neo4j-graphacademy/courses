@@ -174,7 +174,7 @@ export function getSandboxConfig(
         showSandbox = true
     }
 
-    let sandboxUrl = `${course.link}browser/`
+    let sandboxUrl = `./browser/`
 
     // Does the sandbox URL need a Cypher query appended to it?
     if (showSandbox === true && lesson?.cypher) {
