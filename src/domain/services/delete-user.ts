@@ -6,7 +6,7 @@ export async function deleteUser(user: User): Promise<boolean> {
     const res = await write(`
         MATCH (u:User {sub: $id})
         SET u:DeletedUser,
-            u.sub = '[deleted]-'+ apoc.text.base64Encode(u.sub),
+            u.sub = '[deleted]-'+ apoc.text.base64Encode(u.sub) +'-'+ toString(datetime()),
             u.deletedAt = timestamp()
 
         RETURN true AS status
