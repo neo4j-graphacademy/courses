@@ -18,6 +18,11 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
 
     const sandboxOutput: Sandbox = await createSandbox(token, user, usecase)
 
+    if (!sandboxOutput) {
+        // Could not create sandbox for some reason
+        return
+    }
+
     const query = `
         MERGE (e:Enrolment {id: $id})
         MERGE (s:Sandbox {id: $sandbox.id})
