@@ -1,9 +1,10 @@
 import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
+import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
 
 export function applyErrorHandlers(app: Express) {
-    const notFoundError = (req: Request, res: Response) => {
+    const notFoundError = (req: Request, res: Response, err?: Error) => {
         res.status(404)
             .render('simple', {
                 title: 'Page Not Found',
@@ -12,7 +13,12 @@ export function applyErrorHandlers(app: Express) {
                     byline: `We couldn't find anything at this address`,
                     overline: 'Oops',
                 },
-                content: `<p>We are working hard to complete our back catalogue but some courses may be missing.  Click the button below to go back to the course catalogue.</p>`,
+                content: `
+                    <p>We are working hard to complete our back catalogue
+                         but some courses may be missing.
+                         Click the button below to go back to the course catalogue.
+                    </p>
+                    ${IS_PRODUCTION && err ? '' : `<pre>${err?.message}</pre>`}`,
                 action: {
                     link: '/categories/',
                     text: 'View Course Catalogue'
@@ -42,25 +48,25 @@ export function applyErrorHandlers(app: Express) {
     })
 
     app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-        if ( (error as NotFoundError).status === 404 ) {
-            return notFoundError(req, res)
+        if ((error as NotFoundError).status === 404) {
+            return notFoundError(req, res, error)
         }
 
-        if ( (error as NotFoundError).status === 401 ) {
+        if ((error as NotFoundError).status === 401) {
             return unauthorized(error, req, res)
         }
 
-        if ( (error as AxiosError).response?.status === 401 ) {
+        if ((error as AxiosError).response?.status === 401) {
             let redirectTo = '/login'
 
-            if ( req.method === 'GET' ) {
+            if (req.method === 'GET') {
                 redirectTo += `?returnTo=${req.path}`
             }
 
             return res.redirect(redirectTo)
         }
 
-        if ( process.env.NODE_ENV === 'production' ) {
+        if (process.env.NODE_ENV === 'production') {
             return res.status(500)
                 .render('simple', {
                     title: 'Internal Server Error',

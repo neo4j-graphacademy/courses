@@ -17,7 +17,7 @@ import { Course, CourseWithProgress } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig, repositoryBlobUrl } from '../utils'
+import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -1037,7 +1037,6 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         else if (!module.lessons) {
             return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
         }
-
         const lesson = module.lessons.find(row => row.slug === req.params.lesson)
 
         if (!lesson) {
@@ -1053,7 +1052,10 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         }
 
         // Build Repository URL
-        const repositoryUrl = lesson.lab.replace('{repository-blob}', repositoryBlobUrl(course.repository))
+        const repositoryUrl = lesson.lab
+            .replace('{repository-raw}', repositoryRawUrl(course.repository))
+            .replace('{repository-blob}', repositoryBlobUrl(course.repository))
+            .replace('{repository-link}', repositoryLink(course.repository))
 
         // Build Environment Variables
         const env = `NEO4J_URI=${encodeURIComponent(`bolt://${sandbox.ip}:${sandbox.boltPort}`)},NEO4J_USERNAME=${encodeURIComponent(sandbox.username)},NEO4J_PASSWORD=${encodeURIComponent(sandbox.password)}`

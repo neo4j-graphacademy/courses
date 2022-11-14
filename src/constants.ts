@@ -56,7 +56,7 @@ const truthy = (value: string | undefined) => value && value !== 'false'
 export const PROFILING_ENABLED = truthy(PROFILE)
 
 // Cache Asciidoc content?
-export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC)
+export const ASCIIDOC_CACHING_ENABLED = IS_PRODUCTION || truthy(CACHE_ASCIIDOC) || false
 
 // Redis host
 export const REDIS_HOST = process.env.REDIS_HOST

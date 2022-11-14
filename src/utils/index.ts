@@ -376,12 +376,23 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     for (const [key, value] of Object.entries(course)) {
         if (key.endsWith('repository')) {
             attributes[key] = value
+            attributes[`${key}-link`] = repositoryLink(value)
             attributes[`${key}-raw`] = repositoryRawUrl(value)
             attributes[`${key}-blob`] = repositoryBlobUrl(value)
         }
     }
 
     return attributes
+}
+
+/**
+ * Generate a link to the repository README
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryLink(value: string) {
+    return `https://github.com/${value}`
 }
 
 /**
