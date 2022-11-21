@@ -36,7 +36,7 @@ export function send(to: string, subject: string, html: string): void {
     }
 }
 
-export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder'
+export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder' | 'tshirt-ordered' | 'tshirt-shipped'
 
 interface PreparedEmail {
     subject: string;

@@ -69,3 +69,7 @@ export const SEGMENT_API_KEY: string | undefined = process.env.SEGMENT_API_KEY
 
 // Course
 export const COURSE_QUIZ_AVAILABLE_AFTER = 7
+
+// Printful
+export const PRINTFUL_API_KEY: string | undefined = process.env.PRINTFUL_API_KEY
+export const PRINTFUL_STORE_ID: string | undefined = process.env.PRINTFUL_STORE_ID

@@ -26,6 +26,7 @@ import { endProfiling, startProfiling } from './middleware/profiling.middleware'
 import { initLocalisation } from './modules/localisation'
 
 import './constants'
+import { initPrintful } from './modules/printful'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -92,6 +93,9 @@ export default function initApp(driver: Driver) {
     if (process.env.NODE_ENV === 'dev') {
         app.use('/test', testRoutes)
     }
+
+    // Printful
+    initPrintful(app)
 
     // Bugsnag Error Handler
     useErrorHandler(app)
