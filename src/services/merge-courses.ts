@@ -5,7 +5,7 @@ import { Session, Transaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
 import { getDriver } from '../modules/neo4j';
 import { CourseToImport, LessonToImport, ModuleToImport, QuestionToImport } from '../types';
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_TSHIRT_FORM, ATTRIBUTE_TSHIRT_IMAGE, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED } from '../constants';
+import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_TSHIRT_FORM, ATTRIBUTE_TSHIRT_IMAGE, ATTRIBUTE_TSHIRT_PRODUCT_ID, ATTRIBUTE_TSHIRT_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED } from '../constants';
 import { courseOverviewPath, getDateAttribute, getOrderAttribute } from '../utils';
 
 
@@ -77,6 +77,8 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         classmarkerReference: file.getAttribute(ATTRIBUTE_CLASSMARKER_REFERENCE, null),
         tshirtForm: file.getAttribute(ATTRIBUTE_TSHIRT_FORM, null),
         tshirtImage: file.getAttribute(ATTRIBUTE_TSHIRT_IMAGE, null),
+        tshirtProvider: file.getAttribute(ATTRIBUTE_TSHIRT_PROVIDER, null),
+        tshirtProductId: file.getAttribute(ATTRIBUTE_TSHIRT_PRODUCT_ID, null),
         attributes,
         progressToSlugs,
         categories,
@@ -194,6 +196,8 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
             c.classmarkerReference = course.classmarkerReference,
             c.tshirtForm = course.tshirtForm,
             c.tshirtImage = course.tshirtImage,
+            c.tshirtProvider = course.tshirtProvider,
+            c.tshirtProductId = course.tshirtProductId,
             c += course.attributes
 
         FOREACH (_ IN CASE WHEN course.certification THEN [1] ELSE [] END | SET c:Certification)
