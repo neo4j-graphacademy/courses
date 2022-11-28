@@ -4,6 +4,23 @@ export const PACKAGE_SHIPPED = 'package_shipped'
 
 export type OrderType = typeof ORDER_CREATED | typeof ORDER_UPDATED | typeof PACKAGE_SHIPPED
 
+
+interface Recipient {
+    name: string;
+    company: string;
+    address1: string;
+    address2: string;
+    city: string;
+    state_code: string;
+    state_name: string;
+    country_code: string;
+    country_name: string;
+    zip: string;
+    phone: string;
+    email: string;
+    tax_number: string
+}
+
 export interface Item {
     id: number;
     external_id: string,
@@ -26,10 +43,16 @@ export interface Item {
 }
 
 export interface Order {
+    id: number,
     external_id: string,
     shipping: 'STANDARD',
-    recipient: Record<string, any>,
-    items: Item[]
+    recipient: Recipient,
+    items: Item[];
+    created: number;
+    costs?: {
+        currency: string;
+        total: string;
+    };
     retail_costs: {
         currency: string;
         subtotal: number;
@@ -60,3 +83,21 @@ export interface Shipment {
     reshipment: boolean;
     items: ShipmentItem[]
 }
+
+
+interface OrderErrorResponse {
+    code: 400 | 401;
+    result: string;
+    error: {
+        reason: string;
+        message: string;
+    }
+
+}
+
+interface OrderSuccessResponse {
+    code: 200;
+    result: Order
+}
+
+export type OrderResponse = OrderSuccessResponse | OrderErrorResponse

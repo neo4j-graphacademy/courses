@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
+import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
 import { UiEventType, UI_EVENTS, UserUiEvent } from '../domain/events/UserUiEvent'
 import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
@@ -7,13 +8,15 @@ import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
+import getRewards from '../domain/services/rewards/get-rewards'
 import { updateUser, UserUpdates } from '../domain/services/update-user'
 import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
+import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
+import createVariantOrder from '../modules/printful/services/create-variant-order.service'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
-import { getCountries } from '../utils'
 
 const router = Router()
 
@@ -199,7 +202,6 @@ router.get('/deleted', (req, res, next) => {
  * @GET /account/courses/ ?:status
  * Show a list of users enrolments and their bookmarked courses
  */
-
 const courseHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user = await getUser(req) as User
@@ -326,4 +328,182 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
     }
 })
 
+
+/**
+ * @GET /account/rewards
+ *
+ * List rewards for completing courses & certifications
+ */
+router.get('/rewards', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
+        const rewards = await getRewards(user)
+
+        res.locals.breadcrumbs.push({
+            link: req.originalUrl,
+            text: 'Your Rewards',
+        })
+
+
+        res.render('account/rewards', {
+            title: 'Rewards',
+            hero: {
+                overline: 'Neo4j GraphAcademy',
+                title: 'Your Rewards',
+                byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
+            },
+            rewards,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+const redeemForm = async (req, res, next) => {
+    try {
+        if (!PRINTFUL_STORE_ID) {
+            throw new NotFoundError('Store not found')
+        }
+
+        const user = await getUser(req) as User
+        const rewards = await getRewards(user)
+        const reward = rewards.find(reward => reward.slug === req.params.slug)
+
+        if (!reward) {
+            throw new NotFoundError('Reward Not Found')
+        }
+
+        const productDetails: any = await getProduct(PRINTFUL_STORE_ID, reward.productId)
+
+        if (!reward) {
+            throw new NotFoundError('Product Not Found')
+        }
+
+        // Breadcrumbs
+        res.locals.breadcrumbs.push({
+            link: '/account/rewards/',
+            text: 'Your Rewards',
+        })
+
+        res.locals.breadcrumbs.push({
+            link: req.originalUrl,
+            text: reward.title,
+        })
+
+        // Variants
+        const variants = productDetails.sync_variants.reduce((acc: any[], value) => {
+            const name = value.name.split('/', 1)[0]
+
+            let index = acc.findIndex((row) => row.name === name)
+
+            if (index === -1) {
+                acc.push({
+                    name,
+                    variants: []
+                })
+
+                index = acc.findIndex((row) => row.name === name)
+            }
+
+            value.preview = value.files.find(file => file.type === 'preview')?.preview_url
+
+            acc[index].variants.push(value)
+
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+            return acc as any
+        }, [])
+
+        // Countries
+        const countries = await getCountries()
+
+        res.render('account/printful-form', {
+            title: `Redeem ${reward.title} | Rewards`,
+            hero: {
+                overline: 'Neo4j GraphAcademy',
+                title: 'Your Rewards',
+                byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
+            },
+            reward,
+            productDetails,
+            variants,
+            countries,
+            input: req.body,
+            errorMessage: req.errorMessage,
+            errors: req.errors || {},
+        })
+    }
+    catch (e) {
+        next(e)
+    }
+}
+
+router.get('/rewards/:slug', requiresAuth(), redeemForm)
+
+router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
+    if (!PRINTFUL_STORE_ID) {
+        next(new NotFoundError('Store not found'))
+    }
+
+    try {
+        const user = await getUser(req) as User
+        const rewards = await getRewards(user)
+        const reward = rewards.find(reward => reward.slug === req.params.slug)
+
+        if (!reward) {
+            throw new NotFoundError('Reward Not Found')
+        }
+
+
+
+        // Format request body
+        const { body } = req
+
+        Object.keys(body).map(key => {
+            if (body[key] === '') {
+                delete body[key]
+            }
+        })
+
+        // Find Country
+        const { country, state } = await getCountryAndState(body.country, body.state)
+
+        // Build & Validate Recipient
+        const recipient = formatRecipient(
+            [body.first_name, body.last_name].join(' '),
+            body.address1,
+            body.address2,
+            body.city,
+            state?.code,
+            state?.name,
+            country.code,
+            country.name,
+            body.zip,
+            body.phone,
+            body.email,
+            body.company,
+            body.tax_number
+        )
+
+        // Place Order
+        await createVariantOrder(user, reward, PRINTFUL_STORE_ID as string, recipient, body.variant_id, 1)
+
+        // Redirect with confirmation
+        req.flash('success', `Your order has been placed.  You should receive a confirmation email shortly.`)
+
+        res.redirect('/account')
+    }
+    catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        req.errors = e.errors
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        req.errorMessage = e.message
+
+        res.status(e.code || 500)
+
+        await redeemForm(req, res, next)
+    }
+})
 export default router

@@ -1,9 +1,7 @@
-import { User } from "../../../domain/model/user";
 import { Order, Shipment } from "../types";
 
-export class PackageShipped {
+export default class OrderShipped {
     constructor(
-        public readonly user: User,
         public readonly order: Order,
         public readonly shipment: Shipment
     ) { }

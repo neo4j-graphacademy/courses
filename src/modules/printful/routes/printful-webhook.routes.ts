@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Router } from 'express'
-import markPackageShipped from '../services/mark-package-shipped'
-import markTshirtOrderCreated from '../services/mark-tshirt-order-created'
+import markOrderShipped from '../services/mark-order-shipped'
+import markOrderCreated from '../services/mark-order-created'
 import { Order, ORDER_CREATED, PACKAGE_SHIPPED, Shipment } from '../types'
 
 const router = Router()
@@ -12,11 +12,11 @@ router.post('/', async (req, res) => {
 
     switch (type) {
         case ORDER_CREATED:
-            await markTshirtOrderCreated(order)
+            await markOrderCreated(order)
             break;
 
         case PACKAGE_SHIPPED:
-            await markPackageShipped(order as Order, shipment as Shipment)
+            await markOrderShipped(order as Order, shipment as Shipment)
             break;
     }
 

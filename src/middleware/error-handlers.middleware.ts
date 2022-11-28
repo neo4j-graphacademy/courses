@@ -18,7 +18,9 @@ export function applyErrorHandlers(app: Express) {
                          but some courses may be missing.
                          Click the button below to go back to the course catalogue.
                     </p>
-                    ${IS_PRODUCTION && err ? '' : `<pre>${err?.message}</pre>`}`,
+                    <!--
+                    ${!IS_PRODUCTION && err && err.message ? '' : `<pre>${err?.message}</pre>`}
+                    -->`,
                 action: {
                     link: '/categories/',
                     text: 'View Course Catalogue'
