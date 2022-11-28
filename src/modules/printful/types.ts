@@ -1,9 +1,9 @@
 export const ORDER_CREATED = 'order_created'
 export const ORDER_UPDATED = 'order_updated'
+export const ORDER_FAILED = 'order_failed'
 export const PACKAGE_SHIPPED = 'package_shipped'
 
-export type OrderType = typeof ORDER_CREATED | typeof ORDER_UPDATED | typeof PACKAGE_SHIPPED
-
+export type OrderType = typeof ORDER_CREATED | typeof ORDER_UPDATED | typeof PACKAGE_SHIPPED | typeof ORDER_FAILED
 
 interface Recipient {
     name: string;
@@ -49,6 +49,7 @@ export interface Order {
     recipient: Recipient,
     items: Item[];
     created: number;
+    dashboard_url?: string;
     costs?: {
         currency: string;
         total: string;
@@ -83,7 +84,6 @@ export interface Shipment {
     reshipment: boolean;
     items: ShipmentItem[]
 }
-
 
 interface OrderErrorResponse {
     code: 400 | 401;

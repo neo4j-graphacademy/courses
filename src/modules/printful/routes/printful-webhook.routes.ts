@@ -2,12 +2,13 @@
 import { Router } from 'express'
 import markOrderShipped from '../services/mark-order-shipped'
 import markOrderCreated from '../services/mark-order-created'
-import { Order, ORDER_CREATED, PACKAGE_SHIPPED, Shipment } from '../types'
+import { Order, ORDER_CREATED, ORDER_FAILED, PACKAGE_SHIPPED, Shipment } from '../types'
+import markOrderFailed from '../services/mark-order-failed'
 
 const router = Router()
 
 router.post('/', async (req, res) => {
-    const { type, created, retries, store, data } = req.body
+    const { type, created, retries, store, data, reason } = req.body
     const { order, shipment } = data
 
     switch (type) {
@@ -17,6 +18,10 @@ router.post('/', async (req, res) => {
 
         case PACKAGE_SHIPPED:
             await markOrderShipped(order as Order, shipment as Shipment)
+            break;
+
+        case ORDER_FAILED:
+            await markOrderFailed(order as Order, reason as string)
             break;
     }
 

@@ -73,3 +73,6 @@ export const COURSE_QUIZ_AVAILABLE_AFTER = 7
 // Printful
 export const PRINTFUL_API_KEY: string | undefined = process.env.PRINTFUL_API_KEY
 export const PRINTFUL_STORE_ID: string | undefined = process.env.PRINTFUL_STORE_ID
+
+// Slack
+export const SLACK_SERVICE_URL: string | undefined = process.env.SLACK_SERVICE_URL
