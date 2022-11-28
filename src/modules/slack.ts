@@ -5,8 +5,6 @@ import { Order } from './printful/types'
 
 let client: WebClient
 
-console.log(SLACK_TOKEN);
-
 export async function notifyOrderFailed(order: Order, reason: string): Promise<void> {
     if (!SLACK_TOKEN || !SLACK_CHANNEL) {
         return
@@ -17,7 +15,7 @@ export async function notifyOrderFailed(order: Order, reason: string): Promise<v
     }
 
     try {
-        const res = await client.chat.postMessage({
+        await client.chat.postMessage({
             channel: SLACK_CHANNEL,
             text: `Order ${order.id} has failed: ${reason}`,
             attachments: [
