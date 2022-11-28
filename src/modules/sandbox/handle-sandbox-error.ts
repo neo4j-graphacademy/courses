@@ -3,6 +3,7 @@ import { notify } from "../../middleware/bugsnag.middleware";
 import { SandboxBadRequestError } from "./sandbox-bad-request.error";
 import { SandboxForbiddenError } from "./sandbox-forbidden.error";
 import { SandboxServerError } from "./sandbox-server.error";
+import { SandboxUnauthorizedError } from "./sandbox-unauthorized.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
 
 export function handleSandboxError(token: string, user: User, endpoint: string, error: any): Error {
@@ -13,6 +14,9 @@ export function handleSandboxError(token: string, user: User, endpoint: string, 
     switch (code) {
         case 400:
             output = new SandboxBadRequestError(endpoint, error)
+            break
+        case 401:
+            output = new SandboxUnauthorizedError(endpoint, error)
             break
         case 403:
             output = new SandboxForbiddenError(endpoint, error)
