@@ -5,13 +5,17 @@ import { emitter } from "../../../events"
 import { notify } from "../../../middleware/bugsnag.middleware"
 import { write } from "../../neo4j"
 import { OrderCreated } from "../events/OrderCreated"
-import { createOrder } from "../printful.module"
+import { createOrder, getVariant } from "../printful.module"
 import Recipient from "../recipient.class"
 import { Order } from "../types"
 
 export default async function createVariantOrder(user: User, reward: Reward, storeId: string, recipient: Recipient, variant_id: string, quantity: number): Promise<Order> {
     try {
-        const order = await createOrder(storeId, recipient, [{ variant_id, quantity }])
+        const variant = await getVariant(storeId, variant_id)
+        const order = await createOrder(storeId, recipient, [{
+            ...variant,
+            quantity,
+        }])
 
         // Update Database
         await write(`

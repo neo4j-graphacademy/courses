@@ -39,10 +39,8 @@ import { courseOgBannerImage } from './route.utils'
 import { getQuiz } from '../domain/services/quiz/get-quiz'
 import { saveQuizResults } from '../domain/services/quiz/save-quiz-results'
 import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback'
-import { URLSearchParams } from 'url'
 
 const router = Router()
-
 
 /**
  * Course Breadcrumbs

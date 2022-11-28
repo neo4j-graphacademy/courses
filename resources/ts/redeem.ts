@@ -16,26 +16,9 @@ export default function redeem() {
     const taxContainer = document.getElementById('tax-container')
     const tax = document.getElementById('tax_number')
 
-
-    form?.addEventListener('submit', () => {
-        submit?.classList.add('btn--loading')
-        submit?.setAttribute('disabled', '')
-    })
-
-    selector?.addEventListener('change', (e) => {
-        // @ts-ignore
-        const selected = e.target?.querySelector('option:checked')
-        const src = selected?.dataset.previewUrl
-
-        if (src) {
-            preview?.setAttribute('src', src)
-        }
-    })
-
-    country?.addEventListener('change', e => {
-        // @ts-ignore
-        const selected = e.target?.querySelector('option:checked')
-        const value = selected?.value
+    const setRequiredFields = () => {
+        const checked = country?.querySelector('option:checked')
+        const value = checked?.getAttribute('value')
 
         // @ts-ignore
         const info = window.countries.find(row => row.code === value)
@@ -70,5 +53,29 @@ export default function redeem() {
             taxContainer?.classList.remove('visible')
             tax?.removeAttribute('required')
         }
+    }
+
+
+    form?.addEventListener('submit', () => {
+        submit?.classList.add('btn--loading')
+        submit?.classList.add('btn--disabled')
+        submit?.setAttribute('disabled', '')
     })
+
+    selector?.addEventListener('change', (e) => {
+        // @ts-ignore
+        const selected = e.target?.querySelector('option:checked')
+        const src = selected?.dataset.previewUrl
+
+        if (src) {
+            preview?.setAttribute('src', src)
+        }
+    })
+
+    country?.addEventListener('change', e => {
+        setRequiredFields()
+    })
+
+    // Initial State
+    setRequiredFields()
 }

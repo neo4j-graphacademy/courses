@@ -8,7 +8,7 @@ import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
-import getRewards from '../domain/services/rewards/get-rewards'
+import getRewards, { Reward } from '../domain/services/rewards/get-rewards'
 import { updateUser, UserUpdates } from '../domain/services/update-user'
 import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
@@ -445,25 +445,26 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         next(new NotFoundError('Store not found'))
     }
 
+    const user = await getUser(req) as User
+    let reward: Reward | undefined
+
+    // Format request body
+    const { body } = req
+
+    Object.keys(body).map(key => {
+        if (body[key] === '') {
+            delete body[key]
+        }
+    })
+
+
     try {
-        const user = await getUser(req) as User
         const rewards = await getRewards(user)
-        const reward = rewards.find(reward => reward.slug === req.params.slug)
+        reward = rewards.find(reward => reward.slug === req.params.slug)
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
         }
-
-
-
-        // Format request body
-        const { body } = req
-
-        Object.keys(body).map(key => {
-            if (body[key] === '') {
-                delete body[key]
-            }
-        })
 
         // Find Country
         const { country, state } = await getCountryAndState(body.country, body.state)
@@ -491,19 +492,31 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Redirect with confirmation
         req.flash('success', `Your order has been placed.  You should receive a confirmation email shortly.`)
 
-        res.redirect('/account')
+        res.redirect('/account/rewards')
     }
     catch (e: any) {
+        notify(e, event => {
+            event.setUser(user.id, user.email, user.name)
+            event.addMetadata('request', e.request)
+            event.addMetadata('response', e.response)
+            event.addMetadata('reward', reward || {})
+            event.addMetadata('order', {
+                store: PRINTFUL_STORE_ID,
+                variant_id: body.variant_id
+            })
+        })
+
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        req.errors = e.errors
+        req.errors = e.response?.data?.errors
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
-        req.errorMessage = e.message
+        req.errorMessage = e.response?.data?.result || e.message
 
         res.status(e.code || 500)
 
         await redeemForm(req, res, next)
     }
 })
+
 export default router

@@ -51,6 +51,15 @@ export function getProduct<T>(storeId: string, id: string) {
         .then(res => res.data.result as T)
 }
 
+export function getVariant<T = any>(storeId: string, id: string) {
+    return api.get(`/store/variants/${id}`, {
+        headers: {
+            'X-PF-Store-Id': storeId,
+        }
+    })
+        .then(res => res.data.result as T)
+}
+
 interface State {
     code: string;
     name: string;
