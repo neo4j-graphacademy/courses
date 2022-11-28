@@ -75,4 +75,5 @@ export const PRINTFUL_API_KEY: string | undefined = process.env.PRINTFUL_API_KEY
 export const PRINTFUL_STORE_ID: string | undefined = process.env.PRINTFUL_STORE_ID
 
 // Slack
-export const SLACK_SERVICE_URL: string | undefined = process.env.SLACK_SERVICE_URL
+export const SLACK_TOKEN: string | undefined = process.env.SLACK_TOKEN
+export const SLACK_CHANNEL: string | undefined = process.env.SLACK_CHANNEL

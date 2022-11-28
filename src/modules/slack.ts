@@ -1,52 +1,50 @@
-import axios, { AxiosInstance } from 'axios'
-import { SLACK_SERVICE_URL } from '../constants'
+import { WebClient } from '@slack/web-api'
+import { SLACK_CHANNEL, SLACK_TOKEN } from '../constants'
 import { notify } from '../middleware/bugsnag.middleware'
 import { Order } from './printful/types'
 
-let api: AxiosInstance
+let client: WebClient
+
+console.log(SLACK_TOKEN);
 
 export async function notifyOrderFailed(order: Order, reason: string): Promise<void> {
-    if (!SLACK_SERVICE_URL) {
+    if (!SLACK_TOKEN || !SLACK_CHANNEL) {
         return
     }
 
-    if (!api) {
-        api = axios.create({
-            baseURL: SLACK_SERVICE_URL,
-        })
-    }
-
-    const message = {
-        "text": "An order has failed",
-        "attachments": [
-            {
-                "fallback": "PROSHIRT ORDER FAILED",
-                "text": `An order has failed" ${reason}`,
-                "pretext": "PROSHIRT ORDER FAILED",
-
-                "color": "#FF0000",
-
-                "fields": [
-                    {
-                        "title": "orderUrl",
-                        "value": order.dashboard_url,
-                        "short": false
-                    },
-                    {
-                        "title": "OrderId",
-                        "value": order.id,
-                        "short": false
-                    },
-
-                ]
-            }
-        ]
+    if (!client) {
+        client = new WebClient(SLACK_TOKEN)
     }
 
     try {
-        await api.post('/', message)
+        const res = await client.chat.postMessage({
+            channel: SLACK_CHANNEL,
+            text: `Order ${order.id} has failed: ${reason}`,
+            attachments: [
+                {
+                    fallback: `PROSHIRTS ORDER FAILED`,
+                    pretext: `PROSHIRTS ORDER FAILED`,
+                    color: '#cc254b',
+                    fields: [
+                        {
+                            title: "orderId",
+                            value: order.id.toString(),
+                            short: false,
+                        },
+                        {
+                            title: "orderUrl",
+                            value: order.dashboard_url || `https://printful.com/dashboard?order_id=${order.id}`,
+                            short: false,
+                        },
+                    ]
+
+                }
+            ]
+        })
     }
     catch (e: any) {
         notify(e)
+
+        throw e
     }
 }
