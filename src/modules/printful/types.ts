@@ -42,9 +42,22 @@ export interface Item {
     out_of_stock: boolean;
 }
 
+enum OrderStatus {
+    draft = "draft", //	The order is created but is not yet submitted for fulfillment. You still can edit it and confirm later.
+    pending = "pending", //	The order has been submitted for fulfillment, but is not yet accepted for fulfillment. You can still cancel the order if you need.
+    failed = "failed", //	Order was submitted for fulfillment but was returned for review because of an error (problem with address, missing printfiles, charging has failed, etc.).
+    canceled = "canceled", //	The order has been canceled and can no longer be processed. If the order was charged then the amount has been returned to your credit card.
+    inprocess = "inprocess", //	The order is being fulfilled and can no longer be cancelled or modified. Contact customer support if there are any issues with the order at this point.
+    onhold = "onhold", //	The order has encountered a problem during the fulfillment that needs to be resolved together with Printful customer service before fulfillment can continue.
+    partial = "partial", //	The order is partially fulfilled (some items are shipped already, the rest will follow)
+    fulfilled = "fulfilled", //	All items have been shipped successfully
+    archived = "archived", //	The order has been archived and hidden from the UI
+}
+
 export interface Order {
     id: number,
     external_id: string,
+    status: OrderStatus;
     shipping: 'STANDARD',
     recipient: Recipient,
     items: Item[];

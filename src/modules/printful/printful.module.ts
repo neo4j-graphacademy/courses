@@ -152,7 +152,7 @@ interface Variant {
 
 
 export async function createOrder(storeId: string, recipient: Recipient, items: Variant[]): Promise<Order> {
-    const res = await api.post<OrderResponse>('/orders', {
+    const res = await api.post<OrderResponse>('/orders?confirm=true', {
         recipient: recipient.toObject(),
         items,
     },

@@ -2,7 +2,7 @@
 import { Router } from 'express'
 import markOrderShipped from '../services/mark-order-shipped'
 import markOrderCreated from '../services/mark-order-created'
-import { Order, ORDER_CREATED, ORDER_FAILED, PACKAGE_SHIPPED, Shipment } from '../types'
+import { Order, ORDER_CREATED, ORDER_FAILED, ORDER_UPDATED, PACKAGE_SHIPPED, Shipment } from '../types'
 import markOrderFailed from '../services/mark-order-failed'
 
 const router = Router()
@@ -13,6 +13,10 @@ router.post('/', async (req, res) => {
 
     switch (type) {
         case ORDER_CREATED:
+            await markOrderCreated(order)
+            break;
+
+        case ORDER_UPDATED:
             await markOrderCreated(order)
             break;
 

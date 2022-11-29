@@ -7,7 +7,7 @@ import { OrderCreated } from "./events/OrderCreated";
 import { OrderFailed } from "./events/OrderFailed";
 import OrderShipped from "./events/OrderShipped";
 import { addWebhook } from "./printful.module";
-import { ORDER_CREATED, ORDER_UPDATED, PACKAGE_SHIPPED } from "./types";
+import { ORDER_CREATED, ORDER_FAILED, ORDER_UPDATED, PACKAGE_SHIPPED } from "./types";
 
 export default function initPrintfulListeners(): void {
     emitter.on<OrderCreated>(OrderCreated, ({ order }) => {
@@ -39,7 +39,8 @@ export default function initPrintfulListeners(): void {
                 [
                     ORDER_CREATED,
                     ORDER_UPDATED,
-                    PACKAGE_SHIPPED
+                    ORDER_FAILED,
+                    PACKAGE_SHIPPED,
                 ]
             )
         }

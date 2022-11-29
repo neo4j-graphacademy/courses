@@ -8,9 +8,10 @@ export default async function markPackageShipped(order: Order, shipment: Shipmen
     // Update database
     await write(`
         MATCH (e:Enrolment {rewardOrderId: $id})
-        SET e.rewardShippedAt = [$shipment.ship_date, datetime({epochSeconds: $shipment.shipped_at})],
-        e.rewardTrackingNumber = $shipment.tracking_number,
-        e.rewardTrackingUrl = $shipment.tracking_url
+        SET e.rewardOrderUpdatedAt = datetime(),
+            e.rewardShippedAt = [$shipment.ship_date, datetime({epochSeconds: $shipment.shipped_at})],
+            e.rewardTrackingNumber = $shipment.tracking_number,
+            e.rewardTrackingUrl = $shipment.tracking_url
     `, { id: int(order.id), })
 
     // Fire event
