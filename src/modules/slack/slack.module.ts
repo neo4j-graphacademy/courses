@@ -118,8 +118,8 @@ export async function notifyOrderShipped(order: Order, shipment: Shipment): Prom
             text: `Order ${order.id} has shipped:`,
             attachments: [
                 {
-                    fallback: `PROSHIRTS ORDER FAILED`,
-                    pretext: `PROSHIRTS ORDER FAILED`,
+                    fallback: `PROSHIRTS ORDER SHIPPED`,
+                    pretext: `PROSHIRTS ORDER SHIPPED`,
                     color: '#cc254b',
                     fields: [
                         {
