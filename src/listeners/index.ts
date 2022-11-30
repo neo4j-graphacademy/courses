@@ -4,6 +4,7 @@ import initAnalyticsListeners from '../modules/analytics/analytics.listeners'
 import initEmailListeners from './emails'
 import { AddressInfo } from 'net'
 import initSandboxListeners from '../modules/sandbox/listeners/sandbox.listeners'
+import initSlackListeners from '../modules/slack/slack.listeners'
 
 export default async function initListeners(): Promise<void> {
     emitter.on<AppInit>(AppInit, event => {
@@ -21,4 +22,7 @@ export default async function initListeners(): Promise<void> {
 
     // Init sandbox listeners
     await initSandboxListeners()
+
+    // Init slack listeners
+    initSlackListeners()
 }
