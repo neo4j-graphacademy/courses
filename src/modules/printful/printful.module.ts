@@ -41,8 +41,15 @@ export function getStores<T>() {
         .then(res => res.data as T)
 }
 
+const productCache = new Map<string, any>()
+const variantCache = new Map<string, any>()
 
-export function getProduct<T>(storeId: string, id: string) {
+export function getProduct<T>(storeId: string, id: string): Promise<T> {
+    const key = storeId + '|' + id
+    if (productCache.has(key)) {
+        return Promise.resolve(productCache.get(key) as T)
+    }
+
     return api.get(`/store/products/${id}`, {
         headers: {
             'X-PF-Store-Id': storeId,
@@ -51,7 +58,12 @@ export function getProduct<T>(storeId: string, id: string) {
         .then(res => res.data.result as T)
 }
 
-export function getVariant<T = any>(storeId: string, id: string) {
+export function getVariant<T = any>(storeId: string, id: string): Promise<T> {
+    const key = storeId + '|' + id
+    if (variantCache.has(key)) {
+        return Promise.resolve(variantCache.get(key) as T)
+    }
+
     return api.get(`/store/variants/${id}`, {
         headers: {
             'X-PF-Store-Id': storeId,
