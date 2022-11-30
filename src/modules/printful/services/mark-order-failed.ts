@@ -8,8 +8,9 @@ export default async function markOrderFailed(order: Order, reason: string): Pro
     await write(`
         MATCH (e:Enrolment {tshirtOrderId: $id})
         SET e.rewardOrderFailedAt = datetime(),
-            e.rewardFailureReason = $reason
-    `, { id: int(order.id), reason })
+            e.rewardFailureReason = $reason,
+            e.rewardOrderStatus = coalesce($status, e.rewardOrderStatus)
+    `, { id: int(order.id), status: order.status, reason })
 
     emitter.emit(new OrderFailed(
         order,
