@@ -2,7 +2,7 @@ import { BASE_URL, PRINTFUL_STORE_ID } from "../../constants";
 import { AppInit } from "../../domain/events/AppInit";
 import { emitter } from "../../events";
 import { prepareAndSend } from "../mailer";
-import { notifyOrderFailed } from "../slack";
+import { notifyOrderFailed } from "../slack/slack.module";
 import { OrderCreated } from "./events/OrderCreated";
 import { OrderFailed } from "./events/OrderFailed";
 import OrderShipped from "./events/OrderShipped";
@@ -25,10 +25,6 @@ export default function initPrintfulListeners(): void {
                 shipment,
             })
         }
-    })
-
-    emitter.on<OrderFailed>(OrderFailed, async ({ order, reason }) => {
-        await notifyOrderFailed(order, reason)
     })
 
     emitter.on<AppInit>(AppInit, async () => {
