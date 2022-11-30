@@ -28,9 +28,9 @@ export async function notifyOrderFailed(order: Order, reason: string): Promise<v
             text: `Order ${order.id} has failed: ${reason}`,
             attachments: [
                 {
-                    fallback: `PROSHIRTS ORDER FAILED`,
-                    pretext: `PROSHIRTS ORDER FAILED`,
-                    color: '#cc254b',
+                    fallback: `GraphAcademy Order failed`,
+                    pretext: `GraphAcademy Order failed`,
+                    color: '#ed1252',
                     fields: [
                         {
                             title: "orderId",
@@ -68,9 +68,9 @@ export async function notifyOrderCreated(user: User, reward: Reward, order: Orde
             text: `Order ${order.id} has been created`,
             attachments: [
                 {
-                    fallback: `PROSHIRTS ORDER CREATED`,
-                    pretext: `PROSHIRTS ORDER CREATED`,
-                    color: '#cc254b',
+                    fallback: `Order created via GraphAcademy`,
+                    pretext: `Order created via GraphAcademy`,
+                    color: '#018bff',
                     fields: [
                         {
                             title: "userId",
@@ -118,9 +118,9 @@ export async function notifyOrderShipped(order: Order, shipment: Shipment): Prom
             text: `Order ${order.id} has shipped:`,
             attachments: [
                 {
-                    fallback: `PROSHIRTS ORDER SHIPPED`,
-                    pretext: `PROSHIRTS ORDER SHIPPED`,
-                    color: '#cc254b',
+                    fallback: `GraphAcademy Order Shipped`,
+                    pretext: `GraphAcademy Order Shipped`,
+                    color: '#00BA88',
                     fields: [
                         {
                             title: "orderId",
