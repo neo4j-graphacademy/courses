@@ -12,7 +12,7 @@ export default async function markPackageShipped(order: Order, shipment: Shipmen
             e.rewardShippedAt = [$shipment.ship_date, datetime({epochSeconds: $shipment.shipped_at})],
             e.rewardTrackingNumber = $shipment.tracking_number,
             e.rewardTrackingUrl = $shipment.tracking_url
-    `, { id: int(order.id), })
+    `, { id: int(order.id), shipment })
 
     // Fire event
     emitter.emit(new OrderShipped(order, shipment))
