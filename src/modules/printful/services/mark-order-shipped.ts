@@ -10,7 +10,7 @@ export default async function markPackageShipped(order: Order, shipment: Shipmen
         MATCH (e:Enrolment {rewardOrderId: $id})
         SET e.rewardOrderUpdatedAt = datetime(),
             e.rewardOrderStatus = coalesce($status, e.rewardOrderStatus),
-            e.rewardShippedAt = [$shipment.ship_date, datetime({epochSeconds: $shipment.shipped_at})],
+            e.rewardShippedAt = [$shipment.ship_date, $shipment.shipped_at],
             e.rewardTrackingNumber = $shipment.tracking_number,
             e.rewardTrackingUrl = $shipment.tracking_url
     `, { id: int(order.id), status: order.status, shipment })
