@@ -15,6 +15,7 @@ import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
 import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
+import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
 import { getSandboxes, Sandbox } from '../modules/sandbox'
 
@@ -47,7 +48,7 @@ router.get('/', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req) as User
         const token = await getToken(req)
-        const countries = await getCountries()
+        const countries = await getCountriesAsRecord()
 
         // Get Sandboxes
         const sandboxes: Sandbox[] = await getSandboxes(token, user)
