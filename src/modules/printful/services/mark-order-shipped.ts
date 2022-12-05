@@ -10,10 +10,10 @@ export default async function markPackageShipped(order: Order, shipment: Shipmen
         MATCH (e:Enrolment {rewardOrderId: $id})
         SET e.rewardOrderUpdatedAt = datetime(),
             e.rewardOrderStatus = coalesce($status, e.rewardOrderStatus),
-            e.rewardShippedAt = [$shipment.ship_date, $shipment.shipped_at],
+            e.rewardShippedAt = [toString($shipment.ship_date), toString($shipment.shipped_at)],
             e.rewardTrackingNumber = $shipment.tracking_number,
             e.rewardTrackingUrl = $shipment.tracking_url
-    `, { id: int(order.id), status: order.status, shipment })
+    `, { id: order.id.toString(), status: order.status, shipment })
 
     // Fire event
     emitter.emit(new OrderShipped(order, shipment))
