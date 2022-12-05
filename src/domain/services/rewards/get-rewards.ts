@@ -25,7 +25,7 @@ export default async function getRewards(user: User): Promise<Reward[]> {
         MATCH (c:Course)
         WHERE c.rewardProductId IS NOT NULL
 
-        OPTIONAL MATCH (u:User {id: $id})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+        OPTIONAL MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
         RETURN {
             provider: c.rewardProvider,
@@ -46,7 +46,7 @@ export default async function getRewards(user: User): Promise<Reward[]> {
             redeemedAt: e.rewardOrderCreatedAt,
             trackingUrl: e.rewardOrderTrackingUrl
         } AS reward
-    `, { id: user.id })
+    `, { sub: user.sub })
 
     return res.records.map(record => record.get('reward') as Reward)
 }
