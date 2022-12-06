@@ -75,7 +75,7 @@ router.get('/', requiresAuth(), async (req, res, next) => {
  */
 router.get('/complete', requiresAuth(), async (req, res) => {
     const user = await getUser(req)
-    const countries = await getCountries()
+    const countries = await getCountriesAsRecord()
 
     res.render('account/complete', {
         title: 'Complete Account | My Account',
