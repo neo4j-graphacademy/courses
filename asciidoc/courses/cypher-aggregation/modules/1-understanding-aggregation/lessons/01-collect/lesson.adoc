@@ -22,7 +22,19 @@ RETURN [m.title, m.released, date().year - date(m.released).year + 1 ]
 This query returns one row for each movie in the graph. The data in each row is a list that contains the title of the movie, the year the movie was released, and the number of years ago the movie was released.
 
 Most queries use `collect() to create lists, but there are other functions you can use that also create lists, such as `nodes()`.
-The list you create can be something that you return, like the titles of movies:
+The list you create can be something that you return. In this query we return the collection of movie nodes for each actor:
+
+
+[source,cypher]
+----
+MATCH (a:Actor)--(m:Movie)
+WITH a, collect (m) as Movies
+RETURN a.name, Movies LIMIT 10
+----
+
+If you view the results using table view, you will see that each movie node for an actor is shown as a list enclosed with '[...]'.
+
+If  you are just interested in returning the list of titles of movies, it is more efficient to extract the title property from the node, rather than returning the list of nodes as follows:
 
 [source,cypher]
 ----
@@ -54,7 +66,8 @@ What  you must remember is that each `MATCH` in a query returns rows that are op
 
 In this query, the first `MATCH` returns one row, for the movie, Jupiter Ascending.
 The second `MATCH` uses the row from the previous `MATCH` and then returns two rows, one for each person who directed the movie.
-The third `MATCH` uses the two rows from the previous `MATCH and then returns eight rows. This is because for each row for the movie, Jupiter Ascending, there are four actors.
+The third `MATCH` uses the two rows from the previous `MATCH` and then returns eight rows.
+This is because for each row for the movie, Jupiter Ascending, there are four actors.
 Aggregation (OrderedAggregation step in the query plan) occurs during the `RETURN` clause.
 All names of actors are collected or aggregated, as well as all names of directors.
 When aggregation occurs, the graph engine selects a grouping key.
@@ -154,7 +167,7 @@ Notice here that we use endNode() to return the node at the end of the relations
 
 == Collecting paths in a query
 
-Here is an example where we perform a query and use the `nodes()` function to return the list of all paths in the  query:
+Here is an example where we perform a query and use the `nodes()` function to return the list of all nodes in a path:
 
 [source,cypher]
 ----
@@ -167,39 +180,45 @@ RETURN DISTINCT x.title
 ----
 
  In the above query, there is a mixture of Person and Movie nodes in the path.
- We specify a criteria that we only want to look at Movie nodes.
+ We specify a criteria (x:Movie) that we only want to look at Movie nodes.
 
 == collect() vs. subquery
 
 A subquery is a good way to aggregate data for later processing in your queries.
-Suppose we have this query which returns 208 rows:
+Suppose we have this query which returns a list of at most three actors for every movie:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WITH m, collect(p.name) AS Actors
+WHERE size(Actors) <= 3
+RETURN m.title AS Movie, Actors to come up with a query without subquery that returns same results as below
+----
+
+This query returns 208 movies that have 3 or fewer actors.
+
+The query can be rewritten as follows using a subquery:
 
 [source,cypher]
 ----
 PROFILE
-// need to come up with a query without subquery that returns same results as below
-----
-
-It can be rewritten as follows using a subquery:
-
-[source,cypher]
-----
-PROFILE MATCH (m:Movie)
 CALL {
-WITH m
-MATCH (m)<-[:ACTED_IN]-(a:Person)
-WITH a LIMIT 3
-RETURN collect(a.name) AS Actors
+MATCH (m:Movie)<-[:ACTED_IN]-(a:Person)
+WHERE size((m)<-[:ACTED_IN]-()) <= 3
+RETURN m.title as Movie, collect(a.name) AS Actors
 }
-RETURN m.title AS Title, Actors
+RETURN Movie, Actors
 ----
+
+This query performs better than the previous query.
 
 == Check your understanding
 
-include::questions/1-select-answer.adoc[leveloffset=+1]
+include::questions/1-aggregate.adoc[leveloffset=+1]
+include::questions/2-grouping-key.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
 
-In this lesson, you learned about the types of constraints and indexes that Neo4j supports.
-In the next lesson, you will learn about determining what constraints and indexes to create in your graph.
+In this lesson, you reviewed and learned more about aggregating data in your Cypher queries.
+In the next Challenge, you will modify some queries to aggregate data returned.
