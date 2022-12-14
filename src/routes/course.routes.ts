@@ -464,6 +464,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
             course: {
                 slug: course.slug,
                 title: course.title,
+                usecase: course.usecase,
             },
             referrer: req.originalUrl,
         })
