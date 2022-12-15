@@ -11,8 +11,8 @@
 
 == Using `count()` to aggregate data
 
-Cypher has a `count()` function that you can use to perform a count of nodes, relationships, paths, rows during query processing.
-When you aggregate in a Cypher statement, this means that the query must process all patterns in the `MATCH` clause to
+With the Cypher `count()` function,  you can perform a count of nodes, relationships, paths, or rows during query processing.
+When you aggregate in a Cypher statement, the query must process all patterns in the `MATCH` clause to
 complete the aggregation to either return results or perform the next part of the query.
 
 Here is an example:
@@ -53,7 +53,26 @@ count(*) AS NumMovies, collect(m.title) AS Movies
 ORDER BY NumMovies DESC
 ----
 
-== Counting specific nodes
+=== Counting for the next part of the query
+
+Here is an example where we start the query processing by retrieving all actors and their movies.
+During the query processing, we want to only return actors that have 2 movies.
+We use `count()` to further filter the query.
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+WITH  a, count(*) AS NumMovies
+// can add Movies to also create the list of movies
+//, collect(m.title) AS Movies
+WHERE NumMovies = 2
+RETURN a.name AS Actor
+//, Movies
+----
+
+Notice that when this query executes, is does an EagerAggregation for the `count()` before the filter step.
+
+=== Counting specific nodes
 
 In addition to counting the number of rows returned, you can also count specific nodes retrieve in the query.
 In this query:
@@ -61,13 +80,13 @@ In this query:
 [source,cypher]
 ----
 MATCH (p:Person {name: 'Elvis Presley'})-[]-(m:Movie)-[]-(a:Actor)
-RETURN count(*), count( m), count (a)
+RETURN count(*), count(m), count (a)
 ----
 
 All count values are the same. The total number of rows is 34.
 The total number of Actor nodes and Movie nodes is also 34 because the nodes are repeated in each row.
 
-You can specify `DISTINCT` so that the exact number of movies and actors are counted with no duplicates:
+You specify `DISTINCT` so that the exact number of movies and actors are counted with no duplicates:
 
 [source,cypher]
 ----
