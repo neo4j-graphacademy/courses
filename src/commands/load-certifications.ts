@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED
+ *
+ * This file was used to load the certifications from the old
+ * community database and is no longer used
+ */
 import { Session, Transaction, Record } from 'neo4j-driver'
 import { createDriver } from '../modules/neo4j'
 

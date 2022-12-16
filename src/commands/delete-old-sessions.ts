@@ -1,3 +1,8 @@
+/**
+ * DEPRECATED
+ *
+ * Sessions are no longer held in Neo4j and are instead held in redis
+ */
 import initNeo4j, { write } from '../modules/neo4j'
 
 import {
