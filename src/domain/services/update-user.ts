@@ -1,5 +1,6 @@
 import NotFoundError from "../../errors/not-found.error";
 import { write } from "../../modules/neo4j";
+import { saveUserInfo } from "../../modules/sandbox";
 import { User } from "../model/user";
 
 export interface UserUpdates {
@@ -11,7 +12,7 @@ export interface UserUpdates {
     unsubscribed: boolean;
 }
 
-export async function updateUser(user: User, updates: UserUpdates): Promise<User> {
+export async function updateUser(token: string, user: User, updates: UserUpdates): Promise<User> {
     // Null keys that don't exist
     for (const key in updates) {
         if (typeof updates[key] === 'string' && updates[key].trim() === '') {
@@ -34,6 +35,24 @@ export async function updateUser(user: User, updates: UserUpdates): Promise<User
     }
 
     const output: User = res.records[0].get('u')
+
+    try {
+        const parts = updates.givenName?.split(' ', 2)
+        const meta = {
+            first_name: parts ? parts[0] : updates.nickname || '',
+            last_name: parts ? parts[1] : '',
+            user_id: user.sub,
+            company: user.company
+        }
+
+        await saveUserInfo(token, user, {
+            ...meta,
+            user_metadata: meta,
+        })
+    }
+    catch (e: unknown) {
+        // Fine
+    }
 
     return {
         ...user,

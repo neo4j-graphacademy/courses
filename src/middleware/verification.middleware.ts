@@ -11,7 +11,7 @@ export async function requiresVerification(req: Request, res: Response, next: Ne
         const token = await getToken(req)
         const check = await getAuth0UserInfo(token, user)
 
-        if ( check.email_verified === true ) {
+        if (check.email_verified === true) {
             return next()
         }
 
@@ -24,7 +24,8 @@ export async function requiresVerification(req: Request, res: Response, next: Ne
                     overline: 'Oops',
                 },
                 content: `<p>You will need to verify your email address before enrolling to any courses on GraphAcademy.</p>
-                <p>Please verify your email by clicking on the link we sent you. If you haven't received any email yet, check your junk or spam folder.</p>`,
+                <p>Please verify your email by clicking on the link we sent you. If you haven't received any email yet, check your junk or spam folder.</p>
+                <p>If you have already verified your email, try logging out and back in again.</p>`,
                 action: {
                     link: '/account/verify/',
                     text: 'Resend Verification Email'

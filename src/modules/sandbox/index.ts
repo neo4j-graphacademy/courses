@@ -236,3 +236,32 @@ export async function stopSandbox(token: string, user: User, sandboxHashKey: str
         throw handleSandboxError(token, user, 'SandboxStopInstance', e)
     }
 }
+
+
+interface UserInfo {
+    user_id: string;
+    company: string | undefined;
+    first_name: string | undefined;
+    last_name: string | undefined;
+}
+
+interface UserMetaData extends UserInfo {
+    user_metadata: Exclude<UserInfo, 'user_id'>
+}
+
+export async function saveUserInfo(token: string, user: User, data: UserMetaData): Promise<void> {
+    try {
+        await sandboxApi().patch(
+            `SandboxSaveUserInfo`,
+            { user_metadata: data },
+            {
+                headers: {
+                    authorization: `${token}`
+                },
+            }
+        )
+    }
+    catch (e: any) {
+        throw handleSandboxError(token, user, 'SandboxSaveUserInfo', e)
+    }
+}

@@ -96,9 +96,10 @@ router.get('/complete', requiresAuth(), async (req, res) => {
  */
 router.get('/skip', requiresAuth(), async (req, res, next) => {
     try {
+        const token = await getToken(req)
         const user = await getUser(req) as User
 
-        await updateUser(user, {} as UserUpdates)
+        await updateUser(token, user, {} as UserUpdates)
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -116,6 +117,7 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
  */
 router.post('/', requiresAuth(), async (req, res, next) => {
     try {
+        const token = await getToken(req)
         const user = await getUser(req) as User
 
         // TODO: Validation
@@ -123,7 +125,7 @@ router.post('/', requiresAuth(), async (req, res, next) => {
 
         const unsubscribed = unsubscribe === 'true'
 
-        await updateUser(user, { nickname, givenName, position, company, country, unsubscribed })
+        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed })
 
         req.flash('success', 'Your personal information has been updated')
 

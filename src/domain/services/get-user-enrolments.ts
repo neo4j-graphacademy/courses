@@ -35,7 +35,7 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
             apoc.map.fromPairs(pairs) AS enrolments
     `, appendParams({ sub, active: STATUS_ACTIVE }))
 
-    if ( res.records?.length === 0 ) {
+    if (res.records?.length === 0) {
         return {
             user: false,
             enrolments: {},
@@ -45,8 +45,8 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
     const user: User = res.records[0].get('user')
     const enrolments = res.records[0].get('enrolments')
 
-    if ( !user ) {
-        if ( throwOnNotFound ) {
+    if (!user) {
+        if (throwOnNotFound) {
             throw new NotFoundError(`User with sub ${sub} not found`)
         }
 
