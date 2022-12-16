@@ -403,7 +403,7 @@ const checkSandboxExists = async (user: User, token: string, enrolment: CourseWi
     }
 }
 
-router.get('/:course/sandbox.json', async (req, res) => {
+router.get('/:course/sandbox.json', requiresAuth(), requiresVerification, async (req, res) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
