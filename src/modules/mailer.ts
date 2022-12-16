@@ -10,7 +10,7 @@ export function isEnabled(): boolean {
     return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }
 
-export function send(to: string, subject: string, html: string): void {
+export function send(to: string, subject: string, html: string, tag?: string): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO } = process.env
 
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
@@ -27,6 +27,7 @@ export function send(to: string, subject: string, html: string): void {
             to,
             subject,
             html,
+            tag,
         })
             .catch(err => {
                 notify(err, event => {
@@ -64,12 +65,12 @@ export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlat
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = ''): void {
+export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = '', tag?: string): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
 
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
-        send(email, subject, html)
+        send(email, subject, html, tag)
     }
 }

@@ -46,7 +46,7 @@ const main = async () => {
         res.records
             .map(row => row.toObject())
             .map((attributes: Record<string, any>) => {
-                prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes)
+                prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes, '', 'user-enrolment-reminder')
 
                 return attributes.enrolment.id as string
             })

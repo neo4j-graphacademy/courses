@@ -11,8 +11,12 @@ export default function initEmailListeners(): Promise<void> {
             }
 
             const email = event.user.email
+
+            const template = 'user-enrolled'
+            const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
+
             if (!event.course.certification) {
-                prepareAndSend('user-enrolled', email, { ...event })
+                prepareAndSend(template, email, { ...event }, emailDirectory, template)
             }
         })
 
@@ -26,7 +30,7 @@ export default function initEmailListeners(): Promise<void> {
 
             const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
 
-            prepareAndSend(template, email, { ...event } as Record<string, any>, emailDirectory)
+            prepareAndSend(template, email, { ...event } as Record<string, any>, emailDirectory, template)
         })
     }
 

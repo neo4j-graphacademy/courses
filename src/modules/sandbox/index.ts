@@ -251,7 +251,7 @@ interface UserMetaData extends UserInfo {
 
 export async function saveUserInfo(token: string, user: User, data: UserMetaData): Promise<void> {
     try {
-        await sandboxApi().patch(
+        await sandboxApi().post(
             `SandboxSaveUserInfo`,
             { user_metadata: data },
             {
