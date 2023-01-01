@@ -2,6 +2,7 @@
 :type: challenge
 :sandbox: true
 :updated-at: 2022-05-02 T 13:00:00 Z
+:path: main/modules/4-importing-data-cypher/lessons/2-c-importing-with-cypher
 
 In this Challenge, you will use different CSV files that are much larger than what you have used previously.
 
@@ -22,7 +23,7 @@ As a first step, execute this code in the sandbox to the right to remove all dat
 
 [source,Cypher]
 ----
-MATCH (n) DETACH DELETE n
+include::{repository-raw}/main/shared/detach-delete-all-nodes.cypher[]
 ----
 
 == Step 2: Ensure all constraints exist in the graph
@@ -31,7 +32,7 @@ Execute this code in the sandbox to the right to show the constraints in the gra
 
 [source,Cypher]
 ----
-SHOW CONSTRAINTS
+include::{repository-raw}/main/shared/show-constraints.cypher[]
 ----
 
 You *must have four uniqueness constraints* defined for:
@@ -41,7 +42,7 @@ You *must have four uniqueness constraints* defined for:
 * _User.userId_
 * _Genre.name_
 
-image::images/constraints-created.png[Constraints created,width=800,align=center]
+image::{repository-raw}/{path}/images/constraints-created.png[Constraints created,width=800,align=center]
 
 [NOTE]
 If Person, Movie, and User constraints were previously created by the Data Importer, the names will be different, but the constraints should be in the graph and it is alright if they have different names.
@@ -50,41 +51,21 @@ For example, here is the code to create _Genre_ constraint:
 
 [source,Cypher]
 ----
-CREATE CONSTRAINT Genre_name IF NOT EXISTS ON (x:Genre) ASSERT x.name IS UNIQUE
+include::{repository-raw}/{path}/create-genre-name-constraint.cypher[]
 ----
+
+You may need to create additional constraints so that you have a total of four constraints defined.
 
 == Step 3: Import _Movie_  and _Genre_ data
 
-As a first step, execute this code in the sandbox to the right so that you can verify that the movie data is being property transformed from the CSV file:
+As a first step, execute this code in the sandbox to the right so that you can verify that the movie data is being properly transformed from the CSV file:
 
 [source,Cypher]
 ----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-//process only Movie rows
-WITH row WHERE row.Entity = "Movie"
-RETURN
-row.tmdbId,
-row.imdbId,
-toFloat(row.imdbRating),
-row.released,
-row.title,
-toInteger(row.year),
-row.poster,
-toInteger(row.runtime),
-split(coalesce(row.countries,""), "|"),
-toInteger(row.imdbVotes),
-toInteger(row.revenue),
-row.plot,
-row.url,
-toInteger(row.budget),
-split(coalesce(row.languages,""), "|"),
-split(coalesce(row.genres,""), "|")
-LIMIT 10
+include::{repository-raw}/{path}/list-movie-entities.cypher[]
 ----
 
-This is the Cypher code for first pass we will make through the *2-movieData.csv* file to create the _Movie_, _Person_, and _Genre_ nodes.
+This is the Cypher code for first pass we will perform using the *2-movieData.csv* file to create the _Movie_ and _Genre_ nodes.
 Notice in this code we perform all of the necessary transformations of types when we set the properties for the _Movie_ node.
 We use `MERGE` to only create the _Movie_ and _Genre_ nodes if they do not already exist.
 And we create the _IN_GENRE_ relationships.
@@ -93,34 +74,8 @@ Execute this code in the sandbox to the right to read the CSV data and create th
 
 [source,Cypher]
 ----
-:auto USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-//process only Movie rows
-WITH row WHERE row.Entity = "Movie"
-MERGE (m:Movie {movieId: row.movieId})
-ON CREATE SET
-m.tmdbId = row.tmdbId,
-m.imdbId = row.imdbId,
-m.imdbRating = toFloat(row.imdbRating),
-m.released = row.released,
-m.title = row.title,
-m.year = toInteger(row.year),
-m.poster = row.poster,
-m.runtime = toInteger(row.runtime),
-m.countries = split(coalesce(row.countries,""), "|"),
-m.imdbVotes = toInteger(row.imdbVotes),
-m.revenue = toInteger(row.revenue),
-m.plot = row.plot,
-m.url = row.url,
-m.budget = toInteger(row.budget),
-m.languages = split(coalesce(row.languages,""), "|")
-WITH m,split(coalesce(row.genres,""), "|") AS genres
-UNWIND genres AS genre
-WITH m, genre
-MERGE (g:Genre {name:genre})
-MERGE (m)-[:IN_GENRE]->(g)
+include::{repository-raw}/{path}/auto-using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/load-movie-entities.cypher[]
 ----
 
 When you execute this code you should see:
@@ -137,21 +92,7 @@ As a first step, execute this code in the sandbox to the right so that you can v
 
 [source,Cypher]
 ----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Person"
-RETURN
-row.tmdbId,
-row.imdbId,
-row.bornIn,
-row.name,
-row.bio,
-row.poster,
-row.url,
-CASE row.born WHEN "" THEN null ELSE date(row.born) END,
-CASE row.died WHEN "" THEN null ELSE date(row.died) END
-LIMIT 10
+include::{repository-raw}/{path}/list-person-entities.cypher[]
 ----
 
 This is the Cypher code for second pass we will make through the 2-movieData.csv file to create the _Person_ nodes for actors.
@@ -162,21 +103,8 @@ Execute this code in the sandbox on the right.
 
 [source,Cypher]
 ----
-:auto USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Person"
-MERGE (p:Person {tmdbId: row.tmdbId})
-ON CREATE SET
-p.imdbId = row.imdbId,
-p.bornIn = row.bornIn,
-p.name = row.name,
-p.bio = row.bio,
-p.poster = row.poster,
-p.url = row.url,
-p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END,
-p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
+include::{repository-raw}/{path}/auto-using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/load-person-entities.cypher[]
 ----
 
 When you execute this code, you should see:
@@ -193,15 +121,7 @@ As a first step, execute this code in the sandbox to the right to see what data 
 
 [source,Cypher]
 ----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
-RETURN
-row.tmdbId,
-row.movieId,
-row.role
-LIMIT 10
+include::{repository-raw}/{path}/list-acting-entities.cypher[]
 ----
 
 This is the Cypher code for third pass we will make through the 2-movieData.csv file to create ACTED_IN relationships in the graph.
@@ -209,17 +129,8 @@ We also add the _Actor_ label to the _Person_ node. Execute this code in the san
 
 [source,Cypher]
 ----
-:auto USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
-MATCH (p:Person {tmdbId: row.tmdbId})
-MATCH (m:Movie {movieId: row.movieId})
-MERGE (p)-[r:ACTED_IN]->(m)
-ON CREATE
-SET r.role = row.role
-SET p:Actor
+include::{repository-raw}/{path}/auto-using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/load-acting-entities.cypher[]
 ----
 
 When you execute this code, you should see:
@@ -236,15 +147,7 @@ As a first step, execute this code in the sandbox to the right to see what data 
 
 [source,Cypher]
 ----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
-RETURN
-row.tmdbId,
-row.movieId,
-row.role
-LIMIT 10
+include::{repository-raw}/{path}/list-directing-entities.cypher[]
 ----
 
 There are some rows in the CSV file where a value of "Directing" _Work_ could have an associated role value.
@@ -258,17 +161,8 @@ We also add the _Director_ label to the _Person_ node. Execute this code in the 
 
 [source,Cypher]
 ----
-:auto USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-movieData.csv'
-AS row
-WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
-MATCH (p:Person {tmdbId: row.tmdbId})
-MATCH (m:Movie {movieId: row.movieId})
-MERGE (p)-[r:DIRECTED]->(m)
-ON CREATE
-SET r.role = row.role
-SET p:Director
+include::{repository-raw}/{path}/auto-using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/load-directing-entities.cypher[]
 ----
 
 When you execute this code, you should see:
@@ -283,16 +177,7 @@ As a first step, execute this code in the sandbox to the right to see what data 
 
 [source,Cypher]
 ----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
-AS row
-RETURN
-row.movieId,
-row.userId,
-row.name,
-toInteger(row.rating),
-toInteger(row.timestamp)
-LIMIT 100
+include::{repository-raw}/{path}/list-ratings.cypher[]
 ----
 
 
@@ -302,16 +187,8 @@ Execute this code in the sandbox on the right.
 
 [source,Cypher]
 ----
-:auto USING PERIODIC COMMIT
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
-AS row
-MATCH (m:Movie {movieId: row.movieId})
-MERGE (u:User {userId: row.userId})
-ON CREATE SET u.name = row.name
-MERGE (u)-[r:RATED]->(m)
-ON CREATE SET r.rating = toInteger(row.rating),
-r.timestamp = toInteger(row.timestamp)
+include::{repository-raw}/{path}/auto-using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/load-ratings.cypher[]
 ----
 
 When you execute this code, you should see:

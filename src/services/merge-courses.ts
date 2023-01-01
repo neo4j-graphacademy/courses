@@ -5,9 +5,8 @@ import { Session, Transaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
 import { getDriver } from '../modules/neo4j';
 import { CourseToImport, LessonToImport, ModuleToImport, QuestionToImport } from '../types';
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED } from '../constants';
+import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED, ATTRIBUTE_REWARD_TYPE } from '../constants';
 import { courseOverviewPath, getDateAttribute, getOrderAttribute } from '../utils';
-
 
 
 const loadCourses = (): CourseToImport[] => {
@@ -76,7 +75,14 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         certification,
         classmarkerId: file.getAttribute(ATTRIBUTE_CLASSMARKER_ID, null),
         classmarkerReference: file.getAttribute(ATTRIBUTE_CLASSMARKER_REFERENCE, null),
-        attributes,
+        attributes: {
+            rewardType: file.getAttribute(ATTRIBUTE_REWARD_TYPE, null),
+            rewardForm: file.getAttribute(ATTRIBUTE_REWARD_FORM, null),
+            rewardImage: file.getAttribute(ATTRIBUTE_REWARD_IMAGE, null),
+            rewardProvider: file.getAttribute(ATTRIBUTE_REWARD_PROVIDER, null),
+            rewardProductId: file.getAttribute(ATTRIBUTE_REWARD_PRODUCT_ID, null),
+            ...attributes,
+        },
         progressToSlugs,
         categories,
         modules: modules.map((module) => ({
@@ -136,6 +142,7 @@ const loadLesson = (folder: string): LessonToImport => {
         order,
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
         sandbox: file.getAttribute(ATTRIBUTE_SANDBOX, false),
+        lab: file.getAttribute(ATTRIBUTE_LAB, false),
         optional: file.getAttribute(ATTRIBUTE_OPTIONAL, false) === 'true',
         disableCache: file.getAttribute(ATTRIBUTE_DISABLE_CACHE, false) === 'true',
         questions,
@@ -165,8 +172,8 @@ const loadQuestion = (filepath: string): QuestionToImport => {
  * Transaction Functions
  */
 const disableAllCourses = (tx: Transaction, valid: string[]) => tx.run(`
-    MATCH (c:Course) 
-    WHERE NOT c.slug IN $valid 
+    MATCH (c:Course)
+    WHERE NOT c.slug IN $valid
     SET c.status = $status
 `, { valid, status: STATUS_DISABLED })
 
@@ -272,6 +279,7 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
         l.cypher = lesson.cypher,
         l.verify = lesson.verify,
         l.status = 'active',
+        l.lab = lesson.lab,
         l.link = m.link + lesson.slug +'/',
         l.disableCache = lesson.disableCache,
         l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
