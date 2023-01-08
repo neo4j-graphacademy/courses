@@ -176,7 +176,7 @@ export async function getSandboxForUseCase(token: string, user: User, usecase: s
     return sandboxes.find(sandbox => sandbox.usecase === usecase)
 }
 
-export async function createSandbox(token: string, user: User, usecase: string): Promise<Sandbox> {
+export async function createSandbox(token: string, user: User, usecase: string, retry = false): Promise<Sandbox> {
     // Prefer existing to avoid 400 errors
     const existing = await getSandboxForUseCase(token, user, usecase)
 
@@ -207,6 +207,12 @@ export async function createSandbox(token: string, user: User, usecase: string):
                 const existing = await getSandboxForUseCase(token, user, usecase)
 
                 return existing as Sandbox
+            }
+            // Sandbox Unauthorized (401) on SandboxRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
+            else if (response.status === 401 && retry === false) {
+                await createGraphAcademyUser(token, user)
+
+                return createSandbox(token, user, usecase, true)
             }
         }
 
@@ -251,6 +257,8 @@ interface UserMetaData extends UserInfo {
 
 export async function saveUserInfo(token: string, user: User, data: UserMetaData): Promise<void> {
     try {
+        await createGraphAcademyUser(token, user)
+
         await sandboxApi().post(
             `SandboxSaveUserInfo`,
             { user_metadata: data },
@@ -263,5 +271,22 @@ export async function saveUserInfo(token: string, user: User, data: UserMetaData
     }
     catch (e: any) {
         throw handleSandboxError(token, user, 'SandboxSaveUserInfo', e)
+    }
+}
+
+export async function createGraphAcademyUser(token: string, user: User) {
+    try {
+        await sandboxApi().post(
+            `SandboxCreateGraphAcademyUser`,
+            {},
+            {
+                headers: {
+                    authorization: `${token}`
+                },
+            }
+        )
+    }
+    catch (e: any) {
+        throw handleSandboxError(token, user, 'SandboxCreateGraphAcademyUser', e)
     }
 }

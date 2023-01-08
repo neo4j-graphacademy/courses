@@ -36,23 +36,23 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
 
     const output: User = res.records[0].get('u')
 
-    // try {
-    //     const parts = updates.givenName?.split(' ', 2)
-    //     const meta = {
-    //         first_name: parts ? parts[0] : updates.nickname || '',
-    //         last_name: parts ? parts[1] : '',
-    //         user_id: user.sub,
-    //         company: user.company
-    //     }
+    try {
+        const parts = updates.givenName?.split(' ', 2)
+        const meta = {
+            first_name: parts ? parts[0] : updates.nickname || '',
+            last_name: parts ? parts[1] : '',
+            user_id: user.sub,
+            company: user.company
+        }
 
-    //     await saveUserInfo(token, user, {
-    //         ...meta,
-    //         user_metadata: meta,
-    //     })
-    // }
-    // catch (e: unknown) {
-    //     // Fine
-    // }
+        await saveUserInfo(token, user, {
+            ...meta,
+            user_metadata: meta,
+        })
+    }
+    catch (e: unknown) {
+        // Fine
+    }
 
     return {
         ...user,
