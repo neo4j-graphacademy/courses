@@ -1,0 +1,108 @@
+= Using Aggregation to Count
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::dyAJ_H1eixk[youtube,width=560,height=315]
+
+//https://youtu.be/dyAJ_H1eixk
+
+[.transcript]
+
+== Using `count()` to aggregate data
+
+With the Cypher `count()` function,  you can perform a count of nodes, relationships, paths, or rows during query processing.
+When you aggregate in a Cypher statement, the query must process all patterns in the `MATCH` clause to
+complete the aggregation to either return results or perform the next part of the query.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+WHERE a.name = 'Tom Hanks'
+RETURN a.name AS ActorName,
+count(*) AS NumMovies
+----
+
+This query returns the number of movies Tom Hanks acted in. `count(*)` returns the number of rows retrieved in the query.
+What we return to the client is the name of the actor and the count of the rows.
+
+Here is another example:
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
+RETURN a.name AS ActorName,
+d.name AS DirectorName,
+count(*) AS NumMovies
+ORDER BY NumMovies DESC
+----
+
+Here we are returning the actor name and director name pairs and aggregating on the number of rows for each pair.
+That is, the number of movies for each actor/director pair.
+
+And if we wanted to collect the titles of the movies, it would use the same type of eager aggregation:
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
+RETURN a.name AS ActorName,
+d.name AS DirectorName,
+count(*) AS NumMovies, collect(m.title) AS Movies
+ORDER BY NumMovies DESC
+----
+
+=== Counting for the next part of the query
+
+Here is an example where we start the query processing by retrieving all actors and their movies.
+During the query processing, we want to only return actors that have 2 movies.
+We use `count()` to further filter the query.
+
+[source,cypher]
+----
+PROFILE MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+WITH  a, count(*) AS NumMovies
+// can add Movies to also create the list of movies
+//, collect(m.title) AS Movies
+WHERE NumMovies = 2
+RETURN a.name AS Actor
+//, Movies
+----
+
+Notice that when this query executes, is does an EagerAggregation for the `count()` before the filter step.
+
+=== Counting specific nodes
+
+In addition to counting the number of rows returned, you can also count specific nodes retrieve in the query.
+In this query:
+
+[source,cypher]
+----
+MATCH (p:Person {name: 'Elvis Presley'})-[]-(m:Movie)-[]-(a:Actor)
+RETURN count(*), count(m), count (a)
+----
+
+All count values are the same. The total number of rows is 34.
+The total number of Actor nodes and Movie nodes is also 34 because the nodes are repeated in each row.
+
+You specify `DISTINCT` so that the exact number of movies and actors are counted with no duplicates:
+
+[source,cypher]
+----
+MATCH (p:Person {name: 'Elvis Presley'})-[]-(m:Movie)-[]-(a:Actor)
+RETURN count(*), count(DISTINCT m), count (DISTINCT a)
+----
+
+This query returns the total count of rows returned (34), the number of distinct movies (11) and the number of distinct actors (33).
+
+== Check your understanding
+
+include::questions/1-count.adoc[leveloffset=+1]
+include::questions/2-count.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you reviewed and learned more about aggregating data  using `count()` in your Cypher queries.
+In the next Challenge, you will create a query  to aggregate using `count()`.

@@ -1,0 +1,116 @@
+= Scalar List Functions
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::dyAJ_H1eixk[youtube,width=560,height=315]
+
+//https://youtu.be/dyAJ_H1eixk
+
+[.transcript]
+
+== List functions that return a single value
+
+Cypher has a number of scalar functions that operate on a list to return a single value.
+The single value could be a string, number, or even another list.
+
+=== Size of a list
+
+The most-used scalar function on a list is one that you have already seen, `size()` that returns the number of elements in a list.
+If many cases, it is used to limit the number of results returned.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WITH p, collect (m.title) AS MovieTitles
+WITH p, MovieTitles, size(MovieTitles) AS NumMovies
+WHERE NumMovies >= 20
+RETURN p.name AS Actor, NumMovies, MovieTitles ORDER BY NumMovies
+----
+
+This query returns the names of actors who acted in more than 20 movies by creating the list for each actor, then filtering the list by the size.
+This query also uses the value of `size()` to order the results returned.
+
+=== First/last element of a list
+
+You use the `head()` function to return the first element of a list.
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE  date(m.released).year = 2000
+WITH m ORDER BY date(m.released)
+WITH collect(m) AS Movies
+WITH head(Movies) as First
+RETURN First.title AS FirstTitle, First.released AS FirstDate
+----
+
+This query retrieves all movies for the year 2000 and adds them to a list.
+Because the list is ordered by the released property of a Movie node, we can find the first element of the list of nodes, First.
+Then we return the value of the title and the value of the release date.
+
+You use the `last()` function to return the last element of a list.
+
+[source,cypher]
+----
+MATCH (m:Movie) where date(m.released).year = 2000
+WITH m ORDER BY date(m.released)
+WITH collect(m) as Movies
+WITH last(Movies) as Last
+RETURN Last.title as LastTitle, Last.released AS LastDate
+----
+
+=== Using `reduce()`
+
+Cypher has a `reduce()` function that enables you to calculate a value where you specify the initial value and apply a formula or calculation using the initial value on every element in the list.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE date(m.released).year = 2000
+WITH collect(m.revenue) AS Revenues
+WITH Revenues, reduce(t=0, r IN Revenues | t + r) AS TotalRevenue
+RETURN TotalRevenue, size(Revenues) AS TotalMovies
+----
+
+This query retrieves all movie revenue values for movies released in 2000 and creates the Revenues list.
+It then uses `reduce()` with a starting value of 0. It then adds each element to t to return the total of all elements in the list.
+
+Here is another example:
+
+[source,cypher]
+----
+MATCH (:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'Toy Story'
+WITH  collect(r.rating) AS Ratings
+WITH Ratings, reduce(Rating = 0, x IN Ratings | Rating + x) AS TotalRatings
+RETURN round(TotalRatings/size(Ratings),1)
+----
+
+In this example we are totaling the ratings for the movie, Toy Story and then returning the average by dividing by the size of the list.
+
+The `reduce()` function can be used for any type of calculation.
+
+Here is another example where we use `reduce()` to flatten a list of lists:
+
+[source,cypher]
+----
+WITH [[1,2,3], [4,5,6], [7,8,9]] AS StartingList
+RETURN reduce(Calc = [], r IN StartingList | Calc + r) AS FlattenedList
+----
+
+The initial value is an empty list. Each element in the list is added to the initial value, Calc.
+
+== Check your understanding
+
+include::questions/1-scalar.adoc[leveloffset=+1]
+include::questions/2-scalar.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you about the Cypher functions used to return a single value from a list.
+In the next Challenge, you will create some queries to use these Cypher scalar list functions.

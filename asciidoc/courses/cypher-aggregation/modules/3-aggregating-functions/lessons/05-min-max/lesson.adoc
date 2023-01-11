@@ -1,0 +1,92 @@
+= Calculating Min/Max Values
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::dyAJ_H1eixk[youtube,width=560,height=315]
+
+//https://youtu.be/dyAJ_H1eixk
+
+[.transcript]
+
+== How `min()`/`max()` works
+
+Unlike the aggregation functions `sum()` and `avg()`, the min and max functions evaluate values that could represent mixed types.
+The types could be numeric, strings, or lists.
+Like 'sum()` and `avg()`, null elements are ignored.
+
+=== Mixed element types
+
+A numeric value is always greater than a string or list value.
+This query returns 2 because it is the greatest numeric value.
+
+[source,cypher]
+----
+UNWIND [[2],0,"a",2,[1]] AS x
+RETURN max(x)
+----
+
+String values are always greater than a list value.
+Because strings are always greater than lists, this query returns "b"
+
+[source,cypher]
+----
+UNWIND [["a"],"a","b",[1]] AS x
+RETURN max(x)
+----
+
+=== List element comparisons
+
+If lists are being compared, the elements are compared in the order in the list.
+This query returns [1,3,5] because the element comparison of the second element is greatest and no other elements in the list are compared.
+
+[source,cypher]
+----
+UNWIND [[1,2,12], [1,3,5]] AS x
+RETURN max(x)
+----
+
+=== Using `min()`/max()` effectively
+
+Because `min()` and `max()` use eager aggregation in their query plans, you should  profile your queries and work to improve their performance.
+
+Here is an example where we  determine the maximum top vote value using `max()` and then use this value to find the movie:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WITH max(m.imdbVotes) as topVotes
+MATCH (m:Movie) where m.imdbVotes = topVotes
+RETURN m.title, m.imdbVotes
+----
+
+Using `max()` may not be the best solution. This query can be improved:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WHERE m.imdbVotes IS NOT NULL
+RETURN m.title, m.imdbVotes ORDER by m.imdbVotes DESC LIMIT 1
+----
+
+=== Use of indexes
+
+If the property that you are comparing with `min()` or `max()` has an index on it, the index is used to return the value which is very efficient.
+In our graph the Movie node has an index on imdbRating so this query is very fast because aggregation need not be done.
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+RETURN max(m.imdbRating)
+----
+
+== Check your understanding
+
+include::questions/1-min-max.adoc[leveloffset=+1]
+include::questions/2-min-max.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you reviewed and learned how minimum and maximum values are determined during a query.
+In the next Challenge, you will create a query  that uses `min()` to find the minimum value.

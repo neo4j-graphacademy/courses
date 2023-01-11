@@ -1,0 +1,135 @@
+= Averaging Values
+:type: quiz
+:sandbox: true
+
+//[.video]
+//video::dyAJ_H1eixk[youtube,width=560,height=315]
+
+//https://youtu.be/dyAJ_H1eixk
+
+[.transcript]
+
+== Using `avg()` to average values
+
+Cypher `avg()` returns the average of all values retrieved during aggregation.
+The values must be numeric types or durations.
+The result returned is a float.
+
+Here is an example:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WHERE m.year = 2000
+RETURN avg(m.revenue) as AvgRevenue
+----
+
+Notice that for this Cypher code, the Movie node data is aggregated to create the average of the revenue property values.
+
+If the values used for `avg()` contain nulls, then that element is not used in the calculation.
+
+Here is an example:
+
+[source,cypher]
+----
+WITH [1,3, null] as Nums
+UNWIND Nums AS x
+RETURN avg(x)
+----
+
+In this query, only 2 elements are used to sum the values and then divide by 2 to create the average returned.
+
+Here is another example where we use a subquery to filter the data:
+
+[source,cypher]
+----
+CALL {
+  MATCH (m:Movie) WHERE m.year = 2000
+  RETURN m ORDER BY m.imdbRating DESC LIMIT 10
+}
+MATCH  (:User)-[r:RATED]->(m)
+RETURN m.title as Movie, avg(r.rating) AS AverageRating
+----
+
+The subquery is demarcated by the {}s here.
+The subquery returns 10 Movie nodes of movies released in 2000 with the highest imdbRating.
+Then with these 10 movies, it determines the average rating for each of these 10 movies.
+
+=== `avg()` and eager aggregation
+
+A best practice in a query is to aggregate early. Here is an example where we do so:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WITH avg(m.imdbVotes) as AverageVote
+MATCH (m2:Movie)
+WHERE m2.year = 2010 AND m2.imdbVotes > AverageVote
+RETURN AverageVote AS OverallAverageVote, m2.title AS Title , m2.imdbVotes AS AverageVote
+----
+
+The call to `avg()` requires that all movie nodes are retrieved before the next step in the execution plan.
+
+Here is another example:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+WITH avg(m.imdbVotes) as AverageVote
+MATCH (m2:Movie)
+WHERE m2.year = 2010 AND m2.imdbVotes > AverageVote
+RETURN AverageVote AS OverallAverageVote, m2.title AS Title , m2.imdbVotes AS AverageVote
+----
+
+For this query, we first calculate the average rating for all movies that Misty Williams rated.
+Then we use this calculated value, Average as a test for the second `MATCH`.
+
+=== Using `avg()` for durations
+
+In addition to aggregating property values for nodes retrieved as a sum, you can also aggregate durations and total them.
+A Neo4j duration type is used to calculate the amount of time between two dates or times.
+
+Here is an example, modified from the query in the previous lesson.
+
+[source,cypher]
+----
+MATCH (a:Actor)
+WHERE
+a.born IS NOT NULL
+AND a.name STARTS WITH 'Tom'
+WITH count(a) AS NumActors, collect(duration.between(date(a.born), date())) AS Ages
+UNWIND Ages AS x
+RETURN  sum(x), sum(x)/NumActors, avg(x)
+----
+
+In this query, we retrieve all Actor nodes with a name that begins with "Tom".
+We collect the durations between the birth date and now.
+We then `UNWIND` the list of durations to aggregate the values using `avg()`.
+We return the sum, calculated average, and result of `avg()`.
+
+=== Calculating standard deviation
+
+Used frequently with averages is the standard deviation value.
+There are two flavors of standard deviation.
+`stddev()` uses a sample of the values for an unbiased estimate.
+`stddevP()` uses the exact population of values so for accuracy, this function should be used.
+However, `stddev()` will perform better.
+
+Here is an example:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)
+RETURN avg(m.imdbRating), stdev(m.imdbRating), stdevP(m.imdbRating)
+----
+
+== Check your understanding
+
+include::questions/1-avg.adoc[leveloffset=+1]
+include::questions/2-avg.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you reviewed and learned how aggregation is used to average data in your Cypher queries.
+In the next Challenge, you will create a query  that averages data.
