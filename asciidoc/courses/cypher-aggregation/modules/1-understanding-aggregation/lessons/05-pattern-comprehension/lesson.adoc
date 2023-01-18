@@ -9,18 +9,22 @@
 
 [.transcript]
 
+//Elaine: redid per Tomaz' feedback
 == Using pattern comprehension
 
 Pattern comprehension in Cypher enables you to create a list based upon values obtained during a query.
 
-Here is how we aggregate using collections:
+Here is how we aggregate using the `collect()` function:
 
 [source,cypher]
 ----
 PROFILE
-MATCH (a:Person)-[:ACTED_IN]-(m:Movie)-[:DIRECTED]-(d:Person)
+MATCH(m:Movie)
 WHERE m.year = 2015
-RETURN m.title AS Movie, collect(DISTINCT a.name) AS Actors, collect (DISTINCT d.name) AS Directors
+OPTIONAL MATCH (a:Person)-[:ACTED_IN]-(m)
+WITH m, collect(DISTINCT a.name) AS Actors
+OPTIONAL MATCH (m)-[:DIRECTED]-(d:Person)
+RETURN m.title AS Movie, Actors, collect (DISTINCT d.name) AS Directors
 ----
 
 Using Cypher's pattern comprehension syntax: `[<pattern> | value]`, we dynamically return a list using values obtained from the pattern.
@@ -38,8 +42,7 @@ RETURN m.title AS Movie,
 [(actor:Person)-[:ACTED_IN]->(m) | actor.name] AS Actors
 ----
 
-Notice that the first query returns 178 rows and the second query returns 180 rows.
-This is because there are two movies that have no directors in the graph.
+The behavior of pattern comprehension is similar to using OPTIONAL MATCH and for this particular query the number of db hits is reduced.
 
 === Filtering during pattern comprehension
 
@@ -55,7 +58,7 @@ AS Movies
 
 === Adding more context to the list returned
 
-You can even provide more context to the elements of the list returned where we add the year to the movie title for each element of the collection:
+You can even provide more context to the elements of the list returned where we add the year to the movie title for each element of the list:
 
 [source,cypher]
 ----
