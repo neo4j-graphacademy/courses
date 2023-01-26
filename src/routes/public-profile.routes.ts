@@ -33,12 +33,12 @@ router.get('/:id', async (req, res, next) => {
         const title = own ? 'My Achievements' : `${getUserName(user)}'s Achievements`
 
         // Sort Courses
-        for ( const category of categories ) {
+        for (const category of categories) {
             category.courses.sort((a: CourseWithProgress, b: CourseWithProgress) => {
-                if ( a.completed && !b.completed ) {
+                if (a.completed && !b.completed) {
                     return -1
                 }
-                if ( a.completed && !b.enrolled ) {
+                if (a.completed && !b.enrolled) {
                     return -1
                 }
 
@@ -51,7 +51,7 @@ router.get('/:id', async (req, res, next) => {
             { link: req.originalUrl, text: title, },
         ]
 
-        if ( categories.length === 0 ) {
+        if (categories.length === 0) {
             const content = own ? `<p>This page acts as a public record of your achievements on GraphAcademy.</p><p>Every course that you complete will appear here so friends and colleagues can track your progress.</p>`
                 : `This user hasn't completed any courses yet.  Please check back later.`;
 
@@ -120,9 +120,9 @@ router.get('/:id/:course', async (req, res, next) => {
         let ogTitle = ''
         let ogDescription = ''
 
-        if ( course.completedAt ) {
+        if (course.completedAt) {
             ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
-            ogDescription = `On ${new Intl.DateTimeFormat('en-US', {dateStyle: 'medium'}).format( new Date(course.completedAt?.toString()) )} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
+            ogDescription = `On ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(course.completedAt?.toString()))} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
         }
         else {
             ogTitle = `${own ? 'I am' : `${userName} is`} working towards the ${course.title} badge on #Neo4j #GraphAcademy`
@@ -133,7 +133,7 @@ router.get('/:id/:course', async (req, res, next) => {
 
         // Year and month for LinkedIn
         const year = course.completedAt ? course.completedAt.getFullYear() : null
-        const month = course.completedAt ? course.completedAt.getMonth() +1 : null
+        const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
         const url = `${BASE_URL}/u/${req.params.id}/${req.params.course}/`
 
         res.render('profile/certificate', {
