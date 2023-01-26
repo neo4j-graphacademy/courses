@@ -93,7 +93,6 @@ function videoTabs() {
         transcript.setAttribute('id', 'transcript')
         transcript.classList.add(TAB_TARGET)
 
-
         const videoTab = createElement('a', `${TAB} ${TAB_SELECTED}`, ['Video'])
         videoTab.setAttribute('href', '#video')
 
@@ -113,7 +112,7 @@ function scrollIntoView(element: HTMLLIElement | HTMLHeadingElement) {
     const toc = document.querySelector('.toc')
     const header = document.querySelector('.header')
 
-    if ( toc && header ) {
+    if (toc && header) {
         setTimeout(() => {
             const { y } = element.getBoundingClientRect()
             toc.scrollTo(0, y)
@@ -124,13 +123,13 @@ function scrollIntoView(element: HTMLLIElement | HTMLHeadingElement) {
 function moveCurrentLessonIntoView() {
     const lesson: HTMLLIElement | null = document.querySelector('.toc-module-lesson--current')
 
-    if ( lesson ) {
+    if (lesson) {
         return scrollIntoView(lesson!)
     }
 
     const module: HTMLHeadingElement | null = document.querySelector('.toc-module--current')
 
-    if ( module ) {
+    if (module) {
         return scrollIntoView(module!)
     }
 }

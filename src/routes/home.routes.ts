@@ -12,7 +12,7 @@ const router = Router()
 /**
  * Display homepage
  */
-router.get('/',  async (req, res, next) => {
+router.get('/', async (req, res, next) => {
     try {
         const user = await getUser(req)
 
@@ -22,14 +22,14 @@ router.get('/',  async (req, res, next) => {
         // Get current courses
         let current: CourseWithProgress[] = []
 
-        if ( user ) {
+        if (user) {
             try {
                 const output = await getUserEnrolments(user.sub)
                 current = output.enrolments.enrolled || []
 
                 current.sort((a, b) => a.lastSeenAt > b.lastSeenAt ? -1 : 1)
             }
-            catch(e) {
+            catch (e) {
                 current = []
             }
         }
@@ -41,9 +41,14 @@ router.get('/',  async (req, res, next) => {
 
         paths?.children?.sort((a, b) => a.title < b.title ? -1 : 1)
 
+        // TODO: Reinstate these categories
+        if (paths?.children) {
+            paths.children = paths?.children.filter(category => !['aura', 'administrator'].includes(category.slug))
+        }
+
         const certification = categories.find(category => category.slug === 'certification')
 
-        const activePath = 'developer'
+        const activePath = 'cypher'
 
         const translateEn = translate(LANGUAGE_EN)
 
@@ -90,7 +95,7 @@ router.get('/sitemap.txt', async (req, res, next) => {
 
         res.send(links)
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
