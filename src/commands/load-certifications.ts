@@ -100,7 +100,7 @@ const main = async () => {
                 u.createdAt = datetime()
 
             MERGE (e:Enrolment {id: apoc.text.base64Encode(row.slug +'--'+ row.sub)})
-            ON CREATE SET e.createdAt = datetime()
+            ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
             SET e:CompletedEnrolment, e:FromCommunityGraph,
                 e += row.certification,
                 e.certificateNumber = toInteger(row.certificateNumber)

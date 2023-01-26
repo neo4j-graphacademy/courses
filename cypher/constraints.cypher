@@ -47,3 +47,5 @@ CREATE INDEX ON :Enrolment(rewardOrderedAt);
 CREATE INDEX ON :Enrolment(rewardOrderId);
 
 CREATE INDEX ON :Course(rewardProductId);
+
+CREATE CONSTRAINT IF NOT EXISTS ON (e:Enrolment) ASSERT e.certificateId IS UNIQUE;

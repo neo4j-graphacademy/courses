@@ -26,7 +26,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
         ON CREATE SET u.id = randomUuid()
 
         MERGE (e:Enrolment {id: apoc.text.base64Encode(c.slug +'--'+ u.sub)})
-        ON CREATE SET e.createdAt = datetime(), e:FromClassMarker
+        ON CREATE SET e.createdAt = datetime(), e:FromClassMarker, e.certificateId = randomUuid()
 
         SET
             u.classmarkerFirstName = $first,

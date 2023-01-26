@@ -22,7 +22,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
                 u.refs = CASE WHEN $ref IS NOT NULL THEN apoc.coll.toSet(coalesce(u.refs, []) + $ref)
                     ELSE u.refs END
             MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
-            ON CREATE SET e.createdAt = datetime()
+            ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
             ON MATCH SET e.updatedAt = datetime()
             SET e.lastSeenAt = datetime(),
                 e.ref = $ref

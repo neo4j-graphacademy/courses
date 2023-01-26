@@ -83,7 +83,7 @@ export default function initApp(driver: Driver) {
     app.use('/categories', categoryRoutes)
     app.use('/courses', courseRoutes)
     app.use('/u', publicProfileRoutes)
-    app.use('/certificates', certificateRoutes)
+    app.use('/c', certificateRoutes)
     app.use('/browser', browserRoutes)
     app.use('/api', apiRoutes)
     app.use('/', languageRoutes)
