@@ -1,0 +1,178 @@
+= Type Safety
+:type: quiz
+:cache: false
+:branch: main
+
+In the previous lesson, we looked at how Neo4j types are used in Go.
+The driver provides a set of type-safe functions which guarantee the type of value returned by the function.
+These functions protect against unwanted side effects when dealing with the data returned by the database.
+
+
+[TIP]
+.Golang Generics
+====
+You can learn more about Generics in Go in the link:https://go.dev/doc/tutorial/generics[go.dev Docs^].
+====
+
+== Neo4j Types to Go Types
+
+Let's start with the following Cypher statement which finds all people who have acted in a movie.
+The Cypher statement returns two `neo4j.Node` types, `person` and `movie`, and one `neo4j.Relationship`.
+
+.Actors for a Movie
+[source,cypher,rel=norun]
+----
+MATCH (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+RETURN person, actedIn, movie
+----
+
+The returned value can be represented in a _struct_.
+
+.Representing Results in a Go struct
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag=struct,indent=0]
+----
+
+This struct can then be used to define value returned by  `session.Run()`, `neo4j.ExecuteRead()` and `neo4j.ExecuteWrite()`.
+
+.Using the struct
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag=use-struct,indent=0]
+----
+
+In the code sample above, the `neo4j.CollectTWithContext()` function is used to return array of `personActedInMovie` structs.
+The code uses the `neo4j.GetRecordValue()` helper function to extract a value from each record.
+
+Let's look at the functions used in this sample in more detail.
+
+
+
+== CollectTWithContext
+
+The `neo4j.CollectTWithContext()` function is used to iterate through the records held in a `neo4j.Result` object and abstract any required values.
+
+.Using CollectTWithContext
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag=collecttwithcontext,indent=0]
+----
+
+The function accepts three arguments:
+
+1. An execution context
+2. A `neo4j.Result`
+3. A callback function that is called once per record in the buffer.  The function is passed one argument, a `neo4j.Record` which is used to access the values in each record.
+
+In the code sample, `T` represents the type of value that the function will return.
+
+The output of the function is an array of values returned by the callback function.
+
+
+== SingleTWithContext
+
+Alternatively, if you expect one result, you can use the `neo4j.SingleTWithContext()` function.
+The function signature is similar, but instead the function will return a single value instead of an array.
+
+
+.Using SingleTWithContext
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag=singletwithcontext,indent=0]
+----
+
+
+[WARNING]
+.For Single Results Only
+If the result contains zero or more than one result, the function will return an error.
+
+
+== GetRecordValue
+
+The `neo4j.GetRecordValue()` function allows you to access a value from a `neo4j.Record` by its key and guarantee the type of value returned.
+
+.Using GetRecordValue
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag=getrecordvalue,indent=0]
+----
+
+The function above extracts the `person` value from the `record` variable, cast as a `neo4j.Node`.
+
+The function returns three values:
+
+1. The casted value, or an empty value
+2. A boolean to represent whether the value is `null` or non-existent in Neo4j
+3. An error will be returned if the value does not exist on the record or the value cannot be cast as the requested type.
+
+The following table illustrates what will be returned depending on whether the value has been successfully cast, is `nil` or cannot be cast as the requested type.
+
+
+// [Attributes]
+|===
+|Returned value | Outcome | `person` | `isNil` | `err`
+
+
+| `(:Person {name: "Arya"})`
+| Node is returned
+| An instance of `neo4j.Node`
+| `false`
+| `nil`
+
+| `nil`
+| No node is returned (e.g. Using `OPTIONAL MATCH`)
+| an empty `*neo4j.Node`
+| `true`
+| `nil`
+
+| `"string"`
+| Not the specified type
+| an empty `*neo4j.Node`
+| `false`
+| an `error`
+
+|===
+
+
+== GetProperty
+
+The code sample at the start of this lesson returns a `personActedInMovie` struct, which contains `neo4j.Node` and `neo4j.Relationship` types.
+Properties of both nodes and relationships can be accessed using the `neo4j.GetProperty` functions.
+
+
+.Accessing Node & Relationship Properties
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag="node-property",indent=0]
+
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag="rel-property",indent=0]
+----
+
+If the property exists and adheres to the type specification, the value is returned.
+If the property does not exist or doesn't adhere to the type specification, an error is returned.
+
+== A Working Example
+
+[%collapsible]
+.Expand to show a full working example
+====
+.Full CollectTWithContext example
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/generics.go[tag="example",indent=0]
+----
+====
+
+== Check Your Understanding
+
+include::questions/1-single.adoc[leveloffset=+1]
+include::questions/2-correct-cast.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this challenge, you used your knowledge to create a driver instance and execute a Cypher statement.
+
+In the next Challenge, you will modify the repository to read from the database.

@@ -9,8 +9,10 @@ To execute a Cypher statement against a Neo4j database you will use an object ca
 To connect to and query Neo4j from within a Go application, you use the link:https://neo4j.com/developer/go[Neo4j Go Driver^].
 
 
+
 == Installing the Driver
 
+The Neo4j Go Driver is available through link:https://pkg.go.dev/github.com/neo4j/neo4j-go-driver/v5/neo4j[pkg.go.dev^].
 The Neo4j Go Driver can be installed using the `go get` command.
 
 include::{repository-raw}/{branch}/README.adoc[tag=install]
@@ -29,7 +31,7 @@ include::{repository-raw}/{branch}/pkg/example/example.go[tag=import]
 
 == Creating a Driver Instance
 
-The most prominent helper function on the `neo4j` object is the `.NewDriverWithContext()` function, which accepts neo4j credentials and returns a new driver object.
+To create a new instance of the driver, you can use the `neo4j.NewDriverWithContext()` function provided by the driver library, which accepts neo4j credentials and returns a new driver object.
 
 .Creating a Driver Instance
 [source,go,indent=0,role=nocopy,subs="attributes+"]
@@ -54,7 +56,7 @@ For more information on these options, visit link:https://neo4j.com/docs/operati
 
 === Verifying Connectivity
 
-You can verify that the connection details used during driver instantiation are correct by calling the `VerifyConnectivity()` method.
+You can verify that the connection details used during driver instantiation are correct by calling the `driver.VerifyConnectivity()` method.
 
 This function returns an error with the `Neo.ClientError.Security.Unauthorized` code if the provided credentials are incorrect.
 
@@ -70,21 +72,23 @@ From the driver object, you will open one or more **sessions**.
 A session is a client-side abstraction that borrows underlying TCP connections from a _connection pool_ held by the Driver and uses them to communicate with Neo4j.
 
 Sessions should be considered lightweight and disposable and can be opened and closed at will.
+To close a session, call the `.Close()` method.
+This will release any underlying TCP connections held by the session object.
 
-You should `defer` the closing of each session  object using the `PanicOnClosureError()` function, which will release any underlying TCP connections held by the session object once the surrounding context has completed.
-
-This practice should also be followed when you are finished using the driver instance.
 
 .Session Lifecycle
 [source,go]
 ----
-include::{repository-raw}/{branch}/pkg/example/example.go[tags=driver,close,indent=0]
-
-// Open a new Session
-session := driver.NewSession(ctx, neo4j.SessionConfig{})
-defer PanicOnClosureError(ctx, session)
+include::{repository-raw}/{branch}/pkg/example/example.go[tags=session,run,session-close,indent=0]
 ----
 
+You can implicitly `defer` the closing of each session object, which will release any underlying TCP connections held by the session object once the surrounding context has completed.
+
+.Defer Session Closure
+[source,go]
+----
+include::{repository-raw}/{branch}/pkg/example/example.go[tags=defer-close,indent=0]
+----
 
 == Running a Sample Query
 
@@ -100,7 +104,7 @@ The method accepts four arguments:
 
 1. The execution context.
 2. A string to represent a Cypher statement
-3. a map representing query parameters (can be `nil`, prefixed in Cypher with `$`)
+3. An optional map representing query parameters (prefixed in Cypher with `$`).
 4. Optional, a map containing transaction config.
 
 
@@ -133,16 +137,15 @@ Should the `p` key not exist on the record, or any other error occurs while tryi
 We will cover result processing further in link:../3-execute[Lesson 3: Read and Write Transactions^].
 
 
-// == Closing the Driver
+== Closing the Driver
 
-// The Driver provides a `.close()` method.
-// Calling this function will close any open sessions, disconnect all servers and release any resources held by the driver.
+The Driver provides a `.Close()` method, which closes any open sessions, disconnect all servers and release any resources held by the driver.
 
-// .Running a One-off Query
-// [source,go,indent=0,role=nocopy,subs="attributes+"]
-// ----
-// include::{repository-raw}/{branch}/pkg/example/example.go[tag=close]
-// ----
+.Running a One-off Query
+[source,go,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/{branch}/pkg/example/example.go[tag=driver-close]
+----
 
 
 
@@ -153,7 +156,7 @@ include::questions/1-package-name.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, you learned the basics of the Neo4j Go Driver, how to install the dependency, create a new driver instance and run a sample query.
+In this lesson, you learned the basics of the Neo4j Go Driver, how to install the dependency, create a new driver instance and execute a sample query.
 
 In the next lesson, you will use this knowledge to query a Neo4j Sandbox instance.
 
