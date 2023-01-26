@@ -431,7 +431,7 @@ const redeemForm = async (req, res, next) => {
             productDetails,
             variants,
             countries,
-            input: req.body,
+            input: req.body || {},
             errorMessage: req.errorMessage,
             errors: req.errors || {},
         })
@@ -459,7 +459,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             delete body[key]
         }
     })
-
 
     try {
         const rewards = await getRewards(user)
