@@ -10,29 +10,36 @@ video::4DrR-xHFToY[youtube,width=560,height=315]
 == Memory requirements for import
 
 As you learned earlier, the Data Importer can be used for small to medium datasets containing less than 1M rows.
-The Data Importer is a generalized app as you saw that creates all properties in the graph as strings, integers, decimals, , datetimes, or boolean, and you need to possibly post-process or refactor the graph after the import.
+The Data Importer is a generalized app as you saw that creates all properties in the graph as strings, integers, decimals, datetimes, or boolean, and you need to possibly post-process or refactor the graph after the import.
 It is also designed to handle a smaller memory footprint, so it may not be useful for all of your data import needs.
 
 When you import using Cypher statements, you have control over the amount of memory used for the import.
 In Cypher, by default, the execution of your code is a single transaction.
-In order to process large CSV imports, you need to break up the execution of the Cypher into multiple transactions.
+In order to process large CSV imports, you may need to break up the execution of the Cypher into multiple transactions.
 
-=== Using `USING PERIODIC COMMIT`
+=== Using a subquery for the import
 
 You can use this code structure to import a large dataset:
 
 [source,Cypher,role=nocopy noplay]
 ----
-include::{repository-raw}/{path}/using-periodic-commit.cypher[]
+include::{repository-raw}/{path}/call-start.cypher[]
 /// add data to the graph for each row
+include::{repository-raw}/{path}/call-end.cypher[]
 ----
 
-The default transaction size for this type of import is 500 rows. That is, after 500 rows have been read from the CSV file, the data will be committed to the graph and the import will continue.
-This enables you to load extremely large CSV files into the graph without running out of memory.
+If the CSV data is too large, you may need to modify as follows:
 
-[IMPORTANT]
-In Neo4j Browser, you must prefix this Cypher with `:auto`, that is `:auto USING PERIODIC COMMIT LOAD CSV...`
-This tells Neo4j to use automatic detection of transactions.
+[source,Cypher,role=nocopy noplay]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://xxx.com/xxx/large-file.csv'
+AS row
+CALL {
+  WITH row
+  // create data in the graph
+} IN TRANSACTIONS
+----
 
 === Planning for the import
 
