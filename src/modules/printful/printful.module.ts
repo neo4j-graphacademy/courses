@@ -2,7 +2,7 @@ import axios from "axios"
 import { PRINTFUL_API_KEY } from "../../constants"
 import { ValidationError } from "../../errors/validation.error"
 import Recipient from "./recipient.class"
-import { Order, OrderResponse } from "./types"
+import { Order, OrderResponse, Variant } from "./types"
 
 const API_BASE_URL = 'https://api.printful.com'
 
@@ -42,7 +42,7 @@ export function getStores<T>() {
 }
 
 const productCache = new Map<string, any>()
-const variantCache = new Map<string, any>()
+const variantCache = new Map<string, Variant>()
 
 export function getProduct<T>(storeId: string, id: string): Promise<T> {
     const key = storeId + '|' + id
@@ -58,10 +58,10 @@ export function getProduct<T>(storeId: string, id: string): Promise<T> {
         .then(res => res.data.result as T)
 }
 
-export function getVariant<T = any>(storeId: string, id: string): Promise<T> {
+export function getVariant(storeId: string, id: string): Promise<Variant> {
     const key = storeId + '|' + id
     if (variantCache.has(key)) {
-        return Promise.resolve(variantCache.get(key) as T)
+        return Promise.resolve(variantCache.get(key) as Variant)
     }
 
     return api.get(`/store/variants/${id}`, {
@@ -69,7 +69,7 @@ export function getVariant<T = any>(storeId: string, id: string): Promise<T> {
             'X-PF-Store-Id': storeId,
         }
     })
-        .then(res => res.data.result as T)
+        .then(res => res.data.result as Variant)
 }
 
 interface State {
@@ -157,13 +157,10 @@ export function formatRecipient(
 }
 
 
-interface Variant {
-    variant_id: string;
-    quantity: number;
-}
+type OrderItem = Partial<Variant> & { quantity: number }
 
 
-export async function createOrder(storeId: string, recipient: Recipient, items: Variant[]): Promise<Order> {
+export async function createOrder(storeId: string, recipient: Recipient, items: OrderItem[]): Promise<Order> {
     const res = await api.post<OrderResponse>('/orders?confirm=true', {
         recipient: recipient.toObject(),
         items,

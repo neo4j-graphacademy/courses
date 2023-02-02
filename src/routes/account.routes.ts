@@ -377,10 +377,57 @@ const redeemForm = async (req, res, next) => {
             throw new NotFoundError('Reward Not Found')
         }
 
-        const productDetails: any = await getProduct(PRINTFUL_STORE_ID, reward.productId)
+        // Get Product Variants
+        const productIds = reward.productId.split(',')
+        let products
 
-        if (!reward) {
-            throw new NotFoundError('Product Not Found')
+        try {
+            products = await Promise.all(productIds.map(async (id: string) => {
+                const product: any = await getProduct(PRINTFUL_STORE_ID as string, id)
+                const variants = product.sync_variants.reduce((acc: any[], value) => {
+                    const name = value.name.split('/', 1)[0]
+
+                    let index = acc.findIndex((row) => row.name === name)
+
+                    if (index === -1) {
+                        acc.push({
+                            name,
+                            variants: []
+                        })
+
+                        index = acc.findIndex((row) => row.name === name)
+                    }
+
+                    value.preview = value.files.find(file => file.type === 'preview')?.preview_url
+
+                    acc[index].variants.push(value)
+
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                    return acc as any
+                }, [])
+
+                return {
+                    product,
+                    variants
+                }
+            }))
+        }
+        catch (e: any) {
+            notify(e, err => {
+                err.setUser(user.id, user.email, user.name)
+                err.addMetadata('reward', reward)
+                err.addMetadata('printful', {
+                    store: PRINTFUL_STORE_ID,
+                    productIds,
+                })
+            })
+
+            throw new NotFoundError('Unable to fetch rewards')
+        }
+
+        // No products found?
+        if (!products.length) {
+            throw new NotFoundError('Reward Products Not Found')
         }
 
         // Breadcrumbs
@@ -394,29 +441,6 @@ const redeemForm = async (req, res, next) => {
             text: reward.title,
         })
 
-        // Variants
-        const variants = productDetails.sync_variants.reduce((acc: any[], value) => {
-            const name = value.name.split('/', 1)[0]
-
-            let index = acc.findIndex((row) => row.name === name)
-
-            if (index === -1) {
-                acc.push({
-                    name,
-                    variants: []
-                })
-
-                index = acc.findIndex((row) => row.name === name)
-            }
-
-            value.preview = value.files.find(file => file.type === 'preview')?.preview_url
-
-            acc[index].variants.push(value)
-
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            return acc as any
-        }, [])
-
         // Countries
         const countries = await getCountries()
 
@@ -428,8 +452,7 @@ const redeemForm = async (req, res, next) => {
                 byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
             },
             reward,
-            productDetails,
-            variants,
+            products,
             countries,
             input: req.body || {},
             errorMessage: req.errorMessage,
@@ -491,12 +514,17 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Place Order
         await createVariantOrder(user, reward, PRINTFUL_STORE_ID as string, recipient, body.variant_id, 1)
 
+        console.log('order completed');
+
+
         // Redirect with confirmation
         req.flash('success', `Your order has been placed.  You should receive a confirmation email shortly.`)
 
         res.redirect('/account/rewards')
     }
     catch (e: any) {
+        console.log('errr?', e);
+
         notify(e, event => {
             event.setUser(user.id, user.email, user.name)
             event.addMetadata('request', e.request)

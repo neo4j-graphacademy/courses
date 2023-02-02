@@ -42,7 +42,7 @@ export interface Item {
     out_of_stock: boolean;
 }
 
-enum OrderStatus {
+export enum OrderStatus {
     draft = "draft", //	The order is created but is not yet submitted for fulfillment. You still can edit it and confirm later.
     pending = "pending", //	The order has been submitted for fulfillment, but is not yet accepted for fulfillment. You can still cancel the order if you need.
     failed = "failed", //	Order was submitted for fulfillment but was returned for review because of an error (problem with address, missing printfiles, charging has failed, etc.).
@@ -55,7 +55,7 @@ enum OrderStatus {
 }
 
 export interface Order {
-    id: number,
+    id: number | string,
     external_id: string,
     status: OrderStatus;
     shipping: 'STANDARD',
@@ -89,8 +89,8 @@ export interface Shipment {
     id: number;
     carrier: string;
     service: string;
-    tracking_number: number,
-    tracking_url: string,
+    tracking_number: number;
+    tracking_url: string;
     created: number; // 1588716060,
     ship_date: string; // 2020-05-05,
     shipped_at: number;
@@ -111,6 +111,21 @@ interface OrderErrorResponse {
 interface OrderSuccessResponse {
     code: 200;
     result: Order
+}
+
+export interface Variant {
+    id: number,
+    product_id: number;
+    name: string;
+    size: string;
+    color: string;
+    color_code: string;
+    color_code2: string;
+    image: string;
+    price: string;
+    in_stock: boolean;
+    availability_regions: any;
+    availability_status: any;
 }
 
 export type OrderResponse = OrderSuccessResponse | OrderErrorResponse

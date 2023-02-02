@@ -3,6 +3,7 @@ import { User } from "../../../domain/model/user"
 import { Reward } from "../../../domain/services/rewards/get-rewards"
 import { emitter } from "../../../events"
 import { notify } from "../../../middleware/bugsnag.middleware"
+import { appendOrderToGoogleSheet } from "../../tshirts-fulfilment"
 import { write } from "../../neo4j"
 import { OrderCreated } from "../events/OrderCreated"
 import { createOrder, getVariant } from "../printful.module"
@@ -12,10 +13,19 @@ import { Order } from "../types"
 export default async function createVariantOrder(user: User, reward: Reward, storeId: string, recipient: Recipient, variant_id: string, quantity: number): Promise<Order> {
     try {
         const variant = await getVariant(storeId, variant_id)
-        const order = await createOrder(storeId, recipient, [{
-            ...variant,
-            quantity,
-        }])
+
+        let order: Order
+
+        // Append Indian orders to a separate spreadsheet
+        if (recipient.country_code === 'IN') {
+            order = await appendOrderToGoogleSheet(user, reward, storeId, recipient, variant, quantity)
+        }
+        else {
+            order = await createOrder(storeId, recipient, [{
+                ...variant,
+                quantity,
+            }])
+        }
 
         // Update Database
         await write(`
@@ -29,7 +39,7 @@ export default async function createVariantOrder(user: User, reward: Reward, sto
     `, {
             sub: user.sub, slug: reward.slug,
             order: {
-                rewardOrderId: int(order.id),
+                rewardOrderId: typeof order.id === 'string' ? order.id : int(order.id),
                 rewardOrderTotalCost: order.costs?.total,
                 rewardOrderedAt: order.created,
                 rewardStore: storeId,
