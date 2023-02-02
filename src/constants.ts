@@ -89,7 +89,6 @@ export const TWITTER_TAG_ID: string | undefined = process.env.TWITTER_TAG_ID
 export const BUGSNAG_API_KEY: string | undefined = process.env.BUGSNAG_API_KEY
 export const PUBLIC_BUGSNAG_API_KEY: string | undefined = process.env.PUBLIC_BUGSNAG_API_KEY
 
-
 // Google Auth & Sheets
 export const GOOGLE_API_KEY: string | undefined = process.env.GOOGLE_API_KEY
 export const GOOGLE_KEY_FILE: string | undefined = process.env.GOOGLE_KEY_FILE
