@@ -23,4 +23,4 @@ WHERE relType = ":`RATED`"
   AND propertyName = "rating"
   AND "Long" in propertyTypes
 WITH  nodes, count(*) as c
-RETURN nodes AND count(*) = 1 as outcome
+RETURN count(*) = 1 as outcome
