@@ -1,7 +1,7 @@
 import { post } from "./http"
 
 // src/domain/events/UserUiEvent.ts
-type UiEventType = 'sandbox-toggle' | 'support-toggle' | 'show-hint' | 'show-solution'
+type UiEventType = 'sandbox-toggle' | 'support-toggle' | 'show-hint' | 'show-solution' | 'video-playing' | 'video-paused' | 'video-ended' | 'show-transcript' | 'show-video'
 
 export function logUiEvent(type: UiEventType, data: Record<string, any> = {}) {
     post(`/account/event/${type}`, {

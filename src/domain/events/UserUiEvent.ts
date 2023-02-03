@@ -4,17 +4,32 @@ export const UI_EVENT_SANDBOX_TOGGLE = 'sandbox-toggle'
 export const UI_EVENT_SUPPORT_TOGGLE = 'support-toggle'
 export const UI_EVENT_SHOW_HINT = 'show-hint'
 export const UI_EVENT_SHOW_SOLUTION = 'show-solution'
+export const UI_EVENT_VIDEO_PLAYING = 'video-playing'
+export const UI_EVENT_VIDEO_PAUSED = 'video-paused'
+export const UI_EVENT_VIDEO_ENDED = 'video-ended'
+export const UI_EVENT_SHOW_TRANSCRIPT = 'show-transcript'
+export const UI_EVENT_SHOW_VIDEO = 'show-video'
 
 export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_SUPPORT_TOGGLE
     | typeof UI_EVENT_SHOW_HINT
     | typeof UI_EVENT_SHOW_SOLUTION
+    | typeof UI_EVENT_VIDEO_PLAYING
+    | typeof UI_EVENT_VIDEO_PAUSED
+    | typeof UI_EVENT_VIDEO_ENDED
+    | typeof UI_EVENT_SHOW_TRANSCRIPT
+    | typeof UI_EVENT_SHOW_VIDEO
 
 export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_SANDBOX_TOGGLE,
     UI_EVENT_SUPPORT_TOGGLE,
     UI_EVENT_SHOW_HINT,
-    UI_EVENT_SHOW_SOLUTION
+    UI_EVENT_SHOW_SOLUTION,
+    UI_EVENT_VIDEO_PLAYING,
+    UI_EVENT_VIDEO_PAUSED,
+    UI_EVENT_VIDEO_ENDED,
+    UI_EVENT_SHOW_TRANSCRIPT,
+    UI_EVENT_SHOW_VIDEO,
 ]
 
 export class UserUiEvent {
@@ -22,5 +37,5 @@ export class UserUiEvent {
         public readonly user: User,
         public readonly type: UiEventType,
         public readonly meta: Record<string, any>
-    ) {}
+    ) { }
 }

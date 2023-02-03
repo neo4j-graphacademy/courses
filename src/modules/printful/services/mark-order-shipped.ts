@@ -1,4 +1,3 @@
-import { int } from "neo4j-driver";
 import { emitter } from "../../../events";
 import { write } from "../../neo4j";
 import OrderShipped from "../events/OrderShipped";

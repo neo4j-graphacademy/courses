@@ -1,7 +1,7 @@
 declare global {
     interface Window {
         env: 'dev' | undefined;
-        user?: {sub:string, id: string};
+        user?: { sub: string, id: string };
         analytics: {
             course: Record<string, any>;
             module: Record<string, any>;
@@ -22,5 +22,7 @@ declare global {
             advanceTo: string;
             [key: string]: any;
         }
+
+        YT: any
     }
 }

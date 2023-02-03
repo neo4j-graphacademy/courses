@@ -1,6 +1,8 @@
 import NotFoundError from "../../errors/not-found.error";
+import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
 import { saveUserInfo } from "../../modules/sandbox";
+import { UserUpdatedAccount } from "../events/UserUpdatedAccount";
 import { User } from "../model/user";
 
 export interface UserUpdates {
@@ -53,6 +55,9 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     catch (e: unknown) {
         // Fine
     }
+
+    // Fire event
+    emitter.emit(new UserUpdatedAccount(user))
 
     return {
         ...user,

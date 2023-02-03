@@ -4,8 +4,9 @@ import { UserCompletedLesson } from '../../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../../domain/events/UserEnrolled'
 import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
 import { UserLogin } from '../../domain/events/UserLogin'
-import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SUPPORT_TOGGLE, UserUiEvent } from '../../domain/events/UserUiEvent'
+import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO, UI_EVENT_SUPPORT_TOGGLE, UI_EVENT_VIDEO_ENDED, UI_EVENT_VIDEO_PAUSED, UI_EVENT_VIDEO_PLAYING, UserUiEvent } from '../../domain/events/UserUiEvent'
 import { UserUnenrolled } from '../../domain/events/UserUnenrolled'
+import { UserUpdatedAccount } from '../../domain/events/UserUpdatedAccount'
 import { UserViewedCourse } from '../../domain/events/UserViewedCourse'
 import { UserViewedLesson } from '../../domain/events/UserViewedLesson'
 import { emitter } from '../../events'
@@ -24,7 +25,13 @@ import {
     ANALYTICS_EVENT_TOGGLE_SANDBOX,
     ANALYTICS_EVENT_TOGGLE_SUPPORT,
     ANALYTICS_EVENT_SHOW_HINT,
-    ANALYTICS_EVENT_SHOW_SOLUTION
+    ANALYTICS_EVENT_SHOW_SOLUTION,
+    ANALYTICS_EVENT_VIDEO_PLAYING,
+    ANALYTICS_EVENT_VIDEO_PAUSED,
+    ANALYTICS_EVENT_VIDEO_ENDED,
+    ANALYTICS_EVENT_SHOW_VIDEO,
+    ANALYTICS_EVENT_SHOW_TRANSCRIPT,
+    ANALYTICS_EVENT_USER_UPDATED_ACCOUNT
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -132,6 +139,26 @@ export default function initAnalyticsListeners(): Promise<void> {
                 case UI_EVENT_SHOW_SOLUTION:
                     trackEvent(ANALYTICS_EVENT_SHOW_SOLUTION, event.user.sub, event.meta)
                     break;
+
+                case UI_EVENT_VIDEO_PLAYING:
+                    trackEvent(ANALYTICS_EVENT_VIDEO_PLAYING, event.user.sub, event.meta)
+                    break;
+
+                case UI_EVENT_VIDEO_PAUSED:
+                    trackEvent(ANALYTICS_EVENT_VIDEO_PAUSED, event.user.sub, event.meta)
+                    break;
+
+                case UI_EVENT_VIDEO_ENDED:
+                    trackEvent(ANALYTICS_EVENT_VIDEO_ENDED, event.user.sub, event.meta)
+                    break;
+
+                case UI_EVENT_SHOW_VIDEO:
+                    trackEvent(ANALYTICS_EVENT_SHOW_VIDEO, event.user.sub, event.meta)
+                    break;
+
+                case UI_EVENT_SHOW_TRANSCRIPT:
+                    trackEvent(ANALYTICS_EVENT_SHOW_TRANSCRIPT, event.user.sub, event.meta)
+                    break;
             }
         })
 
@@ -145,6 +172,16 @@ export default function initAnalyticsListeners(): Promise<void> {
             trackEvent(ANALYTICS_EVENT_COMMAND_CYPHER, user.sub, {
                 ...metaData,
                 ...other,
+            })
+        })
+
+        emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
+            console.log(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
+                ...event.user,
+            });
+
+            trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
+                ...event.user,
             })
         })
     }

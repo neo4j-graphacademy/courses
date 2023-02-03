@@ -95,9 +95,11 @@ function videoTabs() {
 
         const videoTab = createElement('a', `${TAB} ${TAB_SELECTED}`, ['Video'])
         videoTab.setAttribute('href', '#video')
+        videoTab.addEventListener('click', () => logUiEvent('show-video'))
 
         const transcriptTab = createElement('a', TAB, ['Transcript'])
         transcriptTab.setAttribute('href', '#transcript')
+        transcriptTab.addEventListener('click', () => logUiEvent('show-transcript'))
 
         const tabs = createElement('nav', 'tabs', [
             videoTab,
