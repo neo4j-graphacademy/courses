@@ -54,11 +54,11 @@ router.get('/', async (req, res, next) => {
 
         res.render('home', {
             title: 'Free, Self-Paced, Hands-on Online Training ',
-            hero: {
-                title: 'Free, Self-Paced, Hands-on Online Training',
-                byline: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
-                overline: 'Learn with GraphAcademy'
-            },
+            // hero: {
+            //     title: 'Free, Self-Paced, Hands-on Online Training',
+            //     byline: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
+            //     overline: 'Learn with GraphAcademy'
+            // },
             description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
             classes: 'home transparent-nav preload',
             current,
