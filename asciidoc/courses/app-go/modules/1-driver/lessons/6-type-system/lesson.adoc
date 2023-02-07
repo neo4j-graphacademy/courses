@@ -1,0 +1,396 @@
+= The Neo4j Type System
+:type: quiz
+:order: 6
+
+At this point, we should take a look at the Cypher type system.
+As Neo4j is written in Java (the _j_ in Neo4**j** stands for Java after all), there are some discrepancies between the types stored in the Neo4j database and native Go types.
+
+Some values like strings, floats, booleans, and nulls map directly to Go types, but more complex types need special handling.
+
+[%collapsible]
+.Go Types to Neo4j Types
+====
+[cols="1,1,1"]
+|===
+| Go Type | Neo4j Cypher Type | Notes
+
+| `null`
+| `nil`
+|
+
+| `List`
+| `[]interface{}` or `[]any`
+|
+
+| `Map`
+| `map[string]interface{}` or `map[string]any`
+|
+
+| `Boolean`
+| `bool`
+|
+
+| `Integer`
+| `int64`
+|
+
+| `Float`
+| `float64`
+|
+
+| `String`
+| `string`
+|
+
+| `ByteArray`
+| `[]byte`
+|
+
+| `Date`
+| `neo4j.Date`
+| See <<Temporal Data Types>>
+
+| `Time`
+| `neo4j.OffsetTime`
+| See <<Temporal Data Types>>
+
+| `LocalTime`
+| `neo4j.LocalTime`
+| See <<Temporal Data Types>>
+
+| `DateTime`
+| `time.Time*`
+| See <<Temporal Data Types>>
+
+| `LocalDateTime`
+| `neo4j.LocalDateTime`
+| See <<Temporal Data Types>>
+
+| `Duration`
+| `neo4j.Duration`
+| See <<Durations>>
+
+| `Point`
+| `neo4j.Point`
+| See <<Spatial Data Types>>
+
+| `Node`
+| `neo4j.Node`
+| See <<Nodes & Relationships>>
+
+| `Relationship`
+| `neo4j.Relationship`
+| See <<Nodes & Relationships>>
+
+| `Path`
+| `neo4j.Path`
+| See <<Nodes & Relationships>>
+
+
+|===
+
+_* When a time.Time value is sent/received through the driver and its Zone() returns a name of Offset, the value is stored with its offset value rather than its zone name._
+
+
+====
+
+Let's take a look at some of these types in more detail.
+
+
+== Nodes & Relationships
+
+Working with Nodes and Relationships are very similar.
+Both have an `.Id` property which represents the internal Neo4j ID as an `int64` and a `.Props` property which holds a map of properties.
+
+As an example, let's take the following code snippet:
+
+.Return Nodes and Relationships
+[source,go,role=ncopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=run]
+----
+
+
+The query will return one record for each `:Person` and `:Movie` node with an `:ACTED_IN` relationship between them.
+
+=== Extracting Values
+
+As mentioned in the previous lesson, you can use the alias as defined in the `RETURN` portion of the Cypher statement:
+
+[source,go]
+.Accessing a value by Alias
+----
+include::{repository-raw}/main/pkg/example/results.go[tags="nextrecord,alias",indent=0]
+----
+
+Or alternatively, you can either retrieve a value by its index in the `Values` property:
+
+[source,go]
+.Accessing a value by Index
+----
+// Check keys to find the index
+include::{repository-raw}/main/pkg/example/results.go[tag=keys,indent=0]
+
+include::{repository-raw}/main/pkg/example/results.go[tags="nextrecord,index",indent=0]
+----
+
+When casting an item, you can use the second returned value to check that the value has been successfully cast as the requested type.
+
+[source,go,indent=0]
+.Casting Values
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=cast]
+----
+
+
+=== Working with Nodes
+
+[%collapsible]
+.Node struct Definition
+====
+[source,go]
+----
+type Node struct {
+	// Deprecated: Id is deprecated and will be removed in 6.0. Use ElementId instead.
+	Id        int64          // Id of this Node.
+	ElementId string         // ElementId of this Node.
+	Labels    []string       // Labels attached to this Node.
+	Props     map[string]any // Properties of this Node.
+}
+----
+
+This definition has been taken from the link:https://pkg.go.dev/github.com/neo4j/neo4j-go-driver/v5@v5.4.0/neo4j/dbtype#Node[source code for the Neo4j Go Driver^]
+====
+
+
+
+`neo4j.Node` is a `struct` that allows you to access:
+
+1. `.Id` - The Internal ID of the Node as an `int64` +
+eg `8491`
+2. `.Labels` - An array of strings representing the labels attributed to the Node +
+eg. `['Person`, 'Actor']
+3. `.Props` - A map of properties assigned to the Node +
+eg. `{name: 'Tom Hanks', tmdbId: '31' }`
+
+
+[source,go,indent=0]
+.Working with Node objects
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=node]
+----
+
+[TIP]
+.Internal IDs
+Internal IDs refer to the position in the Neo4j store files where the record is held.
+These numbers can be re-used, a best practice is to always look up a node by an indexed property rather than relying on an internal ID.
+
+
+=== Working with Relationships
+
+[%collapsible]
+.Relationship struct Definition
+====
+[source,go]
+----
+type Relationship struct {
+	// Deprecated: Id is deprecated and will be removed in 6.0. Use ElementId instead.
+	Id        int64  // Id of this Relationship.
+	ElementId string // ElementId of this Relationship.
+	// Deprecated: StartId is deprecated and will be removed in 6.0. Use StartElementId instead.
+	StartId        int64  // Id of the start Node of this Relationship.
+	StartElementId string // ElementId of the start Node of this Relationship.
+	// Deprecated: EndId is deprecated and will be removed in 6.0. Use EndElementId instead.
+	EndId        int64          // Id of the end Node of this Relationship.
+	EndElementId string         // ElementId of the end Node of this Relationship.
+	Type         string         // Type of this Relationship.
+	Props        map[string]any // Properties of this Relationship.
+}
+----
+This definition has been taken from the link:https://pkg.go.dev/github.com/neo4j/neo4j-go-driver/v5@v5.4.0/neo4j/dbtype#Relationship[source code for the Neo4j Go Driver^]
+
+====
+
+`neo4j.Relationship` is a `struct` that allows you to access:
+
+1. `.Id` - The internal ID of the relationship as an `int64` +
+eg. `9876`
+2. `.Type` - The type of the relationship +
+eg. `ACTED_IN`
+3. `.Props` - A map of properties assigned to the Relationship +
+eg. `{role: 'Woody'}`
+4. `.StartId` - The internal ID for the node at the start of the relationship
+5. `.EndId` - The internal ID for the node at the end of the relationship
+
+=== Working with Paths
+
+[%collapsible]
+.Path struct Definition
+====
+[source,go]
+----
+type Path struct {
+	Nodes         []Node // All the nodes in the path.
+	Relationships []Relationship
+}
+----
+
+This definition has been taken from the link:https://pkg.go.dev/github.com/neo4j/neo4j-go-driver/v5@v5.4.0/neo4j/dbtype#Path[source code for the Neo4j Go Driver^]
+
+====
+
+If you return a path of nodes and relationships, they will be returned as an instance of a `neo4j.Path`.
+
+.Working with Path Objects
+[source,go,role=ncopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=path]
+----
+
+
+==== Path Segments
+
+A path is split into segments representing each relationship in the path.
+For example, say we have a path of `(p:Person)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)`, there would be two relationships.
+
+1. `(p:Person)-[:ACTED_IN]->(m:Movie)`
+2. `(m:Movie)-[:IN_GENRE]->(g:Genre)`
+
+You can access the relationships within the path through the `.Relationships` property, and the nodes in the path can be accessed through the `.Nodes` property.
+
+.Iterating over Segments
+[source,go,role=ncopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=path]
+----
+
+
+== Temporal Data Types
+
+Temporal data types are extensions of Go's link:https://pkg.go.dev/time[`time.Time`^] type.
+
+You can access the individual parts of the `Time` struct using the appropriate method.
+
+.Working with Times
+[source,go,indent=0]
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=time]
+----
+
+link:https://gobyexample.com/time[Read more time support from gobyexample.com^]
+
+// TODO: .Zone() example
+
+
+=== Durations
+
+The `neo4j.Duration` type provides properties for accessing the Neo4j `duration` type.
+A Neo4j duration type contains the following data:
+
+* `Months` - an `int64`
+* `Days` - an `int64`
+* `Seconds` - an `int64`
+* `Nanos` - an `int`
+
+[source,go,indent=0]
+.Working with Durations
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=duration]
+----
+
+
+== Spatial Data Types
+
+Cypher has built-in support for handling spatial values (``Point``s), and the underlying database supports storing these point values as properties on nodes and relationships.
+
+=== Points
+
+Points can be stored in Neo4j as 2D points (`x` and `y`, or `latitude` and `longitude`) or 3D points (`x`, `y` and `z`, or `latitude`, `longitude` and `height`).
+
+
+The Neo4j Go Driver provides two types to represent these types, `Point2D` and `Point3D`.
+Both of these types have `.X` and `.Y` properties along with a `.SpatialRefId` which is used to represent the ID of the coordinate reference system.
+
+
+[cols="1,2,3"]
+|===
+| SpatialRefId | Description | Cypher Example
+
+| 7203
+| <<Point2D>> in the cartesian space.
+| `point({x: 10, y: 20})`
+
+| 4326
+| <<Point2D>> in the WGS84 space.
+| `point({latitude: 10, longitude: 20})`
+
+| 9157
+| <<Point3D>> in the cartesian space.
+| `point({x: 10, y: 20, z: 30})`
+
+| 4979
+| <<Point3D>> in the WGS84 space.
+| `point({longitude:20, latitude:10, height:30})`
+
+
+|===
+
+
+
+
+
+==== Point2D
+
+A `Point2D` struct represents a two-dimensional in Cartesian space or in the WGS84 space.
+The `.SpatialRefId` property indicates the type of the coordinate and the `.X` and `.Y` property represent the location.
+
+When a type is created with `latitude` and `longitude` values, the values are saved as `Y` and `X` respectively.
+
+[source,go,indent=0]
+.Working with Point2D Values
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=point2d]
+----
+
+
+==== Point3D
+
+The `Point3D` struct is similar to the `Point2D` type, with the addition of a `.Z` property.
+
+[source,go,indent=0]
+.Working with Point3D Values
+----
+include::{repository-raw}/main/pkg/example/results.go[tag=point2d]
+----
+
+
+=== Distance
+
+When using the `distance()` function in Cypher, the distance calculated between two points is returned as a float.
+
+
+[source,cypher]
+----
+WITH point({x: 1, y:1}) AS one,
+     point({x: 10, y: 10}) AS two
+
+RETURN distance(one, two) // 12.727922061357855
+----
+
+For more information on Spatial types, link:https://neo4j.com/docs/cypher-manual/current/syntax/spatial/[see the Cypher Manual^].
+
+
+== Check Your Understanding
+
+include::questions/1-node-property.adoc[leveloffset=+1]
+
+include::questions/2-integer-helper.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson you have learned how to handle data returned by a Cypher statement.
+
+As we progress through this module, you will use the knowledge gained so far to read data from, and write data back to the database.
+In the next lesson you will learn how to add type safety to your Go project.

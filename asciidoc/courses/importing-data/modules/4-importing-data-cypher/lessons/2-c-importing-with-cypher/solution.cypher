@@ -1,12 +1,17 @@
 // clear the graph
+MATCH (u:User) DETACH DELETE u;
+MATCH (p:Person) DETACH DELETE p;
+MATCH (m:Movie) DETACH DELETE m;
 MATCH (n) DETACH DELETE n;
 // make sure all constraints exist
-CREATE CONSTRAINT Genre_name IF NOT EXISTS ON (x:Genre) ASSERT x.name IS UNIQUE;
-CREATE CONSTRAINT Movie_movieId IF NOT EXISTS ON (x:Movie) ASSERT x.movieId IS UNIQUE;
-CREATE CONSTRAINT Person_tmdbId IF NOT EXISTS ON (x:Person) ASSERT x.tmdbId IS UNIQUE;
-CREATE CONSTRAINT User_userId IF NOT EXISTS ON (x:User) ASSERT x.userId IS UNIQUE;
+CREATE CONSTRAINT Genre_name IF NOT EXISTS
+FOR (x:Genre)
+REQUIRE x.name IS UNIQUE;
+CREATE CONSTRAINT Movie_movieId IF NOT EXISTS FOR (x:Movie) REQUIRE x.movieId IS UNIQUE;
+CREATE CONSTRAINT Person_tmdbId IF NOT EXISTS FOR (x:Person) REQUIRE x.tmdbId IS UNIQUE;
+CREATE CONSTRAINT User_userId IF NOT EXISTS FOR (x:User) REQUIRE x.userId IS UNIQUE;
 // import the Movie data
-:auto USING PERIODIC COMMIT
+CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
@@ -33,9 +38,10 @@ WITH m,split(coalesce(row.genres,""), "|") AS genres
 UNWIND genres AS genre
 WITH m, genre
 MERGE (g:Genre {name:genre})
-MERGE (m)-[:IN_GENRE]->(g);
+MERGE (m)-[:IN_GENRE]->(g)
+};
 // import the Person data
-:auto USING PERIODIC COMMIT
+CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
@@ -49,9 +55,10 @@ p.bio = row.bio,
 p.poster = row.poster,
 p.url = row.url,
 p.born = CASE row.born WHEN "" THEN null ELSE date(row.born) END,
-p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END;
+p.died = CASE row.died WHEN "" THEN null ELSE date(row.died) END
+};
 // set ACTED_IN relationships and Actor labels
-:auto USING PERIODIC COMMIT
+CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
@@ -61,9 +68,10 @@ MATCH (m:Movie {movieId: row.movieId})
 MERGE (p)-[r:ACTED_IN]->(m)
 ON CREATE
 SET r.role = row.role
-SET p:Actor;
+SET p:Actor
+};
 // set DIRECTED relationships and Director labels
-:auto USING PERIODIC COMMIT
+CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
@@ -73,9 +81,10 @@ MATCH (m:Movie {movieId: row.movieId})
 MERGE (p)-[r:DIRECTED]->(m)
 ON CREATE
 SET r.role = row.role
-SET p:Director;
+SET p:Director
+};
 // import the User data
-:auto USING PERIODIC COMMIT
+CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
 AS row
@@ -85,3 +94,4 @@ ON CREATE SET u.name = row.name
 MERGE (u)-[r:RATED]->(m)
 ON CREATE SET r.rating = toInteger(row.rating),
 r.timestamp = toInteger(row.timestamp)
+}

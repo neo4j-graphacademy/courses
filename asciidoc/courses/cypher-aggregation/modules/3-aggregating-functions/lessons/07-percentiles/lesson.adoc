@@ -1,0 +1,127 @@
+= Working with Percentages and Percentiles
+:type: quiz
+:sandbox: true
+
+[.video]
+video::AXiHHBc-3ss[youtube,width=560,height=315]
+
+//https://youtu.be/AXiHHBc-3ss
+
+[.transcript]
+
+== Calculating a percentage
+
+Suppose we wanted to answer the question: What percentage of movies released in 2000 had a rating > 4?
+
+Here is a query that we can attempt to answer this question:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.year = 2000
+WITH count(*) AS TotalMovies
+MATCH ()-[r:RATED]-(m) where r.rating > 4 AND m.year = 2000
+WITH count(DISTINCT m) AS GoodMovies, TotalMovies
+RETURN TotalMovies, GoodMovies, GoodMovies/TotalMovies AS PercentGood
+----
+
+This query first counts the number of movies released in 2000.
+Then it uses TotalMovies to filter movies with a rating greater than 4.
+We end up with proper values for TotalMovies and GoodMovies, but the percentage returned is not correct.
+If you divide an integer by an integer, the result needs to be converted.
+You can do so by converting at least one of the integer values.
+
+The query should be:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.year = 2000
+WITH count(*) AS TotalMovies
+MATCH ()-[r:RATED]-(m) where r.rating > 4 AND m.year = 2000
+WITH count(DISTINCT m) AS GoodMovies, TotalMovies
+RETURN TotalMovies, GoodMovies, round(toFloat(GoodMovies) / toFloat(TotalMovies) * 100) AS PercentGood
+----
+
+You must convert the values to floats and then round the value to come up with PercentGood.
+
+If you want the percentage to be a number between 0 and 1, then you must change the return to:
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.year = 2000
+WITH count(*) AS TotalMovies
+MATCH ()-[r:RATED]-(m) where r.rating > 4 AND m.year = 2000
+WITH count(DISTINCT m) AS GoodMovies, TotalMovies
+RETURN TotalMovies, GoodMovies, round(toFloat(GoodMovies) / toFloat(TotalMovies),2) AS PercentGood
+----
+
+Here we do not multiply by 100, but we do specify two decimal places for the rounding.
+
+=== Determining a percentile value from a list
+
+Cypher has a `percentileCont()` function you can use to evaluate a set of numeric values to determine the value that is at a percentile within the values.
+The calculation is done where the values are ordered.
+Then the element in the list that is at the correct percentile is returned.
+If the percentile is between two values, the average of the two values is returned.
+
+Here is an example:
+
+[source,cypher]
+----
+UNWIND [80,10,20,30,40,50,60,70] AS x
+RETURN percentileCont(x,.50)
+----
+
+For this query:
+
+. The elements are sorted is ascending order. [10,20,30,40,50,60,70,80]
+. Then the number of elements are determined. (8)
+. Then the number of elements less then or equal to the 50%  place in the list is calculated as p1. (4)
+. The last value at p1 is saved as v1. (40)
+. Then the number of elements greater than or equal to the 50% place in the list is calculated as p2. (4)
+. The first value at p2 is saved as v2. (50)
+. If v1 = v2, v1 is returned.
+. If v1 <> v2, the average of the two values is returned. (45)
+
+This is called a linear interpolation method, calculating a weighted average between two values (v1 and v2) if the desired percentile lies between them.
+
+For this query, the value of 50 is returned:
+
+[source,cypher]
+----
+UNWIND [80,10,20,30,40,50,60,70,90] AS x
+RETURN percentileCont(x,.50)
+----
+
+For this query, the value of 27.5 is returned:
+
+[source,cypher]
+----
+UNWIND [80,10,20,30,40,50,60,70] AS x
+RETURN percentileCont(x,.25)
+----
+
+=== Using `percentileDisc()`
+
+You can also use `percentileDisc()` which will select the nearest value from the list, rather than calculating an average if the two values are different.
+
+This query will return one of the values in the list that is closest to the percentile:
+
+[source,cypher]
+----
+UNWIND [80,10,20,30,40,50,60,70] AS x
+RETURN percentileDisc(x,.25)
+----
+
+This query returns 20 which is the closest value in the list at that percentage.
+
+== Check your understanding
+
+include::questions/1-percent.adoc[leveloffset=+1]
+include::questions/2-percent.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how percentages and percentiles are used in Cypher queries.
+
+In the next Challenge, you will create a query  that answers a question about percentiles in the graph data.

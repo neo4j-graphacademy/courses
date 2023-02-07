@@ -1,0 +1,147 @@
+= グラフカタログ
+:type: quiz
+
+// [.video]
+// video::xxxx[youtube,width=560,height=315]
+
+
+[.transcript]
+== グラフカタログとは？
+
+グラフカタログは、GDSにおけるグラフプロジェクションを管理するための概念です。  これには以下が含まれます。
+
+* グラフの作成(プロジェクション)
+* グラフの詳細表示
+* グラフプロジェクションの削除
+* グラフプロジェクションのエクスポート
+* グラフプロジェクションのプロパティをデータベースに書き戻す
+
+=== グラフカタログの仕組み
+
+グラフカタログの操作は、次のような形式のコマンドで呼び出すことができます。
+[source,Partial,role=nocopy noplay]
+----
+CALL gds.graph.<command>
+----
+
+例えば、以下のコマンドで、現在データベースに存在するグラフプロジェクションの一覧を取得することができます。
+
+[source, cypher]
+----
+CALL gds.graph.list()
+----
+
+まだプロジェクションを作成していないため、これは空のリストを返します。
+
+レコメンデーショングラフにおいて、`Actor` と `Movie` のノードと `ACTED_IN` のリレーションから、以下のコマンドでプロジェクションを作成することができます。
+
+[source, cypher]
+----
+CALL gds.graph.project('my-graph-projection', ['Actor','Movie'], 'ACTED_IN')
+----
+
+今もう一度グラフを並べてみると、先ほど作ったグラフの情報が表示されているはずです
+
+[source, cypher]
+----
+CALL gds.graph.list() YIELD graphName, nodeCount, relationshipCount, schema
+----
+
+|====
+| "graphName"          |"nodeCount"|"relationshipCount"|"schema"
+
+| "my-graph-projection"|24568      |35910              |`{"relationships":{"ACTED_IN":{}},"nodes":{"Movie":{},"Actor":{}}}`
+
+|====
+
+=== アルゴリズムの実行
+これまでの授業で述べたように、プロジェクションを作成する目的は、グラフアルゴリズムを実行し、グラフデータサイエンスを効率的に行うための空間を提供することです。
+
+グラフアルゴリズムの簡単な例として、`Actor`ノードに対してDegree Centralityを実行します。  Degree Centrality アルゴリズムと実行モードについては、Neo4j Graph Data Science 基礎コース で解説します。ここでは、各俳優が出演した映画の本数をカウントし、プロジェクション内の `numberOfMoviesActedIn` というノードプロパティに格納します（まだデータベースには書き戻されません）。
+
+[source, cypher]
+----
+CALL gds.degree.mutate('my-graph-projection', {mutateProperty:'numberOfMoviesActedIn'})
+----
+
+=== ノードプロパティのストリーミングと書き込み
+
+アルゴリズムの計算結果を別の処理に流したり、データベースに書き戻したりしたい場合があります。グラフカタログには、このような目的のために、ノードプロパティとリレーションシッププロパティの両方をストリームしたり書き込んだりするメソッドが用意されています。
+
+以下、ノード・プロパティの場合について説明します。
+
+`numberOfMoviesActedIn` の例では、グラフカタログ操作 `nodeProperty.stream` を使って、映画数で最も多い俳優のトップ10をストリーミング表示することができます。
+
+[source, cypher]
+----
+CALL gds.graph.nodeProperty.stream('my-graph-projection','numberOfMoviesActedIn')
+YIELD nodeId, propertyValue
+RETURN gds.util.asNode(nodeId).name AS actorName, propertyValue AS numberOfMoviesActedIn
+ORDER BY numberOfMoviesActedIn DESCENDING, actorName LIMIT 10
+----
+
+もし、その代わりにプロパティをデータベースに書き戻したい場合は、 `nodeProperties.write` オペレーションを使用することができます。
+
+[source, cypher]
+----
+CALL gds.graph.nodeProperties.write('my-graph-projection',['numberOfMoviesActedIn'], ['Actor'])
+----
+
+そこで、Cypherを使って、映画の本数で最も多い俳優のトップ10を照会することができます。
+
+[source, cypher]
+----
+MATCH (a:Actor)
+RETURN a.name, a.numberOfMoviesActedIn
+ORDER BY a.numberOfMoviesActedIn DESCENDING, a.name LIMIT 10
+----
+
+=== グラフの書き出し
+//Not offering hands-on examples for export operations because it is not possible to do with sandbox
+データサイエンスのワークフローにおいて、グラフアルゴリズムやその他の分析を行った後に、グラフプロジェクションからデータを一括エクスポートする必要がある場面に遭遇することがあります。例えば、以下のような場合です:
+
+* 別の環境で機械学習モデルを学習するためのグラフフィーチャーのエクスポート
+* 下流分析および/または同僚との共有のための個別の分析ビューの作成
+* 分析結果のスナップショットを作成し、ファイルシステムに保存
+
+グラフカタログには、次の2つのエクスポート方法があります:
+
+. `gds.graph.export` でグラフを新しいデータベースにエクスポートする - 事実上、プロジェクションを別のNeo4jデータベースにコピーします。
+. `gds.beta.graph.export.csv` は、グラフを csv ファイルにエクスポートする。
+
+
+=== グラフの削除
+プロジェクションされたグラフはメモリ上のスペースを占有するため、グラフ投影の作業が終了したら、削除するのが賢明です。以下のドロップコマンドでこれを行うことができます:
+
+[source, cypher]
+----
+CALL gds.graph.drop('my-graph-projection')
+----
+
+これで、グラフを一覧表示すると、また空っぽになります。
+
+[source, cypher]
+----
+CALL gds.graph.list()
+----
+
+=== その他のグラフカタログ操作
+
+グラフカタログには、サブセットプロジェクション（別名サブグラフプロジェクション）、delete、removeオペレーションなど、このモジュールでは詳しく説明しない他の管理オペレーションがいくつか存在します。これらの操作については、 https://neo4j.com/docs/graph-data-science/current/management-ops/graph-catalog-ops/[Graph Catalog documentation^]を参照してください。
+
+
+== 理解度チェック
+
+
+include::questions/1-creating-graph-projection.adoc[leveloffset=+1]
+
+include::questions/2-export-to-csv.adoc[leveloffset=+1]
+
+include::questions/3-saving-properties-in-the-database.adoc[leveloffset=+1]
+
+[.summary]
+== まとめ
+
+このレッスンでは、グラフカタログと、グラフプロジェクションを管理するための基本的なメカニズムについて学びました。
+
+今後のレッスンでは、さまざまなプロジェクションの種類とその使い方について、より深く掘り下げて解説していく予定です。

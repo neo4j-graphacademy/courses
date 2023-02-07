@@ -1,0 +1,146 @@
+= Testing Lists with Predicate Functions
+:type: quiz
+:sandbox: true
+
+[.video]
+video::k8Kt2xol-es[youtube,width=560,height=315]
+
+//https://youtu.be/k8Kt2xol-es
+
+[.transcript]
+
+== Testing elements of a list
+
+Cypher has a number of list  predicate functions that help you to test if:
+
+* all elements satisfy the criteria.
+* one or more elements satisfy the criteria.
+* a list is empty.
+* no elements in a list satisfy the criteria.
+* at most a single element satisfies the criteria.
+
+
+=== `all()`
+
+You can all() to return true if all elements in a list satisfy the criteria.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Meg Ryan'
+AND all(x IN nodes(p) WHERE x.year > 1900 OR x:Actor)
+RETURN p
+----
+
+The test here for the list of nodes in the path is whether the year property is greater than 1900 (for a movie node) or whether the node type is an Actor.
+If this test evaluates to true, then the path is returned.
+
+Here is an example where `all()` returns false:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Meg Ryan'
+AND all(x IN nodes(p) WHERE x.year > 2010 OR x:Actor)
+RETURN p
+----
+
+Not every node in the list has a value of 2010 for the year property or is an Actor. Because not all elements in the list pass the criteria, `all()` returns false.
+For this query no paths are returned.
+
+This query will also have `all()` evaluate to false because the list of nodes contains both Actor nodes and Movie nodes, and it cannot return all elements of the list:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Meg Ryan'
+AND all(x IN nodes(p) WHERE x.year > 1900)
+RETURN p
+----
+
+=== `any()`
+
+This function returns true if one or more elements in the list satisfy the criteria:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Meg Ryan'
+AND any(x IN nodes(p) WHERE x.year = 2000)
+RETURN p
+----
+
+This query returns the paths from Meg Ryan to other actors for movies released in the year 2000. In this case there are two movies.
+
+=== `isEmpty()`
+
+This function returns true if the list is empty.
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WITH collect(m.title) AS Movies
+RETURN isEmpty(Movies)
+----
+
+Which performs the same as:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WITH collect(m.title) AS Movies
+RETURN size(Movies) = 0
+----
+
+=== `none()`
+
+This function returns true if none  of the elements satisfy the criteria. Here is an example:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Meg Ryan'
+AND none(x IN nodes(p) WHERE x.name= 'Tom Hanks' and x:Actor)
+RETURN p
+----
+
+This query will return all paths that do not include both Meg Ryan and Tom Hanks.
+We test whether Tom Hanks is in the path and if he is not, then the path is returned.
+If you were to run this query where you comment out the `AND` clause, you will see that more paths are returned.
+
+=== `single()`
+
+This function returns true if only one of the elements satisfy the criteria. Here is an example:
+
+[source,cypher]
+----
+MATCH p = (a:Actor)-[:ACTED_IN*2]-(a2:Actor)
+WHERE
+a.name = 'Tom Hanks'
+AND single(x IN nodes(p) WHERE x.born.year  = a.born.year AND x:Actor)
+RETURN a.born.year, a2.born.year, a2.name
+----
+
+Each path's nodes are tested to see if there is more than one Actor node that has the same value as the year of birth of Tom Hanks.
+If the path has more than one node with the same birth year, it returns false.
+
+If you were you comment out the `AND` clause, you would see that the query returns more rows.
+For example the actor Kim Cattrall was born in the same year as Tom Hanks and is excluded from the result.
+
+== Check your understanding
+
+include::questions/1-predicate.adoc[leveloffset=+1]
+include::questions/2-predicate.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to use Cypher predicate functions.
+In the next Challenge, you will create a query that uses a predicate function.

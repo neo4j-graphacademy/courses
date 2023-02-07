@@ -1,0 +1,83 @@
+= Read and Write Transactions
+// :type: video
+:type: lesson
+:order: 3
+:branch: main
+
+In the last challenge, you used `session.Run()` to execute a Cypher statement in an auto-complete transaction.
+While that may be convenient for one-off statements but is not suitable for production applications.
+
+When using Neo4j in a clustered environment, the server will not attempt to retry the query when using `session.Run()`.
+In the case of transient errors, for example, changes to the cluster topology, Cypher statements explicitly executed within a read or write transaction will be retried in an attempt to cause minimal disruption to your application.
+
+
+== Neo4j Clusters
+
+When running Neo4j in production or using link:https://neo4j.com/cloud[Neo4j Aura^], you will most likely be querying a _cluster_ of nodes rather than a single instance.
+
+Neo4j clusters consist of a set of _core_ nodes responsible for reaching consensus when writing data to a database.
+Additional read-only servers called _Read Replicas_ can be added to increase the possible number of simultaneous read queries at any time.
+
+In a clustered environment, the driver can connect to any member within the cluster.
+Once connected, the driver will receive metadata about the cluster, known as a **Routing Table**.
+
+=== Reading Data from Neo4j
+
+The driver uses data from the Routing Table to distribute read statements across the cluster in a least-connected fashion, ensuring that the cluster is evenly utilised.
+
+To execute a Cypher statement within a read transaction, call the `neo4j.ExecuteRead()` method.
+
+[source,ts]
+.Read Transactions
+----
+include::{repository-raw}/{branch}/pkg/example/example.go[tag=executeread,indent=0]
+----
+
+The `neo4j.ExecuteRead()` method expects the execution context (1), the session object (2) and a function to represent the unit of work (3).
+
+The function has a single argument passed, an instance of a `neo4j.ManagedTransaction`, on which the `Run()` method can be called multiple times to execute Cypher statements.
+
+The `tx.Run()` method is similar to `session.Run()` in that it accepts two parameters; a Cypher statement and an object representing the query parameters.
+
+In the example above, the `neo4j.SingleTWithContext()` function is used to extract the `p` value from each returned record.
+In this case, the return type has been cast as a `neo4j.Node`.
+
+If an error occurs for any reason during the transaction, the second returned value (`err`) will provide more information.
+
+
+=== Writing Data to Neo4j
+
+The cluster will always contain one instance, known as the **Leader**, which has the responsibility of processing write transactions for a specific database.
+The Leader is responsible for distributing the transaction's outcome across the cluster.
+Once the majority of core servers acknowledge this information, the transaction is considered _committed_ and acknowledgement is sent back to the Driver along with any data requested by the Cypher statement.
+
+To execute a Cypher statement within a write transaction, call the `neo4j.ExecuteWrite()` method.
+
+[source,ts]
+.Write Transactions
+----
+include::{repository-raw}/{branch}/pkg/example/example.go[tag=executewrite,indent=0]
+----
+
+
+
+== Check Your Understanding
+
+include::questions/1-read-transaction.adoc[leveloffset=+1]
+include::questions/2-write-transaction.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned the best practices for reading data from and writing data to Neo4j.
+You also learned how to access the records returned by `session.Run()` and `tx.Run()`.
+
+In the next challenge, you will use this knowledge to execute a Cypher statement in a read transaction.
+
+
+=== Further Reading
+
+* link:https://neo4j.com/docs/operations-manual/current/clustering/[Clustering - Neo4j Operations Manual^]
+* link:https://neo4j.com/docs/status-codes/current/[Status Codes^]
+// * link:x[The `ManagedTransaction` class^]

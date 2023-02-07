@@ -1,0 +1,250 @@
+= Creating Lists
+:type: quiz
+:sandbox: true
+
+[.video]
+video::ujTO6HdveFM[youtube,width=560,height=315]
+
+//https://youtu.be/ujTO6HdveFM
+
+[.transcript]
+== What can a list contain?
+
+A list is an array that contains elements.
+The elements in a list need not all be of the same type.
+Here is an example:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+RETURN [m.title, m.released, date().year - date(m.released).year + 1 ]
+----
+
+This query returns one row for each movie in the graph.
+The data in each row is a list that contains the title of the movie, the year the movie was released, and the number of years ago the movie was released.
+
+Most queries use `collect()` to create lists, but there are other functions you can use that also create lists, such as `nodes()`.
+You can use `nodes()` to return a list of nodes in a path.
+
+The list you create can be something that you return.
+In this query we return the collection of movie nodes for each actor:
+
+
+[source,cypher]
+----
+MATCH (a:Actor)--(m:Movie)
+WITH a, collect (m) AS Movies
+RETURN a AS Actor, Movies LIMIT 10
+----
+
+If you view the results using table view, you will see that each movie node for an actor is shown as a list enclosed with '[...]'.
+
+If  you are just interested in returning the list of titles of movies, it is more efficient to extract the title property from the node, rather than returning the list of nodes as follows:
+
+[source,cypher]
+----
+MATCH (a:Actor)--(m:Movie)
+WITH a, collect (m.title) AS Movies
+RETURN a.name AS Actor, Movies LIMIT 10
+----
+
+=== How `collect()` works
+
+//Andrew's video: look at query at 10:50 as starting point, then move collect up: https://www.youtube.com/watch?v=QnozzFP_fPo
+
+`collect()` returns a list of elements. You can use `collect()` to create a list at any time during your query.
+When you create a list during a query, aggregation occurs.
+
+=== Grouping key
+
+During aggregation, the graph engine typically groups data based upon some value in a row.
+Here is a query where each row is returned by the name of the actor and the aggregation is done for each actor.
+The grouping key is a.name.
+That is, the non-aggregated value is the grouping key.
+
+[source,cypher]
+----
+MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+RETURN a.name AS Actor, collect(m.title) AS Movies LIMIT 100
+----
+
+Here is another example:
+
+[source,cypher]
+----
+MATCH (actor:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(director:Person)
+RETURN actor.name AS Actor, director.name AS Director,
+count(m) AS Collaborations, collect(m.title) AS Movies
+----
+
+In this example, both director.name and actor.name are grouping keys.
+
+=== Using `collect()` examples
+
+Here is an example where `collect()` is used to return aggregated data.
+Execute this query to see the query plan:
+
+[source,cypher]
+----
+PROFILE
+MATCH (m:Movie {title:'Jupiter Ascending'})
+MATCH (d:Person)-[:DIRECTED]->(m)
+MATCH (a:Person)-[:ACTED_IN]->(m)
+RETURN m.title AS Title, collect(DISTINCT a.name) AS Actors,
+collect(DISTINCT d.name) AS Directors
+----
+
+What  you must remember is that each `MATCH` in a query returns rows that are operated on by the next step of the query.
+
+In this query:
+
+. The first `MATCH` returns one row, for the movie, Jupiter Ascending.
+. The second `MATCH` uses the row from the previous `MATCH` and then returns two rows, one for each person who directed the movie.
+. The third `MATCH` uses the two rows from the previous `MATCH` and then returns eight rows.
+This is because for each row for the movie, Jupiter Ascending, there are four actors.
+Aggregation (OrderedAggregation step in the query plan) occurs during the `RETURN` clause.
+. All names of actors are collected or aggregated, as well as all names of directors.
+When aggregation occurs, the graph engine selects a **grouping key**.
+In this example the movie title is the grouping key.
+All data collected into the Actors and Directors will be grouped by the movie title.
+. In the `RETURN` we also specify `DISTINCT` so that we will not have duplicate names in the lists returned.
+If we had not specified `DISTINCT` for the aggregation, we would have seen multiple actor names, one for each row in the third `MATCH` clause.
+
+You can imagine that in a graph with many relationships, a query tuning goal should be to reduce the number of rows processed in the query (looking at the query plan).
+Even if you perform a single MATCH, you will see that the same query plan is used:
+
+[source,cypher]
+----
+PROFILE
+MATCH (d:Person)-[:DIRECTED]->(m:Movie {title:'Jupiter Ascending'})<-[:ACTED_IN]-(a:Person)
+RETURN m.title AS Title, collect(DISTINCT a.name) AS Actors,
+collect(DISTINCT d.name) AS Directors
+----
+
+To reduce the number of rows processed, we can move the aggregation up in the query as follows:
+
+[source,cypher]
+----
+PROFILE
+MATCH (m:Movie {title:'Jupiter Ascending'})
+MATCH (d:Person)-[:DIRECTED]->(m)
+WITH m, collect (d.name) AS Directors
+MATCH (a:Person)-[:ACTED_IN]->(m)
+RETURN m.title AS Title, collect(a.name) AS Actors, Directors
+----
+
+After the second `MATCH` we collect the row into a list.
+Notice that in the query plan the **EagerAggregation** operator executes.
+We pass on the Directors list, along with the Movie node for the next `MATCH`.
+Notice that in the query plan, only one row is passed into the third `MATCH` clause.
+We no longer need to use `DISTINCT` because there is no longer duplicate data in the rows.
+
+In your query tuning, you should strive to reduce the number of rows processed during a query.
+
+=== Collecting nodes
+
+You can also collect nodes so that you may use the list of nodes for later processing in the query.
+Here is a query where we create Language nodes from data in the Movie nodes:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+UNWIND m.languages AS language
+WITH language, collect(m) AS movies
+MERGE (l:Language {name:language})
+WITH l, movies
+UNWIND movies AS m
+WITH l,m
+MERGE (l)<-[:SPEAKS]-(m)
+// NOTE: to undo these merges:
+// MATCH (x:Language) DETACH DELETE x
+----
+
+Here you see in this code the following:
+
+. The first `MATCH` retrieves all Movie nodes.
+. Each value in the languages property is returned.
+. We then collect the movie nodes and use the value of language as the grouping key. That is all of the movies with a value of English will be collected into a list.
+. We then create the Language node using the language value.
+. With the language value and the list of Movie nodes for that language, we unwind the movie nodes into rows.
+. With each language and row for each Movie, we create the relationship between the Language node and the Movie node.
+
+This code collects nodes using the language value so that each node can be used to create the relationship.
+In this type of query, you typically use `collect()` to collect nodes and `UNWIND` lists so they can be processed later in the query.
+
+=== Collecting relationships
+
+Here is an example where we collect relationships, then unwind them to query and return the correct values:
+
+[source,cypher]
+----
+MATCH (u:User {name: "Misty Williams"})-[x]->()
+WITH collect(x) AS ratings
+UNWIND ratings AS r
+WITH r WHERE r.rating <= 1
+RETURN r.rating AS Rating, endNode(r).title AS Title
+----
+
+Notice here that we use `endNode()` to return the node at the end of the relationship.
+
+=== Collecting paths in a query
+
+Here is an example where we perform a query and use the `nodes()` function to return the list of all nodes in a path:
+
+[source,cypher]
+----
+// Movies in all paths that begin with Elvis and end with an Actor that are 4 hops away from Elvis
+MATCH path = (p:Person {name: 'Elvis Presley'})-[*4]-(a:Actor)
+WITH nodes(path) AS n
+UNWIND n AS x
+WITH x WHERE x:Movie
+RETURN DISTINCT x.title
+----
+
+In the above query, there is a mixture of Person and Movie nodes in the path.
+We specify a criteria `x:Movie` that we only want to return Movie nodes.
+
+=== collect() vs. subquery
+
+A subquery is a good way to aggregate data for later processing in your queries.
+Suppose we have this query which returns a list of at most three actors for every movie:
+
+[source,cypher]
+----
+PROFILE MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WITH m, collect(p.name) AS Actors
+WHERE size(Actors) <= 3
+RETURN m.title AS Movie, Actors
+----
+
+This query returns 208 movies that have 3 or fewer actors.
+
+The query can be rewritten as follows using a subquery:
+
+// video redo
+// need to re-record this with V5 version of code
+
+[source,cypher]
+----
+PROFILE
+CALL {
+MATCH (m:Movie)<-[:ACTED_IN]-(p:Person)
+WITH  m , collect(p.name) as Actors
+WHERE size(Actors)<= 3
+RETURN  m.title as Movie, Actors
+}
+RETURN Movie, Actors
+----
+
+This particular query performs better than the previous query.
+
+== Check your understanding
+
+include::questions/1-aggregate.adoc[leveloffset=+1]
+include::questions/2-grouping-key.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you reviewed and learned more about aggregating data in your Cypher queries.
+In the next challenge, you will create a query to aggregate using `collect()`.

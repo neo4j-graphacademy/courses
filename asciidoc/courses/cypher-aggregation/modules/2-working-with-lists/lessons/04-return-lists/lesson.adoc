@@ -1,0 +1,144 @@
+= Functions that Return Lists
+:type: quiz
+:sandbox: true
+
+[.video]
+video::6jjFfpHoPSw[youtube,width=560,height=315]
+
+//https://youtu.be/6jjFfpHoPSw
+
+[.transcript]
+
+== Using `range()`
+
+The `range()` function is useful when you need to create a list of numbers.
+
+[source,cypher]
+----
+RETURN range(0,100,5)
+----
+
+Note that you can also leave off the step value as it defaults to 1.
+
+The initial value is 0, the ending value is 100, and the optional step is 5.
+
+Generating a range list is useful when you create nodes with an id.
+
+Here is an example where we use values from 1 to 100 to create Order nodes:
+
+[source,cypher]
+----
+UNWIND range(1, 100) AS i
+MERGE (:Order { number: i })
+// to undo this:
+// MATCH (o:Order) DETACH DELETE o
+----
+
+=== Reversing the elements of a list
+
+You use `reverse()` to reverse the elements of a list:
+
+[source,cypher]
+----
+MATCH (a:Actor)--(m:Movie)
+WHERE m.year < 1910
+WITH a, count (m) AS NumMovies
+WITH NumMovies, [a.name, NumMovies] AS Stats ORDER BY NumMovies
+WITH collect(Stats) as AllStats
+return AllStats, reverse(AllStats)
+----
+
+. This query finds all actors who acted in movies released before 1910.
+. For each actor, it counts the number of movies.
+. It then creates a list containing the actor name and number of movies, and it orders the list by the number of movies.
+. It then creates a list of all the lists collected named AllStats.
+. Finally, it returns the AllStats list and the reverse of it.
+
+=== Returning all but the first element of a list
+
+In a previous lesson, you learned that `head()` returns the first element of a list.
+`tail()` returns the remaining elements of the list.
+
+Here is an example:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE date(m.released).year = 2000
+WITH m ORDER BY date(m.released)
+WITH collect(m) AS Movies
+RETURN head(Movies).title AS FirstTitle, head(Movies).released AS FirstDate, size(tail(Movies)) AS SizeOfTail,
+tail(Movies)[-1].title AS LastTitle, tail(Movies)[-1].released AS LastDate
+----
+
+The Movie nodes are collected for the year 2000 and ordered by the released property.
+The first title and released properties are returned for the Movies list.
+The size of the tail of the Movies list is returned. The Movies list has 287 elements and the tail has 286 elements.
+We use the index[-1] to return the last title and released property from the tail.
+
+=== Using `split()` to create a list from a string
+
+A very common operation that you may do when reading CSV files for importing data into the graph is to transform a string encountered in the CSV file into a list.
+You can use the `split()` function to separate the values in a string where you specify the separator character.
+The string is then used to create a list, based upon the specified separator character.
+
+Here is an example:
+
+[source,cypher]
+----
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/importing/MovieDataUnclean.csv'
+AS row
+WITH
+row.title AS Title,
+row.languages AS Field,
+split(row.languages,"|") AS FieldList
+RETURN Title, Field, FieldList LIMIT 10
+----
+
+The "|" character is specified as the separator character. `split()` turns the strings into lists.
+
+=== Creating a list of nodes
+
+You can use `nodes()` to extract a list of nodes in a given path.
+This function is useful if you want to get nodes in a variable length path.
+
+Here is an example that you saw earlier in this course:
+
+[source,cypher]
+----
+// Movies in all paths that begin with Elvis and end with an Actor that are 4 hops away from Elvis
+MATCH path = (p:Person {name: 'Elvis Presley'})-[*4]-(a:Actor)
+WITH nodes(path) AS n
+UNWIND n AS x
+WITH x WHERE x:Movie
+RETURN DISTINCT x.title
+----
+
+`nodes()` returns all nodes in the path. We then are only interested in the nodes with the Movie label.
+
+Here is another example:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.title = 'Toy Story'
+MATCH path = (m)-[:ACTED_IN*1..6]-()
+WHERE last(nodes(path)).name IS NOT NULL
+RETURN last(nodes(path)).name AS LastNode, length(path) AS HopsAway order by length(path)
+----
+
+This query is used to get nodes that are up to 6 hops away from the Movie, Toy Story.
+It does a check to make sure that the name property in the node list is not null because the node label could be a Movie, and we are only interested in Person nodes that have a name property.
+We return the name of the last node in the list and its distance from the Toy Story node.
+
+
+== Check your understanding
+
+include::questions/1-return-lists.adoc[leveloffset=+1]
+include::questions/2-return-lists.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you about the Cypher functions that return lists.
+In the next challenges, you will create queries that use Cypher functions that return lists.

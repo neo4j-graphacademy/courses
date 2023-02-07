@@ -1,0 +1,154 @@
+= Installation
+// :type: video
+:type: lesson
+
+The Neo4j JavaScript Driver is available on NPM under the package name `neo4j-driver`.
+You can install the Neo4j JavaScript Driver as a dependency by running the following command:
+
+include::{repository-raw}/main/README.adoc[tag=install]
+
+
+== Importing the Library
+
+The `neo4j-driver` package exports a `neo4j` object which contains several helper functions for interacting with Neo4j.
+
+
+.Importing The Driver
+include::{repository-raw}/main/src/example.ts[tag=import]
+
+== Creating a Driver Instance
+
+The most prominent helper function on the `neo4j` object is the `.driver()` function, which accepts neo4j credentials and returns a new `Driver` object.
+
+.Creating a Driver Instance
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=driver]
+----
+
+The function expects two arguments;
+
+1. A Connection URI - for example, `neo4j://localhost:7687` or `neo4j+s://dbhash.databases.neo4j.io`
+2. An authentication _token_
+3. Optionally, link:https://neo4j.com/docs/api/javascript-driver/current/function/index.html#static-function-driver[additional driver configuration^].
+
+
+[TIP]
+.Authentication Types
+====
+Neo4j supports four authentication methods, basic authentication (e.g. username and password or LDAP), a base64 encoded Bearer token, a Kerberos token, or a custom authentication token.
+For more information on these options, visit link:https://neo4j.com/docs/operations-manual/current/authentication-authorization/[Authentication and Authorization^].
+====
+
+
+=== Verifying Connectivity
+
+You can verify that the connection details used during driver instantiation are correct by calling the `verifyConnectivity()` method.
+
+This function returns a Promise which throws a `Neo.ClientError.Security.Unauthorized` error if the provided credentials are incorrect.
+
+.Verify Connectivity
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=verify]
+----
+
+== Sessions
+
+From the Driver object, you will open one or more **sessions**.
+A session is a client-side abstraction that borrows underlying TCP connections from a _connection pool_ held by the Driver and uses them to communicate with Neo4j.
+
+Sessions should be considered lightweight and disposable and can be opened and closed at will.
+
+Once you have run all of the queries you intend to run within that session, you should call the `.close()` method to close the session.
+This releases any resources held back to the driver pool.
+
+.Session Lifecycle
+[source,ts]
+----
+// Open a new session
+const session = driver.session()
+
+try {
+  // Run a Query
+}
+catch {
+  // Handle any errors
+}
+finally {
+  // Close the session
+  await session.close()
+}
+----
+
+
+== Running a Sample Query
+
+To run a one-off Cypher query, you can use the `session.run()` method.
+
+.Running a One-off Query
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=oneoff]
+----
+
+The method accepts three arguments:
+
+1. A string to represent a Cypher statement
+2. Optionally, an object representing query parameters (prefixed in Cypher with `$`)
+3. Also optional, an object containing transaction config.
+
+
+[WARNING]
+.For one-off queries only
+If there are any transient errors when running a query, the Driver will not attempt to retry a query when using `session.run()`.
+For this reason, these should only be used for one-off queries and not in production.
+
+=== Processing Results
+
+The `res` value in the sample above will be an implementation of the `QueryResult` interface.
+The `QueryResult` interface guarantees access to the individual records returned by the query through the `records` property, which contains an array of `Record` instances.
+
+The `Record` class has a `.get()` method, which provides access to the individual values held on that record.
+For example, to get the `(:Person)` node from each record, you can write the following code:
+
+.Accessing Results
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=oneoffresult]
+----
+
+We will cover result processing further in link:../3-execute[Lesson 3: Read and Write Transactions^].
+
+
+== Closing the Driver
+
+The Driver provides a `.close()` method.
+Calling this function will close any open sessions, disconnect all servers and release any resources held by the driver.
+
+.Running a One-off Query
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=close]
+----
+
+
+
+== Check Your Understanding
+
+include::questions/1-package-name.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned the basics of the Neo4j JavaScript Driver, how to install the dependency, create a new Driver instance and run a sample query.
+
+In the next lesson, you will use this knowledge to query a Neo4j Sandbox instance.
+
+
+=== Further Reading
+
+* link:https://github.com/neo4j/neo4j-javascript-driver[Neo4j Driver for JavaScript - Github^]
+* link:https://neo4j.com/docs/api/javascript-driver/current/function/index.html#configuration[Additional Driver Configuration^]
+* link:https://neo4j.com/docs/api/javascript-driver/current/typedef/index.html#static-typedef-TransactionConfig[Session Configuration Options^]
+* link:https://neo4j.com/docs/javascript-manual/current/session-api/[The Session API^]

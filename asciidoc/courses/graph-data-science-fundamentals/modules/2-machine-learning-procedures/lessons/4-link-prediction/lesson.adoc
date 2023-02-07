@@ -20,7 +20,7 @@ Below is an illustration of the high level link prediction pattern in GDS, going
 image::images/link-prediction-flow.png['link prediction workflow', 1600]
 
 
-You will notice some extra steps in here that are different from node classification and other general purpose ML pipelines you may have worked with in the past.  Namely, there is an additional `feature-input` set in the relationship splits which now comes before node property and feature generation steps. In short, this is to handle data leakage issues, whereby model features are calculated using the relationships you are tyring to predict. Such a situation would allow the model to use information in the features that would normally not be available, resulting in overly optimistic performance metrics.  You can read more about the data splitting methodology in https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/config/#linkprediction-configure-splits[our Configuring the pipeline documentation^].
+You will notice some extra steps in here that are different from node classification and other general purpose ML pipelines you may have worked with in the past.  Namely, there is an additional `feature-input` set in the relationship splits which now comes before node property and feature generation steps. In short, this is to handle data leakage issues, whereby model features are calculated using the relationships you are trying to predict. Such a situation would allow the model to use information in the features that would normally not be available, resulting in overly optimistic performance metrics.  You can read more about the data splitting methodology in our https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/config/#linkprediction-configure-splits[Configuring the pipeline documentation^].
 
 In addition to data leakage issues, Link prediction problems are, generally speaking, notorious for severe class imbalance and performance issues when data sampling is not approached thoughtfully. The implementation in GDS has multiple mechanisms for overcoming these issues. In summary, it boils down to sampling and weighting procedures along with choosing appropriate evaluation metrics.  For further resources on this, you can see our documentation on https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/theory/#linkprediction-pipelines-metrics[link prediction metrics^] and https://neo4j.com/docs/graph-data-science/current/machine-learning/linkprediction-pipelines/theory/#linkprediction-pipelines-classimbalance[class imbalance^].
 
@@ -30,7 +30,7 @@ Like with node classification, the training steps will be executed automatically
 
 === Setting up the Problem
 
-Our movie recommendations dataset, as-is, is not the best candidate for this type of link prediction since it is a https://en.wikipedia.org/wiki/Multipartite_graph[k-partite graph^], i.e. relationships only go between disjoint sets of nodes. In this case those sets can align with the node labels: `User`, `Movie`, `Person`, and `Genre`. For sake of showing a quick example, we will manufacture a social network out of the graph.  We will filter down to just big high grossing movies then create `ACTED_WITH` relationships between actors that were in the same movies together.  There are a couple extra steps here to get the graph truly undirected as we need it.
+Our movie recommendations dataset, as-is, is not the best candidate for this type of link prediction since it is a https://en.wikipedia.org/wiki/Multipartite_graph[k-partite graph^], i.e. relationships only go between disjoint sets of nodes. In this case those sets can align with the node labels: `User`, `Movie`, `Person`, and `Genre`. For sake of showing a quick example, we will manufacture a social network out of the graph.  We will filter down to just big, high grossing movies then create `ACTED_WITH` relationships between actors that were in the same movies together.  There are a couple extra steps here to get the graph truly undirected as we need it.
 
 [source,cypher]
 ----
@@ -49,8 +49,8 @@ CALL gds.graph.project('proj',
 );
 
 //collapse path utility for relationship aggregation - no weight property
-CALL gds.alpha.collapsePath.mutate('proj',{
-    relationshipTypes: ['ACTED_IN', 'HAS_ACTOR'],
+CALL gds.beta.collapsePath.mutate('proj',{
+    pathTemplates: [['ACTED_IN', 'HAS_ACTOR']],
     allowSelfLoops: false,
     mutateRelationshipType: 'ACTED_WITH'
 });
@@ -172,6 +172,7 @@ The following command will train the pipeline. This process will:
 CALL gds.beta.pipeline.linkPrediction.train('proj', {
     pipeline: 'pipe',
     modelName: 'lp-pipeline-model',
+    targetRelationshipType: 'ACTED_WITH', 
     randomSeed: 7474 //usually a good idea to set a random seed for reproducibility.
 }) YIELD modelInfo
 RETURN
