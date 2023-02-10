@@ -177,7 +177,8 @@ export default function initAnalyticsListeners(): Promise<void> {
 
         emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
             console.log(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
-                ...event.user,
+                user: event.user,
+                profile: event.updates,
             });
 
             trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {

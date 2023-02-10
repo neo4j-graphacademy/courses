@@ -57,7 +57,7 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     }
 
     // Fire event
-    emitter.emit(new UserUpdatedAccount(user))
+    emitter.emit(new UserUpdatedAccount(user, updates))
 
     return {
         ...user,
