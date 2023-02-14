@@ -6,7 +6,7 @@ function embedVideo(element: HTMLDivElement) {
     element.setAttribute('id', videoId as string)
 
     // @ts-ignore
-    const player = new YT.Player(videoId, {
+    new YT.Player(videoId, {
         width,
         height,
         videoId,
@@ -46,7 +46,22 @@ function embedVideo(element: HTMLDivElement) {
     })
 }
 
-export default function embedVideos() {
+function sleep(): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, 500))
+}
+
+async function waitForYT(): Promise<void> {
+    // @ts-ignore
+    if (window.YT) {
+        return Promise.resolve()
+    }
+
+    await sleep()
+
+    return waitForYT()
+}
+
+export default async function embedVideos() {
     const videos = Array.from(document.querySelectorAll('.video[data-id]'))
 
     if (videos.length) {
@@ -56,11 +71,8 @@ export default function embedVideos() {
 
         firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 
-        setTimeout(() => {
+        await waitForYT()
 
-            videos.map(video => embedVideo(video as HTMLDivElement))
-
-        }, 200)
-
+        videos.map(video => embedVideo(video as HTMLDivElement))
     }
 }
