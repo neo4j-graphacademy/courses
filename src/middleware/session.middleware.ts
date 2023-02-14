@@ -4,7 +4,7 @@ import flash from 'express-flash'
 import { getDriver } from '../modules/neo4j'
 import Neo4jStore from './neo4j-session-store.middleware'
 import { createClient } from 'redis'
-import { REDIS_HOST } from '../constants'
+import { DOMAIN, IS_PRODUCTION, REDIS_HOST } from '../constants'
 
 import connectRedis from 'connect-redis'
 import { notify } from './bugsnag.middleware'
@@ -33,7 +33,7 @@ function createNeo4jStore() {
 export function registerSession(app: Express) {
     let store
 
-    if ( REDIS_HOST ) {
+    if (REDIS_HOST) {
         store = createRedisStore()
     }
     else {
@@ -42,7 +42,12 @@ export function registerSession(app: Express) {
 
     app.use(session({
         secret: process.env.SESSION_SECRET || 'a really long secret',
-        cookie: { maxAge: 60000, sameSite: 'strict' },
+        cookie: {
+            maxAge: 60000,
+            sameSite: 'strict',
+            secure: IS_PRODUCTION,
+            domain: DOMAIN,
+        },
         resave: true,
         saveUninitialized: true,
         store,

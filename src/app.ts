@@ -24,7 +24,7 @@ import { initAnalytics } from './modules/analytics/analytics.module'
 import { saveRef } from './middleware/save-ref.middleware'
 import { endProfiling, startProfiling } from './middleware/profiling.middleware'
 import { initLocalisation } from './modules/localisation'
-
+import helmet from 'helmet'
 import './constants'
 import { initPrintful } from './modules/printful'
 
@@ -40,6 +40,15 @@ export default function initApp(driver: Driver) {
     app.use(express.json() as RequestHandler)
 
     app.set('view engine', 'pug')
+
+    // Security Hardening
+    app.disable('x-powered-by')
+    app.use(
+        // @ts-expect-error Problem with typings on helmet.frameguard
+        helmet.frameguard({ action: 'sameorigin' }),
+        helmet.contentSecurityPolicy({ useDefaults: true }),
+        helmet.noSniff()
+    )
 
     // Init bugsnag
     initBugsnag()

@@ -11,6 +11,7 @@ const { PROFILE, CACHE_ASCIIDOC, KHOROS_BASE_URL, KHOROS_CATEGORY_URL, KHOROS_RS
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 export const BASE_URL = process.env.BASE_URL
+export const DOMAIN = new URL(BASE_URL as string).hostname
 
 export const DEFAULT_COURSE_THUMBNAIL = '/img/static/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
