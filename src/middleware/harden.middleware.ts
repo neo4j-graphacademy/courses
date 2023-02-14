@@ -1,9 +1,11 @@
 import { Express } from 'express'
 import helmet from "helmet"
+import nonce from 'nonce-express'
 import { DOMAIN } from '../constants'
 
 export default function hardenExpress(app: Express) {
     app.disable('x-powered-by')
+    app.use(nonce())
     app.use(
         // @ts-expect-error Problem with typings on helmet.frameguard
         helmet.frameguard({ action: 'sameorigin' }),
@@ -12,13 +14,12 @@ export default function hardenExpress(app: Express) {
             directives: {
                 scriptSrc: [
                     "'self'",
-                    "'unsafe-inline'",
-                    "'unsafe-eval'",
                     DOMAIN,
                     'googletagmanager.com',
                     'www.youtube.com',
                     'cdn.graphacademy.neo4j.com',
                     'neo4j.com',
+                    (req, res) => `'nonce-${res.locals.nonce}'`
                 ],
                 imgSrc: [
                     "'self'",

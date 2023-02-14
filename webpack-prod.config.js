@@ -2,6 +2,8 @@ const path = require('path');
 
 module.exports = {
     mode: 'production',
+    target: 'web',
+    devtool: 'source-map',
     entry: './resources/ts/app.ts',
     module: {
         rules: [
