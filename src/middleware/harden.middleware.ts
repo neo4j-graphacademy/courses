@@ -26,6 +26,7 @@ export default function hardenExpress(app: Express) {
                     "data:",
                     'neo4j.com',
                     'www.googletagmanager.com',
+                    'cdn.graphacademy.neo4j.com',
                     'i.ytimg.com',
                 ],
                 frameSrc: [
