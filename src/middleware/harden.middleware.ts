@@ -15,7 +15,8 @@ export default function hardenExpress(app: Express) {
                 scriptSrc: [
                     "'self'",
                     DOMAIN,
-                    'googletagmanager.com',
+                    '*.googletagmanager.com',
+                    'static.ads-twitter.com',
                     'www.youtube.com',
                     'cdn.graphacademy.neo4j.com',
                     'neo4j.com',
