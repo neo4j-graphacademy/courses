@@ -472,7 +472,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         const browserDist = path.join(__dirname, '..', '..', 'browser', 'dist')
 
         const html = readFileSync(path.join(browserDist, 'index.html')).toString()
-            .replace('</body>', `\n<script>\nwindow.ga = ${ga}\n</script>\n</body>`)
+            .replace('</body>', `\n<script nonce="${res.locals.nonce}">\nwindow.ga = ${ga}\n</script>\n</body>`)
             .replace('</head>', `\n<base href="/browser/"></head>`)
 
         res.send(html)

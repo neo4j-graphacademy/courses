@@ -1,11 +1,15 @@
-import { Transaction } from "neo4j-driver";
+import { ManagedTransaction } from "neo4j-driver";
+import { notify } from "../../middleware/bugsnag.middleware";
 import { createDriver } from "../../modules/neo4j";
 import { getSandboxForUseCase } from "../../modules/sandbox";
 import { getLessonCypherFile } from "../../utils";
 import { LessonWithProgress } from "../model/lesson";
+import { Answer } from "../model/answer";
 import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
+
+
 
 export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
     const progress = await getCourseWithProgress(course, user)
@@ -13,14 +17,14 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const verify = await getLessonCypherFile(course, module, lesson, 'verify')
 
     // No usecase or verify?
-    if ( usecase === undefined || verify === undefined ) {
+    if (usecase === undefined || verify === undefined) {
         return false
     }
 
     // No sandbox? Return false
     const sandbox = await getSandboxForUseCase(token, user, usecase)
 
-    if ( !sandbox ) {
+    if (!sandbox) {
         return false
     }
 
@@ -31,24 +35,37 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
 
     const session = driver.session()
 
-    const res = await session.readTransaction((tx: Transaction) => tx.run(verify))
+    let answers: Answer[] = []
 
-    let correct = false
+    try {
+        const res = await session.executeRead((tx: ManagedTransaction) => tx.run(verify))
 
-    // If no records are returned then the test has failed
-    if ( res.records.length > 0 ) {
-        // If there is no outcome column then the test has failed
-        if ( res.records[0].has('outcome') ) {
-            correct = res.records[0].get('outcome')
+        // If no records are returned then the test has failed
+        if (res.records.length > 0) {
+            answers = res.records.map(row => ({
+                id: row.has('task') ? row.get('task') : 'verify',
+                correct: row.get('outcome'),
+                answers: row.has('answers') ? row.get('answers') as string[] : null,
+                reason: row.has('reason') ? row.get('reason') : null,
+            }))
         }
+    }
+    catch (e: any) {
+        notify(e, error => {
+            error.setUser(user.sub, user.email, user.name)
+        })
+
+        answers = [{
+            id: 'verify',
+            correct: false,
+            answers: null,
+            reason: `Internal Server Error: ${e.message}`,
+        }]
+
     }
 
     // Save outcome
-    const output = await saveLessonProgress(user, course, module, lesson, [ {
-        id: '_challenge',
-        correct,
-        answers: [ verify ]
-    } ], token)
+    const output = await saveLessonProgress(user, course, module, lesson, answers, token)
 
     return output
 }

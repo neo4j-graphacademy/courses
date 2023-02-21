@@ -14,7 +14,7 @@ import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
-export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string): Promise<LessonWithProgress> {
+export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string): Promise<LessonWithProgress & { answers: Answer[] }> {
     const {
         lessonWithProgress,
         moduleWithProgress,
@@ -43,6 +43,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
                 MERGE (an:Answer { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime()) +'--'+ q.id) })
                 SET an.createdAt = datetime(),
+                    an.reason = row.reason,
                     an.correct = row.correct,
                     an.answers = row.answers
 
@@ -165,6 +166,8 @@ export async function saveLessonProgress(user: User, course: string, module: str
         }
     }
 
-
-    return lessonWithProgress as LessonWithProgress
+    return {
+        ...lessonWithProgress,
+        answers,
+    } as LessonWithProgress & { answers: Answer[] }
 }

@@ -1,3 +1,7 @@
+/**
+ * Deprecated
+ * Course loading script is now in courses repository
+ */
 /* eslint-disable */
 import path from 'path'
 import fs from 'fs'
@@ -339,7 +343,7 @@ const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
 
 
 // Integrity Checks
-const checkSchema = (session: Session) => session.readTransaction(async tx => {
+const checkSchema = (session: Session) => session.executeRead(async tx => {
     // Next Links?
     const next = await tx.run(`
         MATCH (a)-[:NEXT]->(b)
@@ -378,7 +382,7 @@ export async function mergeCourses(): Promise<void> {
         ...question,
     })))
 
-    const courseCount = await session.writeTransaction(async tx => {
+    const courseCount = await session.executeWrite(async tx => {
         // Disable all courses
         const valid = courses.map(course => course.slug!)
         await disableAllCourses(tx, valid)
@@ -390,7 +394,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`📚 ${courseCount} Courses merged into graph`);
 
 
-    const moduleCount = await session.writeTransaction(async tx => {
+    const moduleCount = await session.executeWrite(async tx => {
         await mergeModuleDetails(tx, modules)
 
         return modules.length
@@ -398,7 +402,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- 📦 ${moduleCount} modules`);
 
 
-    const lessonCount = await session.writeTransaction(async tx => {
+    const lessonCount = await session.executeWrite(async tx => {
         const remaining = lessons.slice(0)
         const batchSize = 100
 
@@ -413,7 +417,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- 📄 ${lessonCount} lessons`);
 
 
-    const questionCount = await session.writeTransaction(async tx => {
+    const questionCount = await session.executeWrite(async tx => {
         const remaining = questions.slice(0)
         const batchSize = 1000
 
@@ -430,7 +434,7 @@ export async function mergeCourses(): Promise<void> {
 
 
     // Clean NEXT chain
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
             MATCH ()-[r:NEXT]->()
@@ -439,7 +443,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Removed -[:NEXT]-> chain`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
         const batchSize = 10
 
@@ -461,7 +465,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Recreate (:Module)-[:NEXT_MODULE]->() chain`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
         const batchSize = 1000
 
@@ -489,7 +493,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- Recreated (:Lesson) NEXT chain`);
 
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         // Create -[:NEXT]-> between last (:Lesson) and next (:Module)
         await tx.run(`
             MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
@@ -498,7 +502,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Recreated (:Module)-[:NEXT]->(:Lesson)`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
         const batchSize = 100
 

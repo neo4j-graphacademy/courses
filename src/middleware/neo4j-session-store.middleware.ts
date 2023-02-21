@@ -4,7 +4,7 @@ import { Driver, Session, } from "neo4j-driver"
 
 type GetCallbackFunction = (err: any, session?: SessionData | null) => void;
 
-const noop: GetCallbackFunction = (): void => {}
+const noop: GetCallbackFunction = (): void => { }
 
 export default class Neo4jStore extends Store {
     constructor(private readonly driver: Driver) {
@@ -20,7 +20,7 @@ export default class Neo4jStore extends Store {
     get(sid: string, callback: GetCallbackFunction = noop): void {
         const session: Session = this.driver.session()
 
-        session.readTransaction(tx => tx.run(`MATCH (s:Session {id: $sid}) RETURN s`, { sid }))
+        session.executeRead(tx => tx.run(`MATCH (s:Session {id: $sid}) RETURN s`, { sid }))
             .then(res => {
                 const data = res.records.length ? JSON.parse(res.records[0].get('s').properties.payload) as SessionData : null
 
@@ -46,7 +46,7 @@ export default class Neo4jStore extends Store {
                 MERGE (s:Session {id: $sid})
                 ON CREATE SET s.createdAt = datetime()
                 SET s.updatedAt = datetime(), s.payload = $payload
-            `, { sid, payload: JSON.stringify(data)})
+            `, { sid, payload: JSON.stringify(data) })
         })
             .then(() => callback && callback(null))
             .catch(e => callback && callback(e))
@@ -69,16 +69,14 @@ export default class Neo4jStore extends Store {
     all(callback: (err: any, obj?: SessionData[] | { [sid: string]: SessionData; } | null) => void): void {
         const session: Session = this.driver.session()
 
-        session.readTransaction(tx => {
+        session.executeRead(tx => {
             tx.run(`MATCH (s:Session) RETURN s`)
                 .then(res => {
                     const sessions = res.records.map(row => row.get('s')?.properties)
 
-                    return tx.commit()
-                        .then(() => session.close())
-                        .then(() => callback(null, sessions))
-                        .catch(e => callback(e))
+                    callback(null, sessions)
                 })
+                .catch(e => callback(e))
         })
     }
 
@@ -86,20 +84,20 @@ export default class Neo4jStore extends Store {
     length(callback: (err: any, length: number) => void): void {
         const session: Session = this.driver.session()
 
-        session.readTransaction(tx => tx.run(`MATCH (s:Session) RETURN count(*) AS count`))
+        session.executeRead(tx => tx.run(`MATCH (s:Session) RETURN count(*) AS count`))
             .then(res => {
-                    const length = res.records[0]?.get('count').toNumber() || 0
-                    callback(null, length)
-                })
-                .catch(e => callback(e, 0))
-                .finally(() => session.close())
+                const length = res.records[0]?.get('count').toNumber() || 0
+                callback(null, length)
+            })
+            .catch(e => callback(e, 0))
+            .finally(() => session.close())
     }
 
     /** Delete all sessions from the store. */
     clear(callback?: (err?: any) => void): void {
         const session: Session = this.driver.session()
 
-        session.writeTransaction(tx => tx.run(`MATCH (s:Session) DETACH DELETE s`))
+        session.executeWrite(tx => tx.run(`MATCH (s:Session) DETACH DELETE s`))
             .then(() => callback && callback(null))
             .catch(e => callback && callback(e))
             .finally(() => session.close())
@@ -109,15 +107,13 @@ export default class Neo4jStore extends Store {
     touch?(sid: string, data: SessionData, callback?: () => void): void {
         const session: Session = this.driver.session()
 
-        session.writeTransaction(tx => tx.run(`
+        session.executeWrite(tx => tx.run(`
                 MERGE (s:Session {id: $sid})
                 SET s.updatedAt = datetime(), s.payload = $payload
-            `, { sid, payload: JSON.stringify(data)})
+            `, { sid, payload: JSON.stringify(data) })
         )
             .then(() => callback && callback())
             .catch(() => callback && callback())
             .finally(() => session.close())
     }
-
-
 }

@@ -4,7 +4,7 @@
  * This file was used to load the certifications from the old
  * community database and is no longer used
  */
-import { Session, Transaction, Record } from 'neo4j-driver'
+import { Session, Record, ManagedTransaction } from 'neo4j-driver'
 import { createDriver } from '../modules/neo4j'
 
 import {
@@ -17,7 +17,7 @@ import {
 } from '../constants'
 
 const getLastCertification = async (session: Session): Promise<string> => {
-    const res = await session.readTransaction((tx: Transaction) =>
+    const res = await session.executeRead((tx: ManagedTransaction) =>
         tx.run(`MATCH (c:FromCommunityGraph) RETURN max(c.completedAt) AS date`)
     )
     const [first] = res.records
@@ -52,7 +52,7 @@ const main = async () => {
 
     console.log(`\n🔎 Getting certifications since ${lastCertification}`)
 
-    const readRes = await communitySession.readTransaction((tx: Transaction) =>
+    const readRes = await communitySession.executeRead((tx: ManagedTransaction) =>
         tx.run(
             `
         MATCH (c:Certification)<-[:TOOK]-(u)
@@ -89,7 +89,7 @@ const main = async () => {
         const next = rows.splice(0, 1000)
         console.log(next)
 
-        const writeRes = await gaSession.writeTransaction((tx: Transaction) =>
+        const writeRes = await gaSession.executeWrite((tx: ManagedTransaction) =>
             tx.run(
                 `
             UNWIND $rows AS row

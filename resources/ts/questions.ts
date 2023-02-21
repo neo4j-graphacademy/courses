@@ -475,11 +475,14 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
     else {
         setButtonNegativeState(button)
 
-        let children: any[] = [window.i18n.lessonFailed]
+        let errorText: any[] = [
+            window.i18n.lessonFailed
+        ]
 
         // Show hint text?
         if (parent.querySelector('.admonition')) {
-            children = children.concat(
+            errorText = errorText.concat(
+                ' ',
                 window.i18n.checkHintPrefix,
                 ' ',
                 createElement('strong', '', [
@@ -490,12 +493,24 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             )
         }
 
+        let reasonsElement = createElement('span', '')
+        const reasons = res.data.answers.filter(answer => answer.reason)
+
+        if (reasons.length) {
+            const reasonElements = reasons.map(
+                answer => createElement('li', 'verify-reason', [answer.reason])
+            )
+
+            reasonsElement = createElement('ul', 'verify-reasons', reasonElements)
+        }
+
         // Add error message
         const oops = createElement('div', `admonition admonition--warning admonition--visible ${LESSON_OUTCOME_FAILED}`, [
             createElement('h3', 'admonition-title', [
                 window.i18n.lessonFailedTitle
             ]),
-            createElement('p', '', children)
+            createElement('p', '', errorText),
+            reasonsElement,
         ])
 
         const firstIncorrect = document.querySelector(`.${QUESTION_INCORRECT}`)
