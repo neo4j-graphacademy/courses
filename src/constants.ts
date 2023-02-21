@@ -7,7 +7,7 @@ config({
     path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env',
 })
 
-const { PROFILE, CACHE_ASCIIDOC, KHOROS_BASE_URL, KHOROS_CATEGORY_URL, KHOROS_RSS_URL, DISCORD_ID } = process.env
+const { PROFILE, CACHE_ASCIIDOC, DISCOURSE_BASE_URL, KHOROS_CATEGORY_URL, COMMUNITY_RSS_FEED, DISCORD_ID } = process.env
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 export const BASE_URL = process.env.BASE_URL
@@ -20,11 +20,11 @@ export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCI
 export const PUBLIC_DIRECTORY = path.resolve(__dirname, '..', 'public')
 
 // Community
-export const COMMUNITY_HAS_BASE_URL = !!KHOROS_BASE_URL
-export const COMMUNITY_BASE_URL = KHOROS_BASE_URL
+export const COMMUNITY_HAS_BASE_URL = !!DISCOURSE_BASE_URL
+export const COMMUNITY_BASE_URL = DISCOURSE_BASE_URL
 export const COMMUNITY_TITLE = 'Neo4j Community Site'
-export const COMMUNITY_LINK = KHOROS_CATEGORY_URL
-export const COMMUNITY_RSS_URL = KHOROS_RSS_URL
+export const COMMUNITY_LINK = 'https://dev.neo4j.com/community'
+export const COMMUNITY_RSS_URL = COMMUNITY_RSS_FEED
 
 // Chat
 export const CHAT_TITLE = 'Neo4j Discord'
