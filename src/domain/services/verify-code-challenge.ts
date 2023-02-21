@@ -38,7 +38,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     let answers: Answer[] = []
 
     try {
-        const res = await session.executeRead((tx: ManagedTransaction) => tx.run(verify))
+        const res = await session.executeRead(tx => tx.run(verify))
 
         // If no records are returned then the test has failed
         if (res.records.length > 0) {
