@@ -78,3 +78,13 @@ export const PRINTFUL_STORE_ID: string | undefined = process.env.PRINTFUL_STORE_
 // Slack
 export const SLACK_TOKEN: string | undefined = process.env.SLACK_TOKEN
 export const SLACK_CHANNEL: string | undefined = process.env.SLACK_CHANNEL
+
+// Google Analytics
+export const GOOGLE_ANALYTICS_MEASUREMENT_ID: string | undefined = process.env.GOOGLE_ANALYTICS_MEASUREMENT_ID
+
+// Twitter
+export const TWITTER_TAG_ID: string | undefined = process.env.TWITTER_TAG_ID
+
+// Bugsnag
+export const BUGSNAG_API_KEY: string | undefined = process.env.BUGSNAG_API_KEY
+export const PUBLIC_BUGSNAG_API_KEY: string | undefined = process.env.PUBLIC_BUGSNAG_API_KEY

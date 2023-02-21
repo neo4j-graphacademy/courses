@@ -1,4 +1,5 @@
 import { Express } from 'express'
+import { GOOGLE_ANALYTICS_MEASUREMENT_ID, PUBLIC_BUGSNAG_API_KEY, TWITTER_TAG_ID } from '../constants'
 import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT, STATUS_ACTIVE } from '../domain/model/course'
 import {
     LESSON_TYPE_VIDEO,
@@ -8,7 +9,6 @@ import {
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
 import { getPhrase } from '../modules/localisation'
-const { GOOGLE_ANALYTICS_MEASUREMENT_ID, TWITTER_TAG_ID } = process.env
 import { getSvgs } from '../utils'
 
 
@@ -30,6 +30,11 @@ export function registerLocals(app: Express) {
         // GA
         res.locals.ga = {
             id: GOOGLE_ANALYTICS_MEASUREMENT_ID,
+        }
+
+        // Bugsnag
+        res.locals.bugsnag = {
+            apiKey: PUBLIC_BUGSNAG_API_KEY,
         }
 
         res.locals.twitter = {

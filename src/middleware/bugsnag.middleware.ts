@@ -3,11 +3,12 @@ import Bugsnag, { OnErrorCallback } from '@bugsnag/js'
 import BugsnagPluginExpress from '@bugsnag/plugin-express'
 import Neo4jError from '../errors/neo4j.error'
 import { User } from '../domain/model/user'
+import { BUGSNAG_API_KEY } from '../constants'
 
 export function initBugsnag() {
     if (bugsnagApiKey()) {
         Bugsnag.start({
-            apiKey: process.env.BUGSNAG_API_KEY as string,
+            apiKey: BUGSNAG_API_KEY as string,
             plugins: [BugsnagPluginExpress],
             onError: event => {
                 event.errors.map(error => {
@@ -25,7 +26,7 @@ export function initBugsnag() {
 }
 
 export function bugsnagApiKey(): string | undefined {
-    return process.env.BUGSNAG_API_KEY
+    return BUGSNAG_API_KEY
 }
 
 export function useRequestHandler(app: Express) {

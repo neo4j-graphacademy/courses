@@ -2,6 +2,8 @@ const path = require('path');
 
 module.exports = {
     mode: 'development',
+    target: 'web',
+    devtool: 'source-map',
     entry: './resources/ts/app.ts',
     module: {
         rules: [
@@ -21,6 +23,6 @@ module.exports = {
     },
     watch: true,
     watchOptions: {
-        ignored: [ '**/node_modules', 'src' ],
+        ignored: ['**/node_modules', 'src'],
     },
 };
