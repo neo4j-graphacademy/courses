@@ -10,7 +10,7 @@ export default async function markOrderFailed(order: Order, reason: string): Pro
         SET e.rewardOrderFailedAt = datetime(),
             e.rewardFailureReason = $reason,
             e.rewardOrderStatus = coalesce($status, e.rewardOrderStatus)
-    `, { id: int(order.id), status: order.status, reason })
+    `, { id: int(order.id), status: order.status, reason: reason || null })
 
     emitter.emit(new OrderFailed(
         order,
