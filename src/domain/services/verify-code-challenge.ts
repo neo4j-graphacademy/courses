@@ -1,4 +1,3 @@
-import { ManagedTransaction } from "neo4j-driver";
 import { notify } from "../../middleware/bugsnag.middleware";
 import { createDriver } from "../../modules/neo4j";
 import { getSandboxForUseCase } from "../../modules/sandbox";
