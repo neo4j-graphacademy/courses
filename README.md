@@ -1,8 +1,13 @@
 # GraphAcademy
 
+| Website                                                                                                                                                                          | Courses                                                                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Release](https://github.com/neo4j-graphacademy/website/actions/workflows/release.yml/badge.svg)](https://github.com/neo4j-graphacademy/website/actions/workflows/release.yml) | [![Release](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml/badge.svg)](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml) |
+
 ## Installation
 
 1. Install Dependencies
+
 ```
 npm install
 ```
@@ -24,7 +29,6 @@ NEO4J_PASSWORD=neo
 SANDBOX_URL=https://efz1cnte2e.execute-api.us-east-1.amazonaws.com/main/
 ```
 
-
 ## Author Only Method
 
 If you are only interested in authoring a course, you can use `docker-compose` to create a standalone server and Neo4j instance.
@@ -32,7 +36,6 @@ If you are only interested in authoring a course, you can use `docker-compose` t
 ```
 docker-compose -f docker-compose.dev.yaml up
 ```
-
 
 ## Running in Development Mode
 
@@ -90,16 +93,15 @@ asciidoc
                  + question-2.adoc
 ```
 
-
 ### courses/{course-slug}/overview.adoc
 
 Course overview file
 
 #### Attributes
 
-* `caption` -
-* `usecase` - If set, a sandbox instance will be created on enrolment
-* `status` -
+-   `caption` -
+-   `usecase` - If set, a sandbox instance will be created on enrolment
+-   `status` -
 
 ### courses/{course-slug}/modules/{module-slug}/overview.adoc
 
@@ -109,8 +111,8 @@ A module overview should contain information about the upcoming lessons, and a v
 
 #### Attributes
 
-* `order` -
-* `duration` -
+-   `order` -
+-   `duration` -
 
 ### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/index.adoc
 
@@ -118,9 +120,9 @@ Lesson content
 
 #### Attributes
 
-* `order` -
-* `duration` -
-* `sandbox` - Should the sandbox window be expanded/visible by default?
+-   `order` -
+-   `duration` -
+-   `sandbox` - Should the sandbox window be expanded/visible by default?
 
 ### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/sandbox.cypher
 
@@ -128,7 +130,7 @@ Pre-populate the sandbox query window with a cypher query
 
 ### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/verify.cypher
 
-Cypher query to run against the database to check that the challenge has been completed.  Combine with a `[.verify]` question.
+Cypher query to run against the database to check that the challenge has been completed. Combine with a `[.verify]` question.
 
 ### courses/{course-slug}/modules/{module-slug}/lessons/{lesson-slug}/questions/{question}.adoc
 
@@ -136,14 +138,13 @@ Question title, text and answer
 
 #### Attributes
 
-* `id` - Only required for challenges. if not set, a hashed version of the title will be used
-
+-   `id` - Only required for challenges. if not set, a hashed version of the title will be used
 
 ## Question Types
 
 ### `[.question]`
 
-Single or multiple choice questions.  Use the checklist syntax and mark the correct answer(s) with an `[x]`.
+Single or multiple choice questions. Use the checklist syntax and mark the correct answer(s) with an `[x]`.
 
 ```
 [.question]
@@ -160,7 +161,7 @@ This is a tip if you get the answer wrong...
 
 ### `[.question.select-in-source]`
 
-Adds a dropdown to the code block within the question. Use the checklist syntax to provide options and mark the correct answer with an `[x]`.  To choose where the dropdown goes, add a comment to the code block, starting with `/*select:*/`
+Adds a dropdown to the code block within the question. Use the checklist syntax to provide options and mark the correct answer with an `[x]`. To choose where the dropdown goes, add a comment to the code block, starting with `/*select:*/`
 
 ```
 [.question.select-in-source]
@@ -188,7 +189,7 @@ Remember that relationships can be traversed in either direction.
 
 ### `[.question.freetext]`
 
-Free text question.  Use the `input::answer[]` macro to add a textbox to the question.
+Free text question. Use the `input::answer[]` macro to add a textbox to the question.
 
 ```
 [.question.freetext]
@@ -205,8 +206,7 @@ input::answer[]
 
 Use the `:verify: attribute assigned to the lesson to check the database
 
-
-* lesson/index.adoc
+-   lesson/index.adoc
 
 ```
 = Merge Challenge
@@ -214,8 +214,7 @@ Use the `:verify: attribute assigned to the lesson to check the database
 :verify: RETURN true AS outcome
 ```
 
-
-* lesson/questions/challenge.adoc:
+-   lesson/questions/challenge.adoc:
 
 ```
 :id: _challenge
@@ -246,7 +245,6 @@ You can also specify the button text:
 verify::Check Database[]
 ```
 
-
 ### Mark as Read
 
 If there are no questions to the _Lesson_, you can add a `Mark As Read` button to the page.
@@ -254,21 +252,21 @@ If there are no questions to the _Lesson_, you can add a `Mark As Read` button t
 <!-- ```
 input::read[type=button,class=btn,value=Mark as Read]
 ``` -->
+
 ```
 read::I have added my environment variables[]
 ```
 
 ## Including the Browser
 
-
-
 1. Expand Sandbox by default
+
     ```
     :sandbox: true
     // Optional: Pre-fill query window with a cypher query
     ```
-    Add a `sandbox.cypher` file to pre-fill a query in the sandbox
 
+    Add a `sandbox.cypher` file to pre-fill a query in the sandbox
 
 2. Embed within lesson
     ```
@@ -277,7 +275,7 @@ read::I have added my environment variables[]
 
 ## Caching Pages
 
-Page load times can be slow, so where possible, the asciidoc pages are cached.  If you are using a page that replaces information using `user-*` or `sandbox-*` attributes, you can use the `:disable-cache: true` page attribute in `lesson.adoc` in order to stop the page from being cached.
+Page load times can be slow, so where possible, the asciidoc pages are cached. If you are using a page that replaces information using `user-*` or `sandbox-*` attributes, you can use the `:disable-cache: true` page attribute in `lesson.adoc` in order to stop the page from being cached.
 
 ```
 = Your Neo4j Sandbox
@@ -286,7 +284,6 @@ Page load times can be slow, so where possible, the asciidoc pages are cached.  
 
 This value defaults to `false`.
 
-
 ## Deployment
 
 The live site is hosted via AWS using Kubernetes - Kudos to Max for sorting this out!
@@ -294,14 +291,14 @@ The live site is hosted via AWS using Kubernetes - Kudos to Max for sorting this
 To redeploy:
 
 > Build the latest version:
-  ```
-  skaffold build -t latest
-  ```
 
-  Then when it's built and pushed you just need to do `kubectl rollout restart deployment/graphacademy -n graphacademy-prod`
+```
+skaffold build -t latest
+```
 
-  or kill the running pod and the deployment will spawn a new one.
+Then when it's built and pushed you just need to do `kubectl rollout restart deployment/graphacademy -n graphacademy-prod`
 
+or kill the running pod and the deployment will spawn a new one.
 
 ```
 docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 715633473519.dkr.ecr.us-east-1.amazonaws.com
@@ -316,4 +313,3 @@ To update environment variables in production:
 1. Search for `GraphAcademy Prod` under Developer Relations in 1password, then download the `production.env` file
 2. Copy the file into `k8s/production` and rename the file as `.env`
 3. Run `kubectl apply -k k8s/production`
-
