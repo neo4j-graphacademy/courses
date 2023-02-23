@@ -34,6 +34,8 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     // Answer array
     let answers: Answer[] = createAnswer(questionId, 'Internal Server Error: unknown')
 
+    console.log(usecase, sandbox);
+
     // No usecase or verify?
     if (usecase === undefined) {
         answers = createAnswer(questionId, `Internal Server Error: Could not find usecase`)

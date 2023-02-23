@@ -970,6 +970,9 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         const user = await getUser(req)
         const token = await getToken(req)
 
+        console.log('??');
+
+
         const outcome = await verifyCodeChallenge(user as User, token, course, module, lesson)
 
         res.json(outcome)
