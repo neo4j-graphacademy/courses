@@ -498,8 +498,14 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
 
         if (reasons.length) {
             const reasonElements = reasons.map(
-                answer => createElement('li', 'verify-reason', [answer.reason])
-            )
+                answer => {
+                    if (Array.isArray(answer.reason)) {
+                        return answer.reason.map(inner => createElement('li', 'verify-reason', [inner]))
+                    }
+
+                    return [createElement('li', 'verify-reason', [answer.reason])]
+                }
+            ).reduce((acc, val) => acc.concat(val), [])
 
             reasonsElement = createElement('ul', 'verify-reasons', reasonElements)
         }

@@ -8,11 +8,11 @@ import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
 
-function createAnswer(reason): Answer[] {
+function createAnswer(reason: string | string[], answers: string[] = [], correct = false): Answer[] {
     return [{
         id: 'verify',
-        correct: false,
-        answers: null,
+        correct,
+        answers,
         reason,
     }]
 }
@@ -53,12 +53,19 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
 
             // If no records are returned then the test has failed
             if (res.records.length > 0) {
-                answers = res.records.map(row => ({
+                const values = res.records.map(row => ({
                     id: row.has('task') ? row.get('task') : 'verify',
                     correct: row.get('outcome'),
                     answers: row.has('answers') ? row.get('answers') as string[] : null,
                     reason: row.has('reason') ? row.get('reason') : null,
                 }))
+
+                const passed = values.every(point => point.correct)
+                const actuals = values.map(value => `${value.id}: ${value.answers ? JSON.stringify(value.answers) : '(unknown'}`)
+                const reason = values.filter(value => value.reason)
+                    .map(value => value.reason as string)
+
+                answers = createAnswer(reason, actuals, passed)
             }
             else {
                 answers = createAnswer(`No rows returned by verification Cypher`)
