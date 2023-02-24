@@ -8,9 +8,9 @@ import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
 
-function createAnswer(reason: string | string[], answers: string[] = [], correct = false): Answer[] {
+function createAnswer(id: string, reason: string | string[], answers: string[] = [], correct = false): Answer[] {
     return [{
-        id: 'verify',
+        id,
         correct,
         answers,
         reason,
@@ -23,23 +23,26 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const { usecase } = progress
     const verify = await getLessonCypherFile(course, module, lesson, 'verify')
 
+    // Get Lesson Question ID
+    const moduleData = progress.modules.find(item => item.slug === module)
+    const lessonData = moduleData?.lessons.find(item => item.slug === lesson)
+    const questionId = lessonData?.questions[0]?.slug || '_challenge'
+
     // No sandbox? Return false
     const sandbox = usecase ? await getSandboxForUseCase(token, user, usecase) : undefined
 
     // Answer array
-    let answers: Answer[] = createAnswer('Internal Server Error: unknown')
-
-    console.log(usecase, sandbox);
+    let answers: Answer[] = createAnswer(questionId, 'Internal Server Error: unknown')
 
     // No usecase or verify?
     if (usecase === undefined) {
-        answers = createAnswer(`Internal Server Error: Could not find usecase`)
+        answers = createAnswer(questionId, `Internal Server Error: Could not find usecase`)
     }
     else if (verify === undefined) {
-        answers = createAnswer(`Internal Server Error: Could not find verification Cypher`)
+        answers = createAnswer(questionId, `Internal Server Error: Could not find verification Cypher`)
     }
     else if (!sandbox) {
-        answers = createAnswer(`Internal Server Error: Could not find sandbox for usecase ${usecase}`)
+        answers = createAnswer(questionId, `Internal Server Error: Could not find sandbox for usecase ${usecase}`)
     }
     else {
         const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
@@ -65,10 +68,10 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
                 const reason = values.filter(value => value.reason)
                     .map(value => value.reason as string)
 
-                answers = createAnswer(reason, actuals, passed)
+                answers = createAnswer(questionId, reason, actuals, passed)
             }
             else {
-                answers = createAnswer(`No rows returned by verification Cypher`)
+                answers = createAnswer(questionId, `No rows returned by verification Cypher`)
             }
         }
         catch (e: any) {
@@ -76,7 +79,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
                 error.setUser(user.sub, user.email, user.name)
             })
 
-            answers = createAnswer(`Internal Server Error: ${e.message}`)
+            answers = createAnswer(questionId, `Internal Server Error: ${e.message}`)
         }
     }
 

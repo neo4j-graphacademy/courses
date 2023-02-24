@@ -21,6 +21,7 @@ export interface Option {
 export interface BaseQuestion {
     type: QuestionType;
     id: string;
+    slug: string;
     text: string;
     options?: Option[];
 }
