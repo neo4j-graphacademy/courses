@@ -22,6 +22,7 @@ export default function hardenExpress(app: Express) {
                         'www.youtube.com',
                         'cdn.graphacademy.neo4j.com',
                         'neo4j.com',
+                        's7.addthis.com',
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
