@@ -1,2 +1,2 @@
 MATCH (m:Movie {title: "Matrix, The"})
-RETURN size((m)<-[:ACTED_IN]-()) > 4 AS outcome
+RETURN count { (m)<-[:ACTED_IN]-() } > 4 AS outcome
