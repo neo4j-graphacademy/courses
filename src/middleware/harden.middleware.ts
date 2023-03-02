@@ -23,6 +23,7 @@ export default function hardenExpress(app: Express) {
                         'cdn.graphacademy.neo4j.com',
                         'neo4j.com',
                         's7.addthis.com',
+                        'd2wy8f7a9ursnm.cloudfront.net',
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
