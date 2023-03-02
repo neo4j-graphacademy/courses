@@ -260,7 +260,7 @@ router.get('/:course/badge', (req, res, next) => {
  *
  * Create an :Enrolment node between the user and the course within the database
  */
-router.get('/:course/enrol', requiresAuth(), requiresVerification, requiredCompletedProfile, async (req, res, next) => {
+router.get('/:course/enrol', requiresAuth(), /*requiresVerification,*/ requiredCompletedProfile, async (req, res, next) => {
     try {
         const user = await getUser(req) as User
         const token = await getToken(req)
@@ -403,7 +403,7 @@ const checkSandboxExists = async (user: User, token: string, enrolment: CourseWi
     }
 }
 
-router.get('/:course/sandbox.json', requiresAuth(), requiresVerification, async (req, res) => {
+router.get('/:course/sandbox.json', requiresAuth(), /*requiresVerification,*/ async (req, res) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
@@ -495,9 +495,9 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
  *
  * Display the patched browser
  */
-router.get('/:course/browser', requiresAuth(), requiresVerification, browser)
-router.get('/:course/:module/browser', requiresAuth(), requiresVerification, browser)
-router.get('/:course/:module/:lesson/browser', requiresAuth(), requiresVerification, browser)
+router.get('/:course/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerification,*/ browser)
 
 
 /**
@@ -641,7 +641,7 @@ router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => 
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
-router.get('/:course/:module/browser', requiresAuth(), requiresVerification, browser)
+router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
 
 
 /**
@@ -758,7 +758,7 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), requiresVerification, classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', requiresAuth(), /*requiresVerification,*/ classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
