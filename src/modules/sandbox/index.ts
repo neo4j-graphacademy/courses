@@ -70,9 +70,9 @@ export async function getUserInfo(token: string, user: User): Promise<Partial<Us
 
 
 export async function getSandboxes(token: string, user: User): Promise<Sandbox[]> {
-    if (!isVerified(token)) {
-        return []
-    }
+    // if (!isVerified(token)) {
+    //     return []
+    // }
 
     if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
         return [devSandbox()]
@@ -163,9 +163,9 @@ export async function getOrCreateSandboxForUseCase(token: string, user: User, us
 }
 
 export async function getSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox | undefined> {
-    if (!isVerified(token)) {
-        return undefined
-    }
+    // if (!isVerified(token)) {
+    //     return undefined
+    // }
 
     if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
         return devSandbox()
