@@ -500,7 +500,7 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             body.address1,
             body.address2,
             body.city,
-            state?.code,
+            state?.code || body.state,
             state?.name,
             country.code,
             country.name,
