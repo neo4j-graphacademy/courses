@@ -501,7 +501,7 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             body.address2,
             body.city,
             state?.code || body.state,
-            state?.name,
+            state?.name || body.state,
             country.code,
             country.name,
             body.zip,

@@ -44,12 +44,7 @@ export default function initApp(driver: Driver) {
 
     // Security Hardening
     app.disable('x-powered-by')
-    app.use(
-        // @ts-expect-error Problem with typings on helmet.frameguard
-        helmet.frameguard({ action: 'sameorigin' }),
-        helmet.contentSecurityPolicy({ useDefaults: true }),
-        helmet.noSniff()
-    )
+    hardenExpress(app)
 
     // Init bugsnag
     initBugsnag()
