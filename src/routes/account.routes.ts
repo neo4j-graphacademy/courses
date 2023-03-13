@@ -514,9 +514,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Place Order
         await createVariantOrder(user, reward, PRINTFUL_STORE_ID as string, recipient, body.variant_id, 1)
 
-        console.log('order completed');
-
-
         // Redirect with confirmation
         req.flash('success', `Your order has been placed.  You should receive a confirmation email shortly.`)
 

@@ -38,14 +38,26 @@ export async function appendOrderToGoogleSheet(user: User, reward: Reward, store
             requestBody: {
                 values: [
                     [
+                        recipient.name,
+                        recipient.address1,
+                        recipient.address2,
+                        recipient.city,
+                        recipient.state_name || recipient.state_code,
+                        recipient.zip,
+                        recipient.country_name || recipient.country_code,
+                        recipient.email,
+                        recipient.phone,
+                        variant.name,
+                        quantity,
                         id,
-                        user.id, user.name, user.email,
-                        reward.slug, reward.title,
-                        recipient.name, recipient.address1, recipient.address2, recipient.city, recipient.state_code, recipient.state_name,
-                        recipient.country_code, recipient.country_name, recipient.zip, recipient.email, recipient.phone, recipient.company,
-                        recipient.tax_number,
-                        variant.id, variant.name,
-                        quantity
+                        'PENDING',
+                        // user.id, user.name, user.email,
+                        // reward.slug, reward.title,
+                        // recipient.name, recipient.address1, recipient.address2, recipient.city, recipient.state_code, recipient.state_name,
+                        // recipient.country_code, recipient.country_name, recipient.zip, recipient.email, recipient.phone, recipient.company,
+                        // recipient.tax_number,
+                        // variant.id, variant.name,
+                        // quantity
                     ]
                 ]
             }
