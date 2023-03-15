@@ -2,7 +2,7 @@ import axios from "axios"
 import { PRINTFUL_API_KEY } from "../../constants"
 import { ValidationError } from "../../errors/validation.error"
 import Recipient from "./recipient.class"
-import { Order, OrderResponse, Variant } from "./types"
+import { Order, OrderProvider, OrderResponse, Variant } from "./types"
 
 const API_BASE_URL = 'https://api.printful.com'
 
@@ -176,5 +176,7 @@ export async function createOrder(storeId: string, recipient: Recipient, items: 
         throw new ValidationError(res.data.error.message)
     }
 
-    return res.data.result as Order
+    return Object.assign({}, res.data.result, {
+        provider: OrderProvider.Printful,
+    }) as Order
 }

@@ -43,6 +43,10 @@ export default class Recipient {
             valid = false
             errors['tax_number'] = `Tax number is required`
         }
+        if (this.country_code == 'IN' && this.state_code == '') {
+            valid = false
+            errors['state_text'] = `Tax number is required`
+        }
 
         return {
             valid,

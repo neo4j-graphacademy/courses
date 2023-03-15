@@ -25,7 +25,6 @@ import { saveModuleFeedback } from '../domain/services/feedback/save-module-feed
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals.middleware'
 import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox'
-import { requiresVerification } from '../middleware/verification.middleware'
 import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'

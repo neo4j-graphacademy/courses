@@ -29,20 +29,20 @@ export default async function createVariantOrder(user: User, reward: Reward, sto
 
         // Update Database
         await write(`
-        MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $slug})
+            MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $slug})
 
-        SET e:RewardOrdered,
-            e.rewardOrderCreatedAt = datetime(),
-            e.rewardOrderedAt = datetime(),
-            e+= $order
-
-    `, {
+            SET e:RewardOrdered,
+                e.rewardOrderCreatedAt = datetime(),
+                e.rewardOrderedAt = datetime(),
+                e+= $order
+        `, {
             sub: user.sub, slug: reward.slug,
             order: {
                 rewardOrderId: typeof order.id === 'string' ? order.id : int(order.id),
                 rewardOrderTotalCost: order.costs?.total,
                 rewardOrderedAt: order.created,
                 rewardStore: storeId,
+                rewardProvider: order.provider,
             }
         })
 

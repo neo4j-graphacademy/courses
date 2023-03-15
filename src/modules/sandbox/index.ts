@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import { IS_PRODUCTION } from '../../constants'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
-import { isVerified } from '../jwt'
 import { handleSandboxError } from './handle-sandbox-error'
 
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'

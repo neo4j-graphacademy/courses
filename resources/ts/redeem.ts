@@ -24,7 +24,7 @@ export default function redeem() {
         const info = window.countries.find(row => row.code === value)
 
         // Populate state form?
-        if (info.states !== null) {
+        if (info !== undefined && info?.states !== null) {
             const blank = document.createElement('option')
             state?.appendChild(blank)
 
@@ -52,6 +52,15 @@ export default function redeem() {
         else {
             taxContainer?.classList.remove('visible')
             tax?.removeAttribute('required')
+        }
+
+        // India requires a state
+        if (value == 'IN') {
+            const stateTextContainer = document.getElementById('state-text-container')
+            const stateText = document.getElementById('state_text')
+
+            stateTextContainer?.classList.add('visible')
+            stateText?.setAttribute('required', 'required')
         }
     }
 

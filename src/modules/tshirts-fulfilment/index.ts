@@ -4,7 +4,7 @@ import { google } from 'googleapis'
 import { GOOGLE_KEY_FILE, TSHIRT_SHEET_ID } from '../../constants'
 import { Reward } from '../../domain/services/rewards/get-rewards'
 import Recipient from '../printful/recipient.class'
-import { Order, OrderStatus, Variant } from '../printful/types'
+import { Order, OrderProvider, OrderStatus, Variant } from '../printful/types'
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
@@ -50,7 +50,7 @@ export async function appendOrderToGoogleSheet(user: User, reward: Reward, store
                         variant.name,
                         quantity,
                         id,
-                        'PENDING',
+                        OrderStatus.pending,
                         // user.id, user.name, user.email,
                         // reward.slug, reward.title,
                         // recipient.name, recipient.address1, recipient.address2, recipient.city, recipient.state_code, recipient.state_name,
@@ -65,6 +65,7 @@ export async function appendOrderToGoogleSheet(user: User, reward: Reward, store
 
         return {
             id,
+            provider: OrderProvider.India,
             status: OrderStatus.pending,
             costs: {
                 total: 'NA',

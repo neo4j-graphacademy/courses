@@ -54,7 +54,13 @@ export enum OrderStatus {
     archived = "archived", //	The order has been archived and hidden from the UI
 }
 
+export enum OrderProvider {
+    Printful = 'printful.com',
+    India = 'india-provider',
+}
+
 export interface Order {
+    provider: OrderProvider;
     id: number | string,
     external_id: string,
     status: OrderStatus;

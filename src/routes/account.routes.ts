@@ -500,8 +500,8 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             body.address1,
             body.address2,
             body.city,
-            state?.code || body.state,
-            state?.name || body.state,
+            state?.code || body.state_text,
+            state?.name || body.state_text,
             country.code,
             country.name,
             body.zip,
@@ -510,6 +510,9 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             body.company,
             body.tax_number
         )
+
+        console.log(recipient);
+
 
         // Place Order
         await createVariantOrder(user, reward, PRINTFUL_STORE_ID as string, recipient, body.variant_id, 1)
