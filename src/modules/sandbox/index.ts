@@ -22,18 +22,22 @@ export interface Sandbox {
     [key: string]: any;
 }
 
-let api: AxiosInstance
+// let api: AxiosInstance
 
 export function sandboxApi() {
     const { SANDBOX_URL } = process.env
 
-    if (api === undefined) {
-        api = axios.create({
-            baseURL: SANDBOX_URL,
-        })
-    }
+    // if (api === undefined) {
+    //     api = axios.create({
+    //         baseURL: SANDBOX_URL,
+    //     })
+    // }
 
-    return api
+    // return api
+
+    return axios.create({
+        baseURL: SANDBOX_URL,
+    })
 }
 
 
@@ -87,6 +91,9 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
             }
         )
 
+        console.log('got running instances', res.data);
+
+
         return res.data.map((row: Sandbox) => ({
             ...row,
             scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
@@ -95,6 +102,8 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
         })) as Sandbox[]
     }
     catch (e: any) {
+        console.log(e);
+
         // Report Error
         handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
 
