@@ -95,3 +95,6 @@ export const TSHIRT_SHEET_ID: string | undefined = process.env.TSHIRT_SHEET_ID
 
 // Workspace
 export const WORKSPACE_URL = process.env.WORKSPACE_URL || 'https://workspace-preview.neo4j.io'
+
+// Sandbox
+export const SANDBOX_URL = process.env.SANDBOX_URL
