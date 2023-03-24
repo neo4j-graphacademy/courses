@@ -22,7 +22,7 @@ UNWIND [
 
 WITH properties, condition.entry AS label, condition.expected AS expected, properties[ condition.entry ] AS actual
 RETURN
-  apoc.text.join(label + expected, ' ') AS task,
+  apoc.text.join(label +' should be' + expected, ' ') AS task,
   coalesce(expected = actual, false) AS outcome,
   actual AS answers,
     CASE WHEN expected = actual THEN null ELSE apoc.text.join('Expected ' + label + ' data type to be `'+ expected +'` but was `'+ coalesce(actual, '(null)') +'`', ' ') END AS reason
