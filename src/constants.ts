@@ -92,3 +92,6 @@ export const PUBLIC_BUGSNAG_API_KEY: string | undefined = process.env.PUBLIC_BUG
 // Google Auth & Sheets
 export const GOOGLE_KEY_FILE: string | undefined = process.env.GOOGLE_KEY_FILE
 export const TSHIRT_SHEET_ID: string | undefined = process.env.TSHIRT_SHEET_ID
+
+// Workspace
+export const WORKSPACE_URL = process.env.WORKSPACE_URL || 'https://workspace-preview.neo4j.io'

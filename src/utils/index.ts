@@ -370,6 +370,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['sandbox-username'] = sandboxConfig?.username
         attributes['sandbox-password'] = sandboxConfig?.password
+        attributes['connect-url'] = `${sandboxConfig?.scheme}://${sandboxConfig?.username}@${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
     }
 
     // Course repository attributes
@@ -429,4 +430,21 @@ export function getCountries(): Promise<Record<string, any>> {
     }
 
     return Promise.resolve(countries)
+}
+
+/**
+ * Check that a value is true or true-ish
+ *
+ * @param value any
+ * @returns boolean
+ */
+export function isTruthy(value: any): boolean {
+    if (typeof value === 'boolean') {
+        return value
+    }
+    if (typeof value === 'string' && value === 'true') {
+        return true
+    }
+
+    return false
 }

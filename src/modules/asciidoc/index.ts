@@ -11,11 +11,10 @@ import { mergeDeep } from '../../utils'
 import { CourseStatus, CourseStatusInformation } from '../../domain/model/course'
 import { ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_ORDER } from '../../domain/model/lesson'
 import { labBlockProcessor } from './extensions/lab-block-processor.extension'
-
+import { workspaceBlockProcessor } from './extensions/workspace-block-processor.extension'
 
 // Cached Pages
 const cache: Map<string, string> = new Map()
-
 
 // Reader
 const doc = asciidoctor()
@@ -27,6 +26,7 @@ inputBlockProcessor(registry)
 browserBlockProcessor(registry)
 verifyBlockProcessor(registry)
 labBlockProcessor(registry)
+workspaceBlockProcessor(registry)
 
 // Convert options
 const baseOptions: Asciidoctor.ProcessorOptions = {
