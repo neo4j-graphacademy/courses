@@ -367,6 +367,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
 
         const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
 
+        attributes['sandbox-scheme'] = sandboxConfig?.scheme
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['sandbox-username'] = sandboxConfig?.username
         attributes['sandbox-password'] = sandboxConfig?.password
