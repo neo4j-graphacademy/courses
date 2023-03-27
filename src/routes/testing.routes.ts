@@ -164,7 +164,7 @@ router.get('/session', (req, res) => {
 router.get('/email/:template', async (req, res) => {
     const result = await read(`
         MATCH (u:User) WHERE exists(u.name) WITH u ORDER BY rand() LIMIT 1
-        MATCH (c:Course) WITH u, c ORDER BY rand() LIMIT 1
+        MATCH (c:Course {slug: 'neo4j-fundamentals'}) WITH u, c ORDER BY rand() LIMIT 1
         MATCH (e:Enrolment) WITH * LIMIT 1
         RETURN u, c, e
     `)
