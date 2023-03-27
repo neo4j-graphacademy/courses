@@ -165,13 +165,23 @@ router.get('/email/:template', async (req, res) => {
     const result = await read(`
         MATCH (u:User) WHERE exists(u.name) WITH u ORDER BY rand() LIMIT 1
         MATCH (c:Course) WITH u, c ORDER BY rand() LIMIT 1
-        RETURN u, c
+        MATCH (e:Enrolment) WITH * LIMIT 1
+        RETURN u, c, e
     `)
-    const user = { email: 'adam@neo4j.com', ...result.records[0].get('u').properties }
+    const user = { email: 'adam@neo4j.com', ...result.records[0]?.get('u').properties }
     const course = result.records[0].get('c').properties
     const sandbox = devSandbox()
 
-    const data = { user, course, sandbox }
+    const data = {
+        user,
+        course,
+        sandbox,
+        suggestion1: { title: 'Building Foo With Bar', link: '/bar', count: 1215 },
+        suggestion2: { title: 'Baz Fundamentals', link: '/baz', count: 798 },
+        suggestion3: { title: 'Introduction to Foo', link: '/foo', count: 516 },
+        somethingDifferent: { title: 'Something Different', link: '/left-field', count: 26 },
+    }
+
     const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
 
     if (req.query.send === 'true') {

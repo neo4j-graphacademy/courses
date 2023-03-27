@@ -1,5 +1,6 @@
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
+import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
 
@@ -20,7 +21,7 @@ export default function initEmailListeners(): Promise<void> {
             }
         })
 
-        emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
+        emitter.on<UserCompletedCourse>(UserCompletedCourse, async event => {
             if (event.user.unsubscribed) {
                 return
             }
@@ -30,7 +31,25 @@ export default function initEmailListeners(): Promise<void> {
 
             const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
 
-            prepareAndSend(template, email, { ...event } as Record<string, any>, emailDirectory, template)
+            // Get Course Recommendations
+            const suggestions = await getSuggestionsForEnrolment(event.course.enrolmentId)
+
+            let suggestion2, suggestion3, somethingDifferent
+
+            const [suggestion1] = suggestions
+
+            if (suggestions.length > 1) {
+                somethingDifferent = suggestions[suggestions.length - 1]
+            }
+            if (suggestions.length > 2) {
+                suggestion2 = suggestions[1]
+
+            }
+            if (suggestions.length > 3) {
+                suggestion2 = suggestions[2]
+            }
+
+            prepareAndSend(template, email, { ...event, suggestion1, suggestion2, suggestion3, somethingDifferent } as Record<string, any>, emailDirectory, template)
         })
     }
 
