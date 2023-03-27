@@ -24,6 +24,7 @@ export default function hardenExpress(app: Express) {
                         'neo4j.com',
                         's7.addthis.com',
                         'd2wy8f7a9ursnm.cloudfront.net',
+                        'https://cdn.lr-ingest.com/',
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
