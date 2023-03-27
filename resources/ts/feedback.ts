@@ -1,7 +1,7 @@
 declare global {
     interface Window {
         env: 'dev' | undefined;
-        user?: {sub:string, id: string};
+        user?: { sub: string, id: string };
         analytics: {
             course: Record<string, any>;
             module: Record<string, any>;
@@ -88,7 +88,7 @@ const isUnhelpful = (el: HTMLDivElement) => {
         <label for="other">${window.i18n.other}</label>
     </div>
     <div class="more-information"><label for="more-information"><strong>${window.i18n.moreInformation}</strong></label><textarea
-        id="more-information" type="text" rows="3" cols="50" name="more-information" style="resize:none"></textarea>
+        id="more-information" type="text" rows="3" cols="50" name="more-information" style="resize:none" required></textarea>
     </div>
     <div class="buttons"><input type="button" class="btn btn-primary submit" data-submit="submit" value="${window.i18n.feedbackSubmit}"><input
         type="button" class="btn btn-secondary cancel" data-submit="skip" value="${window.i18n.feedbackSkip}"></div>
