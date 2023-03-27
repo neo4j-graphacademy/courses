@@ -41,7 +41,15 @@ export default function hardenExpress(app: Express) {
                         DOMAIN,
                         'www.youtube.com',
                     ],
-                    connectSrc: ['*']
+                    connectSrc: ['*'],
+                    baseUri: [
+                        "'self'",
+                        'cdn.graphacademy.neo4j.com'
+                    ],
+                    workerSrc: [
+                        "'self'",
+                        'blob:',
+                    ]
                 }
             }),
             helmet.noSniff()
