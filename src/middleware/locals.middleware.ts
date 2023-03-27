@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import { GOOGLE_ANALYTICS_MEASUREMENT_ID, PUBLIC_BUGSNAG_API_KEY, TWITTER_TAG_ID } from '../constants'
+import { GOOGLE_ANALYTICS_MEASUREMENT_ID, IS_PRODUCTION, PUBLIC_BUGSNAG_API_KEY, TWITTER_TAG_ID } from '../constants'
 import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT, STATUS_ACTIVE } from '../domain/model/course'
 import {
     LESSON_TYPE_VIDEO,
@@ -54,6 +54,7 @@ export function registerLocals(app: Express) {
         res.locals.cdnUrl = process.env.CDN_URL || ''
 
         res.locals.env = process.env.NODE_ENV
+        res.locals.production = IS_PRODUCTION
 
         // Load CSVs from resources/svg
         res.locals.svg = getSvgs()
