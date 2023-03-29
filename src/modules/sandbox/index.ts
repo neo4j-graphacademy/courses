@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios'
+import axios, { AxiosResponse } from 'axios'
 import { IS_PRODUCTION } from '../../constants'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
@@ -22,18 +22,8 @@ export interface Sandbox {
     [key: string]: any;
 }
 
-// let api: AxiosInstance
-
 export function sandboxApi() {
     const { SANDBOX_URL } = process.env
-
-    // if (api === undefined) {
-    //     api = axios.create({
-    //         baseURL: SANDBOX_URL,
-    //     })
-    // }
-
-    // return api
 
     return axios.create({
         baseURL: SANDBOX_URL,

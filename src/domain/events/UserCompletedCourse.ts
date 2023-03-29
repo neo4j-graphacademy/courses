@@ -1,4 +1,4 @@
-import { Course, CourseWithProgress } from "../model/course";
+import { CourseWithProgress } from "../model/course";
 import { User } from "../model/user";
 
 export class UserCompletedCourse {

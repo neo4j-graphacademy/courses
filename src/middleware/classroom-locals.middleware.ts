@@ -36,8 +36,9 @@ export async function classroomLocals(req: Request, res: Response, next: NextFun
 
         res.locals.feedbackScore = await getFeedback(type, originalUrl)
 
-        console.log(res.locals.feedback);
-
+        res.locals.editLink = parts.length === 3
+            ? `https://github.com/neo4j-graphacademy/courses/tree/main/asciidoc/courses/${parts[1]}/modules/${parts[2]}`
+            : `https://github.com/neo4j-graphacademy/courses/tree/main/asciidoc/courses/${parts[1]}/modules/${parts[2]}/lessons/${parts[3]}/`
     }
 
     next()

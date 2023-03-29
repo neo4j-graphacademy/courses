@@ -20,7 +20,7 @@ export async function appendOrderToGoogleSheet(user: User, reward: Reward, store
 
     const sheets = google.sheets({ version: 'v4', auth: client });
 
-    const res = await sheets.spreadsheets.values.append({
+    await sheets.spreadsheets.values.append({
         spreadsheetId: TSHIRT_SHEET_ID as string,
         valueInputOption: 'USER_ENTERED',
         insertDataOption: 'INSERT_ROWS',

@@ -18,8 +18,6 @@ export default async function createVariantOrder(user: User, reward: Reward, sto
 
         // Append Indian orders to a separate spreadsheet
         if (recipient.country_code === 'IN') {
-            console.log('IN');
-
             order = await appendOrderToGoogleSheet(user, reward, storeId, recipient, variant, quantity)
         }
         else {
