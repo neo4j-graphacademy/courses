@@ -108,6 +108,21 @@ const isUnhelpful = (el: HTMLDivElement) => {
         const reason = el.querySelector('input[name="specific"]:checked') as HTMLInputElement
         const additional = el.querySelector('textarea[name="more-information"]') as HTMLInputElement
 
+        if ((!additional.value || additional.value.trim() === '') || additional.value.length <= 5) {
+            if (!additional.parentElement?.querySelector('.error')) {
+                const error = document.createElement('div')
+
+                error.setAttribute('for', 'more-information')
+                error.classList.add('error')
+                error.innerText = 'Please provide more information on how we could improve this page.'
+
+                additional.parentElement?.appendChild(
+                    error
+                )
+            }
+            return
+        }
+
         sendFeedback(false, reason.value, additional.value)
 
         thankyou(el)

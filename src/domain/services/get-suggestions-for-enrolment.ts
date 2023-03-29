@@ -2,10 +2,7 @@ import { read } from "../../modules/neo4j"
 import { Course } from "../model/course"
 import { appendParams } from "./cypher"
 
-
 type CourseSuggestion = Course & { count: number }
-
-
 
 export async function getSuggestionsForEnrolment(enrolmentId: string): Promise<CourseSuggestion[]> {
     const res = await read(`
