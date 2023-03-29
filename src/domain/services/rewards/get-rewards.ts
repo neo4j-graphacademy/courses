@@ -6,6 +6,7 @@ export const STATUS_CLAIMED = 'claimed'
 export const STATUS_PENDING = 'pending'
 
 export interface Reward {
+    id: string;
     provider: 'printful';
     slug: string;
     type: string;
@@ -28,6 +29,7 @@ export default async function getRewards(user: User): Promise<Reward[]> {
         OPTIONAL MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
         RETURN {
+            id: e.id,
             provider: c.rewardProvider,
             slug: c.slug,
             type: coalesce(c.rewardType, 'tshirt'),

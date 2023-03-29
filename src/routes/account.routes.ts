@@ -511,9 +511,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             body.tax_number
         )
 
-        console.log(recipient);
-
-
         // Place Order
         await createVariantOrder(user, reward, PRINTFUL_STORE_ID as string, recipient, body.variant_id, 1)
 
@@ -523,8 +520,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         res.redirect('/account/rewards')
     }
     catch (e: any) {
-        console.log('errr?', e);
-
         notify(e, event => {
             event.setUser(user.id, user.email, user.name)
             event.addMetadata('request', e.request)
