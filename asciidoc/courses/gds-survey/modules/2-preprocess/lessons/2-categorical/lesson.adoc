@@ -1,0 +1,102 @@
+= Categorical variables
+:type: quiz
+:sandbox: true
+
+[.transcript]
+Graph data science algorithms like KMeans or K-Nearest Neighbors graph construction require numerical inputs and cannot handle strings as input.
+Categorical variables are not inherently numerical, so they need to be converted to a numerical representation.
+The process of converting a categorical variable to a numerical one is also known as encoding.
+
+
+== Encoding categorical variables
+
+We will begin by identifying the categorical variables and their list of distinct values.
+
+[source,cypher]
+----
+MATCH (p:Person)
+UNWIND keys(p) AS key
+WITH p, key
+WHERE toFloat(p[key]) IS NULL
+RETURN key,collect(distinct(p[key])) as unique_values
+----
+
+There are 11 properties that have categorical variables.
+For example, the internet usage has the following options:
+
+* no time at all
+* less than an hour a day
+* few hours a day
+* most of the day
+
+We can represent these answers as a range of values, with lower values indicating less time spent on the internet and higher values denoting more extensive internet usage.
+We will use the same scale as other questions in the survey, ranging from one to five.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WITH p, CASE p['Internet usage'] 
+            WHEN 'no time at all' THEN 1
+            WHEN 'less than an hour a day' THEN 2
+            WHEN 'few hours a day' THEN 4
+            WHEN 'most of the day' THEN 5
+            // handle missing values
+            ELSE 3
+            END as internet
+SET p.InternetEncoding = internet;
+----
+
+A similar approach can be used to encode the consumption of alcohol.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WITH p, CASE p['Alcohol'] 
+             WHEN 'never' THEN 1
+             WHEN 'social drinker' THEN 3
+             WHEN 'drink a lot' THEN 5
+             // handle missing values
+             ELSE 3 END as alcohol
+SET p.AlcoholEncoding = alcohol;
+----
+
+== One-hot-encoding
+
+A frequent approach to encoding categorical variables is the so-called one-hot-encoding.
+One-hot-encoding is a technique to convert categorical variables into a numerical representation where each category is represented by a unique column, and the presence or absence of a category is denoted by a binary value of 1 or 0.
+Graph data science offers a procedure `gds.alpha.ml.oneHotEncoding` to help us one-hot-encode categorical variables more easily.
+
+For example, we can use one-hot-encoding to encode the education property.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WITH collect(distinct p.Education) AS availableOptions,
+     collect(p) AS nodes
+UNWIND nodes AS node
+RETURN distinct node.Education AS education,
+       gds.alpha.ml.oneHotEncoding(availableOptions, [node.Education]) AS encoding;
+----
+
+Now we will store the one-hot-encoding results as a **EducationEncoding** node property.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WITH collect(distinct p.Education) AS availableOptions,
+     collect(p) AS nodes
+UNWIND nodes AS node
+WITH node,
+     gds.alpha.ml.oneHotEncoding(availableOptions, [node.Education]) AS educationEncoding
+SET node.EducationEncoding = educationEncoding;
+----
+
+== Check your understanding
+include::questions/1-numerical.adoc[leveloffset=+1]
+include::questions/2-onehot.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson you learned how to encode categorical variables.
+
+In the next challenge, you will use the knowledge obtained in this lesson to encode a categorical variable.

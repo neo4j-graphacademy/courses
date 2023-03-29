@@ -1,0 +1,75 @@
+= Dataset import
+:sandbox: true
+:type: quiz
+
+[.transcript]
+The survey dataset is not available as a prepopulated sandbox project.
+Therefore, we first need to import the dataset.
+
+
+== Loading the CSV file
+
+In the first step, we will create a `Person` node for each survey response.
+Each answer will be stored as a separate node property. 
+
+[source,cypher]
+----
+LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/survey/responses.csv" AS row
+CREATE (p:Person)
+SET p += row;
+----
+
+We can validate the import by inspecting some answers.
+
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN p.Age AS age,
+       p.Gender AS gender,
+       p.Assertiveness AS assertiveness
+LIMIT 3;
+----
+
+=== Converting properties to a float type
+
+If we closely examine the results of the previous Cypher statement, we can notice that all properties a string type.
+The `LOAD CSV` clause stores all properties as string by default.
+Since it is not practical to manually convert 139 properties to a float type, we will construct a Cypher statement that will automatically convert all numerical values to a float type.
+
+First, we need to understand how does the `toFloat` function works.
+The `toFloat` tries to convert a value to a float.
+If the value cannot be converted to a float, it returns *Null* as result.
+
+[source,cypher]
+----
+UNWIND ["2", "string", Null] AS element
+RETURN toFloat(element);
+----
+
+Now we need to iterate over all the properties of the nodes and try to convert them to floats where possible.
+Since plain Cypher does not support setting dynamic node properties, we need to use `apoc.create.setProperty` procedure.
+Additionally, we will use a batching transaction as we have to iterate over 150 thousand node properties.
+
+[source,cypher]
+----
+:auto MATCH (p:Person)
+CALL {
+    WITH p
+    UNWIND keys(p) AS key
+    // skip the row if the value cannot be converted to a float
+    WITH p, key WHERE toFloat(p[key]) IS NOT NULL
+    CALL apoc.create.setProperty(
+        p, key, toFloat(p[key])) YIELD node
+    RETURN distinct 'done' AS result
+} IN TRANSACTIONS OF 100 rows
+RETURN distinct result;
+----
+
+== Check your understanding
+include::questions/1-tofloat.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson we covered how to dynamically convert all numerical properties to a float type.
+
+In the next module we will explore the survey dataset.

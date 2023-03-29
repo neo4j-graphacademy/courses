@@ -1,0 +1,108 @@
+= Dimensionality reduction
+:type: quiz
+:sandbox: true
+
+
+[.transcript]
+In the last part of the preprocessing step, we will perform basic dimensionality using the low variance and high correlation filters.
+
+
+== Low variance filter
+
+Low variance filter is a feature selection method that identifies and removes features with low variance, meaning they have little or no variability across the dataset.
+As the variance of the feature is low, they are unlikely to have a significant impact to the analysis.
+
+Cypher query language offers a built-in function to calculate standard deviation, which is the square root of variance.
+
+[source,cypher]
+----
+WITH ["Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS demographicFeatures
+MATCH (p:Person)
+UNWIND keys(p) as key
+WITH p, key
+WHERE NOT key IN demographicFeatures
+      AND toInteger(p[key]) IS NOT NULL
+WITH key, avg(p[key]) AS average, stdev(p[key]) AS standardDeviation
+RETURN key, average, standardDeviation
+ORDER BY standardDeviation ASC
+LIMIT 10;
+----
+
+Unsurprisingly, most respondents like to listen to music, have fun with friends and watch comedies or other movies.
+Additionally, they think their personality traits and dreams are somewhat neutral.
+Due to the low variance, we will eliminate the following features from our further analysis:
+
+* Personality
+* Music
+* Dreams
+* Movies
+* Fun with friends
+* Comedy
+
+== High correlation filter
+
+High correlation filter is a feature selection method that identifies and removes highly correlated features, as they may provide redundant information and can lead to overfitting in some graph data science workflows.
+This filter helps to improve the performance and interpretability of the model by reducing multicollinearity and simplifying the feature space.
+
+The following Cypher statement identifies the ten most correlated pairs of features.
+As it needs to compare all pairs of features, it takes a little bit less than a minute to complete.
+
+[source,cypher]
+----
+WITH ["Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS demographicFeatures
+MATCH (sp:Person)
+WITH [x in keys(sp) WHERE NOT x IN demographicFeatures
+                         AND toInteger(sp[x]) IS NOT NULL | x] AS allKeys
+LIMIT 1
+MATCH (p:Person)
+UNWIND allKeys as key1
+UNWIND allKeys as key2
+WITH p,key1,key2
+WHERE key1 > key2
+WITH key1, key2,
+     collect(p[key1]) as vector1,
+     collect(p[key2]) as vector2
+RETURN key1,key2,
+      gds.similarity.pearson(vector1, vector2) as pearsonCorrelation
+ORDER BY pearsonCorrelation DESC
+LIMIT 10
+----
+
+It seems that interest in medicine highly correlates with interest in biology and chemistry.
+On the other hand, people who express interest in mathematics have also an interest in physics.
+
+We will exclude the following features from further analysis due to high correlation:
+
+* Medicine
+* Chemistry
+* Shopping centres
+* Physics
+* Opera
+* Animated
+* Theatre
+
+As the last part of this lesson, we will construct a vector representation of all the respondents that will be used to group them.
+
+
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", "Comedy", "Medicine", "Chemisty", "Shopping centres", "Physics", "Opera", "Animated", "Theatre", "Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS excludedProperties
+MATCH (sp:Person)
+WITH [x in keys(sp) WHERE NOT x IN excludedProperties AND toInteger(sp[x]) IS NOT NULL| x] AS allKeys
+LIMIT 1
+MATCH (p:Person)
+UNWIND allKeys as key
+WITH p, collect(p[key]) AS vector
+SET p.vector = vector + p.EducationEncoding;
+----
+
+We needed to add the **EducationEncoding** separately as it is different from other features due to the fact it is not a single numerical value, but a list of values.
+
+== Check your understanding
+include::questions/1-lowvariance.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson you learned how to exclude features based on low variance and high correlation filters.
+
+In the next challenge, you will identify segments of respondents using the KMeans algorithm.

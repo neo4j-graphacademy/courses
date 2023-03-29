@@ -1,0 +1,84 @@
+= Exploratory analysis
+:type: quiz
+:sandbox: true
+
+[.transcript]
+We will perform exploratory analysis as the first step of the analysis to get to know the dataset better.
+
+== Survey demographics
+
+We will begin by examining the population information.
+First, we will take a look at the age distribution.
+The APOC plugin offers a `apoc.agg.statistics` function that allows us to easily evaluate a distribution.
+
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN apoc.agg.statistics(p.Age);
+----
+
+Both the average and the median age of respondents is 20.
+It looks like the vast majority of the population is between 18 to 22 years old.
+
+Next, we will evaluate the gender distribution.
+
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN p.Gender AS gender,
+       count(*) AS count;
+----
+
+There are roughly 60% of females and 40% of males.
+We can also observe six missing values of the gender information.
+
+== Most popular preferences
+
+We can now start to examine the survey responses.
+We will begin by examining which interests or preferences the respondents most strongly agree with.
+
+[source,cypher]
+----
+WITH ["Height", "Weight", "Age", "Number of siblings"] AS demographicFeatures
+MATCH (p:Person)
+UNWIND keys(p) as key
+WITH p, key
+WHERE toInteger(p[key]) IS NOT NULL 
+  AND NOT key IN demographicFeatures
+WITH key, avg(p[key]) AS average
+RETURN key, average
+ORDER BY average DESC
+LIMIT 5;
+----
+
+Nothing surprising here.
+Most young people like to listen to music, watch movies, and have fun with friends.
+
+Next, we will evaluate which answers correlate with the *age* of the respondents.
+We can use the `gds.similarity.pearson` function to calculate the Pearson correlation coefficient between two vectors.
+
+[source,cypher]
+----
+MATCH (p:Person)
+UNWIND [x in keys(p) WHERE toInteger(p[x]) IS NOT NULL 
+            AND x <> "Age" | x] AS key1
+WITH p,key1,"Age" AS key2
+WITH key1, key2, collect(coalesce(p[key1], 3)) as vector1,
+                 collect(coalesce(p[key2], 3)) as vector2
+RETURN key1,key2, gds.similarity.pearson(vector1, vector2) as pearsonCorrelation
+ORDER BY pearsonCorrelation DESC
+LIMIT 5;
+----
+
+The most correlated attribute with age is weight, followed by elections, thrillers, and prioritizing workload.
+
+== Check your understanding
+include::questions/1-statistics.adoc[leveloffset=+1]
+
+include::questions/2-pearson.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson we covered high-level overview of advantages of using a graph database to solve the shortest path problem.
+
+In the next module we will cover how to find shortest paths using the Cypher query language.
