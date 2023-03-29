@@ -23,7 +23,7 @@ export default function initSandboxListeners(): Promise<void> {
         }
     }
 
-    emitter.on<UserCompletedCourse>(UserCompletedCourse, stopSandboxHandler)
+    // emitter.on<UserCompletedCourse>(UserCompletedCourse, stopSandboxHandler)
     emitter.on<UserUnenrolled>(UserUnenrolled, stopSandboxHandler)
 
     return Promise.resolve()
