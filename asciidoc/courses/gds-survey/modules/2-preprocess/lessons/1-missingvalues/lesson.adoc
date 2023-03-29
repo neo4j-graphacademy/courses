@@ -1,0 +1,57 @@
+= Missing values
+:type: quiz
+:sandbox: true
+
+[.transcript]
+Most real-world datasets have missing values.
+Therefore, we should evaluate the ratio of missing values and potentially impute them if necessary.
+
+== Find missing values
+
+As a first step, we need to calculate the ratio of missing values per property.
+The following Cypher statement returns the top five node properties with the highest ratio of missing values.
+
+[source,cypher]
+----
+MATCH (p:Person)
+WITH collect(p) AS personList, count(*) AS totalCount
+UNWIND personList AS person
+UNWIND keys(person) AS key
+WITH key, totalCount, count(person[key]) AS nonNull
+RETURN key,
+  (totalCount - nonNull) / toFloat(totalCount) AS missingValuesRatio
+ORDER BY missingValuesRatio DESC
+LIMIT 5;
+----
+
+It looks like there aren't many missing values in the dataset.
+For example, the height, weight, and passive sports properties are missing around 2 percent of values, while others are missing less than 1 percent.
+Therefore, we won't spend too much time worrying about missing values.
+As a simple solution, we will fill in the missing values with the average values of the population.
+We will ignore categorical variables as we are using the averages to fill in missing values.
+
+Again, we need to use the `apoc.create.setProperty` procedure to dynamically set node properties.
+
+[source,cypher]
+----
+MATCH (p:Person)
+UNWIND keys(p) AS key
+WITH p, key
+// filter only numerical values
+WHERE toFloat(p[key]) IS NOT NULL
+// calculate average
+WITH key, avg(p[key]) AS averageValue
+MATCH (p1:Person) WHERE p1[key] IS NULL
+// Fill in missing values
+CALL apoc.create.setProperty(p1, key, averageValue)
+YIELD node
+RETURN distinct 'done'
+----
+
+
+If there is no quiz, the summary is not rendered
+[.summary]
+== Summary
+In this lesson you learned how to calculate the ratio of missing values and impute them using the average of the population.
+
+In the next challenge, you will learn how to encode categorical variables.

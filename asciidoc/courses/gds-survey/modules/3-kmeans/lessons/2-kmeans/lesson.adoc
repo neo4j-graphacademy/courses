@@ -1,0 +1,133 @@
+= Executing KMeans algorithm
+:type: quiz
+:sandbox: true
+
+
+[.transcript]
+The K parameter is a crucial hyperparameter in KMeans, as it determines the number of clusters that the algorithm will partition the data into. Choosing an appropriate K value is important for achieving accurate and meaningful clustering results.
+An insufficient number of clusters may lead to underfitting, where data points with significant differences may be grouped together, while an excessive number of clusters may lead to overfitting, where data points may be split into clusters with little distinction.
+
+////
+Optimization when new GDS version is released
+UNWIND range(10,30) AS k
+CALL gds.beta.kmeans.stats('survey',
+  {k:k, nodeProperty:'vector', computeSilhouette: True})
+YIELD averageDistanceToCentroid, averageSilhouette
+RETURN k, averageDistanceToCentroid, averageSilhouette;
+////
+
+== KMeans algorithm
+
+In this example, we will use the **k** value of 14 and write the results of the algorithm back to the database.
+
+[source,cypher]
+----
+CALL gds.beta.kmeans.write('survey',
+  {k:14, 
+   nodeProperty:'scaledVector',
+   writeProperty: 'kmeansCommunity'});
+----
+
+Note that the KMeans algorithm is non-deterministic, meaning that we can get slightly different results after each algorithm execution.
+Now we will evaluate the results of the KMeans algorithm by examining the average top and bottom three features per community.
+Additionally, we will inspect the gender ratio for the communities.
+
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", 
+      "Comedy", "Medicine", "Chemisty", "Shopping centres", "Physics", "Opera",
+      "Animated", "Height", "Weight", "Age", "Number of siblings", "vector", "kmeansCommunity", "EducationEncoding"] AS excludedProperties
+MATCH (p:Person)
+WITH [x in keys(p) WHERE 
+                   toInteger(p[x]) IS NOT NULL AND 
+                   NOT x IN excludedProperties | x] AS allKeys
+LIMIT 1
+MATCH (p1:Person)
+UNWIND allKeys as key
+WITH p1.kmeansCommunity as community,
+     count(*) as size,
+     SUM(CASE WHEN p1.Gender = 'male' THEN 1 ELSE 0 END) as males,
+     key,
+     avg(p1[key]) as average,
+     stdev(p1[key]) as std
+ORDER BY average DESC
+WITH community,
+     size,
+     toFloat(males) / size as male_percentage,
+     collect(key) as all_avg
+ORDER BY size DESC limit 5
+RETURN community,size,male_percentage,
+       all_avg[..3] as top_3,
+       all_avg[-3..] as bottom_3
+----
+
+Interestingly, the identified communities are heavily split by gender.
+For example, the largest community with 93% of females likes fairy tales, being romantic and compassionate to animals and dislike westerns and country music.
+On the other hand, the most dominant male community like being on the internet, cheating in school, and dislikes gardening and storms.
+
+You might get different results due to non-deterministic nature of the KMeans algorithm.
+Try to rerun the algorithm a couple of times and evaluate the results after each execution.
+
+== KMeans++ algorithm
+
+KMeans{plus}{plus} is a variant of the KMeans algorithm that aims to improve the quality of the clustering results and the convergence speed compared to the standard KMeans algorithm.
+The main difference between KMeans{plus}{plus} and KMeans is the way that the initial centroids are chosen.
+In KMeans, the initial centroids are randomly chosen from the data points, which can lead to suboptimal clustering results and slow convergence.
+In contrast, KMeans{plus}{plus} uses a more sophisticated initialization method that selects the initial centroids in a way that they are far apart from each other, thus improving the quality of the initial centroids and reducing the chances of getting stuck in local optima during the clustering process.
+
+The KMeans{plusplus} initialization method consists of two steps.
+First, a single centroid is randomly chosen from the data points.
+Then, the remaining k-1 centroids are picked one-by-one based on weighted random sampling.
+That is, the probability a node is chosen as the next centroid is proportional to its minimum distance from the already picked centroids.
+Nodes with larger distance hence have higher chance to be picked as a centroid.
+This sampling strategy tries to spread the initial clusters more evenly so as to obtain a better final clustering.
+This option can be enabled by choosing ***kmeans++** as the initial sampler in the configuration.
+
+[source,cypher]
+----
+CALL gds.beta.kmeans.write('survey',
+  {k:14, nodeProperty:'scaledVector',
+   writeProperty: 'kmeansplusCommunity', initialSampler:'kmeans++'});
+----
+
+We can again evaluate the resulting communities using the following Cypher statement.
+
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", "Comedy", "Medicine", "Chemisty", "Shopping centres", "Physics", "Opera", "Animated", "Height", "Weight", "Age", "Number of siblings", "vector", "kmeansCommunity", "EducationEncoding", "kmeansplusCommunity"] AS excludedProperties
+MATCH (p:Person)
+WITH [x in keys(p) WHERE toInteger(p[x]) IS NOT NULL AND NOT x IN excludedProperties | x] AS allKeys
+LIMIT 1
+MATCH (p1:Person)
+UNWIND allKeys as key
+WITH p1.kmeansplusCommunity as community,
+     count(*) as size,
+     SUM(CASE WHEN p1.Gender = 'male' THEN 1 ELSE 0 END) as males,
+     key,
+     avg(p1[key]) as average,
+     stdev(p1[key]) as std
+ORDER BY average DESC
+WITH community,
+     size,
+     toFloat(males) / size as male_percentage,
+     collect(key) as all_avg
+ORDER BY size DESC limit 5
+RETURN community,size,male_percentage,
+       all_avg[..3] as top_3,
+       all_avg[-3..] as bottom_3
+----
+
+
+== Check your understanding
+
+
+include::questions/1-deterministic.adoc[leveloffset=+1]
+
+include::questions/2-kmeans.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned how to execute KMeans algorithm and evaluate its results.
+
+In the next challenge, you will use kNN in combination with Leiden algorithm to segment users.

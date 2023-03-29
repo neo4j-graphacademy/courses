@@ -1,0 +1,75 @@
+= Leiden algorithm
+:type: quiz
+
+[.transcript]
+The Leiden algorithm is a community detection algorithm used for identifying communities or groups within a graph.
+It was developed as an improvement over the Louvain algorithm, which is another popular community detection algorithm used in network analysis.
+It modifies the Louvain algorithm to address some of its shortcomings, namely the case where some of the communities found by Louvain are not well-connected. This is achieved by periodically randomly breaking down communities into smaller well-connected ones.
+Overall, the Leiden algorithm has been shown to be more accurate and robust than the Louvain algorithm, especially when dealing with large and complex networks.
+
+The Leiden implementation in Graph Data Science library works on only undirected graph.
+Luckily, there exists a `gds.beta.graph.relationships.toUndirected` procedure that can easily transform directed relationships in to undirected ones.
+
+[source,cypher]
+----
+CALL gds.beta.graph.relationships.toUndirected(
+  'survey',                                          
+  {relationshipType: 'SIMILAR', 
+   mutateRelationshipType: 'UNDIRECTED_SIMILAR'}  
+)
+YIELD inputRelationships, relationshipsWritten
+----
+
+Now that we have mutated the similar relationships as undirected, we can go ahead and execute the Leiden algorithm.
+In this example, we will write the results of the algorithm back as the **leidenCommunity** property.
+
+
+[source,cypher]
+----
+CALL gds.beta.leiden.write('survey', 
+  {relationshipTypes:['UNDIRECTED_SIMILAR'], writeProperty:'leidenCommunity'});
+----
+
+The Leiden algorithm is not deterministic because it uses a randomized approach to group nodes into communities.
+The algorithm randomly selects nodes to optimize the modularity score, which can result in different community structures for different runs.
+Therefore, you might get different results and different number of communities on each execution.
+
+As a final step, we can evaluate the segments of users that the Leiden algorithm identified.
+
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", "Comedy", "Medicine", "Chemisty", "Shopping centres", "Physics", "Opera", "Animated", "Height", "Weight", "Age", "Number of siblings", "vector", "kmeansCommunity", "leidenCommunity", "EducationEncoding"] AS excludedProperties
+MATCH (p:Person)
+WITH [x in keys(p) WHERE toInteger(p[x]) IS NOT NULL AND NOT x IN excludedProperties | x] AS allKeys
+LIMIT 1
+MATCH (p1:Person)
+UNWIND allKeys as key
+WITH p1.leidenCommunity as community,
+     count(*) as size,
+     SUM(CASE WHEN p1.Gender = 'male' THEN 1 ELSE 0 END) as males,
+     key,
+     avg(p1[key]) as average,
+     stdev(p1[key]) as std
+ORDER BY average DESC
+WITH community,
+     size,
+     toFloat(males) / size as male_percentage,
+     collect(key) as all_avg
+ORDER BY size DESC limit 5
+RETURN community,size,male_percentage,
+       all_avg[..3] as top_3,
+       all_avg[-3..] as bottom_3;
+----
+
+
+== Check your understanding
+
+
+include::questions/1-deterministic.adoc[leveloffset=+1]
+
+include::questions/2-undirected.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned how to examine a community structure using the Leiden algorithm.
