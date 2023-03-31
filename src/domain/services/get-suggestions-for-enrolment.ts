@@ -10,7 +10,7 @@ export async function getSuggestionsForEnrolment(enrolmentId: string): Promise<C
         WITH u, e, c, [ (u)-[:HAS_ENROLMENT]->()-[:FOR_COURSE]->(x) | x ] AS courses
         MATCH (c)<-[:FOR_COURSE]-()<-[:HAS_ENROLMENT]-(u2)-[:HAS_ENROLMENT]->(:CompletedEnrolment)-[:FOR_COURSE]->(c2)
         WHERE NOT c2 IN courses AND not c2:Certification  AND c2.language = c.language AND c2.status = c.status
-        RETURN c { .*, count: count(*) } AS course
+        RETURN c2 { .*, count: count(*) } AS course
         ORDER BY course.count DESC
     `, appendParams({ enrolmentId }))
 

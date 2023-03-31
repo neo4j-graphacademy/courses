@@ -38,6 +38,8 @@ import { courseOgBannerImage } from './route.utils'
 import { getQuiz } from '../domain/services/quiz/get-quiz'
 import { saveQuizResults } from '../domain/services/quiz/save-quiz-results'
 import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback'
+import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
+import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-course'
 
 const router = Router()
 
@@ -96,6 +98,9 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
 
         const doc = await convertCourseOverview(course.slug)
 
+        // Recommendations
+        const recommendations = await getSuggestionsForCourse(user?.id, course.slug, 3)
+
         // Add Breadcrumb
         res.locals.breadcrumbs.push({
             link: course.link,
@@ -125,6 +130,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
             ogDescription: course.caption,
             ogTitle: `Take the ${course.title} course with Neo4j GraphAcademy`,
             ogImage: courseOgBannerImage(course.slug),
+            recommendations,
 
             doc,
             summary: course.completed && courseSummaryExists(req.params.course),
@@ -339,11 +345,13 @@ router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
         }
 
         const doc = await convertCourseSummary(course.slug)
+        const recommendations = await getSuggestionsForEnrolment(course.enrolmentId)
 
         res.render('course/summary', {
             classes: `course-summary ${course.slug}`,
             title: 'Course Summary',
             course,
+            recommendations,
             doc,
             translate: translate(course.language),
         })
