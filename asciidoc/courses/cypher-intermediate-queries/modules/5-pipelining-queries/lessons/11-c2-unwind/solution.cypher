@@ -1,6 +1,7 @@
 MATCH (m:Movie)
 UNWIND m.countries AS country
-WITH m, trim(country) AS trimmedCountry
-// this automatically, makes the trimmedCountry distinct because it's a grouping key
-WITH trimmedCountry, collect(m.title) AS movies
-RETURN trimmedCountry, size(movies)
+WITH m, country
+// this automatically, makes the country distinct because it's a grouping key
+WITH country, collect(m.title) AS movies
+WHERE country = 'Taiwan'
+RETURN country, size(movies)
