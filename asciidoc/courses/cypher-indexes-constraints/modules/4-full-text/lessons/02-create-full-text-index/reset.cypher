@@ -18,5 +18,5 @@ CREATE TEXT INDEX Person_name_text IF NOT EXISTS FOR (x:Person) ON (x.name);
 CREATE  INDEX RATED_ratingY IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY);
 CREATE  TEXT INDEX RATED_ratingY_text IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY)
 // reco db  change impact
-// add ; to previous statement
+// add ; to previous statement when the point index lesson added
 // add this:  CREATE POINT INDEX Person_bornLocation_point IF NOT EXISTS FOR (x:Person) ON (x.bornLocation)
