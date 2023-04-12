@@ -1,0 +1,123 @@
+= Creating POINT Indexes
+:type: quiz
+:sandbox: true
+
+////
+[.video]
+video::Y9YrGJMJf1A[youtube,width=560,height=315]
+
+//https://youtu.be/Y9YrGJMJf1A
+
+need a new video
+////
+
+
+[.transcript]
+
+////
+IMPORTANT to do after the reco db changes are merged
+Need to change the next description in this Challenge
+ asciidoc/courses/cypher-indexes-constraints/modules/3-indexes/lessons/08-c-create-text-index/lesson.adoc
+ to point to this lesson.
+////
+
+== POINT Indexes in Neo4j
+
+A POINT index is designed for single properties of nodes or relationships that are of type point.
+It is used to look up a value where the lookup is done with a value in the same spatial coordinate system.
+
+=== Syntax for creating a POINT index for node property
+
+Here is the syntax for creating a POINT index for a single property of a node:
+
+[source,cypher,role=nocopy noplay]
+----
+CREATE POINT INDEX <index_name> IF NOT EXISTS
+FOR (x:<node_label>)
+ON x.<property_key>
+----
+
+You specify the name of the index, the node label it will be associated with, and the name of the property.
+
+* If an index already exists in the graph with the same name, no index is created.
+* If an index does not exist in the graph with the same name:
+** No index is created if there already is a POINT index for that node label and property key.
+** Otherwise, the POINT index is created.
+
+[NOTE]
+For the point property used to create the index, all properties must use the same spatial coordinate system.
+
+=== Creating and using the POINT index
+
+Here is a query where we want to return all people who were born in the same location as Diane Keaton.
+Execute this query:
+
+[source,cypher]
+----
+PROFILE MATCH (p:Person)
+WHERE p.name CONTAINS 'Diane Keaton'
+WITH p.bornLocation as loc
+MATCH (p2:Person)
+WHERE p2.bornLocation = loc
+RETURN p2.name, p2.bornIn, p2.bornLocation
+----
+
+Your graph should already have a RANGE index on the name property of Person nodes that it uses for this query.
+By default, the graph engine can only use a single index for a query.
+If we want to find all people who where born in the same location as Diane Keaton, we should execute a separate query with the bornLocation value returned.
+
+Execute this query that provides the bornLocation value for Diane Keaton:
+
+[source,cypher]
+----
+PROFILE MATCH (p:Person)
+WHERE p.bornLocation = point({srid:4326, x:-118.4166991, y:34.2013928})
+RETURN p.name, p.bornIn, p.bornLocation
+----
+
+Notice that this query requires 51621 db hits.
+
+We want to improve the performance of this query. We add a POINT index to the bornLocation property of Person nodes.
+Execute this code to create the index:
+
+[source,cypher]
+----
+CREATE POINT INDEX Person_bornLocation_point IF NOT EXISTS
+FOR (x:Person)
+ON (x.bornLocation)
+----
+
+You can list the indexes to see that there is indeed a POINT index on the Person.bornLocation node property.
+
+Now execute the query again:
+
+[source,cypher]
+----
+PROFILE MATCH (p:Person)
+WHERE p.bornLocation = point({srid:4326, x:-118.4166991, y:34.2013928})
+RETURN p.name, p.bornIn, p.bornLocation
+----
+
+With the index, the number of db hits is reduced to 1493.
+
+Here is another example where the POINT index is used to determine the number of people that were born in a location less than 50000 meters from Los Angeles.
+Here we use the spatial `distance()` function.
+Execute this query:
+
+[source,cypher]
+----
+PROFILE MATCH (p:Person)
+WHERE point.distance(p.bornLocation,point({srid:4326, x:-118.4166991, y:34.2013928})) < 50000
+RETURN p.name, p.bornIn, p.bornLocation
+----
+
+== Check your understanding
+
+include::questions/1-complete-query.adoc[leveloffset=+1]
+include::questions/2-select-answer.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to create a POINT index for a property.
+In the next Module, you will learn about creating full-text indexes.
