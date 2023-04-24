@@ -31,6 +31,7 @@ export default function hardenExpress(app: Express) {
                         "'self'",
                         "data:",
                         'neo4j.com',
+                        'dist.neo4j.com',
                         'www.googletagmanager.com',
                         'cdn.graphacademy.neo4j.com',
                         'raw.githubusercontent.com',
