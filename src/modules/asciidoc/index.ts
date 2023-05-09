@@ -119,7 +119,7 @@ export function getLessonOverview(course: string, module: string, lesson: string
     const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
     if (!fileExists(file)) {
-        throw new NotFoundError(`Module ${lesson} could not be found in ${course}/${module}`)
+        throw new NotFoundError(`Lesson ${lesson} could not be found in ${course}/${module}`)
     }
 
     return Promise.resolve(loadFile(file, { attributes }))

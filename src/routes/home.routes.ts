@@ -82,9 +82,10 @@ router.get('/', async (req, res, next) => {
 router.get('/sitemap.txt', async (req, res, next) => {
     try {
         const result = await read(`
-            MATCH (c:Course)
+            MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
             WHERE NOT c.status IN $negative + ['redirect']
-            RETURN '/courses/'+ c.slug AS link
+            UNWIND [ c.link, m.link, l.link  ] AS link
+            RETURN distinct link
             UNION ALL MATCH (c:Category) RETURN '/categories/'+ c.slug AS link
         `, { negative: NEGATIVE_STATUSES })
 

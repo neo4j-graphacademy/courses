@@ -40,6 +40,7 @@ import { saveQuizResults } from '../domain/services/quiz/save-quiz-results'
 import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-course'
+import indexable from '../middleware/seo/indexable.middleware'
 
 const router = Router()
 
@@ -331,7 +332,7 @@ router.get('/:course/continue', requiresAuth(), async (req, res, next) => {
  *
  * If it exists, show the contents of summary.adoc
  */
-router.get('/:course/summary', requiresAuth(), async (req, res, next) => {
+router.get('/:course/summary', indexable, requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req)
 
@@ -658,7 +659,7 @@ router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/
  * If none of the routes matched above, this URL must be a module page.
  * Render courseindex.adoc in the course root
  */
-router.get('/:course/:module', requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, next) => {
+router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, next) => {
     try {
         const user = await getUser(req)
         const course = await getCourseWithProgress(req.params.course, user)
@@ -766,7 +767,7 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', requiresAuth(), /*requiresVerification,*/ classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVerification,*/ classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
