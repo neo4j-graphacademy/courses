@@ -36,6 +36,7 @@ export default function hardenExpress(app: Express) {
                         'cdn.graphacademy.neo4j.com',
                         'raw.githubusercontent.com',
                         'i.ytimg.com',
+                        'files.cdn.printful.com',
                     ],
                     frameSrc: [
                         "'self'",
