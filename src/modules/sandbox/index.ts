@@ -81,9 +81,6 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
             }
         )
 
-        console.log('got running instances', res.data);
-
-
         return res.data.map((row: Sandbox) => ({
             ...row,
             scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
@@ -174,7 +171,7 @@ export async function getSandboxForUseCase(token: string, user: User, usecase: s
     return sandboxes.find(sandbox => sandbox.usecase === usecase)
 }
 
-export async function createSandbox(token: string, user: User, usecase: string, retry = false): Promise<Sandbox> {
+export async function createSandbox(token: string, user: User, usecase: string, isRetry = false): Promise<Sandbox> {
     // Prefer existing to avoid 400 errors
     const existing = await getSandboxForUseCase(token, user, usecase)
 
@@ -207,8 +204,17 @@ export async function createSandbox(token: string, user: User, usecase: string, 
                 return existing as Sandbox
             }
             // Sandbox Unauthorized (401) on SandboxRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
-            else if (response.status === 401 && retry === false) {
+            else if (response.status === 401 && isRetry === false) {
                 await createGraphAcademyUser(token, user)
+
+                return createSandbox(token, user, usecase, true)
+            }
+            // Sandbox Uncategorised Error (503) on SandboxRunInstance: Request failed with status code 503 ({"message":"Service Unavailable"})
+            else if (response.status === 503 && isRetry === false) {
+                handleSandboxError(token, user, 'SandboxRunInstance', e)
+
+                // Retry after a second
+                await sleep(1000)
 
                 return createSandbox(token, user, usecase, true)
             }
@@ -218,8 +224,8 @@ export async function createSandbox(token: string, user: User, usecase: string, 
     }
 }
 
-function sleep(): Promise<void> {
-    return new Promise(resolve => setTimeout(() => resolve(), 500))
+function sleep(timeout = 500): Promise<void> {
+    return new Promise(resolve => setTimeout(() => resolve(), timeout))
 }
 
 export async function stopSandbox(token: string, user: User, sandboxHashKey: string): Promise<Sandbox> {
