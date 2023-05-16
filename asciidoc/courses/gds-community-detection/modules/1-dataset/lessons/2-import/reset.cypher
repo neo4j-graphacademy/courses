@@ -1,0 +1,5 @@
+MATCH (p:Person)
+CALL {
+  WITH p
+  DETACH DELETE p
+  } IN TRANSACTIONS OF 1000 rows
