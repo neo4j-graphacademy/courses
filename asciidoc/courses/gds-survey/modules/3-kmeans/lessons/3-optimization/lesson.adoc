@@ -1,0 +1,69 @@
+= Optimizing KMeans algorithm
+:type: quiz
+:sandbox: true
+
+
+[.transcript]
+As mentioned in the previous module, the K parameter is a crucial hyperparameter in KMeans, as it determines the number of clusters or communities the algorithm will partition the data into.
+Therefore, choosing an appropriate K value is vital for achieving accurate and meaningful clustering results.
+The Graph Data Science library offers two metrics that can be used to optimize the value of the **k** parameter:
+
+* Average distance to centroid
+* Silhouette score
+
+The average distance to the centroid is calculated by computing the distance between each data point and the centroid of the cluster it belongs to and then averaging them.
+When you want to optimize the value of the **k** parameter, the assumption is that the lower the average distance value, the better the clustering results.
+The second metric we can use for optimizing the **k** value is the silhouette score.
+It is a measure of how similar a data point is to its own cluster compared to other clusters.
+The silhouette value ranges from -1 to +1, where a high value indicates that the data point is well matched to its own cluster and poorly matched to neighboring clusters.
+If most data points have a high silhouette value, then the clustering configuration is appropriate. 
+Conversely, if many data points have a low or negative silhouette value, then the clustering configuration may have too many or too few clusters.
+
+== Optimizing the k value
+
+In this example, you will calculate the average distance to centroids and silhouette scores for **k** values from 5 to 20.
+You will use the *stats* mode of the algorithm as you are only interested in the optimization metrics and not the actual community results.
+
+[source,cypher]
+----
+UNWIND range(5,20) AS k
+CALL gds.beta.kmeans.stats('survey',
+  {k:k, nodeProperty:'vector', computeSilhouette: True})
+YIELD averageDistanceToCentroid, averageSilhouette
+RETURN k, averageDistanceToCentroid, averageSilhouette
+ORDER BY averageSilhouette DESC LIMIT 3;
+----
+
+Note that the KMeans algorithm is non-deterministic, meaning that you can get slightly different results after each algorithm execution.
+You can run this Cypher query a few times, and you will notice that the recommended **k** value based on the silhouette is usually between 5 and 7.
+
+== Number of restarts
+
+You have evaluated that the best value of **k** parameter is 5.
+The Graph Data Science implementation also offers the `numberOfRestarts` parameter, which defines the number of times to execute K-Means with different initial centers.
+After each algorithm execution, the average node-center distances are calculated.
+The algorithm then returns the results of the iteration in which the average node-center distance was lowest.
+
+In this example, you will use the `numberOfRestarts` value 5.
+
+[source,cypher]
+----
+CALL gds.beta.kmeans.write('survey',
+  {k:5, nodeProperty:'vector', 
+   numberOfRestarts: 5,
+   writeProperty:'kmeans5'})
+----
+
+
+== Check your understanding
+
+
+include::questions/1-metrics.adoc[leveloffset=+1]
+include::questions/2-restarts.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned how to find the optimal value of the **k** parameter.
+
+In the next challenge, you will use kNN in combination with Leiden algorithm to segment users.
