@@ -1,0 +1,104 @@
+= kNN algorithm
+:type: quiz
+
+[.transcript]
+Nearest neighbor graphs are graph representation of data points, where each data point is represented as a node in the graph, and relationships are added between nodes that are close to each other in some metric space.
+Frequently cosine similarity is used to evaluate the similarity between two data points.
+If the cosine similarity is above a certain arbitrary threshold, a relationship is created between the pair of nodes.
+Additionally, we can also limit the number of relationships that is created from each node.
+In the kNN algorithm, a relationship is created between the **k** closest neighbors of each node.
+
+The kNN algorithm in Graph Data Science is used to create relationships between nodes based on their numerical representation.
+The algorithm is not to be confused with the kNN classification model, where the k nearest neighbors of a data point are used to predict its class label.
+However, if we wanted, we could first use kNN algorithm in Graph Data Science library to create relationships between nearest neighbors and then use Cypher query language to classify new data points based on their nearest neighbors classes.
+
+The kNN algorithm in Graph Data Science supports the following distance metric:
+
+* Cosine similarity
+* Euclidean similarity
+* Pearson correlation coefficient
+
+
+While both Pearson correlation coefficient and cosine similarity are measures of similarity, there are some reasons why Pearson may be preferred over cosine when creating a nearest neighbor graph on a dataset of survey responses.
+
+Firstly, Pearson correlation coefficient takes into account the centering and scaling of the data, while cosine similarity does not. This is important because in a survey dataset, responses may vary in their scale and measurement, and centering and scaling the data can help to standardize the responses and account for differences in response scales.
+
+Secondly, Pearson correlation coefficient is sensitive to both linear and non-linear relationships between variables, while cosine similarity is only sensitive to the angle between two vectors. This means that Pearson correlation coefficient can capture more complex patterns of similarity between survey responses that may not be captured by cosine similarity.
+
+Overall, while both Pearson correlation coefficient and cosine similarity can be used to create a nearest neighbor graph on a dataset of survey responses, Pearson may be preferred due to its ability to handle the centering and scaling of the data, sensitivity to both linear and non-linear relationships.
+
+== Constructing the nearest neighbor graph
+
+We have to start by projecting the in-memory graph.
+
+[source,cypher]
+----
+CALL gds.graph.project(
+  'survey',
+  'Person',
+  '*',
+  {nodeProperties:['vector']}
+);
+----
+
+The similarity cutoff and k values are crucial parameters for constructing a nearest neighbor graph that accurately represents the similarity structure of the data points.
+The similarity cutoff parameter determines the similarity threshold between two nodes for a relationship to be created between them.
+If the similarity between two nodes is lower than the similarity cutoff, no relationship will be created between them.
+Setting a high similarity cutoff will result in a sparse graph with fewer relationship, while setting a low similarity cutoff will result in a dense graph with more relationships.
+
+The k value, on the other hand, determines the number of nearest neighbors used to construct the nearest neighbor graph.
+For each node in the graph, the k closest neighbors are connected by a relationship.
+Choosing a larger k value will result in a denser graph with more relationships, while a smaller k value will result in a sparser graph with fewer relationships.
+
+The optimal values for the similarity cutoff and k depend on the specific characteristics of the data and the problem being addressed.
+For example, in a segmentation problem, a higher similarity cutoff may be preferred to group together nodes that are more similar.
+Similarly, the optimal k value may vary depending on the complexity of the data, its underyling similarity, and the given task.
+
+We can evaluate the density of the inferred nearest neighbor graph before we create it.
+
+[source,cypher]
+----
+CALL gds.knn.stats(
+  'survey',
+  {nodeProperties: {
+    vector: "PEARSON"
+  },
+  topK: 10,
+  similarityCutoff: 0.3
+})
+YIELD similarityDistribution, nodesCompared, similarityPairs;
+----
+
+Using the **topK** value of 10 and **similarityCutoff** parameter of 0.3, we would infer a similarity network with 1010 nodes and 10100 relationships.
+Therefore, each node would be connected to 10 of its most nearest neighbor as defined with the **topK** parameter.
+
+In this example, we will use the **topK** value of 5.
+
+[source,cypher]
+----
+CALL gds.knn.mutate(
+  'survey',
+  {
+    nodeProperties: {vector: "PEARSON"},
+    mutateRelationshipType: "SIMILAR",
+    mutateProperty:"score",
+    topK:5
+  }
+)
+YIELD similarityDistribution;
+----
+
+
+== Check your understanding
+
+
+include::questions/1-metrics.adoc[leveloffset=+1]
+
+include::questions/2-multiple-paths.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned how to find the shortest weighted paths using the two of the Path Finding procedures included in the Neo4j Graph Data Science library.
+
+In the next challenge, you will use Dijkstra's shortest path algorithm to find the shortest weighted path between other nodes.

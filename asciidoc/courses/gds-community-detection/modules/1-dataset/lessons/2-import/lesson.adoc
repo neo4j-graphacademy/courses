@@ -1,0 +1,159 @@
+= Data Import
+:sandbox: true
+:type: challenge
+:order: 2
+
+[.transcript]
+In this hands-on challenge, we'll be using the link:https://neo4j.com/docs/cypher-manual/current/clauses/load-csv/[`LOAD CSV`^] command to import our dataset into your Neo4j Sandbox instance.
+
+
+== Load and Preview the CSV Data
+
+You can load and preview the data in the CSV file without creating any data using the `LOAD CSV` command by passing a `LIMIT`.
+
+.Previewing the CSV
+[source,cypher]
+----
+LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/survey/responses.csv" AS row
+RETURN row
+LIMIT 5;
+----
+
+Running this query will help you to understand the values for the first five rows. After that, you should see numerical values representing the participant's preferences, such as `Happiness in life` and `Metal or Hardrock`, and categorical data, such as `Left - right handed` and `Education`.
+
+You should see the following output in the first row.
+
+.The First Row
+[source,cypher,role=noplay]
+----
+{
+  "Storm": "1",
+  "Metal or Hardrock": "1",
+  "Psychology": "5",
+  "Folk": "1",
+  "Public speaking": "5",
+  "Gender": "female",
+  "History": "1",
+  "Unpopularity": "5",
+  "Reggae, Ska": "1",
+  "Western": "1",
+  // ...
+  "Left - right handed": "right handed",
+  "Loneliness": "3",
+  "Country": "2",
+  "Hypochondria": "1",
+  "Charity": "2",
+  // ...
+  "Education": "college/bachelor degree",
+  "Hiphop, Rap": "1",
+  "Musical": "1",
+  "Prioritising workload": "2",
+  "Rock": "5",
+}
+----
+
+
+== Creating Person Nodes
+
+To create one Person node per survey response, run the following Cypher statement:
+
+.Create Person Nodes
+[source,cypher]
+----
+include::solution.cypher[tag=create]
+----
+
+1. This line instructs Neo4j to prepare to load a CSV file
+2. The first line of the row contains headers
+3. The CSV file is remotely hosted on Github.  Assign each row to the `row` variable
+4. For each row, create a `(:Person)` node
+5. Add a new property for each column in the CSV
+
+You should see the following message:
+
+
+> Added 1010 labels, created 1010 nodes, set 151500 properties, completed after XXX ms.
+
+
+You can verify the number of nodes using the `count()` aggregate function.
+
+.Person Count
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN count(p)
+----
+
+The statement should return the number 1010.
+
+
+== Validating the import
+
+You can check that the data has been imported correctly by returning a small sample of the `Age`, `Gender`, and `Assertiveness` properties.
+
+[source,cypher]
+----
+MATCH (p:Person)
+RETURN p.Age AS age,
+       p.Gender AS gender,
+       p.Assertiveness AS assertiveness
+LIMIT 3;
+----
+
+
+=== Converting properties to a float type
+
+You may have noticed that the three properties in the are all string.
+Each value loaded using `LOAD CSV` is interpreted as a string. Therefore, if you require a value to be anything other than a string, you must convert the values explicitly.
+
+We must use the `toFloat()` function to convert the numerical values in this case.
+
+The `toFloat()` function accepts a string as a parameter and converts it to a floating point value.
+If the value cannot be converted to a float, a *null* value is returned.
+
+.Using toFloat
+[source,cypher]
+----
+UNWIND ["2", "string", Null] AS element
+RETURN toFloat(element);
+----
+
+.toFloat Results
+[Attributes]
+|===
+| `element` | `toFloat(element)`
+|"2"     | `2.0`
+|"string"| `null`
+|null    | `null`
+|===
+
+We can use this function to check which properties are numbers, and since Cypher does not support setting dynamic node properties, use the `apoc.create.setProperty` feature to update the property.
+
+.Set Properties
+[source,cypher]
+----
+:auto // Run in an implicit transaction within Neo4j Browser
+include::solution.cypher[tag=set]
+----
+
+1. Find all nodes with a `:Person` label
+2. Split the `(:Person)` nodes into batches of 100
+3. Use the `keys()` function to get all property keys for the node and process one per line
+4. Access the property value using square brackets `toFloat()` to attempt to convert it to a float
+5. Use `apoc.create.setProperty()` to set the new value
+
+.Set Properties Result
+[Attributes]
+|===
+| `result`
+|"done"
+|===
+
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson you imported the data into your Neo4j Sandbox instance and converted all numerical properties to float using the `toFloat()` function and `apoc.create.setProperty()` procedure.
+
+In the next module we will explore the survey dataset.
