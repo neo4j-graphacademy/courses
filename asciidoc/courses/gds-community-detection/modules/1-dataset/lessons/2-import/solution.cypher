@@ -3,9 +3,9 @@ LOAD CSV // <1>
 WITH HEADERS // <2>
 FROM "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/survey/responses.csv" AS row  // <3>
 CREATE (p:Person) // <4>
- SET p = row;
- // <5>
+SET p = row // <5>
 // end::create[]
+;
 
 // tag::set[]
 MATCH (p:Person) // <1>
@@ -17,6 +17,5 @@ CALL {
   CALL apoc.create.setProperty(p, key, value) YIELD node // <5>
   RETURN DISTINCT 'done' AS result
 } IN TRANSACTIONS OF 100 rows // <2>
-RETURN DISTINCT result;
-
-// tag::end[]
+RETURN DISTINCT result
+// end::set[]
