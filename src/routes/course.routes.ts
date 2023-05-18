@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { createSandbox, getSandboxByHashKey, getSandboxForUseCase, Sandbox, SANDBOX_STATUS_NOT_FOUND } from '../modules/sandbox'
+import { createSandbox, getSandboxByHashKey, getSandboxForUseCase, SANDBOX_STATUS_NOT_FOUND } from '../modules/sandbox'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
@@ -41,6 +41,7 @@ import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-course'
 import indexable from '../middleware/seo/indexable.middleware'
+import { Sandbox } from '../domain/model/sandbox'
 
 const router = Router()
 

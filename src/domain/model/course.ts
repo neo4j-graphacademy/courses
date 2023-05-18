@@ -1,8 +1,8 @@
-import { Sandbox } from "../../modules/sandbox";
 import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
 import { Pagination } from "./pagination";
 import { Integer } from "neo4j-driver";
+import { Sandbox } from "./sandbox";
 
 // Status
 export const STATUS_COMPLETED = 'completed'

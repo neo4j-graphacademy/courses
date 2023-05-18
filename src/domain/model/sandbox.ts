@@ -6,6 +6,7 @@ export interface Sandbox {
     usecase: string;
 
     scheme: Neo4jScheme;
+    ip: string | undefined;
     host: string;
     boltPort: string;
     username: string;

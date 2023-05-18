@@ -3,24 +3,10 @@ import { IS_PRODUCTION } from '../../constants'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
 import { handleSandboxError } from './handle-sandbox-error'
+import { Sandbox } from '../../domain/model/sandbox'
 
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'
 
-export interface Sandbox {
-    sandboxId: string;
-    sandboxHashKey: string;
-    usecase: string;
-
-    scheme: Neo4jScheme;
-    ip: string | undefined;
-    host: string;
-    boltPort: string;
-    username: string;
-    password: string;
-    expires: number;
-
-    [key: string]: any;
-}
 
 export function sandboxApi() {
     const { SANDBOX_URL } = process.env

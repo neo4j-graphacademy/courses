@@ -1,7 +1,7 @@
-import { Sandbox } from "../../modules/sandbox";
 import { Category } from "./category";
 import { CourseWithProgress } from "./course";
 import { Module } from "./module";
+import { Sandbox } from "./sandbox";
 import { User } from "./user";
 
 

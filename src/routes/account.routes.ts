@@ -17,7 +17,8 @@ import { notify } from '../middleware/bugsnag.middleware'
 import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
 import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
-import { getSandboxes, Sandbox } from '../modules/sandbox'
+import { getSandboxes } from '../modules/sandbox'
+import { Sandbox } from '../domain/model/sandbox'
 
 const router = Router()
 

@@ -1,4 +1,5 @@
-import { Neo4jScheme, Sandbox } from "../../modules/sandbox"
+import { Neo4jScheme } from "../../modules/sandbox"
+import { Sandbox } from "./sandbox"
 
 export function devSandbox(): Sandbox {
     const {

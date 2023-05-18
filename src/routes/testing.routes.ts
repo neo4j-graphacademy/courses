@@ -3,12 +3,13 @@ import { Request, Response, Router } from 'express'
 import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { getAuth0UserInfo, getSandboxes, getUserInfo, Sandbox } from '../modules/sandbox'
+import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
 import { send } from '../modules/mailer'
 import { User } from '../domain/model/user'
+import { Sandbox } from '../domain/model/sandbox'
 
 const router = Router()
 

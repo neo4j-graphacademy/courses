@@ -1,8 +1,9 @@
 import { Transaction } from "neo4j-driver";
 import { write } from "../../modules/neo4j";
-import { createSandbox, Sandbox } from "../../modules/sandbox";
+import { createSandbox } from "../../modules/sandbox";
 import { CourseWithProgress } from "../model/course";
 import { User } from "../model/user";
+import { Sandbox } from "../model/sandbox";
 
 export async function createAndSaveSandbox(token: string, user: User, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
     if (!course.usecase) {
