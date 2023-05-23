@@ -57,6 +57,7 @@ router.get('/', async (req, res, next) => {
         res.render('course/list', {
             title: 'All Courses',
             slug: false,
+            classes: 'category',
             categories,
             courses,
             grouped,
@@ -115,6 +116,7 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             slug,
             categories,
             category,
+            classes: 'category',
             hero: {
                 overline: 'Neo4j GraphAcademy',
                 title: slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`,

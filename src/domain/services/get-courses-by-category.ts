@@ -22,8 +22,8 @@ export async function getCoursesByCategory<T extends Course>(user?: User, langua
                 enrolled: e IS NOT NULL, completed: e:CompletedEnrolment, createdAt: e.createdAt, completedAt: e.completedAt,
                 completedPercentage: CASE WHEN e IS NOT NULL AND size([(c)-[:HAS_MODULE|HAS_LESSON*2]->(l) | l]) > 0 THEN toString(toInteger((1.0*size([(e)-[:COMPLETED_LESSON]->(l) | l]) / size([(c)-[:HAS_MODULE]->()-[:HAS_LESSON]->(l) | l])*100))) ELSE 0 END,
             ` : ''}
-            categoryIds: [(c)-[r:IN_CATEGORY]->(ct) | {id: ct.id, order: r.order}],
-            categories: [(c)-[r:IN_CATEGORY]->(ct) | ct {
+            categoryIds: [(c)-[r:IN_CATEGORY]->(ct)  WHERE ct.status <> 'disabled' | {id: ct.id, order: r.order}],
+            categories: [(c)-[r:IN_CATEGORY]->(ct) WHERE ct.status <> 'disabled' | ct {
                 .*,
                 link: coalesce(ct.link, '/categories/'+ ct.slug +'/'),
                 order: r.order
@@ -32,7 +32,7 @@ export async function getCoursesByCategory<T extends Course>(user?: User, langua
         }) AS courses
 
         MATCH (ct:Category)
-        WHERE exists((ct)<-[:IN_CATEGORY]-()) OR exists((ct)-[:HAS_CHILD]->())
+        WHERE NOT ct.status IN $exclude AND exists((ct)<-[:IN_CATEGORY]-()) OR exists((ct)-[:HAS_CHILD]->())
         RETURN courses,
             collect( ${categoryCypher('ct', true)}) AS categories
     `, appendParams({ sub: user?.sub, language }))
@@ -43,11 +43,11 @@ export async function getCoursesByCategory<T extends Course>(user?: User, langua
             const categoryCourses: T[] = courses.map((course: T) => {
                 const categoryWithOrder = course.categories.find((value: any) => value.id === row.id) as DbCategory
 
-                if ( !categoryWithOrder ) return;
+                if (!categoryWithOrder) return;
 
                 return { ...course, order: categoryWithOrder.order }
             })
-            .filter((e: any) => !!e) as T[]
+                .filter((e: any) => !!e) as T[]
 
             // Sort courses by status, then order
             sortCourses(categoryCourses)
