@@ -1,236 +1,407 @@
 extends ../layouts/default
+include ./card
 include ./sandbox
 
 block main
   .course-container
-    +hero(
-      title,
-      caption
-    )
-
-    .neutral
+    .course-overview.secondary
       .container
-        .course-overview(class=completed ? 'course--completed' : '')
-          .card
-            .card-header
-              h2.card-title #{translate('course-overview', 'Course Overview')}
+        .major
+          h1.heading !{course.title}
 
-              if isInterested
-                a.course-bookmark.course-bookmark--remove(href=`${link}bookmark/remove/`)
-                  | #{translate('remove-bookmark', 'Remove Bookmark')}
-                  | !{svg.iconBookmark}
-              else
-                a.course-bookmark(href=`${link}bookmark/`)
-                  | #{translate('add-bookmark', 'Bookmark Course')}
-                  | !{svg.iconBookmark}
+          .course-meta
+            dl.course-meta-list
+              if course.duration
+                dt.course-meta-term
+                  | !{svg.iconDurationSmall}
+                  span Course Duration
+                dd.course-meta-details
+                  | !{course.duration}
+              //- if course.modules && course.modules.length > 0
+              //-   dt.course-meta-term
+              //-     | !{svg.iconBookLarge}
+              //-     span Course Length
+              //-   dd.course-meta-details #{course.modules.length}
+              //-     |
+              //-     | Modules
 
-            .card-body
-              //- Picture & Video
-              //- If completed, show congratulations
+              dt.course-meta-term
+                span Categories
+              dd.course-meta-details.course-meta-categories
+                for category in course.categories
+                  a(href=category.link) !{category.title}
+                  | !{' '}
 
-              if completed
-                .course-completed
-                  .course-badge
-                    a(href=`/u/${user.id}/${slug}`)
-                      | !{badge}
-                  .congratulations
-                    .overline #{translate('completed-overline', 'Great work!')}
-                    p #{translate('completed-prefix', 'You have completed the ')}
-                      |
-                      | !{title}
-                      |
-                      if !certification
-                      | #{translate('completed-suffix', ' course!')}
-              else if video
-                iframe.course-video(src=video, width="560" height="280", frameborder, allowfullscreen="")
-              else
-                img(src=`${cdnUrl}/img/static/course-placeholder.jpg`, alt=title, width=448, height=279)
+          p.byline !{course.caption}
 
-            //- Completed Percentage?
-            if !completed && completedPercentage
-              .card-body
-                .progress-container
-                  .progress-header
-                    h2 #{translate('your-progress', 'Your Progress')}
-                    .progress-percentage
-                      | #{completedPercentage}%
+          if course.completed
+            .progress-container.progress-container--completed
+              .progress-bar
+                .progress-bar-container
+                  span(style=`width: 100%`) 100%
 
-                  div.progress-bar
-                    div.progress-bar-container
-                      span(style=`width: ${completedPercentage}%`) #{completedPercentage}%
+              .progress-percentage 100%
+          else if course.enrolled
+            .progress-container
+              .progress-bar
+                .progress-bar-container
+                  span(style=`width: ${course.completedPercentage}%`) #{course.completedPercentage}%
 
-            //- Draft course
-            if status == statuses.STATUS_DRAFT
-              .card-body.course-coming-soon
-                if isInterested || (messages['success'] && messages['success'][0].includes('Your interest'))
-                  .admonition.admonition--positive #{translate('interest-confirmation', 'Thank you for registering your interest. We will contact you when the course is available.')}
-                else
-                  h3.card-title #{translate('coming-soon-title', 'Course Coming Soon')}
-                  p #{translate('coming-soon-text', 'We are currently working on this course.  Fill in the form below to register your interest and we will contact you when it is ready.')}
+              .progress-percentage #{course.completedPercentage}%
 
-                  form.form(method='POST' action=`${link}interested`)
-                    .form-group
-                      label !{translate('email-address', 'Email Address')}
-                      input#email(type="email" name="email", value=user ? user.email : '' placeholder=translate('email-address-placeholder', 'Your email address'))
-                    .form-buttons
-                      button.btn !{translate('register-interest', 'Register Interest')}
+          .course-actions
+            if course.completed
+              a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+            else if course.enrolled
+              a.btn.btn--primary.btn--enrol(href=`${course.link}continue`) Continue Course
 
+            else if course.status == statuses.STATUS_ACTIVE
+              a.btn.btn--primary.btn--enrol(href=`${course.link}enrol`) Enroll in Course
 
-            //- Actions for Non-DRAFT courses
+            if course.completed
+              a.btn.course-bookmark.course-bookmark--remove(href=`${course.link}summary/`)
+                | View Course Summary
+
+            else if course.isInterested
+              a.btn.course-bookmark.course-bookmark--remove(href=`${course.link}bookmark/remove/`)
+                | !{svg.iconBookmark}
+                | Remove Favorite
             else
+              a.btn.course-bookmark(href=`${course.link}bookmark/`)
+                | !{svg.iconBookmark}
+                | Favorite Course
 
-              //- Actions
-              .card-actions
-                //- Certification
-                if certification
-                  //- If logged in
-                  if user
-                    //- If enrolment exists and is completed, show congratulations and link to certification
-                    if completed
-                      a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
-                    else if failed
-                      //- If certification was failed, show a try again message
-                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('try-again', 'Try Again')}
-                    else if enrolled
-                      //- If enrolment exists, but isn't completed, show pending message
-                      div.btn Pending Result...
-                    else
-                      //- Else, invite the user to enrol
-                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('take-certification', 'Take Certification')}
 
-                  //- If logged in, show attempt button
-                  else
-                    //- If not logged in, show sign in or register to continue
-                    a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+        .minor.course-video
+          if course.video
+            iframe(src=course.video, width="560" height="320", frameborder, allowfullscreen="")
+          else
+            img(src=`${course.link}badge/`, alt=title, width=280)
 
-                //- Course
-                else
-                  //- If logged in
-                  if user
-                    //- is completed? show certificate link
-                    if completed
-                      a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+  .course-description.course-container
+    .container
+      .major
+        | !{doc}
 
-                    //- is enrolled? show continue button
-                    else if enrolled
-                      a.btn.btn--primary.btn--continue(href=link + 'continue/') #{translate('continue-course', 'Continue Course')}
 
-                    //- is logged in? show enroll button?
-                    else
-                      a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('enroll-now', 'Enroll Now')}
+        | !{translate('overviewsupport')}
+        | !{translate('overviewfeedback')}
 
-                  //- If not logged in, show sign in or register to continue
-                  else
-                    a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+      .minor
+        .course-structure
+          each module, index in course.modules
+            .toc-module
+              h3.toc-module-header(class=[module.completed ? 'toc-module--completed' : '', module.link === path ? 'toc-module--current' : ''].join(' '))
+                a(href=module.link)
+                  //- span.toc-icon !{module.completed ? svg.classroomTocCompleted : svg.classroomTocModule}
+                  | #{('00'+ (index+1)).substr(-2)}.
+                  | !{module.title}
+                if module.link == path
+                  span.module-current
+                    | !{svg.arrowNext}
 
-          if status == statuses.STATUS_DRAFT && user && user.email.endsWith('@neotechnology.com') && modules.length && !enrolled
-            .course-sandbox.card
-              .card-header
-                h3 Enroll Anyway
-              .card-body
-                p Your email address ends with neotechnology.com, so you can enroll to preview this course.
-                  | Remember, this course is a work in progress so some aspects may be incomplete.  If you have any comments, please email
-                  a(href=`mailto:graphacademy.neo4j.com?subject=${encodeURIComponent('Course Preview Feedback: '+ title)}`) !{' '} graphacademy@neo4j.com.
-              .card-actions
-                a.btn.btn--success.btn--enrol(href=`${link}enrol`) Enroll Anyway
+              if module.description
+                p.toc-module-description !{module.description}
 
-          if status === statuses.STATUS_ACTIVE && user && enrolled && !completed && (quizAvailable || user.email.endsWith('@neotechnology.com')) && modules.length
-            .course-sandbox.card
-              .card-header
-                h3 Take Quiz
-              .card-body
-                p Not interested in taking the challenges?  You can earn the badge by taking a short quiz.
-                //- p If you have any comments, please email
-                //-   a(href=`mailto:graphacademy.neo4j.com?subject=${encodeURIComponent('Course Preview Feedback: '+ title)}`) !{' '} graphacademy@neo4j.com.
-              .card-actions
-                a.btn.btn--success.btn--enrol(href=`${link}quiz`) Take Quiz
+              dl.toc-module-meta
+                dt.toc-meta-term
+                  | !{svg.iconLessons}
+                  span Lessons
+                dd.toc-meta-details
+                  | !{module.lessons.length} Lessons
 
-          if sandbox
-            .course-sandbox.card
-              //- .card-header
-              //- h3 !{translate('sandbox-title', 'Sandbox')}
+                //- TODO: quizzes, videos, challenges
+                //- dt.toc-meta-term
+                //-   | !{svg.iconChallenges}
+                //-   span Challenges
+                //- dd.toc-meta-details
+                //-   | 3
 
-              .card-body
-                | !{translate('sandbox-description', '')}
+              ul.toc-module-lessons
+                each lesson in module.lessons
+                  li.toc-module-lesson(class=[lesson.completed ? 'toc-module-lesson--completed' : '', lesson.link == path ? 'toc-module-lesson--current' : ''].filter(e => !!e).join(' '))
+                    a(href=lesson.link)
+                      span.lesson-title !{lesson.title}
 
-                //- p The code challenges in this course are run against a
-                //-   |
-                //-   |
-                //-   a(href='https://sandbox.neo4j.com' target='_blank') Neo4j Sandbox
-                //-   |
-                //-   |
-                //-   | instance that we have created for you
-                //-   if usecase != 'blank-sandbox'
-                //-     |
-                //-     | with data from the #{usecase} use case
-                //-   |
-                //-   | . You can view the instance in Neo4j Sandbox by clicking the Sandbox URL below.
+                      if lesson.optional
+                        span.lesson-optional !{' '+ translate('optional', '(Optional)')}
 
-                +sandbox(sandbox)
+                      if lesson.duration
+                        span.lesson-duration (
+                        | #{lesson.duration}
+                        | )
 
-          include ./partials/path
-          include ./partials/recommendations
-          include ./partials/translations
+                      if lesson.link == path
+                        span.lesson-current
+                          | !{svg.arrowNext}
 
-          if user && enrolled
-            if certification
-              .course-unenrol
-                a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('delete-certification', 'Delete Certification')}
-            else
-              if completed && summary
-                .course-summary
-                  p
-                    a.course-summary-link(href=`${link}summary`) !{translate('view-course-summary', 'View Course Summary')}
+          if course.completed
+            .toc-module
+              //- h3.toc-module-header.toc-module--completed.toc-course-summary
+                a(href=`${course.link}summary/`)
+                  //- span.toc-icon !{svg.classroomTocCompleted}
+                  | !{translate('course-summary', 'Course Summary')}
+              ul.toc-module-lessons
+                li.toc-module-lesson.toc-module-lesson--completed.toc-course-achievement
+                  a(href=`${course.link}summary/`)
+                    //- span.toc-icon
+                      //- | !{svg.classroomTocCompleted}
+                    | !{translate('course-summary', 'Course Summary')}
+                li.toc-module-lesson.toc-module-lesson--completed.toc-course-achievement
+                  a(href=`/u/${user.id}/${course.slug}`)
+                    //- span.toc-icon
+                      //- | !{svg.classroomTocCompleted}
+                    | !{translate('share-achievement', 'Share your achievement')}
 
-              .course-unenrol
-                p
-                  a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('unenroll', 'Unenroll from course')}
 
-        .course-details
-          //- .course-meta
-          //-   if duration
-          //-     dl.course-meta-list
-          //-       dt.course-meta-term
-          //-         | !{svg.iconDurationLarge}
-          //-         span Course Duration
-          //-       dd.course-meta-details
-          //-         | !{duration}
-          //-   if modules && modules.length > 0
-          //-     dl.course-meta-list
-          //-       dt.course-meta-term
-          //-         | !{svg.iconBookLarge}
-          //-       span Course Length
-          //-       dd.course-meta-details #{modules.length}
-          //-         |
-          //-         | Modules
+  if recommendations.length
+    .course-container
+      .neutral
+        .container
+          h2 Related Courses
 
-          .tabs
-            a.tab-element.tab--selected(href='#description') !{translate('description', 'Description')}
-            if modules && modules.length
-              a.tab-element(href='#toc') !{translate('table-of-contents', 'Course Contents')}
-            a.tab-element(href='#support') !{translate('support-and-feedback', 'Support &amp; Feedback')}
+      .secondary
+        .course-list.course-list--full
+          .spacer
+          for course in recommendations
+            .course-list-item
+              +course(course, path)
+          .course-list-item
+            .view-more
+              a.btn.btn--primary(href=path.link) View all Courses &rarr;
+          .view-more
+            a.btn.btn--primary(href=path.link) View all Courses &rarr;
 
-          #description.tab-target.tab-target--visible.course-description.doc
-            if doc
-              | !{doc}
-            else
-              h2 #{translate('coming-soon', 'Coming Soon')}
-              if status == statuses.STATUS_DRAFT
-                p !{translate('coming-soon-draft')}
-              else
-                p !{translate('coming-soon-unknown')}
 
-          if modules && modules.length
-            //- #toc.tab-target.course-toc
-            #toc.tab-target.course-toc
-              h2 !{translate('table-of-contents', 'Course Contents')}
 
-              .toc
-                include ../partials/toc
 
-          #support.tab-target
-            | !{translate('overviewsupport')}
-            | !{translate('overviewfeedback')}
+    //- +json(recommendations)
+    //- +json(course)
+
+
+    //- .neutral
+      //- .container
+      //-   .course-overview(class=completed ? 'course--completed' : '')
+      //-     .card
+      //-       .card-header
+      //-         h2.card-title #{translate('course-overview', 'Course Overview')}
+
+      //-         if isInterested
+      //-           a.course-bookmark.course-bookmark--remove(href=`${link}bookmark/remove/`)
+      //-             | #{translate('remove-bookmark', 'Remove Bookmark')}
+      //-             | !{svg.iconBookmark}
+      //-         else
+      //-           a.course-bookmark(href=`${link}bookmark/`)
+      //-             | #{translate('add-bookmark', 'Bookmark Course')}
+      //-             | !{svg.iconBookmark}
+
+      //-       .card-body
+      //-         //- Picture & Video
+      //-         //- If completed, show congratulations
+
+      //-         if completed
+      //-           .course-completed
+      //-             .course-badge
+      //-               a(href=`/u/${user.id}/${slug}`)
+      //-                 | !{badge}
+      //-             .congratulations
+      //-               .overline #{translate('completed-overline', 'Great work!')}
+      //-               p #{translate('completed-prefix', 'You have completed the ')}
+      //-                 |
+      //-                 | !{title}
+      //-                 |
+      //-                 if !certification
+      //-                 | #{translate('completed-suffix', ' course!')}
+      //-         else if video
+      //-           iframe.course-video(src=video, width="560" height="280", frameborder, allowfullscreen="")
+      //-         else
+      //-           img(src=`${cdnUrl}/img/static/course-placeholder.jpg`, alt=title, width=448, height=279)
+
+      //-       //- Completed Percentage?
+      //-       if !completed && completedPercentage
+      //-         .card-body
+      //-           .progress-container
+      //-             .progress-header
+      //-               h2 #{translate('your-progress', 'Your Progress')}
+      //-               .progress-percentage
+      //-                 | #{completedPercentage}%
+
+      //-             div.progress-bar
+      //-               div.progress-bar-container
+      //-                 span(style=`width: ${completedPercentage}%`) #{completedPercentage}%
+
+      //-       //- Draft course
+      //-       if status == statuses.STATUS_DRAFT
+      //-         .card-body.course-coming-soon
+      //-           if isInterested || (messages['success'] && messages['success'][0].includes('Your interest'))
+      //-             .admonition.admonition--positive #{translate('interest-confirmation', 'Thank you for registering your interest. We will contact you when the course is available.')}
+      //-           else
+      //-             h3.card-title #{translate('coming-soon-title', 'Course Coming Soon')}
+      //-             p #{translate('coming-soon-text', 'We are currently working on this course.  Fill in the form below to register your interest and we will contact you when it is ready.')}
+
+      //-             form.form(method='POST' action=`${link}interested`)
+      //-               .form-group
+      //-                 label !{translate('email-address', 'Email Address')}
+      //-                 input#email(type="email" name="email", value=user ? user.email : '' placeholder=translate('email-address-placeholder', 'Your email address'))
+      //-               .form-buttons
+      //-                 button.btn !{translate('register-interest', 'Register Interest')}
+
+
+      //-       //- Actions for Non-DRAFT courses
+      //-       else
+
+      //-         //- Actions
+      //-         .card-actions
+      //-           //- Certification
+      //-           if certification
+      //-             //- If logged in
+      //-             if user
+      //-               //- If enrolment exists and is completed, show congratulations and link to certification
+      //-               if completed
+      //-                 a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+      //-               else if failed
+      //-                 //- If certification was failed, show a try again message
+      //-                 a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('try-again', 'Try Again')}
+      //-               else if enrolled
+      //-                 //- If enrolment exists, but isn't completed, show pending message
+      //-                 div.btn Pending Result...
+      //-               else
+      //-                 //- Else, invite the user to enrol
+      //-                 a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('take-certification', 'Take Certification')}
+
+      //-             //- If logged in, show attempt button
+      //-             else
+      //-               //- If not logged in, show sign in or register to continue
+      //-               a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+
+      //-           //- Course
+      //-           else
+      //-             //- If logged in
+      //-             if user
+      //-               //- is completed? show certificate link
+      //-               if completed
+      //-                 a.btn.btn--primary.btn--view-certificate(href=`/u/${user.id}/${slug}`) !{translate('view-certificate', 'View Certificate')}
+
+      //-               //- is enrolled? show continue button
+      //-               else if enrolled
+      //-                 a.btn.btn--primary.btn--continue(href=link + 'continue/') #{translate('continue-course', 'Continue Course')}
+
+      //-               //- is logged in? show enroll button?
+      //-               else
+      //-                 a.btn.btn--success.btn--enrol(href=`${link}enrol`) !{translate('enroll-now', 'Enroll Now')}
+
+      //-             //- If not logged in, show sign in or register to continue
+      //-             else
+      //-               a.btn(href=`/login?returnTo=${link}enrol`) !{translate('sign-in-to-enroll', 'Sign in or Register to continue')}
+
+      //-     if status == statuses.STATUS_DRAFT && user && user.email.endsWith('@neotechnology.com') && modules.length && !enrolled
+      //-       .course-sandbox.card
+      //-         .card-header
+      //-           h3 Enroll Anyway
+      //-         .card-body
+      //-           p Your email address ends with neotechnology.com, so you can enroll to preview this course.
+      //-             | Remember, this course is a work in progress so some aspects may be incomplete.  If you have any comments, please email
+      //-             a(href=`mailto:graphacademy.neo4j.com?subject=${encodeURIComponent('Course Preview Feedback: '+ title)}`) !{' '} graphacademy@neo4j.com.
+      //-         .card-actions
+      //-           a.btn.btn--success.btn--enrol(href=`${link}enrol`) Enroll Anyway
+
+      //-     if status === statuses.STATUS_ACTIVE && user && enrolled && !completed && (quizAvailable || user.email.endsWith('@neotechnology.com')) && modules.length
+      //-       .course-sandbox.card
+      //-         .card-header
+      //-           h3 Take Quiz
+      //-         .card-body
+      //-           p Not interested in taking the challenges?  You can earn the badge by taking a short quiz.
+      //-           //- p If you have any comments, please email
+      //-           //-   a(href=`mailto:graphacademy.neo4j.com?subject=${encodeURIComponent('Course Preview Feedback: '+ title)}`) !{' '} graphacademy@neo4j.com.
+      //-         .card-actions
+      //-           a.btn.btn--success.btn--enrol(href=`${link}quiz`) Take Quiz
+
+      //-     if sandbox
+      //-       .course-sandbox.card
+      //-         //- .card-header
+      //-         //- h3 !{translate('sandbox-title', 'Sandbox')}
+
+      //-         .card-body
+      //-           | !{translate('sandbox-description', '')}
+
+      //-           //- p The code challenges in this course are run against a
+      //-           //-   |
+      //-           //-   |
+      //-           //-   a(href='https://sandbox.neo4j.com' target='_blank') Neo4j Sandbox
+      //-           //-   |
+      //-           //-   |
+      //-           //-   | instance that we have created for you
+      //-           //-   if usecase != 'blank-sandbox'
+      //-           //-     |
+      //-           //-     | with data from the #{usecase} use case
+      //-           //-   |
+      //-           //-   | . You can view the instance in Neo4j Sandbox by clicking the Sandbox URL below.
+
+      //-           +sandbox(sandbox)
+
+      //-     include ./partials/path
+      //-     include ./partials/recommendations
+      //-     include ./partials/translations
+
+      //-     if user && enrolled
+      //-       if certification
+      //-         .course-unenrol
+      //-           a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('delete-certification', 'Delete Certification')}
+      //-       else
+      //-         if completed && summary
+      //-           .course-summary
+      //-             p
+      //-               a.course-summary-link(href=`${link}summary`) !{translate('view-course-summary', 'View Course Summary')}
+
+      //-         .course-unenrol
+      //-           p
+      //-             a.course-unenrol-link.btn--unenrol(href=`${link}unenrol`) !{translate('unenroll', 'Unenroll from course')}
+
+      //-   .course-details
+      //-     //- .course-meta
+      //-     //-   if duration
+      //-     //-     dl.course-meta-list
+      //-     //-       dt.course-meta-term
+      //-     //-         | !{svg.iconDurationLarge}
+      //-     //-         span Course Duration
+      //-     //-       dd.course-meta-details
+      //-     //-         | !{duration}
+      //-     //-   if modules && modules.length > 0
+      //-     //-     dl.course-meta-list
+      //-     //-       dt.course-meta-term
+      //-     //-         | !{svg.iconBookLarge}
+      //-     //-       span Course Length
+      //-     //-       dd.course-meta-details #{modules.length}
+      //-     //-         |
+      //-     //-         | Modules
+
+      //-     .tabs
+      //-       a.tab-element.tab--selected(href='#description') !{translate('description', 'Description')}
+      //-       if modules && modules.length
+      //-         a.tab-element(href='#toc') !{translate('table-of-contents', 'Course Contents')}
+      //-       a.tab-element(href='#support') !{translate('support-and-feedback', 'Support &amp; Feedback')}
+
+      //-     #description.tab-target.tab-target--visible.course-description.doc
+      //-       if doc
+      //-         | !{doc}
+      //-       else
+      //-         h2 #{translate('coming-soon', 'Coming Soon')}
+      //-         if status == statuses.STATUS_DRAFT
+      //-           p !{translate('coming-soon-draft')}
+      //-         else
+      //-           p !{translate('coming-soon-unknown')}
+
+      //-     if modules && modules.length
+      //-       //- #toc.tab-target.course-toc
+      //-       #toc.tab-target.course-toc
+      //-         h2 !{translate('table-of-contents', 'Course Contents')}
+
+      //-         .toc
+      //-           include ../partials/toc
+
+      //-     #support.tab-target
+      //-       | !{translate('overviewsupport')}
+      //-       | !{translate('overviewfeedback')}
 
 
   //- include ../partials/community-cutout.pug

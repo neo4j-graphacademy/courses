@@ -7,6 +7,7 @@ export interface Module {
     path: string;
     slug: string;
     title: string;
+    description: string | undefined;
     order: number;
     lessons: Lesson[];
     link?: string;

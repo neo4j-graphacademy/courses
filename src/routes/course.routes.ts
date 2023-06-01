@@ -110,7 +110,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         })
 
         res.render('course/overview', {
-            classes: `course ${course.slug}`,
+            classes: `course ${course.slug} ${course.completed ? 'course--completed' : ''}  ${course.enrolled ? 'course--enrolled' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -125,7 +125,8 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
             },
 
             course,
-            ...course,
+            title: `${course.title} | ${course.categories[0].title} `,
+            // ...course,
 
             translate: translate(course.language),
 

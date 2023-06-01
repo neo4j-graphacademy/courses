@@ -50,7 +50,6 @@ export function moduleCypher(enrolment?: string, module = 'm', lesson = 'l'): st
     return `
                 ${module} {
                     .*,
-                    .link,
                     next: [ (${module})-[:NEXT]->(next) WHERE NOT next.status IN $exclude |
                         next { .slug, .title, .link }
                     ][0],
@@ -71,7 +70,6 @@ export function lessonCypher(enrolment?: string, lesson = 'l'): string {
                             .*,
                             optional: ${lesson}:OptionalLesson,
                             ${enrolment !== undefined ? `completed: exists((${enrolment})-[:COMPLETED_LESSON]->(l)),` : ''}
-                            .link,
                             next: [ (${lesson})-[:NEXT]->(next) |
                                 next { .slug, .title, .link }
                             ][0],

@@ -23,7 +23,7 @@ router.use((req, res, next) => {
             text: 'Neo4j GraphAcademy',
         },
         {
-            link: '/categories',
+            link: '/categories/',
             text: 'All Courses',
         },
     ]

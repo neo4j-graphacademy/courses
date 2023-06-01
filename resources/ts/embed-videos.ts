@@ -11,7 +11,10 @@ function embedVideo(element: HTMLDivElement) {
         height,
         videoId,
         playerVars: {
-            'playsinline': 1
+            playsinline: 1,
+            rel: 0,
+            controls: 0,
+            modestbranding: 1,
         },
         events: {
             onStateChange: (event) => {
