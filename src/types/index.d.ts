@@ -44,6 +44,7 @@ export interface CourseToImport {
 export interface ModuleToImport {
     path: string;
     slug: string;
+    description: string;
     title: string;
     order: string;
     lessons: LessonToImport[];
