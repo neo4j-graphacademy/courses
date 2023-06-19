@@ -21,7 +21,8 @@ export async function getSuggestionsForCourse(userId: string | undefined, slug: 
         return read(`
             MATCH (c:Course {slug: $slug})<-[:FOR_COURSE]-(e1:CompletedEnrolment)<-[:HAS_ENROLMENT]-(u)-[:HAS_ENROLMENT]->(e2:CompletedEnrolment)-[:FOR_COURSE]->(c2)
             WHERE not c2:Certification  AND c2.language = c.language AND c2.status = c.status AND NOT c2.slug IN $current
-            RETURN c2 { .*, count: count(*) } AS course
+            WITH c2 { .* } AS course, count(*) AS count
+            RETURN course { .*, count: count }
             ORDER BY course.count DESC
             LIMIT $limit
         `, appendParams({ slug, current, limit: int(limit) }))
