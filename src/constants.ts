@@ -14,7 +14,7 @@ export const NEO4J_PASSWORD: string = process.env.NEO4J_PASSWORD as string
 // Directories
 export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', 'asciidoc')
 export const PUBLIC_DIRECTORY = path.resolve(__dirname, '..', 'public')
-export const IMG_DIRECTORY = path.resolve(__dirname, '..', 'public', 'img')
+export const IMG_DIRECTORY = path.join(PUBLIC_DIRECTORY, 'img')
 
 export const COURSE_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'courses')
 export const CATEGORY_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'categories')
