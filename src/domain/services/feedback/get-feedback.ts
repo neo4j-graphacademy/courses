@@ -33,7 +33,7 @@ export async function getFeedback(type: FeedbackType, link: string): Promise<Get
             total,
             positive,
             negative,
-            apoc.math.round(100.0 * positive/total, 2) AS percentage,
+            round(100.0 * positive/total, 2) AS percentage,
             [ n IN feedback WHERE n:NegativeFeedback | n {
                 .reason,
                 .additional,
