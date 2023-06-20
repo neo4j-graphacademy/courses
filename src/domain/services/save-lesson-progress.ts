@@ -89,7 +89,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 [ (e)-[:COMPLETED_LESSON]->(l)<-[:HAS_LESSON]-(m) WHERE NOT l:OptionalLesson AND NOT l.status IN $exclude | l ] AS completed
 
             WITH u, e, m, lessons, completed,
-                count{ (e)-[:COMPLETED_MODULE]->(m) } = 0 AND all(x IN lessons WHERE x IN completed) AS shouldComplete
+                size([ (e)-[:COMPLETED_MODULE]->(m) | m ]) = 0 AND all(x IN lessons WHERE x IN completed) AS shouldComplete
 
             FOREACH (_ IN CASE WHEN shouldComplete THEN [1] ELSE [] END |
                 MERGE (e)-[r:COMPLETED_MODULE]->(m)
