@@ -1,10 +1,11 @@
+import { int } from "neo4j-driver"
 import { read } from "../../modules/neo4j"
 import { Course } from "../model/course"
 import { appendParams } from "./cypher"
 
 type CourseSuggestion = Course & { count: number }
 
-export async function getSuggestionsForEnrolment(enrolmentId: string): Promise<CourseSuggestion[]> {
+export async function getSuggestionsForEnrolment(enrolmentId: string, limit: number = 3): Promise<CourseSuggestion[]> {
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment {id: $enrolmentId})-[:FOR_COURSE]->(c)
         WITH u, e, c, [ (u)-[:HAS_ENROLMENT]->()-[:FOR_COURSE]->(x) | x ] AS courses
@@ -14,7 +15,7 @@ export async function getSuggestionsForEnrolment(enrolmentId: string): Promise<C
         RETURN course { .*, count: count }
         ORDER BY course.count DESC
         LIMIT $limit
-    `, appendParams({ enrolmentId }))
+    `, appendParams({ enrolmentId, limit: int(limit) }))
 
     return res.records.map(record => record.get('course') as CourseSuggestion)
 }

@@ -1,5 +1,6 @@
 import neo4j, { Driver, QueryResult } from 'neo4j-driver'
 import { notify } from '../middleware/bugsnag.middleware';
+import Neo4jError from '../errors/neo4j.error';
 
 let _driver: Driver;
 
@@ -37,7 +38,7 @@ export async function read(query: string, params?: Record<string, any>, database
             })
         })
 
-        throw e
+        throw new Neo4jError(e.message, query, params, database, e)
     }
 }
 
@@ -63,7 +64,7 @@ export async function write(query: string, params?: Record<string, any>, databas
             })
         })
 
-        throw e
+        throw new Neo4jError(e.message, query, params, database, e)
     }
 }
 
