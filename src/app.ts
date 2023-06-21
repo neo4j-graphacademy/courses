@@ -62,7 +62,7 @@ export default function initApp(driver: Driver) {
     registerLocals(app)
 
     // Maintenance Mode
-    app.use(maintenance)
+    // app.use(maintenance)
 
     // Load in languages
     initLocalisation()
