@@ -35,6 +35,21 @@ export async function getBadge<T extends Course>(course: T): Promise<string | un
     })
 }
 
+export async function getIllustration<T extends Course>(course: T): Promise<string | undefined> {
+    return new Promise((resolve, reject) => {
+        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'illustration.svg')
+
+        if (!fs.existsSync(badgePath)) {
+            return resolve(undefined)
+        }
+
+        fs.readFile(badgePath, (err, data) => {
+            if (err) reject(err)
+            else resolve(data.toString())
+        })
+    })
+}
+
 type CypherFile = 'verify' | 'reset' | 'sandbox'
 
 export function getLessonCypherFile(
@@ -101,6 +116,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module))
     )
     const badge = await getBadge(course)
+    const illustration = await getIllustration(course)
 
     const createdAt = course.createdAt ? new Date((course.createdAt as string).toString()) : undefined
     const completedAt = course.completedAt ? new Date((course.completedAt as string).toString()) : undefined
@@ -121,6 +137,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         summary: await courseSummaryExists(course.slug),
         modules,
         badge,
+        illustration,
         badgeUrl: courseOgBadgeImage(course.slug),
         emails,
         createdAt,
@@ -254,8 +271,6 @@ export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesBySt
             // Either extract or create a new one
             const existing: CourseStatusInformationWithCourses =
                 index > -1 ? acc.splice(index, 1)[0] : { ...getStatusDetails(statusSlug), courses: [] }
-
-            // console.log(statusSlug, index, existing);
 
             // Add the course
             existing.courses.push(current)

@@ -38,8 +38,9 @@ router.use((req, res, next) => {
  */
 router.get('/', async (req, res, next) => {
     try {
+        const term: string | undefined = req.query.search as string | undefined
         const user = await getUser(req)
-        const categories = await getCoursesByCategory<CourseWithProgress>(user)
+        const categories = await getCoursesByCategory<CourseWithProgress>(user, term)
 
         // Flatten Category list
         const flattened: Category<CourseWithProgress>[] = flattenCategories(categories)
@@ -54,6 +55,8 @@ router.get('/', async (req, res, next) => {
         // Group by status
         const grouped = groupCoursesByStatus(courses)
 
+        const hasResults = flattened.some(category => category.courses?.filter(course => course.display).length)
+
         res.render('course/list', {
             title: 'All Courses',
             slug: false,
@@ -64,9 +67,10 @@ router.get('/', async (req, res, next) => {
             hero: {
                 title: 'Free Neo4j Courses',
                 byline: 'Hands-on training. No installation required.',
-                overline: 'Neo4j GraphAcademy',
+                // overline: 'Neo4j GraphAcademy',
             },
-
+            term,
+            hasResults,
             ogDescription: 'Hands-on training. No installation required.',
             ogImage: `${CDN_URL}/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',
@@ -88,8 +92,9 @@ router.get('/banner', (req: Request, res: Response) => {
 router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
     try {
         const { slug } = req.params
+        const term: string | undefined = req.query.search as string | undefined
         const user = await getUser(req)
-        const categories = await getCoursesByCategory(user)
+        const categories = await getCoursesByCategory(user, term)
 
         // Flatten Category list
         const flattened: Category<any>[] = flattenCategories(categories)
@@ -103,6 +108,8 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
 
         // Group by status
         const grouped = groupCoursesByStatus(category.courses || [])
+
+        const hasResults = flattened.some(category => category.courses?.filter(course => course.display).length)
 
         // Add Breadcrumb
         res.locals.breadcrumbs.push({
@@ -118,13 +125,13 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             category,
             classes: 'category',
             hero: {
-                overline: 'Neo4j GraphAcademy',
+                // overline: 'Neo4j GraphAcademy',
                 title: slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`,
                 byline: category.caption || 'Hands-on training. No installation required.',
             },
             courses: category.courses,
             grouped,
-
+            hasResults,
             ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free Neo4j ${category.title} Courses from GraphAcademy`,
             ogDescription: category.caption || 'Hands-on training. No installation required.',
             ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`

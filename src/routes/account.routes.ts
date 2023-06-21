@@ -17,8 +17,6 @@ import { notify } from '../middleware/bugsnag.middleware'
 import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
 import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
-import { getSandboxes } from '../modules/sandbox'
-import { Sandbox } from '../domain/model/sandbox'
 
 const router = Router()
 
@@ -48,20 +46,16 @@ router.use((req, res, next) => {
 router.get('/', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req) as User
-        const token = await getToken(req)
         const countries = await getCountriesAsRecord()
-
-        // Get Sandboxes
-        const sandboxes: Sandbox[] = await getSandboxes(token, user)
 
         res.render('account/edit', {
             title: 'My Account',
-            hero: {
-                title: 'My Account',
-            },
+            // hero: {
+            //     title: 'My Account',
+            // },
             user,
             countries,
-            sandboxes,
+            classes: 'account',
         })
     }
     catch (e) {
@@ -80,12 +74,13 @@ router.get('/complete', requiresAuth(), async (req, res) => {
 
     res.render('account/complete', {
         title: 'Complete Account | My Account',
-        hero: {
-            title: 'Complete Your Account',
-            byline: 'We would like to know more about you.',
-        },
+        // hero: {
+        //     title: 'Complete Your Account',
+        //     byline: 'We would like to know more about you.',
+        // },
         user,
         countries,
+        classes: 'account',
         returnTo: req.query.returnTo || '/account/'
     })
 })
@@ -155,7 +150,8 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
             action: {
                 link: '/account/verify/',
                 text: 'Resend Verification Email'
-            }
+            },
+            classes: 'account',
         })
     }
     catch (e) {
@@ -175,7 +171,9 @@ router.post('/delete', requiresAuth(), async (req, res, next) => {
 
         await deleteUser(user)
 
-        await res.oidc.logout({ returnTo: '/account/deleted/' })
+        // await res.oidc.logout({ returnTo: '/account/deleted/' })
+
+        res.redirect('https://preferences.neo4j.com/privacy')
     }
     catch (e) {
         next(e)
@@ -187,20 +185,20 @@ router.post('/delete', requiresAuth(), async (req, res, next) => {
  *
  * Show a confirmation to the user that their account has been deleted
  */
-router.get('/deleted', (req, res, next) => {
-    try {
-        res.render('account/deleted', {
-            title: 'Account Deleted',
-            hero: {
-                overline: `We're sorry to see you go`,
-                title: 'Account Deleted',
-            },
-        })
-    }
-    catch (e) {
-        next(e)
-    }
-})
+// router.get('/deleted', (req, res, next) => {
+//     try {
+//         res.render('account/deleted', {
+//             title: 'Account Deleted',
+//             hero: {
+//                 overline: `We're sorry to see you go`,
+//                 title: 'Account Deleted',
+//             },
+//         })
+//     }
+//     catch (e) {
+//         next(e)
+//     }
+// })
 
 /**
  * @GET /account/courses/ ?:status
@@ -260,7 +258,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
                 title,
                 overline: 'My Courses',
             },
-
+            classes: 'account courses',
             user,
             links,
             courses,

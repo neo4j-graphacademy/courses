@@ -26,8 +26,6 @@ export function workspaceBlockProcessor(registry: any) {
             }
 
             if (connectUrl) {
-                console.log(connectUrl);
-
                 url.searchParams.set('connectURL', connectUrl)
             }
 

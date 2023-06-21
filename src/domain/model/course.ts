@@ -71,6 +71,7 @@ export interface Course {
     prerequisites?: Course[];
     progressTo?: Course[];
     badge?: string;
+    illustration?: string;
     verify: string | undefined;
     cypher: string | undefined;
     summary: boolean;
@@ -83,6 +84,8 @@ export interface Course {
     translations: Course[];
     enrolledAt: Date | string;
     quizAvailable: boolean;
+    questions: number;
+    passPercentage: number;
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }
@@ -100,6 +103,7 @@ export interface CourseWithProgress extends Course {
     modules: ModuleWithProgress[];
     next?: Pagination;
     sandbox?: Sandbox;
+    display?: boolean;
 }
 
 export interface CourseStatusInformation {

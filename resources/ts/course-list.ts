@@ -8,7 +8,7 @@ export default function courseList() {
 
     document.querySelectorAll('.progress-indicator')
         .forEach(element => {
-            const circle = element.getElementsByTagName('circle')[0]
+            const circle = element.querySelector('.progress-indicator__circle') as SVGCircleElement
             const percent = parseInt(element.getAttribute('data-value') || '0')
 
             if (circle) {

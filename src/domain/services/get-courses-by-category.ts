@@ -10,7 +10,7 @@ interface DbCategory extends Category<any> {
     parents: string[]
 }
 
-export async function getCoursesByCategory<T extends Course>(user?: User, language: Language = LANGUAGE_EN): Promise<Category<T>[]> {
+export async function getCoursesByCategory<T extends Course>(user?: User, term: string | undefined = undefined, language: Language = LANGUAGE_EN): Promise<Category<T>[]> {
     const res = await read(`
         MATCH (c:Course)
         WHERE NOT c.status IN $exclude AND c.language = $language
@@ -28,14 +28,15 @@ export async function getCoursesByCategory<T extends Course>(user?: User, langua
                 link: coalesce(ct.link, '/categories/'+ ct.slug +'/'),
                 order: r.order
             }],
-            modules: [(c)-[:HAS_MODULE]->(m) | m.slug ]
+            modules: [(c)-[:HAS_MODULE]->(m) | m.slug ],
+            display: ${term !== undefined ? 'toLower(c.title) CONTAINS toLower($term) OR toLower(c.caption) CONTAINS toLower($term)' : 'true'}
         }) AS courses
 
         MATCH (ct:Category)
         WHERE NOT ct.status IN $exclude AND exists((ct)<-[:IN_CATEGORY]-()) OR exists((ct)-[:HAS_CHILD]->())
         RETURN courses,
             collect( ${categoryCypher('ct', true)}) AS categories
-    `, appendParams({ sub: user?.sub, language }))
+    `, appendParams({ sub: user?.sub, term, language }))
 
     const courses = await Promise.all(res.records[0].get('courses').map(async (course: T) => await formatCourse<T>(course))) as T[]
     const categories = res.records[0].get('categories')

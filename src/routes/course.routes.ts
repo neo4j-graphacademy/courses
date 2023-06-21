@@ -110,7 +110,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         })
 
         res.render('course/overview', {
-            classes: `course ${course.slug} ${course.completed ? 'course--completed' : ''}  ${course.enrolled ? 'course--enrolled' : ''}`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${course.completed ? 'course--completed' : ''}  ${course.enrolled ? 'course--enrolled' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -980,9 +980,6 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         const { course, module, lesson } = req.params
         const user = await getUser(req)
         const token = await getToken(req)
-
-        console.log('??');
-
 
         const outcome = await verifyCodeChallenge(user as User, token, course, module, lesson)
 
