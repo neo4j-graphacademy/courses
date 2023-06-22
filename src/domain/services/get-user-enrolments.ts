@@ -2,7 +2,7 @@ import NotFoundError from "../../errors/not-found.error";
 import { read } from "../../modules/neo4j";
 import { formatCourse, formatUser } from "../../utils";
 import { STATUS_ACTIVE } from "../model/course";
-import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from "../model/enrolment";
+import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAVORITED } from "../model/enrolment";
 import { User } from "../model/user";
 import { appendParams, courseCypher } from "./cypher";
 
@@ -22,7 +22,7 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
             CASE
                 WHEN e IS NOT NULL AND e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
                 WHEN e IS NOT NULL THEN '${STATUS_ENROLLED}'
-                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_INTERESTED}'
+                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_FAVORITED}'
                 WHEN e.status = $active THEN '${STATUS_AVAILABLE}'
                 ELSE 'OTHER'
             END as status

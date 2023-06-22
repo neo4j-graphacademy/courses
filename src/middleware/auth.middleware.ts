@@ -20,7 +20,7 @@ const config = {
         login: false as false,
     },
     // Send event to segment
-    afterCallback: async (req: Request, res:Response, session: Session, decodedState: { [key: string]: any }) => {
+    afterCallback: async (req: Request, res: Response, session: Session, decodedState: { [key: string]: any }) => {
         const decoded: JwtPayload = jwt.decode(session.id_token) as JwtPayload
 
         if (decoded && decoded.sub) {
@@ -39,10 +39,10 @@ export async function getUser(req: any): Promise<User | undefined> {
     if (!req.oidc.user) return undefined;
     if (req.dbUser) return req.dbUser;
 
-    const res = await read(`MATCH (u:User {sub: $sub}) RETURN u`, { sub: req.oidc.user.sub })
+    const res = await read(`MATCH (u:User {sub: $sub}) RETURN u { .*, profileHidden: u:HiddenProfile } AS u`, { sub: req.oidc.user.sub })
 
-    const dbUser = res.records.length ? res.records[0].get('u').properties : {}
-    
+    const dbUser = res.records.length ? res.records[0].get('u') : {}
+
     const user = formatUser({
         ...req.oidc.user,
         ...dbUser,
@@ -87,4 +87,3 @@ export default function applyAuth(app: Express) {
         next()
     })
 }
-

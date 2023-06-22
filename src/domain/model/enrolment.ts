@@ -5,12 +5,12 @@ import { Sandbox } from "./sandbox";
 import { User } from "./user";
 
 
-export const STATUS_INTERESTED = 'interested';
-export const STATUS_AVAILABLE = 'available';
+export const STATUS_FAVORITED = 'favorited';
 export const STATUS_COMPLETED = 'completed';
 export const STATUS_ENROLLED = 'enrolled';
+export const STATUS_AVAILABLE = 'available';
 
-export type EnrolmentStatus = typeof STATUS_INTERESTED | typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED | typeof STATUS_ENROLLED
+export type EnrolmentStatus = typeof STATUS_FAVORITED | typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED | typeof STATUS_ENROLLED
 
 
 export interface Enrolment {

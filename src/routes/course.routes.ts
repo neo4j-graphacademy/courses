@@ -234,7 +234,9 @@ router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) =>
 
         req.flash('success', 'Your bookmark has been removed')
 
-        return res.redirect(`/courses/${req.params.course}/`)
+        const redirectTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : `/courses/${req.params.course}/`
+
+        return res.redirect(redirectTo)
     }
     catch (e) {
         next(e)

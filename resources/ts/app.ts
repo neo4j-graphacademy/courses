@@ -16,6 +16,7 @@ import questions from './questions'
 import quiz from './quiz'
 import redeem from './redeem'
 import tabs from './tabs'
+import contextMenu from './context-menu'
 
 window.addEventListener('DOMContentLoaded', () => {
     highlight()
@@ -35,6 +36,7 @@ window.addEventListener('DOMContentLoaded', () => {
     courseOverview()
     quiz()
     redeem()
+    contextMenu()
 
     // Lazyload images
     const ll = new lazyload()

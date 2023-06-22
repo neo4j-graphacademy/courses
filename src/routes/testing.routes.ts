@@ -66,6 +66,9 @@ const runInstance = (req: Request, res: Response) => {
 router.get('/sandbox/SandboxRunInstance', runInstance)
 router.post('/sandbox/SandboxRunInstance', runInstance)
 
+router.post('/sandbox/SandboxStopInstance', (req, res) => {
+    res.send('ok')
+})
 
 /**
  * Sandbox creation process:

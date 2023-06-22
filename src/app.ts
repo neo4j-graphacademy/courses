@@ -27,7 +27,6 @@ import { initLocalisation } from './modules/localisation'
 import './constants'
 import { initPrintful } from './modules/printful'
 import hardenExpress from './middleware/harden.middleware'
-import { maintenance } from './middleware/maintenance.middleware'
 
 export default function initApp(driver: Driver) {
     const app = express()

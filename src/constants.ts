@@ -32,7 +32,7 @@ export const CHAT_LINK = 'https://discord.gg/adFrdwKrvf'
 export const CHAT_JSON = `https://discord.com/api/guilds/${DISCORD_ID}/widget.json`
 
 // CDN
-export const CDN_URL = process.env.CDN_URL
+export const CDN_URL = process.env.CDN_URL || ''
 
 // Port
 export const PORT: string = process.env.PORT || ('3000' as string)

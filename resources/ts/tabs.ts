@@ -24,15 +24,15 @@ function findTargets(activeElement: HTMLAnchorElement) {
     const target = activeElement.getAttribute(ATTRIBUTE_TARGET)
 
 
-    if ( href && href.startsWith('#') ) {
+    if (href && href.startsWith('#')) {
         const targetElement = document.getElementById(href.replace('#', ''))
 
-        if ( targetElement ) {
+        if (targetElement) {
             setTargetVisibleInTabSet(targetElement as HTMLDivElement)
         }
     }
 
-    if ( target ) {
+    if (target) {
         document.querySelectorAll(`a.tab-element[${ATTRIBUTE_TARGET}="${target}"]`)
             .forEach(targetTab => setTabSelectedInTabSet(targetTab as HTMLAnchorElement))
 
@@ -56,6 +56,9 @@ function handleGenericTabs() {
         .forEach(element => {
             element.querySelectorAll('.tab-element').forEach(tabElement => {
                 tabElement.addEventListener('click', e => {
+                    if (!tabElement.hasAttribute('data-target')) {
+                        return
+                    }
                     e.preventDefault()
 
                     const link: HTMLAnchorElement = e.target as HTMLAnchorElement
@@ -80,14 +83,14 @@ let lastTabId = 0
 function convertClassroomTabs() {
     const classroom = document.querySelector('.classroom-content')
 
-    if ( !classroom ) {
+    if (!classroom) {
         return
     }
 
     classroom.querySelectorAll('.tab')
         .forEach((tabElement: Element) => {
             // Only get the first tab in a list of siblings
-            if ( tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab') ) {
+            if (tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab')) {
                 return
             }
 
@@ -101,7 +104,7 @@ function convertClassroomTabs() {
 
             let nextSibling = (tabElement as HTMLElement).nextElementSibling
 
-            while ( nextSibling && (nextSibling as HTMLElement).classList.contains('tab') ) {
+            while (nextSibling && (nextSibling as HTMLElement).classList.contains('tab')) {
                 targets.push(nextSibling as HTMLElement)
 
                 nextSibling = (nextSibling as HTMLElement).nextElementSibling
@@ -127,7 +130,7 @@ function convertClassroomTabs() {
 
                 tab.setAttribute(ATTRIBUTE_TARGET, title)
 
-                if ( index === 0 ) {
+                if (index === 0) {
                     tab.classList.add('tab--selected')
                     target.classList.add('tab-target--visible')
                 }

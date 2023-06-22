@@ -3,7 +3,7 @@ import { requiresAuth } from 'express-openid-connect'
 import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
 import { UiEventType, UI_EVENTS, UserUiEvent } from '../domain/events/UserUiEvent'
-import { EnrolmentsByStatus, EnrolmentStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_INTERESTED } from '../domain/model/enrolment'
+import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAVORITED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
@@ -17,6 +17,7 @@ import { notify } from '../middleware/bugsnag.middleware'
 import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
 import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
+import { setUserProfileVisibility } from '../domain/services/set-user-profile-visibility'
 
 const router = Router()
 
@@ -125,7 +126,7 @@ router.post('/', requiresAuth(), async (req, res, next) => {
 
         req.flash('success', 'Your personal information has been updated')
 
-        res.redirect(req.params.returnTo || req.body.returnTo || '/account/')
+        res.redirect(req.body.returnTo || '/account/')
     }
     catch (e) {
         next(e)
@@ -157,6 +158,17 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
     catch (e) {
         next(e)
     }
+})
+
+router.post('/profile', async (req, res) => {
+    const hide = req.body.hide === 'true'
+
+    const user = await getUser(req) as User
+
+    await setUserProfileVisibility(user.sub, hide)
+
+    req.flash('success', `Your public profile has been set ${hide ? 'hidden' : 'visible'}.`)
+    res.redirect(req.body.returnTo || '/account/')
 })
 
 /**
@@ -211,10 +223,9 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
         const status: EnrolmentStatus = (req.params.status || STATUS_ENROLLED) as EnrolmentStatus
 
         const links: Pagination[] = [
-            { title: 'Enrolled', link: `/account/courses/${STATUS_ENROLLED}`, current: status === STATUS_ENROLLED },
-            { title: 'Bookmarked', link: `/account/courses/${STATUS_INTERESTED}`, current: status === STATUS_INTERESTED },
+            { title: 'In Progress', link: `/account/courses/`, current: status === STATUS_ENROLLED },
             { title: 'Completed', link: `/account/courses/${STATUS_COMPLETED}`, current: status === STATUS_COMPLETED },
-            { title: 'Available', link: `/account/courses/${STATUS_AVAILABLE}`, current: status === STATUS_AVAILABLE },
+            { title: 'Favorites', link: `/account/courses/${STATUS_FAVORITED}`, current: status === STATUS_FAVORITED },
         ]
 
         let result: EnrolmentsByStatus
@@ -236,14 +247,11 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
             case STATUS_ENROLLED:
                 title = 'My Enrolled Courses'
                 break;
-            case STATUS_INTERESTED:
+            case STATUS_FAVORITED:
                 title = 'My Bookmarked Courses'
                 break;
             case STATUS_COMPLETED:
                 title = 'Completed Courses'
-                break;
-            case STATUS_AVAILABLE:
-                title = 'Available Courses'
                 break;
         }
 
@@ -254,11 +262,12 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 
         res.render('account/courses', {
             title,
-            hero: {
-                title,
-                overline: 'My Courses',
-            },
+            // hero: {
+            //     title,
+            //     overline: 'My Courses',
+            // },
             classes: 'account courses',
+            status,
             user,
             links,
             courses,
@@ -346,15 +355,10 @@ router.get('/rewards', requiresAuth(), async (req, res, next) => {
             text: 'Your Rewards',
         })
 
-
         res.render('account/rewards', {
             title: 'Rewards',
-            hero: {
-                overline: 'Neo4j GraphAcademy',
-                title: 'Your Rewards',
-                byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
-            },
             rewards,
+            classes: 'account',
         })
     }
     catch (e) {
@@ -445,11 +449,12 @@ const redeemForm = async (req, res, next) => {
 
         res.render('account/printful-form', {
             title: `Redeem ${reward.title} | Rewards`,
-            hero: {
-                overline: 'Neo4j GraphAcademy',
-                title: 'Your Rewards',
-                byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
-            },
+            classes: 'account',
+            // hero: {
+            //     overline: 'Neo4j GraphAcademy',
+            //     title: 'Your Rewards',
+            //     byline: 'Claim rewards for completing courses and certifications on GraphAcademy'
+            // },
             reward,
             products,
             countries,
