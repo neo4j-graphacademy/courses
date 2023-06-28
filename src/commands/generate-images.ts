@@ -5,14 +5,14 @@ import nodeHtmlToImage from 'node-html-to-image'
 import { ASCIIDOC_DIRECTORY, CATEGORY_DIRECTORY, COURSE_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
 
 import { loadFile } from '../modules/asciidoc'
-import { categoryBadgePath, categoryBannerPath, categoryOverviewPath, courseBadgePath, courseBannerPath, courseOverviewPath, coursePublicBadgePath, coursePublicBannerPath } from '../utils'
+import { categoryBadgePath, categoryBannerPath, categoryOverviewPath, courseBackgroundPath, courseBadgePath, courseBannerPath, courseIllustrationPath, courseOverviewPath, coursePublicBackgroundPath, coursePublicBadgePath, coursePublicBannerPath, coursePublicIllustrationPath } from '../utils'
 
 const main = async () => {
     await render(path.join(PUBLIC_DIRECTORY, 'img', 'og', `og-landing.png`), 'Neo4j GraphAcademy', 'Free, Hands-on training.  No installation required.', 'Learn everything you need to know about Neo4j from the experts.')
 
     await renderCourses()
     await renderCategories()
-    await copyBadges()
+    await copyImageAssets()
 }
 
 async function render(outputTo: string, overline: string | undefined, title: string, byline: string, badge?: string) {
@@ -73,9 +73,11 @@ async function renderCourses() {
 
     // Generate Course Banner Images
     const res = await Promise.all(
-        courses.filter(slug => !fs.existsSync(courseBannerPath(slug)))
+        courses.filter(slug => {
+            const stats = fs.statSync(path.join(COURSE_DIRECTORY, slug))
+            return stats.isDirectory() && !fs.existsSync(courseBannerPath(slug))
+        })
             .map(slug => renderCourseBanner(slug))
-
     )
 
     console.log(`🌅 ${res.length} course banner${res.length == 1 ? '' : 's'} generated`)
@@ -94,17 +96,29 @@ async function renderCategories() {
     console.log(`🌠 ${res.length} category banner${res.length == 1 ? '' : 's'} generated`)
 }
 
-async function copyBadges() {
+async function copyImageAssets() {
     // Copy badges to public
     fs.readdirSync(COURSE_DIRECTORY)
-        .filter(slug => fs.existsSync(courseBadgePath(slug)))
-        .map(slug => [courseBadgePath(slug), coursePublicBadgePath(slug)])
+        .filter(slug => fs.existsSync(courseBannerPath(slug)))
+        .map(slug => [courseBannerPath(slug), coursePublicBannerPath(slug)])
         .map(([src, dest]) => fs.copyFileSync(src, dest))
 
     // Copy banners to public
     fs.readdirSync(COURSE_DIRECTORY)
         .filter(slug => fs.existsSync(courseBannerPath(slug)))
         .map(slug => [courseBannerPath(slug), coursePublicBannerPath(slug)])
+        .map(([src, dest]) => fs.copyFileSync(src, dest))
+
+    // Copy illustrations to public
+    fs.readdirSync(COURSE_DIRECTORY)
+        .filter(slug => fs.existsSync(courseIllustrationPath(slug)))
+        .map(slug => [courseBadgePath(slug), coursePublicIllustrationPath(slug)])
+        .map(([src, dest]) => fs.copyFileSync(src, dest))
+
+    // Copy backgrounds to public
+    fs.readdirSync(COURSE_DIRECTORY)
+        .filter(slug => fs.existsSync(courseBackgroundPath(slug)))
+        .map(slug => [courseBackgroundPath(slug), coursePublicBackgroundPath(slug)])
         .map(([src, dest]) => fs.copyFileSync(src, dest))
 }
 
