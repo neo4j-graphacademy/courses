@@ -8,6 +8,8 @@ export default defineConfig({
     neo4j_uri: "neo4j://localhost:7687",
     neo4j_username: "neo4j",
     neo4j_password: "neo",
+    user_email: 'graphacademy@neo4j.com',
+    user_password: 'thisisatestpasswordforalocalinstance',
   },
 
   viewportWidth: 1400,

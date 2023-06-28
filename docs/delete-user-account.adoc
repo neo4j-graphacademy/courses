@@ -1,0 +1,33 @@
+= Deleting a User account
+
+* A `(:User)` will have 0, 1 or more `(:Enrolment)` s through the `-[:HAS_ENROLMENT]->` relationship
+  * Through an `(:Enrolment)`, the user will make `(:Attempt)` s to pass a `(:Lesson)`
+    * `(:Attempt)` will `-[:PROVIDE_ANSWER]->(:Answer)` to a `(:Question)`
+  * An enrolment `-[:HAS_SANDBOX]->(:Sandbox)`
+* A User will `-[:PROVIDED_FEEDBACK]->(:Feedback)` for a `(:Course)`, `(:Module)` or `(:Lesson)`
+
+.Cascade Delete a User
+[source,cypher]
+----
+MATCH (u:User {email: $email})
+
+FOREACH (e IN [ (u)-[:HAS_ENROLMENT]->(e) | e ] |
+    FOREACH (at IN [ (e)-[:HAS_ATTEMPT]->(at) | at ] |
+        FOREACH (aw IN [ (at)-[:PROVIDED_ANSWER]->(aw) | aw ] |
+            DETACH DELETE aw
+        )
+        DETACH DELETE at
+    )
+
+    FOREACH (sb IN [ (e)-[:HAS_SANDBOX]->(sb) | sb] |
+        DETACH DELETE sb
+    )
+
+    DETACH DELETE e
+)
+
+FOREACH (fb IN [ (u)-[:PROVIDED_FEEDBACK]->(fb) | fb ] |
+    DETACH DELETE fb
+)
+DETACH DELETE u
+----

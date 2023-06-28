@@ -3,9 +3,10 @@
 :sandbox: true
 
 [.video]
-video::UyZMspbcAbE[youtube,width=560,height=315]
+video::hp-m572Z8lk[youtube,width=560,height=315]
 
-//https://youtu.be/UyZMspbcAbE
+//https://youtu.be/hp-m572Z8lk
+
 
 [.transcript]
 
@@ -20,13 +21,17 @@ Using indexes makes writing data slower, but retrieving it faster.
 
 Uniqueness constraints are implemented as indexes, but there are more types of indexes that you can create and use:
 
-* b-tree
+* RANGE
 * Composite
 * TEXT
+* POINT
+* Full-text
 
 [NOTE]
 --
 Full-text indexes are used differently from other indexes and will be covered in the next module.
+
+This course does not currently cover POINT indexes.
 --
 
 === Using `PROFILE` to analyze queries that use indexes
@@ -40,21 +45,26 @@ In this module you will `PROFILE` queries to:
 * Identify which index is used for a query.
 * Determine if adding an index improves query performance.
 
-=== b-tree indexes
+=== RANGE indexes
 
 A b-tree is a common implementation of an index that enables you to sort values.
-You can define a b-tree index on a property of a node label or relationship type.
-The data stored in the index can be numeric or string types.
+A RANGE index in Neo4j is a proprietary implementation of a b-tree.
+You can define a RANGE index on a property of a node label or relationship type.
+The data stored in the index can be any type.
 
-A b-tree index can speed up the following  in your Cypher code:
+A RANGE index can speed up the following  in your Cypher code:
 
-* Equality checks `=`
-* String  or numeric range comparisons `>`,`+>=+`,`<`, `+<=+`
-//* List membership `IN`
-* String comparisons `STARTS WITH`, `ENDS WITH`, `CONTAINS`
+* Equality checks `=`.
+** **Note:** For string properties, a TEXT index may perform better.
+* Range comparisons `>`,`+>=+`,`<`, `+<=+`
+* `STARTS WITH` string comparisons
+** **Note:** TEXT indexes can be used for `STARTS WITH` comparisons but may not perform as well as RANGE indexes.
 * Existence checks `IS NOT NULL`
 
-This query could benefit from a b-tree index in the graph for the born property associated with the Person label:
+[NOTE]
+`ENDS WITH` ands `CONTAINS` comparisons may benefit slightly from a RANGE index, but we recommend you use a TEXT index for these types of comparisons.
+
+This query could benefit from a RANGE index in the graph for the born property associated with the Person label:
 
 [source,cypher]
 ----
@@ -67,7 +77,7 @@ RETURN p
 
 A composite index combines values from multiple properties for a node label or for relationship type.
 You create composite indexes when multiple properties are always tested together in a query.
-The values stored for a composite index can be all strings, all numerics, or a combination.
+The types of the properties need not be the same.
 
 During query planning, at most one index is used, so it is beneficial in some cases to create a composite index when multiple properties need to be retrieved quickly.
 
@@ -83,24 +93,18 @@ RETURN m.title, m.year, m.imdbRating
 
 === TEXT indexes
 
-A TEXT index supports node or relationship property types that must be strings.
-It is optimized for queries that may specify `CONTAINS or `ENDS WITH` in their predicates, but is also used for any type of test of a string property.
+A TEXT index supports node or relationship property types that **must** be strings.
 
+A TEXT index can speed up the following  in your Cypher code:
 
-////
-On thing that is different about b-tree indexes vs. TEXT indexes is that a predicate such as the following cannot use a TEXT index:
+* Equality checks `=`
+* String comparisons  `ENDS WITH`, `CONTAINS`
+* List membership x.prop in ["a","b","c"]
 
-[source,cypher]
-----
-MATCH (p:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p2:Person)
-WHERE p.name = p2.name
-RETURN p
-----
-////
 
 === About LOOKUP indexes
 
-There are two types of  LOOKUP indexes in a Neo4j database (release 4.3 and later).
+There are two types of  LOOKUP indexes in a Neo4j database.
 These indexes are created automatically for you and are used to look up a node label or relationship type value.
 
 Without these indexes queries would need to scan the entire set of nodes or relationships for some queries which is very inefficient.
@@ -108,11 +112,23 @@ Without these indexes queries would need to scan the entire set of nodes or rela
 [WARN]
 You should not create or remove these types of indexes in the database as they are automatically created for you.
 
+=== Index not used
+
+A predicate such as the following does use a TEXT  or RANGE index:
+
+[source,cypher]
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(p2:Person)
+WHERE p.name = p2.name
+RETURN p
+----
+
 
 [NOTE]
-.Indexes Coming Soon
+.POINT indexes
 --
-This course does not cover RANGE  or POINT indexes that will be added in a future release of Neo4j.
+This course does not currently cover POINT indexes.
+You can read about them in the link:https://neo4j.com/docs/cypher-manual/current/indexes-for-search-performance[Neo4j Cypher Manual^].
 --
 
 == Check your understanding

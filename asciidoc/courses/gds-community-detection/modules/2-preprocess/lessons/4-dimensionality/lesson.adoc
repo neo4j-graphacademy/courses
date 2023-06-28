@@ -1,0 +1,103 @@
+= Dimensionality reduction
+:type: quiz
+:sandbox: true
+
+
+[.transcript]
+Graph data science algorithms, such as KMeans or K-Nearest Neighbors, thrive on numerical inputs and fumble with strings. Hence, our categorical variables, which aren't naturally numerical, need a numerical makeover. This transformation process is often referred to as encoding.
+
+As we march towards the tail end of our preprocessing journey, we'll conduct some basic dimensionality reduction. Our weapons of choice? Low variance and high correlation filters.
+
+== The Low Variance Filter
+
+The low variance filter, a feature selection method, has a keen eye for features with little to no variance across the dataset and nudges them out. Since these low variance features bring minimal diversity, they're likely to make only a small splash in our analysis.
+
+Good news! Cypher query language has a built-in function to calculate standard deviation, the square root of variance. Let's take it for a spin.
+
+.Calculate Standard Deviation"
+[source,cypher]
+WITH ["Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS demographicFeatures
+MATCH (p:Person)
+UNWIND keys(p) as key
+WITH p, key
+WHERE NOT key IN demographicFeatures
+AND toInteger(p[key]) IS NOT NULL
+WITH key, avg(p[key]) AS average, stdev(p[key]) AS standardDeviation
+RETURN key, average, standardDeviation
+ORDER BY standardDeviation ASC
+LIMIT 10;
+
+From our findings, it's clear that enjoying music, hanging out with friends, and catching a comedy flick (or any movie for that matter) are common habits among respondents. Also, they tend to have a neutral view of their personality traits and dreams. Given their low variance, we're going to kindly show the following features the exit for our future analysis:
+
+* Personality
+* Music
+* Dreams
+* Movies
+* Fun with friends
+* Comedy
+
+In our quest for meaningful data insights, let's keep focusing on the features that bring variety to the table!
+
+
+
+== The High Correlation Filter
+
+Much like the low variance filter, the high correlation filter is a feature selection method with a mission. It scans for features that are highly correlated and ushers them out since they often echo the same information, potentially leading to overfitting in some graph data science workflows. By toning down multicollinearity and simplifying the feature space, this filter helps to refine the performance and clarity of the model.
+
+Check out the following Cypher query; it's set up to spot the top ten pairs of highly correlated features. As it sifts through all feature pairs, it might take a wee bit under a minute to wrap up.
+
+.Identify Highly Correlated Features
+[source,cypher]
+WITH ["Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS demographicFeatures
+MATCH (sp:Person)
+WITH [x in keys(sp) WHERE NOT x IN demographicFeatures
+AND toInteger(sp[x]) IS NOT NULL | x] AS allKeys
+LIMIT 1
+MATCH (p:Person)
+UNWIND allKeys as key1
+UNWIND allKeys as key2
+WITH p,key1,key2
+WHERE key1 > key2
+WITH key1, key2,
+collect(p[key1]) as vector1,
+collect(p[key2]) as vector2
+RETURN key1,key2,
+gds.similarity.pearson(vector1, vector2) as pearsonCorrelation
+ORDER BY pearsonCorrelation DESC
+LIMIT 10
+
+Our results reveal a strong correlation between an interest in medicine and interests in biology and chemistry. Meanwhile, those fond of mathematics are also often fans of physics.
+
+Given their high correlation, we're going to set aside the following features for our future analysis:
+
+* Medicine
+* Chemistry
+* Shopping centres
+* Physics
+* Opera
+* Animated
+* Theatre
+
+Now for the grand finale of this lesson: constructing a vector representation for all respondents, which we'll use for grouping.
+
+.Construct Vector Representation
+[source,cypher]
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", "Comedy", "Medicine", "Chemistry", "Shopping centres", "Physics", "Opera", "Animated", "Theatre", "Height", "Weight", "Age", "Number of siblings", "EducationEncoding"] AS excludedProperties
+MATCH (sp:Person)
+WITH [x in keys(sp) WHERE NOT x IN excludedProperties AND toInteger(sp[x]) IS NOT NULL| x] AS allKeys
+LIMIT 1
+MATCH (p:Person)
+UNWIND allKeys as key
+WITH p, collect(p[key]) AS vector
+SET p.vector = vector + p.EducationEncoding;
+
+The `EducationEncoding` is a bit of a special case. Unlike the other features, it's not a singular numerical value but a collection of values. That's why we're adding it separately here.
+
+== Check your understanding
+include::questions/1-lowvariance.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+You've now learned how to fine-tune your features using low variance and high correlation filters.
+
+Up next, you'll be dipping your toes into the KMeans algorithm to uncover segments among respondents.

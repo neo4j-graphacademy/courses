@@ -1,0 +1,106 @@
+= Categorical Variables
+:type: quiz
+:sandbox: true
+
+[.transcript]
+In the world of graph data science, algorithms like link:https://neo4j.com/docs/graph-data-science/current/algorithms/kmeans/[KMeans^] or link:https://neo4j.com/docs/graph-data-science/current/algorithms/knn/[K-Nearest Neighbors^]  rely on numerical data as inputs.
+This means we need to convert any categorical (string-based) data into numerical representations, a process known as encoding.
+
+== Encoding Categorical Variables
+
+First off, we need to identify which variables are categorical. We'll do this by finding all the unique values in each property.
+
+[source,cypher]
+.Identifying Categorical Variables
+----
+MATCH (p:Person)
+UNWIND keys(p) AS key
+WITH p, key
+WHERE toFloat(p[key]) IS NULL
+RETURN key, collect(distinct(p[key])) as unique_values
+----
+
+In our dataset, we've got 11 properties with categorical variables. Let's take 'Internet usage' as an example, which has the following options:
+
+* no time at all
+* less than an hour a day
+* few hours a day
+* most of the day
+
+We can translate these into numerical values based on the amount of internet usage each option represents, assigning lower values for less usage and higher values for more. We'll use a scale from one to five, consistent with other survey questions.
+
+[source,cypher]
+.Encoding Internet Usage
+----
+MATCH (p:Person)
+WITH p, CASE p['Internet usage']
+WHEN 'no time at all' THEN 1
+WHEN 'less than an hour a day' THEN 2
+WHEN 'few hours a day' THEN 4
+WHEN 'most of the day' THEN 5
+// handle missing values
+ELSE 3
+END as internet
+SET p.InternetEncoding = internet;
+----
+
+The same method can be applied to other categorical variables, such as 'Alcohol' consumption.
+
+[source,cypher]
+.Encoding Alcohol Consumption
+----
+MATCH (p:Person)
+WITH p, CASE p['Alcohol']
+WHEN 'never' THEN 1
+WHEN 'social drinker' THEN 3
+WHEN 'drink a lot' THEN 5
+// handle missing values
+ELSE 3 END as alcohol
+SET p.AlcoholEncoding = alcohol;
+----
+
+
+== One-Hot Encoding
+
+Another popular technique for encoding categorical data is 'one-hot encoding'. This transforms each category into a unique column, where the presence or absence of the category is represented by binary values (1 or 0). Thankfully, Neo4j's Graph Data Science library provides a convenient procedure, gds.alpha.ml.oneHotEncoding, to streamline this process.
+
+Let's demonstrate one-hot encoding using the 'Education' property.
+
+[source,cypher]
+.One-Hot Encoding for Education Property
+----
+MATCH (p:Person)
+WITH collect(distinct p.Education) AS availableOptions,
+collect(p) AS nodes
+UNWIND nodes AS node
+RETURN distinct node.Education AS education,
+gds.alpha.ml.oneHotEncoding(availableOptions, [node.Education]) AS encoding;
+----
+
+After generating our one-hot encodings, we'll save these as a new node property, `EducationEncoding`.
+
+[source,cypher]
+.Storing One-Hot Encoding Results
+----
+MATCH (p:Person)
+WITH collect(distinct p.Education) AS availableOptions,
+collect(p) AS nodes
+UNWIND nodes AS node
+WITH node,
+gds.alpha.ml.oneHotEncoding(availableOptions, [node.Education]) AS educationEncoding
+SET node.EducationEncoding = educationEncoding;
+----
+
+Understanding and utilizing encoding techniques in data science is a critical skill, especially when working with categorical data. The process of transforming categorical variables into numerical forms enables the use of these variables in mathematical algorithms, thus increasing the richness of our data analysis. This could lead to more nuanced insights and better predictive models, significantly boosting the potential of our data. Whether it's simply transforming categorical values into numerical ones, or using one-hot encoding to create binary vectors, these techniques enhance the versatility of your data, allowing it to be effectively utilized by graph data science algorithms.
+
+
+
+== Check your understanding
+include::questions/1-numerical.adoc[leveloffset=+1]
+include::questions/2-onehot.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+In this lesson, you learned how to identify and transform categorical variables into numerical forms using various encoding techniques, such as direct numerical translation and one-hot encoding.
+
+In the next challenge, you will use the knowledge obtained in this lesson to encode a categorical variable.

@@ -19,6 +19,8 @@ CREATE  INDEX RATED_ratingY IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY);
 CREATE  TEXT INDEX RATED_ratingY_text IF NOT EXISTS FOR ()-[x:RATED]-() ON (x.ratingY);
 CREATE FULLTEXT INDEX Movie_plot_ft IF NOT EXISTS FOR (x:Movie) ON EACH [x.plot];
 CREATE TEXT INDEX Movie_plot_text IF NOT EXISTS FOR (x:Movie) ON (x.plot);
-CREATE TEXT INDEX Movie_title_text IF NOT EXISTS FOR (x:Movie) ON (x.text);
+CREATE TEXT INDEX Movie_title_text IF NOT EXISTS FOR (x:Movie) ON (x.title);
 CREATE TEXT INDEX Actor_bio_text IF NOT EXISTS FOR (x:Actor) ON (x.bio);
+// reco db  change impact
+// add this aafter point index lesson added:  CREATE POINT INDEX Person_bornLocation_point IF NOT EXISTS FOR (x:Person) ON (x.bornLocation);
 CREATE FULLTEXT INDEX ACTED_IN_role_ft IF NOT EXISTS FOR ()-[x:ACTED_IN]-() ON EACH [x.role]

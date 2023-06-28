@@ -1,0 +1,124 @@
+= Choosing the Right 'K' for KMeans
+:type: quiz
+:sandbox: true
+
+
+[.transcript]
+The 'K' in KMeans is a hyperparameter that you don't want to overlook. It's the number of clusters that the algorithm will divvy up the data into. Ensuring you have the right 'K' value is key to arriving at accurate and meaningful clustering results. With too few clusters, we risk underfitting, where vastly different data points get lumped together. Too many clusters could swing us the other way into overfitting territory, creating clusters with negligible differences.
+
+== Implementing KMeans
+
+In our scenario, we'll apply a 'K' value of 14 and register the outcomes of the algorithm back into the database.
+
+.Apply KMeans Algorithm
+[source,cypher]
+----
+CALL gds.beta.kmeans.write(
+  'survey',
+  {
+    k:14,
+    nodeProperty:'scaledVector',
+    writeProperty: 'kmeansCommunity'
+  }
+);
+----
+
+Keep in mind that the KMeans algorithm can be a tad unpredictable, which means we might see slightly varying results with each execution.
+
+To evaluate the outcomes of the KMeans algorithm, we'll take a look at the average top and bottom three features per community. Additionally, we'll check the gender ratio within the communities.
+
+.Evaluate KMeans Results
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends",
+"Comedy", "Medicine", "Chemistry", "Shopping centres", "Physics", "Opera",
+"Animated", "Height", "Weight", "Age", "Number of siblings", "vector", "kmeansCommunity", "EducationEncoding"] AS excludedProperties
+MATCH (p:Person)
+WITH [x in keys(p) WHERE
+toInteger(p[x]) IS NOT NULL AND
+NOT x IN excludedProperties | x] AS allKeys
+LIMIT 1
+MATCH (p1:Person)
+UNWIND allKeys as key
+WITH p1.kmeansCommunity as community,
+count(*) as size,
+SUM(CASE WHEN p1.Gender = 'male' THEN 1 ELSE 0 END) as males,
+key,
+avg(p1[key]) as average,
+stdev(p1[key]) as std
+ORDER BY average DESC
+WITH community,
+size,
+toFloat(males) / size as male_percentage,
+collect(key) as all_avg
+ORDER BY size DESC limit 5
+RETURN community,size,male_percentage,
+all_avg[..3] as top_3,
+all_avg[-3..] as bottom_3
+----
+
+Interesting, isn't it? We find our communities showing stark gender division. For instance, the largest female community displays a preference for fairy tales, romantic activities, and showing compassion to animals. They're not fans of westerns and country music. The dominant male community, on the other hand, is into internet surfing, school cheating, and not so much into gardening and storms.
+
+Your results may differ slightly owing to the non-deterministic nature of the KMeans algorithm. Try running the algorithm a few times and evaluate the outcomes each time.
+
+== Taking it up a Notch with KMeans++
+
+KMeanspass:[++] is an upgraded version of KMeans that aims to enhance clustering results and speed up convergence. The key distinction between KMeanspass:[++] and KMeans is how they select the initial centroids. In KMeans, the initial centroids are randomly selected from the data points, which can sometimes slow convergence and yield less optimal clustering results. KMeanspass:[++] follows a more refined initialization method that picks initial centroids far apart from each other, thereby enhancing the quality of initial centroids and decreasing the likelihood of getting stuck in local optima during the clustering process.
+
+.Apply KMeans++ Algorithm
+[source,cypher]
+----
+CALL gds.beta.kmeans.write(
+  'survey',
+  {
+    k:14,
+    nodeProperty:'scaledVector',
+    writeProperty: 'kmeansplusCommunity',
+    initialSampler:'kmeans++'
+  }
+);
+----
+
+We'll evaluate the clusters resulting from KMeanspass:[++] using the following Cypher query.
+
+.Evaluate KMeans++ Results
+[source,cypher]
+----
+WITH ["Personality", "Music", "Dreams", "Movies", "Fun with friends", "Comedy", "Medicine", "Chemistry", "Shopping centres", "Physics", "Opera", "Animated", "Height", "Weight", "Age", "Number of siblings", "vector", "kmeansCommunity", "EducationEncoding", "kmeansplusCommunity"] AS excludedProperties
+MATCH (p:Person)
+WITH [x in keys(p) WHERE toInteger(p[x]) IS NOT NULL AND NOT x IN excludedProperties | x] AS allKeys
+LIMIT 1
+MATCH (p1:Person)
+UNWIND allKeys as key
+WITH p1.kmeansplusCommunity as community,
+count(*) as size,
+SUM(CASE WHEN p1.Gender = 'male' THEN 1 ELSE 0 END) as males,
+key,
+avg(p1[key]) as average,
+stdev(p1[key]) as std
+ORDER BY average DESC
+WITH community,
+size,
+toFloat(males) / size as male_percentage,
+collect(key) as all_avg
+ORDER BY size DESC limit 5
+RETURN community,size,male_percentage,
+all_avg[..3] as top_3,
+all_avg[-3..] as bottom_3
+----
+
+This Cypher query is used to analyze the clusters produced by the KMeanspass:[++] algorithm. It calculates the size of each cluster, the percentage of males in each cluster, and identifies the top and bottom three features for each cluster.
+
+
+== Check your understanding
+
+include::questions/1-deterministic.adoc[leveloffset=+1]
+
+include::questions/2-kmeans.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson you learned how to execute KMeans algorithm and evaluate its results.
+
+In the next lesson, you will learn how to optimize the **k** value of the KMeans algorithm.

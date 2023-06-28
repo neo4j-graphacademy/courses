@@ -3,13 +3,14 @@ import path, { basename } from 'path'
 import fs from 'fs'
 import { loadFile } from '../modules/asciidoc'
 import { write } from '../modules/neo4j';
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE } from '../constants';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, ATTRIBUTE_STATUS, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE } from '../constants';
 import { Language } from '../types';
 import { categoryOverviewPath } from '../utils';
 
 
 interface CategoryWithParent {
     slug: string;
+    status: 'active' | 'disabled';
     title: string;
     language: Language;
     link: string;
@@ -30,6 +31,7 @@ const loadCategories = (): CategoryWithParent[] => {
 const loadCategory = (slug: string): CategoryWithParent => {
     const file = loadFile(categoryOverviewPath(slug))
 
+    const status = file.getAttribute(ATTRIBUTE_STATUS, 'active')
     const parent = file.getAttribute(ATTRIBUTE_PARENT, null)
     const caption = file.getAttribute(ATTRIBUTE_CAPTION, null)
     const shortName = file.getAttribute(ATTRIBUTE_SHORTNAME, null)
@@ -39,6 +41,7 @@ const loadCategory = (slug: string): CategoryWithParent => {
 
     return {
         slug,
+        status,
         title: file.getTitle() as string,
         language,
         link,
@@ -55,7 +58,7 @@ export async function mergeCategories(): Promise<void> {
     await write(`
         UNWIND $categories AS row
         MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
-        SET c += row { .slug, .title, .description, .caption, .shortName, .language, .link }
+        SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .link }
 
         FOREACH (_ IN CASE WHEN row.parent IS NOT NULL THEN [1] ELSE [] END |
             MERGE (p:Category {id: apoc.text.base64Encode(row.parent)})

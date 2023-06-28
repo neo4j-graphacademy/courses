@@ -1,0 +1,56 @@
+= Handling Missing Values
+:type: quiz
+:sandbox: true
+
+[.transcript]
+Handling missing values is a common challenge when working with real-world datasets. It's essential to identify these gaps and decide whether to fill them in, a process known as imputation.
+
+== Identifying Missing Values
+
+Our first task is to pinpoint the missing values in our dataset. We'll calculate the ratio of missing values for each property. The Cypher statement below will reveal the top five node properties with the greatest proportion of missing values.
+
+[source,cypher]
+MATCH (p:Person)
+WITH collect(p) AS personList, count(*) AS totalCount
+UNWIND personList AS person
+UNWIND keys(person) AS key
+WITH key, totalCount, count(person[key]) AS nonNull
+RETURN key,
+(totalCount - nonNull) / toFloat(totalCount) AS missingValuesRatio
+ORDER BY missingValuesRatio DESC
+LIMIT 5;
+
+From our initial observations, it seems like our dataset is in pretty good shape! Only a few properties like height, weight, and passive sports show around 2% missing values. Most others are missing less than 1%. As such, we won't spend too much time fretting over these gaps.
+
+== Filling in Missing Values
+
+For a straightforward solution, we'll fill in missing values with the average values of the respective properties for the whole population. Keep in mind, though, that we'll skip categorical variables since we're using averages.
+
+We'll employ the apoc.create.setProperty procedure to dynamically set node properties.
+
+[source,cypher]
+MATCH (p:Person)
+UNWIND keys(p) AS key
+WITH p, key
+// filter only numerical values
+WHERE toFloat(p[key]) IS NOT NULL
+// calculate average
+WITH key, avg(p[key]) AS averageValue
+MATCH (p1:Person) WHERE p1[key] IS NULL
+// Fill in missing values
+CALL apoc.create.setProperty(p1, key, averageValue)
+YIELD node
+RETURN distinct 'done'
+
+
+== Check Your Understanding
+
+include::questions/1-imputation.adoc[leveloffset=+1]
+
+include::questions/2-set-property.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+Great job! You've now mastered the art of identifying and imputing missing values using the average values from the rest of the dataset.
+
+Get ready for the next lesson you will learn how to handle categorical variables.
