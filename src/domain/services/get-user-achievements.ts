@@ -2,13 +2,17 @@ import NotFoundError from '../../errors/not-found.error'
 import { read } from '../../modules/neo4j'
 import { formatCourse } from '../../utils'
 import { CourseWithProgress, STATUS_DRAFT } from '../model/course'
-import { CategoryEnrolments } from '../model/enrolment'
 import { User } from '../model/user'
 import { appendParams, courseCypher } from './cypher'
 
 interface Achievements {
     user: User
-    categories: CategoryEnrolments[]
+    categories: {
+        link: string;
+        type: string;
+        title: string;
+        courses: CourseWithProgress[];
+    }[]
 }
 
 export async function getUserAchievements(id: string): Promise<Achievements> {
@@ -16,53 +20,36 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         `
         MATCH (u:User {id: $id})
 
-        MATCH (c:Course)
+        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e:CompletedEnrolment)-[:FOR_COURSE]->(c)
         WHERE NOT c.status IN $exclude + $STATUS_DRAFT
 
-        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+        WITH e, u, c
+        ORDER BY e.completedAt ASC
 
-        WITH u, ${courseCypher('e', 'u')} AS course
-
-        ORDER BY course.title ASC
-
-        UNWIND course.categories AS category
-
-        WITH u AS user, category, collect(course) AS courses
-        ORDER BY category.title ASC
-
-        WITH user, collect({category: category, courses: courses}) AS categories
-
-        RETURN user, [ cat in categories where any(c in cat.courses where c.completed = true) ] AS categories
+        RETURN u { .*} AS user,
+            CASE WHEN c:Certification THEN 'Certifications' ELSE 'Completed Courses' END AS title,
+            CASE WHEN c:Certification THEN 'certification' ELSE 'course' END AS type,
+            '/u/'+ u.id +'/'+ CASE WHEN NOT c:Certification THEN 'courses/' ELSE '' END AS link,
+            collect(${courseCypher('e', 'u')}) AS courses
+        ORDER BY link ASC
     `,
         appendParams({ id, STATUS_DRAFT })
     )
 
     if (res.records.length === 0) {
-        throw new NotFoundError(`User with id ${id} not found`)
+        throw new NotFoundError(`User ${id} or completed enrolments not found`)
     }
 
-    const user = res.records[0].get('user').properties
+    const user = res.records[0].get('user')
+    const categories = await Promise.all(res.records.map(async row => ({
+        title: row.get('title'),
+        type: row.get('type'),
+        link: row.get('link'),
+        courses: await Promise.all(row.get('courses').map(course => formatCourse(course))),
+    })))
 
     return {
         user,
-        categories: await Promise.all(
-            res.records[0].get('categories').map(async ({ category, courses }: any) => {
-                const formattedCourses = (await Promise.all(
-                    courses.map((course: CourseWithProgress) => formatCourse(course))
-                )) as CourseWithProgress[]
-                const completedCount = courses.reduce(
-                    (acc: number, course: CourseWithProgress) => (course.completed ? acc + 1 : acc),
-                    0
-                )
-                const completedPercentage = Math.round((completedCount / courses.length) * 100)
-
-                return {
-                    category,
-                    courses: formattedCourses,
-                    completedCount,
-                    completedPercentage,
-                }
-            })
-        ),
+        categories,
     }
 }

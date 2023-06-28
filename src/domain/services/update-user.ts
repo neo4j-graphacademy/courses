@@ -11,6 +11,7 @@ export interface UserUpdates {
     position?: string | null;
     company?: string | null;
     country?: string | null;
+    bio?: string | null;
     unsubscribed: boolean;
 }
 
@@ -25,10 +26,12 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     const res = await write(`
         MERGE (u:User {sub: $id})
         SET u.updatedAt = datetime(), u += $updates,
+            u.picture = $picture,
             u.profileCompletedAt = coalesce(u.profileCompletedAt, datetime())
         RETURN u
     `, {
         id: user.sub,
+        picture: user.picture,
         updates,
     })
 

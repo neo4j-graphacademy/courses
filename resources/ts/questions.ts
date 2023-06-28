@@ -228,7 +228,6 @@ const formatSelectionQuestion = async (element: Element): Promise<Question> => {
         while (answer.element.hasChildNodes()) {
             const cloned = answer.element.childNodes[0].cloneNode(true)
 
-            // TODO: Hacky
             if (cloned.nodeType !== cloned.TEXT_NODE) {
                 // @ts-ignore
                 cloned.innerHTML = cloned.innerHTML.replace(CORRECT_INDICATOR, '').replace(INCORRECT_INDICATOR, '')

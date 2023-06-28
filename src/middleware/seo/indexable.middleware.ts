@@ -19,6 +19,7 @@ export default async function indexable(req: Request, res: Response, next: NextF
     }
 
     // Get Course Information
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_, __, courseSlug, moduleSlug, lessonSlug] = req.originalUrl.split('?')[0].split('/')
 
     const course = await getCourseWithProgress(courseSlug)
@@ -56,8 +57,6 @@ export default async function indexable(req: Request, res: Response, next: NextF
             })
         }
 
-
-
         // Render Module
         const doc = await convertModuleOverview(courseSlug, moduleSlug)
 
@@ -69,8 +68,6 @@ export default async function indexable(req: Request, res: Response, next: NextF
         })
 
     }
-
-
 
     // No indexable content to display
     next()

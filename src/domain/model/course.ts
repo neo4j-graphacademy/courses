@@ -82,10 +82,11 @@ export interface Course {
     classmarkerReference?: string;
     certificateNumber: Integer | boolean | undefined;
     translations: Course[];
-    enrolledAt: Date | string;
+    enrolledAt: Date | string | undefined;
     quizAvailable: boolean;
     questions: number;
     passPercentage: number;
+    keyPoints: string[];
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }
@@ -93,13 +94,15 @@ export interface Course {
 export interface CourseWithProgress extends Course {
     enrolmentId: string;
     enrolled: boolean;
-    ref: string;
-    endrolledAt: Date;
+    ref: string | undefined;
+    enrolledAt: Date;
     completed: boolean;
-    completedAt: Date;
-    lastSeenAt: Date;
+    completedAt: Date | undefined;
+    lastSeenAt: Date | undefined;
     completedCount: number;
     completedPercentage: number | string;
+    availableAfter: Date | undefined;
+    certificateUrl: string | undefined;
     modules: ModuleWithProgress[];
     next?: Pagination;
     sandbox?: Sandbox;

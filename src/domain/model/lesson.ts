@@ -28,6 +28,7 @@ export interface Lesson {
     path: string;
     slug: string;
     title: string;
+    link: string;
     type: LessonType;
     updatedAt?: Date | undefined;
     order: number;

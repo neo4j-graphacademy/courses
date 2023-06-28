@@ -17,7 +17,6 @@ export default function home() {
                 body.classList.add('transparent-nav')
                 body.classList.remove('past-hero')
             }
-
         }
     }
 

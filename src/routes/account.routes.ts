@@ -118,11 +118,11 @@ router.post('/', requiresAuth(), async (req, res, next) => {
         const user = await getUser(req) as User
 
         // TODO: Validation
-        const { nickname, givenName, position, company, country, unsubscribe } = req.body
+        const { nickname, givenName, position, company, country, unsubscribe, bio } = req.body
 
         const unsubscribed = unsubscribe === 'true'
 
-        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed })
+        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio })
 
         req.flash('success', 'Your personal information has been updated')
 

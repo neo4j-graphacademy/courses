@@ -1,15 +1,11 @@
 import { Router } from 'express'
-import { BASE_URL } from '../constants'
 import { CourseWithProgress } from '../domain/model/course'
-import { User } from '../domain/model/user'
 import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
-import { getUserName } from '../utils'
-import { courseOgBadgeImage, courseOgBannerImage } from './route.utils'
+import { getCountries, getUserName } from '../utils'
 
 const router = Router()
-
 
 /**
  * Redirect to home if no user ID is supplied
@@ -57,26 +53,20 @@ router.get('/:id', async (req, res, next) => {
 
             return res.render('simple', {
                 title,
-                hero: {
-                    title,
-                    overline: 'Neo4j GraphAcademy',
-                },
                 breadcrumbs,
                 content,
                 action: {
                     link: '/categories/',
-                    text: 'View Course Catalogue'
+                    text: 'View all courses'
                 },
             })
         }
 
         res.render('profile/achievements', {
+            classes: 'public-profile',
             title,
-            hero: {
-                overline: 'Neo4j GraphAcademy',
-                title,
-            },
-            ...user,
+            countries: await getCountries(),
+            user,
             own,
             categories,
             breadcrumbs,
@@ -94,11 +84,7 @@ router.get('/:id', async (req, res, next) => {
  */
 router.get('/:id/:course', async (req, res, next) => {
     try {
-        const current = await getUser(req)
-
-        const { user, enrolments } = await getUserEnrolments(req.params.id, 'id', false)
-
-        const own = current?.id === req.params.id
+        const { enrolments } = await getUserEnrolments(req.params.id, 'id', false)
 
         if (!enrolments) {
             return res.redirect(`/u/${req.params.id}`)
@@ -110,45 +96,7 @@ router.get('/:id/:course', async (req, res, next) => {
             return res.redirect(`/u/${req.params.id}`)
         }
 
-        const userName = getUserName(user as User)
-        const title = [
-            course.title,
-            own ? 'My Achievements' : `${userName}'s Achievements`
-        ].join(' | ')
-
-        // OG Tags
-        let ogTitle = ''
-        let ogDescription = ''
-
-        if (course.completedAt) {
-            ogTitle = `${own ? 'I' : userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`
-            ogDescription = `On ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(course.completedAt?.toString()))} ${own ? 'I' : userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
-        }
-        else {
-            ogTitle = `${own ? 'I am' : `${userName} is`} working towards the ${course.title} badge on #Neo4j #GraphAcademy`
-            ogDescription = `${own ? 'I am' : userName + ' is'} working towards the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`
-        }
-
-        const ogImage = courseOgBannerImage(course.slug)
-
-        // Year and month for LinkedIn
-        const year = course.completedAt ? course.completedAt.getFullYear() : null
-        const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
-        const url = `${BASE_URL}/u/${req.params.id}/${req.params.course}/`
-
-        res.render('profile/certificate', {
-            title,
-            course,
-            name: getUserName(user as User),
-            own,
-            badge: courseOgBadgeImage(course.slug),
-            ogTitle,
-            ogDescription,
-            ogImage,
-            year,
-            month,
-            url,
-        })
+        return res.redirect(`/c/${course.certificateId}`)
     }
     catch (e) {
         next(e)

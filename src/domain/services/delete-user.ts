@@ -1,7 +1,6 @@
 import { write } from "../../modules/neo4j"
 import { User } from "../model/user"
 
-// TODO: Delete user and enrolments?
 export async function deleteUser(user: User): Promise<boolean> {
     const res = await write(`
         MATCH (u:User {sub: $id})

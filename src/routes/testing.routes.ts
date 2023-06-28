@@ -80,7 +80,7 @@ router.get('/sandbox/getSandboxByHashKey', (req, res) => {
     const { sandboxHashKey } = req.query
 
     if (!sandboxHashKey || !sandboxes.hasOwnProperty(sandboxHashKey as string)) {
-        console.log(`[test sandbox] ${sandboxHashKey} not found`);
+        // console.log(`[test sandbox] ${sandboxHashKey} not found`);
 
         return res.status(404).send('Sandbox not found')
     }

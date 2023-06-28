@@ -1,3 +1,5 @@
+import { embedVideo } from "./embed-videos"
+
 export default function courseOverview() {
     document.querySelectorAll('.btn--enrol').forEach(el => {
         el.addEventListener('click', () => {
@@ -45,6 +47,20 @@ export default function courseOverview() {
 
                 element.classList.add(dtActive)
                 dd?.classList.add(ddActive)
+            })
+        })
+
+    document.querySelectorAll('.course-video[data-id]')
+        .forEach((el) => {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+            el.addEventListener('click', e => {
+                e.preventDefault()
+
+                embedVideo(el as HTMLDivElement, 1)
             })
         })
 }

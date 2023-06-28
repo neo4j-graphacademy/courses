@@ -5,7 +5,7 @@ import { appendParams } from "./cypher"
 
 type CourseSuggestion = Course & { count: number }
 
-export async function getSuggestionsForEnrolment(enrolmentId: string, limit: number = 3): Promise<CourseSuggestion[]> {
+export async function getSuggestionsForEnrolment(enrolmentId: string, limit = 3): Promise<CourseSuggestion[]> {
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment {id: $enrolmentId})-[:FOR_COURSE]->(c)
         WITH u, e, c, [ (u)-[:HAS_ENROLMENT]->()-[:FOR_COURSE]->(x) | x ] AS courses

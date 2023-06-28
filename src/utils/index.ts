@@ -19,6 +19,8 @@ import { getToken, getUser } from '../middleware/auth.middleware'
 import { getSandboxForUseCase } from '../modules/sandbox'
 import { isInt } from 'neo4j-driver'
 import { courseOgBadgeImage } from '../routes/route.utils'
+import { IntermediateEnrolment } from '../domain/services/enrolments/get-enrolment'
+import { Pagination } from '../domain/model/pagination'
 
 export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -111,6 +113,61 @@ export async function formatModule(
     }
 }
 
+function getNextLesson(course: Course, completedLessons: string[]): Pagination | undefined {
+    for (const m of course.modules) {
+        for (const l of m.lessons) {
+            if (!completedLessons.includes(l.link)) {
+                return {
+                    title: l.title,
+                    link: l.link,
+                }
+            }
+        }
+    }
+}
+
+export async function mergeCourseAndEnrolment(course: Course, enrolment: IntermediateEnrolment): Promise<CourseWithProgress> {
+    const mandatoryLessons = course.modules.reduce((acc, module) => {
+        const mandatory = module.lessons.filter(lesson => !lesson.optional).length
+
+        return acc + mandatory
+    }, 0)
+
+    const completedCount = enrolment.completedLessons.length
+    const completedPercentage = Math.round(completedCount / mandatoryLessons * 100)
+
+    const output: CourseWithProgress = {
+        ...await formatCourse(course),
+        enrolled: true,
+        enrolmentId: enrolment.id,
+        enrolledAt: enrolment.createdAt,
+        ref: enrolment.ref,
+        completed: enrolment.completed,
+        completedAt: enrolment.completedAt,
+        failed: enrolment.completed,
+        failedAt: enrolment.failedAt,
+        availableAfter: enrolment.failedAt ? new Date(enrolment.failedAt?.getTime() + + 60 * 60 * 24 * 1000) : undefined,
+        lastSeenAt: enrolment.lastSeenAt,
+        completedCount,
+        completedPercentage,
+        certificateUrl: enrolment.certificateUrl,
+
+        modules: course.modules.map(module => ({
+            ...module,
+            completed: enrolment.completedModules.includes(module.link),
+            lessons: module.lessons.map(lesson => ({
+                ...lesson,
+                completed: enrolment.completedLessons.includes(lesson.link),
+            }))
+        })),
+        next: getNextLesson(course, enrolment.completedLessons),
+    }
+
+
+
+    return output
+}
+
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(
         course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module))
@@ -131,6 +188,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     // If less than 7 days old, they are not allowed to take the quick quiz
     const enrolledAt = course.enrolledAt ? new Date((course.enrolledAt as string).toString()) : undefined
     const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
+    const availableAfter = course.availableAfter ? relativeTime(new Date(course.availableAfter)) : undefined
 
     return {
         ...course,
@@ -142,6 +200,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         emails,
         createdAt,
         enrolledAt,
+        availableAfter,
         quizAvailable,
         completedAt,
         lastSeenAt,
@@ -463,4 +522,33 @@ export function isTruthy(value: any): boolean {
     }
 
     return false
+}
+
+const formatter = new Intl.RelativeTimeFormat(undefined, {
+    numeric: "auto",
+})
+
+
+
+const DIVISIONS: { amount: number, name: Intl.RelativeTimeFormatUnit }[] = [
+    { amount: 60, name: "seconds" },
+    { amount: 60, name: "minutes" },
+    { amount: 24, name: "hours" },
+    { amount: 7, name: "days" },
+    { amount: 4.34524, name: "weeks" },
+    { amount: 12, name: "months" },
+    { amount: Number.POSITIVE_INFINITY, name: "years" },
+]
+
+export function relativeTime(date: Date) {
+    const difference = date.getTime() - Date.now()
+    let duration = difference / 1000
+
+    for (let i = 0; i < DIVISIONS.length; i++) {
+        const division = DIVISIONS[i]
+        if (Math.abs(duration) < division.amount) {
+            return formatter.format(Math.round(duration), division.name)
+        }
+        duration /= division.amount
+    }
 }

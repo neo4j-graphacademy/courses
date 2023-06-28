@@ -1,24 +1,30 @@
 import NotFoundError from "../../errors/not-found.error"
-import { read } from "../../modules/neo4j"
+import { readTransaction } from "../../modules/neo4j"
 import { getSandboxForUseCase } from "../../modules/sandbox"
-import { formatCourse } from "../../utils"
+import { mergeCourseAndEnrolment } from "../../utils"
 import { CourseWithProgress } from "../model/course"
 import { User } from "../model/user"
-import { appendParams, courseCypher } from "./cypher"
+import getCourses from "./get-courses"
+import getEnrolment from "./enrolments/get-enrolment"
 
 export async function getCourseWithProgress(slug: string, user?: User, token?: string): Promise<CourseWithProgress> {
-    const res = await read(`
-        MATCH (c:Course {slug: $slug})
-        ${user ? 'OPTIONAL MATCH (u:User {sub: $sub}) OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)' : ''}
+    const course = await readTransaction<CourseWithProgress>(async tx => {
+        let course = (await getCourses(tx)).find(course => course.slug === slug)
 
-        RETURN ${courseCypher(user ? 'e' : undefined, user ? 'u' : undefined)} AS course
-    `, appendParams({ slug, sub: user?.sub }))
+        if (course && user) {
+            const enrolment = await getEnrolment(tx, user, slug)
 
-    if (res.records.length === 0) {
+            if (enrolment) {
+                course = await mergeCourseAndEnrolment(course, enrolment)
+            }
+        }
+
+        return course
+    })
+
+    if (!course) {
         throw new NotFoundError(`Course ${slug} could not be found`)
     }
-
-    const course = await formatCourse(res.records[0].get('course')) as CourseWithProgress
 
     // Attempt to find a Sandbox instance
     try {

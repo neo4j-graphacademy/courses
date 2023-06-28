@@ -10,7 +10,7 @@ export interface Module {
     description: string | undefined;
     order: number;
     lessons: Lesson[];
-    link?: string;
+    link: string;
     progressPercentage?: number;
 }
 

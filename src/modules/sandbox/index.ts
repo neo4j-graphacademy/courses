@@ -75,8 +75,6 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
         })) as Sandbox[]
     }
     catch (e: any) {
-        console.log(e);
-
         // Report Error
         handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
 
@@ -144,10 +142,6 @@ export async function getOrCreateSandboxForUseCase(token: string, user: User, us
 }
 
 export async function getSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox | undefined> {
-    // if (!isVerified(token)) {
-    //     return undefined
-    // }
-
     if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
         return devSandbox()
     }
@@ -176,7 +170,15 @@ export async function createSandbox(token: string, user: User, usecase: string, 
             }
         )
 
-        return res.data as Sandbox
+        // Bug in Sandbox API, on creation the password is hashed.
+        // Calling the API again will return the unencrypted password
+        const data = res.data as Sandbox
+
+        if (data.password.startsWith('AQ')) {
+            return await getSandboxForUseCase(token, user, usecase) as Sandbox
+        }
+
+        return data
     }
     catch (e: any) {
         if (e.response) {

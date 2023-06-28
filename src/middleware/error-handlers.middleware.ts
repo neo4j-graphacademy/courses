@@ -23,7 +23,7 @@ export function applyErrorHandlers(app: Express) {
                     -->`,
                 action: {
                     link: '/categories/',
-                    text: 'View Course Catalogue'
+                    text: 'View all courses'
                 }
             })
     }
@@ -40,7 +40,7 @@ export function applyErrorHandlers(app: Express) {
                 content: `<p>${err.message}</p>`,
                 action: {
                     link: '/categories/',
-                    text: 'View Course Catalogue'
+                    text: 'View all courses'
                 }
             })
     }
@@ -81,7 +81,7 @@ export function applyErrorHandlers(app: Express) {
                     </p><p>Please try again later, or click the button below to go back to the course catalogue.</p>`,
                     action: {
                         link: '/categories/',
-                        text: 'View Course Catalogue'
+                        text: 'View all courses'
                     }
                 })
         }

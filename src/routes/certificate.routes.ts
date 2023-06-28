@@ -24,6 +24,10 @@ router.get('/:id', async (req, res, next) => {
         const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
         const url = `${BASE_URL}/c/${req.params.id}/`
 
+        const formatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
+        const prettyDate = formatter.format(course.completedAt)
+
+
         res.render('profile/certificate', {
             title: [course.title, `${userName}'s Achievements`].join(' | '),
             course,
@@ -31,7 +35,7 @@ router.get('/:id', async (req, res, next) => {
             own: user.id === currentUser?.id,
             badge: courseOgBadgeImage(course.slug),
             ogTitle: `${userName} earned the ${course.title} badge on #Neo4j #GraphAcademy`,
-            ogDescription: `On ${new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(course.completedAt?.toString()))} ${userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`,
+            ogDescription: `On ${prettyDate}, ${userName} earned the ${course.title} badge.  Test yourself with #Neo4j #GraphAcademy...`,
             ogImage,
             year,
             month,

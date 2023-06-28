@@ -14,15 +14,15 @@ export function appendParams(params: Record<string, any>): ExtendedParams {
 export function courseCypher(enrolment?: string, user?: string, course = 'c', module = 'm', lesson = 'l'): string {
     return `
         ${course} {
-            // .slug, .title, .thumbnail, .caption, .status, .usecase, .redirect, .link, .duration, .repository, .video,
             .*,
             certification: ${course}:Certification,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | ${categoryCypher('category')} ],
             ${enrolment !== undefined ? `ref: ${enrolment}.ref,` : ''}
-            ${enrolment !== undefined ? `failed: ${enrolment}:FailedEnrolment,` : ''}
-            ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, certificateId: ${enrolment}.certificateId, certificateNumber: ${enrolment}.certificateNumber, enrolled: ${enrolment} IS NOT NULL, completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
+            ${enrolment !== undefined ? `failed: ${enrolment}:FailedEnrolment, availableAfter: toString(e.failedAt + duration('PT24H')),` : ''}
+            ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, certificateId: ${enrolment}.certificateId, certificateNumber: ${enrolment}.certificateNumber, enrolled: ${enrolment} IS NOT NULL, certificateUrl: '/c/'+ ${enrolment}.certificateId +'/', completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE
+                WHEN ${enrolment} IS NOT NULL AND ${enrolment}:CompletedEnrolent THEN 100
                 WHEN ${enrolment} IS NOT NULL AND size([ (c)-[:HAS_MODULE|HAS_LESSON*2]->(l) | l ])  > 0
                     THEN
                         toString(

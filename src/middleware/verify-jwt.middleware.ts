@@ -7,20 +7,20 @@ import { getToken } from './auth.middleware';
 export async function verifyJwt(req: Request, res: Response, next: NextFunction) {
     const token = await getToken(req)
 
-    if ( token ) {
+    if (token) {
         const claims: JwtPayload = decode(token)
 
         const expiry = claims.exp
 
-        if ( expiry && (claims?.exp as number * 1000) < Date.now() ) {
+        if (expiry && (claims?.exp as number * 1000) < Date.now()) {
             const error = new TokenExpiredError(expiry)
 
             // If a GET request, logout and return to this URL
-            if ( req.method === 'GET' ) {
+            if (req.method === 'GET') {
                 return res.redirect(`/logout?returnTo=${req.originalUrl}`)
             }
             else {
-                throw error
+                next(error)
             }
         }
     }

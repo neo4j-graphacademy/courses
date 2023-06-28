@@ -1,37 +1,79 @@
 extends ../layouts/two-column
 include ../course/card
 include ../mixins/card
+include ../mixins/progress
+include ../mixins/date
 
 block minor
   nav.secondary-nav
-    ul.secondary-nav-list.secondary-nav-list--sticky
-      for item in categories
-        li.secondary-nav-item
-          a(href=`#${item.category.slug}`) !{item.category.title}
+
+    .profile-image
+      if user.image
+        img(src=user.image alt=`Profile image for ${user.name}`)
+      else if user.givenName
+        .profile-image-placeholder
+          | !{user.givenName.split(' ').map(i => i.substring(0, 1)).join('')}
+
+    div.bio #{user.bio}
+
+    dl.meta-list.secondary-nav-meta-list
+      if user.country
+        dt.secondary-nav-meta-list-type
+          | !{svg.iconProfileLocation}
+          span Country
+        dd.secondary-nav-meta-list-definition !{countries[ user.country ]}
+
+      if user.position
+        dt.secondary-nav-meta-list-type
+          | !{svg.iconProfilePosition}
+          span Position
+        dd.secondary-nav-meta-list-definition #{user.position}
+
+      //- TODO Company icon
+      //- if user.company
+      //-   dt.secondary-nav-meta-list-type
+      //-     | !{svg.iconProfileCompany}
+      //-     span Company
+      //-   dd.secondary-nav-meta-list-definition #{user.company}
+
+      if user.createdAt
+        dt.secondary-nav-meta-list-type
+          | !{svg.iconProfileJoined}
+          span Member Since
+        dd.secondary-nav-meta-list-definition
+          | Joined
+          +date(user.createdAt)
 
 block major
   .achievements
-    for item in categories
-      .achievement-group(id=item.category.slug)
-        .achievement-group-header
-          h2.achievement-group-title !{item.category.title}
-          .progress-container
-            div.progress-bar
-              div.progress-bar-container
-                span(style=`width: ${item.completedPercentage}%`) #{item.completedPercentage}%
+    .account-header
+      h1 !{title}
 
-          p.achievement-group-progress Completed #{item.completedCount} of #{item.courses.length} (!{item.completedPercentage}%)
+    .tabs.achievement-tabs
+      for link in categories
+        a.tab-element(href=`#${link.type}` data-target=link.type class=categories[0].type == link.type ? 'tab--selected' : '') !{link.title}
 
-        .achievement-list
-          each course in item.courses
-            .achievement-list-item(class=[
-                !course.completed && !course.enrolled ? 'achievement-list-item--disabled' :  '',
-                !course.completed && course.enrolled ? 'achievement-list-item--faded' :  '',
-              ].join(' '))
-              a(href=course.completed ? `/c/${course.certificateId}` : course.link)
-                .achievement-badge
-                  img(src=course.badgeUrl alt=course.title)
-                //- !{course.badge || svg.badgeDefault}
-                h3.achievement-list-item-title !{course.title}
-                if course.completed
-                  div.achievement-indicator !{svg.classroomTocCompleted}
+    for group in categories
+      .achievement-group.tab-target(id=group.type class=categories[0].type == group.type ? 'tab-target--visible' : '')
+        .course-grid(class=group.name)
+          if group.courses.length
+            for course in group.courses
+              .course-grid-item
+                +course(course, {}, true)
+                  div.meta.card-meta
+                    dl.meta-list.card-meta-list
+                      dt.meta-list-term.card-meta-icon.card-meta-icon--progress
+                        span #{translate('progress', 'Progress')}
+                        | !{svg.iconCheck}
+                        dd.meta-list-definition
+                          +date(course.completedAt)
+                  div.card-footer
+                    a.card-action.card-action--continue(href=`/c/${course.certificateId}/`)  #{translate('view-certificate', 'View Certificate')}
+          else
+            .cold-start
+              .cold-start-image
+                img(src=cdn('img/static/start.svg') alt='A playful image showing a start button')
+
+              .cold-start-content
+                h2 Stay Tuned
+                p !{user.givenName || 'This User'} is currently on their way to becoming a Neo4j expert. Check back soon to see their achievements!

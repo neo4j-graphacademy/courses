@@ -1,6 +1,6 @@
 import { logUiEvent } from "./modules/events";
 
-function embedVideo(element: HTMLDivElement) {
+export function embedVideo(element: HTMLDivElement, autoplay: 0 | 1 = 0) {
     const { id: videoId, width, height } = element.dataset
 
     element.setAttribute('id', videoId as string)
@@ -11,6 +11,7 @@ function embedVideo(element: HTMLDivElement) {
         height,
         videoId,
         playerVars: {
+            autoplay,
             playsinline: 1,
             rel: 0,
             controls: 0,

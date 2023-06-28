@@ -1,7 +1,7 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response } from "express";
 
 
-export async function maintenance(req: Request, res: Response, next: NextFunction) {
+export function maintenance(req: Request, res: Response) {
     res.status(503).render('simple', {
         title: 'Scheduled maintenance',
         hero: {
