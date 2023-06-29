@@ -113,8 +113,15 @@ export async function formatModule(
     }
 }
 
-function getNextLesson(course: Course, completedLessons: string[]): Pagination | undefined {
+function getNextLesson(course: Course, completedModules: string[], completedLessons: string[]): Pagination | undefined {
     for (const m of course.modules) {
+        if (!completedModules.includes(m.slug)) {
+            return {
+                title: m.title,
+                link: m.link,
+            }
+        }
+
         for (const l of m.lessons) {
             if (!completedLessons.includes(l.link)) {
                 return {
@@ -160,7 +167,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
                 completed: enrolment.completedLessons.includes(lesson.link),
             }))
         })),
-        next: getNextLesson(course, enrolment.completedLessons),
+        next: getNextLesson(course, enrolment.completedModules, enrolment.completedLessons),
     }
 
 

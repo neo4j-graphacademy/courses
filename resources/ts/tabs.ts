@@ -73,12 +73,8 @@ function handleGenericTabs() {
                     findTargets(link)
                 })
             })
-
         })
 }
-
-
-let lastTabId = 0
 
 function convertClassroomTabs() {
     const classroom = document.querySelector('.classroom-content')
@@ -94,91 +90,7 @@ function convertClassroomTabs() {
             if (href) {
                 tabElement.setAttribute('data-target', href.replace('#', ''))
             }
-
-            // tabElement.addEventListener('click', e => {
-
-            //     e.preventDefault()
-            //
-
-            //     if (href) {
-            //         const target = document.getElementById(href.replace('#', ''))
-
-            //         console.log(target);
-
-
-            //     }
-
-            // })
-
         })
-
-    //     .forEach((tabElement: Element) => {
-    //         // Only get the first tab in a list of siblings
-    //         if (tabElement.previousElementSibling && (tabElement.previousElementSibling as HTMLDivElement).classList.contains('tab')) {
-    //             return
-    //         }
-
-    //         // Add in placeholder
-    //         const placeholder = createElement('div', 'tab-placeholder', [])
-    //         tabElement.parentElement!.insertBefore(placeholder, tabElement)
-
-    //         // Get Tab Targets
-    //         const theseTabs: HTMLElement[] = []
-    //         const targets: HTMLElement[] = [tabElement as HTMLElement]
-
-    //         let nextSibling = (tabElement as HTMLElement).nextElementSibling
-
-    //         while (nextSibling && (nextSibling as HTMLElement).classList.contains('tab-element')) {
-    //             targets.push(nextSibling as HTMLElement)
-
-    //             nextSibling = (nextSibling as HTMLElement).nextElementSibling
-    //         }
-
-    //         console.log(targets);
-
-
-    //         // targets.forEach((target, index) => {
-    //         //     // Generate tab ID
-    //         //     lastTabId++
-
-    //         //     // Assign tab id to the div
-    //         //     const thisTabId = `tab__${lastTabId}`
-    //         //     target.setAttribute('id', thisTabId)
-
-    //         //     target.classList.add('tab-target')
-
-    //         //     // Get the title and create a tab element
-    //         //     // const title = target.querySelector('.title')!.innerHTML.replace(/Example ([0-9]+)./, '').trim()
-
-    //         //     // target.setAttribute(ATTRIBUTE_TITLE, title)
-
-    //         //     const tab = createElement('a', 'tab-element', [target.innerHTML])
-    //         //     // tab.setAttribute('href', `#${thisTabId}`)
-
-    //         //     // tab.setAttribute(ATTRIBUTE_TARGET, `#${thisTabId}`)
-
-    //         //     if (index === 0) {
-    //         //         tab.classList.add('tab--selected')
-    //         //         target.classList.add('tab-target--visible')
-    //         //     }
-
-    //         //     theseTabs.push(tab)
-
-    //         //     // Remove the target from the page
-    //         //     target.parentElement!.removeChild(target)
-    //         // })
-
-    //         // // Create a div containing the tabs
-    //         // const tabElements = createElement('div', 'tabs', theseTabs)
-
-    //         // // Add the tabs and all targets to a new container
-    //         // const tabContainer = createElement('div', 'tab-container', [
-    //         //     tabElements,
-    //         //     ...targets
-    //         // ])
-
-    //         // placeholder.parentElement!.insertBefore(tabContainer, placeholder)
-    //     })
 }
 
 export default function tabs() {
