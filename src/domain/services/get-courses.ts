@@ -1,15 +1,18 @@
 import { Transaction } from "neo4j-driver";
 import { appendParams, categoryCypher, moduleCypher } from "./cypher";
 import { Course } from "../model/course";
+import { read } from "../../modules/neo4j";
+
+interface RecordShape { course: Course }
 
 let courses: Course[]
 
-export default async function getCourses(tx: Transaction): Promise<Course[]> {
+export default async function getCourses(tx?: Transaction): Promise<Course[]> {
     if (courses) {
         return courses
     }
 
-    const res = await tx.run<{ course: Course }>(`
+    const query = `
         MATCH (c:Course)
         WHERE NOT c.status IN $exclude
         RETURN c {
@@ -21,9 +24,13 @@ export default async function getCourses(tx: Transaction): Promise<Course[]> {
             progressTo: [ (c)-[:PROGRESS_TO]->(p) WHERE p.status <> 'disabled' | p { .link, .slug, .title, .caption, .thumbnail } ],
             translations: [ (c)-[:HAS_TRANSLATION]-(translation) | translation { .language, .link, .slug, .title, .caption, .thumbnail } ]
         } AS course
-    `, appendParams({}))
+    `
 
-    courses = res.records.map(row => row.get('course'))
+    const params = appendParams({})
+
+    const res = await (tx ? tx.run<RecordShape>(query, params) : read(query, params))
+
+    courses = res.records.map(row => row.get('course') as Course)
 
     return courses
 }

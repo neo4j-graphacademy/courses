@@ -18,6 +18,7 @@ export async function getCoursesByCategory<T extends Course>(user?: User, term: 
 
         WITH collect(c {
             .*,
+            certification: c:Certification,
             ${user !== undefined ? `
                 enrolled: e IS NOT NULL, completed: e:CompletedEnrolment, createdAt: e.createdAt, completedAt: e.completedAt,
                 completedPercentage: CASE WHEN e IS NOT NULL AND size([(c)-[:HAS_MODULE|HAS_LESSON*2]->(l) | l]) > 0 THEN toString(toInteger((1.0*size([(e)-[:COMPLETED_LESSON]->(l) | l]) / size([(c)-[:HAS_MODULE]->()-[:HAS_LESSON]->(l) | l])*100))) ELSE 0 END,

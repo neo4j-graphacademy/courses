@@ -2,26 +2,27 @@ import { Router } from "express";
 import { BASE_URL, CDN_URL } from "../constants";
 import { forceTrailingSlash } from "../middleware/trailing-slash.middleware";
 import { loadFile } from "../modules/asciidoc";
+import getCertifications from "../domain/services/get-certifications";
 
 const router = Router({
     caseSensitive: true,
 })
 
-router.get(`/certification`, forceTrailingSlash, (req, res, next) => {
+router.get(`/certification`, forceTrailingSlash, async (req, res, next) => {
     try {
         const file = loadFile(`pages/certification.adoc`)
 
-        res.render('page', {
+        const certifications = await getCertifications()
+
+        res.render('certification', {
             hero: {
                 title: file.getTitle(),
-                overline: file.getAttribute('overline'),
+                // overline: file.getAttribute('overline'),
                 byline: file.getAttribute('caption'),
             },
             title: file.getTitle(),
             content: file.getContent(),
-            levelTitle: file.getAttribute('level-title'),
-            levelOverline: file.getAttribute('level-overline'),
-            courses: false,
+            certifications: certifications.reverse(),
             classes: 'certifications',
             ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/certification.png` : `${BASE_URL}/img/og/og-categories.png`
         })
