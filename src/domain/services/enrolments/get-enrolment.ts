@@ -59,8 +59,5 @@ export default async function getEnrolments(tx: Transaction, user: User, courseS
         lastSeenAt: new Date(enrolment.lastSeenAt),
     }
 
-    console.log(output);
-
-
     return output
 }

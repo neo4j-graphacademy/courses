@@ -4,6 +4,7 @@ import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { getCountries, getUserName } from '../utils'
+import NotFoundError from '../errors/not-found.error'
 
 const router = Router()
 
@@ -26,6 +27,12 @@ router.get('/:id', async (req, res, next) => {
         const { user, categories } = await getUserAchievements(req.params.id)
 
         const own = current?.id === req.params.id
+
+        // Has user opted out of their public profile?
+        if (!own && user.hiddenProfile) {
+            return next(new NotFoundError('No user found at this address*'))
+        }
+
         const title = own ? 'My Achievements' : `${getUserName(user)}'s Achievements`
 
         // Sort Courses

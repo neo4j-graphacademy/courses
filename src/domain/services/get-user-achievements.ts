@@ -26,7 +26,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
         WITH e, u, c
         ORDER BY e.completedAt ASC
 
-        RETURN u { .*} AS user,
+        RETURN u { .*, hiddenProfile: u:HiddenProfile } AS user,
             CASE WHEN c:Certification THEN 'Certifications' ELSE 'Completed Courses' END AS title,
             CASE WHEN c:Certification THEN 'certification' ELSE 'course' END AS type,
             '/u/'+ u.id +'/'+ CASE WHEN NOT c:Certification THEN 'courses/' ELSE '' END AS link,
