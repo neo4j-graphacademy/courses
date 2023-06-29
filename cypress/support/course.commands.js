@@ -51,8 +51,8 @@ Cypress.Commands.add('getCourseDetails', (slug) => {
 })
 
 Cypress.Commands.add('enrol', (course) => {
-    const [ firstModule ] = course.modules
-    const [ firstLesson ] = firstModule.lessons
+    const [firstModule] = course.modules
+    const [firstLesson] = firstModule.lessons
 
     // Open Course Overview
     cy.visit(course.link)
@@ -88,7 +88,7 @@ Cypress.Commands.add('enrol', (course) => {
         cy.get('.classroom-content h1').contains(module.title)
 
         // Test Pagination
-        const [ firstLesson ] = module.lessons
+        const [firstLesson] = module.lessons
 
         cy.paginationNext()
         cy.url().should('contain', firstLesson.link)
@@ -99,7 +99,7 @@ Cypress.Commands.add('enrol', (course) => {
         // Visit Lessons
         const { lessons } = module
 
-        while ( lessons.length ) {
+        while (lessons.length) {
             const lesson = lessons.shift()
 
             cy.attemptLesson(lesson)
@@ -111,11 +111,11 @@ Cypress.Commands.add('enrol', (course) => {
 
     cy.get('.lesson-outcome.lesson-outcome--passed')
         .should('exist')
-        // .should('contain', 'Course Completed')
+    // .should('contain', 'Course Completed')
 
     cy.get('.toc-course-summary')
         .should('exist')
-        // .should('contain', 'Course Summary')
+    // .should('contain', 'Course Summary')
 
     cy.get('.toc-course-achievement')
         .should('exist')
@@ -123,7 +123,7 @@ Cypress.Commands.add('enrol', (course) => {
     // Test Completion on Course Overview
     cy.visit(course.link)
 
-    cy.get('.course-overview.course--completed')
+    cy.get('.course.course--completed')
         .should('exist')
 })
 

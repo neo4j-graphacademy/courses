@@ -10,6 +10,14 @@ Cypress.Commands.add('login', () => {
     cy.get('.navbar-login')
         .click()
 
+    // Wait for Auth0 animation
+    cy.wait(3000)
+
+    // If previously logged in, you may see a
+    if (cy.get('.auth0-lock-alternative-link').length) {
+        cy.get('.auth0-lock-alternative-link').click()
+    }
+
     // Log in to Auth0
     cy.get('input[name="email"]').type(Cypress.env('user_email'))
     cy.get('input[name="password"]').type(Cypress.env('user_password'))
@@ -28,8 +36,7 @@ Cypress.Commands.add('login', () => {
     })
 
     // The user should now be logged in
-    cy.get('.navbar-account')
-        .contains('My Account')
+    cy.get('.navbar-account').should('be.visible')
 })
 
 Cypress.Commands.add('logout', () => {
