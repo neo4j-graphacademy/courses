@@ -1,46 +1,45 @@
 = The @cypher Directive
 :order: 1
 
-TODO: update examples for movie schema
-
 Schema directives are GraphQL's built-in extension mechanism and indicate that some custom logic will occur on the server. Schema directives are not exposed through GraphQL introspection and are therefore invisible to the client. The `@cypher` GraphQL schema directive allows for defining custom logic using Cypher in the GraphQL schema. Using the `@cypher` schema directive overrides field resolution and will execute the attached Cypher statement to resolve the GraphQL field. Refer to the https://neo4j.com/docs/graphql-manual/current/type-definitions/cypher/[`@cypher` directive documentation for more information.]
 
 == Computed Scalar Field
 
-Let's look at an example of using the `@cypher` directive to define a computed scalar field in our GraphQL schema. Since each order can contain multiple books we need to compute the order "subtotal" or the sum of the price of each book in the order. To calculate the subtotal for an order with `orderID` "123" in Cypher we would write a query like this:
+Let's look at an example of using the `@cypher` directive to define a computed scalar field in our GraphQL schema. Let's compute the average of the user reviews for any resolved movies. These review ratings are stored as relationship properties on the `RATED` relationship. A Cypher query to compute the average of the user ratings of the movie Jurassic Park would look like this:
 
 [source,Cypher,role=nocopy]
 ----
-MATCH (o:Order {orderID: "123"})-[:CONTAINS]->(b:Book)
-RETURN sum(b.price) AS subTotal
+MATCH (m:Movie {title: "Jurassic Park"})<-[r:RATED]-(:User)
+RETURN avg(r.rating) AS avgRating
 ----
 
-With the `@cypher` schema directive in the Neo4j GraphQL Library we can add a field `subTotal` to our `Order` type that includes the logic for traversing to the associated `Book` nodes and summing the price property value of each book. Here we use the `extend type` syntax of GraphQL SDL but we could also add this field directly to the `Order` type definition as well.
+With the `@cypher` schema directive in the Neo4j GraphQL Library we can add a field called `avgRating` to our `Movie` type that includes the logic for traversing through any user ratings and computing the average.
 
-Add this extension to the schema.graphql file:
+Return to the Type definitions pane in GraphQL Toolbox and add the following to your GraphQL type definitions.
 
 [source,GraphQL]
 ----
-# schema.graphql
-
-extend type Order {
-  subTotal: Float @cypher(statement:"MATCH (this)-[:CONTAINS]->(b:Book) RETURN sum(b.price)")
+extend type Movie {
+  avgRating: Float
+    @cypher(
+      statement: """
+      MATCH (this)<-[r:RATED]-(:User)
+      RETURN avg(r.rating)
+      """
+    )
 }
 ----
 
-The `@cypher` directive takes a single argument `statement` which is the Cypher statement to be executed to resolve the field. This Cypher statement can reference the `this` variable which is the currently resolved node, in this case the currently resolved `Order` node.
+The `@cypher` directive takes a single argument `statement` which is the Cypher statement to be executed to resolve the field. This Cypher statement can reference the `this` variable which is the currently resolved node, in this case the currently resolved `Movie` node.
 
-We can now include this `subTotal` field in our GraphQL queries:
+We can now include this `avgRating` field in our GraphQL queries:
 
 [source,GraphQL]
 ----
 {
-  orders {
-    books {
-      title
-      price
-    }
-    subTotal
+  movies(where: { title_CONTAINS: "Matrix" }) {
+    title
+    avgRating
   }
 }
 ----
@@ -49,82 +48,62 @@ We can now include this `subTotal` field in our GraphQL queries:
 ----
 {
   "data": {
-    "orders": [
+    "movies": [
       {
-        "books": [
-          {
-            "title": "Graph Algorithms",
-            "price": 37.48
-          }
-        ],
-        "subTotal": 37.48
+        "title": "Matrix Reloaded, The",
+        "avgRating": 3.268292682926829
       },
       {
-        "books": [
-          {
-            "title": "Graph Algorithms",
-            "price": 37.48
-          },
-          {
-            "title": "Inspired",
-            "price": 21.38
-          },
-          {
-            "title": "Ross Poldark",
-            "price": 15.52
-          }
-        ],
-        "subTotal": 74.38
+        "title": "Matrix Revolutions, The",
+        "avgRating": 3.037037037037037
+      },
+      {
+        "title": "Matrix, The",
+        "avgRating": 4.183397683397683
       }
     ]
   }
 }
 ----
 
-The `@cypher` directive gives us all the power of Cypher, with the ability to express complex traversals, pattern matching, even leveraging Cypher procedures like APOC. Let's add a slightly more complex `@cypher` directive field to see what is possible. Let's say that the policy for computing the shipping cost of orders is to charge $0.01 per km from our distribution warehouse. We can define this logic in Cypher, adding a `shippingCost` field to the `Order` type.
+The `@cypher` directive gives us all the power of Cypher, with the ability to express complex traversals, pattern matching, even leveraging Cypher procedures like APOC. Let's see how we can use the `@cypher` directive to define a node object array field - in this case to add movie recommendations to our API!
 
-Add this extension to the schema.graphql file:
+== Node And Object Fields
+
+The above example used a `@cypher` directive field to compute a scalar field by returning a scalar value from the Cypher query defined in the `@cypher` directive. If we return node objects in the Cypher query we can create object and object array fields backed by a Cypher query. 
+
+Let's say that a user enjoyed the movie Jurassic Park. How could we find similar movies that the user might also enjoy? One approach would be to find all the users who rated Jurassic Park and then traverse to all the other movies those users rated, and then find the most common movies these users also rated. This is an example of a collaborative filtering recommendation query that uses information about user actions from the graph to create recommendations.
+
+[source,Cypher,role=nocopy]
+----
+MATCH (m:Movie {title: "Jurassic Park"})<-[:RATED]->(u:User)-[:RATED]->(rec:Movie)
+WITH rec, COUNT(u) AS score ORDER BY score DESC
+RETURN rec LIMIT 3
+----
+
+Let's update our GraphQL type definitions to include this movie recommendation query as a `@cypher` directive field. We'll add this field to the `Movie` type, and return recommended movies for the currently resolved movie.
 
 [source,GraphQL]
 ----
-# schema.graphql
-
-extend type Order {
-  shippingCost: Float @cypher(statement: """
-  MATCH (this)-[:SHIPS_TO]->(a:Address)
-  RETURN round(0.01 * distance(a.location, Point({latitude: 40.7128, longitude: -74.0060})) / 1000, 2)
-  """)
+extend type Movie {
+  recommended(limit: Int = 3): [Movie!]!
+    @cypher(
+      statement: """
+      MATCH (this)<-[:RATED]-(u:User)-[:RATED]->(rec:Movie)
+      WITH rec, COUNT(u) AS score ORDER BY score DESC
+      RETURN rec LIMIT $limit
+      """
+    )
 }
 ----
 
-
-=== Node And Object Fields
-
-In addition to scalar fields we can also use `@cypher` directive fields on object and object array fields with Cypher queries that return nodes or objects. Let's add a `recommended` field to the `Customer` type, returning books the customer might be interested in purchasing based on their order history and the order history of other customers in the graph.
-
-Add this extension to the schema.graphql file:
-
-[source,GraphQL]
-----
-# schema.graphql
-
-extend type Customer {
-    recommended: [Book] @cypher(statement: """
-    MATCH (this)-[:PLACED]->(:Order)-[:CONTAINS]->(:Book)<-[:CONTAINS]-(:Order)<-[:PLACED]-(c:Customer)
-    MATCH (c)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Book)
-    WHERE NOT EXISTS((this)-[:PLACED]->(:Order)-[:CONTAINS]->(rec))
-    RETURN rec
-    """)
-}
-----
-
-Now we can use this `recommended` field on the `Customer` type. Since `recommended` is an array of `Book` objects we need to select the nested fields we want to be returned - in this case the `title` field.
+Select "Build schema" to update the GraphQL API to include our new `similar` field. Now we can include this field in our GraphQL selection set to find the most similar movies to Jurassic 
 
 [source,GraphQL]
 ----
 {
-  customers {
-    username
+  movies(where: { title: "Jurassic Park" }) {
+    title
     recommended {
       title
     }
@@ -136,241 +115,77 @@ Now we can use this `recommended` field on the `Customer` type. Since `recommend
 ----
 {
   "data": {
-    "customers": [
+    "movies": [
       {
-        "username": "EmilEifrem7474",
+        "title": "Jurassic Park",
         "recommended": [
-          {
-            "title": "Inspired"
-          },
-          {
-            "title": "Ross Poldark"
-          }
+          { "title": "G.I. Joe: Retaliation" },
+          { "title": "Terminator Genisys" },
+          { "title": "Mad Max: Fury Road" }
         ]
-      },
-      {
-        "username": "BookLover123",
-        "recommended": []
       }
     ]
   }
 }
 ----
 
-In this case we recommend two books to Emil that he hasn't purchased, however since BookLover123 has already purchased every book in our inventory we don't have any recommendations for them!
+This is neat, but what if we wanted to return more than 3 recommended movies? Let's update our GraphQL type definitions to allow for specifying the number of recommended movies to return at query time. To do this we'll add an argument to the `recommended` field called `limit`. Any arguments defined on a `@cypher` directive field are passed to the Cypher query as a Cypher parameter with the same name as the argument and can be referenced using the `$` syntax.
 
-
-Any field arguments declared on a GraphQL field with a Cypher directive are passed through to the Cypher statement as Cypher parameters. Let's say we want the client to be able to specify the number of recommendations returned. We'll add a field argument `limit` to the `recommended` field and reference that in our Cypher statement as a Cypher parameter.
-
-
-Modify this extension in the schema.graphql file:
+So in order to return an arbitrary number of recommended movies we replace the hardcoded value 3 with `$limit` in our Cypher statement.
 
 [source,GraphQL]
 ----
-# schema.graphql
-
-extend type Customer {
-    recommended(limit: Int = 3): [Book] @cypher(statement: """
-    MATCH (this)-[:PLACED]->(:Order)-[:CONTAINS]->(:Book)<-[:CONTAINS]-(:Order)<-[:PLACED]-(c:Customer)
-    MATCH (c)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Book)
-    WHERE NOT EXISTS((this)-[:PLACED]->(:Order)-[:CONTAINS]->(rec))
-    RETURN rec LIMIT $limit
-    """)
+extend type Movie {
+  recommended(limit: Int = 3): [Movie!]!
+    @cypher(
+      statement: """
+      MATCH (this)<-[:RATED]-(u:User)-[:RATED]->(rec:Movie)
+      WITH rec, COUNT(u) AS score ORDER BY score DESC
+      RETURN rec LIMIT $limit
+      """
+    )
 }
 ----
+ 
+Note that we specify a default value for the `limit` argument (`limit: Int = 3`). This ensures that even if a value for the optional `limit` argument is not specified, our Cypher query will have a value and avoid an error. An alternative would be to make the `limit` argument required (`limit: Int!`).
 
-We set a default value of 3 for this `limit` argument so that if the value isn't specified the `limit` Cypher parameter will still be passed to the Cypher statement with a value of 3. The client can now specify the number of recommended books to return:
+Here we request 10 recommended movies instead of the default 3.
 
 [source,GraphQL]
 ----
 {
-  customers {
-    username
-    recommended(limit:1) {
+  movies(where: { title: "Jurassic Park" }) {
+    title
+    recommended(limit: 10) {
       title
     }
   }
 }
 ----
 
-We can also return a map from our Cypher statement when using the `@cypher` directive on an object or object array GraphQL field. This is useful when we have multiple computed values we want to return or for returning data from an external data layer. Let's add weather data for the order addresses so our delivery drivers know what sort of conditions to expect. We'll query an external API to fetch this data using the https://neo4j.com/labs/apoc/4.2/import/load-json/[`apoc.load.json`] procedure.
-
-First, we'll add a type to the GraphQL type definitions to represent this object (`Weather`), then we'll use the `apoc.load.json` procedure to fetch data from an external API and return the current conditions, returning a map from our Cypher statement that matches the shape of the `Weather` type.
-
-Add these types and extensions to the schema.graphql file:
+And our query response now includes the number of recommended movies we've specified.
 
 [source,GraphQL]
-----
-# schema.graphql
-
-type Weather {
-  temperature: Int
-  windSpeed: Int
-  windDirection: Int
-  precipitation: String
-  summary: String
-}
-
-extend type Address {
-  currentWeather: Weather @cypher(statement:"""
-  WITH 'https://www.7timer.info/bin/civil.php' AS baseURL, this
-  CALL apoc.load.json(
-      baseURL + '?lon=' + this.location.longitude + '&lat=' + this.location.latitude + '&ac=0&unit=metric&output=json')
-      YIELD value WITH value.dataseries[0] as weather
-      RETURN {
-          temperature: weather.temp2m,
-          windSpeed: weather.wind10m.speed,
-          windDirection: weather.wind10m.direction,
-          precipitation: weather.prec_type,
-          summary: weather.weather} AS conditions
-      """)
-}
-----
-
-Now we can include the `currentWeather` field on the `Address` type in our GraphQL queries:
-
-[source,GraphQL]
-----
-{
-  orders {
-    shipTo {
-      address
-      currentWeather {
-        temperature
-        precipitation
-        windSpeed
-        windDirection
-        summary
-      }
-    }
-  }
-}
-----
-
-[source,JSON,role=nocopy]
 ----
 {
   "data": {
-    "orders": [
+    "movies": [
       {
-        "shipTo": {
-          "address": "111 E 5th Ave, San Mateo, CA 94401",
-          "currentWeather": {
-            "temperature": 9,
-            "precipitation": "none",
-            "windSpeed": 2,
-            "windDirection": "S",
-            "summary": "cloudyday"
-          }
-        }
-      },
-      {
-        "shipTo": {
-          "address": "Nordenskiöldsgatan 24, 211 19 Malmö, Sweden",
-          "currentWeather": {
-            "temperature": 6,
-            "precipitation": "none",
-            "windSpeed": 4,
-            "windDirection": "NW",
-            "summary": "clearday"
-          }
-        }
+        "title": "Jurassic Park",
+        "recommended": [
+          { "title": "Forrest Gump" },
+          { "title": "Silence of the Lambs, The" },
+          { "title": "Pulp Fiction" },
+          { "title": "Terminator 2: Judgment Day" },
+          { "title": "Shawshank Redemption, The" },
+          { "title": "Fugitive, The" },
+          { "title": "Braveheart" },
+          { "title": "Star Wars: Episode IV - A New Hope" },
+          { "title": "Aladdin" },
+          { "title": "True Lies" }
+        ]
       }
     ]
-  }
-}
-----
-
-=== Custom Query Field
-
-We can use the `@cypher` directive on Query fields to compliment the auto-generated Query fields provided by the Neo4j GraphQL Library. Perhaps we want to leverage a https://neo4j.com/docs/cypher-manual/current/administration/indexes-for-full-text-search/[full-text index^] for fuzzy matching for book searches?
-
-First, in Neo4j Browser, create the full-text index:
-
-[source,Cypher]
-----
-CALL db.index.fulltext.createNodeIndex("bookIndex", ["Book"],["title", "description"])
-----
-
-To search this full-text index we use the `db.index.fulltext.queryNodes` procedure:
-
-[source,Cypher]
-----
-CALL db.index.fulltext.queryNodes("bookIndex", "garph~")
-----
-
-Neo4j full-text indexes use Apache Lucene query syntax - the `~` indicates we want to use "fuzzy matching" taking into account slight misspellings.
-
-Next, add a `bookSearch` field to the Query type in our GraphQL type definitions which requires a `searchString` argument that becomes the full-text search term:
-
-[source,GraphQL]
-----
-# schema.graphql
-
-type Query {
-    bookSearch(searchString: String!): [Book] @cypher(statement: """
-    CALL db.index.fulltext.queryNodes('bookIndex', $searchString+'~')
-    YIELD node RETURN node
-    """)
-}
-----
-
-And we now have a new entry-point to our GraphQL API allowing for full-text search of book titles and descriptions:
-
-[source,GraphQL]
-----
-{
-  bookSearch(searchString: "garph") {
-    title
-    description
-  }
-}
-----
-
-[source,JSON,role=nocopy]
-----
-{
-  "data": {
-    "bookSearch": [
-      {
-        "title": "Graph Algorithms",
-        "description": "Practical Examples in Apache Spark and Neo4j"
-      }
-    ]
-  }
-}
-----
-
-=== Custom Mutation Field
-
-Similar to adding Query fields, we can use `@cypher` schema directives to add new Mutation fields. This is useful in cases where we have specific logic we'd like to take into account when creating or updating data. Here we make use of the https://neo4j.com/docs/cypher-manual/current/clauses/merge/[`MERGE` Cypher clause^] to avoid creating duplicate `Subject` nodes and connecting them to books.
-
-[source,GraphQL]
-----
-# schema.graphql
-
-type Mutation {
-  mergeBookSubjects(subject: String!, bookTitles: [String!]!): Subject @cypher(statement: """
-  MERGE (s:Subject {name: $subject})
-  WITH s
-  UNWIND $bookTitles AS bookTitle
-  MATCH (t:Book {title: bookTitle})
-  MERGE (t)-[:ABOUT]->(s)
-  RETURN s
-  """)
-}
-----
-
-Now perform the update to the graph:
-
-[source,GraphQL]
-----
-mutation {
-  mergeBookSubjects(
-    subject: "Non-fiction"
-    bookTitles: ["Graph Algorithms", "Inspired"]
-  ) {
-    name
   }
 }
 ----
@@ -383,4 +198,4 @@ include::questions/question-1.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, we introduced GraphQL and the features of the Neo4j GraphQL Library. In the next lesson we get started using the Neo4j GraphQL Library to build a GraphQL API backed by Neo4j.
+In this lesson we learned how to use the `@cypher` GraphQL schema directive to add custom to our GraphQL API using the Cypher query language. We saw how this can be used for scalar fields as well as node object array fields.
