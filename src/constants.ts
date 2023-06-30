@@ -98,3 +98,6 @@ export const WORKSPACE_URL = process.env.WORKSPACE_URL || 'https://workspace-pre
 
 // Sandbox
 export const SANDBOX_URL = process.env.SANDBOX_URL
+
+// GraphQL Toolbox
+export const GRAPHQL_TOOLBOX_URL = process.env.GRAPHQL_TOOLBOX_URL || 'https://graphql-toolbox.neo4j.io/'

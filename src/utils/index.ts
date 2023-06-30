@@ -1,7 +1,7 @@
 import path, { basename } from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, COURSE_QUIZ_AVAILABLE_AFTER, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, COURSE_QUIZ_AVAILABLE_AFTER, GRAPHQL_TOOLBOX_URL, PUBLIC_DIRECTORY } from '../constants'
 import {
     Course,
     CoursesByStatus,
@@ -453,6 +453,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         attributes['sandbox-username'] = sandboxConfig?.username
         attributes['sandbox-password'] = sandboxConfig?.password
         attributes['connect-url'] = `${sandboxConfig?.scheme}://${sandboxConfig?.username}@${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
+        attributes['graphql-toolbox'] = `${GRAPHQL_TOOLBOX_URL}?connectURL=${attributes['connect-url']}`
     }
 
     // Course repository attributes
