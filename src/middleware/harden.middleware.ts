@@ -28,15 +28,7 @@ export default function hardenExpress(app: Express) {
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
-                        "'self'",
-                        "data:",
-                        'neo4j.com',
-                        'dist.neo4j.com',
-                        'www.googletagmanager.com',
-                        'cdn.graphacademy.neo4j.com',
-                        'raw.githubusercontent.com',
-                        'i.ytimg.com',
-                        'files.cdn.printful.com',
+                        '*',
                     ],
                     frameSrc: [
                         "'self'",
