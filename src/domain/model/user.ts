@@ -26,3 +26,5 @@ export interface User {
     // givenName: string;
     // [key: string]: any;
 }
+
+export type ValidLookupProperty = 'sub' | 'id'

@@ -91,7 +91,7 @@ router.get('/:id', async (req, res, next) => {
  */
 router.get('/:id/:course', async (req, res, next) => {
     try {
-        const { enrolments } = await getUserEnrolments(req.params.id, 'id', false)
+        const { enrolments } = await getUserEnrolments(req.params.id, 'id', req.params.course, false)
 
         if (!enrolments) {
             return res.redirect(`/u/${req.params.id}`)

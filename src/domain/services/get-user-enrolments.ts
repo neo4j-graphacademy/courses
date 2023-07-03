@@ -2,23 +2,20 @@ import NotFoundError from "../../errors/not-found.error";
 import { readTransaction } from "../../modules/neo4j";
 import { formatUser, mergeCourseAndEnrolment } from "../../utils";
 import { EnrolmentsByStatus } from "../model/enrolment";
-import { User } from "../model/user";
+import { User, ValidLookupProperty } from "../model/user";
 import getEnrolments from "./enrolments/get-enrolment";
 import getCourses from "./get-courses";
 
-type ValidLookupProperty = 'sub' | 'id'
-
-
-export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', throwOnNotFound = true): Promise<EnrolmentsByStatus> {
+export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', courseSlug: string | undefined = undefined, throwOnNotFound = true): Promise<EnrolmentsByStatus> {
     const { user, enrolments } = await readTransaction(async tx => {
         const ures = await tx.run(`
             MATCH (u:User {\`${property}\`: $sub }) RETURN u {.*} AS user
         `, { property, sub })
 
-        const user = ures.records[0].get('user') as User | undefined
+        const user = ures.records[0]?.get('user') as User | undefined
 
         const courses = await getCourses(tx)
-        const enrolments = await getEnrolments(tx, { [property]: sub } as Partial<User>)
+        const enrolments = await getEnrolments(tx, { [property]: sub } as Partial<User>, property, courseSlug)
 
         const byStatus = {}
 

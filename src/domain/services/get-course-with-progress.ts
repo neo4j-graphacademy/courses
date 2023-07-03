@@ -12,7 +12,7 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
         let course = (await getCourses(tx)).find(course => course.slug === slug)
 
         if (course && user) {
-            const enrolments = await getEnrolment(tx, user, slug)
+            const enrolments = await getEnrolment(tx, user, 'sub', slug)
 
             if (enrolments.length) {
                 course = await mergeCourseAndEnrolment(course, enrolments[0])

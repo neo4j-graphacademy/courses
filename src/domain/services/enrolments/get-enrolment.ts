@@ -1,5 +1,5 @@
 import { Transaction } from "neo4j-driver";
-import { User } from "../../model/user";
+import { User, ValidLookupProperty } from "../../model/user";
 import { Sandbox } from "../../model/sandbox";
 import { EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_FAVORITED } from "../../model/enrolment";
 import { STATUS_AVAILABLE } from "../rewards/get-rewards";
@@ -36,9 +36,9 @@ type DatabaseEnrolment = Omit<IntermediateEnrolment, 'createdAt' | 'completedAt'
 }
 
 
-export default async function getEnrolments(tx: Transaction, user: Partial<User>, courseSlug?: string): Promise<IntermediateEnrolment[]> {
+export default async function getEnrolments(tx: Transaction, user: Partial<User>, property: ValidLookupProperty = 'sub', courseSlug?: string): Promise<IntermediateEnrolment[]> {
     const res = await tx.run<{ enrolment: DatabaseEnrolment }>(`
-        MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)
+        MATCH (u:User {\`${property}\`: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)
         ${courseSlug ? 'WHERE c.slug = $slug' : ''}
         RETURN e {
             .*,
@@ -57,7 +57,7 @@ export default async function getEnrolments(tx: Transaction, user: Partial<User>
             END,
             certificateUrl: '/c/'+ e.certificateId +'/'
         }  AS enrolment
-    `, appendParams({ active: STATUS_ACTIVE, sub: user.sub, slug: courseSlug }))
+    `, appendParams({ active: STATUS_ACTIVE, sub: user[property], slug: courseSlug }))
 
     if (res.records.length === 0) {
         return []
