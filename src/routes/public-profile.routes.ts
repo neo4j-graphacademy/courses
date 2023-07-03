@@ -103,7 +103,11 @@ router.get('/:id/:course', async (req, res, next) => {
             return res.redirect(`/u/${req.params.id}`)
         }
 
-        return res.redirect(`/c/${course.certificateId}`)
+        if (course.certificateUrl) {
+            return res.redirect(course.certificateUrl)
+        }
+
+        next(new NotFoundError('Certificate Not Found'))
     }
     catch (e) {
         next(e)
