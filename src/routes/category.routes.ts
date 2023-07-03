@@ -71,7 +71,7 @@ router.get('/', async (req, res, next) => {
             },
             term,
             hasResults,
-            ogDescription: 'Hands-on training. No installation required.',
+            description: 'Hands-on training. No installation required.',
             ogImage: `${CDN_URL}/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',
         })
