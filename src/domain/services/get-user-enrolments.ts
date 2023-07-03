@@ -1,50 +1,46 @@
 import NotFoundError from "../../errors/not-found.error";
-import { read } from "../../modules/neo4j";
-import { formatCourse, formatUser } from "../../utils";
-import { STATUS_ACTIVE } from "../model/course";
-import { EnrolmentsByStatus, STATUS_AVAILABLE, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_FAVORITED } from "../model/enrolment";
+import { readTransaction } from "../../modules/neo4j";
+import { formatUser, mergeCourseAndEnrolment } from "../../utils";
+import { EnrolmentsByStatus } from "../model/enrolment";
 import { User } from "../model/user";
-import { appendParams, courseCypher } from "./cypher";
+import getEnrolments from "./enrolments/get-enrolment";
+import getCourses from "./get-courses";
 
 type ValidLookupProperty = 'sub' | 'id'
 
+
 export async function getUserEnrolments(sub: string, property: ValidLookupProperty = 'sub', throwOnNotFound = true): Promise<EnrolmentsByStatus> {
-    const res = await read(`
-        OPTIONAL MATCH (u:User {${property}: $sub})
-        MATCH (c:Course)
-        WHERE NOT c.status IN $exclude
+    const { user, enrolments } = await readTransaction(async tx => {
+        const ures = await tx.run(`
+            MATCH (u:User {\`${property}\`: $sub }) RETURN u {.*} AS user
+        `, { property, sub })
 
-        OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+        const user = ures.records[0].get('user') as User | undefined
 
-        WITH
-            u,
-            ${courseCypher('e', 'u', 'c')} AS course,
-            CASE
-                WHEN e IS NOT NULL AND e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
-                WHEN e IS NOT NULL AND e:FailedEnrolment THEN '${STATUS_FAILED}'
-                WHEN e IS NOT NULL THEN '${STATUS_ENROLLED}'
-                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_FAVORITED}'
-                WHEN e.status = $active THEN '${STATUS_AVAILABLE}'
-                ELSE 'OTHER'
-            END as status
+        const courses = await getCourses(tx)
+        const enrolments = await getEnrolments(tx, { [property]: sub } as Partial<User>)
 
-        WITH u, status, collect(course) AS courses
+        const byStatus = {}
 
-        WITH u, collect([status, courses]) AS pairs
+        for (const enrolment of enrolments) {
+            const status = enrolment.status
 
-        RETURN u { .id, .name, .nickname, .givenName } AS user,
-            apoc.map.fromPairs(pairs) AS enrolments
-    `, appendParams({ sub, active: STATUS_ACTIVE }))
+            if (!byStatus[status]) {
+                byStatus[status] = []
+            }
 
-    if (res.records?.length === 0) {
-        return {
-            user: false,
-            enrolments: {},
+            const course = courses.find(course => course.slug == enrolment.courseSlug)
+
+            if (course) {
+                byStatus[status].push(await mergeCourseAndEnrolment(course, enrolment))
+            }
         }
-    }
 
-    const user: User = res.records[0].get('user')
-    const enrolments = res.records[0].get('enrolments')
+        return {
+            user,
+            enrolments: byStatus,
+        }
+    })
 
     if (!user) {
         if (throwOnNotFound) {
@@ -54,17 +50,6 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
         return {
             user: false,
             enrolments: {}
-        }
-    }
-
-    // Sort items because we can't do this in a pattern comprehension
-    for (const key in enrolments) {
-        if (enrolments.hasOwnProperty(key)) {
-            for (const course in enrolments[key]) {
-                if (enrolments[key].hasOwnProperty(course)) {
-                    enrolments[key][course] = await formatCourse(enrolments[key][course])
-                }
-            }
         }
     }
 

@@ -28,7 +28,7 @@ export default function hardenExpress(app: Express) {
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
-                        '*',
+                        '*', 'data:'
                     ],
                     frameSrc: [
                         "'self'",
