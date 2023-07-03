@@ -19,6 +19,8 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
             }
         }
 
+        console.log(course);
+
         return course
     })
 

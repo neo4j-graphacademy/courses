@@ -125,7 +125,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
             },
 
             course,
-            title: `${course.title} | ${course.categories[0].title} `,
+            title: `${course.title} | ${course.categories[0]?.title} `,
             // ...course,
 
             translate: translate(course.language),
