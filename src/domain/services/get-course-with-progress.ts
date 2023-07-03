@@ -18,9 +18,6 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
                 course = await mergeCourseAndEnrolment(course, enrolments[0])
             }
         }
-
-        console.log(course);
-
         return course
     })
 
