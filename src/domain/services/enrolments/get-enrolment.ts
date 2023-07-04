@@ -56,7 +56,7 @@ export default async function getEnrolments(tx: Transaction, user: Partial<User>
                 ELSE 'OTHER'
             END,
             certificateUrl: '/c/'+ e.certificateId +'/'
-        }  AS enrolment
+        }  AS enrolment ORDER BY e.lastSeenAt DESC, e.createdAt DESC
     `, appendParams({ active: STATUS_ACTIVE, sub: user[property], slug: courseSlug }))
 
     if (res.records.length === 0) {
