@@ -31,7 +31,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
             RETURN {
                 user: {
                     id: u.id
-                } AS user,
+                },
                 id: e.id,
                 sandbox: [ (e)-[:HAS_SANDBOX]->(s) | s ][0],
                 course: ${courseCypher('e', 'u')},
@@ -54,14 +54,13 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         }
 
         const enrolment = res.records[0].get('enrolment')
-        const dbUser = res.records[0].get('user')
 
         const course = enrolment.course;
 
         // Create Sandbox if necessary
         let sandbox
         if (course.usecase) {
-            sandbox = await createAndSaveSandbox(token, dbUser, course, tx)
+            sandbox = await createAndSaveSandbox(token, enrolment.user, course, tx)
         }
 
         return {
