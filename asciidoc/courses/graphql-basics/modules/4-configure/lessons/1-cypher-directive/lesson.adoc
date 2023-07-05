@@ -1,11 +1,15 @@
 = The @cypher Directive
 :order: 1
 
-Schema directives are GraphQL's built-in extension mechanism and indicate that some custom logic will occur on the server. Schema directives are not exposed through GraphQL introspection and are therefore invisible to the client. The `@cypher` GraphQL schema directive allows for defining custom logic using Cypher in the GraphQL schema. Using the `@cypher` schema directive overrides field resolution and will execute the attached Cypher statement to resolve the GraphQL field. Refer to the https://neo4j.com/docs/graphql-manual/current/type-definitions/cypher/[`@cypher` directive documentation for more information.]
+Schema directives are GraphQL's built-in extension mechanism and indicate that some custom logic will occur on the server. Schema directives are not exposed through GraphQL introspection and are therefore invisible to the client. 
+
+The `@cypher` GraphQL schema directive allows for defining custom logic using Cypher in the GraphQL schema. Using the `@cypher` schema directive overrides field resolution and will execute the attached Cypher statement to resolve the GraphQL field. Refer to the https://neo4j.com/docs/graphql-manual/current/type-definitions/cypher/[`@cypher` directive documentation for more information.]
 
 == Computed Scalar Field
 
-Let's look at an example of using the `@cypher` directive to define a computed scalar field in our GraphQL schema. Let's compute the average of the user reviews for any resolved movies. These review ratings are stored as relationship properties on the `RATED` relationship. A Cypher query to compute the average of the user ratings of the movie Jurassic Park would look like this:
+Let's explore an example of using the `@cypher` directive to define a computed scalar field in our GraphQL schema by computing the average of the user reviews for any resolved movies. These review ratings are stored as relationship properties on the `RATED` relationship. 
+
+This Cypher query will compute the average of the user ratings of the movie Jurassic Park:
 
 [source,Cypher,role=nocopy]
 ----
@@ -13,7 +17,7 @@ MATCH (m:Movie {title: "Jurassic Park"})<-[r:RATED]-(:User)
 RETURN avg(r.rating) AS avgRating
 ----
 
-With the `@cypher` schema directive in the Neo4j GraphQL Library we can add a field called `avgRating` to our `Movie` type that includes the logic for traversing through any user ratings and computing the average.
+Using the `@cypher` schema directive in the Neo4j GraphQL Library a field can be added called `avgRating` to our `Movie` type that includes the logic for traversing through any user ratings and computing the average.
 
 Return to the Type definitions pane in GraphQL Toolbox and add the following to your GraphQL type definitions.
 
@@ -32,7 +36,7 @@ extend type Movie {
 
 The `@cypher` directive takes a single argument `statement` which is the Cypher statement to be executed to resolve the field. This Cypher statement can reference the `this` variable which is the currently resolved node, in this case the currently resolved `Movie` node.
 
-We can now include this `avgRating` field in our GraphQL queries:
+The `avgRating` field can now be used in your GraphQL queries:
 
 [source,GraphQL]
 ----
@@ -66,13 +70,17 @@ We can now include this `avgRating` field in our GraphQL queries:
 }
 ----
 
-The `@cypher` directive gives us all the power of Cypher, with the ability to express complex traversals, pattern matching, even leveraging Cypher procedures like APOC. Let's see how we can use the `@cypher` directive to define a node object array field - in this case to add movie recommendations to our API!
+The `@cypher` directive gives you all the power of Cypher, with the ability to express complex traversals, pattern matching, even leveraging Cypher procedures like APOC. 
+
+You will now use the `@cypher` directive to define a node object array field and add movie recommendations to the GraphQL API.
 
 == Node And Object Fields
 
-The above example used a `@cypher` directive field to compute a scalar field by returning a scalar value from the Cypher query defined in the `@cypher` directive. If we return node objects in the Cypher query we can create object and object array fields backed by a Cypher query. 
+The previous example used a `@cypher` directive field to compute a scalar field by returning a scalar value from the Cypher query defined in the `@cypher` directive. If you return node objects in the Cypher query you can create object and object array fields backed by a Cypher query. 
 
 Let's say that a user enjoyed the movie Jurassic Park. How could we find similar movies that the user might also enjoy? One approach would be to find all the users who rated Jurassic Park and then traverse to all the other movies those users rated, and then find the most common movies these users also rated. This is an example of a collaborative filtering recommendation query that uses information about user actions from the graph to create recommendations.
+
+This Cypher query will return the top 3 recommendations for those who watched the "Jurassic Park" movies:
 
 [source,Cypher,role=nocopy]
 ----
@@ -81,7 +89,9 @@ WITH rec, COUNT(u) AS score ORDER BY score DESC
 RETURN rec LIMIT 3
 ----
 
-Let's update our GraphQL type definitions to include this movie recommendation query as a `@cypher` directive field. We'll add this field to the `Movie` type, and return recommended movies for the currently resolved movie.
+Let's update our GraphQL type definitions to include this movie recommendation query as a `@cypher` directive field. 
+
+Add this field to the `Movie` type, and return recommended movies for the currently resolved movie.
 
 [source,GraphQL]
 ----
@@ -97,7 +107,7 @@ extend type Movie {
 }
 ----
 
-Select "Build schema" to update the GraphQL API to include our new `similar` field. Now we can include this field in our GraphQL selection set to find the most similar movies to Jurassic 
+Rebuild the schema to update the GraphQL API to include the new `similar` field. This field can now be include in the GraphQL selection set to find the most similar movies:
 
 [source,GraphQL]
 ----
@@ -119,9 +129,9 @@ Select "Build schema" to update the GraphQL API to include our new `similar` fie
       {
         "title": "Jurassic Park",
         "recommended": [
-          { "title": "G.I. Joe: Retaliation" },
-          { "title": "Terminator Genisys" },
-          { "title": "Mad Max: Fury Road" }
+          { "title": "Forrest Gump" },
+          { "title": "Silence of the Lambs, The" },
+          { "title": "Pulp Fiction" }
         ]
       }
     ]
@@ -129,9 +139,9 @@ Select "Build schema" to update the GraphQL API to include our new `similar` fie
 }
 ----
 
-This is neat, but what if we wanted to return more than 3 recommended movies? Let's update our GraphQL type definitions to allow for specifying the number of recommended movies to return at query time. To do this we'll add an argument to the `recommended` field called `limit`. Any arguments defined on a `@cypher` directive field are passed to the Cypher query as a Cypher parameter with the same name as the argument and can be referenced using the `$` syntax.
+This is neat, but what if you wanted to return more than 3 recommended movies? You can update the GraphQL type definitions to allow for specifying the number of recommended movies to return at query time. 
 
-So in order to return an arbitrary number of recommended movies we replace the hardcoded value 3 with `$limit` in our Cypher statement.
+To do this add an argument to the `recommended` field called `limit` . Any arguments defined on a `@cypher` directive field are passed to the Cypher query as a Cypher parameter with the same name as the argument and can be referenced using the `$` syntax. 
 
 [source,GraphQL]
 ----
@@ -146,10 +156,12 @@ extend type Movie {
     )
 }
 ----
- 
-Note that we specify a default value for the `limit` argument (`limit: Int = 3`). This ensures that even if a value for the optional `limit` argument is not specified, our Cypher query will have a value and avoid an error. An alternative would be to make the `limit` argument required (`limit: Int!`).
 
-Here we request 10 recommended movies instead of the default 3.
+> Note how the hardcoded value 3 has been replaced with `$limit` in the Cypher statement.
+ 
+A default value for the `limit` argument (`limit: Int = 3`) has been specified. This ensures that even if a value for the optional `limit` argument is not specified, the Cypher query will have a value and avoid an error. An alternative would be to make the `limit` argument required (`limit: Int!`).
+
+In this query the limit parameter is used to request 10 recommended movies instead of the default 3.
 
 [source,GraphQL]
 ----
@@ -159,33 +171,6 @@ Here we request 10 recommended movies instead of the default 3.
     recommended(limit: 10) {
       title
     }
-  }
-}
-----
-
-And our query response now includes the number of recommended movies we've specified.
-
-[source,GraphQL]
-----
-{
-  "data": {
-    "movies": [
-      {
-        "title": "Jurassic Park",
-        "recommended": [
-          { "title": "Forrest Gump" },
-          { "title": "Silence of the Lambs, The" },
-          { "title": "Pulp Fiction" },
-          { "title": "Terminator 2: Judgment Day" },
-          { "title": "Shawshank Redemption, The" },
-          { "title": "Fugitive, The" },
-          { "title": "Braveheart" },
-          { "title": "Star Wars: Episode IV - A New Hope" },
-          { "title": "Aladdin" },
-          { "title": "True Lies" }
-        ]
-      }
-    ]
   }
 }
 ----
