@@ -74,7 +74,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
         })
 
         if (lessonResult.records.length === 0) {
-            throw new NotFoundError(`Enrolment not found for ${user.sub} on ${course}/`)
+            throw new NotFoundError(`Enrolment not found for ${user.sub} on ${course}`)
         }
 
         const lessonOutput: LessonWithProgress = lessonResult.records[0].get('lesson')

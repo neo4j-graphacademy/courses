@@ -141,7 +141,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
     }, 0)
 
     const completedCount = enrolment.completedLessons.length
-    const completedPercentage = Math.round(completedCount / mandatoryLessons * 100)
+    const completedPercentage = enrolment.percentage || enrolment.completedPercentage || Math.round(completedCount / mandatoryLessons * 100)
 
     const output: CourseWithProgress = {
         ...await formatCourse(course),
@@ -151,7 +151,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         ref: enrolment.ref,
         completed: enrolment.completed,
         completedAt: enrolment.completedAt,
-        failed: enrolment.completed,
+        failed: enrolment.failed,
         failedAt: enrolment.failedAt,
         availableAfter: enrolment.failedAt ? new Date(enrolment.failedAt?.getTime() + + 60 * 60 * 24 * 1000) : undefined,
         lastSeenAt: enrolment.lastSeenAt,
@@ -170,9 +170,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         next: getNextLesson(course, enrolment.completedModules, enrolment.completedLessons),
     }
 
-
-
-    return output
+    return formatCourse(output)
 }
 
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
@@ -195,7 +193,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     // If less than 7 days old, they are not allowed to take the quick quiz
     const enrolledAt = course.enrolledAt ? new Date((course.enrolledAt as string).toString()) : undefined
     const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
-    const availableAfter = course.availableAfter ? relativeTime(new Date(course.availableAfter)) : undefined
+    const availableAfter = course.availableAfter ? new Date(course.availableAfter) : undefined
 
     return {
         ...course,

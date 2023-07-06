@@ -36,7 +36,7 @@ router.use((req, res, next) => {
  *
  * Display a list of available courses
  */
-router.get('/', async (req, res, next) => {
+router.get('/', forceTrailingSlash, async (req, res, next) => {
     try {
         const term: string | undefined = req.query.search as string | undefined
         const user = await getUser(req)
@@ -103,6 +103,7 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
         const category = flattened.find(item => item.slug === slug)
 
         if (!category) {
+            return res.redirect(301, '/categories/')
             return next(new NotFoundError(`Category with slug ${slug} could not be found`))
         }
 

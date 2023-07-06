@@ -9,7 +9,7 @@ import {
     LESSON_TYPE_CHALLENGE,
 } from '../domain/model/lesson'
 import { getPhrase } from '../modules/localisation'
-import { getSvgs } from '../utils'
+import { getSvgs, relativeTime } from '../utils'
 
 
 export function registerLocals(app: Express) {
@@ -62,6 +62,9 @@ export function registerLocals(app: Express) {
 
         // Default translator - just use the default value
         res.locals.translate = (_: string, defaultValue: string) => defaultValue
+
+        // Relative time function
+        res.locals.relativeTime = relativeTime
 
         next()
     })

@@ -13,7 +13,7 @@ import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
 import { ASCIIDOC_DIRECTORY, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
-import { Course, CourseWithProgress } from '../domain/model/course'
+import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
@@ -70,11 +70,18 @@ router.use((req, res, next) => {
  */
 router.get('/', (req, res, next) => {
     try {
-        res.redirect('/categories')
+        res.redirect(301, '/categories/')
     }
     catch (e) {
         next(e)
     }
+})
+
+/**
+ * Redirect old language courses to their en-US equivalent
+ */
+router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})-:slug`, (req, res) => {
+    res.redirect(301, `/courses/${req.params.slug}/`)
 })
 
 /**
@@ -83,6 +90,11 @@ router.get('/', (req, res, next) => {
  * Render course information from course.adoc in the course root
  */
 router.get('/:course', forceTrailingSlash, async (req, res, next) => {
+    // NotFoundError: Course neo4j-â¦ could not be found -   "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
+    if (decodeURIComponent(req.params.course).length === 9 && req.params.course.startsWith('neo4j-')) {
+        return res.redirect('/courses/neo4j-fundamentals/')
+    }
+
     try {
         const user = await getUser(req)
         const token = await getToken(req)

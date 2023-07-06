@@ -5,6 +5,8 @@ import NotFoundError from '../errors/not-found.error';
 
 export function applyErrorHandlers(app: Express) {
     const notFoundError = (req: Request, res: Response, err?: Error) => {
+        console.log(req.originalUrl);
+
         res.status(404)
             .render('simple', {
                 title: 'Page Not Found',

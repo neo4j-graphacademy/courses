@@ -28,6 +28,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
                 e.ref = $ref
             MERGE (u)-[:HAS_ENROLMENT]->(e)
             MERGE (e)-[:FOR_COURSE]->(c)
+            REMOVE e:FailedEnrolment
             RETURN {
                 user: {
                     id: u.id

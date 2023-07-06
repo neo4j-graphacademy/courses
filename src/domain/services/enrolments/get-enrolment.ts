@@ -16,6 +16,7 @@ export interface IntermediateEnrolment {
     completed: boolean;
     completedAt: Date | undefined;
     failed: boolean;
+    percentage: number;
     failedAt: Date | undefined;
     availableAfter: Date | undefined;
     ref: string | undefined;

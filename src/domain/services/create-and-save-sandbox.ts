@@ -24,6 +24,11 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
         return
     }
 
+    // TODO: Why is this happening?
+    if (!enrolmentId) {
+        return sandboxOutput
+    }
+
     const query = `
         MERGE (e:Enrolment {id: $id})
         MERGE (s:Sandbox {id: $sandbox.id})

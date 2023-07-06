@@ -11,6 +11,7 @@ const router = Router({
 })
 
 router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, async (req, res, next) => {
+    return res.redirect('/')
     const language = req.params.language as Language
 
     try {
@@ -19,7 +20,7 @@ router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, asyn
 
         const file = loadFile(`categories/${language}.adoc`)
 
-        const category =  categories.find(parent => parent.slug === 'languages')
+        const category = categories.find(parent => parent.slug === 'languages')
             ?.children?.find(child => child.slug === language)
 
         const courses = category?.courses || []
@@ -39,7 +40,7 @@ router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, asyn
             translate: translate(language),
         })
     }
-    catch(e) {
+    catch (e) {
         next(e)
     }
 })
