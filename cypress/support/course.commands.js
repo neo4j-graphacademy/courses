@@ -1,15 +1,18 @@
 const neo4j = require('neo4j-driver')
 
-Cypress.Commands.add('getCourseDetails', (slug) => {
-    // Get Course Details
-    const driver = neo4j.driver(
+export const getDriver = () => {
+    return neo4j.driver(
         Cypress.env('neo4j_uri'),
         neo4j.auth.basic(
             Cypress.env('neo4j_username'),
             Cypress.env('neo4j_password')
         )
     )
+}
 
+Cypress.Commands.add('getCourseDetails', (slug) => {
+    // Get Course Details
+    const driver = getDriver()
     return driver.session().run(`
         MATCH (c:Course)
         WHERE $slug IS NULL AND c.status = 'active' OR c.slug = $slug
@@ -51,14 +54,30 @@ Cypress.Commands.add('getCourseDetails', (slug) => {
 })
 
 Cypress.Commands.add('enrol', (course) => {
-    const [firstModule] = course.modules
-    const [firstLesson] = firstModule.lessons
-
     // Open Course Overview
     cy.visit(course.link)
 
     //  Click Enrol
     cy.get('.btn--enrol').click()
+})
+
+Cypress.Commands.add('unenrol', (course) => {
+    // Open Course Overview
+    cy.visit(course.link)
+
+    // Click unenrol button
+    cy.get('.btn--unenrol').click()
+
+    // Notification should show
+    cy.get('.notification--success').contains('unenrolled').should('be.visible')
+
+    // Enrol button should be visible
+    cy.get('.btn--enrol').should('be.visible')
+})
+
+Cypress.Commands.add('complete', (course) => {
+    const [firstModule] = course.modules
+    const [firstLesson] = firstModule.lessons
 
     // Should go to first module
     // TODO: Match to end of string

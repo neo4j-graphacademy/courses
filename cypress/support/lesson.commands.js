@@ -132,7 +132,7 @@ Cypress.Commands.add('attemptVerification', (lesson) => {
             // Execute the solution Cypher in the Sandbox
             cy.executeCypher(response.body)
 
-            cy.wait(5000)
+            cy.wait(2000)
 
             // Pass Lesson
             cy.get('.btn-verify').click()

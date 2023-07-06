@@ -29,7 +29,6 @@ Cypress.Commands.add('login', () => {
     cy.wait(2000)
     cy.get('.auth0-lock-center')
         .then($body => {
-            console.log('x', $body.find('.auth0-lock-alternative-link').length);
             if ($body.find('.auth0-lock-alternative-link').length) {
                 cy.get('.auth0-lock-alternative-link').click({ force: true })
                 cy.wait(500)

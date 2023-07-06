@@ -7,6 +7,7 @@ describe('Building Neo4j Applications with Node.js', () => {
             .then(([course]) => {
                 cy.log(course)
                 cy.enrol(course)
+                cy.complete(course)
             })
     })
 })
