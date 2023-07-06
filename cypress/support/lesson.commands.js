@@ -38,13 +38,13 @@ Cypress.Commands.add('attemptLesson', lesson => {
 
                 // Check hint buttons
                 cy.get('.section.question')
-                    .within(() => {
+                    .each($el => {
                         // Check Show Hint button
-                        cy.get('.admonition-show-hint')
-                            .should('exist').click({ multiple: true })
+                        cy.wrap($el).find('.admonition-show-hint')
+                            .should('exist').click()
 
                         // Clicking shold show the hint
-                        cy.get('.hint').should('be.visible')
+                        cy.wrap($el).find('.hint').should('be.visible')
                     })
 
 
@@ -55,21 +55,21 @@ Cypress.Commands.add('attemptLesson', lesson => {
 
                     // Check solution buttons
                     cy.get('.section.question')
-                        .within(() => {
+                        .each($el => {
                             // Check Show Solution button
-                            cy.get('.admonition-show-solution')
-                                .should('exist').click({ multiple: true })
+                            cy.wrap($el).find('.admonition-show-solution')
+                                .should('exist').click()
 
                             // Clicking shold show the solution
-                            cy.get('.solution').should('be.visible')
+                            cy.wrap($el).find('.solution').should('be.visible')
                         })
 
                     cy.failLesson()
 
                     cy.get('.section.question')
-                        .within(() => {
+                        .each($el => {
                             // Clicking shold show the solution
-                            cy.get('.solution').should('be.visible')
+                            cy.wrap($el).find('.solution').should('be.visible')
                         })
 
                 }

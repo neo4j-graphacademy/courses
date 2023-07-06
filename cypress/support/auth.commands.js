@@ -27,13 +27,13 @@ Cypress.Commands.add('login', () => {
 
     // Wait for Auth0 animation
     cy.wait(2000)
-    cy.get('.auth0-lock-center')
-        .then($body => {
-            if ($body.find('.auth0-lock-alternative-link').length) {
-                cy.get('.auth0-lock-alternative-link').click({ force: true })
-                cy.wait(500)
-            }
-        })
+    // cy.get('.auth0-lock-center')
+    //     .then($body => {
+    //         if ($body.find('.auth0-lock-alternative-link').length) {
+    //             cy.get('.auth0-lock-alternative-link').click({ force: true })
+    //             cy.wait(500)
+    //         }
+    //     })
 
 
     // Log in to Auth0
@@ -42,16 +42,16 @@ Cypress.Commands.add('login', () => {
     cy.get('button[name="submit"]').click()
 
     // Hack: Intercept and set cookie
-    cy.wait('@callback').should(({ response }) => {
-        const cookie = response.headers['set-cookie'].find(cookie => cookie.startsWith('appSession'));
+    // cy.wait('@callback').should(({ response }) => {
+    //     const cookie = response.headers['set-cookie'].find(cookie => cookie.startsWith('appSession'));
 
-        const [name, payload] = cookie.split('=')
-        const [value] = payload.split(';')
+    //     const [name, payload] = cookie.split('=')
+    //     const [value] = payload.split(';')
 
-        cy.setCookie(name, value)
+    //     cy.setCookie(name, value)
 
-        cy.reload()
-    })
+    //     cy.reload()
+    // })
 
     // The user should now be logged in
     cy.get('.navbar-account').should('be.visible')
