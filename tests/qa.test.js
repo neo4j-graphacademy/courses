@@ -39,7 +39,6 @@ describe('QA Tests', () => {
                         for (const lessonPath of lessonPaths) {
                             const lessonSlug = lessonPath.split(sep).reverse()[0]
 
-
                             const lessonAdoc = readFileSync(join(lessonPath, 'lesson.adoc')).toString()
 
                             const optional = getAttribute(lessonAdoc, 'optional') === 'true'
