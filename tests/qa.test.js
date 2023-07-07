@@ -59,11 +59,11 @@ describe('QA Tests', () => {
                                         const asciidoc = readFileSync(questionPath).toString()
 
                                         it(`${questionFile} should have a hint`, () => {
-                                            expect(asciidoc).toContain('[TIP,role=hint]')
+                                            expect(asciidoc).toContain('\n[TIP,role=hint]')
                                         })
 
                                         it(`${questionFile} should have a solution`, () => {
-                                            expect(asciidoc).toContain('[TIP,role=solution]')
+                                            expect(asciidoc).toContain('\n[TIP,role=solution]')
                                         })
                                     }
                                 }
