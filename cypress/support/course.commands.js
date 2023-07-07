@@ -1,15 +1,18 @@
 const neo4j = require('neo4j-driver')
 
-Cypress.Commands.add('getCourseDetails', (slug) => {
-    // Get Course Details
-    const driver = neo4j.driver(
+export const getDriver = () => {
+    return neo4j.driver(
         Cypress.env('neo4j_uri'),
         neo4j.auth.basic(
             Cypress.env('neo4j_username'),
             Cypress.env('neo4j_password')
         )
     )
+}
 
+Cypress.Commands.add('getCourseDetails', (slug) => {
+    // Get Course Details
+    const driver = getDriver()
     return driver.session().run(`
         MATCH (c:Course)
         WHERE $slug IS NULL AND c.status = 'active' OR c.slug = $slug
@@ -51,14 +54,30 @@ Cypress.Commands.add('getCourseDetails', (slug) => {
 })
 
 Cypress.Commands.add('enrol', (course) => {
-    const [ firstModule ] = course.modules
-    const [ firstLesson ] = firstModule.lessons
-
     // Open Course Overview
     cy.visit(course.link)
 
     //  Click Enrol
     cy.get('.btn--enrol').click()
+})
+
+Cypress.Commands.add('unenrol', (course) => {
+    // Open Course Overview
+    cy.visit(course.link)
+
+    // Click unenrol button
+    cy.get('.btn--unenrol').click()
+
+    // Notification should show
+    cy.get('.notification--success').contains('unenrolled').should('be.visible')
+
+    // Enrol button should be visible
+    cy.get('.btn--enrol').should('be.visible')
+})
+
+Cypress.Commands.add('complete', (course) => {
+    const [firstModule] = course.modules
+    const [firstLesson] = firstModule.lessons
 
     // Should go to first module
     // TODO: Match to end of string
@@ -88,7 +107,7 @@ Cypress.Commands.add('enrol', (course) => {
         cy.get('.classroom-content h1').contains(module.title)
 
         // Test Pagination
-        const [ firstLesson ] = module.lessons
+        const [firstLesson] = module.lessons
 
         cy.paginationNext()
         cy.url().should('contain', firstLesson.link)
@@ -99,7 +118,7 @@ Cypress.Commands.add('enrol', (course) => {
         // Visit Lessons
         const { lessons } = module
 
-        while ( lessons.length ) {
+        while (lessons.length) {
             const lesson = lessons.shift()
 
             cy.attemptLesson(lesson)
@@ -111,11 +130,11 @@ Cypress.Commands.add('enrol', (course) => {
 
     cy.get('.lesson-outcome.lesson-outcome--passed')
         .should('exist')
-        // .should('contain', 'Course Completed')
+    // .should('contain', 'Course Completed')
 
     cy.get('.toc-course-summary')
         .should('exist')
-        // .should('contain', 'Course Summary')
+    // .should('contain', 'Course Summary')
 
     cy.get('.toc-course-achievement')
         .should('exist')
@@ -123,7 +142,7 @@ Cypress.Commands.add('enrol', (course) => {
     // Test Completion on Course Overview
     cy.visit(course.link)
 
-    cy.get('.course-overview.course--completed')
+    cy.get('.course.course--completed')
         .should('exist')
 })
 

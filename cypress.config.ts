@@ -17,7 +17,7 @@ export default defineConfig({
   defaultCommandTimeout: 20000,
 
   retries: {
-    openMode: 3,
+    openMode: 0,
   },
 
   e2e: {

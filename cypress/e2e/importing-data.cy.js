@@ -7,6 +7,7 @@ describe('Importing CSV Data', () => {
             .then(([course]) => {
                 cy.log(course)
                 cy.enrol(course)
+                cy.complete(course)
             })
     })
 })
