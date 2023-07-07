@@ -5,6 +5,11 @@ const getAttribute = (asciidoc, attribute) => {
     return match ? match[1] : undefined
 }
 
+function globJoin() {
+    return Array.from(arguments).join('/')
+}
+
 module.exports = {
     getAttribute,
+    globJoin,
 }
