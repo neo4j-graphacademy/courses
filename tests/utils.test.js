@@ -1,4 +1,6 @@
-const { getAttribute } = require('./utils')
+const { globSync } = require('glob')
+const { getAttribute, globJoin } = require('./utils')
+const { existsSync } = require('fs')
 
 describe('Utils', () => {
     describe('getAttribute', () => {
@@ -20,6 +22,20 @@ describe('Utils', () => {
             const expected = undefined
 
             expect(actual).toBe(expected)
+        })
+    })
+
+    describe('globJoin', () => {
+        const coursePaths = globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
+
+        it('should have files', () => {
+            expect(coursePaths.length).toBeGreaterThan(0)
+        })
+
+        it('should locate the course files', () => {
+            const path = globJoin(coursePaths[0], 'course.adoc')
+
+            expect(existsSync(path)).toBe(true)
         })
     })
 })
