@@ -1,9 +1,7 @@
 const { join, sep } = require('path')
 const { globSync } = require('glob')
 const { readFileSync } = require('fs')
-const { getAttribute, globJoin } = require('./utils')
-
-
+const { getAttribute, globJoin, getStatusCode, findLinks } = require('./utils')
 
 describe('QA Tests', () => {
     const exclude = ['30-days']
@@ -56,6 +54,18 @@ describe('QA Tests', () => {
 
                                 it('should be optional, mark as read or have one or more questions', () => {
                                     expect(optional || hasReadButton || includesSandbox || questionPaths.length > 0).toBe(true)
+                                })
+
+                                it('should have valid links', async () => {
+                                    for (const link of findLinks(lessonAdoc)) {
+                                        const statusCode = await getStatusCode(link)
+                                        try {
+                                            expect(statusCode).toBe(200)
+                                        }
+                                        catch (e) {
+                                            throw new Error(`${link} returns ${statusCode}`)
+                                        }
+                                    }
                                 })
 
                                 if (!optional && !hasReadButton) {
