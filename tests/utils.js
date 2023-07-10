@@ -50,10 +50,27 @@ function getActiveCoursePaths() {
 }
 
 
+function findCypherStatements(asciidoc) {
+    const output = []
+    const matches = asciidoc.matchAll(/\[source,cypher]\n----(.*?)----/gs)
+
+    for (const match of matches) {
+        if (!match[1].includes('include::') && !match[1].includes(':param')) {
+
+            for (const query of match[1].split(';').filter(e => e.trim() !== '')) {
+                output.push(query)
+            }
+        }
+    }
+
+    return output.map(output => output.trim().includes('PROFILE') ? output.replace('PROFILE', 'EXPLAIN') : output)
+}
+
 module.exports = {
     getAttribute,
     globJoin,
     getStatusCode,
+    findCypherStatements,
     findLinks,
     getActiveCoursePaths,
 }

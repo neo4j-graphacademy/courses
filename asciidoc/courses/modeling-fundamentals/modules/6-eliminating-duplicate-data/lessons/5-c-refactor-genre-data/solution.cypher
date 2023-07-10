@@ -3,7 +3,7 @@ MATCH (m:Movie)
 UNWIND m.genres AS genre
 MERGE (g:Genre {name: genre})
 MERGE (m)-[:IN_GENRE]->(g)
-SET m.genres = null
+SET m.genres = null;
 
 //revised query
 MATCH (p:Actor)-[:ACTED_IN]-(m:Movie)--(g:Genre)
