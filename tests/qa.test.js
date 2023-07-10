@@ -19,7 +19,8 @@ describe('QA Tests', () => {
 
         if (status === 'active' && certification !== 'true') {
             describe(slug, () => {
-                const modulePaths = globSync(globJoin(coursePath, 'modules', '*'))
+                const modulePaths = globSync(globJoin(__dirname, '..', 'asciidoc',
+                    'courses', slug, 'modules', '*'))
 
                 it('should have a caption', () => {
                     expect(getAttribute(courseAdoc, 'caption')).toBeDefined()
@@ -31,7 +32,8 @@ describe('QA Tests', () => {
 
                 for (modulePath of modulePaths) {
                     const moduleSlug = modulePath.split(sep).reverse()[0]
-                    const lessonPaths = globSync(globJoin(modulePath, 'lessons', '*'))
+                    const lessonPaths = globSync(globJoin(__dirname, '..', 'asciidoc',
+                        'courses', slug, 'modules', moduleSlug, 'lessons', '*'))
 
                     describe(moduleSlug, () => {
                         it('should have one or more lessons', () => {
@@ -48,7 +50,9 @@ describe('QA Tests', () => {
                             const includesSandbox = lessonAdoc.includes('include::{shared}/courses/apps/sandbox.adoc[tags="summary')
 
                             describe(lessonSlug, () => {
-                                const questionPaths = globSync(globJoin(lessonPath, 'questions', '*.adoc'))
+                                const questionPaths = globSync(globJoin(__dirname, '..', 'asciidoc',
+                                    'courses', slug, 'modules', moduleSlug, 'lessons',
+                                    lessonSlug, 'questions', '*.adoc'))
 
                                 it('should be optional, mark as read or have one or more questions', () => {
                                     expect(optional || hasReadButton || includesSandbox || questionPaths.length > 0).toBe(true)
