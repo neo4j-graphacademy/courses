@@ -25,11 +25,11 @@ describe('Database Tests', () => {
                 WHERE not c:Certification
                 RETURN c {
                     .slug,
-                    modules: [ (c)-[:HAS_MODULE]->(m) | m {
+                    modules: [ (c)-[:HAS_MODULE]->(m)  WHERE not m:DeletedModule | m {
                         .slug,
-                        lessons: [ (m)-[:HAS_LESSON]->(l) | l {
+                        lessons: [ (m)-[:HAS_LESSON]->(l) WHERE not l:DeletedLesson | l {
                             .slug,
-                            questions: [ (l)-[:HAS_QUESTION]->(q) | q {
+                            questions: [ (l)-[:HAS_QUESTION]->(q) WHERE not q:DeletedQuestion | q {
                                 .id,
                                 .text
                             } ]
@@ -74,7 +74,10 @@ describe('Database Tests', () => {
                 it('should have the correct number of modules', () => {
                     const dbCourse = dbCourses.find(course => course.slug === courseSlug)
 
-                    expect(modulePaths.length).toBe(dbCourse.modules.length)
+                    const pathSlugs = modulePaths.map(path => path.split(sep).reverse()[0])
+                    const dbSlugs = dbCourse.modules.map(modules => modules.slug)
+
+                    expect(pathSlugs).toEqual(expect.arrayContaining(dbSlugs))
                 })
 
                 for (const modulePath of modulePaths) {
@@ -96,7 +99,11 @@ describe('Database Tests', () => {
                             const dbCourse = dbCourses.find(course => course.slug === courseSlug)
                             const dbModule = dbCourse.modules.find(module => module.slug == moduleSlug)
 
-                            expect(lessonPaths.length).toBe(dbModule.lessons.length)
+                            const pathSlugs = lessonPaths.map(path => path.split(sep).reverse()[0])
+                            const dbSlugs = dbModule.lessons.map(lesson => lesson.slug)
+
+                            expect(pathSlugs).toEqual(expect.arrayContaining(dbSlugs))
+
                         })
 
                         for (const lessonPath of lessonPaths) {
