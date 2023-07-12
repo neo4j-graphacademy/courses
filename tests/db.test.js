@@ -1,25 +1,11 @@
-const { join, sep } = require('path')
+const { sep } = require('path')
 const { globSync } = require('glob')
-const { readFileSync } = require('fs')
-const { getAttribute, globJoin } = require('./utils')
+const { globJoin, getActiveCoursePaths } = require('./utils')
 const { config } = require('dotenv')
 const neo4j = require('neo4j-driver')
 
 config({ path: process.env.ENV_PATH || '.env.production' })
 
-function getActiveCourses() {
-    return globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
-        .filter(path => {
-            const slug = path.split(sep).reverse()[0]
-
-            const courseAdoc = readFileSync(
-                join(__dirname, '..', 'asciidoc', 'courses', slug, 'course.adoc')
-            ).toString()
-
-            return getAttribute(courseAdoc, 'status') === 'active' && getAttribute(courseAdoc, 'certification') !== 'true'
-        })
-        .map(path => path.split(sep).reverse()[0])
-}
 
 describe('Database Tests', () => {
     let driver
@@ -60,8 +46,6 @@ describe('Database Tests', () => {
 
     afterAll(() => driver.close())
 
-
-
     describe('sanity tests', () => {
         it('should have neo4j variables defined', () => {
             expect(process.env.NEO4J_HOST).toBeDefined()
@@ -74,12 +58,12 @@ describe('Database Tests', () => {
         })
 
         it('should have correct number of active courses', async () => {
-            expect(getActiveCourses().length).toEqual(dbCourses.length)
+            expect(getActiveCoursePaths().length).toEqual(dbCourses.length)
         })
     })
 
     describe(process.env.NEO4J_HOST, () => {
-        for (const coursePath of getActiveCourses()) {
+        for (const coursePath of getActiveCoursePaths()) {
             const courseSlug = coursePath.split(sep).reverse()[0]
 
             describe(courseSlug, () => {
