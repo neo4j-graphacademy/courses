@@ -5,9 +5,8 @@ import { Session, Transaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
 import { getDriver } from '../modules/neo4j';
 import { CourseToImport, LessonToImport, ModuleToImport, QuestionToImport } from '../types';
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_DESCRIPTION } from '../constants';
+import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_DESCRIPTION, ATTRIBUTE_QUESTIONS, ATTRIBUTE_PASS_PERCENTAGE, ATTRIBUTE_KEY_POINTS } from '../constants';
 import { courseOverviewPath, getDateAttribute, getOrderAttribute } from '../utils';
-
 
 const loadCourses = (): CourseToImport[] => {
     return fs.readdirSync(COURSE_DIRECTORY)
@@ -16,7 +15,7 @@ const loadCourses = (): CourseToImport[] => {
 }
 
 const loadCourse = (courseFolder: string): CourseToImport => {
-    const slug = courseFolder.split('/').filter(a => !!a).pop() as string
+    const slug = courseFolder.split(path.sep).filter(a => !!a).pop() as string
     const file = loadFile(courseOverviewPath(slug), { parse_header_only: true })
 
     const moduleDir = path.join(ASCIIDOC_DIRECTORY, courseFolder, 'modules')
@@ -57,6 +56,12 @@ const loadCourse = (courseFolder: string): CourseToImport => {
     // Certification?
     const certification = file.getAttribute(ATTRIBUTE_CERTIFICATION, 'false') === 'true'
 
+    // Key points for
+    let keyPoints = file.getAttribute(ATTRIBUTE_KEY_POINTS, null)
+    if (typeof keyPoints === 'string') {
+        keyPoints = keyPoints.split(',').map(text => text.trim())
+    }
+
     // @ts-ignore
     return {
         slug,
@@ -75,12 +80,15 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         certification,
         classmarkerId: file.getAttribute(ATTRIBUTE_CLASSMARKER_ID, null),
         classmarkerReference: file.getAttribute(ATTRIBUTE_CLASSMARKER_REFERENCE, null),
+        questions: file.getAttribute(ATTRIBUTE_QUESTIONS, null),
+        passPercentage: file.getAttribute(ATTRIBUTE_PASS_PERCENTAGE, null),
         attributes: {
             rewardType: file.getAttribute(ATTRIBUTE_REWARD_TYPE, null),
             rewardForm: file.getAttribute(ATTRIBUTE_REWARD_FORM, null),
             rewardImage: file.getAttribute(ATTRIBUTE_REWARD_IMAGE, null),
             rewardProvider: file.getAttribute(ATTRIBUTE_REWARD_PROVIDER, null),
             rewardProductId: file.getAttribute(ATTRIBUTE_REWARD_PRODUCT_ID, null),
+            keyPoints,
             ...attributes,
         },
         progressToSlugs,
@@ -92,7 +100,7 @@ const loadCourse = (courseFolder: string): CourseToImport => {
 }
 
 const loadModule = (folder: string): ModuleToImport => {
-    const slug = folder.split('/').filter(a => !!a).pop() as string
+    const slug = folder.split(path.sep).filter(a => !!a).pop() as string
     const file = loadFile(path.join(ASCIIDOC_DIRECTORY, folder, 'module.adoc'), { parse_header_only: true })
 
     const lessonsDir = path.join(ASCIIDOC_DIRECTORY, folder, 'lessons')
@@ -121,7 +129,7 @@ const loadModule = (folder: string): ModuleToImport => {
 }
 
 const loadLesson = (folder: string): LessonToImport => {
-    const slug = folder.split('/').filter(a => !!a).pop()! as string
+    const slug = folder.split(path.sep).filter(a => !!a).pop()! as string
     const file = loadFile(path.join(ASCIIDOC_DIRECTORY, folder, 'lesson.adoc'), { parse_header_only: true })
 
     // Load questions and answers into database
@@ -198,6 +206,8 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
             c.updatedAt = datetime(),
             c.classmarkerId = course.classmarkerId,
             c.classmarkerReference = course.classmarkerReference,
+            c.questions = toInteger(course.questions),
+            c.passPercentage = toInteger(course.passPercentage),
             c += course.attributes
 
         FOREACH (_ IN CASE WHEN course.certification THEN [1] ELSE [] END | SET c:Certification)

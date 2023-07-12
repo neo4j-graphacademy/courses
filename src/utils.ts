@@ -36,9 +36,6 @@ export function courseOverviewPath(slug: string): string {
     return path.join(COURSE_DIRECTORY, slug, 'course.adoc')
 }
 
-export function courseBannerPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'banner.png')
-}
 
 export function courseBadgePath(slug: string): string {
     return path.join(COURSE_DIRECTORY, slug, 'badge.svg')
@@ -46,6 +43,26 @@ export function courseBadgePath(slug: string): string {
 
 export function coursePublicBadgePath(slug: string): string {
     return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'badges', `${slug}.svg`)
+}
+
+export function courseIllustrationPath(slug: string): string {
+    return path.join(COURSE_DIRECTORY, slug, 'illustration.svg')
+}
+
+export function coursePublicIllustrationPath(slug: string): string {
+    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'illustrations', `${slug}.svg`)
+}
+
+export function courseBackgroundPath(slug: string): string {
+    return path.join(COURSE_DIRECTORY, slug, 'background.png')
+}
+
+export function coursePublicBackgroundPath(slug: string): string {
+    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'backgrounds', `${slug}.png`)
+}
+
+export function courseBannerPath(slug: string): string {
+    return path.join(COURSE_DIRECTORY, slug, 'banner.png')
 }
 
 export function coursePublicBannerPath(slug: string): string {
