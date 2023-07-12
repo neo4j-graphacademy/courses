@@ -48,6 +48,8 @@ export async function getUser(req: any): Promise<User | undefined> {
         ...dbUser,
     })
 
+    user.isNeo4jEmployee = user.email?.includes('neo4j.com')
+
     req.dbUser = user
 
     return user

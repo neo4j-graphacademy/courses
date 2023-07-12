@@ -549,7 +549,7 @@ router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res,
             return res.redirect(`/courses/${req.params.course}/`)
         }
         // Quiz available after 7 days
-        else if (!course.quizAvailable && !user.email?.includes('neotechnology.com')) {
+        else if (!course.quizAvailable && !user.isNeo4jEmployee) {
             req.flash('info', 'Quizzes is only available after 7 days')
 
             return res.redirect(`/courses/${req.params.course}/`)

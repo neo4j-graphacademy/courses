@@ -28,7 +28,7 @@ export async function classroomLocals(req: Request, res: Response, next: NextFun
     // Load Feedback for Neo4j Employees
     const user = await getUser(req)
 
-    if (user && user.email.endsWith('@neotechnology.com')) {
+    if (user && (user.email.endsWith('@neotechnology.com') || user.email.endsWith('@neo4j.com'))) {
         const { originalUrl } = req
         const parts = originalUrl.split('/').filter(n => n !== '')
 

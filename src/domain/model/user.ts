@@ -22,6 +22,8 @@ export interface User {
     publicProfile?: string;
     hiddenProfile?: boolean;
 
+    isNeo4jEmployee: boolean;
+
     // User Profile
     // givenName: string;
     // [key: string]: any;
