@@ -17,12 +17,12 @@ FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 //process only Movie rows
 WITH row WHERE row.Entity = "Movie"
-MERGE (m:Movie {movieId: row.movieId})
+MERGE (m:Movie {movieId: toInteger(row.movieId)})
 ON CREATE SET
-m.tmdbId = row.tmdbId,
-m.imdbId = row.imdbId,
+m.tmdbId = toInteger(row.tmdbId),
+m.imdbId = toInteger(row.imdbId),
 m.imdbRating = toFloat(row.imdbRating),
-m.released = row.released,
+m.released = datetime(row.released),
 m.title = row.title,
 m.year = toInteger(row.year),
 m.poster = row.poster,
@@ -46,9 +46,9 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 WITH row WHERE row.Entity = "Person"
-MERGE (p:Person {tmdbId: row.tmdbId})
+MERGE (p:Person {tmdbId: toInteger(row.tmdbId)})
 ON CREATE SET
-p.imdbId = row.imdbId,
+p.imdbId = toInteger(row.imdbId),
 p.bornIn = row.bornIn,
 p.name = row.name,
 p.bio = row.bio,
@@ -63,8 +63,8 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 WITH row WHERE row.Entity = "Join" AND row.Work = "Acting"
-MATCH (p:Person {tmdbId: row.tmdbId})
-MATCH (m:Movie {movieId: row.movieId})
+MATCH (p:Person {tmdbId: toInteger(row.tmdbId)})
+MATCH (m:Movie {movieId: toInteger(row.movieId)})
 MERGE (p)-[r:ACTED_IN]->(m)
 ON CREATE
 SET r.role = row.role
@@ -76,8 +76,8 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-movieData.csv'
 AS row
 WITH row WHERE row.Entity = "Join" AND row.Work = "Directing"
-MATCH (p:Person {tmdbId: row.tmdbId})
-MATCH (m:Movie {movieId: row.movieId})
+MATCH (p:Person {tmdbId: toInteger(row.tmdbId)})
+MATCH (m:Movie {movieId: toInteger(row.movieId)})
 MERGE (p)-[r:DIRECTED]->(m)
 ON CREATE
 SET r.role = row.role
@@ -88,10 +88,10 @@ CALL {
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing/2-ratingData.csv'
 AS row
-MATCH (m:Movie {movieId: row.movieId})
-MERGE (u:User {userId: row.userId})
+MATCH (m:Movie {movieId: toInteger(row.movieId)})
+MERGE (u:User {userId: toInteger(row.userId)})
 ON CREATE SET u.name = row.name
 MERGE (u)-[r:RATED]->(m)
 ON CREATE SET r.rating = toInteger(row.rating),
 r.timestamp = toInteger(row.timestamp)
-}
+};
