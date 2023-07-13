@@ -1,0 +1,1 @@
+MATCH (u:User)-[r:RATED]->(m:Movie{title: "Matrix, The"}) RETURN u,r,m
