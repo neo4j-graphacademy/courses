@@ -1,7 +1,7 @@
 /* tslint:disable:no-console */
 import path, { parse } from 'path'
 import fs from 'fs'
-import { Session, Transaction } from 'neo4j-driver';
+import { Session, ManagedTransaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
 import { getDriver } from '../modules/neo4j';
 import { CourseToImport, LessonToImport, ModuleToImport, QuestionToImport } from '../types';
@@ -182,13 +182,13 @@ const loadQuestion = (filepath: string): QuestionToImport => {
 /**
  * Transaction Functions
  */
-const disableAllCourses = (tx: Transaction, valid: string[]) => tx.run(`
+const disableAllCourses = (tx: ManagedTransaction, valid: string[]) => tx.run(`
     MATCH (c:Course)
     WHERE NOT c.slug IN $valid
     SET c.status = $status
 `, { valid, status: STATUS_DISABLED })
 
-const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
+const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImport[]) => {
     tx.run(`
         UNWIND $courses AS course
         MERGE (c:Course {slug: course.slug})
@@ -252,7 +252,7 @@ const mergeCourseDetails = (tx: Transaction, courses: CourseToImport[]) => {
     `, { courses })
 }
 
-const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
+const mergeModuleDetails = (tx: ManagedTransaction, modules: any) => tx.run(`
     UNWIND $modules AS module
         MATCH (c:Course {slug: module.courseSlug})
 
@@ -278,7 +278,7 @@ const mergeModuleDetails = (tx: Transaction, modules: any) => tx.run(`
 
 `, { modules })
 
-const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
+const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.run(`
     UNWIND $lessons AS lesson
         MATCH (m:Module {link: lesson.moduleLink})
 
@@ -321,7 +321,7 @@ const mergeLessonDetails = (tx: Transaction, lessons: any) => tx.run(`
     )
 `, { lessons })
 
-const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
+const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) => tx.run(`
     UNWIND $questions AS question
     MATCH (l:Lesson {link: question.lessonLink})
 
@@ -376,7 +376,7 @@ export async function mergeCourses(): Promise<void> {
         ...question,
     })))
 
-    const courseCount = await session.writeTransaction(async tx => {
+    const courseCount = await session.executeWrite(async tx => {
         // Disable all courses
         const valid = courses.map(course => course.slug!)
         await disableAllCourses(tx, valid)
@@ -388,7 +388,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`📚 ${courseCount} Courses merged into graph`);
 
 
-    const moduleCount = await session.writeTransaction(async tx => {
+    const moduleCount = await session.executeWrite(async tx => {
         await mergeModuleDetails(tx, modules)
 
         return modules.length
@@ -396,7 +396,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- 📦 ${moduleCount} modules`);
 
 
-    const lessonCount = await session.writeTransaction(async tx => {
+    const lessonCount = await session.executeWrite(async tx => {
         const remaining = lessons.slice(0)
         const batchSize = 100
 
@@ -411,7 +411,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- 📄 ${lessonCount} lessons`);
 
 
-    const questionCount = await session.writeTransaction(async tx => {
+    const questionCount = await session.executeWrite(async tx => {
         const remaining = questions.slice(0)
         const batchSize = 1000
 
@@ -427,8 +427,18 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- 🤨 ${questionCount} questions`);
 
 
+    // Clean {FIRST|LAST}_{MODULE|LESSON}
+    await session.executeWrite(async tx => {
+        // Recreate (:Lesson) NEXT chain
+        await tx.run(`
+            MATCH ()-[r:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE]->()
+            DELETE r
+        `)
+    })
+    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE]-> chain`);
+
     // Clean NEXT chain
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
             MATCH ()-[r:NEXT]->()
@@ -437,7 +447,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Removed -[:NEXT]-> chain`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
         const batchSize = 10
 
@@ -464,7 +474,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Recreated (:Module)-[:NEXT_MODULE]->() chain`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = modules.slice(0).map(module => module!.link)
         const batchSize = 1000
 
@@ -498,7 +508,7 @@ export async function mergeCourses(): Promise<void> {
     console.log(`   -- Recreated (:Lesson) NEXT chain`);
 
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         // Create -[:NEXT]-> between last (:Lesson) and next (:Module)
         await tx.run(`
             MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
@@ -507,7 +517,7 @@ export async function mergeCourses(): Promise<void> {
     })
     console.log(`   -- Recreated (:Module)-[:NEXT]->(:Lesson)`);
 
-    await session.writeTransaction(async tx => {
+    await session.executeWrite(async tx => {
         const remaining = courses.slice(0).map(course => course.slug)
         const batchSize = 100
 

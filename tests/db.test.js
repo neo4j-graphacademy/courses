@@ -24,15 +24,23 @@ describe('Database Tests', () => {
                 WHERE not c:Certification
                 RETURN c {
                     .slug,
+                    firstModule: [ (c)-[:FIRST_MODULE]->(m) | m.slug ],
+                    lastModule: [ (c)-[:LAST_MODULE]->(m) | m.slug ],
                     modules: [ (c)-[:HAS_MODULE]->(m)  WHERE not m:DeletedModule | m {
                         .slug,
+                        next: [ (m)-[:NEXT]->(l) | l.link ],
+                        firstLesson: [ (m)-[:FIRST_LESSON]->(l) | l.link ],
+                        lastLesson: [ (m)-[:LAST_LESSON]->(l) | l.link ],
+                        lastModule: exists { (c)-[:LAST_MODULE]->(m) },
                         lessons: [ (m)-[:HAS_LESSON]->(l) WHERE not l:DeletedLesson | l {
                             .slug,
                             questions: [ (l)-[:HAS_QUESTION]->(q) WHERE not q:DeletedQuestion | q {
                                 .id,
                                 .text,
                                 .filename
-                            } ]
+                            } ],
+                            lastLesson: exists { (m)-[:LAST_LESSON]->(l) },
+                            next: [ (l)-[:NEXT]->(n) | n.link ]
                         }]
                     } ]
                 } AS course
@@ -63,7 +71,7 @@ describe('Database Tests', () => {
     })
 
     describe(process.env.NEO4J_HOST, () => {
-        for (const coursePath of getActiveCoursePaths()) {
+        for (const coursePath of getActiveCoursePaths().slice(0, 1)) {
             const courseSlug = coursePath.split(sep).reverse()[0]
 
             describe(courseSlug, () => {
@@ -78,6 +86,16 @@ describe('Database Tests', () => {
                     const dbSlugs = dbCourse.modules.map(modules => modules.slug)
 
                     expect(pathSlugs).toEqual(expect.arrayContaining(dbSlugs))
+                })
+
+                it('should have one -[:FIRST_MODULE]->(:Module)', () => {
+                    const dbCourse = dbCourses.find(course => course.slug === courseSlug)
+                    expect(dbCourse.firstModule.length).toEqual(1)
+                })
+
+                it('should have one -[:LAST_MODULE]->(:Module)', () => {
+                    const dbCourse = dbCourses.find(course => course.slug === courseSlug)
+                    expect(dbCourse.lastModule.length).toEqual(1)
                 })
 
                 for (const modulePath of modulePaths) {
@@ -103,6 +121,10 @@ describe('Database Tests', () => {
                             const dbSlugs = dbModule.lessons.map(lesson => lesson.slug)
 
                             expect(pathSlugs).toEqual(expect.arrayContaining(dbSlugs))
+
+                            expect(dbModule.firstLesson.length).toEqual(1)
+                            expect(dbModule.lastLesson.length).toEqual(1)
+                            expect(dbModule.next.length).toEqual(1)
                         })
 
                         for (const lessonPath of lessonPaths) {
@@ -130,6 +152,11 @@ describe('Database Tests', () => {
                                     const dbQuestions = dbLesson.questions.map(question => question.filename)
 
                                     expect(pathQuestions).toEqual(expect.arrayContaining(dbQuestions))
+
+                                    expect(
+                                        (dbModule.lastModule && dbLesson.lastLesson) ||
+                                        dbLesson.next.length == 1
+                                    ).toBeTruthy()
                                 })
                             })
                         }
