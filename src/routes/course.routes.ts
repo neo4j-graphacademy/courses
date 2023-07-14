@@ -42,6 +42,7 @@ import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-f
 import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-course'
 import indexable from '../middleware/seo/indexable.middleware'
 import { Sandbox } from '../domain/model/sandbox'
+import { UserResetDatabase } from '../domain/events/UserResetDatabase'
 
 const router = Router()
 
@@ -894,6 +895,74 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             sandboxVisible,
             summary: await courseSummaryExists(req.params.course),
             translate: translate(course.language),
+        })
+    }
+    catch (e) {
+        nextfn(e)
+    }
+})
+
+/**
+ * @POST /:course/:module/:lesson/reset/
+ *
+ * Allow the user to reset the database themselves
+ *
+ */
+router.post('/:course/:module/:lesson/reset/', requiresAuth(), /*requiresVerification,*/ async (req, res, nextfn) => {
+    try {
+        const user = await getUser(req)
+        const token = await getToken(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        // If not enrolled, send to course home
+        if (course.enrolled !== true) {
+            return res.status(400).json({
+                message: 'You are not enrolled to this course'
+            })
+        }
+
+        const module = course.modules.find(row => row.slug === req.params.module)
+
+        if (!module) {
+            return res.status(404).json({
+                message: `Could not find module ${req.params.module} of ${req.params.course}`
+            })
+        }
+
+        else if (!module.lessons) {
+            return res.status(404).json({
+                message: `Could not find lessons for module ${req.params.module} of ${req.params.course}`
+            })
+        }
+
+        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
+
+        if (!lesson) {
+            return res.status(404).json({
+                message: `Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+            })
+        }
+
+        // Reset Database?
+        if (user && course.usecase && !lesson?.completed) {
+            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
+        }
+
+        // Next link in pagination?
+        let next: Pagination | undefined = lesson.next
+
+        if (!next && course.completed) {
+            next = {
+                title: 'Course Summary',
+                link: `${course.link}summary/`
+            }
+        }
+
+        // Emit user viewed lesson
+        emitter.emit(new UserResetDatabase(user as User, course, module, lesson))
+
+        res.status(202).json({
+            message: `Database reset`
         })
     }
     catch (e) {

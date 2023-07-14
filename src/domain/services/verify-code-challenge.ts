@@ -86,5 +86,11 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     // Save outcome
     const output = await saveLessonProgress(user, course, module, lesson, answers, token)
 
-    return output
+
+    const reset = await getLessonCypherFile(course, module, lesson, 'reset')
+
+    return {
+        ...output,
+        reset: reset !== undefined,
+    }
 }

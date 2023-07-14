@@ -520,6 +520,41 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
 
         const firstIncorrect = document.querySelector(`.${QUESTION_INCORRECT}`)
 
+        // Reset button?
+        const RESET_BUTTON_SELECTOR = 'btn--reset'
+        const RESET_BUTTON_STATUS = 'btn-reset-status'
+
+        if (res.data.reset === true) {
+            const resetButton = createElement('a', `btn btn--small ${RESET_BUTTON_SELECTOR}`, [
+                // loadingIndicator(),
+                'Reset Database',
+            ])
+            const resetStatus = createElement('span', RESET_BUTTON_STATUS, [])
+
+            resetButton.addEventListener('click', (e) => {
+                e.preventDefault()
+
+                resetButton.classList.add('btn--loading')
+                resetStatus.innerHTML = 'Loading...'
+
+                post(`${document.location.pathname}reset/`)
+                    .then(res => {
+                        resetStatus.innerHTML = 'Your database has been reset'
+                    })
+                    .catch(error => {
+                        resetStatus.innerHTML = error.response.message
+                    })
+                    .finally(() => {
+                        resetButton.classList.remove('btn--loading')
+
+                        setTimeout(() => resetStatus.innerHTML = '', 2000)
+                    })
+            })
+
+            oops.appendChild(resetButton)
+            oops.appendChild(resetStatus)
+        }
+
         parent.insertBefore(oops, firstIncorrect!)
 
         // Scroll to error message

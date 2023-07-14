@@ -4,6 +4,7 @@ import { UserCompletedLesson } from '../../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../../domain/events/UserEnrolled'
 import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
 import { UserLogin } from '../../domain/events/UserLogin'
+import { UserResetDatabase } from '../../domain/events/UserResetDatabase'
 import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO, UI_EVENT_SUPPORT_TOGGLE, UI_EVENT_VIDEO_ENDED, UI_EVENT_VIDEO_PAUSED, UI_EVENT_VIDEO_PLAYING, UserUiEvent } from '../../domain/events/UserUiEvent'
 import { UserUnenrolled } from '../../domain/events/UserUnenrolled'
 import { UserUpdatedAccount } from '../../domain/events/UserUpdatedAccount'
@@ -31,7 +32,8 @@ import {
     ANALYTICS_EVENT_VIDEO_ENDED,
     ANALYTICS_EVENT_SHOW_VIDEO,
     ANALYTICS_EVENT_SHOW_TRANSCRIPT,
-    ANALYTICS_EVENT_USER_UPDATED_ACCOUNT
+    ANALYTICS_EVENT_USER_UPDATED_ACCOUNT,
+    ANALYTICS_EVENT_USER_RESET_DATABASE
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -178,6 +180,20 @@ export default function initAnalyticsListeners(): Promise<void> {
         emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
             trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
                 ...event.user,
+            })
+        })
+
+        emitter.on<UserResetDatabase>(UserResetDatabase, event => {
+            trackEvent(ANALYTICS_EVENT_USER_RESET_DATABASE, event.user.sub, {
+                ...event.user,
+                courseSlug: event.course.slug,
+                courseName: event.course.title,
+                usecase: event.course.usecase,
+                categories: event.course.categories.map(category => category.title),
+                moduleSlug: event.module.slug,
+                moduleName: event.module.title,
+                lessonSlug: event.lesson.slug,
+                lessonName: event.lesson.title,
             })
         })
     }
