@@ -537,7 +537,7 @@ router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res,
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
-        if (course.enrolled === false) {
+        if (course.enrolled !== true) {
             req.flash('info', 'You must be enrolled to take the quiz')
 
             return res.redirect(`/courses/${req.params.course}/`)
@@ -601,7 +601,7 @@ router.post('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res
         const quiz = await getQuiz(course)
 
         // If not enrolled, send to course home
-        if (course.enrolled === false) {
+        if (course.enrolled !== true) {
             return res.status(400).json({
                 message: 'You must be enrolled to take the quiz'
             })
@@ -681,7 +681,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
-        if (course.enrolled === false) {
+        if (course.enrolled !== true) {
             req.flash('info', 'You must be enrolled to view this content')
 
             return res.redirect(`/courses/${req.params.course}/`)
@@ -790,7 +790,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
-        if (course.enrolled === false) {
+        if (course.enrolled !== true) {
             req.flash('info', 'You must be enrolled to view this content')
 
             return res.redirect(`/courses/${req.params.course}/`)
@@ -1044,7 +1044,7 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         const sandbox = await getSandboxForUseCase(token, user, course.usecase as string)
 
         // If not enrolled, send to course home
-        if (course.enrolled === false) {
+        if (course.enrolled !== true) {
             req.flash('info', 'You must be enrolled to view this content')
 
             return res.redirect(`/courses/${req.params.course}/`)
