@@ -1,5 +1,5 @@
 /* tslint:disable:no-console */
-import path from 'path'
+import path, { parse } from 'path'
 import fs from 'fs'
 import { Session, Transaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
@@ -167,11 +167,13 @@ const generateQuestionId = (title: string): string => {
 }
 
 const loadQuestion = (filepath: string): QuestionToImport => {
+    const parsed = parse(filepath)
     const file = loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), { parse_header_only: true })
     const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
 
     return {
         id,
+        filename: parsed.base,
         text: file.getTitle(),
     } as QuestionToImport
 }
@@ -324,7 +326,7 @@ const mergeQuestionDetails = (tx: Transaction, questions: any) => tx.run(`
     MATCH (l:Lesson {link: question.lessonLink})
 
     MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ question.id)})
-    SET q.slug = question.id, q.text = question.text
+    SET q.slug = question.id, q.text = question.text, q.filename = question.filename
 
     REMOVE q:DeletedQuestion
     MERGE (l)-[:HAS_QUESTION]->(q)

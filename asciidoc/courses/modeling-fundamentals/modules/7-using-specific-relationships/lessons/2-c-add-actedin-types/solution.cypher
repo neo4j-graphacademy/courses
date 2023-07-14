@@ -19,5 +19,5 @@ CALL apoc.merge.relationship(n,
   m,
   {}
 ) YIELD rel
-RETURN COUNT(*) AS `Number of relationships added`;
+RETURN COUNT(*) AS `Number of relationships added`
 // end::directed[]
