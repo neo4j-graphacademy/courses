@@ -640,7 +640,21 @@ const displayLessonCompleted = (res) => {
 
         actions.push(button)
     }
+    else {
+        actions.push(createElement('span', 'spacer', []))
 
+        const span = document.createElement('span')
+        span.innerHTML = ' &rarr;'
+
+        const button = createElement('a', 'btn btn-primary', [
+            window.i18n.advanceTo,
+            ' First Incomplete Lesson',
+            span
+        ])
+        button.setAttribute('href', '../../continue/')
+
+        actions.push(button)
+    }
 
     const confirmation = buildModuleOutcome(
         window.i18n.lessonPassed,
