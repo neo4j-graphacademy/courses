@@ -1,10 +1,10 @@
-const { sep } = require('path')
+const { sep, parse } = require('path')
 const { globSync } = require('glob')
 const { globJoin, getActiveCoursePaths } = require('./utils')
 const { config } = require('dotenv')
 const neo4j = require('neo4j-driver')
 
-config({ path: process.env.ENV_PATH || '.env.production' })
+config({ path: process.env.ENV_FILE || '.env.production' })
 
 
 describe('Database Tests', () => {
@@ -31,7 +31,8 @@ describe('Database Tests', () => {
                             .slug,
                             questions: [ (l)-[:HAS_QUESTION]->(q) WHERE not q:DeletedQuestion | q {
                                 .id,
-                                .text
+                                .text,
+                                .filename
                             } ]
                         }]
                     } ]
@@ -103,7 +104,6 @@ describe('Database Tests', () => {
                             const dbSlugs = dbModule.lessons.map(lesson => lesson.slug)
 
                             expect(pathSlugs).toEqual(expect.arrayContaining(dbSlugs))
-
                         })
 
                         for (const lessonPath of lessonPaths) {
@@ -127,7 +127,10 @@ describe('Database Tests', () => {
                                     const dbLesson = dbModule.lessons.find(lesson => lesson.slug == lessonSlug)
                                     expect(dbLesson).toBeDefined()
 
-                                    expect(questionPaths.length).toBe(dbLesson.questions.length)
+                                    const pathQuestions = questionPaths.map(path => parse(path).base)
+                                    const dbQuestions = dbLesson.questions.map(question => question.filename)
+
+                                    expect(pathQuestions).toEqual(expect.arrayContaining(dbQuestions))
                                 })
                             })
                         }

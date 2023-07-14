@@ -73,5 +73,6 @@ export interface LessonToImport {
 
 export interface QuestionToImport {
     id: string;
+    filename: string;
     text: string;
 }
