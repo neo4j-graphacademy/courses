@@ -71,7 +71,7 @@ describe('Database Tests', () => {
     })
 
     describe(process.env.NEO4J_HOST, () => {
-        for (const coursePath of getActiveCoursePaths().slice(0, 1)) {
+        for (const coursePath of getActiveCoursePaths()) {
             const courseSlug = coursePath.split(sep).reverse()[0]
 
             describe(courseSlug, () => {
