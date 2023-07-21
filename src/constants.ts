@@ -115,3 +115,6 @@ export const CHATBOT_NEO4J_HOST = process.env.CHATBOT_NEO4J_HOST
 export const CHATBOT_NEO4J_USERNAME = process.env.CHATBOT_NEO4J_USERNAME
 export const CHATBOT_NEO4J_PASSWORD = process.env.CHATBOT_NEO4J_PASSWORD
 export const CHATBOT_NEO4J_DATABASE = process.env.CHATBOT_NEO4J_DATABASE
+
+// Auth0
+export const AUTH0_ISSUER_BASE_URL = new URL(process.env.AUTH0_ISSUER_BASE_URL as string).hostname

@@ -1,7 +1,7 @@
 import { Express } from 'express'
 import helmet from "helmet"
 import nonce from 'nonce-express'
-import { DOMAIN, IS_PRODUCTION } from '../constants'
+import { AUTH0_ISSUER_BASE_URL, DOMAIN, IS_PRODUCTION } from '../constants'
 
 export default function hardenExpress(app: Express) {
     app.disable('x-powered-by')
@@ -34,7 +34,8 @@ export default function hardenExpress(app: Express) {
                         "'self'",
                         DOMAIN,
                         'www.youtube.com',
-                    ],
+                        AUTH0_ISSUER_BASE_URL,
+                    ].filter(n => n !== undefined),
                     connectSrc: ['*'],
                     baseUri: [
                         "'self'",
