@@ -450,7 +450,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['sandbox-username'] = sandboxConfig?.username
         attributes['sandbox-password'] = sandboxConfig?.password
-        attributes['connect-url'] = `${sandboxConfig?.scheme}://${sandboxConfig?.username}@${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
+        attributes['connect-url'] = `${encodeURIComponent(sandboxConfig?.scheme || 'neo4j+s')}://${sandboxConfig?.username}@${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['graphql-toolbox'] = `${GRAPHQL_TOOLBOX_URL}?connectURL=${attributes['connect-url']}`
     }
 
