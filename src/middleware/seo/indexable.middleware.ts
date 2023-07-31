@@ -3,18 +3,37 @@ import { getCourseWithProgress } from "../../domain/services/get-course-with-pro
 import NotFoundError from "../../errors/not-found.error";
 import { convertLessonOverview, convertModuleOverview } from "../../modules/asciidoc";
 import verify from 'googlebot-verify'
-import { IS_PRODUCTION } from "../../constants";
+import { GRAPHACADEMY_CHATBOT_USERAGENT, IS_PRODUCTION } from "../../constants";
 
 export default async function indexable(req: Request, res: Response, next: NextFunction) {
-    if (!IS_PRODUCTION && req.query.googlebot !== 'true') {
-        return next()
+    const userAgent = req.headers['user-agent']
+
+    // Is the user allowed to index this page?
+    let allowIndex = false
+
+    // Local googlebot testing
+    if (!IS_PRODUCTION && req.query.googlebot === 'true') {
+        allowIndex = true
     }
 
-    // Verify Google IP
-    const ip = req.headers['x-forwarded-for']
+    // Check for GeaphAcademy Chatbot user agent
+    else if (userAgent?.startsWith(GRAPHACADEMY_CHATBOT_USERAGENT)) {
+        allowIndex = true
+    }
 
-    const isGoogle = await verify(ip)
-    if (!isGoogle) {
+    // Is this a google bot?
+    else {
+        const ip = req.headers['x-forwarded-for']
+        try {
+            allowIndex = await verify(ip)
+        }
+        catch {
+            // Do nothing
+        }
+    }
+
+    // If indexing isn't allowed, advance to next middleware
+    if (!allowIndex) {
         return next()
     }
 

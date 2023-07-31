@@ -48,7 +48,7 @@ export async function getUser(req: any): Promise<User | undefined> {
         ...dbUser,
     })
 
-    user.isNeo4jEmployee = user.email?.endsWith('neo4j.com') || user.email?.endsWith('neotechology.com')
+    user.isNeo4jEmployee = user.email?.endsWith('neo4j.com') || user.email?.endsWith('neotechnology.com')
 
     req.dbUser = user
 

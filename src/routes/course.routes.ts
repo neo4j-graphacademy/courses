@@ -43,6 +43,7 @@ import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-
 import indexable from '../middleware/seo/indexable.middleware'
 import { Sandbox } from '../domain/model/sandbox'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
+import getChatbot from '../modules/chatbot/chatbot.class'
 
 const router = Router()
 
@@ -526,6 +527,29 @@ router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/
 router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerification,*/ browser)
 
 
+
+const chat = async (req: Request, res: Response) => {
+    const user = await getUser(req) as User
+    const chat = getChatbot()
+
+    const { message } = req.body
+
+    if (chat && typeof message === 'string' && message !== '') {
+        const response = await chat.askQuestion(user, message, req.originalUrl)
+
+        return res.json(response)
+    }
+
+    return res.status(500).json({
+        status: 'error',
+        message: 'Something went wrong.'
+    })
+}
+
+router.post('/:course/:module/chat', requiresAuth(), /*requiresVerification,*/ chat)
+router.post('/:course/:module/:lesson/chat', requiresAuth(), /*requiresVerification,*/ chat)
+
+
 /**
  * @GET /:course/quiz
  *
@@ -727,6 +751,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
                     id: (user as User).id,
                 }
             },
+            user,
             feedback: true,
             ...module,
             type: 'module',
@@ -887,6 +912,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             path: req.originalUrl,
             course,
             enrolled: course.enrolled,
+            user,
             module,
             doc,
             next,

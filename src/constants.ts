@@ -101,3 +101,17 @@ export const SANDBOX_URL = process.env.SANDBOX_URL
 
 // GraphQL Toolbox
 export const GRAPHQL_TOOLBOX_URL = process.env.GRAPHQL_TOOLBOX_URL || 'https://graphql-toolbox.neo4j.io/'
+
+// GraphAcademy bot
+export const GRAPHACADEMY_CHATBOT_USERAGENT = 'GraphAcademyElaineBot/1.0'
+
+export const COHERE_API_URL = 'https://api.cohere.ai/v1/'
+export const COHERE_API_KEY = process.env.COHERE_API_KEY
+
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+export const OPENAI_CHAT_MODEL = 'gpt-3.5-turbo'
+
+export const CHATBOT_NEO4J_HOST = process.env.CHATBOT_NEO4J_HOST
+export const CHATBOT_NEO4J_USERNAME = process.env.CHATBOT_NEO4J_USERNAME
+export const CHATBOT_NEO4J_PASSWORD = process.env.CHATBOT_NEO4J_PASSWORD
+export const CHATBOT_NEO4J_DATABASE = process.env.CHATBOT_NEO4J_DATABASE

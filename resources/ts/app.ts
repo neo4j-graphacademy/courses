@@ -18,6 +18,7 @@ import redeem from './redeem'
 import tabs from './tabs'
 import contextMenu from './context-menu'
 import accordion from './accordion'
+import chatbot from './chatbot'
 
 window.addEventListener('DOMContentLoaded', () => {
     highlight()
@@ -30,6 +31,7 @@ window.addEventListener('DOMContentLoaded', () => {
     courseList()
     account()
     classroom()
+    chatbot()
     embedVideos()
     tabs()
     feedback()

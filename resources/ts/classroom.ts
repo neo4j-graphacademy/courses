@@ -7,6 +7,7 @@ export function logToggle(type, visible) {
     })
 }
 
+
 function toggleSandbox() {
     const SELECTOR = 'classroom-sandbox'
     const TOGGLE = `${SELECTOR}-toggle`
@@ -24,31 +25,42 @@ function toggleSandbox() {
         })
 }
 
-function toggleSupport() {
-    const SELECTOR = 'classroom-support'
+function togglePanel(SELECTOR) {
     const TOGGLE = `${SELECTOR}-toggle`
-    const VISIBLE = `${SELECTOR}--visible`
+    const EVENT = TOGGLE.replace('classroom-', '')
+    const VISIBLE = `classroom-panel--visible`
 
     Array.from(document.querySelectorAll(`.${TOGGLE}`))
         .forEach(button => {
             button.addEventListener('click', e => {
                 e.preventDefault()
+
                 const parent = document.querySelector(`.${SELECTOR}`)!
-                parent.classList.toggle(VISIBLE)
 
-                logToggle('support-toggle', parent.classList.contains(VISIBLE))
+                const visible = parent.classList.contains(VISIBLE)
+
+                document.querySelectorAll(`.${VISIBLE}`)
+                    .forEach(el => el.classList.remove(VISIBLE))
+
+                if (!visible) {
+                    parent.classList.add(VISIBLE)
+                }
+
+                logToggle(EVENT, parent.classList.contains(VISIBLE))
             })
-
         })
 
     document.querySelectorAll('.classroom-panel-close')
         .forEach(element => {
             element.addEventListener('click', e => {
                 e.preventDefault()
+                const parent = element.parentElement?.parentElement
 
-                element.parentElement?.parentElement?.classList.remove(VISIBLE)
+                parent?.classList.remove(VISIBLE)
 
-                logToggle('support-toggle', false)
+                if (parent?.classList.contains(SELECTOR)) {
+                    logToggle(EVENT, false)
+                }
             })
         })
 }
@@ -144,7 +156,8 @@ export default function classroom() {
         return;
     }
 
-    toggleSupport()
+    togglePanel('classroom-support')
+    togglePanel('classroom-chatbot')
     toggleSandbox()
     toggleToc()
     videoTabs()
