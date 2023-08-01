@@ -2,6 +2,7 @@ import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
+import { getUser } from './auth.middleware';
 
 export function applyErrorHandlers(app: Express) {
     const notFoundError = (req: Request, res: Response, err?: Error) => {
@@ -19,7 +20,7 @@ export function applyErrorHandlers(app: Express) {
                          Click the button below to go back to the course catalogue.
                     </p>
                     <!--
-                    ${!IS_PRODUCTION && err && err.message ? '' : `<pre>${err?.message}</pre>`}
+                    ${(!IS_PRODUCTION) && err && err.message ? '' : `<pre>${err?.message}</pre>`}
                     -->`,
                 action: {
                     link: '/categories/',
@@ -49,7 +50,9 @@ export function applyErrorHandlers(app: Express) {
         notFoundError(req, res)
     })
 
-    app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+    app.use(async (error: Error, req: Request, res: Response, next: NextFunction) => {
+        const user = await getUser(req)
+
         if ((error as NotFoundError).status === 404) {
             return notFoundError(req, res, error)
         }
@@ -78,7 +81,8 @@ export function applyErrorHandlers(app: Express) {
                         overline: 'Oops',
                     },
                     content: `<p>We are working hard to get this site up and running, but it looks like we dropped the ball on this one.
-                    </p><p>Please try again later, or click the button below to go back to the course catalogue.</p>`,
+                    </p><p>Please try again later, or click the button below to go back to the course catalogue.</p>
+                    ${user?.isNeo4jEmployee ? `<!-- ${error.message} -->` : ''}`,
                     action: {
                         link: '/categories/',
                         text: 'View all courses'
