@@ -197,6 +197,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
 
     return {
         ...course,
+        title_encoded: encodeURIComponent(course.title),
         summary: await courseSummaryExists(course.slug),
         modules,
         badge,

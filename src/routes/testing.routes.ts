@@ -167,13 +167,15 @@ router.get('/session', (req, res) => {
 
 router.get('/email/:template', async (req, res) => {
     const result = await read(`
-        MATCH (u:User) WHERE exists(u.name) WITH u ORDER BY rand() LIMIT 1
+        MATCH (u:User) WHERE u.name IS NOT NULL WITH u ORDER BY rand() LIMIT 1
         MATCH (c:Course {slug: 'neo4j-fundamentals'}) WITH u, c ORDER BY rand() LIMIT 1
         MATCH (e:Enrolment) WITH * LIMIT 1
         RETURN u, c, e
     `)
     const user = { email: 'adam@neo4j.com', ...result.records[0]?.get('u').properties }
     const course = result.records[0].get('c').properties
+    course.title_encoded = encodeURIComponent(course.title)
+
     const sandbox = devSandbox()
 
     const data = {
