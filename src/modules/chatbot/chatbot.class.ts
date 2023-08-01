@@ -150,7 +150,7 @@ export class Chatbot {
 
                 FOREACH (section IN $sections |
                     MERGE (s:Section {url: section.sectionUrl})
-                    MERGE (r)-[sr:SUGGESTED_SECTION]->(p)
+                    MERGE (r)-[sr:SUGGESTED_SECTION]->(s)
                     SET sr.similarityScore = section.score = sr.relevanceScore = section.relevanceScore
                 )
 
