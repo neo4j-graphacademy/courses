@@ -493,9 +493,9 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
         }
 
         let reasonsElement = createElement('span', '')
-        const reasons = res.data.answers.filter(answer => answer.reason)
+        const reasons = res.data.answers?.filter(answer => answer.reason)
 
-        if (reasons.length) {
+        if (reasons?.length) {
             const reasonElements = reasons.map(
                 answer => {
                     if (Array.isArray(answer.reason)) {
@@ -507,6 +507,9 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             ).reduce((acc, val) => acc.concat(val), [])
 
             reasonsElement = createElement('ul', 'verify-reasons', reasonElements)
+        }
+        else if (res.data.status == 'error') {
+            errorText = [res.data.message]
         }
 
         // Add error message

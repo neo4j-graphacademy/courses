@@ -1,5 +1,5 @@
 import { AxiosError } from 'axios'
-import { Express, NextFunction, Request, Response } from 'express';
+import e, { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
 import { getUser } from './auth.middleware';
@@ -71,23 +71,29 @@ export function applyErrorHandlers(app: Express) {
             return res.redirect(redirectTo)
         }
 
+        if (req.header('content-type') == 'application/json') {
+            return res.status(500).json({
+                status: 'error',
+                message: error.message
+            })
+        }
+
         if (process.env.NODE_ENV === 'production') {
-            return res.status(500)
-                .render('simple', {
+            return res.status(500).render('simple', {
+                title: 'Internal Server Error',
+                hero: {
                     title: 'Internal Server Error',
-                    hero: {
-                        title: 'Internal Server Error',
-                        byline: `It's our fault, not yours...`,
-                        overline: 'Oops',
-                    },
-                    content: `<p>We are working hard to get this site up and running, but it looks like we dropped the ball on this one.
+                    byline: `It's our fault, not yours...`,
+                    overline: 'Oops',
+                },
+                content: `<p>We are working hard to get this site up and running, but it looks like we dropped the ball on this one.
                     </p><p>Please try again later, or click the button below to go back to the course catalogue.</p>
                     ${user?.isNeo4jEmployee ? `<!-- ${error.message} -->` : ''}`,
-                    action: {
-                        link: '/categories/',
-                        text: 'View all courses'
-                    }
-                })
+                action: {
+                    link: '/categories/',
+                    text: 'View all courses'
+                }
+            })
         }
 
         next(error)

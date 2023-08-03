@@ -1,5 +1,6 @@
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
+import { notify } from "../../middleware/bugsnag.middleware";
 import { writeTransaction } from "../../modules/neo4j";
 import { UserEnrolled } from "../events/UserEnrolled";
 import { STATUS_DRAFT } from "../model/course";
@@ -61,7 +62,14 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         // Create Sandbox if necessary
         let sandbox
         if (course.usecase) {
-            sandbox = await createAndSaveSandbox(token, enrolment.user, course, tx)
+            try {
+                sandbox = await createAndSaveSandbox(token, enrolment.user, course, tx)
+            }
+            catch (e: any) {
+                // Continue to course, the course will try to
+                // create the sandbox further down the line
+                notify(e)
+            }
         }
 
         return {
