@@ -67,6 +67,9 @@ router.get('/', async (req, res, next) => {
             paths,
             certification,
             activePath,
+            meta: [{
+                name: 'apple-itunes-app', content: 'app-id=1557747094'
+            }],
             translate: translateEn,
         })
     }
