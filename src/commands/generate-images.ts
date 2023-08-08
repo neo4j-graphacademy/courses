@@ -37,15 +37,20 @@ async function render(outputTo: string, overline: string | undefined, title: str
 }
 
 async function renderCourseBanner(slug: string) {
-    const file = loadFile(courseOverviewPath(slug))
+    try {
+        const file = loadFile(courseOverviewPath(slug))
 
-    await render(
-        courseBannerPath(slug),
-        file.getAttribute('overline'),
-        file.getTitle()!,
-        file.getAttribute('caption'),
-        fs.readFileSync(courseBadgePath(slug)).toString()
-    )
+        await render(
+            courseBannerPath(slug),
+            file.getAttribute('overline'),
+            file.getTitle()!,
+            file.getAttribute('caption'),
+            fs.readFileSync(courseBadgePath(slug)).toString()
+        )
+    }
+    catch (e: any) {
+        console.log(`❌ Error rendering course banner for ${slug}: ${e.message}`)
+    }
 
     return slug
 }
