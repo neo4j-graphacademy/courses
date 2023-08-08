@@ -1,5 +1,5 @@
 import path, { basename } from 'path'
-import fs from 'fs'
+import fs, { existsSync } from 'fs'
 import pug from 'pug'
 import nodeHtmlToImage from 'node-html-to-image'
 import { ASCIIDOC_DIRECTORY, CATEGORY_DIRECTORY, COURSE_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
@@ -15,7 +15,7 @@ const main = async () => {
     await copyImageAssets()
 }
 
-async function render(outputTo: string, overline: string | undefined, title: string, byline: string, badge?: string) {
+async function render(outputTo: string, overline: string | undefined, title: string, byline: string, illustration?: string, badge?: string) {
     const bannerFunction = pug.compileFile(path.join(__dirname, '..', '..', 'views', 'banner.pug'))
     const css = fs.readFileSync(path.join(__dirname, '..', '..', 'resources', 'css', 'banner.css'))
 
@@ -24,6 +24,7 @@ async function render(outputTo: string, overline: string | undefined, title: str
         title,
         byline,
         badge,
+        illustration,
         css,
     })
 
@@ -40,12 +41,21 @@ async function renderCourseBanner(slug: string) {
     try {
         const file = loadFile(courseOverviewPath(slug))
 
+        const illustrationPath = courseIllustrationPath(slug)
+        const illustration = existsSync(illustrationPath) ? fs.readFileSync(illustrationPath).toString() : undefined
+
+        const badgePath = courseBadgePath(slug)
+        const badge = existsSync(badgePath) ? fs.readFileSync(badgePath).toString() : undefined
+
+
+
         await render(
             courseBannerPath(slug),
             file.getAttribute('overline'),
             file.getTitle()!,
             file.getAttribute('caption'),
-            fs.readFileSync(courseBadgePath(slug)).toString()
+            illustration,
+            badge,
         )
     }
     catch (e: any) {
