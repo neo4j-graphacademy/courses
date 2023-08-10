@@ -13,7 +13,6 @@ import {
     NEO4J_PASSWORD,
 } from './constants'
 
-
 app.set('view engine', 'pug')
 
 app.get('/', (req, res) => res.redirect('/neo4j-fundamentals'))
@@ -69,4 +68,4 @@ app.get('/:course/summary', async (req, res) => {
     })
 })
 
-app.listen(3001, () => console.log('Listening on http://localhost:3001'))
+export default app
