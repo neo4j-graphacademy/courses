@@ -1,7 +1,7 @@
 import express from 'express'
 import initNeo4j, { read } from './modules/neo4j'
 import { loadFile } from './modules/asciidoc'
-import { courseBadgePath, courseIllustrationPath, courseOverviewPath } from './utils'
+import { courseBadgePath, courseIllustrationPath, courseOverviewPath, courseSummaryPath } from './utils'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
@@ -52,7 +52,21 @@ app.get('/:course', async (req, res) => {
         illustration,
         css,
     })
+})
 
+app.get('/:course/summary', async (req, res) => {
+    const courseFile = loadFile(courseOverviewPath(req.params.course))
+    const summaryFile = loadFile(courseSummaryPath(req.params.course))
+
+    res.render('summary', {
+        course: {
+            title: courseFile.getTitle(),
+        },
+        title: summaryFile.getTitle(),
+        byline: summaryFile.getAttribute('caption'),
+        doc: summaryFile.getContent(),
+        css: readFileSync(join(__dirname, '..', 'resources', 'css', 'summary.css'))
+    })
 })
 
 app.listen(3001, () => console.log('Listening on http://localhost:3001'))
