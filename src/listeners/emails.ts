@@ -1,7 +1,9 @@
+import { readFileSync } from 'fs'
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
+import { courseSummaryPdfPath } from '../modules/asciidoc'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
 
 export default function initEmailListeners(): Promise<void> {
@@ -49,7 +51,26 @@ export default function initEmailListeners(): Promise<void> {
                 suggestion2 = suggestions[2]
             }
 
-            prepareAndSend(template, email, { ...event, suggestion1, suggestion2, suggestion3, somethingDifferent } as Record<string, any>, emailDirectory, template)
+            // Summary PDF?
+            const attachments = event.course.summaryPdf !== undefined ? [{
+                filename: `${event.course.title} Summary.pdf`,
+                data: readFileSync(event.course.summaryPdf)
+            }] : []
+
+            prepareAndSend(
+                template,
+                email,
+                {
+                    ...event,
+                    suggestion1,
+                    suggestion2,
+                    suggestion3,
+                    somethingDifferent
+                } as Record<string, any>,
+                emailDirectory,
+                template,
+                attachments
+            )
         })
     }
 

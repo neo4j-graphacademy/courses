@@ -359,9 +359,6 @@ router.get('/:course/summary', indexable, requiresAuth(), async (req, res, next)
         if (course.redirect) {
             return res.redirect(course.redirect)
         }
-        else if (!course.completed) {
-            return res.redirect(course.link)
-        }
 
         const doc = await convertCourseSummary(course.slug)
         const recommendations = await getSuggestionsForEnrolment(course.enrolmentId)

@@ -75,6 +75,7 @@ export interface Course {
     verify: string | undefined;
     cypher: string | undefined;
     summary: boolean;
+    summaryPdf: string | undefined;
     passed: boolean;
     failed: boolean;
     certification: boolean;

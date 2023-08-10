@@ -9,6 +9,8 @@ import {
     ENROLMENT_REMINDER_LIMIT,
     ENROLMENT_REMINDER_DAYS,
 } from '../constants'
+import { courseSummaryPdfPath } from '../modules/asciidoc'
+import { readFileSync } from 'fs'
 
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
@@ -24,9 +26,9 @@ const main = async () => {
           AND e.createdAt <= datetime() - duration('P${days}D')
           AND e.lastSeenAt <= datetime() - duration('P${days}D')
           AND not e:CompletedEnrolment
-          AND not exists(e.reminderSentAt)
-          AND exists(u.email)
-          AND size([(u)-[:HAS_ENROLMENT]->(e) WHERE exists(e.reminderSentAt) AND e.reminderSentAt >= datetime.truncate('day') - duration('P3D') | e]) = 0
+          AND not e.reminderSentAt IS NOT NULL
+          AND u.email IS NOT NULL
+          AND size([(u)-[:HAS_ENROLMENT]->(e) WHERE e.reminderSentAt IS NOT NULL AND e.reminderSentAt >= datetime.truncate('day') - duration('P3D') | e]) = 0
         RETURN u {
             .*,
             _name: coalesce(u.givenName, u.name),
@@ -35,7 +37,7 @@ const main = async () => {
         e {
             .*
         } AS enrolment,
-        c { .id, .title, .link } AS course
+        c { .id, .slug, .title, .link } AS course
         LIMIT $limit
     `, { limit: int(limit) })
 
@@ -45,8 +47,14 @@ const main = async () => {
     const ids = await Promise.all(
         res.records
             .map(row => row.toObject())
-            .map((attributes: Record<string, any>) => {
-                prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes, '', 'user-enrolment-reminder')
+            .map(async (attributes: Record<string, any>) => {
+                const courseSummaryPdf = await courseSummaryPdfPath(attributes.course.slug)
+                const attachments = typeof courseSummaryPdf === 'string' ? [{
+                    filename: `${attributes.course.title} Summary.pdf`,
+                    data: readFileSync(courseSummaryPdf),
+                }] : []
+
+                prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes, '', 'user-enrolment-reminder', attachments)
 
                 return attributes.enrolment.id as string
             })

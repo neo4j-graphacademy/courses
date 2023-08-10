@@ -3,6 +3,7 @@ import Mailgun from 'mailgun.js'
 import { flattenAttributes } from '../utils'
 import { loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag.middleware'
+import formData from 'form-data';
 
 export function isEnabled(): boolean {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
@@ -10,16 +11,22 @@ export function isEnabled(): boolean {
     return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }
 
-export function send(to: string, subject: string, html: string, tag?: string): void {
+interface Attachment {
+    data: Buffer;
+    filename: string;
+}
+
+export function send(to: string, subject: string, html: string, tag?: string, attachments?: Attachment[]): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO } = process.env
 
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
-        const mailgun = new Mailgun(URLSearchParams)
+        const mailgun = new Mailgun(formData)
 
         const mailer = mailgun.client({
             username: 'api',
             key: MAILGUN_API_KEY,
         })
+
 
         mailer.messages.create(MAILGUN_DOMAIN, {
             from: MAIL_FROM,
@@ -28,6 +35,7 @@ export function send(to: string, subject: string, html: string, tag?: string): v
             subject,
             html,
             tag,
+            attachment: attachments,
         })
             .catch(err => {
                 notify(err, event => {
@@ -65,12 +73,12 @@ export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlat
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = '', tag?: string): void {
+export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = '', tag?: string, attachments?: Attachment[]): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
 
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
-        send(email, subject, html, tag)
+        send(email, subject, html, tag, attachments)
     }
 }

@@ -99,6 +99,8 @@ export default function initApp(driver: Driver) {
     app.use('/', certificationRoutes)
 
     if (process.env.NODE_ENV === 'dev') {
+        console.log('dev');
+
         app.use('/test', testRoutes)
     }
 

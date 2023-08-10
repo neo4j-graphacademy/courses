@@ -14,7 +14,7 @@ import { User } from '../domain/model/user'
 import { Lesson, LessonWithProgress } from '../domain/model/lesson'
 import { Module, ModuleWithProgress } from '../domain/model/module'
 import { Category } from '../domain/model/category'
-import { courseSummaryExists, getStatusDetails } from '../modules/asciidoc'
+import { courseSummaryExists, courseSummaryPdfPath, getStatusDetails } from '../modules/asciidoc'
 import { getToken, getUser } from '../middleware/auth.middleware'
 import { getSandboxForUseCase } from '../modules/sandbox'
 import { isInt } from 'neo4j-driver'
@@ -199,6 +199,7 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         ...course,
         title_encoded: encodeURIComponent(course.title),
         summary: await courseSummaryExists(course.slug),
+        summaryPdf: await courseSummaryPdfPath(course.slug),
         modules,
         badge,
         illustration,

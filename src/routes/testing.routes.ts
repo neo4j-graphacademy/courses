@@ -10,6 +10,12 @@ import { TokenExpiredError } from '../errors/token-expired.error'
 import { send } from '../modules/mailer'
 import { User } from '../domain/model/user'
 import { Sandbox } from '../domain/model/sandbox'
+import { readFileSync } from 'fs'
+import { courseSummaryPdfPath } from '../modules/asciidoc'
+import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
+import { formatCourse } from '../utils'
+import { emitter } from '../events'
+import { CourseWithProgress } from '../domain/model/course'
 
 const router = Router()
 
@@ -167,11 +173,16 @@ router.get('/session', (req, res) => {
 
 router.get('/email/:template', async (req, res) => {
     const result = await read(`
-        MATCH (u:User) WHERE u.name IS NOT NULL WITH u ORDER BY rand() LIMIT 1
-        MATCH (c:Course {slug: 'cypher-fundamentals'}) WITH u, c ORDER BY rand() LIMIT 1
+        MATCH (u:User) WITH u ORDER BY rand() LIMIT 1
+        MATCH (c:Course {slug: 'neo4j-fundamentals'}) WITH u, c ORDER BY rand() LIMIT 1
         MATCH (e:Enrolment) WITH * LIMIT 1
         RETURN u, c, e
     `)
+
+    if (result.records.length == 0) {
+        return res.send('No results from query - try seeding the database')
+    }
+
     const user = { email: 'adam@neo4j.com', ...result.records[0]?.get('u').properties }
     const course = {
         ...result.records[0].get('c').properties,
@@ -194,7 +205,11 @@ router.get('/email/:template', async (req, res) => {
     const email = prepareEmail(req.params.template as AsciidocEmailFilename, data)
 
     if (req.query.send === 'true') {
-        send('adam.cowley@neo4j.com', email.subject, email.html)
+        const summaryPath = await courseSummaryPdfPath('neo4j-fundamentals')
+        const attachments = summaryPath ? [{ filename: 'summary.pdf', data: readFileSync(summaryPath) }] : undefined
+
+
+        send('adam.cowley@neo4j.com', email.subject, email.html, 'test', attachments)
 
         console.log('Email sent');
     }
@@ -203,6 +218,37 @@ router.get('/email/:template', async (req, res) => {
 
     // const event = new UserEnrolled(user, course, sandbox)
     // emitter.emit(event)
+})
+
+router.get('/event/:event/:course', async (req, res) => {
+    if (req.params.event == 'UserCompletedCourse') {
+        const result = await read(`
+            MATCH (u:User) WITH u ORDER BY rand() LIMIT 1
+            MATCH (c:Course {slug: $course}) WITH u, c ORDER BY rand() LIMIT 1
+            MATCH (e:Enrolment) WITH * LIMIT 1
+            RETURN u, c {
+                .*,
+                enrolmentId: e.id,
+                modules: []
+            } AS c, e
+        `, { course: req.params.course })
+
+        if (result.records.length == 0) {
+            return res.send('No results from query - try seeding the database')
+        }
+
+        const user = { email: 'adam@neo4j.com', ...result.records[0]?.get('u').properties }
+        const course = await formatCourse<CourseWithProgress>({
+            ...result.records[0].get('c'),
+            summary: true,
+        })
+
+        emitter.emit(new UserCompletedCourse(user, course, undefined))
+
+        return res.send(`${req.params.event} fired!`)
+    }
+
+    return res.send('Try UserCompletedCourse')
 })
 
 router.get('/style', (req, res) => {
