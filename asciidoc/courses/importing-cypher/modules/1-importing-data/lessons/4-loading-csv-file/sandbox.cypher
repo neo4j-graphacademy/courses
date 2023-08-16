@@ -1,2 +1,4 @@
-LOAD CSV WITH HEADERS FROM 'file:///people_no_header.csv' as row
+LOAD CSV WITH HEADERS 
+FROM 'https://data.neo4j.com/importing-cypher/people.csv' 
+as row
 RETURN row
