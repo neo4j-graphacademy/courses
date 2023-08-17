@@ -1,3 +1,7 @@
+CREATE CONSTRAINT Movie_movieId
+FOR (x:Movie) 
+REQUIRE x.movieId IS UNIQUE;
+
 LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/importing-cypher/movies.csv'
 AS row
@@ -9,4 +13,4 @@ m.released = row.released,
 m.title = row.title,
 m.year = row.year,
 m.plot = row.plot,
-m.budget = row.budget
+m.budget = row.budget;
