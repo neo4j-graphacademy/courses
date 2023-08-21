@@ -1,10 +1,12 @@
-// Delete All nodes
-MATCH (p:Person) DETACH DELETE p;
+LOAD CSV
+WITH HEADERS
+FROM "https://raw.githubusercontent.com/tomasonjo/blog-datasets/main/survey/responses.csv" AS row
 
-// Set all numbers to floats - solution for 1-dataset/2-import
-MATCH (p:Person)
+CREATE (p:Person)
+SET p = row
+WITH p
 UNWIND keys(p) AS key
 WITH p, key, toFloat(p[key]) AS value
 WHERE value IS NOT null
 CALL apoc.create.setProperty(p, key, value) YIELD node
-RETURN DISTINCT 'done' AS result
+RETURN DISTINCT 'done' AS result;
