@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync, writeFileSync } from "fs"
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs"
 import { COURSE_DIRECTORY } from "../constants"
 import { join } from "path";
 import puppeteer from 'puppeteer'
@@ -13,10 +13,15 @@ const main = async () => {
             return stats.isDirectory()
         })
         // Check that summary.adoc exists in folder
-        .filter(slug => existsSync(join(COURSE_DIRECTORY, slug, 'summary.adoc')))
+        .filter(slug => {
+            const path = join(COURSE_DIRECTORY, slug, 'summary.adoc')
+            const exists = existsSync(path)
+
+            const hasPdf = exists && readFileSync(path).toString().includes(':pdf-summary:')
+
+            return hasPdf
+        })
         .filter(slug => !existsSync(join(COURSE_DIRECTORY, slug, 'summary.pdf')))
-        // TODO: Only neo4j-fundamentals has been prepared
-        .filter(slug => slug == 'neo4j-fundamentals')
 
     const browser = await puppeteer.launch({ headless: 'new' })
 
@@ -39,5 +44,7 @@ const main = async () => {
 const server = app.listen(3001, async () => {
     await main()
 
-    server.close()
+    server.close((err) => {
+        process.exit(err ? 1 : 0)
+    })
 })
