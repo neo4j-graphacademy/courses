@@ -19,11 +19,11 @@ router.post('/:id/feedback', requiresAuth(), async (req, res) => {
     try {
         const user = await getUser(req) as User
         const { id } = req.params
-        const { helpful } = req.body
+        const { helpful, reason, additional } = req.body
 
         const chatbot = getChatbot()
 
-        const saved = await chatbot?.recordFeedback(user, id, { helpful })
+        const saved = await chatbot?.recordFeedback(user, id, { helpful, reason, additional })
 
         if (saved) {
             res.status(201).json({

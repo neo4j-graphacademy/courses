@@ -1,5 +1,5 @@
 import { AxiosError } from 'axios'
-import e, { Express, NextFunction, Request, Response } from 'express';
+import { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
 import { getUser } from './auth.middleware';
