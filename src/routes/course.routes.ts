@@ -543,7 +543,7 @@ const chat = async (req: Request, res: Response) => {
             message: 'Something went wrong.'
         })
     }
-    catch (e) {
+    catch (e: any) {
         notify(e)
 
         return res.status(500).json({
