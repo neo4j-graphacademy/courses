@@ -1,0 +1,381 @@
+= The Neo4j Type System
+:type: quiz
+
+At this point, we should take a look at the Cypher type system.
+As Neo4j is written in Java (the _j_ in Neo4**j** stands for Java after all), there are some discrepancies between the types stored in the Neo4j database and native JavaScript types.
+
+Some values like strings, floats, booleans, and nulls map directly to JavaScript types, but more complex types need special handling.
+
+[%collapsible]
+.JavaScript Types to Neo4j Types
+====
+[cols="1,1,1"]
+|===
+| JavaScript Type | Neo4j Cypher Type | Notes
+
+| `null`, `undefined`
+| `null`
+|
+
+| `Array`
+| `List`
+| Neo4j can only store a flat array containing strings, booleans or numbers.
+
+| `Object`
+| `Map`
+|
+
+| `Boolean`
+| `Boolean`
+|
+
+| `Integer`*
+| `Integer`
+| See <<Integers>>
+
+| `Number`
+| `Float`
+|
+
+| `String`
+| `String`
+|
+
+| `Int8Array`
+| `ByteArray`
+|
+
+| `Date`
+| `Date`
+| See <<Temporal Types>>
+
+| `Time`
+| `Time`
+| See <<Temporal Types>>
+
+| `LocalTime`
+| `LocalTime`
+| See <<Temporal Types>>
+
+| `DateTime`
+| `DateTime`
+| See <<Temporal Types>>
+
+| `LocalDateTime`
+| `LocalDateTime`
+| See <<Temporal Types>>
+
+| `Duration`
+| `Duration`
+| See <<Temporal Types>>
+
+| `neo4j.spatial.Point`
+| `Point`
+| See <<Spatial Types>>
+
+| `neo4j.spatial.CartesianPoint`
+| `Point (Cartesian)`
+| See <<Spatial Types>>
+
+| `neo4j.spatial.WGS84Point`
+| `Point (WGS-84)`
+| See <<Spatial Types>>
+
+
+| `Node`
+| `Node`
+| See <<Nodes & Relationships>>
+
+| `Relationship`
+| `Relationship`
+| See <<Nodes & Relationships>>
+
+| `Path`
+| `Path`
+| See <<Nodes & Relationships>>
+
+|===
+====
+
+Let's take a look at some of these types in more detail.
+
+
+
+== Integers
+
+Due to a discrepancy between integers in JavaScript and the Neo4j type system, we need to take extra care when working with integers in the Neo4j JavaScript Driver.
+
+The Neo4j type system uses 64-bit signed integer values (with a range of `-(2^64^- 1)` and `(2^63^- 1)`) while JavaScript can only safely represent integers between `-(2^53^- 1)` (`Number.MIN_SAFE_INTEGER`) and `2^53^- 1` (`Number.MAX_SAFE_INTEGER`).
+
+To conform with the Neo4j type system, the driver will not automatically convert to JavaScript integers.  Instead, the driver will convert integers to a `float` to ensure no data is lost.
+
+The driver provides an `Integer` type and an `int()` function for sending and receiving integers with neo4j.
+
+The Driver will convert any integer values it receives into an instance of an `Integer` class.  The `Integer` class has a `toNumber()` method which can be called to safely convert the value back into a JavaScript `number`.
+
+If the number is outside of the valid range, it will be returned as a string.
+
+.Working with Integers
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=integers]
+----
+
+We make use of these functions often throughout this course.
+
+
+
+== Nodes & Relationships
+
+Nodes and Relationships are both returned as similar classes.
+
+As an example, let's take the following code snippet:
+
+.Return Nodes and Relationships
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=run]
+
+include::{nodejs-repository-raw}/main/example/results.js[tag=row]
+----
+
+The query will return one `row` for each `:Person` and `:Movie` node with an `:ACTED_IN` relationship between them.
+
+=== Nodes
+
+We can retrieve the `movie` value using the `.get()` method on the row.
+
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=get]
+----
+
+The value assigned to the `person` variable will be the instance of a `Node`.
+`Node` is a class provided by the Driver to hold the information held in Neo4j for a node.
+
+An instance of a `Node` has three properties:
+
+.Working with Node Objects
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=node]
+----
+
+1. `identity` - a Neo4j `Integer` representing the internal ID for the node. +
+    eg. `Integer {high: 1234, low: 0}`
+2. `labels` - an Array of String values, one per label stored against the node. +
+    eg. `['Person', 'Actor']`
+3. `properties` - A JavaScript object containing all the properties for the node. +
+    eg. `{name: 'Tom Hanks', tmdbId: '31' }`
+
+
+[TIP]
+.Internal IDs
+Internal IDs represent the position in the Neo4j store files where the record is held.
+These numbers may be re-used so it is recommended that nodes are found by an an indexed property instead.
+
+=== Relationships
+
+`Relationship` objects are similar to `Node` in that they also include a `identity` and `properties` properties.
+
+
+.Working with Relationship Objects
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=rel]
+----
+
+
+1. `identity` - a Neo4j `Integer` representing the internal ID for the relationship. +
+    eg. `Integer {high: 9876, low: 0}`
+2. `type` - the type of the relationship +
+    eg. `ACTED_IN`
+3. `properties` - A JavaScript object containing all the properties for the node. +
+    eg. `{role: 'Woody' }`
+4. `start` - a Neo4j `Integer` representing the internal ID for the node at the start of the relationship
+5. `end` - a Neo4j `Integer` representing the internal ID for the node at the end of the relationship
+
+
+=== Paths
+
+If you return a path of nodes and relationships, they will be returned as an instance of a `Path`.
+
+.Working with Path Objects
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=path]
+----
+
+1. `start` - a Neo4j `Integer` representing the internal ID for the node at the start of the path
+2.  `end` - a Neo4j `Integer` representing the internal ID for the node at the end of the path
+3. `length` - A count of the number of _segments_ within the path
+4. `segments` - An array of `PathSegment` objects.
+
+==== Path Segments
+
+A path is split into segments representing each relationship in the path.
+For example, say we have a path of `(p:Person)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)`, there would be two segments.
+
+1. `(p:Person)-[:ACTED_IN]->(m:Movie)`
+2. `(m:Movie)-[:IN_GENRE]->(g:Genre)`
+
+.Iterating over Segments
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=segments]
+----
+
+The `PathSegment` object has three properties:
+
+* `relationship` - A `Relationship` object representing that part of the path.
+* `start` - The internal ID for the start node for this path segment `*`
+* `end` -  ID for the end node for this path segment `*`
+
+[TIP]
+.`*` Start and End nodes within the Path Segment object
+The start and end nodes on the `PathSegment` may differ from the start and end nodes of the relationship itself if the relationship was traversed in the reverse direction.
+
+
+== Temporal Types
+
+The Temporal types used in the Cypher type system are also handled differently.
+The driver exports helper functions to assist in checking the type.
+
+.Temporal Types
+[cols="1,3,1,1"]
+|===
+| Neo4j Cypher Type | Description | Example | Helper Function
+
+| `Date`
+| Represents an instant capturing the date, but not the time, nor the timezone.
+| `2020-01-02`
+| `isDate`
+
+| `DateTime`
+| Represents an instant capturing the date, the time and the timezone identifier.
+| `2020-01-02T01:02:03+04:00`
+| `isDateTime`
+
+
+| `LocalDateTime`
+| Represents an instant capturing the date and the time, but not the timezone.
+| `2020-01-02T01:02:03+04:00`
+| `isLocalDateTime`
+
+| `LocalTime`
+| Represents an instant capturing the time of day, but not the date, nor the timezone.
+| `12:34:56`
+| `isLocalDate`
+
+| `Time`
+| Represents an instant capturing the time of day, and the timezone offset in seconds, but not the date.
+| `12:34:56+04:00`
+| `isTime`
+
+|===
+
+
+Each type has a `toString()` method that can be used in conjunction with `Date.parse()` in JavaScript to convert the Cypher date into a native `Date` object.
+
+
+.Working with Temporal types
+[source,js,role=ncopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/example/results.js[tag=temporal]
+----
+
+== Spatial Types
+
+Cypher has built-in support for handling spatial values (points), and the underlying database supports storing these point values as properties on nodes and relationships.
+
+
+=== Point
+
+When using the `Point` spatial type, regardless of the coordinate reference system, an instance of the link:https://neo4j.com/docs/api/javascript-driver/current/class/lib6/spatial-types.js~Point.html[`Point`^] is returned.
+The `Point` object has three public members:
+
+* `srid` - The coordinate reference system (CRS) identifier (`4326` for the `wsg-84` or `wsg-84-3d` CRS).
+* `x` - The x coordinate of the point.
+* `y` - The y coordinate of the point.
+* `z` - The z coordinate of the point or undefined if point is 2-dimensional.
+
+The `isPoint()` helper function will allow you to check whether a variable is an instance of a `Point`
+
+.Working with Points
+[source,js]
+----
+import { Point, isPoint } from 'neo4j-driver'
+
+const london = new Point(-0.118092, 51.509865)
+const shard = new Point(-0.086500, 51.504501, 310) // 310m high
+
+const cartesian2d = new Point(10, 5)
+const cartesian3d = new Point(10, 5, 20)
+
+console.log(london) // Point({srid:4326, x:-0.118092, y:51.509865})
+console.log(shard) // Point({srid:4979, x:-0.0865, y:51.504501, z:310})
+
+console.log(catesian2d) // Point({srid:7203, x:5, y:10})
+console.log(catesian3d) // Point({srid:9157, x:5, y:10, z:20})
+
+console.log(isPoint(london)) // true
+console.log(isPoint('string')) // false
+----
+
+[WARNING]
+.`x`, `y` and `z`
+====
+Regardless of the `srid` or whether the point is created using `latitude`, `longitude` (and `height`), the object returned by the Driver will *always* contain `x`, `y` and `z` properties.
+
+When using `wsg-84` or `wsg-84-3d` coordinates, `x` will represent `longitude`, `y` will represent `latitude` and `z` will represent the height.
+====
+
+=== Distance
+
+When using the `point.distance` function in Cypher, the distance calculated between two points is returned as a float.
+
+
+[source,cypher]
+----
+WITH point({x: 1, y:1}) AS one,
+     point({x: 10, y: 10}) AS two
+
+RETURN point.distance(one, two) // 12.727922061357855
+----
+
+
+== Converting these values en masse
+
+There may be times when you need to convert many Neo4j types back into native JavaScript types.
+For example, when retrieving a set of properties.
+
+For this purpose, We have added a utility function to `src/utils.js`, which, when given an Object of properties, will iterate through the keys and, where appropriate, convert the value to a native JavaScript value.
+This function is called `toNativeTypes()`.
+
+[%collapsible]
+.Show the `toNativeTypes()` method
+====
+This function checks for integer and temporal values mentioned in the previous section, and calls the appropriate method to convert them into a more friendly format.
+
+.src/utils.js
+[source,js,role=nocopy,subs="attributes+",indent=0]
+----
+include::{nodejs-repository-raw}/main/src/utils.js[tag=toNativeTypes]
+----
+====
+
+The function is recursive and will handle nested objects and arrays.
+
+== Check Your Understanding
+
+include::questions/1-node-property.adoc[leveloffset=+1]
+
+include::questions/2-integer-helper.adoc[leveloffset=+1]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you have learned how to handle some of the more complex objects returned by a Cypher statement.
+
+In the next lesson, you will learn how to use TypeScript types to allow the TypeScript interpreter to identify errors during development.
