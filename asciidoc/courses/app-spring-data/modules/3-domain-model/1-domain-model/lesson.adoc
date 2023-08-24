@@ -1,0 +1,237 @@
+= The Spring Data Application Domain Model
+:type: lesson
+
+//LEFT OFF HERE!
+
+//old
+== Running a Sample Query
+
+To run a one-off Cypher query, you can use the `session.run()` method.
+
+.Running a One-off Query
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=oneoff]
+----
+
+The method accepts three arguments:
+
+1. A string to represent a Cypher statement
+2. Optionally, an object representing query parameters (prefixed in Cypher with `$`)
+3. Also optional, an object containing transaction config.
+
+
+[WARNING]
+.For one-off queries only
+If there are any transient errors when running a query, the Driver will not attempt to retry a query when using `session.run()`.
+For this reason, these should only be used for one-off queries and not in production.
+
+=== Processing Results
+
+The `res` value in the sample above will be an implementation of the `QueryResult` interface.
+The `QueryResult` interface guarantees access to the individual records returned by the query through the `records` property, which contains an array of `Record` instances.
+
+The `Record` class has a `.get()` method, which provides access to the individual values held on that record.
+For example, to get the `(:Person)` node from each record, you can write the following code:
+
+.Accessing Results
+[source,ts,indent=0,role=nocopy,subs="attributes+"]
+----
+include::{repository-raw}/main/src/example.ts[tag=oneoffresult]
+----
+
+We will cover result processing further in link:../3-execute[Lesson 3: Read and Write Transactions^].
+
+//old next lesson
+
+Your challenge is to add a new Driver instance to an existing file with the connection details provided.
+Once you have created the Driver, you will need to open a new session and run a Cypher statement to find the director of the movie **Toy Story**.
+
+
+link:./lab[Open Challenge in an Online IDE →^, role=btn]
+
+== Steps
+
+1. Install the Neo4j JavaScript Driver in the integrated terminal window
++
+include::{repository-raw}/main/README.adoc[tag=install]
+
+2. Use the `neo4j` object to create a new instance of the Driver with the credentials provided:
+  * `NEO4J_URI` is the connection string
+  * `NEO4J_USERNAME` and `NEO4J_PASSWORD` should be used to create the authentication token.
+
+3. Once you have created the Driver, open a new session and run the following query: +
++
+.Find the Director
+[source, cypher]
+----
+include::{repository-raw}/main/cypher/movie-director.cypher[]
+----
+
+4. To find the answer, click the Debug icon to the left of the window and run **Create Driver Challenge** task, or use the integrated terminal window to run the following command: +
++
+.Run The Challenge
+[source,sh,subs=attributes+]
+----
+ts-node {lab-file}
+----
+
+5. Once you have the result, copy and paste it into the text box below and click **Check Answer**.
+
+
+== Your Answer
+
+include::questions/1-director.adoc[leveloffset=+1]
+//end old
+
+== Neo4j Clusters
+
+When running Neo4j in production or using link:https://neo4j.com/cloud[Neo4j Aura^], you will most likely be querying a _cluster_ of nodes rather than a single instance.
+
+Neo4j clusters consist of a set of _core_ nodes responsible for reaching consensus when writing data to a database.
+Additional read-only servers called _Read Replicas_ can be added to increase the possible number of simultaneous read queries at any time.
+
+In a clustered environment, the Driver can connect to any member within the cluster.
+Once connected, the Driver will receive metadata about the cluster, known as a **Routing Table**.
+
+=== Reading Data from Neo4j
+
+The Driver uses data from the Routing Table to distribute read statements across the cluster in a least-connected fashion, ensuring that the cluster is evenly utilised.
+
+To execute a Cypher statement within a read transaction, call the `executeRead()` method.
+
+[source,ts]
+.Read Transactions
+----
+include::{repository-raw}/main/src/example.ts[tag=executeread,indent=0]
+----
+
+The `executeRead()` method executes a unit of work, represented as a callback function (1), before marking the transaction as successful.
+The callback function is passed an instance of a `ManagedTransaction`, on which the `run()` method can be called multiple times to execute Cypher statements (2).
+
+The `run()` method is similar to `session.run()` in that it accepts two parameters; a Cypher statement and an object representing the query parameters.
+
+=== Writing Data to Neo4j
+
+The cluster will always contain one instance, known as the **Leader**, which has the responsibility of processing write transactions.
+The Leader is responsible for distributing the transaction's outcome across the cluster.
+Once the majority of core servers acknowledge this information, the transaction is considered _committed_ and acknowledgement is sent back to the Driver along with any data requested by the Cypher statement.
+
+To execute a Cypher statement within a write transaction, call the `executeWrite()` method.
+
+[source,ts]
+.Write Transactions
+----
+include::{repository-raw}/main/src/example.ts[tag=executewrite,indent=0]
+----
+
+== Result Processing
+
+Two methods are available for consuming results from a transaction, the **Promise API** and the **Streaming API**.
+
+=== Promise API
+
+The most common method of consuming results is with the Promise API.
+Both `session.run()` and `tx.run()` return an instance of a `Result`, a Promise-like class upon which you can chain `.then()`, `.catch()` and `.finally()` methods.
+
+Once the statement has been executed, and all results returned, the Result will _resolve_ to a `QueryResult` object.
+
+[source,ts]
+----
+include::{repository-raw}/main/src/example.ts[tags="executeread,promise",indent=0]
+----
+
+You can also iterate over the result returned by `tx.run()` or `session.run()` within a `for` loop.
+
+.Using AsyncIterator
+[source,js,role=nocopy,subs="attributes+",indent=0]
+----
+include::{repository-raw}/main/src/example.ts[tag=iterate]
+----
+
+If you have long-running queries that explore a large part of the graph, it may take a while for the results to become available.
+In this case, you should use the Streaming API.
+
+=== Streaming API
+
+There may be occasions where you have slower-running or more complex queries but wish to process results as they become available.
+
+For example, many Flight search websites have complex queries that take up to a minute to complete, but shorter, less complex graph patterns may be available immediately.
+
+In this case, you can use the `subscribe()` method to consume results as they become available.
+This method is available when calling `session.run()` or `tx.run()` within a transaction function.
+
+You can use this method with WebSockets or similar technologies to update the front-end application with new results as they are made available.
+
+The `subscribe()` method accepts one argument, an object of callbacks:
+
+* `onKeys` - called when keys are made available for all records.
+* `onNext` - called when the next Record is available.
+* `onError` - called if an error occurs.
+* `onCompleted` - called when all records have been consumed, and no error has occurred.
+
+[source,ts,indent=0]
+----
+include::{repository-raw}/main/src/example.ts[tag=streaming]
+----
+
+=== Individual Results
+
+In both examples above, individual records are accessed through an implementation of the `Record` type exported from `neo4j-driver`.
+The `Record` type contains methods for interacting with each Record.
+
+The `.keys()` method provides an array of available keys on the Record, and the `.has()` method can be called to check that a key exists on the Record.
+
+.Get Keys
+[source,ts,indent=0]
+----
+include::{repository-raw}/main/src/example.ts[tag=keys]
+----
+
+There are several ways to iterate over a record; `.forEach()` and `.map()` work as if the record were an `array`, and you can also call `.entries()` or `.values()` to act on the Record as if it were a `Map` object.
+You can also access values within a `for` loop.
+
+.For Loop
+[source,ts,indent=0]
+----
+include::{repository-raw}/main/src/example.ts[tag=forloop]
+----
+
+To retrieve an individual value from a Record, call the `.get()` method.
+The method accepts a single parameter, the alias of the value stated in the `RETURN` statement or the 0-based index of the value.
+
+.Accessing a Value
+[source,ts,indent=0]
+----
+include::{repository-raw}/main/src/example.ts[tag=value]
+----
+
+You can quickly convert the Record to a JavaScript object using the `.toObject()` method, a convenient way of converting nested values without recursively iterating through the Record.
+
+.toObject
+[source,ts,indent=0]
+----
+console.log(Record.toObject()) // {p: Node, r: Relationship, m: Node}
+----
+
+== Check Your Understanding
+
+include::questions/1-read-transaction.adoc[leveloffset=+1]
+include::questions/2-write-transaction.adoc[leveloffset=+1]
+include::questions/3-promise-api.adoc[leveloffset=+1]
+include::questions/4-get-method.adoc[leveloffset=+1]
+//end old
+
+= Reading Data from Neo4j
+:type: quiz
+
+Complete the code block below by identifying the correct method for executing a Cypher statement in a **read** transaction.
+
+include::questions/complete.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this challenge you successfully recognised the correct method for executing a Cypher statement in a read transaction.
+
+In the next lesson, you will execute a Cypher statement in a read transaction.
