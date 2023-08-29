@@ -174,7 +174,7 @@ export async function createSandbox(token: string, user: User, usecase: string, 
         // Calling the API again will return the unencrypted password
         const data = res.data as Sandbox
 
-        if (data.password.startsWith('AQ')) {
+        if (data.password?.startsWith('AQ')) {
             return await getSandboxForUseCase(token, user, usecase) as Sandbox
         }
 

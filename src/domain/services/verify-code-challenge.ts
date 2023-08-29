@@ -76,6 +76,21 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
         }
         catch (e: any) {
             notify(e, error => {
+                error.addMetadata('sandbox', {
+                    host,
+                    username,
+                })
+                error.addMetadata('course', {
+                    course,
+                    module,
+                    lesson,
+                    usecase,
+                })
+                error.addMetadata('query', {
+                    instance: (driver as any)['_address'],
+                    type: 'verify',
+                    query: verify,
+                })
                 error.setUser(user.sub, user.email, user.name)
             })
 

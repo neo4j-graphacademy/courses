@@ -44,6 +44,7 @@ export async function resetDatabase(token: string, user: User, course: string, m
 
                 event.addMetadata('query', {
                     instance: (driver as any)['_address'],
+                    type: 'reset',
                     query: cypher,
                 })
             })
