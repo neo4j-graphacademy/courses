@@ -3,7 +3,6 @@ import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
-import { courseSummaryPdfPath } from '../modules/asciidoc'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
 
 export default function initEmailListeners(): Promise<void> {

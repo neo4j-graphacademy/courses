@@ -19,7 +19,7 @@ import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
 import { courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
-import { notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
+import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
@@ -526,21 +526,31 @@ router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerific
 
 
 const chat = async (req: Request, res: Response) => {
-    const user = await getUser(req) as User
-    const chat = getChatbot()
+    try {
+        const user = await getUser(req) as User
+        const chat = getChatbot()
 
-    const { message } = req.body
+        const { message } = req.body
 
-    if (chat && typeof message === 'string' && message !== '') {
-        const response = await chat.askQuestion(user, message, req.originalUrl)
+        if (chat && typeof message === 'string' && message !== '') {
+            const response = await chat.askQuestion(user, message, req.originalUrl)
 
-        return res.json(response)
+            return res.json(response)
+        }
+
+        return res.status(500).json({
+            status: 'error',
+            message: 'Something went wrong.'
+        })
     }
+    catch (e: any) {
+        notify(e)
 
-    return res.status(500).json({
-        status: 'error',
-        message: 'Something went wrong.'
-    })
+        return res.status(500).json({
+            status: 'error',
+            message: 'Something went wrong.'
+        })
+    }
 }
 
 router.post('/:course/:module/chat', requiresAuth(), /*requiresVerification,*/ chat)

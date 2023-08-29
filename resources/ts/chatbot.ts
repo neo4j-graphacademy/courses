@@ -2,6 +2,24 @@ import { post } from "./modules/http";
 import { createElement } from "./modules/dom"
 import codeBlocks from "./code-blocks";
 
+declare global {
+    interface Window {
+        i18n: {
+            feedbackFollowup: string;
+            feedbackThankyou: string;
+            missing: string;
+            hardToFollow: string;
+            inaccurate: string;
+            other: string;
+            moreInformation: string;
+            feedbackSubmit: string;
+            feedbackSkip: string;
+            advanceTo: string;
+            [key: string]: any;
+        }
+    }
+}
+
 function thinkingElement() {
     const thinking = document.createElement('div')
     thinking.classList.add('conversation-thinking')
@@ -23,13 +41,93 @@ function rpad(num: number) {
     return num.toString().padStart(2, '0')
 }
 
-function sendFeedback(id: string, helpful: boolean, container) {
+function clarificationForm(id: string, container: HTMLDivElement) {
+    const reasonId = `reason-${id}`
+
+    const reasonLabel = createElement('label', 'conversation-clarification-label', [`What was wrong with this response?`])
+    reasonLabel.setAttribute('for', reasonId)
+
+    const reasonOption = (value, text) => {
+        const option = document.createElement('option')
+        option.setAttribute('value', value)
+        option.innerHTML = text
+
+        return option
+    }
+
+    const reason = createElement('select', 'conversation-clarification-select', [
+        reasonOption('missing', window.i18n.missing),
+        reasonOption('hard-to-follow', window.i18n.hardToFollow),
+        reasonOption('inaccurate', window.i18n.inaccurate),
+        reasonOption('other', window.i18n.other),
+    ]) as HTMLSelectElement
+
+
+    const textareaId = `additional-${id}`
+    const textareaLabel = createElement('label', 'conversation-clarification-label', [`How could this response be improved?`])
+    textareaLabel.setAttribute('for', textareaId)
+
+    const textarea = document.createElement('textarea')
+    textarea.setAttribute('id', textareaId)
+    textarea.setAttribute('placeholder', 'eg. the answer wasn\'t relevant to my question')
+
+    const submit = document.createElement('button')
+    submit.classList.add('btn')
+    submit.classList.add('btn--primary')
+    submit.setAttribute('type', 'submit')
+    submit.innerHTML = 'Send'
+
+    const form = createElement('form', 'conversation-clarification-form', [
+        reasonLabel,
+        reason,
+        textareaLabel,
+        createElement('div', 'conversation-form conversation-clarification-input', [
+            textarea,
+            submit,
+        ]),
+    ])
+
+    container.innerHTML = ''
+    container.parentElement?.parentElement?.appendChild(form)
+
+    form.addEventListener('submit', e => {
+        e.preventDefault()
+
+        container.innerHTML = '🤞'
+
+        post(`/api/v1/chatbot/${id}/feedback`, {
+            helpful: false,
+            reason: reason.options[reason.selectedIndex].value,
+            additional: textarea.value,
+        })
+            .then(() => {
+                form.innerHTML = `<b>${window.i18n.feedbackThankyou}</b>`
+            })
+            .finally(() => {
+                container.innerHTML = '👌'
+
+                setTimeout(() => { container.innerHTML = '' }, 2000)
+            })
+    })
+}
+
+function sendInitialFeedback(id: string, container: HTMLDivElement, helpful: boolean, reason?: string, additional?: string) {
     container.innerHTML = '🤞'
 
     post(`/api/v1/chatbot/${id}/feedback`, {
-        helpful
+        helpful,
+        reason,
+        additional
     })
+        .catch(e => {
+            console.log(e)
+        })
         .finally(() => {
+            // Ask for clarification
+            if (!helpful) {
+                return clarificationForm(id, container)
+            }
+
             container.innerHTML = '👌'
 
             setTimeout(() => { container.innerHTML = '' }, 2000)
@@ -71,18 +169,18 @@ function appendMessage(messages: HTMLDivElement, author: Author, html: string, i
 
         const helpful = createElement('div', 'conversation-message-feedback', [
             yes, no
-        ])
+        ]) as HTMLDivElement
 
         yes.addEventListener('click', e => {
             e.preventDefault()
 
-            sendFeedback(id, true, helpful)
+            sendInitialFeedback(id, helpful, true)
         })
 
         no.addEventListener('click', e => {
             e.preventDefault()
 
-            sendFeedback(id, false, helpful)
+            sendInitialFeedback(id, helpful, false)
         })
 
         meta.appendChild(helpful)

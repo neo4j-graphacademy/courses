@@ -50,6 +50,11 @@ export async function getUser(req: any): Promise<User | undefined> {
 
     user.isNeo4jEmployee = user.email?.endsWith('neo4j.com') || user.email?.endsWith('neotechnology.com')
 
+    // Populate feature flags
+    if (!user.featureFlags) {
+        user.featureFlags = []
+    }
+
     req.dbUser = user
 
     return user

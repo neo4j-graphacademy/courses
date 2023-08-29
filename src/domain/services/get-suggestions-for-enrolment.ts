@@ -8,7 +8,7 @@ type CourseSuggestion = Course & { count: number }
 export async function getSuggestionsForEnrolment(enrolmentId: string, limit = 3): Promise<CourseSuggestion[]> {
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment {id: $enrolmentId})-[:FOR_COURSE]->(c)
-        WITH u, e, c, [ (u)-[:HAS_ENROLMENT]->()-[:FOR_COURSE]->(x) | x ] AS courses
+        WITH u, e, c, [ (u)-[:HAS_ENROLMENT]->(:CompletedEnrolment)-[:FOR_COURSE]->(x) | x ] AS courses
         MATCH (c)<-[:FOR_COURSE]-()<-[:HAS_ENROLMENT]-(u2)-[:HAS_ENROLMENT]->(:CompletedEnrolment)-[:FOR_COURSE]->(c2)
         WHERE NOT c2 IN courses AND not c2:Certification  AND c2.language = c.language AND c2.status = c.status
         WITH c2 { .* } AS course, count(*) AS count

@@ -68,16 +68,16 @@ export class Chatbot {
         return res.records.map(record => record.toObject() as Section);
     }
 
-    private async getSimilarSections(tx: ManagedTransaction, question: string): Promise<Section[]> {
+    private async getEmbeddingForQuestion(question: string): Promise<number[]> {
         const chunks = await this.openai.createEmbedding({ input: question, model: 'text-embedding-ada-002' });
 
-        const res = await tx.run(`
-            // CALL db.index.vector.queryNodes('chunks', $limit, $embedding)
-            // YIELD node, score
+        return chunks.data.data[0]['embedding'];
+    }
 
-            MATCH (node:Chunk) WHERE node.embedding IS NOT NULL
-            WITH node, gds.similarity.cosine(node.embedding, $embedding) AS score
-            ORDER BY score DESC LIMIT $limit
+    private async getSimilarSections(tx: ManagedTransaction, embedding: number[]): Promise<Section[]> {
+        const res = await tx.run(`
+            CALL db.index.vector.queryNodes('chatbot-embeddings', $limit, $embedding)
+            YIELD node, score
 
             MATCH (node)<-[:HAS_SECTION]-(p)
             RETURN
@@ -88,13 +88,13 @@ export class Chatbot {
                 node.text AS sectionText,
                 score
             ORDER BY score DESC
-        `, { embedding: chunks.data.data[0]["embedding"], limit: int(10) });
+        `, { embedding, limit: int(10) });
 
         return res.records.map(record => record.toObject() as Section);
     }
 
-    async getContentFromNeo4j(tx: ManagedTransaction, question: string, page?: string): Promise<Section[]> {
-        const similarSections = await this.getSimilarSections(tx, question);
+    async getContentFromNeo4j(tx: ManagedTransaction, question: string, embedding: number[], page?: string): Promise<Section[]> {
+        const similarSections = await this.getSimilarSections(tx, embedding);
 
         if (page) {
             const pageContent = await this.getPageContent(tx, page);
@@ -129,7 +129,7 @@ export class Chatbot {
         }
     }
 
-    async saveMessageToNeo4j(user: User, question: string, page: string | undefined, response: string, sections: Section[], reranked: Section[]): Promise<string | undefined> {
+    async saveMessageToNeo4j(user: User, question: string, embedding: number[], page: string | undefined, response: string, sections: Section[], reranked: Section[], start: number, end: number): Promise<string | undefined> {
         // Save the response in Neo4j
         const writeSession = this.driver.session({ database: CHATBOT_NEO4J_DATABASE })
         const id = await writeSession.executeWrite(async tx => {
@@ -137,9 +137,12 @@ export class Chatbot {
                 MERGE (u:User {sub: $sub})
                 CREATE (r:Response {
                     id: randomUuid(),
-                    createdAt: timestamp(),
+                    createdAt: datetime(),
                     question: $question,
-                    response: $response
+                    embedding: $embedding,
+                    response: $response,
+                    askedAt: datetime({epochMillis: $start}),
+                    answeredAt: datetime({epochMillis: $end})
                 })
                 CREATE (u)-[:RECEIVED_RESPONSE]->(r)
 
@@ -161,7 +164,7 @@ export class Chatbot {
                 )
 
                 RETURN r.id AS id
-            `, { sub: user.sub, question, page, response, sections, reranked })
+            `, { sub: user.sub, question, embedding, page, response, sections, reranked, start: int(start), end: int(end) })
 
             const [first] = res.records
 
@@ -175,8 +178,11 @@ export class Chatbot {
     }
 
     async askQuestion(user: User, question: string, page?: string): Promise<ChatbotResponse> {
+        const start = Date.now()
+
+        const embedding = await this.getEmbeddingForQuestion(question)
         const session = this.driver.session({ database: CHATBOT_NEO4J_DATABASE });
-        const results: Section[] = await session.executeRead(tx => this.getContentFromNeo4j(tx, question, page));
+        const results: Section[] = await session.executeRead(tx => this.getContentFromNeo4j(tx, question, embedding, page));
         await session.close();
 
         const reranked = await this.rerankResults(question, results);
@@ -213,7 +219,11 @@ export class Chatbot {
             }
         ];
 
-        const chatCompletion = await this.openai.createChatCompletion({ model: OPENAI_CHAT_MODEL, messages });
+        const chatCompletion = await this.openai.createChatCompletion({
+            model: OPENAI_CHAT_MODEL,
+            messages,
+            temperature: 0.1,
+        });
 
         const [choice] = chatCompletion.data.choices
 
@@ -221,7 +231,7 @@ export class Chatbot {
             const content = choice.message.content
 
             // Save to Neo4j
-            const id = await this.saveMessageToNeo4j(user, question, page, content, results, reranked)
+            const id = await this.saveMessageToNeo4j(user, question, embedding, page, content, results, reranked, start, Date.now())
 
             return {
                 status: 'ok',
@@ -249,12 +259,13 @@ export class Chatbot {
                         FOREACH (_ IN CASE WHEN $feedback.helpful = false THEN [1] ELSE [] END |
                             SET r:UnhelpfulResponse
                         )
-                        SET r += $feedback
+                        SET r += $feedback, r.feedbackProvidedAt = datetime()
                         RETURN r.id AS id
                     `,
                     {
                         sub: user.sub, id, feedback
-                    })
+                    }
+                )
         )
 
         await writeSession.close()

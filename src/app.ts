@@ -108,7 +108,7 @@ export default function initApp(driver: Driver) {
     initPrintful(app)
 
     // Chatbot Routes
-    initChatbot(app)
+    void initChatbot(app)
 
     // Bugsnag Error Handler
     useErrorHandler(app)

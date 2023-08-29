@@ -11,7 +11,7 @@ export async function getSuggestionsForCourse(userId: string | undefined, slug: 
         let current: string[] = []
         if (userId !== undefined) {
             const currentRes = await tx.run(`
-                MATCH (u:User {id: $userId})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+                MATCH (u:User {id: $userId})-[:HAS_ENROLMENT]->(e:CompletedEnrolment)-[:FOR_COURSE]->(c)
                 RETURN c.slug AS slug
             `, { userId })
 
