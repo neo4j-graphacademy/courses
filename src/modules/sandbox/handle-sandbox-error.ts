@@ -38,12 +38,14 @@ export function handleSandboxError(token: string, user: User, endpoint: string, 
             token,
         })
 
-        event.addMetadata('request', {
-            data: error.request.data,
-            headers: error.request.headers,
-            status: error.request.status,
-            statusText: error.request.statusText,
-        })
+        if (error.request) {
+            event.addMetadata('request', {
+                data: error.request.data,
+                headers: error.request.headers,
+                status: error.request.status,
+                statusText: error.request.statusText,
+            })
+        }
 
         if (error.response) {
             event.addMetadata('response', {
