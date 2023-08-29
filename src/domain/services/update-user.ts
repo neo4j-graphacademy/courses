@@ -50,10 +50,13 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
             company: user.company
         }
 
-        await saveUserInfo(token, user, {
-            ...meta,
-            user_metadata: meta,
-        })
+        // If any info is provided, send to sandbox API
+        if (Object.values(meta).some(v => !!v)) {
+            await saveUserInfo(token, user, {
+                ...meta,
+                user_metadata: meta,
+            })
+        }
     }
     catch (e: unknown) {
         // Fine
