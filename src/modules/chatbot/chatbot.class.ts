@@ -159,7 +159,7 @@ export class Chatbot {
 
                 FOREACH (section IN $sections |
                     MERGE (s:Section {url: section.sectionUrl})
-                    MERGE (r)-[sr:RERANKED_SECTION]->(p)
+                    MERGE (r)-[sr:RERANKED_SECTION]->(s)
                     SET sr.similarityScore = section.score = sr.relevanceScore = section.relevanceScore
                 )
 
@@ -199,6 +199,7 @@ export class Chatbot {
 
                 Provide a code sample if possible.
                 Also include any links to relevant documentation or lessons on GraphAcademy, excluding the current page where applicable.
+                For questions on licensing or sales inquiries, instruct the user to email sales@neo4j.com.
                 `
             },
             {
@@ -222,7 +223,7 @@ export class Chatbot {
         const chatCompletion = await this.openai.createChatCompletion({
             model: OPENAI_CHAT_MODEL,
             messages,
-            temperature: 0.1,
+            temperature: 0.0,
         });
 
         const [choice] = chatCompletion.data.choices
