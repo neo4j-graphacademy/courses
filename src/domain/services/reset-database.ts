@@ -1,3 +1,4 @@
+import { Driver } from 'neo4j-driver'
 import { getSandboxForUseCase } from "../../modules/sandbox";
 import { createDriver } from '../../modules/neo4j';
 import { notify } from '../../middleware/bugsnag.middleware';
@@ -22,38 +23,42 @@ export async function resetDatabase(token: string, user: User, course: string, m
     const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
     const { username, password } = sandbox
 
-    const driver = await createDriver(host, username, password)
+    let driver = await createDriver(host, username, password, false)
+    try {
+        await driver.verifyConnectivity()
 
-    const session = driver.session()
+        const session = driver.session()
 
-    const parts = cypher.split(';')
-        .filter(e => e.trim() !== '')
+        const parts = cypher.split(';')
+            .filter(e => e.trim() !== '')
 
-    for (const part of parts) {
-        try {
+        for (const part of parts) {
             await session.executeWrite(async tx => tx.run(part))
         }
-        catch (e: any) {
-            notify(e, event => {
-                event.addMetadata('course', {
-                    course,
-                    module,
-                    lesson,
-                    usecase,
-                })
 
-                event.addMetadata('query', {
-                    instance: (driver as any)['_address'],
-                    type: 'reset',
-                    query: cypher,
-                })
+        await driver.close()
+    }
+    catch (e: any) {
+        notify(e, event => {
+            event.addMetadata('course', {
+                course,
+                module,
+                lesson,
+                usecase,
             })
 
+            event.addMetadata('query', {
+                instance: { host, username, password },
+                type: 'reset',
+                query: cypher,
+            })
+        })
 
-        }
+        return false
     }
-
-    await session.close()
+    finally {
+        await driver.close()
+    }
 
     return true
 }

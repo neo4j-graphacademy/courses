@@ -48,10 +48,12 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
         const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
         const { username, password } = sandbox
 
-        const driver = await createDriver(host, username, password)
-        const session = driver.session()
+        const driver = await createDriver(host, username, password, false)
 
         try {
+            await driver.verifyConnectivity()
+            const session = driver.session()
+
             const res = await session.executeRead(tx => tx.run(verify))
 
             // If no records are returned then the test has failed
@@ -95,6 +97,9 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
             })
 
             answers = createAnswer(questionId, `Internal Server Error: ${e.message}`)
+        }
+        finally {
+            await driver.close()
         }
     }
 
