@@ -1,0 +1,1 @@
+MATCH (a:Actor&Director) RETURN true as outcome LIMIT 1
