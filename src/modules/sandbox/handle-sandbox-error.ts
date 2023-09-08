@@ -1,10 +1,11 @@
-import { User } from "@bugsnag/js";
 import { notify } from "../../middleware/bugsnag.middleware";
 import { SandboxBadRequestError } from "./sandbox-bad-request.error";
 import { SandboxForbiddenError } from "./sandbox-forbidden.error";
 import { SandboxServerError } from "./sandbox-server.error";
 import { SandboxUnauthorizedError } from "./sandbox-unauthorized.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
+import { write } from "../neo4j";
+import { User } from "../../domain/model/user";
 
 export function handleSandboxError(token: string, user: User, endpoint: string, error: any): Error {
     let output: Error
@@ -56,6 +57,18 @@ export function handleSandboxError(token: string, user: User, endpoint: string, 
             })
         }
     })
+
+    // Save to db
+    write(`
+        MERGE (u:User {sub: $sub})
+        CREATE (se:SandboxError {
+            createdAt: datetime(),
+            type: $type,
+            message: $message
+        })
+        CREATE (u)-[:EXPERIENCED_ERROR]->(se)
+
+    `, { sub: user.sub, type: output.name, message: output.message })
 
     return output
 }

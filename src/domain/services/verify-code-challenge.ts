@@ -7,6 +7,7 @@ import { Answer } from "../model/answer";
 import { User } from "../model/user";
 import { getCourseWithProgress } from "./get-course-with-progress";
 import { saveLessonProgress } from "./save-lesson-progress";
+import saveSandboxError from "./save-sandbox-error";
 
 function createAnswer(id: string, reason: string | string[], answers: string[] = [], correct = false): Answer[] {
     return [{
@@ -95,6 +96,9 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
                 })
                 error.setUser(user.sub, user.email, user.name)
             })
+
+            // Save to db
+            void saveSandboxError(user, course, module, lesson, sandbox, e)
 
             answers = createAnswer(questionId, `Internal Server Error: ${e.message}`)
         }

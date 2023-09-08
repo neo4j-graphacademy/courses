@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios'
-import { IS_PRODUCTION } from '../../constants'
+import { AUTH0_ISSUER_BASE_URL, IS_PRODUCTION } from '../../constants'
 import { devSandbox } from '../../domain/model/sandbox.mocks'
 import { User } from '../../domain/model/user'
 import { handleSandboxError } from './handle-sandbox-error'
@@ -19,7 +19,7 @@ export function sandboxApi() {
 
 export async function getAuth0UserInfo(token: string, user: User): Promise<Partial<User>> {
     try {
-        const res = await axios.post(`${process.env.AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
+        const res = await axios.post(`${AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
             id_token: token
         })
 
