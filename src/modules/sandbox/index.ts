@@ -253,7 +253,7 @@ export async function saveUserInfo(token: string, user: User, data: UserMetaData
 
         await sandboxApi().post(
             `SandboxSaveUserInfo`,
-            { user_metadata: data },
+            data,
             {
                 headers: {
                     authorization: `${token}`
