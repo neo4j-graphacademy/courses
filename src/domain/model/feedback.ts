@@ -1,4 +1,4 @@
-type Reason = 'missing' | 'inaccurate' | 'other'
+type Reason = 'missing' | 'inaccurate' | 'hard-to-follow' | 'other'
 
 export interface FeedbackPayload {
     helpful: boolean;

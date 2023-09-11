@@ -533,7 +533,7 @@ const chat = async (req: Request, res: Response) => {
         const { message } = req.body
 
         if (chat && typeof message === 'string' && message !== '') {
-            const response = await chat.askQuestion(user, message, req.originalUrl)
+            const response = await chat.askQuestion(user, message, req.originalUrl.replace(/chat$/, ''))
 
             return res.json(response)
         }
