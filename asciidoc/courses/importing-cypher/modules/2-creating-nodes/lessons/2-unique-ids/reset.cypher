@@ -1,4 +1,4 @@
-MATCH (p:Person) DELETE p;
+MATCH (p:Person) DETACH DELETE p;
 
 DROP CONSTRAINT Person_tmdbId IF EXISTS;
 

@@ -1,5 +1,5 @@
-MATCH (p:Person) DELETE p;
-MATCH (m:Movie) DELETE m;
+MATCH (p:Person) DETACH DELETE p;
+MATCH (m:Movie) DETACH DELETE m;
 
 DROP CONSTRAINT Person_tmdbId IF EXISTS;
 DROP CONSTRAINT Movie_movieId IF EXISTS;
