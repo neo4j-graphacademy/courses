@@ -667,10 +667,13 @@ const displayLessonCompleted = (res) => {
         const span = document.createElement('span')
         span.innerHTML = ' &rarr;'
 
+        const nextTitle = document.createElement('span')
+        nextTitle.innerHTML = res.data.next.title
+
         const button = createElement('a', 'btn btn-primary', [
             window.i18n.advanceTo,
             ' ',
-            res.data.next.title,
+            nextTitle,
             ' ',
             span
         ])
