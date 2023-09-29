@@ -1,0 +1,1 @@
+MATCH (p:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(p:Person) RETURN true as outcome LIMIT 1

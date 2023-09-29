@@ -1,0 +1,3 @@
+CREATE CONSTRAINT Person_tmdbId
+FOR (x:Person) 
+REQUIRE x.tmdbId IS UNIQUE

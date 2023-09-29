@@ -1,0 +1,1 @@
+MATCH (p:Person) DETACH DELETE p;
