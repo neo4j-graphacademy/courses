@@ -1,5 +1,5 @@
 describe('Importing CSV Data into Neo4j', () => {
-    it('should pass importing-data', () => {
+    it('should pass importing-cypher', () => {
         cy.setup()
         cy.login()
 
