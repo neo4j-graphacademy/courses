@@ -16,4 +16,5 @@ m.runtime = toInteger(row.runtime),
 m.imdbVotes = toInteger(row.imdbVotes),
 m.revenue = toInteger(row.revenue),
 m.url = row.url,
-m.countries = split(row.countries, '|')
+m.countries = split(row.countries, '|'),
+m.languages = split(row.languages, '|')
