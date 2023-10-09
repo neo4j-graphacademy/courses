@@ -19,9 +19,7 @@ export async function getUserAchievements(id: string): Promise<Achievements> {
     const res = await read(
         `
         MATCH (u:User {id: $id})
-
         OPTIONAL MATCH (u)-[:HAS_ENROLMENT]->(e:CompletedEnrolment)-[:FOR_COURSE]->(c)
-        WHERE NOT c.status IN $exclude + $STATUS_DRAFT
 
         WITH e, u, c
         ORDER BY e.completedAt ASC
