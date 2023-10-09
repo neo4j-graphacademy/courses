@@ -13,8 +13,7 @@ FOR (x:Movie)
 REQUIRE x.movieId IS UNIQUE;
 
 LOAD CSV WITH HEADERS 
-FROM "https://data.neo4j.com/importing-cypher/persons.csv" 
-AS row
+FROM 'https://data.neo4j.com/importing-cypher/persons.csv'  AS row
 MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
 SET
 p.imdbId = toInteger(row.person_imdbId),
@@ -27,8 +26,7 @@ p.born = date(row.born),
 p.died = date(row.died);
 
 LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing-cypher/movies.csv'
-AS row
+FROM 'https://data.neo4j.com/importing-cypher/movies.csv' AS row
 MERGE (m:Movie {movieId: toInteger(row.movieId)})
 SET
 m.tmdbId = toInteger(row.tmdbId),
@@ -55,8 +53,7 @@ MERGE (p)-[r:ACTED_IN]->(m)
 SET r.role = row.role;
 
 LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing-cypher/directed.csv'
-AS row
+FROM 'https://data.neo4j.com/importing-cypher/directed.csv' AS row
 MATCH (p:Person {tmdbId: toInteger(row.person_tmdbId)})
 MATCH (m:Movie {movieId: toInteger(row.movieId)})
 MERGE (p)-[r:DIRECTED]->(m);

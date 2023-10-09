@@ -13,7 +13,7 @@ FOR (x:Movie)
 REQUIRE x.movieId IS UNIQUE;
 
 LOAD CSV WITH HEADERS 
-FROM "https://data.neo4j.com/importing-cypher/persons.csv" 
+FROM 'https://data.neo4j.com/importing-cypher/persons.csv' 
 AS row
 MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
 SET

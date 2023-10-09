@@ -5,8 +5,7 @@ REQUIRE x.movieId IS UNIQUE;
 
 // Load the Movie nodes
 LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing-cypher/movies.csv'
-AS row
+FROM 'https://data.neo4j.com/importing-cypher/movies.csv' AS row
 MERGE (m:Movie {movieId: toInteger(row.movieId)})
 SET
 m.tmdbId = toInteger(row.tmdbId),

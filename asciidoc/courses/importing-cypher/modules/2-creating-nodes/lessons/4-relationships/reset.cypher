@@ -12,7 +12,7 @@ CREATE CONSTRAINT Movie_movieId
 FOR (x:Movie) 
 REQUIRE x.movieId IS UNIQUE;
 
-LOAD CSV WITH HEADERS FROM "https://data.neo4j.com/importing-cypher/persons.csv" AS row
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/importing-cypher/persons.csv' AS row
 MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
 SET
 p.imdbId = toInteger(row.person_imdbId),

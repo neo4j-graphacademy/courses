@@ -1,6 +1,5 @@
 LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/importing-cypher/movies.csv'
-AS row
+FROM 'https://data.neo4j.com/importing-cypher/movies.csv' AS row
 MERGE (m:Movie {movieId: toInteger(row.movieId)})
 SET
 m.tmdbId = toInteger(row.tmdbId),
@@ -16,5 +15,4 @@ m.runtime = toInteger(row.runtime),
 m.imdbVotes = toInteger(row.imdbVotes),
 m.revenue = toInteger(row.revenue),
 m.url = row.url,
-m.countries = split(row.countries, '|'),
-m.languages = split(row.languages, '|')
+m.countries = split(row.countries, '|')
