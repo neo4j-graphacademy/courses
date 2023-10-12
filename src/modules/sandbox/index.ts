@@ -59,7 +59,7 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
 
     try {
         const res = await sandboxApi().get(
-            `SandboxGetRunningInstancesForUser`,
+            `SandboxGetRunningInstancesForUser?all_statuses=true`,
             {
                 headers: {
                     authorization: `${token}`
