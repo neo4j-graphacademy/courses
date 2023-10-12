@@ -726,7 +726,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
         }
 
         const attributes = {
-            ...await getPageAttributes(req, course),
+            ...await getPageAttributes(req, course, module),
         }
 
         const doc = await convertModuleOverview(req.params.course, req.params.module, attributes)
@@ -848,7 +848,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Add sandbox attributes to Page Attributes?
         let sandbox: Sandbox | undefined
 
-        if (course.usecase && user && course.completed === false) {
+        if (course.usecase && user && course.completed === false && lesson.disableCache === false) {
             try {
                 sandbox = await createAndSaveSandbox(token, user, course)
             }
@@ -862,7 +862,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
 
         // Build Attributes for adoc
         const attributes = {
-            ...await getPageAttributes(req, course),
+            ...await getPageAttributes(req, course, module, lesson),
             ...flattenAttributes({ sandbox: sandbox || {} }),
         }
 

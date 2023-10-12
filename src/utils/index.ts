@@ -434,7 +434,7 @@ export function sortCourses(courses: Course[]) {
  * @param course {Course}
  * @return {Record<string, any>}
  */
-export async function getPageAttributes(req: Request | undefined, course: Course): Promise<Record<string, any>> {
+export async function getPageAttributes(req: Request | undefined, course: Course, module?: Module, lesson?: Lesson): Promise<Record<string, any>> {
     const user = req ? await getUser(req) : undefined
 
     const attributes: Record<string, any> = {
@@ -443,7 +443,9 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         shared: path.join(ASCIIDOC_DIRECTORY, 'shared'),
     }
 
-    if (req && user && course.usecase) {
+    const cacheDisabled = lesson && lesson?.disableCache === true
+
+    if (req && user && course.usecase && cacheDisabled) {
         const token = await getToken(req)
 
         const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
