@@ -1,0 +1,222 @@
+= Vector Indexes
+:sandbox: true
+
+In the last lesson, you learned about vectors and the role that they play in Semantic Search.
+
+In this lesson, you will learn how to create vector embeddings of text content in an existing Neo4j database.
+
+
+== Vectorizing Movie Plots
+
+When you enrolled to this course, a Movie Recommendation Sandbox was created.
+This database consists of over 9000 movies, 15000 actors, and just over 100000 user ratings.
+
+Each movie has a `.plot` property.
+
+.Movie Plot Example
+[source,cypher]
+MATCH (m:Movie {title: "Toy Story"})
+RETURN m.title AS title, m.plot AS plot
+
+.Movie Plot Example Results
+[%cols="1"]
+|===
+| plot
+
+| "A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room."
+|===
+
+You could manually search for other movies that mention the keywords in this plot, but that could be time-consuming.
+
+Instead, this text could be converted into an embedding and use the index in Neo4j to find the most similar movies.
+
+
+== Generating Embeddings
+
+We have prepared a file of 1000 embeddings created by calling the Ollama embedidngs endpoint, served by the link:https://github.com/docker/genai-stack[GenAI Stack^].
+The embeddings are created using the link:https://ollama.ai/library/orca-mini[Orca Mini] model.
+Orca Mini is a small, fast, LLM model popular with developers and data scientists because it still performs extremely well on minimal hardware.
+
+
+[TIP]
+.Generating the Embeddings
+====
+We wrote a simple Python script to call the `/api/embeddings` endpoint served by Ollama.
+You can link:TODO:link-the-repo[view the code on Github^].
+====
+
+For this lesson, it doesn't necessarily matter where these embeddings were obtained as each LLM will provide an embedding in its own shape.
+
+
+== Creating the Vector Index
+
+For simplicity, let's say the embeddings will be saved to the `.embedding` property on the `(:Movie)` node.
+We must create a vector index on that Label and property
+
+
+As vector indexes are a specialized type of index, you must call the `db.index.vector.createNodeIndex()` procedure.
+The procedure expects five parameters.
+
+.Procedure Signature
+[source,cypher]
+----
+CALL db.index.vector.createNodeIndex(
+    'moviePlots', // <1>
+    'Movie',      // <2>
+    'embedding',  // <3>
+    3200,         // <4>
+    'cosine'      // <5>
+)
+----
+
+1. The name of the index - we will want to call ours something `moviePlots`.
+2. The label on which to index - `Movie`.
+3. The key of the property on the node to index - `embedding`.
+4. The dimension of the embedding - Orca Mini embeddings consist of `3200` dimensions.
+5. The similarity function to use when comparing values in this index - this can be `euclidean` or `cosine`.
+
+[TIP]
+.Choosing a Similarity Function
+====
+You will want to choose the similarity function that is closest to the loss function used for training the embedding model.
+You may be able to find this out by reviewing your model provider's documentation.
+
+Experiment with the functions if necessary, and, if all else fails, experiment with `cosine` first.
+
+You can link:https://neo4j.com/docs/cypher-manual/current/indexes-for-vector-search/#indexes-vector-similarity[read more about similarity functions in our documentation^].
+====
+
+
+
+=== Check the index creation status
+
+You can check that the index has been created using the `SHOW INDEXES` command.
+
+.Show Indexes
+[source,cypher]
+----
+SHOW INDEXES  YIELD id, name, type, state, populationPercent WHERE type = "VECTOR"
+----
+
+.Show Indexes Result
+|===
+| id | name | type | state | populationPercent
+
+|1 | "moviePlots" | "VECTOR" | "ONLINE" | `100.0`
+|===
+
+Once the `state` is listed as online, the index will be ready to query.
+The `populationPercentage` field indicates the proportion of node and property pairing that currently exist in the index.
+
+
+== Loading Embeddings
+
+You can load these embeddings into the Neo4j Sandbox instance using the `LOAD CSV` command.
+
+The following data loads a CSV file hosted on Github, performs a `MATCH` query to find the `(:Movie)` node with the corresponding `movieId` property, and then sets the `.embedding` property on that node.
+
+
+
+.Loading the Embeddings
+[source,cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://github.com/neo4j-graphacademy/llm-fundamentals/raw/main/data/embeddings.csv'
+AS row
+MATCH (m:Movie {movieId: row.movieId})
+CALL db.create.setVectorProperty(m, 'embedding', apoc.convert.fromJsonList(row.embedding)) YIELD node
+RETURN count(*)
+----
+
+
+The query uses the `db.create.setVectorProperty()` procedure to set the property.
+Before setting the property, the procedure validates that the property is a valid vector.
+
+[TIP]
+.LOAD CSV and Strings
+====
+When data is loaded using `LOAD CSV`, it is treated as a string unless specifically cast using a specific function, for example, `toInteger()` or `toFloat()`.
+In this case, the embedding needs to be coerced into a JSON list link:https://neo4j.com/docs/apoc/current/overview/apoc.convert/apoc.convert.fromJsonList/[using the `apoc.convert.fromJsonList()` function^].
+
+You can link:https://graphacademy.neo4j.com/courses/importing-cypher/[learn how to use the `LOAD CSV` command in the Importing Data Course].
+====
+
+As these properties are set, the index will be updated asyncronously.
+You can check the status of the index population using the `SHOW INDEXES` statement above.
+
+
+== Querying Vector Indexes
+
+You can query the index using the `db.index.vector.queryNodes()` procedure.
+The procedure returns the requested number of approximate nearest neighbor nodes and their similarity score, ordered by the score.
+
+[source,cypher,rel=norun]
+.Querying a Vector Index
+----
+CALL db.index.vector.queryNodes(
+    'moviePlots',    // <1>
+    10,              // <2>
+    $embedding       // <3>
+) YIELD node, score  // <4>
+----
+
+The procedure accepts three parameters:
+
+1. The name of the vector index
+2. The number of results to return
+3. A list of `float`s that represent an embedding
+
+The procedure yields two arguments (`4`); a `node` and a similarity `score` ranging from `0.0` to `1.0`.
+
+We can use this procedure to find the closest movie plot to **Toy Story** and pass the `.embedding` property to the `db.index.vector.queryNodes()` procedure.
+
+[source,cypher]
+.Similar Plots
+----
+MATCH (m:Movie {title: 'Toy Story'})
+WITH m LIMIT 1
+
+CALL db.index.vector.queryNodes('moviePlots', 6, m.embedding)
+YIELD node, score
+
+WITH m, node, score
+WHERE m <> node
+
+RETURN node.title AS title, left(node.plot, 50) +'...' AS plot, score
+----
+
+.Similar Plots Results
+|===
+| title | plot | score
+
+| "NeverEnding Story III, The" | 	"A young boy must restore order when a group of bul..." | `0.8819761276245117`
+| "Oliver & Company" | 	"A lost and alone kitten joins a gang of dogs engag..." | `0.8787325024604797`
+| "Pete's Dragon"	 | "An orphan boy and his magical dragon come to town ..." | `0.8750286102294922`
+| "Drop Dead Fred" | 	"A young woman finds her already unstable life rock..." | `0.8748894929885864`
+| "Cabin Boy" | "A foul-mouthed finishing school graduate mistakenl..." | `0.8737958669662476`
+
+|===
+
+
+== Conclusion
+
+// TODO: Do we make conclusions?! Is this a valid statement?
+As you can see, this approach is relatively straightforward and can quickly yield results.
+The downside to this approach is that it relies heavily on the embeddings and similarity function to produce valid results.
+This approach is also a black box.
+With 3200 dimensions, it would be impossible to determine how the vectors are structured and what factors were considered when calculating the similarity.
+
+
+
+== Check your understanding
+
+include::questions/1-create-index.adoc[leveloffset=+1]
+include::questions/2-similarity-functions.adoc[leveloffset=+1]
+include::questions/3-query-index.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to create, populate and use a Vector index in Neo4j.
+
+In the next lesson, you will be challenged to create your own.
