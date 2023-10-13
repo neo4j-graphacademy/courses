@@ -1,18 +1,83 @@
 = Improving Semantic Search
+:optional: true
 
 // https://www.youtube.com/watch?v=bRD09ndyJNs
 
 So far in this module, you have learned about the benefits and drawbacks of Semantic Search using an underlying vector index.
 
 As you may have noticed from the previous challenge, we received an answer from the vector index but it is difficult to tell whether that is the best movie in the database.
+Using vector-backed semantic search places a lot of emphasis on the underlying model to provide a good similarity.
+
+The context from which the similarity scores are provided is an important factor here.
+Our embeddings are trained on a generic dataset, and as such, may identify two movies with a main character called Jack who likes fruit as movies with a close similarity.
+In one sense, this is correct, as these movies will be similar concepts when compared to, say, a vanilla yoghurt or a cricket bat.
+
+On the other hand, if you are recommending a childrens movie to pass away a rainy afternoon, *Jack and the Beanstalk* is worlds away from *The Shining*.
 
 
-* you rely on the model to provide a good similarity
-* two movies about a character named Jack may be considered by the model to be similar to each other when compared to a, say, vanilla yoghurt, but Jack and the Beanstalk and The Shining are two completely different movies.
+== Incorporating Graph Features
+
+Graph features can enrich vector-backed semantic search by providing structural and relational context to data.
+Leveraging the interconnectedness inherent in graphs, semantic search can draw upon relationships and hierarchies between entities, enhancing the depth and relevance of search results.
+While vectors capture semantic nuances, the addition of graph structures allows for a more holistic understanding of data, considering both its inherent meaning and its position in a broader network of knowledge.
+
+This topic is out of the scope of this module, but for more information, we recommend watching link:https://www.youtube.com/watch?v=bRD09ndyJNs[Going Meta - Ep 21: Vector-based Semantic Search and Graph-based Semantic Search^], in which Dr Jesus Barassa and Alexander Erdl explore the differences between Vector-based Semantic Search and Graph-based Semantic Search.
+
+== Using Feedback
+
+A simpler approach may be to use User feedback to gradually re-rank and curate the content returned by a vector index search.
+This is the approach we take with the GraphAcademy chatbot.
+
+To celebrate the launch of the Vector Index, we published an article detailing link:https://medium.com/neo4j/building-an-educational-chatbot-for-graphacademy-with-neo4j-f707c4ce311b[how we used vector index to identify Neo4j content] to improve LLM responses.
+The article demonstrates how we ingested Neo4j Documentation and GraphAcademy lessons, using embeddings of the content to populate a vector index.
+
+// TODO: Move to CDN?
+image::https://miro.medium.com/v2/resize:fit:4800/format:webp/1*BpDS376rEKb6kWBlxNobRQ.png[The GraphAcademy Chatbot Data Model]
+
+When a user asks a question, the server generates an embedding of the user's question and uses the vector index to identify relevant content.
+
+This approach works well in most cases, but now and again, the index fails to return relevant content, in which case the LLM is instructed to respond to the user with an apology.
+
+When this happens, or the user provides feedback, this is stored in the database.
+This means over time, we get a better picture of which documents do or do not answer specific queries.
+
+When a new user question comes in, we can compare this question to previous questions, and exclude any suggested documents where the response was considered unhelpful.
+
+[source,cypher,rel=noplay]
+.Excluding Content
+----
+// Find 10 previous questions for similar questions (> 0.9)
+CALL db.index.vector.queryNodes('questions', 1000, $embedding)
+YIELD node AS unhelpful, score
+WHERE score >= 0.9 AND unhelpful:UnhelpfulResponse
+
+// Find suggested section where the response was marked as unhelpful
+MATCH (unhelpful)-[:SUGGESTED_SECTION]->(section)
+
+WITH doc, count(*) AS occurrences
+WHERE occurrences > $threshold
+
+WITH collect(doc) AS exclude
+
+// Now, check the documents for similarity
+CALL db.index.vector.queryNodes('documents', 20, $embedding)
+YIELD node AS section, score
+
+// Exclude previously unhelpful documents
+WHERE NOT section IN exclude
+
+RETURN section.url AS url, section.text AS text
+ORDER BY score DESC LIMIT 10
+----
+
+The `$embedding` parameter above contains an embedding of the current question.
 
 
+== Module Summary
 
-* Get the results from the index, use previous responses to similar questions and feedback to determine whether documents will provide the answer.  but this is time consuming, and many children may be scared in the process.
+In this module, you have learned how vector search can be implemented in Neo4j.
+You have learned how to create a vector index using the `db.index.vector.createNodeIndex()` procedure, set vector properties using the `db.create.setVectorProperty()` procedure and query the vector index using the `db.index.vector.queryNodes()` procedure.
 
-* Improving semantic search with graph features
-* Improve explainability with paths in the graph
+We have also explored the benefits and potential drawbacks of Vector-based Semantic Search.
+
+In the next module, you will get hands-on with Langchain, a framework designed to simplify the creation of applications using large language models.
