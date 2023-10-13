@@ -41,6 +41,10 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
 
     const output: User = res.records[0].get('u')
 
+    /**
+     * This endpoint has been disabled.
+     * TODO: Should this information be passed to marketo?  It is already sent to segment.
+
     try {
         const parts = updates.givenName?.split(' ', 2)
         const meta = {
@@ -61,6 +65,7 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     catch (e: unknown) {
         // Fine
     }
+    */
 
     // Fire event
     emitter.emit(new UserUpdatedAccount(user, updates))
