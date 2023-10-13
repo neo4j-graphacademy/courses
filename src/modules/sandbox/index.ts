@@ -48,7 +48,7 @@ export async function getUserInfo(token: string, user: User): Promise<Partial<Us
 }
 
 
-export async function getSandboxes(token: string, user: User): Promise<Sandbox[]> {
+export async function getSandboxes(token: string, user: User, isRetry = false): Promise<Sandbox[]> {
     // if (!isVerified(token)) {
     //     return []
     // }
@@ -59,7 +59,7 @@ export async function getSandboxes(token: string, user: User): Promise<Sandbox[]
 
     try {
         const res = await sandboxApi().get(
-            `SandboxGetRunningInstancesForUser?all_statuses=true`,
+            `SandboxGetRunningInstancesForUser?all_statuses=true${isRetry ? '&is_retry=true' : ''}`,
             {
                 headers: {
                     authorization: `${token}`
@@ -141,19 +141,19 @@ export async function getOrCreateSandboxForUseCase(token: string, user: User, us
     return sandbox
 }
 
-export async function getSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox | undefined> {
+export async function getSandboxForUseCase(token: string, user: User, usecase: string, isRetry = false): Promise<Sandbox | undefined> {
     if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
         return devSandbox()
     }
 
-    const sandboxes = await getSandboxes(token, user)
+    const sandboxes = await getSandboxes(token, user, isRetry)
 
     return sandboxes.find(sandbox => sandbox.usecase === usecase)
 }
 
 export async function createSandbox(token: string, user: User, usecase: string, isRetry = false): Promise<Sandbox> {
     // Prefer existing to avoid 400 errors
-    const existing = await getSandboxForUseCase(token, user, usecase)
+    const existing = await getSandboxForUseCase(token, user, usecase, isRetry)
 
     if (existing) {
         return existing
@@ -184,15 +184,21 @@ export async function createSandbox(token: string, user: User, usecase: string, 
         if (e.response) {
             const response = e.response as AxiosResponse<{ errorString: string }>
 
-            if (response.status === 400 && response.data.errorString.includes('already exists')) {
+            if (response.status === 400) {
                 await sleep()
 
-                const existing = await getSandboxForUseCase(token, user, usecase)
+                // Retry after a second
+                await sleep(2000)
+
+                const existing = await getSandboxForUseCase(token, user, usecase, true)
 
                 return existing as Sandbox
             }
             // Sandbox Unauthorized (401) on SandboxRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
             else if (response.status === 401 && isRetry === false) {
+                // Retry after a second
+                await sleep(2000)
+
                 await createGraphAcademyUser(token, user)
 
                 return createSandbox(token, user, usecase, true)
@@ -202,7 +208,7 @@ export async function createSandbox(token: string, user: User, usecase: string, 
                 handleSandboxError(token, user, 'SandboxRunInstance', e)
 
                 // Retry after a second
-                await sleep(1000)
+                await sleep(2000)
 
                 return createSandbox(token, user, usecase, true)
             }
