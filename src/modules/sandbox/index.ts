@@ -99,7 +99,7 @@ export async function getSandboxByHashKey(token: string, user: User, sandboxHash
     const sandbox = sandboxes.find(row => row.sandboxHashKey === sandboxHashKey)
 
     try {
-        const res: AxiosResponse<string> = await sandboxApi().get(`getSandboxByHashKey?sandboxHashKey=${sandboxHashKey}&verifyConnect=true`, {
+        const res: AxiosResponse<string> = await sandboxApi().get(`SandboxGetInstanceByHashKey?sandboxHashKey=${sandboxHashKey}&verifyConnect=true`, {
             headers: {
                 authorization: `${token}`
             },
@@ -127,7 +127,7 @@ export async function getSandboxByHashKey(token: string, user: User, sandboxHash
             }
         }
 
-        throw handleSandboxError(token, user, 'getSandboxByHashKey', e)
+        throw handleSandboxError(token, user, 'SandboxGetInstanceByHashKey', e)
     }
 }
 
