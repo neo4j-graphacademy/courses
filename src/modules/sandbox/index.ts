@@ -59,7 +59,7 @@ export async function getSandboxes(token: string, user: User, isRetry = false): 
 
     try {
         const res = await sandboxApi().get(
-            `SandboxGetRunningInstancesForUser?all_statuses=true${isRetry ? '&is_retry=true' : ''}`,
+            `SandboxGetRunningInstancesForUser{isRetry ? '?is_retry=true' : ''}`,
             {
                 headers: {
                     authorization: `${token}`
