@@ -123,7 +123,13 @@ export async function getSandboxByHashKey(token: string, user: User, sandboxHash
             return {
                 sandboxHashKey,
                 sandbox,
-                status: response.data.includes('no ip') ? SANDBOX_STATUS_PENDING : SANDBOX_STATUS_NOT_FOUND,
+                status: SANDBOX_STATUS_NOT_FOUND,
+            }
+        } else if (response.status === 417) {
+            return {
+                sandboxHashKey,
+                sandbox,
+                status: SANDBOX_STATUS_PENDING,
             }
         }
 
