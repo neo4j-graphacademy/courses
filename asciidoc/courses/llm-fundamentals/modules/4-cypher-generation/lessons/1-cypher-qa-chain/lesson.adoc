@@ -1,4 +1,100 @@
 = The Cypher QA Chain
 
-* Setting up the Cypher QA Chain
-* Graph
+// https://adamcowley.co.uk/posts/abridged-neo4j-cypher-generation/
+
+* AS we discussed previously, vector indexes have their drawbacks
+* LLMs are good at writing Cypher
+* The schema loaded by the `Neo4jGraph` object can be passed to the LLM to help inform the generation
+* The logic has already been written for you in the `GraphCypherQAChain`
+* It can be used independently or as a tool by an agent
+
+.Cypher Generation Template
+[source,python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Schema: {schema}
+Question: {question}
+"""
+
+CYPHER_GENERATION_PROMPT = PromptTemplate(
+    input_variables=["schema", "question"], validate_template=True, template=CYPHER_GENERATION_TEMPLATE
+)
+----
+
+
+* The class has a static from_llm method for instantiating the class with kwargs for the LLM and Graph.
+
+* The class allows you to pass different LLM objects for generating Cypher and answering the query (cypher_llm and qa_llm), which allow you to experiment with different models until you find the right models for the best result for Cypher generation.
+
+* TIP: You can specify different llms for Cypher Generation and response formatting by removing `llm` and specifying  `cypher_llm` and `qa_llm`
+
+
+.Running the Cypher Chain
+[source,python]
+----
+from langchain.chains import GraphCypherQAChain
+
+cypher_chain = GraphCypherQAChain.from_llm(
+    llm,
+    graph=graph,
+    cypher_prompt=CYPHER_GENERATION_PROMPT,
+    verbose=True  # To see what is happening inside the chain
+)
+
+cypher_chain.run("What role did Tom Hanks play in Toy Story?")
+----
+
+
+    > Entering new GraphCypherQAChain chain...
+
+    Generated Cypher:
+
+    MATCH (m:Movie {title: 'Toy Story'})<-[r:ACTED_IN]-(a:Actor)
+    RETURN a.name as Actor, r.role as Role
+
+    Full Context:
+    [{"Actor": "Tom Hanks", "Role": "Woody"}]
+
+    Tom Hanks played Woody in Toy Story.
+
+* How does it handle an aggregate query?
+
+.Aggregate Query
+[source,python]
+----
+cypher_chain.run("How many movies has Tom Hanks directed?")
+----
+
+    > Entering new GraphCypherQAChain chain...
+
+    Generated Cypher:
+
+    MATCH (d:Director {name: 'Tom Hanks'})-[:DIRECTED]->(m:Movie)
+    RETURN COUNT(m)
+
+    Full Context:
+    [{'COUNT(m)': 2}]
+
+    > Finished chain.
+
+
+    'Tom Hanks has directed 2 movies.'
+
+* These queries are handled pretty well, but I can see a problem
+* In the next lesson, you will learn how specific instructions can be used to modify the user input
+
+
+== Check Your Understanding
+
+TODO
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned something...
+
+In the next lesson, you will learn how to do something else...

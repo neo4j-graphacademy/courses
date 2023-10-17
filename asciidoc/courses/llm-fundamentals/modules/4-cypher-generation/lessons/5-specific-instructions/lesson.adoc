@@ -1,3 +1,135 @@
 = Providing Specific Instructions
 
-* Updating `The Matrix` to `Matrix, The`
+* In the last lesson, you saw that langchain can generate some pretty good Cypher
+* But how about Emil's favorite movie?
+
+.The Matrix
+[source,cypher]
+cypher_chain.run("Who acted in The Matrix and what roles did they play?")
+
+    > Entering new GraphCypherQAChain chain...
+
+    Generated Cypher:
+
+    MATCH (m:Movie {title: 'The Matrix'})<-[:ACTED_IN]-(a:Actor)
+    RETURN a.name as Actor, a.role as Role
+
+    Full Context:
+    []
+
+
+    Finished chain.
+
+    "I'm sorry, but I don't have the information to answer that question."
+
+
+* A closer look at the dataset reveals that movies that start with `The` are renamed as `{title}, The`. This is where the cypher_prompt input can be used to fine-tune the prompt.
+* This will require some specific instructions in the prompt.
+* This is the default statement loaded in to the :
+
+
+.Original Prompt
+[source,python]
+----
+from langchain.chains.graph_qa.prompts import CYPHER_GENERATION_PROMPT as ORIGINAL_CYPHER_GENERATION_PROMPT
+
+print(ORIGINAL_CYPHER_GENERATION_PROMPT.template)
+----
+
+
+    Task:Generate Cypher statement to query a graph database.
+    Instructions:
+    Use only the provided relationship types and properties in the schema.
+    Do not use any other relationship types or properties that are not provided.
+    Schema:
+    {schema}
+    Note: Do not include any explanations or apologies in your responses.
+    Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
+    Do not include any text except the generated Cypher statement.
+
+    The question is:
+    {question}
+
+* Create a new prompt to fix movie titles
+* **TIP:** While you are here, you can also add a prompt to make sure that it doesn't respond to questions that don't ask for movie recommendations.
+
+
+
+.Updated Prompt
+[source,python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+If no context is returned, do not attempt to answer the question.
+
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+Schema:
+{schema}
+Note: Do not include any explanations or apologies in your responses.
+Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
+Do not include any text except the generated Cypher statement.
+
+Question: {question}
+"""
+
+CYPHER_GENERATION_PROMPT = PromptTemplate(
+    input_variables=["question", "schema"],
+    validate_template=True,
+    template=CYPHER_GENERATION_TEMPLATE
+)
+----
+
+
+* This can be added when creating the `GraphCypherQAChain` object by passing a `cypher_prompt` keyword argument.
+
+.Updated Prompt
+[source,python]
+----
+cypher_chain = GraphCypherQAChain.from_llm(
+    llm,
+    graph=graph,
+    verbose=True,
+    cypher_prompt = CYPHER_GENERATION_PROMPT
+)
+----
+
+* Try the question again
+
+.Updated Prompt
+[source,python]
+----
+cypher_chain.run("Who acted in The Matrix and what roles did they play?")
+----
+
+    > Entering new GraphCypherQAChain chain...
+    Generated Cypher:
+    MATCH (a:Actor)-[r:ACTED_IN]->(m:Movie)
+    WHERE m.title = "Matrix, The"
+    RETURN a.name, r.role
+    Full Context:
+    [{'a.name': 'Hugo Weaving', 'r.role': 'Agent Smith'}, {'a.name': 'Laurence Fishburne', 'r.role': 'Morpheus'}, {'a.name': 'Keanu Reeves', 'r.role': 'Thomas A. Anderson / Neo'}, {'a.name': 'Carrie-Anne Moss', 'r.role': 'Trinity'}
+    > Finished chain.
+
+* Perfect, the LLM has reformatted the title and now the full list of roles is passed to the LLM.
+
+
+    'Hugo Weaving played the role of Agent Smith, Laurence Fishburne portrayed Morpheus, Keanu Reeves was Thomas A. Anderson, also known as Neo, and Carrie-Anne Moss acted as Trinity in The Matrix.'
+
+
+
+
+== Check Your Understanding
+
+TODO
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned something...
+
+In the next lesson, you will learn how to do something else...
