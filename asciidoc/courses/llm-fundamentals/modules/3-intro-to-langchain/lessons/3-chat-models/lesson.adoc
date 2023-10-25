@@ -1,120 +1,208 @@
 = Chat Models
 
-In the previous lesson, you learned how to perform basic communication with an LLM using one of the many LLM providers supported by Langchain.
+In the previous lesson, you learned how to communicate with the OpenAI LLM using Langchain.
 
-* Simple communication only
-* Provide text input and get a response
+The communication was simple, you provided a prompt and got a response.
 
-
+In this lesson, you will learn how to use a chat model to _have a conversation_ with the LLM.
 
 == Chat Models vs Language Models
 
-* Chat models differ, they are designed to provide a conversational interface
-* Think of the difference as the difference between the underlying GPT-4 model and ChatGPT, which is an interface on top
-* Chat APIs support different types of messages - system, ai, human
+Until now, you have been using a language model to communicate with the LLM. A language model predicts the next word in a sequence of words. Chat models are designed to have conversations - they accept a list of messages and return a conversational response.
 
-* System Messages are designed to instruct the LLM on how to act on human messages
-* Human messages are messages sent from the user, or prompts formatted with user input
-* Responses from the AI are called AI Responses
+[TIP]
+.ChatGPT vs GPT-4
+====
+You may find it helpful to visualize the difference between link:https://chat.openai.com/[ChatGPT] and the GPT-4 language model.
 
-* Chat models can be used as language models, language models cannot be used as chat models? **Verify**
+ChatGPT is a chat model built on top of the GPT-4 language model.
+====
+
+Chat models typically support different types of messages:
+
+* System - System messages instruct the LLM on how to act on human messages
+* Human - Human messages are messages sent from the user
+* AI - Responses from the AI are called AI Responses
+
+TODO - * Chat models can be used as language models, language models cannot be used as chat models? **Verify**
+
+== Create a Chat Model
+
+You are going to create an application that uses a chat model. 
+
+The application will:
+
+* Use a system message to provide instructions
+* Use a human message to ask a question
+* Receive an AI response to the question
+
+Create a new Python program, import the required LangChain modules and instantiate the chat model.
 
 [source,python]
 ----
 from langchain.chat_models.openai import ChatOpenAI
+from langchain.schema.messages import HumanMessage, SystemMessage
 
-chat_llm = ChatOpenAI()
+chat_llm = ChatOpenAI(
+    openai_api_key="sk-..."
+)
 ----
 
+[IMPORTANT]
+Remember to update the API key.
 
-The chat model expects a list of messages, which can be a mix of System, Human and AI.
-
-* System messages are designed to instruct the LLM on how to respond to the conversation.
-* They can be created using a `SystemMessagePromptTemplate` or by instantiating the `langchain.schema.SystemMessage`.
+Create a system message to provide instructions to the chat model using the `SystemMessagePromptTemplate` class.
 
 [source,python]
 ----
-from langchain.prompts import SystemMessagePromptTemplate
-
-instructions = SystemMessagePromptTemplate.from_template("""
-You are a {location} surfer dude, having a conversation about the surf conditions on the beach.
+instructions = SystemMessage(content="""
+You are a surfer dude, having a conversation about the surf conditions on the beach.
 Respond using surfer slang.
 """)
 ----
 
-Human messages can be created in the same way.
+Create a human message to ask a question.
+
+[source,python]
+question = HumanMessage(content="What is the weather like?")
+
+You can now call the chat model passing a list of messages. In this example, pass the system message with the instructions and the human message with the question.
 
 [source,python]
 ----
-question  = HumanMessage(content="What is the weather like?")
-----
-
-
-These objects can be passed to the `ChatLLM` model as a list.
-
-[source,python]
-----
-chat_llm([
-    instructions.format(location="California"),
+response = chat_llm([
+    instructions,
     question
 ] )
+
+print(response.content)
 ----
 
-The response comes back in the form of an `AIMessage`.
+[%collapsible]
+.Reveal the complete code
+====
+[source,python]
+----
+include::code/chat_models.py[]
+----
+====
 
-    AIMessage(content="Dude, the weather is totally gnarly! It's sunny with a few scattered clouds, and the breeze is just perfect for some sick waves. The stoke level is high, my friend!", additional_kwargs={}, example=False)
+The response is an `AIMessage` object.
 
+[source,python]
+AIMessage(content="Dude, the weather is totally gnarly! It's sunny with some epic offshore winds. Perfect conditions for shredding some sick waves!", additional_kwargs={}, example=False)
 
-== Wrappinng in a Chain
+// TODO - I dont think we need this section anymore
+// You can also create messages using templates.
 
-* A `QAChain` is a type of chain that brings together multiple components to answer questions.
-* The main components of a QA chain are:
-** Question Parser: Analyzes the input question to extract key information.
-** Retriever: Retrieves relevant documents or passages from a corpus based on the question. This is often done using semantic search and vector embeddings.
-** Reader: Reads and comprehends the retrieved documents/passages to identify the answer. A machine reading model like a Transformer is commonly used.
-** Response Generator: Formulates a natural language response based on the answer extracted by the reader.
+// In this example, a 2nd system message is created using a template and passed in the list of messages to the chat model.
 
+// [source,python]
+// ----
+// from langchain.prompts import SystemMessagePromptTemplate
 
-The benefits of using this chain are:
+// introduction = SystemMessagePromptTemplate(content="Your name is {name}. You always introduce yourself.")
 
-* **Modularity**: LangChain provides many modules that can be used to build language model applications. These modules can be used as stand-alones in simple applications and they can be combined for more complex use cases.
+// response = chat_llm([
+//     instructions,
+//     introduction.format(location="Bob"),
+//     question
+// ] )
+// ----
 
-* **Customizability**: Most LangChain applications allow you to configure the LLM and/or the prompt used, so knowing how to take advantage of this will be a big enabler.
+=== Wrapping in a Chain
 
-* **Ease** of Use: The components are designed to be easy to use, regardless of whether you are using the rest of the LangChain framework or not.
+Taking what you have learned during this module about prompts and chains, you can create a resuable chat model chain.
 
-* **Standard** Interface: LangChain provides a standard interface for chains, enabling developers to create sequences of calls that go beyond a single LLM call.
+Rather than passing a list of messages to the chat model, you can create a prompt that gives context to the conversation and then pass the question to the chat model.
 
+Review this program and identify the following:
 
-=== Adding Memory
+* The prompt provides the instructions to the LLM.
+* The chain is created using the chat model and the prompt.
+* The question is passed to the chat model, when the chain is run.
 
 [source,python]
 ----
-from langchain.chains.conversation.memory import ConversationBufferWindowMemory
+from langchain.chat_models.openai import ChatOpenAI
+from langchain.prompts.prompt import PromptTemplate
+from langchain.chains import LLMChain
 
-
-memory = ConversationBufferWindowMemory(
-    memory_key='chat_history',
-    k=5,
-    return_messages=True
+chat_llm = ChatOpenAI(
+    openai_api_key="sk-..."
 )
+
+prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
+Respond using surfer slang.
+
+Question: {question}
+""", input_variables=["question"])
+
+chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
+
+response = chat_chain.run(
+    question="What is the weather like?"
+)
+
+print(response)
 ----
 
-* k = keep five messages
+Creating a chain is the first step to creating a more sophisticated chat model. You can use chains to piece different elements together into one call and support more complex features.
 
+=== Giving context
 
+Previously, you learned about grounding and how it can provide context to the LLM and avoid _Hallucination_.
+
+Currently the chat model is not grounded; it is unaware of surf conditions on the beach. It responds based on the question and the LLMs training data (which could be months or years out of date).
+
+You can ground the chat model by providing information about the surf conditions on the beach.
+
+Review this example where the chat model can access current beach conditions (`current_weather`) as a variable (`context`) in the prompt.
+
+[source,python]
+----
+from langchain.chat_models.openai import ChatOpenAI
+from langchain.prompts.prompt import PromptTemplate
+from langchain.chains import LLMChain
+
+chat_llm = ChatOpenAI(
+    openai_api_key="sk-..."
+)
+
+prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
+Respond using surfer slang.
+
+Context: {context}
+Question: {question}
+""", input_variables=["context", "question"])
+
+chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
+
+current_weather = """
+    {
+        "surf": [
+            {"beach": "Fistral", "conditions": "6ft waves and offshore winds"},
+            {"beach": "Polzeath", "conditions": "Flat and calm"},
+            {"beach": "Watergate Bay", "conditions": "3ft waves and onshore winds"}
+        ]
+    }"""
+
+response = chat_chain.run(
+    context=current_weather,
+    question="What is the weather like on Watergate Bay?"
+)
+
+print(response)
+----
+
+Run the program and predict what the response will be.
+
+Investigate what happens when you change the context by adding additional beach conditions.
+
+Providing context is one aspect of Retrieval Augmented Generation (RAG). In this lesson you _manually_ gave the model context, however you could have retrieved real-time information from an API or database.
 
 == Summary
 
-* Chat models are designed for conversations
+In this lesson, you learned that chat models are designed for conversations and how to add additional context.
 
-* Chains are used to piece different elements together into one call
-
-* Chains support memory, system commands
-*
-
-
-
-* How QA Chains work
-* Creating a custom prompt
-* Manual RAG example
+In the next lesson, you will learn how to give your chat model a memory so it can retain information between questions.
