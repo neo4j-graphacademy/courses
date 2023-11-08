@@ -1,135 +1,127 @@
 = Providing Specific Instructions
 
-* In the last lesson, you saw that langchain can generate some pretty good Cypher
-* But how about Emil's favorite movie?
+In this lesson, you will learn how to provide instructions to the LLM to improve the responses to questions.
 
-.The Matrix
-[source,cypher]
-cypher_chain.run("Who acted in The Matrix and what roles did they play?")
+You provide instructions and context to the LLM in the prompt.
 
-    > Entering new GraphCypherQAChain chain...
+== Following the schema
 
-    Generated Cypher:
+In the previous lesson, you used this prompt to generate Cypher statements:
 
-    MATCH (m:Movie {title: 'The Matrix'})<-[:ACTED_IN]-(a:Actor)
-    RETURN a.name as Actor, a.role as Role
-
-    Full Context:
-    []
-
-
-    Finished chain.
-
-    "I'm sorry, but I don't have the information to answer that question."
-
-
-* A closer look at the dataset reveals that movies that start with `The` are renamed as `{title}, The`. This is where the cypher_prompt input can be used to fine-tune the prompt.
-* This will require some specific instructions in the prompt.
-* This is the default statement loaded in to the :
-
-
-.Original Prompt
-[source,python]
-----
-from langchain.chains.graph_qa.prompts import CYPHER_GENERATION_PROMPT as ORIGINAL_CYPHER_GENERATION_PROMPT
-
-print(ORIGINAL_CYPHER_GENERATION_PROMPT.template)
-----
-
-
-    Task:Generate Cypher statement to query a graph database.
-    Instructions:
-    Use only the provided relationship types and properties in the schema.
-    Do not use any other relationship types or properties that are not provided.
-    Schema:
-    {schema}
-    Note: Do not include any explanations or apologies in your responses.
-    Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
-    Do not include any text except the generated Cypher statement.
-
-    The question is:
-    {question}
-
-* Create a new prompt to fix movie titles
-* **TIP:** While you are here, you can also add a prompt to make sure that it doesn't respond to questions that don't ask for movie recommendations.
-
-
-
-.Updated Prompt
 [source,python]
 ----
 CYPHER_GENERATION_TEMPLATE = """
 You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
 Convert the user's question based on the schema.
-For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
 
-If no context is returned, do not attempt to answer the question.
-
-Use only the provided relationship types and properties in the schema.
-Do not use any other relationship types or properties that are not provided.
-Schema:
-{schema}
-Note: Do not include any explanations or apologies in your responses.
-Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
-Do not include any text except the generated Cypher statement.
-
+Schema: {schema}
 Question: {question}
 """
-
-CYPHER_GENERATION_PROMPT = PromptTemplate(
-    input_variables=["question", "schema"],
-    validate_template=True,
-    template=CYPHER_GENERATION_TEMPLATE
-)
 ----
 
+The LLM's training data included many Cypher statements, but these statements were not specific to the structure of your graph database. As a result the LLM may generate Cypher statements that are not valid and do not conform to the schema. 
 
-* This can be added when creating the `GraphCypherQAChain` object by passing a `cypher_prompt` keyword argument.
+You can provide specific instructions to the LLM to state that the generated Cypher statements should follow the schema.
 
-.Updated Prompt
+For example, you could give instructions only to use the provided relationship types and properties in the schema.
+
 [source,python]
 ----
-cypher_chain = GraphCypherQAChain.from_llm(
-    llm,
-    graph=graph,
-    verbose=True,
-    cypher_prompt = CYPHER_GENERATION_PROMPT
-)
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+
+Schema: {schema}
+Question: {question}
+"""
 ----
 
-* Try the question again
+[TIP]
+.Instructions not rules
+There is no right or wrong way to provide instructions to the LLM. The instructions are unlike traditional programming tasks where you would supply rules or definitions. You may have to experiment to find the right balance between providing too much or too little instruction.
 
-.Updated Prompt
-[source,python]
+For example, the instructions are expressed as both a positive and negative statement. You will do this. You won't do this. 
+
+    Use only the provided relationship types and properties in the schema.
+    Do not use any other relationship types or properties that are not provided.
+
+The results of this change may not be immediately apparent when you run the program. Instructions allows you to fine-tune the LLM's responses and make them more consistent.
+
+== Understanding data
+
+The LLM may also need additional instructions about the data. For example, how data is formatted or how to handle missing data.
+
+If you ask the LLM to generate Cypher for the question:
+    
+    Who acted in The Matrix and what roles did they play?
+
+The LLM will generate the correct Cypher:
+
+    MATCH (m:Movie {title: 'The Matrix'})<-[:ACTED_IN]-(a:Actor)
+    RETURN a.name as Actor, a.role as Role
+
+However, the graph database returns no data because movies that start with `The` are renamed as `{title}, The`. `The Matrix` is stored as `Matrix, The`.
+
+You can provide instructions to the LLM to fix this problem.
+
+    For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+[source, python]
 ----
-cypher_chain.run("Who acted in The Matrix and what roles did they play?")
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+Schema: {schema}
+Question: {question}
+"""
 ----
 
-    > Entering new GraphCypherQAChain chain...
-    Generated Cypher:
-    MATCH (a:Actor)-[r:ACTED_IN]->(m:Movie)
-    WHERE m.title = "Matrix, The"
-    RETURN a.name, r.role
-    Full Context:
-    [{'a.name': 'Hugo Weaving', 'r.role': 'Agent Smith'}, {'a.name': 'Laurence Fishburne', 'r.role': 'Morpheus'}, {'a.name': 'Keanu Reeves', 'r.role': 'Thomas A. Anderson / Neo'}, {'a.name': 'Carrie-Anne Moss', 'r.role': 'Trinity'}
-    > Finished chain.
+If you ask the LLM the same question, it should now format the title correctly and return the correct data:
 
-* Perfect, the LLM has reformatted the title and now the full list of roles is passed to the LLM.
+    MATCH (m:Movie {title: 'Matrix, The'})<-[:ACTED_IN]-(a:Actor)
+    RETURN a.name as Actor, a.role as Role
 
+== Controlling the response
 
-    'Hugo Weaving played the role of Agent Smith, Laurence Fishburne portrayed Morpheus, Keanu Reeves was Thomas A. Anderson, also known as Neo, and Carrie-Anne Moss acted as Trinity in The Matrix.'
+As well as instructing the LLM on how to deal with the question, you can also instruct the LLM on how to respond.
 
+You could instruct the LLM only to respond when the Cypher statement returns data.
 
+    If no data is returned, do not attempt to answer the question.
 
+You may want the LLM to only respond to questions in the scope of the task. For example:
+
+    Only respond to questions that require you to construct a Cypher statement.
+
+    Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
+
+Concise responses from the LLM may be needed:
+
+    Do not include any explanations or apologies in your responses.
+
+Or you may want to restrict the format of the response:
+
+    Do not include any text except the generated Cypher statement.
+
+Ultimately, you must fine-tune your instructions for the specific task to ensure the best results.
 
 == Check Your Understanding
 
-TODO
-
+include::questions/1-instructions.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
 
-In this lesson, you learned something...
+In this lesson, you learned something how to provide the LLM with instructions to improve the responses to questions.
 
-In the next lesson, you will learn how to do something else...
+In the next lesson, you will learn about few-shot examples and how they can improve the LLM's performance.

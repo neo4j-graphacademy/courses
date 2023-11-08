@@ -1,0 +1,120 @@
+
+== Complex Recommendation Queries
+
+* Will the LLM be able to cope with a complex recommendation query?
+
+.Retrying the Question
+[source,python]
+----
+Can you recommend me a film similar to The Green Mile starring Tom Hanks?
+----
+
+    > Entering new GraphCypherQAChain chain...
+    Generated Cypher:
+    MATCH (m:Movie)<-[:ACTED_IN]-(a:Actor {name: "Tom Hanks"}), (m2:Movie)<-[:ACTED_IN]-(a)
+    WHERE m.title = "Green Mile, The"
+    RETURN m2.title AS similar_movies
+    Full Context:
+    [{'similar_movies': 'Punchline'}, {'similar_movies': 'Catch Me If You Can'}, {'similar_movies': 'Dragnet'}, {'similar_movies': 'Saving Mr. Banks'}, {'similar_movies': 'Bachelor Party'}, {'similar_movies': 'Volunteers'}, {'similar_movies': 'Man with One Red Shoe, The'}, {'similar_movies': 'Splash'}, {'similar_movies': 'Big'}, {'similar_movies': 'Nothing in Common'}]
+
+    > Finished chain.
+
+
+    "Sure, you might enjoy watching movies like 'Punchline', 'Catch Me If You Can', 'Dragnet', 'Saving Mr. Banks', 'Bachelor Party', 'Volunteers', 'The Man with One Red Shoe', 'Splash', 'Big', or 'Nothing in Common'. These films are similar to 'The Green Mile' and also feature Tom Hanks."
+
+* OK, it returns a result but the query only asks for other movies that Tom Hanks acted in. It looks like the LLM would benefit from another example.
+* The recommendation query should really find Tom Hanks movies, then use the graph to find the actors in those movies and the other movies they have acted in and use some sort of scoring metric to work out which films to recommend.
+
+.Recommendation Few-Shot Example
+[source,cypher]
+MATCH (:Person {name:"Al Pacino"})-[:ACTED_IN|DIRECTED]->(m)<-[:ACTED_IN|DIRECTED]-(p),
+  (p)-[role:ACTED_IN|DIRECTED]->(m2)
+RETURN
+  m2.title AS recommendation,
+  collect([ p.name, type(role) ]) AS peopleInCommon,
+  [ (m)-[:IN_GENRE]->(g)<-[:IN_GENRE]-(m2) | g.name ] AS genresInCommon
+ORDER BY size(incommon) DESC, size(genresInCommon) DESC LIMIT 2
+
+* For a given actor, the Cypher statement finds any people who have either acted in or directed a movie, finds any movie that they have either acted in or directed, and then returns a list ordered by the number of people in common, and the genres that they share.
+* Append it to the `FEWSHOT_CYPHER_GENERATION_TEMPLATE`
+
+.Amending The Few-Shot Template
+[source,python]
+----
+FEWSHOT_CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+If no context is returned, do not attempt to answer the question.
+
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+
+Schema:
+{schema}
+
+Examples:
+
+Find movies and their genres:
+MATCH (m:Movie)-[:IN_GENRE]->(g)
+WHERE m.title = "Goodfellas"
+RETURN m.title AS title, collect(g.name) AS genres
+
+Recommend a movie by actor:
+MATCH (subject:Person)-[:ACTED_IN|DIRECTED]->(m)<-[:ACTED_IN|DIRECTED]-(p),
+  (p)-[role:ACTED_IN|DIRECTED]->(m2)
+WHERE subject.name = "Al Pacino"
+RETURN
+  m2.title AS recommendation,
+  collect([ p.name, type(role) ]) AS peopleInCommon,
+  [ (m)-[:IN_GENRE]->(g)<-[:IN_GENRE]-(m2) | g.name ] AS genresInCommon
+ORDER BY size(incommon) DESC, size(genresInCommon) DESC LIMIT 2
+
+
+Note: Do not include any explanations or apologies in your responses.
+Do not respond to any questions that might ask anything else than for you to construct a Cypher statement.
+Do not include any text except the generated Cypher statement.
+
+Question: {question}
+"""
+
+FEWSHOT_CYPHER_GENERATION_PROMPT = PromptTemplate(
+    input_variables=["question", "schema"],
+    validate_template=True,
+    template=FEWSHOT_CYPHER_GENERATION_TEMPLATE
+)
+
+fewshot_cypher_chain = GraphCypherQAChain.from_llm(
+    llm,
+    graph=graph,
+    verbose=True,
+    cypher_prompt = FEWSHOT_CYPHER_GENERATION_PROMPT
+)
+----
+
+.Re-running the Question
+[source,python]
+----
+fewshot_cypher_chain.run("Can you recommend me a film similar to The Green Mile staring Tom Hanks?")
+----
+
+    > Entering new GraphCypherQAChain chain...[0m
+    Generated Cypher:
+    MATCH (subject:Person)-[:ACTED_IN|DIRECTED]->(m:Movie)<-[:ACTED_IN|DIRECTED]-(p:Person),
+    (p)-[role:ACTED_IN|DIRECTED]->(m2:Movie)
+    WHERE subject.name = "Tom Hanks" AND m.title = "Green Mile, The"
+    RETURN
+        m2.title AS recommendation,
+        collect([ p.name, type(role) ]) AS peopleInCommon,
+        [ (m)-[:IN_GENRE]->(g:Genre)<-[:IN_GENRE]-(m2) | g.name ] AS genresInCommon
+    ORDER BY size(peopleInCommon) DESC, size(genresInCommon) DESC LIMIT 1
+
+    Full Context:
+    [{'recommendation': 'Negotiator, The', 'peopleInCommon': [['David Morse', 'ACTED_IN']], 'genresInCommon': ['Drama', 'Crime']}]
+
+    > Finished chain.
+
+    'Sure, based on your preferences, I would recommend "The Negotiator". It\'s a Drama and Crime film like The Green Mile and also features David Morse, who acted in The Green Mile as well.'
+
+* Without asking the exact same question, the LLM was able to take the example and modify it to answer the question.
