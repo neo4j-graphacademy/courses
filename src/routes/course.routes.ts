@@ -848,7 +848,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Add sandbox attributes to Page Attributes?
         let sandbox: Sandbox | undefined
 
-        if (course.usecase && user && course.completed === false && lesson.disableCache === false) {
+        if (course.usecase && user && course.completed === false && lesson.disableCache !== false) {
             try {
                 sandbox = await createAndSaveSandbox(token, user, course)
             }
@@ -1170,11 +1170,9 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         if (!lesson) {
             return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
-
         else if (!lesson.lab || !course.repository) {
             return nextfn(new NotFoundError(`Could not find lab for lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
-
         else if (!sandbox) {
             return nextfn(new NotFoundError(`Could not find sandbox for usecase ${course.usecase} : lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
