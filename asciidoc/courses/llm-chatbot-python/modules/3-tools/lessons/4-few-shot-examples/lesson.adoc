@@ -1,3 +1,178 @@
 = Providing Example Cypher Statements
+:type: challenge
 
-* modify the prompt to provide example Cypher statements the LLM can learn from
+// * modify the prompt to provide example Cypher statements the LLM can learn from
+So far, the bot has handled everything that we've had to throw at it.
+But we have only been asking simple questions.
+
+== Six Degrees
+
+Let's play the link:https://en.wikipedia.org/wiki/Six_Degrees_of_Kevin_Bacon[Six Degrees of Kevin Bacon^] game.
+
+> [copy]#How many degrees of separation are there between Viola Davis and Kevin Bacon?#
+
+[%collapsible]
+.Console Output
+====
+
+    > Entering new AgentExecutor chain...
+    ```json
+    {
+        "action": "Cypher QA",
+        "action_input": "How many degrees separation are there between Viola Davis and Kevin Bacon?"
+    }
+    ```
+
+    > Entering new GraphCypherQAChain chain...
+    Generated Cypher:
+    cypher
+    MATCH p = shortestPath(
+    (viola:Person {name: "Viola Davis"})-[:ACTED_IN|DIRECTED*]-(kevin:Person {name: "Kevin Bacon"})
+    )
+    RETURN length(p) as degrees_of_separation
+
+    Full Context:
+    [{'degrees_of_separation': 6}]
+
+    > Finished chain.
+
+    Observation: {'query': 'How many degrees of separation are there between Viola Davis and Kevin Bacon?', 'result': 'There are 6 degrees of separation between Viola Davis and Kevin Bacon.'}
+    Thought:```json
+    {
+        "action": "Final Answer",
+        "action_input": "There are 6 degrees of separation between Viola Davis and Kevin Bacon."
+    }
+    ```
+
+    > Finished chain.
+
+====
+
+The agent provides the correct answer, six, but the game requires that you also name.
+The output in the console shows that the path length is returned, but there is no.
+
+To help the LLM, we can provide an example in the prompt to demonstrate how Cypher queries should be written.
+
+Here is a query containing all of the information required to help the LLM solve the problem.
+
+.Six Degrees Query
+[source,cypher]
+----
+MATCH path = shortestPath(
+  (p1:Person {{name: "Viola Davis"}})-[:ACTED_IN|DIRECTED*]-(p2:Person {{name: "Kevin Bacon"}})
+)
+WITH path, p1, p2, relationships(path) AS rels
+RETURN
+  p1 {{ .name, .born, link:'https://www.themoviedb.org/person/'+ p1.tmdbId }} AS start,
+  p2 {{ .name, .born, link:'https://www.themoviedb.org/person/'+ p2.tmdbId }} AS end,
+  reduce(output = '', i in range(0, length(path)-1) |
+    output + CASE
+      WHEN i = 0 THEN
+       startNode(rels[i]).name + CASE WHEN type(rels[i]) = 'ACTED_IN' THEN ' played '+ rels[i].role +' in 'ELSE ' directed ' END + endNode(rels[i]).title
+       ELSE
+         ' with '+ startNode(rels[i]).name + ', who '+ CASE WHEN type(rels[i]) = 'ACTED_IN' THEN 'played '+ rels[i].role +' in '
+    ELSE 'directed '
+      END + endNode(rels[i]).title
+      END
+  ) AS pathBetweenPeople
+----
+
+_I can't imagine any scenario where an LLM would generate that..._
+
+
+[TIP]
+.Braces
+====
+Braces in prompt templates are treated as placeholders.
+
+You must escape any braces that you use in example Cypher statements.
+When escaping braces, `{` becomes `{{` and `}` becomes `}}`.
+====
+
+== Solution
+
+Add the above Cypher statement to the `CYPHER_GENERATION_TEMPLATE` string, along with a description of what type of question the query can help with.
+
+[source,cypher]
+.Adding a Few-Shot Example
+----
+include::{repository-raw}/main/solutions/tools/fewshot.py[tag=prompt]
+----
+
+The rest of the code will remain the same.
+
+You can add as many few-shot examples to the prompt as necessary.
+But beware, most LLM providers charge you are charged per token, and the larger the prompt, the higher the cost.
+
+If you require many few-shot examples, you can always create multiple tools that call an instance of `GraphCypherQAChain` with a different Cypher generation prompt.
+
+
+== Testing the Change
+
+If you now ask the bot the same question, you should get a greatly improved answer.
+
+video::./images/six-degrees-fewshot.mp4[autoplay]
+
+[%collapsible]
+.Console Output
+====
+
+    > Entering new AgentExecutor chain...
+    ```json
+    {
+        "action": "Cypher QA",
+        "action_input": "How many degrees of separation are there between Viola Davis and Kevin Bacon?"
+    }
+    ```
+
+    > Entering new GraphCypherQAChain chain...
+    Generated Cypher:
+    cypher
+    MATCH path = shortestPath(
+    (p1:Person {name: "Viola Davis"})-[:ACTED_IN|DIRECTED*]-(p2:Person {name: "Kevin Bacon"})
+    )
+    WITH path, p1, p2, relationships(path) AS rels
+    RETURN
+    p1 { .name, .born, link:'https://www.themoviedb.org/person/'+ p1.tmdbId } AS start,
+    p2 { .name, .born, link:'https://www.themoviedb.org/person/'+ p2.tmdbId } AS end,
+    reduce(output = '', i in range(0, length(path)-1) |
+        output + CASE
+        WHEN i = 0 THEN
+        startNode(rels[i]).name + CASE WHEN type(rels[i]) = 'ACTED_IN' THEN ' played '+ rels[i].role +' in 'ELSE ' directed ' END + endNode(rels[i]).title
+        ELSE
+            ' with '+ startNode(rels[i]).name + ', who '+ CASE WHEN type(rels[i]) = 'ACTED_IN' THEN 'played '+ rels[i].role +' in '
+        ELSE 'directed '
+        END + endNode(rels[i]).title
+        END
+    ) AS pathBetweenPeople
+
+    Full Context:
+    [{'start': {'born': neo4j.time.Date(1965, 8, 11), 'link': 'https://www.themoviedb.org/person/19492', 'name': 'Viola Davis'}, 'end': {'born': neo4j.time.Date(1958, 7, 8), 'link': 'https://www.themoviedb.org/person/4724', 'name': 'Kevin Bacon'}, 'pathBetweenPeople': 'Viola Davis played Carol Barrett in Blackhat with Chris Hemsworth, who played Nicholas Hathaway in Blackhat with Chris Hemsworth, who played The Huntsman in Snow White and the Huntsman with Charlize Theron, who played Queen Ravenna in Snow White and the Huntsman with Charlize Theron, who played Karen Jennings in Trapped with Kevin Bacon, who played Joe Hickey in Trapped'}]
+
+    > Finished chain.
+
+    Observation: {'query': 'How many degrees of separation are there between Viola Davis and Kevin Bacon?', 'result': 'There are three degrees of separation between Viola Davis and Kevin Bacon. Viola Davis co-starred with Chris Hemsworth in Blackhat, Chris Hemsworth co-starred with Charlize Theron in Snow White and the Huntsman, and Charlize Theron co-starred with Kevin Bacon in Trapped.'}
+    Thought:```json
+    {
+        "action": "Final Answer",
+        "action_input": "There are three degrees of separation between Viola Davis and Kevin Bacon. Viola Davis co-starred with Chris Hemsworth in Blackhat, Chris Hemsworth co-starred with Charlize Theron in Snow White and the Huntsman, and Charlize Theron co-starred with Kevin Bacon in Trapped."
+    }
+    ```
+
+    > Finished chain.
+
+====
+
+
+Did you get a better answer?
+Once you have completed the steps, click the button below to mark the lesson as completed.
+
+read::It works![]
+
+
+[.summary]
+== Summary
+
+In this lesson, you created a tool capable of generating a Cypher statement to answer a specific question and execute it against the database.  But the Cypher it generates isn't perfect.
+
+In the next lesson, you will learn how to handle edge cases by fine-tuning the prompt used to generate the Cypher statement.
