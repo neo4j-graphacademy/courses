@@ -127,7 +127,7 @@ async function copyImageAssets() {
     // Copy illustrations to public
     fs.readdirSync(COURSE_DIRECTORY)
         .filter(slug => fs.existsSync(courseIllustrationPath(slug)))
-        .map(slug => [courseBadgePath(slug), coursePublicIllustrationPath(slug)])
+        .map(slug => [courseIllustrationPath(slug), coursePublicIllustrationPath(slug)])
         .map(([src, dest]) => fs.copyFileSync(src, dest))
 
     // Copy backgrounds to public
