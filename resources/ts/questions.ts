@@ -877,6 +877,19 @@ const loadingIndicator = () => {
     return span;
 }
 
+const completedIndicator = () => {
+    const span = document.createElement('svg')
+    span.classList.add('completed-indicator')
+    span.innerHTML = `<svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill-rule="evenodd" clip-rule="evenodd"
+        d="M6.9999 16.6004C10.0927 16.6004 12.5999 14.0932 12.5999 11.0004C12.5999 7.9076 10.0927 5.40039 6.9999 5.40039C3.90711 5.40039 1.3999 7.9076 1.3999 11.0004C1.3999 14.0932 3.90711 16.6004 6.9999 16.6004ZM9.59488 10.0954C9.86824 9.822 9.86824 9.37878 9.59488 9.10542C9.32151 8.83205 8.87829 8.83205 8.60493 9.10542L6.2999 11.4104L5.39488 10.5054C5.12151 10.232 4.67829 10.232 4.40493 10.5054C4.13156 10.7788 4.13156 11.222 4.40493 11.4954L5.80493 12.8954C6.07829 13.1687 6.52151 13.1687 6.79488 12.8954L9.59488 10.0954Z"
+        fill="#00BA88" />
+</svg>`
+
+    return span;
+}
+
+
 const createSubmitButton = (text) => {
     const button = createElement('button', 'btn btn-submit', [
         loadingIndicator(),
@@ -1048,7 +1061,13 @@ const setupMarkAsReadButton = () => {
     if (body && body.classList.contains(LESSON_COMPLETED)) {
         Array.from(document.querySelectorAll('.btn-read'))
             .map((button: Element) => {
-                button.parentElement?.style.setProperty('display', 'none')
+                button.innerHTML = 'Lesson Completed'
+                button.classList.add('btn-read--completed')
+                button.classList.add('btn--disabled')
+
+                button.setAttribute('disabled', 'disabled')
+
+                button.prepend(completedIndicator())
             })
 
         return;
