@@ -32,6 +32,21 @@ export default function initEmailListeners(): Promise<void> {
 
             const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
 
+            // Progress to
+            let progressTo1, progressTo2, progressTo3
+
+            if (event.course.progressTo?.length) {
+                progressTo1 = event.course.progressTo[0]
+
+                if (event.course.progressTo.length > 1) {
+                    progressTo2 = event.course.progressTo[1]
+                }
+
+                if (event.course.progressTo.length > 2) {
+                    progressTo3 = event.course.progressTo[2]
+                }
+            }
+
             // Get Course Recommendations
             const suggestions = await getSuggestionsForEnrolment(event.course.enrolmentId)
 
@@ -61,6 +76,9 @@ export default function initEmailListeners(): Promise<void> {
                 email,
                 {
                     ...event,
+                    progressTo1,
+                    progressTo2,
+                    progressTo3,
                     suggestion1,
                     suggestion2,
                     suggestion3,
