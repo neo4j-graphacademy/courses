@@ -51,3 +51,5 @@ CREATE INDEX IF NOT EXISTS FOR (n:Course) ON (n.rewardProductId);
 CREATE CONSTRAINT IF NOT EXISTS FOR (e:Enrolment) REQUIRE e.certificateId IS UNIQUE;
 
 CREATE INDEX IF NOT EXISTS FOR (n:Feedback) ON (n.createdAt);
+
+CREATE CONSTRAINT FOR (n:Feedback) REQUIRE (n.id) IS UNIQUE;
