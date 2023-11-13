@@ -104,9 +104,7 @@ const cleanAnswer = (element: any) => {
 const extractAnswersFromBlock = (div: Element): Option[] => {
     return Array.from(div.querySelectorAll('.checklist ul li'))
         .filter((element: any) => {
-            console.log(element, element.parentElement)
-
-            return true
+            return !element.parentElement.parentElement.parentElement.classList.contains('admonition')
         })
         .map((element: any) => ({
             element,
