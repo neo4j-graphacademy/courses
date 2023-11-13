@@ -774,7 +774,7 @@ export const displayCourseCompleted = (res) => {
     congratulations.innerHTML = `
         <p>
             <a href="${window.analytics.course.link}certificate/" target="_blank">
-                <img class="module-outcome-badge" src="${window.analytics.course.link}badge/" alt="${window.analytics.course.title} Badge" width="120">
+                <img class="module-outcome-badge" src="${window.analytics.course.link}illustration/" alt="${window.analytics.course.title} Badge" width="120">
             </a>
             Congratulations on completing this course!  We hope that you have found the
             course useful and are now feeling more confident using Neo4j.

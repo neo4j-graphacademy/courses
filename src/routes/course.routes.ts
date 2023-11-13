@@ -280,6 +280,28 @@ router.get('/:course/badge', (req, res, next) => {
 })
 
 /**
+ * @GET /:course/illustration
+ *
+ * Find and send the illustration.svg file in the course root
+ */
+router.get('/:course/illustration', (req, res, next) => {
+    try {
+        let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'illustration.svg')
+
+        if (!existsSync(filePath)) {
+            filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
+        }
+
+        res.header('Content-Type', 'image/svg+xml')
+
+        res.sendFile(filePath)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
  * @GET /:course/enrol
  *
  * Create an :Enrolment node between the user and the course within the database
