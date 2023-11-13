@@ -4,6 +4,7 @@ import { flattenAttributes } from '../utils'
 import { loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag.middleware'
 import formData from 'form-data';
+import { decode } from 'html-entities'
 
 export function isEnabled(): boolean {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
@@ -79,6 +80,6 @@ export function prepareAndSend(filename: AsciidocEmailFilename, email: string, d
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
-        send(email, subject, html, tag, attachments)
+        send(email, decode(subject), html, tag, attachments)
     }
 }
