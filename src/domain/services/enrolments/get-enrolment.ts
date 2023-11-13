@@ -40,7 +40,8 @@ type DatabaseEnrolment = Omit<IntermediateEnrolment, 'createdAt' | 'completedAt'
 export default async function getEnrolments(tx: Transaction, user: Partial<User>, property: ValidLookupProperty = 'sub', courseSlug?: string): Promise<IntermediateEnrolment[]> {
     const res = await tx.run<{ enrolment: DatabaseEnrolment }>(`
         MATCH (u:User {\`${property}\`: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)
-        ${courseSlug ? 'WHERE c.slug = $slug' : ''}
+        WHERE NOT c.status IN $exclude
+        ${courseSlug ? 'AND c.slug = $slug' : ''}
         RETURN e {
             .*,
             courseSlug: c.slug,
