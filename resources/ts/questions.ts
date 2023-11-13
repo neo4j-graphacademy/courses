@@ -102,7 +102,12 @@ const cleanAnswer = (element: any) => {
 }
 
 const extractAnswersFromBlock = (div: Element): Option[] => {
-    return Array.from(div.querySelectorAll('ul li'))
+    return Array.from(div.querySelectorAll('.checklist ul li'))
+        .filter((element: any) => {
+            console.log(element, element.parentElement)
+
+            return true
+        })
         .map((element: any) => ({
             element,
             value: cleanAnswer(element),
