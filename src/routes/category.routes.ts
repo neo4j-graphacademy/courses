@@ -127,13 +127,13 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             classes: 'category',
             hero: {
                 // overline: 'Neo4j GraphAcademy',
-                title: slug === 'certification' ? `Free Neo4j Certifications` : `Free Neo4j ${category.title} Courses`,
+                title: slug === 'certification' ? `Free Neo4j Certifications` : `Free ${category.title.startsWith('Neo4j') ? '' : 'Neo4j'} ${category.title} Courses`,
                 byline: category.caption || 'Hands-on training. No installation required.',
             },
             courses: category.courses,
             grouped,
             hasResults,
-            ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free Neo4j ${category.title} Courses from GraphAcademy`,
+            ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free ${category.title.startsWith('Neo4j') ? '' : 'Neo4j'} ${category.title} Courses from GraphAcademy`,
             ogDescription: category.caption || 'Hands-on training. No installation required.',
             ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`
         })
