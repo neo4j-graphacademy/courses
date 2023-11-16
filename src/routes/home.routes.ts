@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { BASE_URL } from '../constants'
-import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
+import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES, STATUS_ACTIVE } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
@@ -37,18 +37,16 @@ router.get('/', async (req, res, next) => {
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
 
-        const paths = categories.find(category => category.slug === 'paths')
-
-        paths?.children?.sort((a, b) => a.title < b.title ? -1 : 1)
+        const paths = categories?.find(category => category.slug === 'paths')
 
         // TODO: Reinstate these categories
         if (paths?.children) {
-            paths.children = paths?.children.filter(category => !['aura', 'administrator'].includes(category.slug))
+            paths.children = paths?.children.filter(category => !['aura', 'administrator', 'analyst'].includes(category.slug))
         }
 
         const certification = categories.find(category => category.slug === 'certification')
 
-        const activePath = 'cypher'
+        const activePath = 'llms'
 
         const translateEn = translate(LANGUAGE_EN)
 
