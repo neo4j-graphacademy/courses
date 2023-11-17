@@ -17,5 +17,6 @@ FROM 'https://github.com/neo4j-graphacademy/llm-fundamentals/raw/main/data/opena
 AS row
 MATCH (m:Movie {movieId: row.movieId})
 CALL db.create.setVectorProperty(m, 'plotEmbedding', apoc.convert.fromJsonList(row.embedding)) YIELD node
-RETURN count(*);
+RETURN count(*)
 // end::load[]
+;
