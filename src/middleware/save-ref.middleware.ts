@@ -16,6 +16,8 @@ export function saveRef(req: Request, res: Response, next: NextFunction) {
         session.ref = req.query.ref
     }
     else if (req.query.utm_source) {
+        const session = req.session
+
         // @ts-ignore
         session.ref = `${req.query.utm_source}-${req.query.utm_medium}-${req.query.utm_campaign}-${req.query.utm_content}`
     }
