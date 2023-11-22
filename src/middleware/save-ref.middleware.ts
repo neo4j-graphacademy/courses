@@ -9,11 +9,15 @@ import { NextFunction, Request, Response } from "express";
  * @param next Next middleware
  */
 export function saveRef(req: Request, res: Response, next: NextFunction) {
-    if ( req.query.ref ) {
+    if (req.query.ref) {
         const session = req.session
 
         // @ts-ignore
         session.ref = req.query.ref
+    }
+    else if (req.query.utm_source) {
+        // @ts-ignore
+        session.ref = `${req.query.utm_source}-${req.query.utm_medium}-${req.query.utm_campaign}-${req.query.utm_content}`
     }
 
     next()
