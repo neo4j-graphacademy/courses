@@ -1,4 +1,3 @@
-import { Driver } from 'neo4j-driver'
 import { getSandboxForUseCase } from "../../modules/sandbox";
 import { createDriver } from '../../modules/neo4j';
 import { notify } from '../../middleware/bugsnag.middleware';
@@ -24,7 +23,7 @@ export async function resetDatabase(token: string, user: User, course: string, m
     const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
     const { username, password } = sandbox
 
-    let driver = await createDriver(host, username, password, false)
+    const driver = await createDriver(host, username, password, false)
     try {
         await driver.verifyConnectivity()
 

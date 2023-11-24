@@ -6,7 +6,7 @@ let _driver: Driver;
 
 const { NEO4J_DATABASE } = process.env
 
-export async function createDriver(host: string, username: string, password: string, verifyConnectivity: boolean = true): Promise<Driver> {
+export async function createDriver(host: string, username: string, password: string, verifyConnectivity = true): Promise<Driver> {
     const driver = neo4j.driver(host, neo4j.auth.basic(username, password), {
         disableLosslessIntegers: true
     })

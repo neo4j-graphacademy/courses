@@ -8,6 +8,7 @@ import { User } from '../domain/model/user';
 import { emitter } from '../events';
 import { read } from '../modules/neo4j';
 import { formatUser } from '../utils';
+import { BASE_URL } from '../constants';
 
 const config = {
     authRequired: false,
@@ -82,9 +83,31 @@ export default function applyAuth(app: Express) {
     // auth router attaches /login, /logout, and /callback routes to the baseURL
     app.use(auth(config));
 
-    // @ts-ignore
-    app.get('/login', (req, res) => res.oidc.login({ returnTo: req.query.returnTo || '/' }))
+    // Login route
+    app.get('/login', (req: Request, res: Response) => {
+        let returnUrl = '/'
 
+        // is return url set?
+        if (typeof req.query.returnTo == 'string') {
+            returnUrl = req.query.returnTo
+        }
+        // where has the request come from?
+        else if (typeof req.headers['referer'] == 'string') {
+            returnUrl = req.headers['referer']
+        }
+
+        // create the URL
+        const url = new URL(returnUrl, BASE_URL)
+
+        // Append the ref for persistence after login
+        if (typeof req.session['ref'] == 'string') {
+            url.searchParams.set('ref', req.session['ref'])
+        }
+
+        res.oidc.login({ returnTo: url.toString() })
+    })
+
+    // Middleware to append user to request
     app.use(async (req: Request, res: Response, next: NextFunction) => {
         // @ts-ignore
         res.locals.user = await getUser(req)

@@ -1,7 +1,6 @@
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
-import { saveUserInfo } from "../../modules/sandbox";
 import { UserUpdatedAccount } from "../events/UserUpdatedAccount";
 import { User } from "../model/user";
 

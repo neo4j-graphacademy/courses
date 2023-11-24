@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { BASE_URL } from '../constants'
-import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES, STATUS_ACTIVE } from '../domain/model/course'
+import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'

@@ -7,7 +7,7 @@ import { SandboxUnknownError } from "./sandbox-unknown.error";
 import { write } from "../neo4j";
 import { User } from "../../domain/model/user";
 
-export function handleSandboxError(token: string, user: User, endpoint: string, error: any): Error {
+export async function handleSandboxError(token: string, user: User, endpoint: string, error: any): Promise<Error> {
     let output: Error
 
     const code = error.response?.status
@@ -59,7 +59,7 @@ export function handleSandboxError(token: string, user: User, endpoint: string, 
     })
 
     // Save to db
-    write(`
+    await write(`
         MERGE (u:User {sub: $sub})
         CREATE (se:SandboxError {
             createdAt: datetime(),

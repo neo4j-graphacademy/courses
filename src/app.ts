@@ -67,13 +67,13 @@ export default function initApp(driver: Driver) {
     // Load in languages
     initLocalisation()
 
+    // Apply Session/Flash
+    registerSession(app)
+
     // Apply auth headers
     applyAuth(app)
 
     app.use(verifyJwt)
-
-    // Apply Session/Flash
-    registerSession(app)
 
     // Save ?ref=xxx in Session
     app.use(saveRef)
