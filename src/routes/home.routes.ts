@@ -68,6 +68,11 @@ router.get('/', async (req, res, next) => {
             meta: [{
                 name: 'apple-itunes-app', content: 'app-id=1557747094'
             }],
+            banner: {
+                text: 'Learn how to use Neo4j with Large Language Models - ',
+                link: '/courses/llm-fundamentals/?ref=banner',
+                cta: 'Enroll now',
+            },
             translate: translateEn,
         })
     }
