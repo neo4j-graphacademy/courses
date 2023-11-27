@@ -14,7 +14,7 @@ Developers can build Langchain applications with link:https://python.langchain.c
 
 Langchain supports multiple LLMs and allows you to swap one for another with a single parameter change.
 
-Meaning you can easily test multiple LLMs for suitability and utilize different models for different use cases.
+Meaning you can quickly test multiple LLMs for suitability and utilize different models for different use cases.
 
 Langchain provides out-of-the-box integrations with APIs and databases including link:https://python.langchain.com/docs/integrations/providers/neo4j[Neo4j^].
 
@@ -36,78 +36,64 @@ The key components of a Langchain application are:
 
 * **Memory:** Allow applications to retain context, for example, remembering the previous messages in a conversation.
 
-// TODO: need a different simpler example, which includes a prompt template
-// == A Worked Example
+[%collapsible]
+.Click to reveal an example Langchain application
 
-// // TODO: Diagram
-// // https://github.com/docker/genai-stack/blob/main/pdf_bot.py
+This example program uses Langchain to build a chatbot that answers questions about Neo4j Cypher queries.
 
-// Let's explore an link:https://github.com/docker/genai-stack/blob/main/pdf_bot.py[example application^] that answers questions about a PDF document.
+The program interacts with an OpenAI LLM, uses a prompt template to instruct the LLM on _how to act_, and uses a memory component to retain context.
 
-// The application uses **Retrieval Augmented Generation** to pass similar text to the user's input the LLM.
+After completing this module, you will understand what this program does and how it works.
 
-// [source, python]
-// ----
-// include::https://raw.githubusercontent.com/docker/genai-stack/main/pdf_bot.py
-// ----
+====
+[source, python]
+----
+from langchain.chat_models.openai import ChatOpenAI
+from langchain.prompts.prompt import PromptTemplate
+from langchain.chains import LLMChain
+from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain.agents import AgentType, initialize_agent
+from langchain.tools import Tool
 
-// Review the code and note that the application contains:
+chat_llm = ChatOpenAI(
+    openai_api_key="sk-..."
+)
 
-// . A connection to an LLM that will provide embeddings and generated responses.
-// +
-// [source, python]
-// ----
-// embeddings, dimension = load_embedding_model(
-//     embedding_model_name, config={"ollama_base_url": ollama_base_url}, logger=logger
-// )
+prompt = PromptTemplate(template="""You are a Neo4j expert having a conversation about how to create Cypher queries
 
-// llm = load_llm(llm_name, logger=logger, config={"ollama_base_url": ollama_base_url})
-// ----
-// . A **document loader** that loads the PDF contents and creates vector embeddings
-// +
-// [source, python]
-// ----
-// pdf_reader = PdfReader(pdf)
+Chat History: {chat_history}
+Question: {input}
+""", input_variables=["chat_history", "input"])
 
-// text = ""
-// for page in pdf_reader.pages:
-//     text += page.extract_text()
+memory = ConversationBufferMemory(memory_key="chat_history", input_key="input", return_messages=True)
 
-// # langchain_textspliter
-// text_splitter = RecursiveCharacterTextSplitter(
-//     chunk_size=1000, chunk_overlap=200, length_function=len
-//         )
-// ----
-// . A **retriever** that finds similar documents to the user input.
-// +
-// [source, python]
-// ----
-// vectorstore = Neo4jVector.from_texts(
-//     chunks,
-//     url=url,
-//     username=username,
-//     password=password,
-//     embedding=embeddings,
-//     index_name="pdf_bot",
-//     node_label="PdfBotChunk",
-//     pre_delete_collection=True,  # Delete existing PDF data
-// )
-// ----
-// . A **prompt template** to instruct the LLM on how to act.
-// +
-// [source, python]
-// ----
-// //TODO - highlight prompt template
-// ----
-// . A conversational **chain** that facilitates document retrieval and manages interaction between the user and the LLM
-// [source, python]
-// ----
-// qa = RetrievalQA.from_chain_type(
-//     llm=llm, chain_type="stuff", retriever=vectorstore.as_retriever()
-// )
+chat_chain = LLMChain(
+    llm=chat_llm, 
+    prompt=prompt, 
+    memory=memory)
 
-// qa.run(query, callbacks=[stream_handler])
-// ----
+tools = [
+    Tool.from_function(
+        name="ChatOpenAI",
+        description="Talk about Neo4j Cypher queries",
+        func=chat_chain.run,
+        return_direct=True,
+    )
+]
+
+agent = initialize_agent(
+    tools, 
+    chat_llm, 
+    memory=memory,
+    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+    handle_parse_errors=True,
+)
+
+while True:
+    q = input(">")
+    print(agent.run(q))
+----
+====
 
 In the next lesson, you will set up your development environment and use Langchain to query an LLM.
 
