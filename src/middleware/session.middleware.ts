@@ -4,6 +4,7 @@ import flash from 'express-flash'
 import { getDriver } from '../modules/neo4j'
 import Neo4jStore from './neo4j-session-store.middleware'
 import { createClient } from 'redis'
+import cookieParser from 'cookie-parser'
 import { DOMAIN, IS_PRODUCTION, REDIS_HOST } from '../constants'
 
 import connectRedis from 'connect-redis'
@@ -53,4 +54,5 @@ export function registerSession(app: Express) {
         store,
     }))
     app.use(flash())
+    app.use(cookieParser())
 }

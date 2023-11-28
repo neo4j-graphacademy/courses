@@ -11,9 +11,11 @@ import { NextFunction, Request, Response } from "express";
 export function saveRef(req: Request, res: Response, next: NextFunction) {
     if (req.query.ref) {
         req.session['ref'] = req.query.ref
+        res.cookie('ref', req.session['ref'])
     }
     else if (req.query.utm_source) {
         req.session['ref'] = `${req.query.utm_source}-${req.query.utm_medium}-${req.query.utm_campaign}-${req.query.utm_content}`
+        res.cookie('ref', req.session['ref'])
     }
 
     next()
@@ -27,5 +29,5 @@ export function saveRef(req: Request, res: Response, next: NextFunction) {
  */
 export function getRef(req: Request): string | undefined {
     // @ts-ignore
-    return req.session.ref
+    return req.session.ref || req.cookies.ref
 }
