@@ -9,7 +9,7 @@ In this lesson, you will learn how to create vector embeddings of text content i
 
 == Vectorizing Movie Plots
 
-When you enrolled in this course, a Movie Recommendation Sandbox was created. This database consists of over 9000 movies, 15000 actors, and just over 100000 user ratings.
+GraphAcademy created a Movie Recommendation Sandbox when you enrolled in this course. The sandbox database contains over 9000 movies, 15000 actors, and over 100000 user ratings.
 
 Each movie has a `.plot` property.
 
@@ -20,7 +20,7 @@ RETURN m.title AS title, m.plot AS plot
 
     "A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room."
 
-You can use the vector index to find the most similar movies by converting this text into a vector embedding.
+You can use the vector index to find the most similar movies by converting the plots into vector embeddings and comparing them.
 
 You will use a pre-created link:https://data.neo4j.com/llm-fundamentals/openai-embeddings.csv[CSV file of 1000 movie plot vector embeddings^] in this lesson.
 
@@ -41,14 +41,58 @@ movieId, embedding
 ====
 link:https://platform.openai.com/docs/guides/embeddings/what-are-embeddings[OpenAI's text-embedding-ada-002 model^] was used to create the embeddings. It is a cost-effective model that can generate embeddings for text.
 
-A simple Python script calls the embeddings endpoint served by OpenAI. The link:https://github.com/neo4j-graphacademy/llm-fundamentals/blob/main/openai_embeddings.py[code^] is available in the link:https://github.com/neo4j-graphacademy/llm-fundamentals[github.com/graphacademy/llm-fundamentals^] repository.
+A simple Python script calls the embedding endpoint served by OpenAI. The link:https://github.com/neo4j-graphacademy/llm-fundamentals/blob/main/openai_embeddings.py[code^] is available in the link:https://github.com/neo4j-graphacademy/llm-fundamentals[github.com/graphacademy/llm-fundamentals^] repository.
+
+Each LLM will provide an embedding in its shape. 
 ====
 
-For this lesson, it doesn't necessarily matter how these embeddings were obtained, as each LLM will provide an embedding in its own shape.
+== Loading Embeddings
+
+The embeddings will be stored as a `.embedding` property on the `(:Movie)` node.
+
+You will use the `LOAD CSV` command to load the embeddings into the Neo4j Sandbox instance.
+
+The following Cypher loads the embeddings CSV file, performs a `MATCH` query to find the `(:Movie)` node with the corresponding `movieId` property, and then sets the `.embedding` property on that node.
+
+Review this Cypher statement before running it.
+
+.Loading the Embeddings
+[source,cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/llm-fundamentals/openai-embeddings.csv'
+AS row
+MATCH (m:Movie {movieId: row.movieId})
+CALL db.create.setNodeVectorProperty(m, 'embedding', apoc.convert.fromJsonList(row.embedding))
+RETURN count(*)
+----
+
+The statement:
+
+* Loads the CSV file
+* Matches the `(:Movie)` node with the corresponding `movieId` property
+* Calls `db.create.setNodeVectorProperty()` procedure to set the `embedding` property
+* The procedure also validates that the property is a valid vector
+
+Run the statement to create the Movie embeddings.
+
+Once complete, you can query the database to see the `.embedding` property on the `(:Movie)` nodes.
+
+[source,cypher]
+MATCH (m:Movie {title: "Toy Story"})
+RETURN m.title AS title, m.plot AS plot, m.embedding
+
+[TIP]
+.LOAD CSV and Strings
+====
+When data is loaded using `LOAD CSV`, it is treated as a string unless specifically cast using a specific function, for example, `toInteger()` or `toFloat()`.
+
+In this case, the embedding is a string representing a JSON list, the statement coerces it into a Cypher `List` link:https://neo4j.com/docs/apoc/current/overview/apoc.convert/apoc.convert.fromJsonList/[using the `apoc.convert.fromJsonList()` procedure^].
+
+You can link:https://graphacademy.neo4j.com/courses/importing-cypher/[learn how to use the `LOAD CSV` command in the Importing CSV Data into Neo4j course].
+====
 
 == Creating the Vector Index
-
-You will save the embeddings to a `.embedding` property on the `(:Movie)` node.
 
 You will need to create a vector index to search across these embeddings.
 
@@ -89,6 +133,8 @@ CALL db.index.vector.createNodeIndex(
 
 Note that the index is called `moviePlots`, it is against the `Movie` label, and it is on the `.embedding` property. The `vectorDimension` is `1536` (as used by OpenAI) and the similarity function is `cosine`.
 
+Run the statement to create the index.
+
 [TIP]
 .Choosing a Similarity Function
 ====
@@ -100,6 +146,8 @@ Typically, you will choose a similarity function closest to the loss function us
 ====
 
 === Check the index creation status
+
+The index will be updated asynchronously. You can check the status of the index population using the `SHOW INDEXES` statement:
 
 Check that you created the index successfully using the `SHOW INDEXES` command.
 
@@ -121,50 +169,6 @@ You should see a result similar to the following:
 Once the `state` is listed as online, the index will be ready to query.
 
 The `populationPercentage` field indicates the proportion of node and property pairing.
-
-== Loading Embeddings
-
-You will use the `LOAD CSV` command to load the embeddings into the Neo4j Sandbox instance.
-
-The following Cypher loads the embeddings CSV file, performs a `MATCH` query to find the `(:Movie)` node with the corresponding `movieId` property, and then sets the `.embedding` property on that node.
-
-Review this Cypher statement before running it.
-
-.Loading the Embeddings
-[source,cypher]
-----
-LOAD CSV WITH HEADERS
-FROM 'https://data.neo4j.com/llm-fundamentals/openai-embeddings.csv'
-AS row
-MATCH (m:Movie {movieId: row.movieId})
-CALL db.create.setNodeVectorProperty(m, 'embedding', apoc.convert.fromJsonList(row.embedding))
-RETURN count(*)
-----
-
-The statement:
-
-* Loads the CSV file
-* Matches the `(:Movie)` node with the corresponding `movieId` property
-* Calls `db.create.setNodeVectorProperty()` procedure to set the `embedding` property
-* The procedure also validates that the property is a valid vector
-
-
-[TIP]
-.LOAD CSV and Strings
-====
-When data is loaded using `LOAD CSV`, it is treated as a string unless specifically cast using a specific function, for example, `toInteger()` or `toFloat()`.
-
-In this case, the embedding is a string representing a JSON list, and needs to be coerced into a Cypher `List` link:https://neo4j.com/docs/apoc/current/overview/apoc.convert/apoc.convert.fromJsonList/[using the `apoc.convert.fromJsonList()` function^].
-
-You can link:https://graphacademy.neo4j.com/courses/importing-cypher/[learn how to use the `LOAD CSV` command in the Importing CSV Data into Neo4j course].
-====
-
-The index will be updated asynchronously. You can check the status of the index population using the `SHOW INDEXES` statement:
-
-[source,cypher]
-----
-SHOW INDEXES  YIELD id, name, type, state, populationPercent WHERE type = "VECTOR"
-----
 
 When the `populationPercent` is `100.0`, all the movie embeddings have been indexed.
 
@@ -190,7 +194,10 @@ The procedure accepts three parameters:
 2. `numberOfNearestNeighbours` - The number of results to return
 3. `query` - A list of floats that represent an embedding
 
-The procedure yields two arguments; a `node` and a similarity `score` ranging from `0.0` to `1.0`.
+The procedure yields two arguments: 
+
+. A `node` which matches the query
+. A similarity `score` ranging from `0.0` to `1.0`.
 
 // TODO - MH comment - should we also show how to search for a user question embedding? should we prepare a few in a file?
 
@@ -214,7 +221,7 @@ RETURN node.title AS title, node.plot AS plot, score
 
 The query finds the _Toy Story_ `Movie` node and uses the `.embedding` property to find the most similar plots. The `db.index.vector.queryNodes()` procedure uses the `moviePlots` vector index to find similar embeddings.
 
-The procedure returns the requested number of approximate nearest neighbor nodes and their similarity score, ordered by the score.
+Run the query. The procedure returns the requested number of approximate nearest neighbor nodes and their similarity score, ordered by the score.
 
 .Similar Plots Results
 |===
@@ -233,7 +240,7 @@ The similarity score is between `0.0` and `1.0`, with `1.0` being the most simil
 
 As you can see, this approach is relatively straightforward and can quickly yield results. The downside to this approach is that it relies heavily on the embeddings and similarity function to produce valid results.
 
-This approach is also a black box - with 1536 dimensions, it would be impossible to determine how the vectors are structured and what factors were considered when calculating the similarity.
+This approach is also a black box - with 1536 dimensions, and it would be impossible to determine how the vectors are structured and how they influenced the similarity score.
 
 The movies returned look similar, but without reading and comparing them, you would have no way of verifying that the results are correct.
 
