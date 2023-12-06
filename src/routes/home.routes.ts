@@ -6,6 +6,7 @@ import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
+import { canonical } from '../utils'
 
 const router = Router()
 
@@ -59,6 +60,7 @@ router.get('/', async (req, res, next) => {
             // },
             description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
             classes: 'home transparent-nav preload',
+            canonical: canonical('/'),
             current,
             categories,
             beginners,

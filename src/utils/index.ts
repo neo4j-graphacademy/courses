@@ -538,6 +538,14 @@ const formatter = new Intl.RelativeTimeFormat(undefined, {
     numeric: "auto",
 })
 
+export function canonical(relative: string): string {
+    // Add startinf slash
+    if (!relative.startsWith('/')) {
+        relative = `/${relative}}`
+    }
+    return `${BASE_URL}${relative}`
+}
+
 
 
 const DIVISIONS: { amount: number, name: Intl.RelativeTimeFormatUnit }[] = [

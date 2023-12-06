@@ -778,12 +778,6 @@ export const displayCourseCompleted = (res) => {
             course useful and are now feeling more confident using Neo4j.
         </p>
         <p>
-
-            As part of this course, you have earned the
-            <strong>${window.analytics.course.title}</strong> badge
-            badge, which will appear on your
-            <a href="${window.analytics.course.link}certificate/" target="_blank">course certificate</a>.
-
             If you enjoyed the course, why not
             <a href="${window.analytics.course.link}certificate/" target="_blank">share your certificate</a>
             with your friends and colleagues?

@@ -3,7 +3,7 @@ import { CourseWithProgress } from '../domain/model/course'
 import { getUserAchievements } from '../domain/services/get-user-achievements'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
-import { getCountries, getUserName } from '../utils'
+import { canonical, getCountries, getUserName } from '../utils'
 import NotFoundError from '../errors/not-found.error'
 
 const router = Router()
@@ -77,6 +77,7 @@ router.get('/:id', async (req, res, next) => {
             own,
             categories,
             breadcrumbs,
+            canonical: canonical(`/u/${req.params.id}/`),
         })
     }
     catch (e) {
@@ -94,13 +95,13 @@ router.get('/:id/:course', async (req, res, next) => {
         const { enrolments } = await getUserEnrolments(req.params.id, 'id', req.params.course, false)
 
         if (!enrolments) {
-            return res.redirect(`/u/${req.params.id}`)
+            return res.redirect(`/u/${req.params.id}/`)
         }
 
         const course = enrolments.completed?.find(item => item.slug === req.params.course)
 
         if (!course || !course?.completed) {
-            return res.redirect(`/u/${req.params.id}`)
+            return res.redirect(`/u/${req.params.id}/`)
         }
 
         if (course.certificateUrl) {

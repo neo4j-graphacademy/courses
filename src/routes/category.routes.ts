@@ -8,7 +8,7 @@ import { getCoursesByCategory } from '../domain/services/get-courses-by-category
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth.middleware'
 
-import { categoryBannerPath, flattenCategories, groupCoursesByStatus } from '../utils'
+import { canonical, categoryBannerPath, flattenCategories, groupCoursesByStatus } from '../utils'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 
 const router = Router()
@@ -120,7 +120,7 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
 
         res.render('course/list', {
             title: slug === 'certification' ? 'Neo4j Certifications' : `${category.title} Courses`,
-            canonical: `${BASE_URL}/categories/${slug}/`,
+            canonical: canonical(`/categories/${slug}/`),
             slug,
             categories,
             category,

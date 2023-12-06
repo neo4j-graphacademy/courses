@@ -200,6 +200,7 @@ export class Chatbot {
                 Provide a code sample if possible.
                 Also include any links to relevant documentation or lessons on GraphAcademy, excluding the current page where applicable.
                 For questions on licensing or sales inquiries, instruct the user to email sales@neo4j.com.
+                For support relating to the course, the user can email graphacademy@neo4j.com.
                 `
             },
             {
