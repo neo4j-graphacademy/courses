@@ -447,6 +447,9 @@ const redeemForm = async (req, res, next) => {
         // Countries
         const countries = await getCountries()
 
+        console.log('> err', req.errors);
+
+
         res.render('account/printful-form', {
             title: `Redeem ${reward.title} | Rewards`,
             classes: 'account',
@@ -535,9 +538,16 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             })
         })
 
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        req.errors = e.response?.data?.errors
+        if (e.response?.data) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            req.errors = e.response?.data?.errors
+        }
+        else if (e.errors) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            req.errors = e.errors
+        }
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         req.errorMessage = e.response?.data?.result || e.message

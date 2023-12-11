@@ -15,20 +15,19 @@ import { readFileSync } from 'fs'
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
-    const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
-    const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
+    // const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
+    // const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
 
-    // Get enrolments that haven't been updated in the last X days
+    // Get enrolments that haven't been updated in the last X days and 23 hours
     // (but hasn't had another reminder email in the last three days)
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)-[:FOR_COURSE]->(c)
-        WHERE e.unsubscribed IS NULL
-          AND e.createdAt <= datetime() - duration('P${days}D')
-          AND e.lastSeenAt <= datetime() - duration('P${days}D')
+        WHERE datetime() - duration('P7DT1H30M') <= e.lastSeenAt AND e.lastSeenAt <= datetime() - duration('P7D')
           AND not e:CompletedEnrolment
-          AND not e.reminderSentAt IS NOT NULL
+          AND (e.reminderSentAt IS NOT NULL OR e.reminderSentAt < datetime() - duration('P5D'))
           AND u.email IS NOT NULL
-          AND size([(u)-[:HAS_ENROLMENT]->(e) WHERE e.reminderSentAt IS NOT NULL AND e.reminderSentAt >= datetime.truncate('day') - duration('P3D') | e]) = 0
+          AND u.unsubscribed IS NULL
+          AND size([(u)-[:HAS_ENROLMENT]->(e) WHERE e.reminderSentAt IS NOT NULL AND e.reminderSentAt >= datetime.truncate('day') - duration('P2D') | e]) = 0
         RETURN u {
             .*,
             _name: coalesce(u.givenName, u.name),
@@ -39,7 +38,7 @@ const main = async () => {
         } AS enrolment,
         c { .id, .slug, .title, .link } AS course
         LIMIT $limit
-    `, { limit: int(limit) })
+    `, {})
 
     console.log(`🚨 Preparing ${res.records.length} Reminder Email${res.records.length == 1 ? '' : 's'}`);
 
