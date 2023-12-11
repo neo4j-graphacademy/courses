@@ -152,10 +152,6 @@ export function formatRecipient(
             errors,
         )
     }
-    throw new ValidationError(
-        `Unable to validate address`,
-        { address1: 'NO good yo' },
-    )
 
     return recipient
 }
