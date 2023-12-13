@@ -76,7 +76,7 @@ export async function getSandboxes(token: string, user: User, isRetry = false): 
     }
     catch (e: any) {
         // Report Error
-        handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
+        await handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
 
         // Fail Silently
         return []
@@ -211,7 +211,7 @@ export async function createSandbox(token: string, user: User, usecase: string, 
             }
             // Sandbox Uncategorised Error (503) on SandboxRunInstance: Request failed with status code 503 ({"message":"Service Unavailable"})
             else if (response.status === 503 && isRetry === false) {
-                handleSandboxError(token, user, 'SandboxRunInstance', e)
+                await handleSandboxError(token, user, 'SandboxRunInstance', e)
 
                 // Retry after a second
                 await sleep(2000)

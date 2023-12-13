@@ -546,8 +546,6 @@ router.get('/:course/browser', requiresAuth(), /*requiresVerification,*/ browser
 router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
 router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerification,*/ browser)
 
-
-
 const chat = async (req: Request, res: Response) => {
     try {
         const user = await getUser(req) as User
@@ -1036,11 +1034,12 @@ router.post('/:course/:module/:lesson/reset/', requiresAuth(), /*requiresVerific
 router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
+        const ref = getRef(req)
         const { course, module, lesson } = req.params
         const answers: Answer[] = req.body
 
         const user = await getUser(req)
-        const output = await saveLessonProgress(user as User, course, module, lesson, answers, token)
+        const output = await saveLessonProgress(user as User, course, module, lesson, answers, token, ref)
 
         res.json(output)
     }

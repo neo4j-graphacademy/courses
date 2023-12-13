@@ -6,8 +6,8 @@ import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD,
-    ENROLMENT_REMINDER_LIMIT,
-    ENROLMENT_REMINDER_DAYS,
+    // ENROLMENT_REMINDER_LIMIT,
+    // ENROLMENT_REMINDER_DAYS,
 } from '../constants'
 import { courseSummaryPdfPath } from '../modules/asciidoc'
 import { readFileSync } from 'fs'

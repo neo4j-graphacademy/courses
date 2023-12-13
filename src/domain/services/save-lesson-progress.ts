@@ -14,7 +14,7 @@ import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
-export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string): Promise<LessonWithProgress & { answers: Answer[] }> {
+export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string, ref?: string): Promise<LessonWithProgress & { answers: Answer[] }> {
     const {
         lessonWithProgress,
         moduleWithProgress,
@@ -31,7 +31,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
             // Log Attempt
             MERGE (a:Attempt { id: apoc.text.base64Encode(u.sub + '--'+ l.id + '--' + toString(datetime())) })
-            SET a.createdAt = datetime()
+            SET a.createdAt = datetime(), a.ref = $ref
             MERGE (e)-[:HAS_ATTEMPT]->(a)
             MERGE (a)-[:ATTEMPTED_LESSON]->(l)
 
@@ -67,12 +67,12 @@ export async function saveLessonProgress(user: User, course: string, module: str
             RETURN ${lessonCypher('e')} AS lesson
         `, {
             sub: user.sub,
+            ref,
             course,
             module,
             lesson,
             answers,
         })
-
         if (lessonResult.records.length === 0) {
             throw new NotFoundError(`Enrolment not found for ${user.sub} on ${course}`)
         }
