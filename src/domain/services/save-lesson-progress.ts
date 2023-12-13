@@ -67,7 +67,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             RETURN ${lessonCypher('e')} AS lesson
         `, {
             sub: user.sub,
-            ref,
+            ref: ref || null,
             course,
             module,
             lesson,
