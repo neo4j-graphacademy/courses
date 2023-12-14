@@ -73,7 +73,7 @@ router.get('/:id', async (req, res, next) => {
             classes: 'public-profile',
             title,
             countries: await getCountries(),
-            user,
+            profile: user,
             own,
             categories,
             breadcrumbs,
