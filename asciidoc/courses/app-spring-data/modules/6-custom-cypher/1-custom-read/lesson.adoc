@@ -1,0 +1,104 @@
+= Custom Cypher for Read
+:type: lesson
+
+So far, we have used Spring Data's derived finder and save methods to query the database. However, there are times when we need something a little different. This is where we can write custom Cypher queries for read operations.
+
+== Defining a custom repository method
+
+Taking a look at our repository interface, we haven't had to define any methods yet because we implemented Spring Data's `findAll()`, `findById()`, and `save()` methods that are provided out-of-the-box. These methods are defined to capture most standard use cases for querying and saving data.
+
+However, when we need something else, we can also define our own methods and write Cypher statements that query the data and map the results back to the custom method. For instance, the `findAll()` method works fine to pull the nodes in this movie graph, but what if we had a graph multiple times larger? Even at the current size, it is difficult to view all that data returned on the console. Instead, we could write a custom method to pull a random, smaller subset of the graph each time.
+
+[source,java]
+----
+interface MovieRepository extends Neo4jRepository<Movie, String> {
+    
+    @Query("MATCH (m:Movie)<-[r:ACTED_IN]-(p:Person)" +
+            "RETURN m, collect(r), collect(p) LIMIT 50;")
+    Iterable<Movie> findMoviesSubset();
+}
+
+@RestController
+@RequestMapping("/movies")
+public class MovieController {
+    //repository injection and costructor
+
+    //findAllMovies() now calls the custom query
+    @GetMapping()
+    Iterable<Movie> findAllMovies() {
+        return movieRepo.findMoviesSubset();
+    }
+}
+----
+
+In the above code, we modified the repository interface to add a new method called `findMoviesSubset()`. We annotated the method with `@Query` and provided a Cypher statement that will return a random subset of the graph (up to 50 nodes using the `LIMIT` keyword). We then modified the `findAllMovies()` method in the controller to use the new custom method instead of `findAll()`.
+
+[NOTE]
+----
+In the `RETURN` statement for the query above, we are returning each `Movie` node with its `ACTED_IN` relationships and `Person` nodes. This is because the method expects us to return `Movie` nodes, and then we want to aggregate the related entities (relationships and nodes) for each unique movie using Cypher's implicit aggregation for each item listed in the `RETURN` statement.
+----
+
+== Testing the findMoviesSubset() custom method
+
+Let's test the new method by running the application and calling the `/movies` endpoint. We should see a response with a subset of movies, each with their `ACTED_IN` relationships and `Person` nodes.
+
+[source,shell]
+----
+curl localhost:8080/movies
+----
+
+To take this a step further, let us define one more custom method that uses a search parameter.
+
+== Defining a custom repository method with parameters
+
+As another example, we can also define custom methods that take parameters. For instance, let's say we want to find all of the movies that a specific person acted in. We can define another custom method in our repository interface like this:
+
+[source,java]
+----
+interface MovieRepository extends Neo4jRepository<Movie, String> {
+    //findMoviesSubset() method
+
+    @Query("MATCH (m:Movie)<-[r:ACTED_IN]-(p:Person {name: $name})" +
+            "RETURN m, collect(r), collect(p);")
+    Iterable<Movie> findMoviesByPerson(String name);
+}
+
+@RestController
+@RequestMapping("/movies")
+public class MovieController {
+    //repository injection and costructor
+
+    //new method to call the custom `findMoviesByPerson()` method
+    @GetMapping("/person")
+    Iterable<Movie> findMoviesByPerson(String name) {
+        return movieRepo.findMoviesByPerson(name);
+    }
+}
+----
+
+In the repository interface, we add a new method called `findMoviesByPerson()` that takes a `String` parameter called `name`. We then annotate the method with `@Query` and provide a Cypher statement that will return all of the movies that a person acted in, using the `$name` parameter to match the `Person` with the name provided in the parameter.
+
+In the controller, we add a new method called `findMoviesByPerson()` that calls the custom repository method. We also add a `@GetMapping` annotation to map the method to `/movies/person`. All that is left is to test.
+
+== Testing the findMoviesByPerson() custom method
+
+Just as before, we can test the new method by running the application and calling the `/movies/person` endpoint with a name to search. We should see a response with all of the movies that the person node is connected to, each with their `ACTED_IN` relationships and `Person` nodes.
+
+[source,shell]
+----
+curl localhost:8080/movies/person?name=Robin%20Williams
+----
+
+[NOTE]
+----
+Depending on your shell, you may need to surround the entire url with quotes (e.g. `curl "localhost:8080/movies/person?name=Robin%20Williams"`).
+----
+
+Feel free to search for different actors' names to see the results and run the query in Neo4j Browser to see the results there as well.
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to write your own custom methods and queries to retrieve data from the database.
+
+Next, you will complete a challenge that builds upon that skill to create custom queries and methods for writing data to the database.

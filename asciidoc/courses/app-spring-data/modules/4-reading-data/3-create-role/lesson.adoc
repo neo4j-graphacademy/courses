@@ -1,0 +1,104 @@
+= Creating Role classes
+:type: lesson
+
+We have created the application entities for movies and people, but we haven't created the most unique part of the graph - relationships. In this lesson, we will see how to map relationships between movies and people and create application entities for relationship properties.
+
+== Add relationships to the Movie class
+
+If you are familiar with mapping relationships in Spring applications with other types of data stores (such as relational databases), the syntax for mapping relationships with Neo4j will not be completely foreign to you.
+
+In the `Movie` domain class, we will create a new field that represents the relationship between a movie and a person. We will need to annotate the field with `@Relationship` and specify the relationship type that should be mapped from the graph. Depending on the model, we may also need to specify which direction the relationship is stored.
+
+[%collapsible]
+.Click to review the movie graph model
+====
+Movie Database Data Model
+
+image::{repository-raw}/{path}/images/movie-graph-model.png[Movie Database domain model,width=600]
+====
+
+//Should we use a trimmed model img?
+////
+CALL apoc.meta.subGraph({
+  excludeLabels: ["Actor", "Director"]
+});
+////
+
+Person entities can `act in` or `direct` movies, so let's start with mapping the `ACTED_IN` relationship from the `Movie` class to the `Person` class.
+
+[source,java]
+----
+@Node
+public class Movie {
+    //id and other field definitions
+
+    @Relationship(value = "ACTED_IN", direction = Relationship.Direction.INCOMING)
+    private List<Person> actors;
+
+    //constructor
+
+    //getters and setters
+    
+    public Person getActors() {
+        return actors;
+    }
+    public void setActors(Person actors) {
+        this.actors = actors;
+    }
+}
+----
+
+The `@Relationship` annotation has two attributes that we need to specify - relationship type (`value`) and direction. In this case, we are mapping the `ACTED_IN` relationship from the graph to the `actors` field in the `Movie` class that returns a list of `Person` entities. The `ACTED_IN` relationship goes from `Person` to `Movie`, so we specify the direction as `INCOMING` in the `Movie` class.
+
+We don't add this to the constructor because we could (theoretically) create a movie node in the graph that doesn't have any actors. We 
+*do* add this to the `getters` and `setters`, though, to set and retrieve `actors` with their related movies.
+
+Let's test this and see.
+
+== Test the application (again!)
+
+Start the application in your IDE or with `mvn spring-boot:run` at the command line. Next, navigate to `http://localhost:8080/movies/119155`. You should see the same list of movie properties as before, plus an `actors` one containing a list with fields matching the `Person` class.
+
+It's working! However, if you run the following query and look at the relationships, you will see that we are missing the `role` property on the relationships. We will need to map those by creating a separate entity class for the relationship to include relationship properties.
+
+== Add relationship properties class
+
+Back in our Java application project, create a new Java class called `Role` in the `src/main/java/com/example/appspringdata` package. This class will represent the relationship properties stored on the relationship between a `Person` and a `Movie` node.
+
+Add the following code to the `Role` class:
+
+[source,java]
+----
+@RelationshipProperties
+public class Role {
+    @RelationshipId
+    private Long id;
+
+    private String role;
+
+    @TargetNode
+    private final Person person;
+
+    //constructor
+
+    //getters and setters
+}
+----
+
+[NOTE]
+----
+You do not need setter methods for the `id` and `person` fields because the id is handled by the database, and the Person entity is handled by a separate class.
+----
+
+== Test the application (again!)
+
+Start the application in your IDE or with `mvn spring-boot:run` at the command line. Next, navigate to `http://localhost:8080/movies/2`. You should see the same list of movie properties as before, plus one for `role` containing the name(s) of the character(s) the person played in that movie.
+
+Nice work! You mapped the `ACTED_IN` relationship from the graph to the `actors` field in the `Movie` class, and you mapped a relationship property for `role` by creating a separate `Role` class to contain the field.
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you successfully mapped relationships between the graph data model and your Java application by creating annotated fields in domain classes and separate classes for mapping relationship properties.
+
+Next, you will learn how to write data to Neo4j from your application.
