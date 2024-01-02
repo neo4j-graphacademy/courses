@@ -25,6 +25,7 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     const res = await write(`
         MERGE (u:User {sub: $id})
         SET u.updatedAt = datetime(), u += $updates,
+            u.id = coalesce(u.id, randomUuid()),
             u.picture = $picture,
             u.profileCompletedAt = coalesce(u.profileCompletedAt, datetime())
         RETURN u
