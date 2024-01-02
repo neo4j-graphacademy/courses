@@ -2,7 +2,7 @@ import { Router } from "express";
 import { BASE_URL } from "../constants";
 import getCertificateById from "../domain/services/get-certificate-by-id";
 import { getUser } from "../middleware/auth.middleware";
-import { getUserName } from "../utils";
+import { canonical, getUserName } from "../utils";
 import { courseOgBadgeImage, courseOgBannerImage } from "./route.utils";
 
 const router = Router()
@@ -40,6 +40,7 @@ router.get('/:id', async (req, res, next) => {
             year,
             month,
             url,
+            canonical: canonical(`/c/${id}/`),
         })
     }
     catch (e) {
