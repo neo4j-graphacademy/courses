@@ -1,0 +1,153 @@
+= Data Types
+:order: 1
+:type: lesson
+:sandbox: true
+
+In this lesson, you will explore how to cast data from a CSV file to different data types in Neo4j.
+
+[.video]
+video::zgCYIKR_g3Q[youtube,width=560,height=315]
+
+[.transcript]
+
+== Casting
+
+All data loaded using `LOAD CSV` will be returned as strings - you need to cast the data to an appropriate data type before being written to a property. 
+
+The types of data that you can store as properties in Neo4j include:
+
+* String
+* Integer 
+* Float (decimal values)
+* Boolean
+* Date/Datetime
+* Point (spatial)
+* Lists of values
+
+There are Cypher functions to cast data to appropriate types. For example, when creating the `Person` nodes, you used the `toInteger()` function to cast IDs to integers.
+
+[source, cypher, role=noplay nocopy]
+----
+...
+MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
+SET
+p.imdbId = toInteger(row.person_imdbId)
+----
+
+Cypher functions to cast data include:
+
+|===
+|Function |Description
+
+|`toBoolean()` |Converts a string to a boolean value
+|`toFloat()` |Converts a string to a float value
+|`toInteger()` |Converts a string to an integer value
+|`toString()` |Converts a value to a string
+|`date()` |Converts a string to a date value
+|`datetime()` |Converts a string to a date and time value
+|===
+
+You can use the `apoc.meta.nodeTypeProperties()` function to show the data types used in the graph:
+
+[source, cypher]
+----
+CALL apoc.meta.nodeTypeProperties()
+YIELD nodeType, propertyName, propertyTypes
+----
+
+Review the results and note, except for the IDs, that the data types for properties of `Person` are all strings.
+
+|===
+|Node Type |Property |Data Type
+
+|":`Person`" |"tmdbId" |["Long"]
+|":`Person`" |"imdbId" |["Long"]
+|":`Person`" |"bornIn" |["String"]
+|":`Person`" |"born"   |["String"]
+|":`Person`" |"name"   |["String"]
+|":`Person`" |"bio"    |["String"]
+|":`Person`" |"died"   |["String"]
+|===
+
+[NOTE]
+Neo4j will return the data type `Long` for integer values.
+
+=== Person node dates
+
+The `Person` nodes `born` and `died` properties are both dates, not strings. 
+
+You used this Cypher statement to create the `Person` nodes:
+
+[source, cypher, role=noplay]
+----
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/importing-cypher/persons.csv' AS row
+MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
+SET
+p.imdbId = toInteger(row.person_imdbId),
+p.bornIn = row.bornIn,
+p.name = row.name,
+p.bio = row.bio,
+p.poster = row.poster,
+p.url = row.url,
+p.born = row.born,
+p.died = row.died
+----
+
+It should be modified to use the `date()` function to convert the `born` and `died` properties to `Date` values.
+
+== Correct the Person nodes
+
+Run this updated query to modify the `born` and `died` properties to be `Date` values.
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/importing-cypher/persons.csv' AS row
+MERGE (p:Person {tmdbId: toInteger(row.person_tmdbId)})
+SET
+p.imdbId = toInteger(row.person_imdbId),
+p.bornIn = row.bornIn,
+p.name = row.name,
+p.bio = row.bio,
+p.poster = row.poster,
+p.url = row.url,
+p.born = date(row.born),
+p.died = date(row.died)
+----
+
+[NOTE]
+.Using MERGE not CREATE?
+As `MERGE` was used in this Cypher statement, you can run it multiple times without creating duplicate nodes. It will update the existing nodes with the new date values. If you used `CREATE` instead, you would create new nodes each time you ran the statement.
+
+Use the `apoc.meta.nodeTypeProperties` function again to check that the `born` and `died` properties are now `Date` values:
+
+[source, cypher]
+----
+CALL apoc.meta.nodeTypeProperties()
+YIELD nodeType, propertyName, propertyTypes
+----
+
+[TIP]
+.Advantages of using `Date`
+====
+The `Date` data type allows you to extract the `year`, `month`, and `day` from the date. For example, 
+
+[source, Cypher]
+----
+MATCH (p:Person) 
+RETURN p.born.year as YearOfBirth
+----
+====
+
+The remaining properties are all string values, so casting them to a different data type is unnecessary.
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-strings.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to cast data to different data types in Neo4j.
+
+In the next lesson, you will update the `Movie` nodes to use the relevant data type for each property.

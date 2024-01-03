@@ -1,0 +1,1 @@
+MATCH (d:Director) RETURN true as outcome LIMIT 1

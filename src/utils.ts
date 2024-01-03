@@ -36,6 +36,9 @@ export function courseOverviewPath(slug: string): string {
     return path.join(COURSE_DIRECTORY, slug, 'course.adoc')
 }
 
+export function courseSummaryPath(slug: string): string {
+    return path.join(COURSE_DIRECTORY, slug, 'summary.adoc')
+}
 
 export function courseBadgePath(slug: string): string {
     return path.join(COURSE_DIRECTORY, slug, 'badge.svg')

@@ -1,5 +1,5 @@
 import path, { basename } from 'path'
-import fs from 'fs'
+import fs, { existsSync } from 'fs'
 import pug from 'pug'
 import nodeHtmlToImage from 'node-html-to-image'
 import { ASCIIDOC_DIRECTORY, CATEGORY_DIRECTORY, COURSE_DIRECTORY, PUBLIC_DIRECTORY } from '../constants'
@@ -15,7 +15,7 @@ const main = async () => {
     await copyImageAssets()
 }
 
-async function render(outputTo: string, overline: string | undefined, title: string, byline: string, badge?: string) {
+async function render(outputTo: string, overline: string | undefined, title: string, byline: string, illustration?: string, badge?: string) {
     const bannerFunction = pug.compileFile(path.join(__dirname, '..', '..', 'views', 'banner.pug'))
     const css = fs.readFileSync(path.join(__dirname, '..', '..', 'resources', 'css', 'banner.css'))
 
@@ -24,6 +24,7 @@ async function render(outputTo: string, overline: string | undefined, title: str
         title,
         byline,
         badge,
+        illustration,
         css,
     })
 
@@ -37,15 +38,29 @@ async function render(outputTo: string, overline: string | undefined, title: str
 }
 
 async function renderCourseBanner(slug: string) {
-    const file = loadFile(courseOverviewPath(slug))
+    try {
+        const file = loadFile(courseOverviewPath(slug))
 
-    await render(
-        courseBannerPath(slug),
-        file.getAttribute('overline'),
-        file.getTitle()!,
-        file.getAttribute('caption'),
-        fs.readFileSync(courseBadgePath(slug)).toString()
-    )
+        const illustrationPath = courseIllustrationPath(slug)
+        const illustration = existsSync(illustrationPath) ? fs.readFileSync(illustrationPath).toString() : undefined
+
+        const badgePath = courseBadgePath(slug)
+        const badge = existsSync(badgePath) ? fs.readFileSync(badgePath).toString() : undefined
+
+
+
+        await render(
+            courseBannerPath(slug),
+            file.getAttribute('overline'),
+            file.getTitle()!,
+            file.getAttribute('caption'),
+            illustration,
+            badge,
+        )
+    }
+    catch (e: any) {
+        console.log(`❌ Error rendering course banner for ${slug}: ${e.message}`)
+    }
 
     return slug
 }
@@ -112,7 +127,7 @@ async function copyImageAssets() {
     // Copy illustrations to public
     fs.readdirSync(COURSE_DIRECTORY)
         .filter(slug => fs.existsSync(courseIllustrationPath(slug)))
-        .map(slug => [courseBadgePath(slug), coursePublicIllustrationPath(slug)])
+        .map(slug => [courseIllustrationPath(slug), coursePublicIllustrationPath(slug)])
         .map(([src, dest]) => fs.copyFileSync(src, dest))
 
     // Copy backgrounds to public

@@ -1,0 +1,240 @@
+= Agents
+:order: 6
+:type: lesson
+
+In this lesson, you will learn how to create an link:https://python.langchain.com/docs/modules/agents[agent^].
+
+Agents wrap a model and give it access to a set of _tools_. These tools may access additional data sources, APIs, or functionality. The model is used to determine which of the tools to use to complete a task.
+
+The agent you will create will be able to chat about movies and search YouTube for movie trailers.
+
+== Tools
+
+A tool is a specific abstraction around a function that makes it easy for a language model to interact with it. link:https://python.langchain.com/docs/integrations/tools[Langchain provides several tools^] out of the box, and you can create tools to extend the functionality of your agents.
+
+Tools can be grouped into link:https://python.langchain.com/docs/integrations/toolkits/[toolkits^] to solve a particular problem. For example, a toolkit that gets YouTube information - videos, thumbnails, transcripts, views, etc.
+
+You will use the link:https://python.langchain.com/docs/integrations/tools/youtube/[YouTubeSearchTool^] to search YouTube for movie trailers.
+
+== Movie trailer agent
+
+Review the following program below, before running it.
+
+[source,python]
+----
+from langchain.prompts import PromptTemplate
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import LLMChain
+from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain.agents import AgentType, initialize_agent
+from langchain.tools import Tool
+
+llm = ChatOpenAI(
+    openai_api_key="sk-..."
+)
+
+prompt = PromptTemplate(
+    template="""
+    You are a movie expert. You find movies from a genre or plot. 
+
+    ChatHistory:{chat_history} 
+    Question:{input}
+    """, 
+    input_variables=["chat_history", "input"]
+    )
+
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
+
+tools = [
+    Tool.from_function(
+        name="ChatOpenAI",
+        description="For when you need to chat about movies. The question will be a string. Return a string.",
+        func=chat_chain.run,
+        return_direct=True
+    )
+]
+
+agent = initialize_agent(
+    tools, llm, memory=memory,
+    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
+)
+
+while True:
+    q = input(">")
+    print(agent.run(q))
+----
+
+[%collapsible]
+.Click here to see a typical output from this program
+====
+    [user] Find a movie where aliens land on earth.
+
+    [chat model] Sure, I can help you with that. One movie I would recommend where aliens land on Earth is "Arrival" (2016). It's a science fiction film directed by Denis Villeneuve. The story follows a linguist who is recruited by the military to help communicate with an alien species that has landed on Earth. It's a thought-provoking and visually stunning movie that explores themes of communication, time, and the human experience. I hope you enjoy it!
+====
+
+
+Based on your understanding from previous lessons you should be able to identify the following:
+
+. A chat model is being used to have a conversation about movies
+. The prompt which sets the context for the LLM and the input variables
+. That memory is used to store the conversation history
+. A chain is created to link the chat model, prompt, and memory together
+
+In addition to the above, the following is new:
+
+. A tool is created using the chain
++
+[source,python]
+----
+tools = [
+    Tool.from_function(
+        name="ChatOpenAI",
+        description="For when you need to chat about movies. The question will be a string. Return a string.",
+        func=chat_chain.run,
+        return_direct=True
+    )
+]
+----
+. An agent is initialized that uses the tool
++
+[source, python]
+----
+agent = initialize_agent(
+    tools, llm, memory=memory,
+    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
+)
+----
+
+### Creating tools
+
+Tools are interfaces that an agent can interact with. You can link:https://python.langchain.com/docs/modules/agents/tools/custom_tools[create custom tools^] able to perform any functionality you want.
+
+In this example, the Tool is created from a function. The function is the `chat_chain.run` method.
+
+[source, python]
+----
+tools = [
+    Tool.from_function(
+        name="ChatOpenAI",
+        description="For when you need to chat about movies. The question will be a string. Return a string.",
+        func=chat_chain.run,
+        return_direct=True
+    )
+]
+----
+
+The `name` and `description` help the LLM select the tool to use when presented with a question. The `func` parameter is the function that will be called when the tool is used. The `return_direct` flag indicates that the tool will return the result directly.
+
+Agents support multiple tools, so you pass them to the agent as a list (`tools`).
+
+### Initializing an agent
+
+The following code initializes the agent:
+
+[source, python]
+----
+agent = initialize_agent(
+    tools, llm, memory=memory,
+    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
+)
+----
+
+The agent is initialized by passing:
+
+* the `tools` to use
+* the `llm` which will manage the interactions and decide which tool to use
+* the `memory` which will store the conversation history
+* the link:https://python.langchain.com/docs/modules/agents/agent_types/[`agent` type^] to be used. In this case, the `CHAT_CONVERSATIONAL_REACT_DESCRIPTION` (_ReAct_ - Reasoning and Acting) agent type.
+
+[TIP]
+.Agent initialization parameters
+====
+You may find the following additional parameters useful when initializing an agent:
+
+* `max_iterations` - the maximum number of iterations to run the LLM for. This is useful in preventing the LLM from running for too long or entering an infinite loop.
+* `verbose` - if `True` the agent will print out the LLM output and the tool output.
+* `handle_parsing_errors` - if `True` the agent will handle parsing errors and return a message to the user.
+
+[source, python]
+----
+agent = initialize_agent(
+    tools, llm, memory=memory,
+    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+    max_iterations=3, 
+    verbose=True, 
+    handle_parsing_errors=True,
+)
+----
+====
+
+=== Multiple tools
+
+A key advantage of using an agent is that they can use multiple tools. This allows you to create agents that can perform multiple tasks.
+
+You can extend this example to allow it to search YouTube for movie trailers by adding the link:https://python.langchain.com/docs/integrations/tools/youtube/[YouTubeSearchTool^] to the `tools` list. 
+
+Firsly, you will need to install the link:https://pypi.org/project/youtube-search/[`youtube-search`^] package.
+
+[source, bash]
+----
+pip install youtube-search
+----
+
+Import the `YouTubeSearchTool` and create a new tool.
+
+[source, python]
+----
+from langchain.tools import Tool, YouTubeSearchTool
+
+youtube = YouTubeSearchTool()
+
+tools = [
+    Tool.from_function(
+        name="ChatOpenAI",
+        description="For when you need to chat about movies, genres or plots. The question will be a string. Return a string.",
+        func=chat_chain.run,
+        return_direct=True
+    ),
+    Tool.from_function(
+        name="YouTubeSearchTool",
+        description="For when you need a link to a movie trailer. The question will be a string. Return a link to a YouTube video.",
+        func=youtube.run,
+        return_direct=True
+    )
+]
+----
+
+The model will then use the `name` and `description` for each tool to decide which tool to use.
+
+When prompted to find a movie trailer, the model should use the `YouTubeSearchTool` tool.
+
+    [user] Find the movie trailer for the Matrix.
+
+    [agent] ['https://www.youtube.com/watch?v=vKQi3bBA1y8&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D', 'https://www.youtube.com/watch?v=9ix7TUGVYIo&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D']
+
+However, when asked about movies, genres or plots, the model will use the `chat_chain` tool.
+
+    [user] Find a movie about the meaning of life
+
+    [agent] Certainly! One movie that explores the meaning of life is "The Tree of Life" directed by Terrence Malick. It follows the journey of a young boy as he grows up in the 1950s and reflects on his experiences and the meaning of existence. It's a visually stunning and thought-provoking film that delves into existential questions.
+
+As the agent also uses the conversation memory you can refer back to the previous questions, such as finding a trailer for a movie it has recommended:
+
+    [user] Can you find the trailer
+
+    [agent] ['https://www.youtube.com/watch?v=RrAz1YLh8nY&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy', 'https://www.youtube.com/watch?v=OKqqboXuvyE&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy']
+
+Agents and tools allow you to create more adaptable and flexible models to perform multiple tasks.
+
+== Check Your Understanding
+
+include::questions/1-agents.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to create an agent to use multiple tools.
+
+In the next lesson, you will learn how to use Langchain to connect to a Neo4j database.
