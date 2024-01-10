@@ -1,4 +1,4 @@
-from langchain.chat_models.openai import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts.prompt import PromptTemplate
 from langchain.chains import LLMChain
 
@@ -24,9 +24,9 @@ current_weather = """
         ]
     }"""
 
-response = chat_chain.run(
-    context=current_weather,
-    question="What is the weather like on Watergate Bay?"
-)
+response = chat_chain.invoke({
+    "context": current_weather,
+    "question": "What is the weather like on Watergate Bay?"
+    })
 
 print(response)

@@ -18,52 +18,11 @@ You will use the link:https://python.langchain.com/docs/integrations/tools/youtu
 
 == Movie trailer agent
 
-Review the following program below, before running it.
+Review the program below, before running it.
 
 [source,python]
 ----
-from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.chains.conversation.memory import ConversationBufferMemory
-from langchain.agents import AgentType, initialize_agent
-from langchain.tools import Tool
-
-llm = ChatOpenAI(
-    openai_api_key="sk-..."
-)
-
-prompt = PromptTemplate(
-    template="""
-    You are a movie expert. You find movies from a genre or plot. 
-
-    ChatHistory:{chat_history} 
-    Question:{input}
-    """, 
-    input_variables=["chat_history", "input"]
-    )
-
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
-
-tools = [
-    Tool.from_function(
-        name="ChatOpenAI",
-        description="For when you need to chat about movies. The question will be a string. Return a string.",
-        func=chat_chain.run,
-        return_direct=True
-    )
-]
-
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
-)
-
-while True:
-    q = input(">")
-    print(agent.run(q))
+include::code/chat-agent.py[]
 ----
 
 [%collapsible]
@@ -74,8 +33,7 @@ while True:
     [chat model] Sure, I can help you with that. One movie I would recommend where aliens land on Earth is "Arrival" (2016). It's a science fiction film directed by Denis Villeneuve. The story follows a linguist who is recruited by the military to help communicate with an alien species that has landed on Earth. It's a thought-provoking and visually stunning movie that explores themes of communication, time, and the human experience. I hope you enjoy it!
 ====
 
-
-Based on your understanding from previous lessons you should be able to identify the following:
+Based on your understanding from previous lessons, you should be able to identify the following:
 
 . A chat model is being used to have a conversation about movies
 . The prompt which sets the context for the LLM and the input variables
@@ -84,27 +42,26 @@ Based on your understanding from previous lessons you should be able to identify
 
 In addition to the above, the following is new:
 
-. A tool is created using the chain
+. A tool is created using the chain:
 +
 [source,python]
 ----
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
+        name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
         return_direct=True
     )
 ]
 ----
-. An agent is initialized that uses the tool
+. An agent is created that uses the tool:
 +
 [source, python]
 ----
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
-)
+agent_prompt = hub.pull("hwchase17/react-chat")
+agent = create_react_agent(llm, tools, agent_prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory)
 ----
 
 ### Creating tools
@@ -117,7 +74,7 @@ In this example, the Tool is created from a function. The function is the `chat_
 ----
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
+        name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
         return_direct=True
@@ -125,31 +82,41 @@ tools = [
 ]
 ----
 
-The `name` and `description` help the LLM select the tool to use when presented with a question. The `func` parameter is the function that will be called when the tool is used. The `return_direct` flag indicates that the tool will return the result directly.
+The `name` and `description` help the LLM select which tool to use when presented with a question. The `func` parameter is the function that will be called when the tool is selected. The `return_direct` flag indicates that the tool will return the result directly.
 
 Agents support multiple tools, so you pass them to the agent as a list (`tools`).
 
 ### Initializing an agent
 
-The following code initializes the agent:
+The following code creates the agent:
 
 [source, python]
 ----
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION
-)
+agent_prompt = hub.pull("hwchase17/react-chat")
+agent = create_react_agent(llm, tools, agent_prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, memory=memory)
 ----
 
-The agent is initialized by passing:
+There are different link:https://python.langchain.com/docs/modules/agents/agent_types/[types of agents^] that you can create. This example creates a _ReAct_ - Reasoning and Acting) agent type.
 
-* the `tools` to use
-* the `llm` which will manage the interactions and decide which tool to use
-* the `memory` which will store the conversation history
-* the link:https://python.langchain.com/docs/modules/agents/agent_types/[`agent` type^] to be used. In this case, the `CHAT_CONVERSATIONAL_REACT_DESCRIPTION` (_ReAct_ - Reasoning and Acting) agent type.
+An agent requires a prompt. You could create a prompt, but in this example, the program pulls a pre-existing prompt from the link:https://smith.langchain.com/hub/[Langsmith Hub^]. 
+
+The link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[`hwcase17/react-chat`^] prompt instructs the model to provide an answer using the tools available in a specific format.
+
+The `create_react_agent` function creates the agent and expects the following parameters:
+
+* The `llm` that will manage the interactions and decide which tool to use
+* The `tools` that the agent can use
+* The `prompt` that the agent will use
+
+The `AgentExecutor` class runs the agent. It expects the following parameters:
+
+* The `agent` to run
+* The `tools` that the agent can use
+* The `memory` which will store the conversation history
 
 [TIP]
-.Agent initialization parameters
+.AgentExecutor parameters
 ====
 You may find the following additional parameters useful when initializing an agent:
 
@@ -159,19 +126,20 @@ You may find the following additional parameters useful when initializing an age
 
 [source, python]
 ----
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
-    max_iterations=3, 
-    verbose=True, 
-    handle_parsing_errors=True,
-)
+agent_executor = AgentExecutor(
+    agent=agent, 
+    tools=tools, 
+    memory=memory, 
+    max_interations=3,
+    verbose=True,
+    handle_parse_errors=True
+    )
 ----
 ====
 
 === Multiple tools
 
-A key advantage of using an agent is that they can use multiple tools. This allows you to create agents that can perform multiple tasks.
+A key advantage of using an agent is that they can use multiple tools. Access to multiple tools allows you to create agents that can perform several specific tasks.
 
 You can extend this example to allow it to search YouTube for movie trailers by adding the link:https://python.langchain.com/docs/integrations/tools/youtube/[YouTubeSearchTool^] to the `tools` list. 
 
@@ -186,25 +154,31 @@ Import the `YouTubeSearchTool` and create a new tool.
 
 [source, python]
 ----
-from langchain.tools import Tool, YouTubeSearchTool
+from langchain_community.tools import YouTubeSearchTool
 
 youtube = YouTubeSearchTool()
 
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
-        description="For when you need to chat about movies, genres or plots. The question will be a string. Return a string.",
+        name="Movie Chat",
+        description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
         return_direct=True
     ),
     Tool.from_function(
-        name="YouTubeSearchTool",
-        description="For when you need a link to a movie trailer. The question will be a string. Return a link to a YouTube video.",
+        name="Movie Trailer Search",
+        description="Use when needing to find a movie trailer. The question will include the word 'trailer'. Return a link to a YouTube video.",
         func=youtube.run,
         return_direct=True
     )
 ]
 ----
+
+[%collapsible]
+.Click here to reveal the complete program
+====
+include::code/movie-trailer-agent.py[]
+====
 
 The model will then use the `name` and `description` for each tool to decide which tool to use.
 

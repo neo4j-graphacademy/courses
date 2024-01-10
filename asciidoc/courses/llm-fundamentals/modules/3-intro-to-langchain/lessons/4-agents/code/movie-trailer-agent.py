@@ -1,19 +1,15 @@
-# pip install youtube-search
-
+from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.chains.conversation.memory import ConversationBufferMemory
-from langchain.agents import AgentType, initialize_agent
-from langchain.tools import Tool, YouTubeSearchTool
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain.tools import Tool
+from langchain import hub
+from langchain_community.tools import YouTubeSearchTool
 
 llm = ChatOpenAI(
     openai_api_key="sk-..."
-)
-
-youtube = YouTubeSearchTool()
-
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+    )
 
 prompt = PromptTemplate(
     template="""
@@ -25,28 +21,38 @@ prompt = PromptTemplate(
     input_variables=["chat_history", "input"]
     )
 
-chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory)#, verbose=True)
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+
+chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
+
+youtube = YouTubeSearchTool()
 
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
+        name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
         return_direct=True
     ),
     Tool.from_function(
-        name="YouTubeSearchTool",
-        description="For when you need a link to a movie trailer. The question will be a string. Return a link to a YouTube video.",
+        name="Movie Trailer Search",
+        description="Use when needing to find a movie trailer. The question will include the word 'trailer'. Return a link to a YouTube video.",
         func=youtube.run,
         return_direct=True
     )
 ]
 
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
-)
+agent_prompt = hub.pull("hwchase17/react-chat")
+agent = create_react_agent(llm, tools, agent_prompt)
+agent_executor = AgentExecutor(
+    agent=agent, 
+    tools=tools, 
+    memory=memory,
+    max_interations=3,
+    verbose=True,
+    handle_parse_errors=True)
 
 while True:
-    q = input(">")
-    print(agent.run(q))
+    q = input("> ")
+    response = agent_executor.invoke({"input": q})
+    print(response["output"])
