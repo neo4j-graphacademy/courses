@@ -1,5 +1,6 @@
 # Dockerfile
 FROM node:16
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
 
 WORKDIR /app
 
