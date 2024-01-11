@@ -1,5 +1,5 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.graphs import Neo4jGraph
+from langchain_openai import ChatOpenAI
+from langchain_community.graphs import Neo4jGraph
 from langchain.chains import GraphCypherQAChain
 from langchain.prompts import PromptTemplate
 
@@ -39,4 +39,4 @@ cypher_chain = GraphCypherQAChain.from_llm(
     verbose=True  
 )
 
-cypher_chain.run("Who acted in The Matrix and what roles did they play?")
+cypher_chain.invoke({"query": "Who acted in The Matrix and what roles did they play?"})
