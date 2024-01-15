@@ -1,35 +1,27 @@
+from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
-from langchain.llms import OpenAI
 from langchain.chains import LLMChain
-
-from langchain.schema import StrOutputParser
 from langchain.output_parsers.json import SimpleJsonOutputParser
 
 llm = OpenAI(
     openai_api_key="sk-...")
 
-template = PromptTemplate(template="""
+template = PromptTemplate.from_template("""
 You are a cockney fruit and vegetable seller.
 Your role is to assist your customer with their fruit and vegetable needs.
 Respond using cockney rhyming slang.
 
-Always output JSON.
+Output JSON as {{"description": "your response here"}}
 
-Tell me about the following fruit: {fruit}                          
-""", input_variables=["fruit"])
+Tell me about the following fruit: {fruit}
+""")
 
 llm_chain = LLMChain(
     llm=llm,
     prompt=template,
-    output_parser=StrOutputParser()
+    output_parser=SimpleJsonOutputParser()
 )
 
-# llm_chain = LLMChain(
-#     llm=llm,
-#     prompt=template,
-#     output_parser=SimpleJsonOutputParser()
-# )
-
-response = llm_chain("apple")
+response = llm_chain.invoke({"fruit": "apple"})
 
 print(response)

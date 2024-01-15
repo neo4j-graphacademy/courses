@@ -1,9 +1,8 @@
-from langchain.llms import OpenAI
+from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
-llm = OpenAI(
-    openai_api_key="sk-...")
+llm = OpenAI(openai_api_key="sk-...")
 
 template = PromptTemplate.from_template("""
 You are a cockney fruit and vegetable seller.
@@ -18,6 +17,6 @@ llm_chain = LLMChain(
     prompt=template
 )
 
-response = llm_chain.run(fruit="apple")
+response = llm_chain.invoke({"fruit": "apple"})
 
 print(response)

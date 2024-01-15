@@ -1,4 +1,4 @@
-from langchain.chat_models.openai import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.prompts.prompt import PromptTemplate
 from langchain.chains import LLMChain
 
@@ -14,8 +14,8 @@ Question: {question}
 
 chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
 
-response = chat_chain.run(
-    question="What are the conditions like?"
-)
-
+response = chat_chain.invoke({
+    "question": "What is the weather like?"
+    })
+    
 print(response)
