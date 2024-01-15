@@ -9,8 +9,8 @@ You may recall in the link:/courses/llm-fundamentals/3-intro-to-langchain/4-agen
 
 In this challenge, you must:
 
-1. Use the `initialize_agent` function to create a new agent
-2. Create a handler function that instructs the agent to handle
+1. Use the `create_react_agent` function to create a new agent
+2. Create a handler function that instructs the agent to handle messages
 3. Call the new handler function from `bot.py`
 
 lab::Open in Online IDE[]
@@ -18,14 +18,17 @@ lab::Open in Online IDE[]
 
 == Initializing an Agent
 
-Langchain provides an `initialize_agent()` function for creating a new Agent.
+Langchain provides functions for creating a new Agent.
+There are different link:https://python.langchain.com/docs/modules/agents/agent_types/[types of agents^] that you can create. The `create_react_agent()` function creates a _ReAct_ - Reasoning and Acting) agent type.
+
+Agents are run using an `AgentExecutor` object, which is responsible for executing the actions returned by the Agent.
 
 To create a new agent, create a new `agent.py` file, and copy and paste the code below.
 
-
 [source,python]
 ----
-from langchain.agents import AgentType, initialize_agent
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain import hub
 
 # Include the LLM from a previous lesson
 from llm import llm
@@ -33,19 +36,8 @@ from llm import llm
 include::{repository-raw}/main/solutions/agent.py[tag=agent]
 ----
 
-Let's take a look at the parameters passed to the function call in more detail.
 
-
-=== `tools`
-
-The `initialize_agent()` requires a list of tools as the first positional argument.
-We will define tools later on, but for now, you can this has been set to an empty list.
-
-[source,python]
-.Empty Tools List
-----
-tools = []
-----
+Let's take a look at the parameters used in more detail.
 
 === `llm`
 
@@ -56,7 +48,43 @@ This is set to the instance of `ChatOpenAI` created in link:../1-llm/[Creating a
 from llm import llm
 ----
 
+=== `tools`
 
+The `AgentExecutor` requires a list of `tools`.
+
+Tools are objects that can be used by the Agent to perform actions. 
+
+During this course, you will create multiple tools that can be used by the Agent to perform specific tasks. However, a tool is required for "general chat" so the agent can respond to a user's input when no other tool is available.
+
+Add this code to the `agent.py` file to create a new tool that can be used for general chat.
+
+Import the `Tool` class into `agent.py`.
+
+.Importing the Tool class
+[source,python]
+----
+include::{repository-raw}/main/solutions/tools/general.py[tags=importtool]
+----
+
+Then add the tool to a `tools` list using the `Tool.from_function()` static method.
+
+.Registering the Tool
+[source,python]
+----
+include::{repository-raw}/main/solutions/tools/general.py[tags=tool]
+----
+
+The function expects three arguments:
+
+1. The name of the tool, in this case, `General Chat`.
+2. A description that the agent LLM will use when deciding which tool it should use for a particular task.
+3. The function to call once this tool has been selected. In this case, `llm.invoke()`, which will return a response from the LLM.
+
+=== `agent_prompt`
+
+An agent requires a prompt. You could create a prompt, but in this example, the program pulls a pre-existing prompt from the link:https://smith.langchain.com/hub/[Langsmith Hub^]. 
+
+The link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[`hwcase17/react-chat`^] prompt instructs the model to provide an answer using the tools available in a specific format.
 
 === Conversation Memory
 
@@ -72,25 +100,6 @@ include::{repository-raw}/main/solutions/agent.py[tag=importmemory]
 include::{repository-raw}/main/solutions/agent.py[tag=memory]
 ----
 
-
-=== Agent Type
-
-The `agent` parameter specifies the type of agent to use.
-This defaults to a Zero-Shot ReAct agent (`AgentType.ZERO_SHOT_REACT_DESCRIPTION`), an agent that determines which of the tools to use based purely on the
-descriptions provided in the tools array.
-
-We aim to build a conversational chatbot, so the `agent` parameter has been set to `AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION`.
-A Conversational agent is designed to be used in conversational settings.
-It uses the ReAct framework to decide which tool to use, and uses memory to remember the previous conversation interactions.
-
-
-[TIP]
-.Chosing an Agent Type
-====
-You can learn more about the different types of Agents available in the Langchain documentation.
-
-link:https://python.langchain.com/docs/modules/agents/agent_types/[Langchain Documentation: Agent Types^]
-====
 
 == Verbose Output
 
@@ -125,8 +134,8 @@ When the `verbose` argument is set to `True`, you can view the reasoning the age
 
 == Add a Handler Function
 
-The `agent` object returned by the `initialize_agent` function is callable and expects a single input, the user's input.
-The function returns a `dict` that will contain an `answer` key containing the final response generated by the LLM.
+The `agent_executor` object is callable and expects a single input, the user's input.
+The function returns a `dict` that will contain an `output` key containing the final response generated by the LLM.
 
 At the bottom of the file, create a new `generate_response()` function to replicate the value.
 The role of the function should be to take a single string input, call the `agent` object and return the answer generated by the LLM.

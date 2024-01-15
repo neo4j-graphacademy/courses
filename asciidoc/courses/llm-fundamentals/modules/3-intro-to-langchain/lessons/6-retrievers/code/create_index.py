@@ -4,13 +4,14 @@ from langchain.schema import Document
 
 # A list of Documents
 documents = [
-    Document(page_content="Text to be indexed", metadata={"source": "local"})
-    ]
+    Document(
+        page_content="Text to be indexed",
+        metadata={"source": "local"}
+    )
+]
 
 # Service used to create the embeddings
-embedding_provider = OpenAIEmbeddings(
-    openai_api_key="sk-..."
-)
+embedding_provider = OpenAIEmbeddings(openai_api_key="sk-...")
 
 new_vector = Neo4jVector.from_documents(
     documents,
