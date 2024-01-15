@@ -3,7 +3,7 @@ from langchain.vectorstores.neo4j_vector import Neo4jVector
 
 embedding_provider = OpenAIEmbeddings(
     openai_api_key="sk-..."
-    )
+)
 
 movie_plot_vector = Neo4jVector.from_existing_index(
     embedding_provider,
@@ -11,7 +11,7 @@ movie_plot_vector = Neo4jVector.from_existing_index(
     username="neo4j",
     password="pleaseletmein",
     index_name="moviePlots",
-    embedding_node_property="embedding", 
+    embedding_node_property="embedding",
     text_node_property="plot",
 )
 

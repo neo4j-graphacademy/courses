@@ -3,19 +3,23 @@ from langchain.prompts.prompt import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.chains.conversation.memory import ConversationBufferMemory
 
-chat_llm = ChatOpenAI(
-    openai_api_key="sk-..."
-    )
+chat_llm = ChatOpenAI(openai_api_key="sk-...")
 
-prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
+prompt = PromptTemplate(
+    template="""
+You are a surfer dude, having a conversation about the surf conditions on the beach.
 Respond using surfer slang.
 
 Chat History: {chat_history}
 Context: {context}
 Question: {question}
-""", input_variables=["chat_history", "context", "question"])
+""",
+    input_variables=["chat_history", "context", "question"],
+)
 
-memory = ConversationBufferMemory(memory_key="chat_history", input_key="question", return_messages=True)
+memory = ConversationBufferMemory(
+    memory_key="chat_history", input_key="question", return_messages=True
+)
 
 chat_chain = LLMChain(llm=chat_llm, prompt=prompt, memory=memory, verbose=True)
 
@@ -30,9 +34,6 @@ current_weather = """
 
 while True:
     question = input("> ")
-    response = chat_chain.invoke({
-        "context": current_weather, 
-        "question": question
-        })
-    
+    response = chat_chain.invoke({"context": current_weather, "question": question})
+
     print(response["text"])

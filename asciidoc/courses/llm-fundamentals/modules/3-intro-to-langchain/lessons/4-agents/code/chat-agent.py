@@ -6,19 +6,17 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import Tool
 from langchain import hub
 
-llm = ChatOpenAI(
-    openai_api_key="sk-..."
-    )
+llm = ChatOpenAI(openai_api_key="sk-...")
 
 prompt = PromptTemplate(
     template="""
-    You are a movie expert. You find movies from a genre or plot. 
+    You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history} 
+    ChatHistory:{chat_history}
     Question:{input}
-    """, 
-    input_variables=["chat_history", "input"]
-    )
+    """,
+    input_variables=["chat_history", "input"],
+)
 
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
@@ -29,7 +27,7 @@ tools = [
         name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
-        return_direct=True
+        return_direct=True,
     )
 ]
 

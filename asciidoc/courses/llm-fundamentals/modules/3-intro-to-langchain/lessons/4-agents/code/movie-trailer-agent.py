@@ -7,19 +7,17 @@ from langchain.tools import Tool
 from langchain import hub
 from langchain_community.tools import YouTubeSearchTool
 
-llm = ChatOpenAI(
-    openai_api_key="sk-..."
-    )
+llm = ChatOpenAI(openai_api_key="sk-...")
 
 prompt = PromptTemplate(
     template="""
-    You are a movie expert. You find movies from a genre or plot. 
+    You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history} 
+    ChatHistory:{chat_history}
     Question:{input}
-    """, 
-    input_variables=["chat_history", "input"]
-    )
+    """,
+    input_variables=["chat_history", "input"],
+)
 
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
@@ -32,25 +30,26 @@ tools = [
         name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
-        return_direct=True
+        return_direct=True,
     ),
     Tool.from_function(
         name="Movie Trailer Search",
         description="Use when needing to find a movie trailer. The question will include the word 'trailer'. Return a link to a YouTube video.",
         func=youtube.run,
-        return_direct=True
-    )
+        return_direct=True,
+    ),
 ]
 
 agent_prompt = hub.pull("hwchase17/react-chat")
 agent = create_react_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(
-    agent=agent, 
-    tools=tools, 
+    agent=agent,
+    tools=tools,
     memory=memory,
     max_interations=3,
     verbose=True,
-    handle_parse_errors=True)
+    handle_parse_errors=True,
+)
 
 while True:
     q = input("> ")

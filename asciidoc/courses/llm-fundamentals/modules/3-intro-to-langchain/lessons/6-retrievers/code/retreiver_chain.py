@@ -25,6 +25,6 @@ plot_retriever = RetrievalQA.from_llm(
 
 result = plot_retriever.invoke(
     {"query": "A movie where a mission to the moon goes wrong"}
-    )
+)
 
 print(result)
