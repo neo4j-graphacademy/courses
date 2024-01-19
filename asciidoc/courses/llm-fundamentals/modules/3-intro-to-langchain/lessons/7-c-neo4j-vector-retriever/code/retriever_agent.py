@@ -15,11 +15,11 @@ embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 prompt = PromptTemplate(
     template="""
-    You are a movie expert. You find movies from a genre or plot. 
+    You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history} 
+    ChatHistory:{chat_history}
     Question:{input}
-    """, 
+    """,
     input_variables=["chat_history", "input"]
     )
 
@@ -41,8 +41,8 @@ movie_plot_vector = Neo4jVector.from_existing_index(
 
 plot_retriever = RetrievalQA.from_llm(
     llm=llm,
-    retriever=movie_plot_vector.as_retriever(), 
-    verbose=True, 
+    retriever=movie_plot_vector.as_retriever(),
+    verbose=True,
     return_source_documents=True
 )
 
@@ -76,8 +76,8 @@ tools = [
 agent_prompt = hub.pull("hwchase17/react-chat")
 agent = create_react_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(
-    agent=agent, 
-    tools=tools, 
+    agent=agent,
+    tools=tools,
     memory=memory,
     max_interations=3,
     verbose=True,
