@@ -12,7 +12,7 @@ prompt = PromptTemplate(
     template="""
     You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history}
+    Chat History:{chat_history}
     Question:{input}
     """,
     input_variables=["chat_history", "input"],
