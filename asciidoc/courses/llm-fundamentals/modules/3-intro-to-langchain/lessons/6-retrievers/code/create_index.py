@@ -1,5 +1,5 @@
 from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
+from langchain_vectorstores.neo4j_vector import Neo4jVector
 from langchain.schema import Document
 
 # A list of Documents
