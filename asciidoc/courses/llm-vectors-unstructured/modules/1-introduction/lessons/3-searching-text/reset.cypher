@@ -4,7 +4,7 @@ MERGE (m:Movie {movieId: toInteger(row.movieId)})
 SET
 m.tmdbId = toInteger(row.tmdbId),
 m.imdbId = toInteger(row.imdbId),
-m.released = date(row.released),
+m.released = row.released,
 m.title = row.title,
 m.year = toInteger(row.year),
 m.plot = row.plot,
@@ -15,7 +15,8 @@ m.runtime = toInteger(row.runtime),
 m.imdbVotes = toInteger(row.imdbVotes),
 m.revenue = toInteger(row.revenue),
 m.url = row.url
-CALL db.create.setNodeVectorProperty(m, 'plotEmbedding', apoc.convert.fromJsonList(row.embedding));
+WITH m, row
+CALL db.create.setNodeVectorProperty(m, 'plotEmbedding', apoc.convert.fromJsonList(row.plotEmbedding));
 
 CREATE VECTOR INDEX moviePlots IF NOT EXISTS
 FOR (m:Movie)
