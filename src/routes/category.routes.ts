@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
-import { BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
+import { CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
 import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'

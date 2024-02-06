@@ -1038,8 +1038,14 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
         const { course, module, lesson } = req.params
         const answers: Answer[] = req.body
 
+        console.log(req);
+
+
         const user = await getUser(req)
+        console.log(user);
         const output = await saveLessonProgress(user as User, course, module, lesson, answers, token, ref)
+
+        console.log(output);
 
         res.json(output)
     }

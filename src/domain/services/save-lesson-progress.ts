@@ -25,6 +25,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
         // Save Answers
         const lessonResult = await tx.run(`
             MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
+            USING INDEX u:User(sub)
             WHERE u.sub = $sub AND c.slug = $course AND m.slug = $module AND l.slug = $lesson
 
             SET e.lastSeenAt = datetime()

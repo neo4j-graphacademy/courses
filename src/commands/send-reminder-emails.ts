@@ -1,4 +1,3 @@
-import { int } from 'neo4j-driver-core'
 import { prepareAndSend } from '../modules/mailer'
 import initNeo4j, { close, read, write } from "../modules/neo4j"
 
