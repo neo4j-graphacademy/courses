@@ -11,52 +11,132 @@ Understand there are different similarity functions
 
 
 
+In this lesson, you will learn how to query a vector index. 
+You will use the `Question` and `Answer` embeddings to find similar responses.
 
+== Querying with Embeddings
 
+When querying a vector index, you have to query with an embedding.
 
+For example, you want to use the vector index to find questions similar to the text _"What are examples of good open-source projects?"_. 
+You first need to get an embedding of the text. 
+Then, you can use the embedding to query the vector index.
 
+You are going to explore two scenarios:
 
+. A user views an existing question and wants to see similar questions.
+. A user submits a new question and receives answers to a similar question.
 
-good questions
-"tips for writing a book"
-"good open source projects?"
+In the first scenario, you will use existing question embeddings to find similar questions. 
+In the second scenario, you will generate a new embedding for the user's question to find similar questions and answers.
 
+These scenarios will help you understand how to query the vector index to find similar questions and answers.
 
+== Finding similar questions
 
+You can use the `questions` and `answers` vector indexes to find questions that are similar to each other.
 
-similar to existing questions
+A user views an existing question and wants to see similar questions.
 
-MATCH (q:Question{text: "What is served as breakfast in your country?"})
+The following Cypher query finds similar questions to the question _"What are the most touristic countries in the world?"_.
+
+Review the query before running it and observing the results.
+
+[source, cypher]
+----
+MATCH (q:Question{text: "What are the most touristic countries in the world?"})
 CALL db.index.vector.queryNodes('questions', 6, q.embedding)
 YIELD node, score
+RETURN node.text, score
+----
 
-MATCH (node)-[:ANSWERED_BY]-(a:Answer)
+Breaking down the query, you can identify the following:
 
-RETURN node.text, a.text, score;
+. The `MATCH` clause finds the specific `Question` node.
+. The query uses the `db.index.vector.queryNodes` function to query the `questions` vector index with the `Question` node's embedding - `q.embedding`. The function returns the top `6` similar nodes.
+. `YIELD` obtain the `node` and similarity `score` returned by the function. 
+. The query returns the `Question` node's `text` property and the similarity score.
 
+You can extend this query to return the answers to the most similar questions:
 
+[source, cypher]
+----
+MATCH (q:Question{text: "What are the most touristic countries in the world?"})
+CALL db.index.vector.queryNodes('questions', 6, q.embedding)
+YIELD node, score
+MATCH (node)-[:ANSWERED_BY]-(a)
+RETURN a.text, score
+----
 
+The query uses the `node` and the `ANSWERED_BY` relationship to find the answers.
 
+Run the query and observe the results. 
+You will notice that the top answers returned are similar to the question.
+As you get further down the list, the similarity score decreases and so does the relevance of the answers.
 
+== Finding answers to a similar question
 
+To improve the user's experience when asking a new question, you could use the vector index to find similar questions and answers.
 
-[.video]
-video::YouTubeVideoID
+To achieve this, you need to generate an embedding for the user's new question and use it to query the vector index.
 
+You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/cypher-manual/current/genai-integrations/#single-embedding[`genai.vector.encode`^] function:
 
-[.transcript]
-== Section Title
+.`genai.vector.encode` syntax
+[source]
+----
+genai.vector.encode(
+    resource :: STRING, 
+    provider :: STRING, 
+    configuration :: MAP = {}
+) :: LIST<FLOAT>
+----
 
-Lorem ipsum...
+You pass the text you want to encode as the `resource` parameter. 
 
+You can use embedding models from different `providers`, such as OpenAI, Vertex AI, and Amazon Bedrock. 
+Provider-specific details like, API keys, are passed in the `configuration` map.
+
+For example, you can use the `OpenAI` provider to generate an embedding passing the API key as `token` in the `configuration` map:
+
+[source, cypher]
+----
+WITH genai.vector.encode("Test", "OpenAI", { token: "sk-..." }) AS embedding
+RETURN embedding
+----
+
+[IMPORTANT]
+.OpenAI API key
+====
+To run this query, you must replace the `token` value with your link:https://platform.openai.com[OpenAI API key^].
+====
+
+You can incorporate the embedding into your query to find similar questions:
+
+[source, cypher]
+----
+WITH genai.vector.encode(
+    "What are good open source projects", 
+    "OpenAI", 
+    { token: "sk-..." }) AS userEmbedding
+CALL db.index.vector.queryNodes('questions', 6, userEmbedding)
+YIELD node, score
+RETURN node.text, score
+----
+
+This query, creates an embedding using `genai.vector.encode` and then uses that embedding to query the `questions` vector index.
+
+Try changing the text and observe the results.
+
+Can you modify this query to work the same as the previous query and return the answers to the most similar questions?
 
 == Check Your Understanding
 
-include::questions/1-question.adoc[leveloffset=+1]
+include::questions/1-query-text.adoc[leveloffset=+1]
 
 [.summary],
 == Lesson Summary
 
-In this lesson, you learned about ..
+In this lesson, you learned how to query a vector index and generate embeddings using Cypher.
 
-In the next lesson, you will learn about ..
+You can complete an optional challenge in the next lesson to test your skills and knowledge.
