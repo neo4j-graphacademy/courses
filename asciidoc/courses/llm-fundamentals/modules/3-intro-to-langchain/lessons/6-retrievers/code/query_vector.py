@@ -1,5 +1,5 @@
 from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
+from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 
 embedding_provider = OpenAIEmbeddings(
     openai_api_key="sk-..."

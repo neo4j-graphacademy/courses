@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain.schema.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage  
 
 chat_llm = ChatOpenAI(
     openai_api_key="sk-..."
