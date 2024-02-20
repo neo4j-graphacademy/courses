@@ -468,6 +468,9 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         }
     }
 
+    // Repository Branch
+    attributes['branch'] = course.branch
+
     return attributes
 }
 

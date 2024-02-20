@@ -57,6 +57,7 @@ export interface Course {
     link: string;
     video?: string;
     repository?: string;
+    branch?: string;
     duration?: string;
     redirect?: string;
     thumbnail: string;
