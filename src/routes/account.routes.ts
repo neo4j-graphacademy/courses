@@ -447,9 +447,6 @@ const redeemForm = async (req, res, next) => {
         // Countries
         const countries = await getCountries()
 
-        console.log('> err', req.errors);
-
-
         res.render('account/printful-form', {
             title: `Redeem ${reward.title} | Rewards`,
             classes: 'account',
