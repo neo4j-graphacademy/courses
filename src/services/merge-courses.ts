@@ -5,7 +5,7 @@ import { Session, ManagedTransaction } from 'neo4j-driver';
 import { loadFile } from '../modules/asciidoc'
 import { getDriver } from '../modules/neo4j';
 import { CourseToImport, LessonToImport, ModuleToImport, QuestionToImport } from '../types';
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_DESCRIPTION, ATTRIBUTE_QUESTIONS, ATTRIBUTE_PASS_PERCENTAGE, ATTRIBUTE_KEY_POINTS } from '../constants';
+import { ASCIIDOC_DIRECTORY, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_OPTIONAL, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_SANDBOX, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, DEFAULT_LESSON_TYPE, STATUS_DISABLED, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_DESCRIPTION, ATTRIBUTE_QUESTIONS, ATTRIBUTE_PASS_PERCENTAGE, ATTRIBUTE_KEY_POINTS, ATTRIBUTE_BRANCH } from '../constants';
 import { courseOverviewPath, getDateAttribute, getOrderAttribute } from '../utils';
 
 const loadCourses = (): CourseToImport[] => {
@@ -62,6 +62,10 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         keyPoints = keyPoints.split(',').map(text => text.trim())
     }
 
+    // Repository & branch
+    const repository = file.getAttribute(ATTRIBUTE_REPOSITORY, null)
+    const branch = repository !== undefined ? file.getAttribute(ATTRIBUTE_BRANCH, 'main') : undefined
+
     // @ts-ignore
     return {
         slug,
@@ -76,7 +80,8 @@ const loadCourse = (courseFolder: string): CourseToImport => {
         usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
         redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
         duration: file.getAttribute(ATTRIBUTE_DURATION, null),
-        repository: file.getAttribute(ATTRIBUTE_REPOSITORY, null),
+        repository,
+        branch,
         certification,
         classmarkerId: file.getAttribute(ATTRIBUTE_CLASSMARKER_ID, null),
         classmarkerReference: file.getAttribute(ATTRIBUTE_CLASSMARKER_REFERENCE, null),
@@ -203,6 +208,7 @@ const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImport[]) =
             c.redirect = course.redirect,
             c.duration = course.duration,
             c.repository = course.repository,
+            c.branch = course.branch,
             c.video = course.video,
             c.link = '/courses/'+ c.slug +'/',
             c.updatedAt = datetime(),
