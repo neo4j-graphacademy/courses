@@ -17,11 +17,11 @@ prompt = PromptTemplate(
     template="""
     You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history}
-    Question:{input}
+    Chat History: {chat_history}
+    Question: {input}
     """,
     input_variables=["chat_history", "input"]
-    )
+)
 
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 

@@ -1,0 +1,177 @@
+= Creating a Retrieval Chain
+:type: challenge
+:lab-filename: vector-retrieval.chain.ts
+:lab-file: modules/agent/tools/{lab-filename}
+:lab: {repository-blob}/main/src/{lab-file}
+:lab-solution: src/solutions/{lab-file}
+:test-filename: vector-retrieval.chain.test.ts
+:test-file: src/modules/agent/tools/{test-filename}
+
+// TODO: move vector store to singleton, make it injectable, it needs closing at the end of the app
+
+Now that you have a vector store, you can use it to retrieve chunks of text that are semantically similar to a user's question.
+
+In this challenge, you will create a chain that will use the vector search index to find movies with similar plots.
+
+You must first:
+
+1. Use the `initVectorStore()` function implemented in the previous lesson to create a vector store and retriever
+2. Create an instance of the link:../../2-chains/2-answer-generation/[Answer Generation chain^].
+
+Then, create a chain that will:
+
+1. Takes the `string` input and assigns it the `input` variable
+2. Uses the input to retrieve similar movie plots
+3. Uses the answer generation chain to generate an answer
+4. Use the link:../../3-conversation-history/3-persisting-responses[`saveHistory()` function^] to save the response and context to the database
+5. Returns the output as a `string`.
+
+
+== Existing function
+
+The link:{lab}[`{lab-file}`^] file contains the following placeholder functions for saving and retrieving history.
+
+[source,typescript]
+----
+include::{repository-raw}/{branch}/src/{lab-file}[tag=function, indent=0]
+----
+
+
+
+
+lab::Open `{lab-filename}`[]
+
+
+== Instantiate Tools
+
+Inside the `initVectorRetrievalChain()` function, replace the `// TODO` comments to create an instance of the vector store using the `initVectorStore()` function from the previous lesson.
+
+.Vector Store
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=vectorstore, indent=0]
+----
+
+Next, call the `.asRetriever()` method on the `vectorStore` object to create a new `VectorStoreRetriever` instance.
+
+.Vector Store
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=retriever, indent=0]
+----
+
+Finally, create an answer generation chain using the `initGenerateAnswerChain()` function.
+
+.Answer Generation Chain
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=answerchain, indent=0]
+----
+
+
+== Building the Chain
+
+As this chain will be called by an agent, it will receive a structured input containing an `input` and `rephrasedQuestion`.
+
+.Agent to Tool Input
+[source,typescript]
+----
+include::{repository-raw}/{branch}/src/modules/agent/agent.types.ts[tag=agenttoolinput,indent=0]
+----
+
+Because the chain will receive an object as the input, you can use `RunnablePassthrough.assign()` to modify the input directly rather than the `RunnableSequence.from()` method used in the previous lessons.
+
+This should be used to collect relevant context using the retriever.
+
+.Get Documents
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=getcontext, indent=0]
+----
+
+Next, the `elementIds` of the document must be extracted from the to create the `:CONTEXT` relationship between the `(:Response)` and `(:Movie)` nodes.
+At the same time, the context needs to be converted to a string so it can be used in the Answer Generation Chain.
+
+// TODO: consistency on "Answer Generation"
+
+[%collapsible]
+.Helper Functions
+====
+These functions in `{lab-filename}` are used to extract information to modify the context.
+
+.Helper Functions
+[source,typescript]
+----
+include::{repository-raw}/{branch}/src/{lab-file}[tag=extractDocumentIds, indent=0]
+
+include::{repository-raw}/{branch}/src/{lab-file}[tag=docsToJson, indent=0]
+----
+
+====
+
+
+The `RunnablePassthrough` is a fluent interface, so the `.assign()` method can be called to chain the steps together.
+
+.Mutate State
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tags="getcontext,mutatecontext", indent=0]
+----
+
+
+
+The rephrased question and context can then be passed to the `answerChain` to generate an output.
+
+.Generate an answer
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=answer, indent=0]
+----
+
+
+Then, the input, rephrased question and output can be saved to the database using the `saveHistory()` function created in link:../../3-conversation-memory/[Conversation Memory module^].
+
+.Generate an answer
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=save, indent=0]
+----
+
+Before, finally _picking_ the `output` as a string.
+
+.Return the output
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=save, indent=0]
+include::{repository-raw}/{branch}/{lab-solution}[tag=output, indent=0]
+----
+
+
+// [TIP]
+// .Enabling Streaming Responses
+// ====
+// TODO: This enables responses to be
+// ====
+
+
+If you have followed the instructions correctly, your code should resemble the following:
+
+.Full Function
+[source,typescript]
+----
+include::{repository-raw}/{branch}/{lab-solution}[tag=function]
+----
+
+include::../../../../includes/test.adoc[leveloffset=+1]
+
+
+include::questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you built a chain that takes the components built in the course so far to build a chain that retrieves documents from the vector search index and uses them to answer a question.
+
+The chain then saves the response to the database.
+
+In the next lesson, you will see how the response can be used to filter out documents that have been used to provide unhelpful responses in the past.
