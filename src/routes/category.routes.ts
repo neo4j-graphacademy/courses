@@ -71,6 +71,7 @@ router.get('/', forceTrailingSlash, async (req, res, next) => {
             },
             term,
             hasResults,
+            canonical: canonical(req.originalUrl),
             description: 'Hands-on training. No installation required.',
             ogImage: `${CDN_URL}/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',

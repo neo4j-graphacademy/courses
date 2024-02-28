@@ -18,11 +18,11 @@ export async function createDriver(host: string, username: string, password: str
     return driver
 }
 
-export async function read(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult> {
+export async function read<T extends Record<string, any> = Record<string, any>>(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult<T>> {
     const session = _driver.session({ database })
 
     try {
-        const res = await session.executeRead(tx => tx.run(query, params))
+        const res = await session.executeRead(tx => tx.run<T>(query, params))
 
         await session.close()
 

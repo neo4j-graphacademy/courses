@@ -3,6 +3,7 @@ import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
 import { UserUpdatedAccount } from "../events/UserUpdatedAccount";
 import { User } from "../model/user";
+import joinTeam from "./teams/join-team";
 
 export interface UserUpdates {
     nickname: string | null;
@@ -14,7 +15,7 @@ export interface UserUpdates {
     unsubscribed: boolean;
 }
 
-export async function updateUser(token: string, user: User, updates: UserUpdates): Promise<User> {
+export async function updateUser(token: string, user: User, updates: UserUpdates, team?: string): Promise<User> {
     // Null keys that don't exist
     for (const key in updates) {
         if (typeof updates[key] === 'string' && updates[key].trim() === '') {
@@ -41,31 +42,12 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
 
     const output: User = res.records[0].get('u')
 
-    /**
-     * This endpoint has been disabled.
-     * TODO: Should this information be passed to marketo?  It is already sent to segment.
+    // automatically join a team?
+    if (team !== undefined) {
+        console.log(',my team', team);
 
-    try {
-        const parts = updates.givenName?.split(' ', 2)
-        const meta = {
-            first_name: parts ? parts[0] : updates.nickname || '',
-            last_name: parts ? parts[1] : '',
-            user_id: user.sub,
-            company: user.company
-        }
-
-        // If any info is provided, send to sandbox API
-        if (Object.values(meta).some(v => !!v)) {
-            await saveUserInfo(token, user, {
-                ...meta,
-                user_metadata: meta,
-            })
-        }
+        await joinTeam(user, team)
     }
-    catch (e: unknown) {
-        // Fine
-    }
-    */
 
     // Fire event
     emitter.emit(new UserUpdatedAccount(user, updates))

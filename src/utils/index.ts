@@ -542,10 +542,16 @@ const formatter = new Intl.RelativeTimeFormat(undefined, {
 })
 
 export function canonical(relative: string): string {
-    // Add startinf slash
+    // Add starting slash
     if (!relative.startsWith('/')) {
         relative = `/${relative}}`
     }
+
+    // Remove ?search
+    if (relative.includes('?')) {
+        relative = relative.split('?')[0]
+    }
+
     return `${BASE_URL}${relative}`
 }
 

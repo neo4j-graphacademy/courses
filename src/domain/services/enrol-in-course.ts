@@ -9,7 +9,7 @@ import { User } from "../model/user";
 import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
 
-export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined): Promise<Enrolment> {
+export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined, team?: string): Promise<Enrolment> {
     const output = await writeTransaction(async tx => {
         // Save data to database
         const res = await tx.run(`
@@ -82,7 +82,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
 
     // Emit event
     if (output.enrolment.updatedAt === null) {
-        emitter.emit(new UserEnrolled(user, output.course, output.sandbox))
+        emitter.emit(new UserEnrolled(user, output.course, output.sandbox, ref, team))
     }
 
     return output.enrolment as Enrolment

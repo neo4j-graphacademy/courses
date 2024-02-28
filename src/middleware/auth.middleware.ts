@@ -25,7 +25,7 @@ const config = {
         const decoded: JwtPayload = jwt.decode(session.id_token) as JwtPayload
 
         if (decoded && decoded.sub) {
-            emitter.emit(new UserLogin(decoded))
+            emitter.emit(new UserLogin(decoded, req))
         }
 
         return session
@@ -40,7 +40,13 @@ export async function getUser(req: any): Promise<User | undefined> {
     if (!req.oidc.user) return undefined;
     if (req.dbUser) return req.dbUser;
 
-    const res = await read(`MATCH (u:User {sub: $sub}) RETURN u { .*, profileHidden: u:HiddenProfile } AS u`, { sub: req.oidc.user.sub })
+    const res = await read(`
+        MATCH (u:User {sub: $sub})
+        RETURN u {
+            .*, profileHidden: u:HiddenProfile,
+            teams: [ (u)-[:MEMBER_OF]->(t) | t {.*} ]
+        } AS u
+    `, { sub: req.oidc.user.sub })
 
     const dbUser = res.records.length ? res.records[0].get('u') : {}
 

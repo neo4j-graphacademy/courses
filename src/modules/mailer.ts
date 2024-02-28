@@ -53,7 +53,7 @@ interface PreparedEmail {
     html: string;
 }
 
-export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlattened: Record<string, Record<string, any>>, directory = ''): PreparedEmail {
+export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlattened: Record<string, string | Record<string, any>>, directory = ''): PreparedEmail {
     const attributes = flattenAttributes({
         base: { url: process.env.BASE_URL },
         ...attributesToBeFlattened,
@@ -74,7 +74,7 @@ export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlat
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, Record<string, any>>, directory = '', tag?: string, attachments?: Attachment[]): void {
+export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, string | Record<string, any>>, directory = '', tag?: string, attachments?: Attachment[]): void {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
 
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {

@@ -31,3 +31,13 @@ export function getRef(req: Request): string | undefined {
     // @ts-ignore
     return req.session.ref || req.cookies.ref
 }
+/**
+ * Attempt to extract the `team` value from the current session
+ *
+ * @param req Express Request
+ * @returns string|undefined
+ */
+export function getTeam(req: Request): string | undefined {
+    // @ts-ignore
+    return req.session.team || req.cookies.team
+}

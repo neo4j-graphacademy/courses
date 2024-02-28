@@ -3,6 +3,7 @@ import { BASE_URL, CDN_URL } from "../constants";
 import { forceTrailingSlash } from "../middleware/trailing-slash.middleware";
 import { loadFile } from "../modules/asciidoc";
 import getCertifications from "../domain/services/get-certifications";
+import { canonical } from "../utils";
 
 const router = Router({
     caseSensitive: true,
@@ -20,6 +21,7 @@ router.get(`/certification`, forceTrailingSlash, async (req, res, next) => {
                 // overline: file.getAttribute('overline'),
                 byline: file.getAttribute('caption'),
             },
+            canonical: canonical(req.originalUrl),
             title: file.getTitle(),
             content: file.getContent(),
             certifications: certifications.reverse(),

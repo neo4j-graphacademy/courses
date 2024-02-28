@@ -1,0 +1,8 @@
+MERGE (t:Team { id: 'neo4j' })
+ SET t.domains = ['neo4j.com', 'neotechnology.com'], t.name = 'Neo4j Employees & Alumni', t.description = 'Neo4j Employees & Alumni', t.public = true , t.open = false ;
+
+MERGE (t:Team { id: 'neo4j-devrel' })
+ SET t.name = 'Neo4j DevRel', t.pin = '987654322', t.name = 'Neo4j DevRel', t.description = 'The Developer Relations team at Neo4j', t.public = true , t.open = false ;
+
+MERGE (t:Team { id: 'neo4j-graphacademy' })
+ SET t.name = 'Neo4j DevRel', t.pin = '987654322', t.name = 'Neo4j GraphAcademy', t.description = 'This should be a private group', t.public = false , t.open = false ;

@@ -1,3 +1,5 @@
+import Team from "./team";
+
 export interface User {
     // UUID Generated on create
     id: string;
@@ -24,6 +26,8 @@ export interface User {
 
     featureFlags: string[];
     isNeo4jEmployee: boolean;
+
+    teams?: Team[];
 
     // User Profile
     // givenName: string;

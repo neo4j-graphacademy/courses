@@ -18,6 +18,7 @@ import { getProduct, getCountries, formatRecipient, getCountryAndState } from '.
 import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
 import { setUserProfileVisibility } from '../domain/services/set-user-profile-visibility'
+import { getTeam } from '../middleware/save-ref.middleware'
 
 const router = Router()
 
@@ -94,9 +95,10 @@ router.get('/complete', requiresAuth(), async (req, res) => {
 router.get('/skip', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
+        const team = getTeam(req)
         const user = await getUser(req) as User
 
-        await updateUser(token, user, {} as UserUpdates)
+        await updateUser(token, user, {} as UserUpdates, team)
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -115,6 +117,7 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
 router.post('/', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
+        const team = getTeam(req)
         const user = await getUser(req) as User
 
         // TODO: Validation
@@ -122,7 +125,7 @@ router.post('/', requiresAuth(), async (req, res, next) => {
 
         const unsubscribed = unsubscribe === 'true'
 
-        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio })
+        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio }, team)
 
         req.flash('success', 'Your personal information has been updated')
 

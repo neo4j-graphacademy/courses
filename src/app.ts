@@ -15,6 +15,7 @@ import browserRoutes from './routes/browser.routes'
 import languageRoutes from './routes/language.routes'
 import certificationRoutes from './routes/certification.routes'
 import apiRoutes from './routes/api'
+import teamRoutes from './routes/team.routes'
 import { applyErrorHandlers } from './middleware/error-handlers.middleware'
 import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
@@ -94,6 +95,7 @@ export default function initApp(driver: Driver) {
     app.use('/c', certificateRoutes)
     app.use('/browser', browserRoutes)
     app.use('/api', apiRoutes)
+    app.use('/teams', teamRoutes)
     app.use('/', languageRoutes)
     app.use('/', pageRoutes)
     app.use('/', certificationRoutes)

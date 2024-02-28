@@ -268,7 +268,7 @@ router.get('/:course/badge', (req, res, next) => {
         let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'badge.svg')
 
         if (!existsSync(filePath)) {
-            filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
+            filePath = path.join(__dirname, '..', '..', 'resources', 'svg', 'badgeDefault.svg')
         }
 
         res.header('Content-Type', 'image/svg+xml')
@@ -285,12 +285,12 @@ router.get('/:course/badge', (req, res, next) => {
  *
  * Find and send the illustration.svg file in the course root
  */
-router.get('/:course/illustration', (req, res, next) => {
+router.get('/:course/illustration', (req, res) => {
     try {
         let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'illustration.svg')
 
         if (!existsSync(filePath)) {
-            filePath = path.join(ASCIIDOC_DIRECTORY, '..', 'resources', 'svg', 'badgeDefault.svg')
+            filePath = path.join(__dirname, '..', '..', 'resources', 'svg', 'illustrationDefault.svg')
         }
 
         res.header('Content-Type', 'image/svg+xml')
@@ -298,7 +298,10 @@ router.get('/:course/illustration', (req, res, next) => {
         res.sendFile(filePath)
     }
     catch (e) {
-        next(e)
+        console.log('err');
+
+        return '<svg></svg>'
+        // next(e)
     }
 })
 
