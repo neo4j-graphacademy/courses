@@ -9,7 +9,9 @@ type Leaderboard = {
   total: number;
   percentage: number;
   firstEnrolment: string;
-  completed: { link: string; title: string, slug: string };
+  count: number;
+  completed: number;
+  courses: { link: string; title: string, slug: string };
 }[]
 
 type LeaderboardOutput = {
@@ -52,7 +54,8 @@ export default async function getLeaderboard(id: string, user: User | undefined)
         firstEnrolment: toString(firstEnrolment),
         percentage: 100.0 * size([ n IN courses WHERE n[1] | n]) / count,
         count: count,
-        completed: [ n IN courses WHERE n[1] | { link: n[0].link, title: n[0].title, slug: n[0].slug } ]
+        completed: size([ n IN courses WHERE n[1] | n ]),
+        courses: [ n IN courses WHERE n[1] | { link: n[0].link, title: n[0].title, slug: n[0].slug } ]
       }) AS leaderboard
 
     RETURN t {

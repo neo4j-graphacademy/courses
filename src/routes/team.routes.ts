@@ -25,17 +25,22 @@ router.get('/i/:id', async (req, res) => {
 /**
  * Team landing page with leaderboard
  */
-router.get('/:id', async (req, res) => {
-  const user = await getUser(req)
+router.get('/:id', async (req, res, next) => {
+  try {
+    const user = await getUser(req)
 
-  const { team, leaderboard, isMember } = await getLeaderboard(req.params.id, user)
+    const { team, leaderboard, isMember } = await getLeaderboard(req.params.id, user)
 
-  return res.render('teams/leaderboard', {
-    title: `${team.name} | Teams`,
-    team,
-    leaderboard,
-    isMember
-  })
+    return res.render('teams/leaderboard', {
+      title: `${team.name} | Teams`,
+      team,
+      leaderboard,
+      isMember
+    })
+  }
+  catch (e) {
+    next(e)
+  }
 })
 
 /**
