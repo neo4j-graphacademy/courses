@@ -102,9 +102,7 @@ Investigate what happens when you modify the `separator`, `chunk_size` and `chun
 
 == Create vector index
 
-Once you have chunked the content, you can use Langchain to load, create embeddings, and store the chunks in a Neo4j graph database.
-
-The link:https://python.langchain.com/docs/integrations/vectorstores/neo4jvector[`Neo4jVector`^] can be used to load and create an vector index for the chunks.
+Once you have chunked the content, you can use Langchain link:https://python.langchain.com/docs/integrations/vectorstores/neo4jvector[`Neo4jVector`^] class to create embeddings, a vector index, and store the chunks in a Neo4j graph database.
 
 Modify your Python program to include the following code:
 
@@ -120,7 +118,7 @@ neo4j_db = Neo4jVector.from_documents(
     username=NEO4J_USERNAME,
     password=NEO4J_PASSWORD,
     database="neo4j",  
-    index_name="lessonChunks",
+    index_name="chunkVector",
     node_label="Chunk", 
     text_node_property="text", 
     embedding_node_property="embedding",  
@@ -128,7 +126,7 @@ neo4j_db = Neo4jVector.from_documents(
 ----
 
 [%collapsible]
-.View the complete program
+.View the complete code
 ====
 [source]
 ----
@@ -139,7 +137,9 @@ include::code/create_vector.py[]
 [IMPORTANT]
 .OpenAI API Key and connection details
 ====
-You must update the code to include your `open_api_key` and use the `url`, `username`, and `password` of your Neo4j sandbox.
+You must update the code to include your `openai_api_key` and use the `url`, `username`, and `password` of your Neo4j sandbox.
+
+Sandbox connection details:
 
 url:: [copy]#bolt://{sandbox_ip}:{sandbox_boltPort}#
 username:: [copy]#{sandbox_username}#
@@ -150,7 +150,7 @@ The `Neo4jVector.from_documents` method does the following:
 
 . Creates embeddings for each chunk using the `OpenAIEmbeddings` object.
 . Creates nodes with the label `Chunk` and the properties `text` and `embedding` in the Neo4j database.
-. Creates a vector index called `lesson_chunks`.
+. Creates a vector index called `chunkVector`.
 
 Run the program to create the chunk nodes and vector index. It may take a minute or two to complete.
 
@@ -164,15 +164,15 @@ MATCH (c:Chunk) RETURN c LIMIT 25
 ----
 
 You can also query the vector index to find similar chunks.
-For example, finding lesson chunks about "Hallucination".
+For example, you can find lesson chunks about "Hallucination":
 
 [source,cypher]
 ----
 WITH genai.vector.encode(
-    "Vector index", 
+    "Hallucination", 
     "OpenAI", 
     { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('lessonChunks', 6, userEmbedding)
+CALL db.index.vector.queryNodes('chunkVector', 6, userEmbedding)
 YIELD node, score
 RETURN node.text, score
 ----
