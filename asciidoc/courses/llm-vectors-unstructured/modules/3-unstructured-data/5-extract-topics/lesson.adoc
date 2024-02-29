@@ -1,4 +1,4 @@
-= Extract meta data
+= Extract Topics
 
 Using something like textblob to extract nouns to create topics or use an LLM to extract topics from text.
 
@@ -8,24 +8,154 @@ Building simple chunk / topic graph
 Understand the benefits of using a graph to hold unstructured data.
 
 
+In the last lesson, you built a graph using metadata to understand the course content and the relationships between the content and lessons.
 
-[.video]
-video::YouTubeVideoID
+In this lesson, you will add topics from the unstructured lesson content to the graph.
 
+== Topics
 
-[.transcript]
-== Section Title
+Topics are a way to categorize and organize content. 
+You can use topics to help users find relevant content, recommend related content, and understand the relationships between different pieces of content.
+For example, you can find similar lessons based on their topics.
 
-Lorem ipsum...
+There are many ways to extract topics from unstructured text.
+You could use an LLM and ask it to summarize the topics from the text.
+A more straightforward approach is to identify all the nouns in the text and use them as topics.
 
+To hold the topic data, you should extend the data model to include a new node type, `Topic`, and a new relationship, `MENTIONS`.
 
-== Check Your Understanding
+image::images/lesson-graphacademy-lessons-paragraph-topic.svg[Data model showing the Topic node connected to the `Lesson` node via the `MENTIONS` relationship]
 
-include::questions/1-question.adoc[leveloffset=+1]
+== textblob
+
+The Python NLP (natural language processing) library, link:https://textblob.readthedocs.io/en/dev/[textblob^], can extract nouns from text.
+
+Install `textblob` using pip:
+
+.Install the textblob package
+[source]
+----
+pip install textblob
+----
+
+You can extract the topics using the `Textblob.noun_phrases` method.
+For example:
+
+[source, python]
+----
+from textblob import TextBlob
+
+phrase = "You can extract topics from phrases using TextBlob"
+
+nouns = TextBlob(phrase).noun_phrases
+
+print(nouns)
+----
+
+== Update the Graph
+
+You can update the program you created in the last lesson to extract topics from the lesson content and add them to the graph.
+
+[%collapsible]
+.View the code from the last lesson
+====
+[source, python]
+----
+include::../4-build-graph/code/build_graph.py[]
+----
+====
+
+The `get_course_data` function has to be updated to extract topics from the lesson content.
+
+Add the topics to the `data` dictionary using the `TextBlob.noun_phrases` method:
+
+[source, python]
+----
+def get_course_data(llm, chunk):
+    data = {}
+
+    path = chunk.metadata['source'].split(os.path.sep)
+
+    data['course'] = path[-6]
+    data['module'] = path[-4]
+    data['lesson'] = path[-2]
+    data['url'] = f"https://graphacademy.neo4j.com/courses/{data['course']}/{data['module']}/{data['lesson']}"
+    data['text'] = chunk.page_content
+    data['embedding'] = get_embedding(llm, data['text'])
+    data['topics'] = TextBlob(data['text']).noun_phrases
+
+    return data
+----
+
+The `create_chunk` function has to be updated to add the topics to the graph:
+
+[source, python]
+----
+def create_chunk(tx, data):
+    tx.run("""
+        MERGE (c:Course {name: $course})
+        MERGE (c)-[:HAS_MODULE]->(m:Module{name: $module})
+        MERGE (m)-[:HAS_LESSON]->(l:Lesson{name: $lesson, url: $url})
+        MERGE (l)-[:CONTAINS]->(p:Paragraph{text: $text})
+        WITH p
+        CALL db.create.setNodeVectorProperty(p, "embedding", $embedding)
+           
+        FOREACH (topic in $topics |
+            MERGE (t:Topic {name: topic})
+            MERGE (p)-[:MENTIONS]->(t)
+        )
+        """, 
+        data
+        )
+----
+
+The `topics` are returned as a list from the `TextBlob.noun_phrases` method.
+The `FOREACH` clause iterates over the list, creating a `Topic` node and a `MENTIONS` relationship between the `Paragraph` and `Topic` nodes.
+
+[%collapsible]
+.View the complete code
+====
+[source, python]
+----
+include::code/build_graph_topics.py[]
+----
+====
+
+You run the program to update the graph with the topics extracted from the lesson content.
+
+== Query topics
+
+You can use the topics to find related lessons.
+For example, all the lessons that mention "semantic search":
+
+[source, cypher]
+----
+MATCH (t:Topic{name:"semantic search"})<-[:MENTIONS]-(p:Paragraph)<-[:CONTAINS]-(l:Lesson)
+RETURN DISTINCT l.name, l.url
+----
+
+You can list the topics and the number of lessons that mention them:
+
+[source, cypher]
+----
+MATCH (t:Topic)<-[:MENTIONS]-(p:Paragraph)<-[:CONTAINS]-(l:Lesson)
+RETURN t.name, COUNT(l) as lessons
+ORDER BY lessons DESC
+----
+
+By adding topics to the graph, you can use them to find related content.
+Topics are also universal and can be used to find related content across content from different sources.
+For example, if you added technical documentation to this graph, you could use the topics to find related lessons and documentation.
+
+Combining data from different sources and understanding their relationships is the starting point for creating a knowledge graph.
+
+When you are ready to move on, click Continue.
+
+read::Continue[]
 
 [.summary],
 == Lesson Summary
 
-In this lesson, you learned about ..
+In this lesson, you learned how to extract topics from unstructured text and add them to a graph.
 
-In the next lesson, you will learn about ..
+In the next optional challenge, you can add more data to the graph.
