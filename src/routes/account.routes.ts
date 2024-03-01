@@ -19,6 +19,9 @@ import { getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
 import { setUserProfileVisibility } from '../domain/services/set-user-profile-visibility'
 import { getTeam } from '../middleware/save-ref.middleware'
+import getUserTeams from '../domain/services/teams/get-user-teams'
+import leaveTeam from '../domain/services/teams/leave-team'
+import joinTeam from '../domain/services/teams/join-team'
 
 const router = Router()
 
@@ -556,6 +559,85 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
 
         await redeemForm(req, res, next)
     }
+})
+
+/**
+ * GET /account/teams
+ *
+ * List all teams for the user
+ */
+router.get('/teams', requiresAuth(), async (req, res) => {
+    const user = await getUser(req) as User
+    const teams = await getUserTeams(user)
+
+    res.render('account/teams', {
+        title: `Teams | Rewards`,
+        classes: 'account',
+        teams,
+    })
+})
+
+/**
+ * POST /teams/
+ *
+ * Create a new public or private team
+ *
+ * {"name", "description", "public", "open"}
+ */
+router.post('/teams/', requiresAuth(), () => {
+    throw new NotFoundError('Not implemented')
+})
+
+/**
+ * POST /teams/:id
+ *
+ * Update team information (if you are the owner)
+ *
+ * {"id": "neo4j-devrel", "pin": "1234"}
+ */
+// router.post('/teams/:id', requiresAuth(), () => {
+//     throw new NotFoundError('Not implemented')
+// })
+
+/**
+ * POST /teams/join
+ *
+ * Attempt to join an open team, either public or private with a code.
+ *
+ * {"id": "neo4j-devrel", "pin": "1234"}
+ */
+router.post('/teams/join/', requiresAuth(), async (req, res) => {
+    const user = await getUser(req) as User
+    const { id, pin } = req.body
+
+    if (typeof id === 'string' && typeof pin === 'string') {
+        const { team, error } = await joinTeam(user, id, pin)
+
+        if (error) {
+            req.flash('danger', error)
+        }
+        else if (team) {
+            req.flash('success', `You are now a member of ${team.name}!`)
+        }
+    }
+
+    res.redirect('/account/teams/')
+})
+
+/**
+ * POST /teams/:id/leave
+ *
+ * Leave a group
+ */
+router.post('/teams/:id/leave', requiresAuth(), async (req, res) => {
+    const user = await getUser(req) as User
+    const team = await leaveTeam(user, req.params.id)
+
+    if (team !== undefined) {
+        req.flash('success', `You have left ${team.name}`)
+    }
+
+    res.redirect('/account/teams/')
 })
 
 export default router

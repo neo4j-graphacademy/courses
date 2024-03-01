@@ -1,5 +1,4 @@
-import NotFoundError from "../../../errors/not-found.error";
-import { write, writeTransaction } from "../../../modules/neo4j";
+import { writeTransaction } from "../../../modules/neo4j";
 import Team from "../../model/team";
 import { User } from "../../model/user";
 

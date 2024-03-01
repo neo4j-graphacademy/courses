@@ -37,8 +37,8 @@ export async function getToken(req: any): Promise<string> {
 }
 
 export async function getUser(req: any): Promise<User | undefined> {
-    if (!req.oidc.user) return undefined;
     if (req.dbUser) return req.dbUser;
+    if (!req.oidc || !req.oidc.user) return undefined;
 
     const res = await read(`
         MATCH (u:User {sub: $sub})

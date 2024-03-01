@@ -43,26 +43,4 @@ router.get('/:id', async (req, res, next) => {
   }
 })
 
-/**
- *  Submit form to join team
- */
-router.post('/:id/join', requiresAuth(), async (req, res) => {
-  const { id } = req.params
-  const { pin } = req.body
-
-  const user = await getUser(req) as User
-
-  const { team, error } = await joinTeam(user, id, pin)
-
-  if (error !== undefined) {
-    req.flash('danger', error)
-  }
-  else if (team !== undefined) {
-    req.flash('success', `Welcome to ${team.name}!`)
-    return res.redirect(`/teams/${team.id}`)
-  }
-
-  return res.redirect(req.originalUrl)
-})
-
 export default router

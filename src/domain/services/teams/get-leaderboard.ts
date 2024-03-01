@@ -26,7 +26,7 @@ export default async function getLeaderboard(id: string, user: User | undefined)
     WITH *,
       COUNT { (c)-[:HAS_MODULE|HAS_LESSON]->(l) WHERE not l:OptionalLesson } AS lessons,
       COUNT { (e)-[:COMPLETED_LESSON]->(l) } AS completed,
-      coalesce(c.points, CASE WHEN c:Certificatation THEN 50 ELSE 10 END) AS pointsAvailable
+      coalesce(c.points, CASE WHEN c:Certification THEN 50 ELSE 10 END) AS pointsAvailable
     ORDER BY e.createdAt DESC
 
     WITH *,
@@ -60,7 +60,7 @@ export default async function getLeaderboard(id: string, user: User | undefined)
 
     RETURN t {
       .*,
-      members: size(userSubs)
+      memberCount: size(userSubs)
     } AS team,
     leaderboard[0..20] AS leaderboard,
     $sub IS NOT NULL AND $sub IN userSubs AS isMember

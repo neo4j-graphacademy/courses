@@ -44,11 +44,11 @@ export async function read<T extends Record<string, any> = Record<string, any>>(
     }
 }
 
-export async function write(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult> {
+export async function write<T extends Record<string, any> = Record<string, any>>(query: string, params?: Record<string, any>, database: string | undefined = NEO4J_DATABASE): Promise<QueryResult<T>> {
     const session = _driver.session({ database })
 
     try {
-        const res = await session.executeWrite(tx => tx.run(query, params))
+        const res = await session.executeWrite(tx => tx.run<T>(query, params))
 
         await session.close()
 

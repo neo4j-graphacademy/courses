@@ -6,6 +6,7 @@ type Team = {
   description: string;
   domains: string[];
   pin: string | undefined;
+  memberCount: number;
   members?: User[];
   public: boolean;
   open: boolean;
