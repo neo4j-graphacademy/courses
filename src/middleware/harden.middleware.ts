@@ -25,6 +25,7 @@ export default function hardenExpress(app: Express) {
                         's7.addthis.com',
                         'd2wy8f7a9ursnm.cloudfront.net',
                         'cdn.lr-ingest.com',
+                        'translate-pa.googleapis.com',
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
                     imgSrc: [
