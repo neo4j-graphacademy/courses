@@ -60,6 +60,8 @@ router.get('/:language(pt|es)', forceTrailingSlash, async (req, res, next) => {
             content: file.getContent(),
             levelTitle: file.getAttribute('level-title'),
             levelOverline: file.getAttribute('level-overline'),
+            certificationsTitle: file.getAttribute('certifications-title'),
+            certificationsOverline: file.getAttribute('certifications-overline'),
             beginners,
             certification,
             language,
