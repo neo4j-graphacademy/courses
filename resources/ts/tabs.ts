@@ -33,10 +33,10 @@ function findTargets(activeElement: HTMLAnchorElement) {
     }
 
     if (target) {
-        document.querySelectorAll(`a.tab-element[${ATTRIBUTE_TARGET}="${target}"]`)
+        activeElement.parentElement!.querySelectorAll(`a.tab-element[${ATTRIBUTE_TARGET}="${target}"]`)
             .forEach(targetTab => setTabSelectedInTabSet(targetTab as HTMLAnchorElement))
 
-        document.querySelectorAll(`.tab-target[${ATTRIBUTE_TITLE}="${target}"]`)
+        activeElement.parentElement!.querySelectorAll(`.tab-target[${ATTRIBUTE_TITLE}="${target}"]`)
             .forEach(targetElement => setTargetVisibleInTabSet(targetElement as HTMLDivElement))
     }
 }
@@ -67,7 +67,7 @@ function handleGenericTabs() {
                     setTabSelectedInTabSet(link)
 
                     // Hide all visible tab elements
-                    document.querySelectorAll(`.${TAB_TARGET_VISIBLE}`).forEach(otherTabElement => otherTabElement.classList.remove(TAB_TARGET_VISIBLE))
+                    tabElement.parentElement?.parentElement?.querySelectorAll(`.${TAB_TARGET_VISIBLE}`).forEach(otherTabElement => otherTabElement.classList.remove(TAB_TARGET_VISIBLE))
 
                     // Set target to active within
                     findTargets(link)

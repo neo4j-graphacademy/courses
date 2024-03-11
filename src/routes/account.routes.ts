@@ -2,8 +2,8 @@ import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
-import { UiEventType, UI_EVENTS, UserUiEvent } from '../domain/events/UserUiEvent'
-import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAVORITED } from '../domain/model/enrolment'
+import { UiEventType, UI_EVENTS, UserUiEvent, UI_EVENT_HIDE_SIDEBAR, UI_EVENT_SHOW_SIDEBAR, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO } from '../domain/events/UserUiEvent'
+import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
@@ -231,7 +231,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
         const links: Pagination[] = [
             { title: 'In Progress', link: `/account/courses/`, current: status === STATUS_ENROLLED },
             { title: 'Completed', link: `/account/courses/${STATUS_COMPLETED}`, current: status === STATUS_COMPLETED },
-            { title: 'Favorites', link: `/account/courses/${STATUS_FAVORITED}`, current: status === STATUS_FAVORITED },
+            { title: 'Favorites', link: `/account/courses/${STATUS_BOOKMARKED}`, current: status === STATUS_BOOKMARKED },
         ]
 
         let result: EnrolmentsByStatus
@@ -253,7 +253,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
             case STATUS_ENROLLED:
                 title = 'My Enrolled Courses'
                 break;
-            case STATUS_FAVORITED:
+            case STATUS_BOOKMARKED:
                 title = 'My Bookmarked Courses'
                 break;
             case STATUS_COMPLETED:
@@ -312,6 +312,24 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
                 meta
             )
         )
+
+        // Show or hide the sidebar
+        if (type === UI_EVENT_HIDE_SIDEBAR || type === UI_EVENT_SHOW_SIDEBAR) {
+            req.session['classroomHideSidebar'] = type === UI_EVENT_HIDE_SIDEBAR
+
+            await updateUser('', user, {
+                sidebarHidden: type === UI_EVENT_HIDE_SIDEBAR
+            })
+        }
+
+        // Read or watch?
+        if (type === UI_EVENT_SHOW_TRANSCRIPT || type === UI_EVENT_SHOW_VIDEO) {
+            req.session['prefersTranscript'] = type === UI_EVENT_SHOW_TRANSCRIPT
+
+            await updateUser('', user, {
+                prefersTranscript: type === UI_EVENT_SHOW_TRANSCRIPT
+            })
+        }
 
         res.status(201).send({ status: 'created' })
     }

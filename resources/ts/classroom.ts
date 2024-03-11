@@ -92,24 +92,34 @@ function videoTabs() {
     const TAB = 'tab-element'
     const TAB_SELECTED = 'tab--selected'
 
-
+    const classroom: HTMLDivElement | null = document.querySelector('.classroom')
     const video: HTMLDivElement | null = document.querySelector('.video')
     const transcript: HTMLDivElement | null = document.querySelector('.transcript')
     const doc: HTMLDivElement | null = document.querySelector('.doc')
 
+    const prefersTranscript = classroom?.classList.contains('classroom--prefer-transcript')
+
     if (video && transcript && doc) {
+        // Set up targets
         video.setAttribute('id', 'video')
         video.classList.add(TAB_TARGET)
-        video.classList.add(TAB_TARGET_VISIBLE)
 
         transcript.setAttribute('id', 'transcript')
         transcript.classList.add(TAB_TARGET)
 
-        const videoTab = createElement('a', `${TAB} ${TAB_SELECTED}`, ['Video'])
+        // select which is visible
+        if (prefersTranscript) {
+            transcript.classList.add(TAB_TARGET_VISIBLE)
+        }
+        else {
+            video.classList.add(TAB_TARGET_VISIBLE)
+        }
+
+        const videoTab = createElement('a', `${TAB} ${!prefersTranscript ? TAB_SELECTED : ''}`, ['Watch'])
         videoTab.setAttribute('href', '#video')
         videoTab.addEventListener('click', () => logUiEvent('show-video'))
 
-        const transcriptTab = createElement('a', TAB, ['Transcript'])
+        const transcriptTab = createElement('a', `${TAB} ${prefersTranscript ? TAB_SELECTED : ''}`, ['Read'])
         transcriptTab.setAttribute('href', '#transcript')
         transcriptTab.addEventListener('click', () => logUiEvent('show-transcript'))
 
@@ -148,9 +158,41 @@ function moveCurrentLessonIntoView() {
     }
 }
 
+function toggleNavigation() {
+    const nav = document.querySelector('.classroom-navbar')
+    const HIDDEN = 'classroom-navbar--hidden'
+    const VISIBLE = 'classroom-navbar--visible'
+
+    if (!nav) {
+        return
+    }
+
+    document.querySelectorAll('.classroom-navbar-hide')
+        .forEach(el => {
+            el.addEventListener('click', () => {
+                logUiEvent('hide-sidebar', {})
+
+                nav.classList.remove(VISIBLE)
+                nav.classList.add(HIDDEN)
+            })
+        })
+
+    document.querySelectorAll('.classroom-navbar-show')
+        .forEach(el => {
+            el.addEventListener('click', () => {
+                logUiEvent('show-sidebar', {})
+
+                nav.classList.add(VISIBLE)
+                nav.classList.remove(HIDDEN)
+            })
+        })
+}
+
 
 export default function classroom() {
     const body = document.querySelector('body')
+
+    console.log(body);
 
     if (!body?.classList.contains('layout--classroom')) {
         return;
@@ -161,5 +203,6 @@ export default function classroom() {
     toggleSandbox()
     toggleToc()
     videoTabs()
+    toggleNavigation()
     // moveCurrentLessonIntoView()
 }

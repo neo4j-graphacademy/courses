@@ -140,12 +140,12 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         return acc + mandatory
     }, 0)
 
-    const completedCount = enrolment.completedLessons.length
+    const completedCount = enrolment.completedLessons?.length || 0
     const completedPercentage = enrolment.percentage || enrolment.completedPercentage || Math.round(completedCount / mandatoryLessons * 100)
 
     const output: CourseWithProgress = {
         ...await formatCourse(course),
-        enrolled: true,
+        enrolled: !enrolment.isInterested,
         enrolmentId: enrolment.id,
         enrolledAt: enrolment.createdAt,
         ref: enrolment.ref,
@@ -158,7 +158,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         completedCount,
         completedPercentage,
         certificateUrl: enrolment.certificateUrl,
-
+        isInterested: enrolment.isInterested,
         modules: course.modules.map(module => ({
             ...module,
             completed: enrolment.completedModules.includes(module.link),
@@ -175,7 +175,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
 
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(
-        course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module))
+        course.modules ? course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)) : []
     )
     const badge = await getBadge(course)
     const illustration = await getIllustration(course)

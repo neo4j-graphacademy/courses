@@ -226,7 +226,7 @@ router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
 
         await bookmarkCourse(course, user as User)
 
-        req.flash('success', 'This course has been bookmarked!')
+        req.flash('success', 'This course has been saved for later!')
 
         return res.redirect(`/courses/${req.params.course}/`)
     }

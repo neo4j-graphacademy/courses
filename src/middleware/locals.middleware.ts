@@ -59,6 +59,10 @@ export function registerLocals(app: Express) {
         res.locals.env = process.env.NODE_ENV
         res.locals.production = IS_PRODUCTION
 
+        // Hide sidebar in
+        res.locals.classroomHideSidebar = req.session['classroomHideSidebar']
+        res.locals.prefersTranscript = req.session['prefersTranscript']
+
         // Load CSVs from resources/svg
         res.locals.svg = getSvgs()
 

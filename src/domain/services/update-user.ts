@@ -6,13 +6,15 @@ import { User } from "../model/user";
 import joinTeam from "./teams/join-team";
 
 export interface UserUpdates {
-    nickname: string | null;
-    givenName: string | null;
+    nickname?: string | null;
+    givenName?: string | null;
     position?: string | null;
     company?: string | null;
     country?: string | null;
     bio?: string | null;
-    unsubscribed: boolean;
+    unsubscribed?: boolean;
+    sidebarHidden?: boolean;
+    prefersTranscript?: boolean;
 }
 
 export async function updateUser(token: string, user: User, updates: UserUpdates, team?: string): Promise<User> {
@@ -27,7 +29,7 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
         MERGE (u:User {sub: $id})
         SET u.updatedAt = datetime(), u += $updates,
             u.id = coalesce(u.id, randomUuid()),
-            u.picture = $picture,
+            u.picture = coalesce($picture, u.picture),
             u.profileCompletedAt = coalesce(u.profileCompletedAt, datetime())
         RETURN u
     `, {

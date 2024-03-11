@@ -1,9 +1,6 @@
 import { Router } from "express";
 import getTeam from "../domain/services/teams/get-team";
-import { requiresAuth } from "express-openid-connect";
-import joinTeam from "../domain/services/teams/join-team";
 import { getUser } from "../middleware/auth.middleware";
-import { User } from "../domain/model/user";
 import getLeaderboard from "../domain/services/teams/get-leaderboard";
 
 const router = Router()

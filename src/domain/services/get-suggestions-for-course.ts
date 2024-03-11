@@ -2,6 +2,7 @@ import { int } from "neo4j-driver"
 import { read, readTransaction } from "../../modules/neo4j"
 import { Course } from "../model/course"
 import { appendParams } from "./cypher"
+import { formatCourse } from "../../utils"
 
 type CourseSuggestion = Course & { count: number }
 
@@ -22,11 +23,11 @@ export async function getSuggestionsForCourse(userId: string | undefined, slug: 
             MATCH (c:Course {slug: $slug})<-[:FOR_COURSE]-(e1:CompletedEnrolment)<-[:HAS_ENROLMENT]-(u)-[:HAS_ENROLMENT]->(e2:CompletedEnrolment)-[:FOR_COURSE]->(c2)
             WHERE not c2:Certification  AND c2.language = c.language AND c2.status = c.status AND NOT c2.slug IN $current
             WITH c2 { .* } AS course, count(*) AS count
-            RETURN course { .*, count: count }
+            RETURN course { .*, count: count } AS course
             ORDER BY course.count DESC
             LIMIT $limit
         `, appendParams({ slug, current, limit: int(limit) }))
     })
 
-    return res.records.map(record => record.get('course') as CourseSuggestion) as CourseSuggestion[]
+    return Promise.all(res.records.map(record => formatCourse(record.get('course')))) as Promise<CourseSuggestion[]>
 }

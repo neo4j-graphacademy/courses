@@ -1,7 +1,7 @@
 import { Transaction } from "neo4j-driver";
 import { User, ValidLookupProperty } from "../../model/user";
 import { Sandbox } from "../../model/sandbox";
-import { EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_FAVORITED } from "../../model/enrolment";
+import { EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_BOOKMARKED } from "../../model/enrolment";
 import { STATUS_AVAILABLE } from "../rewards/get-rewards";
 import { appendParams } from "../cypher";
 import { STATUS_ACTIVE } from "../../model/course";
@@ -16,6 +16,7 @@ export interface IntermediateEnrolment {
     completed: boolean;
     completedAt: Date | undefined;
     failed: boolean;
+    isInterested: boolean;
     percentage: number;
     failedAt: Date | undefined;
     availableAfter: Date | undefined;
@@ -53,12 +54,22 @@ export default async function getEnrolments(tx: Transaction, user: Partial<User>
                 WHEN e IS NOT NULL AND e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
                 WHEN e IS NOT NULL AND e:FailedEnrolment THEN '${STATUS_FAILED}'
                 WHEN e IS NOT NULL THEN '${STATUS_ENROLLED}'
-                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_FAVORITED}'
+                WHEN ((u)-[:INTERESTED_IN]->(c)) THEN '${STATUS_BOOKMARKED}'
                 WHEN e.status = $active THEN '${STATUS_AVAILABLE}'
                 ELSE 'OTHER'
             END,
             certificateUrl: '/c/'+ e.certificateId +'/'
         }  AS enrolment ORDER BY e.lastSeenAt DESC, e.createdAt DESC
+
+        UNION MATCH (u:User {\`${property}\`: $sub})-[:INTERESTED_IN]->(c)
+        ${courseSlug ? 'WHERE c.slug = $slug' : ''}
+        RETURN c {
+            courseSlug: c.slug,
+            completedModules: [],
+            completedLessons: [],
+            isInterested: true,
+            status: '${STATUS_BOOKMARKED}'
+        } AS enrolment
     `, appendParams({ active: STATUS_ACTIVE, sub: user[property], slug: courseSlug }))
 
     if (res.records.length === 0) {

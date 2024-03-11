@@ -16,9 +16,9 @@ export function verifyBlockProcessor(registry: any) {
         const self: any = this
 
         self.named('verify')
-        self.process(function(parent: any, target: any, attrs: any) {
+        self.process(function (parent: any, target: any, attrs: any) {
             const input = `
-                <button class="btn btn-submit btn-verify">
+                <button class="btn btn--primary btn-submit btn-verify">
                     <span class="loading-indicator">${svg}</span>
                     <span class="btn-label">${target !== '' ? target : 'Check Database'}</span>
                 </button>
@@ -33,7 +33,7 @@ export function verifyBlockProcessor(registry: any) {
         const self: any = this
 
         self.named('read')
-        self.process(function(parent: any, target: any, attrs: any) {
+        self.process(function (parent: any, target: any, attrs: any) {
             const input = `
                 <button class="btn btn-submit btn-read">
                     <span class="loading-indicator">${svg}</span>

@@ -10,6 +10,8 @@ export const UI_EVENT_VIDEO_PAUSED = 'video-paused'
 export const UI_EVENT_VIDEO_ENDED = 'video-ended'
 export const UI_EVENT_SHOW_TRANSCRIPT = 'show-transcript'
 export const UI_EVENT_SHOW_VIDEO = 'show-video'
+export const UI_EVENT_SHOW_SIDEBAR = 'show-sidebar'
+export const UI_EVENT_HIDE_SIDEBAR = 'hide-sidebar'
 
 export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_CHATBOT_TOGGLE
@@ -21,6 +23,8 @@ export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_VIDEO_ENDED
     | typeof UI_EVENT_SHOW_TRANSCRIPT
     | typeof UI_EVENT_SHOW_VIDEO
+    | typeof UI_EVENT_SHOW_SIDEBAR
+    | typeof UI_EVENT_HIDE_SIDEBAR
 
 export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_SANDBOX_TOGGLE,
@@ -33,6 +37,8 @@ export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_VIDEO_ENDED,
     UI_EVENT_SHOW_TRANSCRIPT,
     UI_EVENT_SHOW_VIDEO,
+    UI_EVENT_HIDE_SIDEBAR,
+    UI_EVENT_SHOW_SIDEBAR,
 ]
 
 export class UserUiEvent {

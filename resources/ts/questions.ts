@@ -888,7 +888,7 @@ const completedIndicator = () => {
 
 
 const createSubmitButton = (text) => {
-    const button = createElement('button', 'btn btn-submit', [
+    const button = createElement('button', 'btn btn--primary btn-submit', [
         loadingIndicator(),
         createElement('span', 'btn-label', [text])
     ])

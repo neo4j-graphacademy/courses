@@ -5,13 +5,13 @@ import { Sandbox } from "./sandbox";
 import { User } from "./user";
 
 
-export const STATUS_FAVORITED = 'favorited';
+export const STATUS_BOOKMARKED = 'bookmarked';
 export const STATUS_COMPLETED = 'completed';
 export const STATUS_FAILED = 'failed';
 export const STATUS_ENROLLED = 'enrolled';
 export const STATUS_AVAILABLE = 'available';
 
-export type EnrolmentStatus = typeof STATUS_FAVORITED | typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED | typeof STATUS_ENROLLED | typeof STATUS_FAILED
+export type EnrolmentStatus = typeof STATUS_BOOKMARKED | typeof STATUS_AVAILABLE | typeof STATUS_COMPLETED | typeof STATUS_ENROLLED | typeof STATUS_FAILED | typeof STATUS_BOOKMARKED
 
 
 export interface Enrolment {

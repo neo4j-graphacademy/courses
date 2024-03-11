@@ -7,6 +7,7 @@ import { getUser } from '../middleware/auth.middleware'
 import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
 import { canonical } from '../utils'
+import { STATUS_BOOKMARKED, STATUS_ENROLLED } from '../domain/model/enrolment'
 
 const router = Router()
 
@@ -22,16 +23,20 @@ router.get('/', async (req, res, next) => {
 
         // Get current courses
         let current: CourseWithProgress[] = []
+        let bookmarked: CourseWithProgress[] = []
 
         if (user) {
             try {
                 const output = await getUserEnrolments(user.sub)
-                current = output.enrolments.enrolled || []
+
+                current = output.enrolments[STATUS_ENROLLED] || []
+                bookmarked = output.enrolments[STATUS_BOOKMARKED] || []
 
                 current.sort((a, b) => a.lastSeenAt && b.lastSeenAt && a.lastSeenAt > b.lastSeenAt ? -1 : 1)
             }
             catch (e) {
                 current = []
+                bookmarked = []
             }
         }
 
@@ -57,6 +62,7 @@ router.get('/', async (req, res, next) => {
             classes: 'home transparent-nav preload',
             canonical: canonical('/'),
             current,
+            bookmarked,
             categories,
             beginners,
             paths,
