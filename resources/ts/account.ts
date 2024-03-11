@@ -41,25 +41,6 @@ export default function account() {
             })
     })
 
-    // Leave team confirmation
-    document.querySelectorAll('.team .team-leave')
-        .forEach(form => {
-            form.addEventListener('submit', e => {
-                if (!confirm('Are you sure you want to leave this team?')) {
-                    e.preventDefault()
-                    return false
-                }
-
-                const button = form.querySelector('button')
-                if (button) {
-                    button.innerHTML = 'Leaving...'
-                    button.classList.add('btn--loading')
-                    button.classList.add('btn--disabled')
-                    button.setAttribute('disabled', 'disabled')
-                }
-            })
-        })
-
     // Join team form
     document.querySelectorAll('.team-join-form')
         .forEach(form => {
