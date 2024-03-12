@@ -10,23 +10,13 @@ You will then load the chunks into a Neo4j graph database.
 
 To get started, you will need to install the following Python packages using pip:
 
-[source]
-.Install packages
-pip install langchain langchain_community langchain_openai openai neo4j unstructured python-magic-bin tiktoken
-
 == Download the data
 
 You will load the content from the course link:https://graphacademy.neo4j.com/courses/llm-fundamentals/[Neo4j & LLM Fundamentals^].
 
-The course content has been downloaded for you and is available in the file link:https://data.neo4j.com/llm-vectors-unstructured/llm-fundamentals.zip[data.neo4j.com/llm-vectors-unstructured/llm-fundamentals.zip^]
+The workshop repository you cloned contains the course data.
 
-[NOTE]
-.GraphAcademy courses repository
-====
-Alternatively, you could clone Neo4j GraphAcademy courses repository from link:https://github.com/neo4j-graphacademy/courses[https://github.com/neo4j-graphacademy/courses]. However, all the data you will need is in the zip file.
-====
-
-Download the data, unzip it, and review the directory and file structure.
+Open the `llm-vectors-unstructured\data` directory in your code editor.
 
 You should note the following structure:
 
@@ -46,29 +36,41 @@ You can now load the content and chunk it using Python and Langchain.
 You will split the lesson content into chunks of text, around 1500 characters long, with each chunk containing one or more paragraphs.
 You can determine the paragraph in the content with two newline characters (`\n\n`).
 
-Review the following program before running it:
+Open the `llm-vectors-unstructured/create_vector.py` file and review the program:
 
 [source,python]
 ----
-include::code/load_and_chunk.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/create_vector.py[]
 ----
 
-The program does the following:
-
-. Uses the link:https://api.python.langchain.com/en/latest/document_loaders/langchain_community.document_loaders.directory.DirectoryLoader.html[`DirectoryLoader`^] class to load the content from the `asciidoc` directory.
-. Creates a link:https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.CharacterTextSplitter.html[`CharacterTextSplitter`^] object  to split the content into chunks of text.
-. Calls the `split_documents` method to split the documents into chunks of text based on the existence of `\n\n` and a chunk size of 1500 characters.
-
-Create a new Python file and run the program.
+The program uses the link:https://api.python.langchain.com/en/latest/document_loaders/langchain_community.document_loaders.directory.DirectoryLoader.html[`DirectoryLoader`^] class to load the content from the `llm-vectors-unstructured/data/asciidoc` directory.
 
 [IMPORTANT]
 .Course content location
 ====
-You may need to modify the `COURSES_PATH` variable to point to the location of the course content on your computer.
-
-The program assumes that the `asciidoc` directory is in the same directory as your Python program.
+If you are working on your local machine, you may need to modify the `COURSES_PATH` variable to point to the location of the course content on your computer.
 ====
 
+Your task is to add the code to:
+
+. Create a link:https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.CharacterTextSplitter.html[`CharacterTextSplitter`^] object to split the content into chunks of text.
+. Use the `split_documents` method to split the documents into chunks of text based on the existence of `\n\n` and a chunk size of 1500 characters.
+
+Create the CharacterTextSplitter object to split the content into paragraphs (`\n\n`).
+
+[source,python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=splitter]
+----
+
+Split the documents into chunks of text.
+
+[source,python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=split]
+----
+
+You can run your code now to see the chunks of text.
 The program should output a list of `Document` objects containing the _chunked up_ lesson content.
 
 [NOTE]
@@ -95,16 +97,6 @@ This process ensures that:
 Investigate what happens when you modify the `separator`, `chunk_size` and `chunk_overlap` parameters.
 ====
 
-== OpenAI API Key and connection details
-
-You must update the code to include your `openai_api_key` and use the `url`, `username`, and `password` of your Neo4j sandbox.
-
-Sandbox connection details:
-
-url:: [copy]#bolt://{sandbox_ip}:{sandbox_boltPort}#
-username:: [copy]#{sandbox_username}#
-password:: [copy]#{sandbox_password}#
-
 == Create vector index
 
 Once you have chunked the content, you can use the Langchain link:https://python.langchain.com/docs/integrations/vectorstores/neo4jvector[`Neo4jVector`^] class to create embeddings, a vector index, and store the chunks in a Neo4j graph database.
@@ -113,39 +105,23 @@ Modify your Python program to include the following code:
 
 [source, python]
 ----
-from langchain_community.vectorstores.neo4j_vector import Neo4jVector
-from langchain_openai import OpenAIEmbeddings
-
-neo4j_db = Neo4jVector.from_documents(
-    chunks,
-    OpenAIEmbeddings(openai_api_key="sk-..."),
-    url=NEO4J_URI,
-    username=NEO4J_USERNAME,
-    password=NEO4J_PASSWORD,
-    database="neo4j",
-    index_name="chunkVector",
-    node_label="Chunk",
-    text_node_property="text",
-    embedding_node_property="embedding",
-)
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=vector]
 ----
+
+The `Neo4jVector.from_documents` method:
+
+. Creates embeddings for each chunk using the `OpenAIEmbeddings` object.
+. Creates nodes with the label `Chunk` and the properties `text` and `embedding` in the Neo4j database.
+. Creates a vector index called `chunkVector`.
 
 [%collapsible]
 .View the complete code
 ====
 [source]
 ----
-include::code/create_vector.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[]
 ----
 ====
-
-
-
-The `Neo4jVector.from_documents` method does the following:
-
-. Creates embeddings for each chunk using the `OpenAIEmbeddings` object.
-. Creates nodes with the label `Chunk` and the properties `text` and `embedding` in the Neo4j database.
-. Creates a vector index called `chunkVector`.
 
 Run the program to create the chunk nodes and vector index. It may take a minute or two to complete.
 
@@ -175,6 +151,7 @@ RETURN node.text, score
 [IMPORTANT]
 Remember to replace `sk-...` with your OpenAI API key.
 
+Experiment with different questions and see how the vector index can find similar chunks.
 
 == Check Your Understanding
 
