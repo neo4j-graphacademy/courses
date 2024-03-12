@@ -2,7 +2,7 @@
 
 // Load embeddings
 LOAD CSV WITH HEADERS
-FROM 'file:///movie-poster-embeddings-1000.csv'
+FROM 'https://data.neo4j.com/rec-embed/movie-poster-embeddings-1k.csv'
 AS row
 MATCH (m:Movie {movieId: toInteger(row.movieId)})
 CALL db.create.setNodeVectorProperty(m, 'posterEmbedding', apoc.convert.fromJsonList(row.posterEmbedding));
