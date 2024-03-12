@@ -31,19 +31,20 @@ The application will:
 Create a new Python program, import the required LangChain modules and instantiate the chat model.
 
 [IMPORTANT]
+.OpenAI API Key
 Remember to update the API key with your own.
 
 [source,python]
 ----
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.schema.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage  
 
 chat_llm = ChatOpenAI(
     openai_api_key="sk-..."
 )
 ----
 
-Create a system message to provide instructions to the chat model using the `SystemMessagePromptTemplate` class.
+Create a system message to provide instructions to the chat model using the link:https://api.python.langchain.com/en/latest/messages/langchain_core.messages.system.SystemMessage.html[`SystemMessage`^] class.
 
 [source,python]
 ----
@@ -53,7 +54,7 @@ Respond using surfer slang.
 """)
 ----
 
-Create a human message to ask a question.
+Create a link:https://api.python.langchain.com/en/latest/messages/langchain_core.messages.human.HumanMessage.html[`HumanMessage`^] object to ask a question.
 
 [source,python]
 question = HumanMessage(content="What is the weather like?")
@@ -62,10 +63,10 @@ You can now call the chat model passing a list of messages. In this example, pas
 
 [source,python]
 ----
-response = chat_llm([
+response = chat_llm.invoke([
     instructions,
     question
-] )
+])
 
 print(response.content)
 ----
@@ -79,14 +80,14 @@ include::code/chat-model.py[]
 ----
 ====
 
-The response is an `AIMessage` object.
+The `response` is an link:https://api.python.langchain.com/en/latest/messages/langchain_core.messages.ai.AIMessage.html[`AIMessage`^] object.
 
 [source,python]
 AIMessage(content="Dude, the weather is totally gnarly! It's sunny with some epic offshore winds. Perfect conditions for shredding some sick waves!", additional_kwargs={}, example=False)
 
 === Wrapping in a Chain
 
-Taking what you have learned during this module about prompts and chains, you can create a resuable chat model chain.
+You can create a reusable chat model chain using what you have learned about prompts and chains.
 
 Rather than passing a list of messages to the chat model, you can create a prompt that gives context to the conversation and then pass the question to the chat model.
 
@@ -94,34 +95,14 @@ Review this program and identify the following:
 
 * The prompt provides the instructions to the LLM.
 * The chain is created using the chat model and the prompt.
-* The question is passed to the chat model, when the chain is run.
+* The question is passed to the chat model as a parameter of the `invoke` method.
 
 [source,python]
 ----
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.prompts.prompt import PromptTemplate
-from langchain.chains import LLMChain
-
-chat_llm = ChatOpenAI(
-    openai_api_key="sk-..."
-)
-
-prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
-Respond using surfer slang.
-
-Question: {question}
-""", input_variables=["question"])
-
-chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
-
-response = chat_chain.run(
-    question="What is the weather like?"
-)
-
-print(response)
+include::code/chat-model-chain.py[]
 ----
 
-Creating a chain is the first step to creating a more sophisticated chat model. You can use chains to piece different elements together into one call and support more complex features.
+Creating a chain is the first step to creating a more sophisticated chat model. You can use chains to combine different elements into one call and support more complex features.
 
 === Giving context
 
@@ -135,45 +116,31 @@ Review this example where the chat model can access current beach conditions (`c
 
 [source,python]
 ----
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.prompts.prompt import PromptTemplate
-from langchain.chains import LLMChain
-
-chat_llm = ChatOpenAI(
-    openai_api_key="sk-..."
-)
-
-prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
-Respond using surfer slang.
-
-Context: {context}
-Question: {question}
-""", input_variables=["context", "question"])
-
-chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
-
-current_weather = """
-    {
-        "surf": [
-            {"beach": "Fistral", "conditions": "6ft waves and offshore winds"},
-            {"beach": "Polzeath", "conditions": "Flat and calm"},
-            {"beach": "Watergate Bay", "conditions": "3ft waves and onshore winds"}
-        ]
-    }"""
-
-response = chat_chain.run(
-    context=current_weather,
-    question="What is the weather like on Watergate Bay?"
-)
-
-print(response)
+include::code/chat-model-context.py[]
 ----
 
 Run the program and predict what the response will be.
 
+[%collapsible]
+.Click to reveal the response
+====
+Below is a typical response. The LLM has used the context passed in the prompt to provide a more accurate response.
+
+    {
+        'context': {
+            "surf": [
+                {"beach": "Fistral", "conditions": "6ft waves and offshore winds"},
+                {"beach": "Polzeath", "conditions": "Flat and calm"},
+                {"beach": "Watergate Bay", "conditions": "3ft waves and onshore winds"}
+            ]},
+        'question': 'What is the weather like on Watergate Bay?',
+        'text': "Dude, the surf at Watergate Bay is pumping! We got some sick 3ft waves rolling in, but unfortunately, we got some onshore winds messing with the lineup. But hey, it's all good, still plenty of stoke to be had out there!"
+    }
+====
+
 Investigate what happens when you change the context by adding additional beach conditions.
 
-Providing context is one aspect of Retrieval Augmented Generation (RAG). In this lesson you _manually_ gave the model context, however you could have retrieved real-time information from an API or database.
+Providing context is one aspect of Retrieval Augmented Generation (RAG). In this program, you _manually_ gave the model context; however, you could have retrieved real-time information from an API or database.
 
 == Check Your Understanding
 

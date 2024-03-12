@@ -1,0 +1,268 @@
+= Cypher Retrieval Chain
+:type: challenge
+:lab-filename: cypher-retrieval.chain.ts
+:lab-file: modules/agent/tools/cypher/{lab-filename}
+:lab: {repository-blob}/main/src/{lab-file}
+:lab-solution: src/solutions/{lab-file}
+:test-filename: cypher-retrieval.chain.test.ts
+:test-file: src/modules/agent/tools/cypher/{test-filename}
+:order: 4
+
+Now you have all the components needed to retrieve data from Neo4j with Cypher based on a user input.  It is time to combine them.
+
+To complete this challenge, you must create a `Runnable` instance that:
+
+1. Generates and evaluates a Cypher statement
+2. Use the Cypher statement to retrieve data from the database
+3. Extract the element IDs and convert the results to a `string` for use in the context prompt
+4. Generate an answer using the answer generation chain
+5. Save the response to the database along with the Cypher statement
+6. Return the LLM response
+
+lab::Open `{lab-filename}`[]
+
+
+== Cypher Generation and Evaluation
+
+To generate and evaluate a new Cypher statement, you'll need to create a function that will first generate a Cypher statement.
+
+The link:{repository-blob}/main/src/{lab-file}[`{lab-filename}` file^] already has a placeholder function called `recursivelyEvaluate()` to perform this task.
+
+[source,typescript]
+----
+include::{repository-raw}/main/src/{lab-file}[tag="recursive"]
+----
+
+
+In this function, first use the link:../1-cypher-generation-chain/[`initCypherGenerationChain` function from Cypher Generation Chain lesson^] and
+link:../2-cypher-evaluation-chain/[`initCypherEvaluationChain` function from the Cypher Evaluation Chain lesson^] to create the generation and evaluation chains.
+
+.Cypher Chains
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="chains",indent=0]
+----
+
+Next, invoke the `generationChain` to generate an initial Cypher statement.
+
+
+.Generate Initial Cypher
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="initialcypher",indent=0]
+----
+
+Now, use a `while` loop to recursively evaluate the Cypher statement up to five times until the number of errors the evaluation chain returns is 0.
+
+.Evaluate Cypher
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="evaluateloop",indent=0]
+----
+
+Finally, return the `cypher` statement.
+
+.Return Cypher
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="evaluatereturn",indent=0]
+----
+
+// TODO: How do we fix this?!
+[TIP]
+.`id()` to `elementId()` replacement
+====
+The first line of this code contains a fix that converts `id({variable})` to `elementId({variable})`.
+No matter what we try in the prompt, the GPT-3.5 Turbo and GPT-4 models use the deprecated `id()` method over the `elementId()`.
+
+Eventually, the models will recognize that the id() method is deprecated. This problem suggests training a model specifically to generate valid Cypher statements might be necessary.
+====
+
+[%collapsible]
+.View full `recursivelyEvaluate` function
+====
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="recursive",indent=0]
+----
+
+====
+
+
+
+== Handling errors
+
+The LLM will generate a correct Cypher statement _most_ of the time.
+But, as we've found in testing, depending on the instructions provided to the prompt, the loop of Cypher generation and evaluation can be flaky.
+
+You can execute your Cypher statement with an additional evaluation loop to make the application more robust.
+If the database throws an error, you can analyze the error message using the same evaluation chain and rewrite the statement accordingly.
+
+Find the `getResults()` function in `{lab-filename}`.
+
+[source,typescript]
+----
+include::{repository-raw}/main/src/{lab-file}[tag="results"]
+----
+
+Replace the `// TODO` comment with code that will attempt to execute the Cypher statement and retry if the `graph.query()` method throws an error.
+
+Start by defining a `results` variable and an `attempts` variable to hold the maximum number of attempts.
+Define a mutable `cypher` statement to hold the Cypher statement.
+Then, call the `initCypherEvaluationChain()` function to create an instance of the evaluation chain.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="resultvars",indent=0]
+----
+
+Next, create a `while` loop that will iterate a maximum of five times.
+Inside use `try`/`catch` to attempt to execute the Cypher statement.
+
+If an error is thrown, pass the `.message` property along with the Cypher statement, question, and schema to the evaluation chain.
+
+Assign the output of the evaluation chain to the `cypher` statement.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="resultloop"]
+----
+
+Finally, return the `results`.
+
+
+
+== Building the Chain
+
+This section will take place in the `initCypherRetrievalChain()` function.
+
+[source,typescript]
+----
+include::{repository-raw}/main/src/{lab-file}[tag="function"]
+----
+
+Since an agent will call this chain, it will receive a structured input containing both an `input` and a `rephrasedQuestion`.
+
+
+.Agent to Tool Input
+[source,typescript]
+----
+include::{repository-raw}/main/src/modules/agent/agent.types.ts[tag=agenttoolinput,indent=0]
+----
+
+
+=== Initialize Chains
+
+You must use the Generate Authoritative Answer Chain from the previous lesson to generate an answer.
+Use the `initGenerateAuthoritativeAnswerChain()` function
+
+.Generate Answer Chain
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="answerchain",indent=0]
+----
+
+
+
+=== Generate a Cypher Statement
+
+Now, define the output.
+As with the Vector Retrieval tool, you can return a `Runnable` using `RunnablePassthrough.assign()`.
+
+The first step is to call the `recursivelyEvaluate()` function, assigning the output to the `cypher` key.
+
+.Generate Initial Cypher
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="cypher",indent=0]
+----
+
+=== Get Results
+
+Use the `getResults()` function to get the results from the database.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="getresults",indent=0]
+----
+
+=== Manipulate Results
+
+You will need to extract any element IDs from the results to save the context to the database.
+The link:{repository-blob}main/src/utils.ts[`utils.ts`^] file exports an `extractIds()` function that recursively iterates through the results to find any objects with a key of `_id`.
+
+[%collapsible]
+.View the `extractIds()` function
+====
+
+[source,typescript]
+----
+include::{repository-raw}/main/src/utils.ts[tag="extractids",indent=0]
+----
+====
+
+The `result` obtained in the previous step must also be converted to a string.
+If there is only one result, use `JSON.stringify()` to convert the first object to a JSON string, otherwise return a string representing the entire array.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="extract",indent=0]
+----
+
+=== Generate Output
+
+The input and context can then be passed to the Authoritative Answer Generation chain to generate an answer.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="answer",indent=0]
+----
+
+=== Save response to database
+
+Next, use the `saveHistory()` function built in module 3 to save the details of the response to the database.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="save",indent=0]
+----
+
+=== Return the output
+
+Finally, the `pick()` function returns the `output` key.
+
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="output",indent=0]
+----
+
+
+== Final Function
+
+If you have followed the instructions correctly, your code should resemble the following:
+
+.Full Function
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag=function]
+----
+
+include::../../../../includes/test.adoc[leveloffset=+1]
+
+[IMPORTANT]
+.Randomized responses
+====
+LLMs are probabilistic models, meaning they generate different responses with each call.
+
+Given this variability, you might find that not all tests pass whenever testing this function with multiple tests. Therefore, running the test several times may be necessary to achieve consistent results.
+====
+
+include::questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you combined the components built during this module to create a chain that will generate a Cypher statement that answers the user's question, execute the Cypher statement, and generate a response.
+
+In the next module, you will build an agent that combines this chain with the Vector Retrieval Chain to create an agent that uses an LLM to choose the correct tool to answer the user's question.

@@ -1,5 +1,5 @@
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.schema.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage  
 
 chat_llm = ChatOpenAI(
     openai_api_key="sk-..."
@@ -12,7 +12,7 @@ Respond using surfer slang.
 
 question = HumanMessage(content="What is the weather like?")
 
-response = chat_llm([
+response = chat_llm.invoke([
     instructions,
     question
 ])

@@ -27,23 +27,7 @@ Review the following code that creates a `Neo4jVector` from the `moviePlots` ind
 
 [source,python]
 ----
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
-
-embedding_provider = OpenAIEmbeddings(openai_api_key="sk-...")
-
-movie_plot_vector = Neo4jVector.from_existing_index(
-    embedding_provider,
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
-    index_name="moviePlots",
-    embedding_node_property="embedding",
-    text_node_property="plot",
-)
-
-r = movie_plot_vector.similarity_search("A movie where aliens land and attack earth.")
-print(r)
+include::code/query_vector.py[]
 ----
 
 You should be able to identify the following:
@@ -57,10 +41,6 @@ You should be able to identify the following:
 
 To run this program you will need to:
 
-. Install the `tiktoken` package which `OpenAIEmbeddings` requires.
-+
-[source]
-pip install tiktoken
 . Replace the `openai_api_key` with your OpenAI API key
 . Update Neo4j connection details with your Sandbox connection details.
 +
@@ -75,6 +55,11 @@ Password:: [copy]#{sandbox_password}#
 ====
 
 Run the code and review the results. Try different queries and see what results you get.
+
+The `similarity_search()` method returns a list of link:https://api.python.langchain.com/en/latest/documents/langchain_core.documents.base.Document.html[`Document`^] objects. The `Document` object includes the properties:
+
+* `page_content` - the content referenced by the index, in this example the plot of the movie
+* `meta_data` - a dictionary of the `Movie` node properties returned by the index
 
 [TIP]
 .Specify the number of documents
@@ -95,28 +80,7 @@ The following code would create embeddings and a new index called `myVectorIndex
 
 [source,python]
 ----
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
-from langchain.schema import Document
-
-# A list of Documents
-documents = [Document("Text to be indexed")]
-
-# Service used to create the embeddings
-embedding_provider = OpenAIEmbeddings()
-
-new_vector = Neo4jVector.from_documents(
-    documents,
-    embedding_provider,
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
-    index_name="myVectorIndex",
-    node_label="Chunk",
-    text_node_property="text",
-    embedding_node_property="embedding",
-    create_id_index=True,
-)
+include::code/create_index.py[]
 ----
 
 == Creating a Retriever chain
@@ -125,7 +89,7 @@ To incorporate a retriever and Neo4j vector into a Langchain application, you ca
 
 The `Neo4jVector` class has a `as_retriever()` method that returns a retriever.
 
-The `RetrievalQA` class is a chain that uses a retriever as part of its pipeline. It will use the retriever to retrieve documents and pass them to a language model.
+The link:https://api.python.langchain.com/en/latest/chains/langchain.chains.retrieval_qa.base.RetrievalQA.html[`RetrievalQA`^] class is a chain that uses a retriever as part of its pipeline. It will use the retriever to retrieve documents and pass them to a language model.
 
 By incorporating `Neo4jVector` into a `RetrievalQA` chain, you can use data and vectors in Neo4j in a Langchain application.
 
@@ -133,34 +97,7 @@ Review this program incorporating the `moviePlots` vector index into a retrieval
 
 [source,python]
 ----
-from langchain.chains import RetrievalQA
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
-
-OPENAI_API_KEY = "sk-..."
-
-chat_llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY)
-
-embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
-
-movie_plot_vector = Neo4jVector.from_existing_index(
-    embedding_provider,
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
-    index_name="moviePlots",
-    embedding_node_property="embedding",
-    text_node_property="plot",
-)
-
-retrievalQA = RetrievalQA.from_llm(
-    llm=chat_llm,
-    retriever=movie_plot_vector.as_retriever()
-)
-
-r = retrievalQA("A mission to the moon goes wrong")
-print(r)
+include::code/retreiver_chain.py[]
 ----
 
 When the program runs, the `RetrievalQA` chain will use the `movie_plot_vector` retriever to retrieve documents from the `moviePlots` index and pass them to the `chat_llm` language model.
@@ -174,7 +111,7 @@ By setting the optional `verbose` and `return_source_documents` arguments to `Tr
 
 [source, python]
 ----
-retrievalQA = RetrievalQA.from_llm(
+plot_retriever = RetrievalQA.from_llm(
     llm=chat_llm,
     retriever=movie_plot_vector.as_retriever(),
     verbose=True,

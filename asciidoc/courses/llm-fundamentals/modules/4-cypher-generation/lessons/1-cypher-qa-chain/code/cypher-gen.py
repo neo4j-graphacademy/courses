@@ -1,5 +1,5 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.graphs import Neo4jGraph
+from langchain_openai import ChatOpenAI
+from langchain_community.graphs import Neo4jGraph
 from langchain.chains import GraphCypherQAChain
 from langchain.prompts import PromptTemplate
 
@@ -23,15 +23,14 @@ Question: {question}
 
 cypher_generation_prompt = PromptTemplate(
     template=CYPHER_GENERATION_TEMPLATE,
-    input_variables=["schema", "question"], 
-    # validate_template=True, 
+    input_variables=["schema", "question"],
 )
 
 cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True  
+    verbose=True
 )
 
-cypher_chain.run("What role did Tom Hanks play in Toy Story?")
+cypher_chain.invoke({"query": "What role did Tom Hanks play in Toy Story?"})

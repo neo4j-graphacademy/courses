@@ -1,7 +1,6 @@
 from langchain.chains import RetrievalQA
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 
 OPENAI_API_KEY = "sk-..."
 
@@ -15,16 +14,17 @@ movie_plot_vector = Neo4jVector.from_existing_index(
     username="neo4j",
     password="pleaseletmein",
     index_name="moviePlots",
-    embedding_node_property="embedding", 
+    embedding_node_property="embedding",
     text_node_property="plot",
 )
 
-retrievalQA = RetrievalQA.from_llm(
-    llm=chat_llm, 
-    retriever=movie_plot_vector.as_retriever(), 
-    verbose=True, 
-    return_source_documents=True
+plot_retriever = RetrievalQA.from_llm(
+    llm=chat_llm,
+    retriever=movie_plot_vector.as_retriever()
 )
 
-r = retrievalQA("A mission to the moon goes wrong")
-print(r)
+result = plot_retriever.invoke(
+    {"query": "A movie where a mission to the moon goes wrong"}
+)
+
+print(result)

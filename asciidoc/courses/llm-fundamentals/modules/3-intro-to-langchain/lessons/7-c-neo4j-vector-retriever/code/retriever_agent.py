@@ -1,35 +1,33 @@
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain, RetrievalQA
 from langchain.chains.conversation.memory import ConversationBufferMemory
-from langchain.agents import AgentType, initialize_agent
-from langchain.tools import Tool, YouTubeSearchTool
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores.neo4j_vector import Neo4jVector
+from langchain.agents import AgentExecutor, create_react_agent
+from langchain.tools import Tool
+from langchain import hub
+from langchain_community.tools import YouTubeSearchTool
+from langchain_community.vectorstores.neo4j_vector import Neo4jVector
 
 OPENAI_API_KEY = "sk-..."
 
-llm = ChatOpenAI(
-    openai_api_key=OPENAI_API_KEY
-)
-
-youtube = YouTubeSearchTool()
-
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY)
+embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 prompt = PromptTemplate(
     template="""
-    You are a movie expert. You find movies from a genre or plot. 
+    You are a movie expert. You find movies from a genre or plot.
 
-    ChatHistory:{chat_history} 
-    Question:{input}
-    """, 
+    Chat History: {chat_history}
+    Question: {input}
+    """,
     input_variables=["chat_history", "input"]
-    )
+)
 
-chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory, verbose=True)
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
+
+youtube = YouTubeSearchTool()
 
 movie_plot_vector = Neo4jVector.from_existing_index(
     embedding_provider,
@@ -37,51 +35,55 @@ movie_plot_vector = Neo4jVector.from_existing_index(
     username="neo4j",
     password="pleaseletmein",
     index_name="moviePlots",
-    embedding_node_property="embedding", 
+    embedding_node_property="embedding",
     text_node_property="plot",
 )
 
-retrievalQA = RetrievalQA.from_llm(
-    llm=llm, 
-    retriever=movie_plot_vector.as_retriever(), 
-    verbose=True, 
+plot_retriever = RetrievalQA.from_llm(
+    llm=llm,
+    retriever=movie_plot_vector.as_retriever(),
+    verbose=True,
     return_source_documents=True
 )
 
 def run_retriever(query):
-    results = retrievalQA({"query":query})
-    return str(results)
+    results = plot_retriever.invoke({"query":query})
+    # format the results
+    movies = '\n'.join([doc.metadata["title"] + " - " + doc.page_content for doc in results["source_documents"]])
+    return movies
 
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
-        description="For when you need to chat about movies, genres or plots. The question will be a string. Return a string.",
+        name="Movie Chat",
+        description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=chat_chain.run,
         return_direct=True
     ),
     Tool.from_function(
-        name="YouTubeSearchTool",
-        description="For when you need a link to a movie trailer. The question will be a string. Return a link to a YouTube video.",
+        name="Movie Trailer Search",
+        description="Use when needing to find a movie trailer. The question will include the word 'trailer'. Return a link to a YouTube video.",
         func=youtube.run,
         return_direct=True
     ),
     Tool.from_function(
-        name="PlotRetrieval",
+        name="Movie Plot Search",
         description="For when you need to compare a plot to a movie. The question will be a string. Return a string.",
         func=run_retriever,
-        # func=lambda query: str(retrievalQA({"query": query})), Alternative way to wrap the function using lambda.
         return_direct=True
     )
 ]
 
-agent = initialize_agent(
-    tools, llm, memory=memory,
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
-    # max_iterations=3,
-    verbose=True, 
-    handle_parsing_errors=True,
-)
+agent_prompt = hub.pull("hwchase17/react-chat")
+agent = create_react_agent(llm, tools, agent_prompt)
+agent_executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    memory=memory,
+    max_interations=3,
+    verbose=True,
+    handle_parse_errors=True)
 
 while True:
-    q = input(">")
-    print(agent.run(q))
+    q = input("> ")
+    response = agent_executor.invoke({"input": q})
+    print(response["output"])

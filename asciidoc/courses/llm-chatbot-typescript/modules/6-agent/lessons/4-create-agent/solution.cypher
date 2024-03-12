@@ -1,0 +1,5 @@
+MERGE (s:Session {id: 'agent-rag-1'})
+MERGE (r:Response {id: 'rag-solution-response'})
+MERGE (s)-[:HAS_RESPONSE]->(r)
+MERGE (m:Movie {title: 'Ghost'})
+MERGE (r)-[:CONTEXT]->(m)
