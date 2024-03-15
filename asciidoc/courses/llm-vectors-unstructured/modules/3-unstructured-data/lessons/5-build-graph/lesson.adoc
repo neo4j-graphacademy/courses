@@ -4,8 +4,9 @@
 :disable-cache: true
 :sandbox: true
 
-In the last lesson, you used the `Neo4jVector` class to create nodes in the graph.
-Using `Neo4jVector` is an efficient and easy way to get started.
+In the two previous lessons, you used the Langchain `Neo4jVector` and `Neo4jGraph` classes to create nodes in the graph.
+Using `Neo4jVector` and `Neo4Graph` is an efficient and easy way to get started.
+
 To create a graph where you can also understand the relationships within the data, you must incorporate the metadata into the data model.
 
 In this lesson, you will create a graph of the course content using the `neo4j` Python driver and OpenAI API.
@@ -40,12 +41,14 @@ You can extract the following metadata from the path:
 
 == Extracting the data
 
-Create a new Python program and start with the code you used to load and chunk the content.
+Open the `llm-vectors-unstructured\build_graph.py` file in your code editor.
+
+This starter code loads and chunks the course content.
 
 .Load and chunk the content
 [source, python]
 ----
-include::../3-import-python/code/load_and_chunk.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/build_graph.py[]
 ----
 
 For each chunk, you have to create an embedding of the text and extract the metadata.
@@ -55,12 +58,7 @@ Create a function to create and return an embedding using the OpenAI API:
 .Create embeddings
 [source, python]
 ----
-def get_embedding(llm, text):
-    response = llm.embeddings.create(
-            input=chunk.page_content,
-            model="text-embedding-ada-002"
-        )
-    return response.data[0].embedding
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=get_embedding]
 ----
 
 Create a 2nd function, which will extract the data from the chunk:
@@ -68,21 +66,7 @@ Create a 2nd function, which will extract the data from the chunk:
 .Get course data
 [source, python]
 ----
-import os
-
-def get_course_data(llm, chunk):
-    data = {}
-
-    path = chunk.metadata['source'].split(os.path.sep)
-
-    data['course'] = path[-6]
-    data['module'] = path[-4]
-    data['lesson'] = path[-2]
-    data['url'] = f"https://graphacademy.neo4j.com/courses/{data['course']}/{data['module']}/{data['lesson']}"
-    data['text'] = chunk.page_content
-    data['embedding'] = get_embedding(llm, data['text'])
-
-    return data
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=get_course_data]
 ----
 
 The `get_course_data` function:
@@ -107,38 +91,15 @@ Create the OpenAI object:
 
 [source, python]
 ----
-from openai import OpenAI
-
-llm = OpenAI(api_key=OPENAI_API_KEY)
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=openai]
 ----
 
 Connect to the Neo4j sandbox:
 
 [source, python]
 ----
-from neo4j import GraphDatabase
-
-driver = GraphDatabase.driver(
-    NEO4J_URI,
-    auth=(
-        NEO4J_USERNAME,
-        NEO4J_PASSWORD
-    )
-)
-driver.verify_connectivity()
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=neo4j]
 ----
-
-[IMPORTANT]
-.OpenAI API Key and connection details
-====
-Remember to update the code to include your OpenAI `OPENAI_API_KEY` and use the `NEO4J_URL`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` of your Neo4j sandbox.
-
-Sandbox connection details:
-
-NEO4J_URL:: [copy]#bolt://{sandbox_ip}:{sandbox_boltPort}#
-NEO4J_USERNAME:: [copy]#{sandbox_username}#
-NEO4J_PASSWORD:: [copy]#{sandbox_password}#
-====
 
 [TIP]
 .Test the connection
@@ -151,17 +112,7 @@ To create the data in the graph, you will need a function that incorporates the 
 .Create chunk function
 [source, python]
 ----
-def create_chunk(tx, data):
-    tx.run("""
-        MERGE (c:Course {name: $course})
-        MERGE (c)-[:HAS_MODULE]->(m:Module{name: $module})
-        MERGE (m)-[:HAS_LESSON]->(l:Lesson{name: $lesson, url: $url})
-        MERGE (l)-[:CONTAINS]->(p:Paragraph{text: $text})
-        WITH p
-        CALL db.create.setNodeVectorProperty(p, "embedding", $embedding)
-        """,
-        data
-        )
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=create_chunk]
 ----
 
 The `create_chunk` function will accept the `data` dictionary created by the `get_course_data` function.
@@ -172,13 +123,7 @@ Iterate through the chunks and execute the `create_chunk` function:
 
 [source, python]
 ----
-for chunk in chunks:
-    with driver.session(database="neo4j") as session:
-
-        session.execute_write(
-            create_chunk,
-            get_course_data(llm, chunk)
-        )
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=create]
 ----
 
 A new session is created for each chunk. The `execute_write` method calls the `create_chunk` function, passing the `data` dictionary created by the `get_course_data` function.
@@ -187,7 +132,7 @@ Finally, close the driver.
 
 [source, python]
 ----
-driver.close()
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[tag=close]
 ----
 
 [%collapsible]
@@ -195,7 +140,7 @@ driver.close()
 ====
 [source]
 ----
-include::code/build_graph.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[]
 ----
 ====
 

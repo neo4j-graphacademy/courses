@@ -26,81 +26,44 @@ image::images/graphacademy-lessons-paragraph-topic.svg[Data model showing the To
 The Python NLP (natural language processing) library, link:https://textblob.readthedocs.io/en/dev/[textblob^], can extract noun phrases from text.
 You will use it to extract the topics from the lesson content.
 
-Install `textblob` using pip:
-
-[source]
-----
-pip install textblob
-----
-
 You can extract the topics using the `Textblob.noun_phrases` method.
-For example:
+
+Open and run the `llm-vectors-unstructured/extract_topics.py` program:
 
 [source, python]
 ----
-from textblob import TextBlob
-
-phrase = "You can extract topics from phrases using TextBlob"
-
-nouns = TextBlob(phrase).noun_phrases
-
-print(nouns)
+include::{repository-raw}/main/llm-vectors-unstructured/extract_topics.py[]
 ----
+
+It will return a list of topics in the input.
+In this case, the topics `'extract topics', 'textblob'`.
 
 == Update the Graph
 
-Update the program you created in the last lesson to extract topics from the lesson content and add them to the graph.
+Your next task is to update the program you created in the last lesson to extract topics from the lesson content and add them to the graph.
 
 [%collapsible]
 .View the code from the last lesson
 ====
 [source, python]
 ----
-include::../4-build-graph/code/build_graph.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph.py[]
 ----
 ====
 
-You can update the `get_course_data` function to extract topics from the lesson content.
+First, update the `get_course_data` function to extract topics from the lesson content.
 Add the topics to the `data` dictionary using the `TextBlob.noun_phrases` method:
 
 [source, python]
 ----
-def get_course_data(llm, chunk):
-    data = {}
-
-    path = chunk.metadata['source'].split(os.path.sep)
-
-    data['course'] = path[-6]
-    data['module'] = path[-4]
-    data['lesson'] = path[-2]
-    data['url'] = f"https://graphacademy.neo4j.com/courses/{data['course']}/{data['module']}/{data['lesson']}"
-    data['text'] = chunk.page_content
-    data['embedding'] = get_embedding(llm, data['text'])
-    data['topics'] = TextBlob(data['text']).noun_phrases
-
-    return data
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph_topics.py[tag=get_course_data]
 ----
 
-The `create_chunk` function can also add the topics to the graph:
+Next, update the `create_chunk` function to add the topics to the graph:
 
 [source, python]
 ----
-def create_chunk(tx, data):
-    tx.run("""
-        MERGE (c:Course {name: $course})
-        MERGE (c)-[:HAS_MODULE]->(m:Module{name: $module})
-        MERGE (m)-[:HAS_LESSON]->(l:Lesson{name: $lesson, url: $url})
-        MERGE (l)-[:CONTAINS]->(p:Paragraph{text: $text})
-        WITH p
-        CALL db.create.setNodeVectorProperty(p, "embedding", $embedding)
-           
-        FOREACH (topic in $topics |
-            MERGE (t:Topic {name: topic})
-            MERGE (p)-[:MENTIONS]->(t)
-        )
-        """, 
-        data
-        )
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph_topics.py[tag=create_chunk]
 ----
 
 The `topics` are returned as a list from the `TextBlob.noun_phrases` method.
@@ -111,7 +74,7 @@ The `FOREACH` clause iterates over the list, creating a `Topic` node and a `MENT
 ====
 [source, python]
 ----
-include::code/build_graph_topics.py[]
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/build_graph_topics.py[]
 ----
 ====
 
