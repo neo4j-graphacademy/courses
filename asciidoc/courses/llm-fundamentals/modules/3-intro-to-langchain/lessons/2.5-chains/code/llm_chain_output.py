@@ -4,7 +4,8 @@ from langchain.chains import LLMChain
 from langchain.schema import StrOutputParser
 
 llm = OpenAI(
-    openai_api_key="sk-...")
+  openai_api_key="sk-..."
+)
 
 template = PromptTemplate.from_template("""
 You are a cockney fruit and vegetable seller.
@@ -15,9 +16,9 @@ Tell me about the following fruit: {fruit}
 """)
 
 llm_chain = LLMChain(
-    llm=llm,
-    prompt=template,
-    output_parser=StrOutputParser()
+  llm=llm,
+  prompt=template,
+  output_parser=StrOutputParser()
 )
 
 response = llm_chain.invoke({"fruit": "apple"})
