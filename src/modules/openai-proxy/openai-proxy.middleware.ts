@@ -1,0 +1,109 @@
+import { NextFunction, Request, Response } from "express";
+import { decodeBearerToken } from "./openai-proxy.utils";
+import { read, write } from "../neo4j";
+
+export async function requiresValidBearerToken(req: Request, res: Response, next: NextFunction) {
+  const token = req.header('Authorization')?.replace('Bearer ', '')
+
+  try {
+    if (!token) {
+      return res.status(401).json({
+        error: {
+          message: 'Missing API Key.  You can find your API key in the course content.'
+        }
+      })
+    }
+
+    const { user, course } = decodeBearerToken(token)
+
+    const dbRes = await read<{ allowsLLMCalls: boolean, seenRecently: boolean, throttled: boolean, alreadyCompleted: boolean }>(`
+      MATCH (u:User {id: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+      WHERE c.slug = $course
+      CALL {
+        WITH e
+        MATCH (e)-[:SENT_LLM_CALL]->(l)
+        WHERE l.createdAt >= datetime() - duration('PT2M')
+        RETURN count(l) AS recentCalls
+      }
+      RETURN c.allowsLLMCalls AS allowsLLMCalls,
+        e:CompletedEnrolment AS alreadyCompleted,
+        e.lastSeenAt >= datetime() - duration('P30M') AS seenRecently,
+        recentCalls >= 5 AS throttled
+
+    `, { user, course })
+
+
+    // Is the user enrolled?
+    if (dbRes.records.length === 0) {
+      return res.status(401).json({
+        error: {
+          message: `You must be enrolled to the course to send an LLM request using this key.  Head to https://graphacademy.neo4j.com/courses/${course}/ to enroll.`
+        }
+      })
+    }
+
+    const [first] = dbRes.records
+
+    // Does the course allow LLM calls?
+    if (!first.get('allowsLLMCalls')) {
+      return res.status(401).json({
+        error: {
+          message: 'This course does not allow LLM calls.'
+        }
+      })
+    }
+
+    // Have they already completed the course
+    if (first.get('alreadyCompleted')) {
+      return res.status(401).json({
+        error: {
+          message: 'This API key expired once you completed the course.  You can always call the LLM directly via the OpenAI API.'
+        }
+      })
+    }
+
+    // Have they been seen recently?
+    if (!first.get('seenRecently')) {
+      return res.status(401).json({
+        error: {
+          message: 'You need to have loaded the a lesson within the past 30 minutes to use this key.  If you have the page open, try refreshing the page.'
+        }
+      })
+    }
+
+
+    // Have they sent a request within the throttle window?
+    if (first.get('throttled')) {
+      return res.status(401).json({
+        error: {
+          message: 'You are limited to 5 API calls in any 2-minute period.  You can always call the LLM directly via the OpenAI API.'
+        }
+      })
+    }
+
+    // Otherwise, everything is fine
+    next()
+  }
+  catch (next) {
+    return res.status(401).json({
+      error: {
+        message: 'Bad API Key.  You can find your API key in the course content.'
+      }
+    })
+  }
+}
+
+export async function saveLLMChatCompletion(userId: string, course, body: Record<string, any>, response: string | undefined): Promise<void> {
+  await write(`
+    MATCH (u:User {id: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+    WHERE c.slug = $course
+
+    CREATE (l:LLMChatCompletion {
+      id: randomUuid(),
+      createdAt: datetime(),
+      body: $body,
+      response: $response
+    })
+    CREATE (e)-[:SENT_LLM_CALL]->(l)
+  `, { user: userId, course, body: JSON.stringify(body), response })
+}

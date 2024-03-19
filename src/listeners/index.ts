@@ -5,6 +5,7 @@ import initEmailListeners from './emails'
 import { AddressInfo } from 'net'
 import initSandboxListeners from '../modules/sandbox/listeners/sandbox.listeners'
 import initSlackListeners from '../modules/slack/slack.listeners'
+import initCourseListeners from './course'
 
 export default async function initListeners(): Promise<void> {
     emitter.on<AppInit>(AppInit, event => {
@@ -13,6 +14,9 @@ export default async function initListeners(): Promise<void> {
 
         console.log(`\n\n--\n🚀 Listening on http://localhost:${port}\n`)
     })
+
+    // Course event listeners
+    initCourseListeners()
 
     // Email Listeners
     await initEmailListeners()

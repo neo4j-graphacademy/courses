@@ -89,6 +89,7 @@ export interface Course {
     questions: number;
     passPercentage: number;
     keyPoints: string[];
+    allowsLLMCalls: boolean;
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }

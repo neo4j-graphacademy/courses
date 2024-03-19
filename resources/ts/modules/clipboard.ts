@@ -13,9 +13,7 @@ export function cleanCode(raw: string, language?: string) {
     return copyableCommand(converted)
 }
 
-export function copyToClipboard(raw: string, button?: HTMLElement) {
-    const cleaned = cleanCode(raw)
-
+export function copyToClipboard(cleaned: string, button?: HTMLElement) {
     if (button) {
         const text = button.innerHTML
         const width = button.clientWidth
@@ -54,7 +52,7 @@ function copyableCommand(input: string) {
         let currentCommand = ''
         const commands: any[] = []
         let commandContinuationFound: any = false
-        for (const line of lines ) {
+        for (const line of lines) {
             if (!commandContinuationFound && !line.startsWith('$ ')) {
                 // ignore, command output
             } else {

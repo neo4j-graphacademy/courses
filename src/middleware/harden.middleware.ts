@@ -9,7 +9,6 @@ export default function hardenExpress(app: Express) {
 
     if (IS_PRODUCTION) {
         app.use(
-            // @ts-expect-error Problem with typings on helmet.frameguard
             helmet.frameguard({ action: 'sameorigin' }),
             helmet.contentSecurityPolicy({
                 useDefaults: true,

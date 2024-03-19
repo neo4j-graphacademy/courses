@@ -3,40 +3,59 @@ import { cleanCode, copyToClipboard } from './modules/clipboard'
 const SANDBOX_SELECTOR = 'classroom-sandbox'
 const SANDBOX_SELECTOR_VISIBLE = 'classroom-sandbox--visible'
 
-function handlePlayClick(e) {
-    const button = e.target as HTMLButtonElement
+// TODO: Edit button
 
-    // @ts-ignore
-    const raw = button.parentNode.parentNode.querySelector('code').innerHTML
-    const cleaned = cleanCode(raw)
+function findCode(button): string | undefined {
+    let parent = button.parentNode
 
-    const sandboxWindow = document.querySelector(`.${SANDBOX_SELECTOR}`)
-    const iframe = sandboxWindow!.querySelector('iframe')
-
-    // Show sandbox window
-    sandboxWindow!.classList.add(SANDBOX_SELECTOR_VISIBLE)
-
-    try {
-        // @ts-ignore
-        iframe!.contentWindow.postMessage({
-            cmd: 'edit',
-            arg: cleaned
-        })
+    while (parent && !parent.querySelector('code')) {
+        parent = parent.parentElement
     }
-    catch (e) {
-        // Send to URL
-        const url = new URL(iframe!.src)
-        iframe!.src = `${url.pathname}?cmd=edit&arg=${encodeURIComponent(cleaned)}`
+
+    const code = parent.querySelector('code')
+    const raw = code.innerHTML
+
+    return cleanCode(raw)
+}
+
+function handlePlayClick(e) {
+    e.stopPropagation();
+
+    const code = findCode(e.target)
+
+    if (code) {
+        const sandboxWindow = document.querySelector(`.${SANDBOX_SELECTOR}`)
+        const iframe = sandboxWindow!.querySelector('iframe')
+
+        // Show sandbox window
+        sandboxWindow!.classList.add(SANDBOX_SELECTOR_VISIBLE)
+
+        try {
+            iframe?.contentWindow?.postMessage({
+                cmd: 'edit',
+                arg: code
+            })
+        }
+        catch (e) {
+            // Send to URL
+            const url = new URL(iframe!.src)
+            iframe!.src = `${url.pathname}?cmd=edit&arg=${encodeURIComponent(code)}`
+        }
     }
 }
 
 export function handleCopyClick(e) {
-    const button = e.target as HTMLElement
+    let button = e.target as HTMLElement
 
-    // @ts-ignore
-    const raw = button.parentNode.parentNode.querySelector('code').innerHTML
+    if (button.tagName === 'svg') {
+        button = button.parentElement as HTMLElement
+    }
 
-    copyToClipboard(raw, button)
+    const code = findCode(e.target)
+
+    if (code) {
+        copyToClipboard(code, button)
+    }
 }
 
 

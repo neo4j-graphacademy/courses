@@ -6,6 +6,14 @@ import { getUser } from './auth.middleware';
 
 export function applyErrorHandlers(app: Express) {
     const notFoundError = (req: Request, res: Response, err?: Error) => {
+        if (req.header('Content-type') == 'application/json') {
+            return res.status(404).json({
+                error: {
+                    message: err?.message || 'Endpoint does not exist',
+                }
+            })
+        }
+
         res.status(404)
             .render('simple', {
                 title: 'Page Not Found',
@@ -15,8 +23,7 @@ export function applyErrorHandlers(app: Express) {
                     overline: 'Oops',
                 },
                 content: `
-                    <p>We are working hard to complete our back catalogue
-                         but some courses may be missing.
+                    <p>It looks like the page you are looking for does not exist.
                          Click the button below to go back to the course catalogue.
                     </p>
                     <!--

@@ -44,6 +44,7 @@ import indexable from '../middleware/seo/indexable.middleware'
 import { Sandbox } from '../domain/model/sandbox'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
 import getChatbot from '../modules/chatbot/chatbot.class'
+import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
 
 const router = Router()
 
@@ -901,7 +902,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
 
         // Reset Database?
         if (user && course.usecase && !lesson?.completed) {
-            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
+            void resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
         }
 
         // Next link in pagination?
@@ -1209,10 +1210,18 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
             .replace('{repository-link}', repositoryLink(course.repository))
 
         // Build Environment Variables
-        const env = `NEO4J_URI=${encodeURIComponent(`bolt://${sandbox.ip}:${sandbox.boltPort}`)},NEO4J_USERNAME=${encodeURIComponent(sandbox.username)},NEO4J_PASSWORD=${encodeURIComponent(sandbox.password)}`
+        const env = [
+            `NEO4J_URI=${encodeURIComponent(`bolt://${sandbox.ip}:${sandbox.boltPort}`)}`,
+            `NEO4J_USERNAME=${encodeURIComponent(sandbox.username)}`,
+            `NEO4J_PASSWORD=${encodeURIComponent(sandbox.password)}`,
+        ]
+
+        if (course.allowsLLMCalls) {
+            env.push(`OPENAI_API_KEY=${generateBearerToken(user, course.slug)}`)
+        }
 
         // Redirect to gitpod
-        const redirectTo = `https://gitpod.io#${env}/${repositoryUrl}`
+        const redirectTo = `https://gitpod.io#${env.join(',')}/${repositoryUrl}`
 
         res.redirect(redirectTo)
     }

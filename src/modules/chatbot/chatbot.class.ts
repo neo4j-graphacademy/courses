@@ -1,11 +1,12 @@
 import { AxiosInstance } from "axios";
 import { Driver, ManagedTransaction, int } from "neo4j-driver";
-import { ChatCompletionRequestMessageRoleEnum, OpenAIApi } from 'openai'
+import OpenAI from 'openai'
 import showdown from 'showdown'
 import { notify } from "../../middleware/bugsnag.middleware";
 import { User } from "../../domain/model/user";
 import { CHATBOT_NEO4J_DATABASE, OPENAI_CHAT_MODEL } from "../../constants";
 import { FeedbackPayload } from "../../domain/model/feedback";
+import { ChatCompletionMessageParam } from "openai/resources";
 
 interface Section {
     pageTitle: string;
@@ -49,7 +50,7 @@ export class Chatbot {
 
     constructor(
         private readonly driver: Driver,
-        private readonly openai: OpenAIApi,
+        private readonly openai: OpenAI,
         private readonly co: AxiosInstance,
         private readonly showdown: showdown.Converter,
     ) {
@@ -69,9 +70,9 @@ export class Chatbot {
     }
 
     private async getEmbeddingForQuestion(question: string): Promise<number[]> {
-        const chunks = await this.openai.createEmbedding({ input: question, model: 'text-embedding-ada-002' });
+        const chunks = await this.openai.embeddings.create({ input: question, model: 'text-embedding-ada-002' })
 
-        return chunks.data.data[0]['embedding'];
+        return chunks.data[0].embedding as number[];
     }
 
     private async getSimilarSections(tx: ManagedTransaction, embedding: number[]): Promise<Section[]> {
@@ -129,7 +130,7 @@ export class Chatbot {
         }
     }
 
-    async saveMessageToNeo4j(user: User, question: string, embedding: number[], page: string | undefined, response: string, sections: Section[], reranked: Section[], start: number, end: number): Promise<string | undefined> {
+    async saveMessageToNeo4j(user: User, question: string, embedding: number[], page: string | undefined, response: string | null | undefined, sections: Section[], reranked: Section[], start: number, end: number): Promise<string | undefined> {
         // Save the response in Neo4j
         const writeSession = this.driver.session({ database: CHATBOT_NEO4J_DATABASE })
         const id = await writeSession.executeWrite(async tx => {
@@ -187,9 +188,9 @@ export class Chatbot {
 
         const reranked = await this.rerankResults(question, results);
 
-        const messages = [
+        const messages: ChatCompletionMessageParam[] = [
             {
-                role: ChatCompletionRequestMessageRoleEnum.System,
+                role: 'system',
                 content: `
                 You are a chatbot teaching users to how use Neo4j GraphAcademy.
                 Attempt to answer the users question with the context provided.
@@ -204,14 +205,14 @@ export class Chatbot {
                 `
             },
             {
-                role: ChatCompletionRequestMessageRoleEnum.System,
+                role: 'system',
                 content: `
                     Your Context:
                     ${JSON.stringify(reranked)}
                 `
             },
             {
-                role: ChatCompletionRequestMessageRoleEnum.User,
+                role: 'user',
                 content: `
                 Answer the users question, wrapped in four dashes:
 
@@ -221,13 +222,13 @@ export class Chatbot {
             }
         ];
 
-        const chatCompletion = await this.openai.createChatCompletion({
+        const chatCompletion = await this.openai.chat.completions.create({
             model: OPENAI_CHAT_MODEL,
             messages,
             temperature: 0.0,
         });
 
-        const [choice] = chatCompletion.data.choices
+        const [choice] = chatCompletion.choices
 
         if (choice !== undefined && choice.message?.content !== undefined) {
             const content = choice.message.content
@@ -278,7 +279,7 @@ export class Chatbot {
 
 let instance: Chatbot
 
-export function initChatbot(driver: Driver, openai: OpenAIApi, co: AxiosInstance, converter: showdown.Converter) {
+export function initChatbot(driver: Driver, openai: OpenAI, co: AxiosInstance, converter: showdown.Converter) {
     instance = new Chatbot(driver, openai, co, converter)
 }
 
