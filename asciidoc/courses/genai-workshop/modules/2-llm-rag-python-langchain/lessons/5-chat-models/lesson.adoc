@@ -2,19 +2,167 @@
 :order: 5
 :type: challenge
 
-Create a chat model
+Until now, you have been using a language model to communicate with the LLM. 
+A language model predicts the next word in a sequence of words. 
+Chat models are designed to have conversations.
 
-Ground it by adding context to the prompt
+== Chat model
 
-Add memory to the chat model
+Open the `2-llm-rag-python-langchain\chat_model.py` file.
 
+.chat_model.py
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model.py[]
+----
 
-Understand the LLMs gain context through the prompts they are given
+Review this program and identify the following:
 
-That each call to an LLM
+* The prompt provides the instructions to the LLM.
+* The chain is created using a `ChatOpenAI` object and the prompt.
+* The question is passed to the chat model as a parameter of the `invoke` method.
 
+Run the program and note how the LLM responds to the question.
 
+== Giving context
 
+Currently, the chat model is not grounded; it is unaware of surf conditions on the beach. 
+It responds based on the question and the LLMs training data (which could be months or years out of date).
+
+You can ground the chat model by providing additional information in the prompt.
+
+Open the `2-llm-rag-python-langchain\chat_model_context.py` file.
+
+.chat_model_context.py
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model_context.py[]
+----
+
+The prompt contains an additional `context` variable to pass the surf conditions to the LLM.
+
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_context.py[tag=prompt]
+----
+
+The `current_weather` variable contains the surf conditions for three beaches.
+
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_context.py[tag=context]
+----
+
+The program invokes the chat model using the `current_weather` as the `context`.
+
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_context.py[tag=invoke]
+----
+
+Run the program and predict what the response will be.
+
+[%collapsible]
+.Click to reveal the response
+====
+Below is a typical response. The LLM has used the context passed in the prompt to provide a more accurate response.
+
+    {
+        'context': {
+            "surf": [
+                {"beach": "Fistral", "conditions": "6ft waves and offshore winds"},
+                {"beach": "Polzeath", "conditions": "Flat and calm"},
+                {"beach": "Watergate Bay", "conditions": "3ft waves and onshore winds"}
+            ]},
+        'question': 'What is the weather like on Watergate Bay?',
+        'text': "Dude, the surf at Watergate Bay is pumping! We got some sick 3ft waves rolling in, but unfortunately, we got some onshore winds messing with the lineup. But hey, it's all good, still plenty of stoke to be had out there!"
+    }
+====
+
+Investigate what happens when you change the context by adding additional beach conditions.
+
+Providing context is one aspect of Retrieval Augmented Generation (RAG). 
+In this program, you _manually_ gave the model context; however, you could have retrieved real-time information from an API or database.
+
+== Memory
+
+For a chat model to be helpful, it must remember what messages have been sent and received.
+
+Without a memory the conversation may go in circles:
+
+    [user] Hi, my name is Martin
+
+    [chat model] Hi, nice to meet you Martin
+
+    [user] Do you have a name?
+
+    [chat model] I am the chat model. Nice to meet you. What is your name?
+
+You are going to add a memory to the chat model code.
+
+As each call to the LLM is stateless, you need to include the chat history in every call to the LLM. 
+You can modify the prompt template to include the `{chat_history}` in a variable.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=prompt]
+----
+
+The `chat_history` variable will contain the conversation history.
+
+You will use the link:https://python.langchain.com/docs/modules/memory/types/buffer[Conversation Buffer] memory type to store the conversation history between you and the LLM.
+
+Create the `ConversationBufferMemory` and pass it to the `LLMChain`:
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=import_memory]
+
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=memory]
+
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=chat_chain]
+----
+
+There are three parameters to the `ConversationBufferMemory`:
+
+* `memory_key` - is the variable in the prompt that will hold the conversation history
+* `input_key` - is the variable in the prompt that will hold the user's question to the chat model
+* `return_messages` - when True, the conversation history will be returned as a list
+
+When you create the `LLMChain`, the `memory` parameter should be set to the `ConversationBufferMemory` instance.
+
+When you ask the chat model multiple questions, the LLM will use the context from the previous questions when responding.
+
+Create a simple loop and ask the chat model a few questions:
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=response]
+----
+
+[%collapsible]
+.Click to reveal the complete code.
+====
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[]
+----
+====
+
+[TIP]
+.See the conversation history
+====
+You can set the `LLMChain` `verbose` parameter to `True` to see the conversation history in the console.
+[source, python]
+----
+chat_chain = LLMChain(
+    llm=chat_llm, 
+    prompt=prompt, 
+    memory=memory, 
+    verbose=True
+    )
+----
+====
 
 == Continue
 
