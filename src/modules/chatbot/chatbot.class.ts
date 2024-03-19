@@ -72,7 +72,7 @@ export class Chatbot {
     private async getEmbeddingForQuestion(question: string): Promise<number[]> {
         const chunks = await this.openai.embeddings.create({ input: question, model: 'text-embedding-ada-002' })
 
-        return chunks.data[0].embedding as number[];
+        return chunks.data[0].embedding;
     }
 
     private async getSimilarSections(tx: ManagedTransaction, embedding: number[]): Promise<Section[]> {

@@ -16,6 +16,8 @@ import { int } from 'neo4j-driver'
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
+    console.log(`Connected to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
+
     // const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
     const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
 
@@ -25,9 +27,9 @@ const main = async () => {
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)-[:FOR_COURSE]->(c)
         WHERE datetime() - duration('P7DT1H30M') <= e.lastSeenAt AND e.lastSeenAt <= datetime() - duration('P7D')
           AND not e:CompletedEnrolment
-          AND (e.reminderSentAt IS NOT NULL OR e.reminderSentAt < datetime() - duration('P5D'))
+          AND (e.reminderSentAt IS NULL OR e.reminderSentAt < datetime() - duration('P5D'))
           AND u.email IS NOT NULL
-          AND u.unsubscribed IS NULL
+          AND coalesce(u.unsubscribed, false) = false
           AND size([(u)-[:HAS_ENROLMENT]->(e) WHERE e.reminderSentAt IS NOT NULL AND e.reminderSentAt >= datetime.truncate('day') - duration('P2D') | e]) = 0
         RETURN u {
             .*,

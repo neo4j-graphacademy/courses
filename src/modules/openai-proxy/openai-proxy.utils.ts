@@ -1,3 +1,4 @@
+import { BASE_URL } from "../../constants";
 import { User } from "../../domain/model/user";
 
 export const TOKEN_PREFIX = 'ga-'
@@ -19,4 +20,8 @@ export function decodeBearerToken(token: string): { user: string, course: string
 
 
   return { user, course }
+}
+
+export function getProxyURL() {
+  return `${BASE_URL}/api/llm/v1/`
 }

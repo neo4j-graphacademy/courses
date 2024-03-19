@@ -21,7 +21,7 @@ import { isInt } from 'neo4j-driver'
 import { courseOgBadgeImage } from '../routes/route.utils'
 import { IntermediateEnrolment } from '../domain/services/enrolments/get-enrolment'
 import { Pagination } from '../domain/model/pagination'
-import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
+import { generateBearerToken, getProxyURL } from '../modules/openai-proxy/openai-proxy.utils'
 
 export async function getBadge<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
@@ -473,7 +473,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
 
     if (user && course.allowsLLMCalls) {
         attributes['llm-api-key'] = generateBearerToken(user, course.slug)
-        attributes['llm-api-base'] = `${BASE_URL}/api/llm/v1/`
+        attributes['llm-api-base'] = getProxyURL()
     }
 
     // Repository Branch

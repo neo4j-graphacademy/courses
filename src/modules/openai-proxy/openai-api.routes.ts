@@ -4,7 +4,7 @@ import { requiresAuth } from "express-openid-connect";
 import { getUser } from "../../middleware/auth.middleware";
 import { User } from "../../domain/model/user";
 import OpenAI from "openai";
-import { decodeBearerToken, generateBearerToken } from "./openai-proxy.utils";
+import { decodeBearerToken, generateBearerToken, getProxyURL } from "./openai-proxy.utils";
 import { requiresValidBearerToken, saveLLMChatCompletion } from "./openai-proxy.middleware";
 
 const router = Router()
@@ -13,7 +13,10 @@ router.get('/keys/:slug', requiresAuth(), async (req, res) => {
   const user = await getUser(req) as User
   const key = generateBearerToken(user, req.params.slug)
 
-  res.json({ key })
+  res.json({
+    key,
+    url: getProxyURL(),
+  })
 })
 
 router.post('/v1/completions', requiresValidBearerToken, async (req, res) => {
@@ -49,10 +52,6 @@ router.post('/v1/completions', requiresValidBearerToken, async (req, res) => {
 router.post('/v1/chat/completions', requiresValidBearerToken, async (req, res) => {
   const token = req.header('Authorization')?.replace('Bearer ', '') as string
   const { user, course } = decodeBearerToken(token)
-
-
-  console.log(token, user, course);
-
 
   const openai = new OpenAI({
     apiKey: OPENAI_PROXY_API_KEY as string,

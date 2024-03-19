@@ -78,7 +78,7 @@ router.get('/:language(pt|es)', forceTrailingSlash, async (req, res, next) => {
 /**
  * Failed experiments
  */
-router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, async (req, res, next) => {
+router.get(`/:language(${LANGUAGE_JP}|${LANGUAGE_CN})`, forceTrailingSlash, (req, res) => {
     return res.redirect('/')
 })
 
