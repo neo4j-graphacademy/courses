@@ -5,17 +5,19 @@ import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD,
+    ENROLMENT_REMINDER_LIMIT,
     // ENROLMENT_REMINDER_LIMIT,
     // ENROLMENT_REMINDER_DAYS,
 } from '../constants'
 import { courseSummaryPdfPath } from '../modules/asciidoc'
 import { readFileSync } from 'fs'
+import { int } from 'neo4j-driver'
 
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
     // const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
-    // const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
+    const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
 
     // Get enrolments that haven't been updated in the last X days and 23 hours
     // (but hasn't had another reminder email in the last three days)
@@ -37,7 +39,7 @@ const main = async () => {
         } AS enrolment,
         c { .id, .slug, .title, .link } AS course
         LIMIT $limit
-    `, {})
+    `, { limit: int(limit) })
 
     console.log(`🚨 Preparing ${res.records.length} Reminder Email${res.records.length == 1 ? '' : 's'}`);
 
