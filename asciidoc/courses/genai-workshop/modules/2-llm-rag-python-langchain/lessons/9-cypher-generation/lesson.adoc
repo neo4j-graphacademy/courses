@@ -1,0 +1,173 @@
+= Cypher Generation
+:order: 9
+:type: challenge
+
+Create a cypher chain and add to the query
+
+Understand that LLMs can interact with a NEo4j database through Cypher
+
+
+LLMs are good at writing Cypher queries when given good information, such as:
+
+* The schema of the graph
+* Context about the question
+* Examples of questions and appropriate Cypher queries
+
+You will learn how to use a language model to generate Cypher queries to query a Neo4j graph database.
+
+== Generating Cypher
+
+LangChain includes the link:https://api.python.langchain.com/en/latest/_modules/langchain/chains/graph_qa/cypher.html#GraphCypherQAChain[`GraphCypherQAChain`^]chain that can interact with a Neo4j graph database. It uses a language model to generate Cypher queries and then uses the graph to answer the question.
+
+Open the `2-llm-rag-python-langchain/cypher_chain.py` file and review the code.
+
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/cypher_chain.py[]
+----
+
+The program will generate a Cypher query based on the `question` and the graph database `schema`.
+
+When you run the program, you should see the Cypher generated from the question and the data it returned. Something similar to:
+
+    Generated Cypher:
+    MATCH (a:Actor)-[r:ACTED_IN]->(m:Movie {title: 'Toy Story'})
+    WHERE a.name = 'Tom Hanks'
+    RETURN r.role
+
+    Full Context:
+    [{'r.role': 'Woody (voice)'}]
+
+The LLM used the database schema to generate an _appropriate_ Cypher query. Langchain then executed the query against the graph database, and the result returned.
+
+== Inconsistent Results
+
+Investigate what happens when you ask the same question multiple times. Observe the generated Cypher query and the response.
+
+    "What role did Tom Hanks play in Toy Story?"
+
+You will likely see different results each time you run the program.
+
+    MATCH (actor:Actor {name: 'Tom Hanks'})-[:ACTED_IN]->(movie:Movie {title: 'Toy Story'})
+    RETURN actor.name, movie.title, movie.year, movie.runtime, movie.plot
+
+    MATCH (a:Actor {name: 'Tom Hanks'})-[:ACTED_IN]->(m:Movie {title: 'Toy Story'})-[:ACTED_IN]->(p:Person)
+    RETURN p.name AS role
+
+The LLM doesn't return consistent results - its objective is to produce an answer, not the same response, and they may not be correct.
+
+You can improve the responses by providing additional context and instructions to the LLM
+
+== Provide specific instructions
+
+The LLM's training data included many Cypher statements, but these statements were not specific to the structure of your graph database. 
+
+You can provide specific instructions to the LLM to state that the generated Cypher statements should follow the schema.
+
+[source,python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+
+Schema: {schema}
+Question: {question}
+"""
+----
+
+The LLM may also need additional instructions about the data. 
+For movie titles that begin with "The", move "the" to the end.
+
+[source, python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+Schema: {schema}
+Question: {question}
+"""
+----
+
+You can also instruct the LLM on how to respond.
+For example, only when it requires a Cypher statement and when it returns data.
+
+[source, python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+If no data is returned, do not attempt to answer the question.
+Only respond to questions that require you to construct a Cypher statement.
+Do not include any explanations or apologies in your responses.
+
+Schema: {schema}
+Question: {question}
+"""
+----
+
+== Examples
+
+Even with specific instructions, the LLM can still make mistakes.
+You can provide examples of questions and appropriate Cypher.
+This technique is known as link:https://www.promptingguide.ai/techniques/fewshot[Few-Shot Prompting^].
+
+For example, you could provide an example of how to find movies and genres:
+
+====
+[source,python]
+----
+CYPHER_GENERATION_TEMPLATE = """
+You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
+Convert the user's question based on the schema.
+
+Instructions:
+Use only the provided relationship types and properties in the schema.
+Do not use any other relationship types or properties that are not provided.
+For movie titles that begin with "The", move "the" to the end, For example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+If no data is returned, do not attempt to answer the question.
+Only respond to questions that require you to construct a Cypher statement.
+Do not include any explanations or apologies in your responses.
+
+Examples: 
+
+Find movies and genres:
+MATCH (m:Movie)-[:IN_GENRE]->(g)
+RETURN m.title, g.name
+
+Schema: {schema}
+Question: {question}
+"""
+----
+====
+
+Experiment with different instructions and examples to see how you can improve the response of the Cypher generation.
+
+== Continue
+
+When you are ready, you can move on to the next task.
+
+read::Move on[]
+
+[.summary]
+== Lesson Summary
+
+You learned how to use a language model to generate Cypher queries.
+
+Next, you can apply your knowledge to create an agent.
