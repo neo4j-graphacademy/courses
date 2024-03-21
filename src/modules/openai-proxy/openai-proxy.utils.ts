@@ -11,13 +11,7 @@ export function generateBearerToken(user: User, slug: string): string {
 
 export function decodeBearerToken(token: string): { user: string, course: string } {
   const decoded = Buffer.from(token.replace(TOKEN_PREFIX, ''), 'base64').toString('utf8')
-
-  console.log(decoded);
-
   const [user, course] = decoded.split(':')
-
-  console.log(user, course);
-
 
   return { user, course }
 }

@@ -89,7 +89,9 @@ export interface Course {
     questions: number;
     passPercentage: number;
     keyPoints: string[];
-    allowsLLMCalls: boolean;
+    allowsLLMCalls: boolean;    // 5 every 2 minutes
+    llmCallLimit: number;       // = 5
+    llmCallLimitPeriod: string; // = 2M
     // Additional attributes extracted from Asciidoc
     [key: string]: any;
 }

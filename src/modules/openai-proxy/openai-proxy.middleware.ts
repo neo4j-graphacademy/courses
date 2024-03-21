@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { decodeBearerToken } from "./openai-proxy.utils";
 import { read, write } from "../neo4j";
+import { notify } from "../../middleware/bugsnag.middleware";
 
 export async function requiresValidBearerToken(req: Request, res: Response, next: NextFunction) {
   const token = req.header('Authorization')?.replace('Bearer ', '')
@@ -16,22 +17,24 @@ export async function requiresValidBearerToken(req: Request, res: Response, next
 
     const { user, course } = decodeBearerToken(token)
 
-    const dbRes = await read<{ allowsLLMCalls: boolean, seenRecently: boolean, throttled: boolean, alreadyCompleted: boolean }>(`
+    const dbRes = await read<{ llmCallLimitPeriod: string, llmCallLimit: number; allowsLLMCalls: boolean, seenRecently: boolean, throttled: boolean, alreadyCompleted: boolean }>(`
       MATCH (u:User {id: $user})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
       WHERE c.slug = $course
+      WITH c, e,
+        coalesce(c.llmCallLimitPeriod, 'PT2M') AS llmCallLimitPeriod,
+        coalesce(c.llmCallLimit, 10) AS llmCallLimit
       CALL {
-        WITH e
+        WITH e, c, llmCallLimitPeriod
         MATCH (e)-[:SENT_LLM_CALL]->(l)
-        WHERE l.createdAt >= datetime() - duration('PT2M')
+        WHERE l.createdAt >= datetime() - duration(llmCallLimitPeriod)
         RETURN count(l) AS recentCalls
       }
       RETURN c.allowsLLMCalls AS allowsLLMCalls,
+        llmCallLimitPeriod, llmCallLimit,
         e:CompletedEnrolment AS alreadyCompleted,
         e.lastSeenAt >= datetime() - duration('P30M') AS seenRecently,
-        recentCalls >= 5 AS throttled
-
+        CASE WHEN llmCallLimit > 0 AND recentCalls >= llmCallLimit THEN true ELSE false END AS throttled
     `, { user, course })
-
 
     // Is the user enrolled?
     if (dbRes.records.length === 0) {
@@ -76,7 +79,7 @@ export async function requiresValidBearerToken(req: Request, res: Response, next
     if (first.get('throttled')) {
       return res.status(401).json({
         error: {
-          message: 'You are limited to 5 API calls in any 2-minute period.  You can always call the LLM directly via the OpenAI API.'
+          message: `You are limited to ${first.get('llmCallLimit')} API calls in any ${first.get('llmCallLimitPeriod')} period.  You can always call the LLM directly via the OpenAI API.`
         }
       })
     }
@@ -84,7 +87,9 @@ export async function requiresValidBearerToken(req: Request, res: Response, next
     // Otherwise, everything is fine
     next()
   }
-  catch (next) {
+  catch (err: any) {
+    notify(err)
+
     return res.status(401).json({
       error: {
         message: 'Bad API Key.  You can find your API key in the course content.'

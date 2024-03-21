@@ -6,16 +6,81 @@ import { User } from "../../domain/model/user";
 import OpenAI from "openai";
 import { decodeBearerToken, generateBearerToken, getProxyURL } from "./openai-proxy.utils";
 import { requiresValidBearerToken, saveLLMChatCompletion } from "./openai-proxy.middleware";
+import { Course } from "../../domain/model/course";
+import { read } from "../neo4j";
 
 const router = Router()
 
+type CourseLLMInfo = Pick<Course, 'title' | 'slug' | 'allowsLLMCalls' | 'llmCallLimit' | 'llmCallLimitPeriod'> & {
+  enrolled: boolean;
+  seenRecently: boolean;
+  recentCalls: number;
+  throttled: boolean;
+  remaining: number | null;
+}
+
+async function getCourseLLMInfo(slug: string, user: User): Promise<CourseLLMInfo | undefined> {
+  const res = await read<CourseLLMInfo>(`
+    MATCH (c:Course {slug: $slug})
+    WITH c, coalesce(c.llmCallLimitPeriod, 'PT2M') AS llmCallLimitPeriod,
+      coalesce(c.llmCallLimit, 10) AS llmCallLimit
+
+    CALL {
+      WITH c, llmCallLimitPeriod
+
+      MATCH (u:User {id: $id})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+      OPTIONAL MATCH (e)-[:SENT_LLM_CALL]->(l)
+      WHERE l.createdAt >= datetime() - duration(llmCallLimitPeriod)
+
+      RETURN e IS NOT NULL as enrolled,
+        e.lastSeenAt >= datetime() - duration('P30M') AS seenRecently,
+        count(l) AS recentCalls
+    }
+
+    RETURN c.slug AS slug,
+      c.title AS title,
+      c.allowsLLMCalls as allowsLLMCalls,
+      c.llmCallLimit as llmCallLimit,
+      llmCallLimitPeriod,
+      enrolled,
+      seenRecently,
+      recentCalls,
+      CASE WHEN llmCallLimit > 0 AND recentCalls >= llmCallLimit THEN true ELSE false END AS throttled,
+      CASE WHEN llmCallLimit > 0 THEN c.llmCallLimit - recentCalls ELSE null END AS remaining
+  `, { slug, id: user.id })
+
+  if (res.records.length > 0) {
+    return res.records[0].toObject()
+  }
+}
+
 router.get('/keys/:slug', requiresAuth(), async (req, res) => {
+  const { slug } = req.params
+
   const user = await getUser(req) as User
-  const key = generateBearerToken(user, req.params.slug)
+  const course = await getCourseLLMInfo(slug, user)
+
+  if (course === undefined) {
+    return res.status(404).json({
+      message: `Course ${slug} not found`
+    })
+  }
+  else if (!course.allowsLLMCalls) {
+    return res.status(401).json({
+      message: `Course ${slug} does not allow LLM calls`
+    })
+  }
+
+  const key = generateBearerToken(user, slug)
 
   res.json({
     key,
     url: getProxyURL(),
+    throttled: course.throttled,
+    seenRecently: course.seenRecently,
+    remaining: course.llmCallLimit && course.llmCallLimit > 0 ? Math.max(course.remaining ?? 0, 0) : undefined,
+    limit: course.llmCallLimit > 0 ? course.llmCallLimit : 'unlimited',
+    period: course.llmCallLimitPeriod,
   })
 })
 
