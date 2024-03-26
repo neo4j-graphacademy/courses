@@ -117,7 +117,7 @@ export const CHATBOT_NEO4J_PASSWORD = process.env.CHATBOT_NEO4J_PASSWORD
 export const CHATBOT_NEO4J_DATABASE = process.env.CHATBOT_NEO4J_DATABASE
 
 // Auth0
-export const AUTH0_ISSUER_BASE_URL = new URL(process.env.AUTH0_ISSUER_BASE_URL as string).hostname
+export const AUTH0_ISSUER_BASE_URL = process.env.AUTH0_ISSUER_BASE_URL !== undefined ? new URL(process.env.AUTH0_ISSUER_BASE_URL).hostname : undefined
 
 // Proxied OpenAI Keys
 export const OPENAI_PROXY_API_KEY = process.env.OPENAI_PROXY_API_KEY
