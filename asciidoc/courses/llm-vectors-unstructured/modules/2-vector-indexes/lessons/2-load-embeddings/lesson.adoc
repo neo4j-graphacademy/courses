@@ -1,0 +1,99 @@
+= Load embeddings
+:order: 2
+:type: challenge
+:sandbox: true
+
+In this lesson, you will learn how to load embeddings into a Neo4j database.
+
+== Questions and Answers Dataset
+
+During this module, you will use a link:https://huggingface.co/datasets/toughdata/quora-question-answer-dataset[dataset of questions and answers from Quora^].
+
+The dataset contains 1000 random questions and answers.
+
+[IMPORTANT]
+====
+The original Quora dataset is unfiltered and contains questions and answers that some may find offensive or inappropriate. 
+The dataset used in this course is filtered for sensitive content.
+However, some content you may find inappropriate may still exist.
+Please be aware of this when working with the dataset.
+
+The dataset was filtered by asking an LLM (OpenAI's GPT-4) to analyze the text for any "sensitive content". 
+You can view link:{repository-blob}/main/quora_filter.py[the code that filtered the data^] in the link:{repository-link}[llm-vectors-unstructured repository^].
+====
+
+The OpenAI `text-embedding-ada-002` model was used to create embeddings for the questions and answers in the dataset. 
+Using these embeddings, you can find similar questions and answers.
+
+The link:https://data.neo4j.com/llm-vectors-unstructured/Quora-QuAD-1000-embeddings.csv[`Quora-QuAD-1000-embeddings.csv`^] file contains the embeddings for the questions and answers in the dataset.
+
+The file has the following structure:
+
+[source, csv]
+----
+question,answer,question_embedding,answer_embedding
+"The question","The answer","[0.1, 0.2, 0.3, ...]","[0.4, 0.5, 0.6, ...]"
+----
+
+The link:{repository-raw}/main/solutions/quora_embeddings.py[`solutions/quora_embeddings.py`^] program in the link:{repository-link}[llm-vectors-unstructured repository^] created the embeddings by calling the OpenAI API for each question and answer, then adding the embeddings to the CSV file.
+
+== Load into Neo4j
+
+You will load the data into two nodes, `Question` and `Answer`, with a relationship, `ANSWERED_BY`. The `Question` and `Answer` nodes will store the original `text` and an `embedding` as properties.
+
+image::images/quora-data-model.svg[A graph data model showing the Question and Answer nodes and the ANSWERS relationship between the Answer and Question nodes,width=700,align=center]
+
+Review the following Cypher statement to load the data into Neo4j and create the nodes and relationships:
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS
+FROM 'https://data.neo4j.com/llm-vectors-unstructured/Quora-QuAD-1000-embeddings.csv' AS row
+
+MERGE (q:Question{text:row.question})
+WITH row,q
+CALL db.create.setNodeVectorProperty(q, 'embedding', apoc.convert.fromJsonList(row.question_embedding))
+
+MERGE (a:Answer{text:row.answer})
+WITH row,a,q
+CALL db.create.setNodeVectorProperty(a, 'embedding', apoc.convert.fromJsonList(row.answer_embedding))
+
+MERGE(q)-[:ANSWERED_BY]->(a)
+----
+
+You should be able to identify:
+
+* That the file is loaded using the `LOAD CSV` command.
+* The `Question` and `Answer` nodes are created using the `MERGE` command.
+* The `embedding` property is set using the `setNodeVectorProperty` function.
+* The `apoc.convert.fromJsonList` function converts the embedding string to a list of numbers.
+* The `ANSWERED_BY` relationship is created between the `Question` and `Answer` nodes.
+
+Run the statement to load the data into Neo4j.
+
+[NOTE]
+If you would like to learn more about how to load CSV data into Neo4j, you can take the GraphAcademy link:https://graphacademy.neo4j.com/courses/importing-cypher[Importing CSV data into Neo4j^] course.
+
+You can check the data was loaded correctly by viewing the `Question` and `Answer` nodes:
+
+[source, cypher]
+----
+MATCH (q:Question)-[r:ANSWERED_BY]->(a:Answer)
+RETURN q,r,a
+LIMIT 100
+----
+
+You should see `Question` and `Answer` node connected with the `ANSWERED_BY` relationship.
+
+image::images/question-answer-nodes.svg[The result of the Cypher query showing the Question and Answer nodes connected by the ANSWERED_BY relationship,width=700,align=center]
+
+Select a node to view the `text` and `embedding` properties.
+
+include::questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you loaded a dataset of questions and answers into a Neo4j database.
+
+In the next lesson, you will learn how to create vector indexes to query embeddings.

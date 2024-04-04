@@ -1,0 +1,155 @@
+= Agents
+:order: 6
+:type: challenge
+
+Agents wrap a model and give it access to a set of _tools_. 
+These tools may access additional data sources, APIs, or functionality. 
+The model is used to determine which of the tools to use to complete a task.
+
+The agent you will create can chat about movies and search YouTube for movie trailers.
+You will use the link:https://python.langchain.com/docs/integrations/tools/youtube/[YouTubeSearchTool^] to search YouTube for movie trailers.
+
+== Movie trailer agent
+
+Open the `2-llm-rag-python-langchain\chat_agent.py` file and review the program, before running it.
+
+.chat_agent.py
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/chat_agent.py[]
+----
+
+You should be able to identify the following:
+
+. A chat model is being used to have a conversation about movies
+. The prompt which sets the context for the LLM and the input variables
+. That memory is used to store the conversation history
+. A chain is created to link the chat model, prompt, and memory together
+
+In addition to the above, the following is new:
+
+. A tool is created using the chain.run method:
++
+[source,python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.py[tag=tools]
+----
+. An agent is created that uses the tool:
++
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.py[tag=agent]
+----
+
+Tools are interfaces that an agent can interact with. 
+The `name` and `description` help the LLM select which tool to use when presented with a question.
+
+Agents support multiple tools, so you pass them to the agent as a list (`tools`).
+
+[%collapsible]
+.Learn more about agents
+====
+The following code creates the agent:
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.py[tag=agent]
+----
+
+There are different link:https://python.langchain.com/docs/modules/agents/agent_types/[types of agents^] that you can create. This example creates a _ReAct_ - Reasoning and Acting) agent type.
+
+An agent requires a prompt. You could create a prompt, but in this example, the program pulls a pre-existing prompt from the link:https://smith.langchain.com/hub/[Langsmith Hub^].
+
+The link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[`hwcase17/react-chat`^] prompt instructs the model to provide an answer using the tools available in a specific format.
+
+The `create_react_agent` function creates the agent and expects the following parameters:
+
+* The `llm` that will manage the interactions and decide which tool to use
+* The `tools` that the agent can use
+* The `prompt` that the agent will use
+
+The `AgentExecutor` class runs the agent. It expects the following parameters:
+
+* The `agent` to run
+* The `tools` that the agent can use
+* The `memory` which will store the conversation history
+
+You may find the following additional parameters useful when initializing an agent:
+
+* `max_iterations` - the maximum number of iterations to run the LLM for. This is useful in preventing the LLM from running for too long or entering an infinite loop.
+* `verbose` - if `True` the agent will print out the LLM output and the tool output.
+* `handle_parsing_errors` - if `True` the agent will handle parsing errors and return a message to the user.
+
+[source, python]
+----
+agent_executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    memory=memory,
+    max_interations=3,
+    verbose=True,
+    handle_parse_errors=True
+)
+----
+====
+
+== Multiple tools
+
+A key advantage of using an agent is that they can use multiple tools. 
+
+You can extend this example to allow it to search YouTube for movie trailers by adding the link:https://python.langchain.com/docs/integrations/tools/youtube/[YouTubeSearchTool^] to the `tools` list.
+
+Import the `YouTubeSearchTool` and create a new tool.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=import_youtube]
+
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=youtube]
+
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=tools]
+----
+
+[%collapsible]
+.Click here to reveal the complete program
+====
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[]
+----
+====
+
+The model will then use the `name` and `description` for each tool to decide which tool to use.
+
+The model should use the `YouTubeSearchTool` tool when prompted to find a movie trailer.
+
+    [user] Find the movie trailer for the Matrix.
+
+    [agent] ['https://www.youtube.com/watch?v=vKQi3bBA1y8&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D', 'https://www.youtube.com/watch?v=9ix7TUGVYIo&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D']
+
+However, when asked about movies, genres or plots, the model will use the `chat_chain` tool.
+
+    [user] Find a movie about the meaning of life
+
+    [agent] Certainly! One movie that explores the meaning of life is "The Tree of Life" directed by Terrence Malick. It follows the journey of a young boy as he grows up in the 1950s and reflects on his experiences and the meaning of existence. It's a visually stunning and thought-provoking film that delves into existential questions.
+
+As the agent also uses the conversation memory, you can refer back to the previous questions, such as finding a trailer for a movie it has recommended:
+
+    [user] Can you find the trailer
+
+    [agent] ['https://www.youtube.com/watch?v=RrAz1YLh8nY&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy', 'https://www.youtube.com/watch?v=OKqqboXuvyE&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy']
+
+Agents and tools allow you to create more adaptable and flexible models to perform multiple tasks.
+
+== Continue
+
+When you are ready, you can move on to the next task.
+
+read::Move on[]
+
+[.summary]
+== Lesson Summary
+
+You learned about agents and how they use multiple tools to perform tasks.
+
+Next you will learn about retrievers.

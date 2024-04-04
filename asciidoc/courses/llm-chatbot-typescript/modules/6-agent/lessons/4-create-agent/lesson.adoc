@@ -6,16 +6,16 @@
 :lab-solution: src/solutions/{lab-file}
 :test-filename: agent.test.ts
 :test-file: src/modules/agent/{test-filename}
-
+:order: 3
 
 Now that you have a set of tools, you will need an agent to execute them.
 
-The link:{lab}[{lab-file} file^] contains an `initAgent()` function that the application will use to create a runnable sequence that can be invoked with an `input` and `sessionId`.
+The link:{lab}[{lab-file} file^] contains an `async initAgent()` function that the route handler calls with an `input` and `sessionId` and expects a string to be returned.
 
 .The initAgent function
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/src/{lab-file}[tag="function"]
+include::{repository-raw}/main/src/{lab-file}[tag="function"]
 ----
 
 The function should return a runnable sequence that:
@@ -34,34 +34,34 @@ First, inside the `initAgent()` function, use the link:../2-tools/[the `initTool
 .Agent Tools
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="tools", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="tools", indent=0]
 ----
 
-Next, the agent will need a set of instructions to follow when processing the request, or a **prompt**.
+Next, the agent will need a set of instructions to follow when processing the request.
 
 You can use the `pull()` function from `@langchain/hub` package to pull a pre-written agent prompt from the link:https://docs.smith.langchain.com/category/prompt-hub[LangChain Hub^].
-In this case, we can use the link:https://smith.langchain.com/hub/search?q=hwchase17/openai-functions-agent[`hwchase17/openai-functions-agent` prompt^], which has been written to work with OpenAI Function agents.
+In this case, we can use the link:https://smith.langchain.com/hub/search?q=hwchase17/openai-functions-agent[`hwchase17/openai-functions-agent` prompt^], a simple prompt designed to work with OpenAI Function agents.
 
 .Agent Tools
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="prompt", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="prompt", indent=0]
 ----
 
-The `llm`, `tools` and `prompt` arguments can be passed to the `createOpenAIFunctionsAgent()` function to create a new Agent instance.
+The `llm`, `tools`, and `prompt` arguments can be passed to the `createOpenAIFunctionsAgent()` function to create a new Agent instance.
 
 .Agent Tools
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="agent", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="agent", indent=0]
 ----
 
 [TIP]
 .OpenAI Functions Agent
 ====
-The GPT 3.5-turbo and GPT-4 models have been fine-tuned to select the appropriate tool from a list based on its metadata.  As such, the link:https://js.langchain.com/docs/modules/agents/agent_types/openai_functions_agent[OpenAI Functions Agent^] makes a great choice for an agent with many tools or complex RAG requirements.
+The GPT 3.5-turbo and GPT-4 models are fine-tuned to select the appropriate tool from a list based on its metadata.  As such, the link:https://js.langchain.com/docs/modules/agents/agent_types/openai_functions_agent[OpenAI Functions Agent^] is an excellent choice for an agent with many tools or complex RAG requirements.
 
-You can view link:https://js.langchain.com/docs/modules/agents/agent_types/[a list of available agents in the LangChain documentation^].
+You can link:https://js.langchain.com/docs/modules/agents/agent_types/[view a list of available agents in the LangChain documentation^].
 ====
 
 Agents are invoked through an instance of an Agent **Executor**.
@@ -70,13 +70,13 @@ Use the `agent` and `tools` variables to create a new `AgentExecutor` instance.
 .Agent Executor
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="executor", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="executor", indent=0]
 ----
 
 
 == Rephrasing the question
 
-The question has to be rephrased before being passed to the agent executor.
+The chain must generate a rephrased question before being passed to the agent executor.
 Luckily, you link:/courses/llm-chatbot-typescript/3-conversation-history/[built the functionality in the Conversation History module^].
 
 Use the `initRephraseChain()` function to create a new instance of the Rephrase Question Chain.
@@ -84,7 +84,7 @@ Use the `initRephraseChain()` function to create a new instance of the Rephrase 
 .Rephrase Question Chain
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="rephrasechain", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="rephrasechain", indent=0]
 ----
 
 == Runnable Sequence
@@ -99,50 +99,50 @@ Use the `RunnablePassthrough.assign()` method to get any conversation history fr
 .Get History
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="history", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="history", indent=0]
 ----
 
 [TIP]
 .Configurable Options
 ====
-This function takes the `sessionId from the `config.configurable` object passed via the second argument.
+The second parameter provides a configuration the chain can access and utilize throughout its execution.
 
-When you call a chain or agent, you can pass an object containing a `configurable` map to provide conditional parameters that can be accessed throughout the chain.
+This function extracts the sessionId from the `config.configurable` object, passed as the second argument.
 ====
 
 === Rephase the question
 
-Now the chain input has both `input` and `history` keys, which are the expected inputs of the `rephaseQuestionChain`.
+The chain input has both `input` and `history` keys, the expected inputs of the `rephaseQuestionChain`.
 
 Call `.assign()` to assign the rephrased question to the `rephrasedQuestion` key.
 
 .Rephrasing the question
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="rephrase", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="rephrase", indent=0]
 ----
 
 
 === Execute the agent
 
-Now the agent has all the information it needs to decide which tool to use and generate an output.
+The agent now has all the information needed to decide which tool to use and generate an output.
 
-Use the `.pipe()` method to pass the entire input and configuration on to the executor.
+Use the `.pipe()` method to pass the entire input and configuration to the executor.
 
 .Pipe to the executor
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="execute", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="execute", indent=0]
 ----
 
-Finally, the agent will return a structured output including an `input` field.
+Finally, the agent will return a structured output, including an `input` field.
 
-Use the `.pick()` function to only return the `output` value.
+Use the `.pick()` function to return the `output` value.
 
 .Pick the output
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="output", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="output", indent=0]
 ----
 
 
@@ -154,7 +154,7 @@ If you have followed the steps, your `initAgent()` implementation should resembl
 .Completed initAgent() function
 [source,typescript]
 ----
-include::{repository-raw}/{branch}/{lab-solution}[tag="function", indent=0]
+include::{repository-raw}/main/{lab-solution}[tag="function", indent=0]
 ----
 
 
@@ -167,8 +167,6 @@ include::./questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this challenge, you wrote the code to create a chain that rephrases a user input into a standalone question and passed it on to an agent which then acts on the question.
+In this challenge, you wrote the code to create a chain that rephrases a user input into a standalone question and passes it on to an agent instance that then acts on the question.
 
-However, you may have noticed that the agent will respond to any question, no matter how obscene.
-
-In the next lesson, you will modify the prompt to limit the scope of the agent to only provide information about movies.
+In the next lesson, you will integrate the agent into the front end.
