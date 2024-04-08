@@ -168,7 +168,7 @@ export async function createSandbox(token: string, user: User, usecase: string, 
     try {
         const res = await sandboxApi().post(
             `SandboxRunInstance`,
-            { usecase, },
+            { usecase, cease_emails: true },
             {
                 headers: {
                     authorization: `${token}`
