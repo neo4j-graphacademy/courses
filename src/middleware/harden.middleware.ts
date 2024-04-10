@@ -34,7 +34,7 @@ export default function hardenExpress(app: Express) {
                         "'self'",
                         DOMAIN,
                         'www.youtube.com',
-                        AUTH0_ISSUER_BASE_URL,
+                        AUTH0_ISSUER_BASE_URL as string,
                     ].filter(n => n !== undefined),
                     connectSrc: ['*'],
                     baseUri: [
