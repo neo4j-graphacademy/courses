@@ -1,15 +1,8 @@
 CALL gds.graph.project(
   // Name of the projection
-  'user-rated-movie',
+  'people-acted-in-movies',
   // Labels of nodes to include in the projection
-  ['User', 'Movie'],
+  ['Person', 'Movie'],
   // Relationship types to include in the projection
-  {
-    RATED: {
-        type: 'RATED',
-        orientation: 'UNDIRECTED'
-    }
-  }
+  'ACTED_IN'
 )
-YIELD relationshipCount
-
