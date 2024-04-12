@@ -5,4 +5,5 @@ WITH gds.graph.project(
   source, 
   target
 ) AS g
-RETURN g
+RETURN
+  g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels
