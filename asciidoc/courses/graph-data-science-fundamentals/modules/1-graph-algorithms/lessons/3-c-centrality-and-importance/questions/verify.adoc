@@ -3,6 +3,14 @@
 
 Use the Neo4j Browser window to the right of the screen to run GDS calls and enter the answer in the box below.
 
+You will need to:
+. Create a graph projection using the link:https://neo4j.com/docs/graph-data-science/current/management-ops/graph-creation/graph-project/[`gds.graph.project()^]` procedure.
+. Include `Movie` and `Actor` nodes with the `DIRECTED` relationship type.
+. Run the link:https://neo4j.com/docs/graph-data-science/2.4/algorithms/degree-centrality/[degree centrality algorithm^] on the projected graph using the link: [`gds.degree.stream()^]` procedure.
+. Order the results to determine which *actor* has directed the most *movies*.
+
+Enter the name of the actor (the answer is case sensitive):
+
 input::answer[]
 
 * [x] Woody Allen
@@ -12,32 +20,31 @@ input::answer[]
 [TIP,role=hint]
 .Hint
 ====
-You will need to create a graph projection using the `gds.graph.project()` procedure.
-The graph should include `Movie` and `Actor` Nodes with the `DIRECTED` relationship type.
+In the previous lesson, you used the following cypher to find the actors who have acted in the most movies:
 
-
-Here is the Cypher to create the projection.
-
-[source,cypher]
+[source,cypher,role=noplay]
 ----
 CALL gds.graph.project(
-    'actor-directors',    // Projection name
-    ['Actor', 'Movie'],  // Labels
-    'DIRECTED'            // Relationship type
-)
+  'proj', 
+  ['Actor','Movie'], 
+  'ACTED_IN'
+  );
+
+CALL gds.degree.stream('proj')
+YIELD nodeId, score
+RETURN 
+  gds.util.asNode(nodeId).name AS actorName, 
+  score AS numberOfMoviesActedIn
+ORDER BY numberOfMoviesActedIn DESCENDING, actorName LIMIT 5
 ----
 
-Next, you will need to run the link:https://neo4j.com/docs/graph-data-science/2.4/algorithms/degree-centrality/[degree centrality algorithm^] using the `gds.degree.stream()` procedure.
-
-
+You can modify this to use the `DIRECTED` relationship to find actors who have directed the most films. 
 ====
 
 [TIP,role=solution]
 .Solution
 ====
-**Woody Allen** has directed the most movies in our database.  To calculate this, you will need to create a Cypher projection.
-
-If you haven't already done so, create the graph projection:
+**Woody Allen** has directed the most movies in the database.  To calculate this, you will need to create a Cypher projection.
 
 .Create the Projection
 [source,cypher]
@@ -56,7 +63,9 @@ Next, run the degree centrality algorithm on the projected graph using the `gds.
 ----
 CALL gds.degree.stream('actor-directors')
 YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS name, score AS movies
+RETURN 
+  gds.util.asNode(nodeId).name AS name, 
+  score AS movies
 ORDER BY movies DESC, name DESC
 ----
 
