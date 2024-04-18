@@ -13,17 +13,25 @@ Common use cases of centrality include:
 * *Fraud & Anomaly Detection*: Find users with many shared identifiers or who otherwise act as a bridge between many communities
 
 === Degree Centrality Example
+
 Degree centrality is one of the most ubiquitous and simple centrality algorithms.  It counts the number of relationships a node has. In the GDS implementation, we specifically calculate _out-degree_ centrality which is the count of outgoing relationships from a node. Below is an example of using degree centrality to count the number of movies each actor has acted in.
 
-First create the graph projection.
+During this module, you will be using a _movie recommendations_ dataset that contains information about movies, actors, and users who have rated movies.
+
+image::images/data-model.svg[The recommendations data model showing Movie, Person, Actor, Director, User and Genre nodes and ACTED_IN, DIRECTED, RATED, and IN_GENRE relationships between them]
+
+First create the graph projection of `Actor` and `Movie` nodes:
 
 [source,cypher]
 ----
-CALL gds.graph.project('proj', ['Actor','Movie'], 'ACTED_IN');
+CALL gds.graph.project(
+  'proj', 
+  ['Actor','Movie'], 
+  'ACTED_IN'
+  );
 ----
 
-
-Then stream the degree centrality.
+Then stream the degree centrality to find the actors who have acted in the most movies:
 
 [source,cypher]
 ----
@@ -31,7 +39,9 @@ Then stream the degree centrality.
 //using degree centrality which counts number of `ACTED_IN` relationships
 CALL gds.degree.stream('proj')
 YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS actorName, score AS numberOfMoviesActedIn
+RETURN 
+  gds.util.asNode(nodeId).name AS actorName, 
+  score AS numberOfMoviesActedIn
 ORDER BY numberOfMoviesActedIn DESCENDING, actorName LIMIT 5
 ----
 
@@ -46,23 +56,28 @@ In summary, PageRank estimates the importance of a node by counting the number o
 
 Below is an example of applying PageRank to find the most influential persons in the Director -> Actor network from movies released on or after 1990 with a revenue of at least 10 Million dollars.
 
-First, create the graph projection. We can use a Cypher projection in this case to obtain a graph where we have `(Person)-[:DIRECTED_ACTOR]->(Person)`. this graph can be traversed to understand the influence across directors and actors.
+First, create the graph projection. We can use a Cypher projection in this case to obtain a graph where we have `(Person)-[:DIRECTED_ACTOR]->(Person)`. This graph can be traversed to understand the influence across directors and actors.
 
 [source,cypher]
 ----
-//drop last graph projection
+// drop last graph projection
 CALL gds.graph.drop('proj', false);
 
-//create Cypher projection for network of people directing actors
-//filter to recent high grossing movies
-CALL gds.graph.project.cypher(
+// create Cypher projection for network of people directing actors
+// filter to recent high grossing movies
+MATCH (source:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(target)
+WHERE m.year >= 1990 AND m.revenue >= 10000000
+WITH source, target, count(*) as actedWithCount
+WITH gds.graph.project(
   'proj',
-  'MATCH (a:Person) RETURN id(a) AS id, labels(a) AS labels',
-  'MATCH (a1:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(a2)
-   WHERE m.year >= 1990 AND m.revenue >= 10000000
-   RETURN id(a1) AS source , id(a2) AS target, count(*) AS actedWithCount,
-    "DIRECTED_ACTOR" AS type'
-);
+  source,
+  target,
+  {
+    relationshipType: "DIRECTED_ACTOR"
+  }
+) as g
+RETURN
+  g.graphName AS graph, g.nodeCount AS node, g.relationshipCount AS rels
 ----
 
 Next stream PageRank to find the top 5 most influential people in director-actor network.
@@ -71,7 +86,9 @@ Next stream PageRank to find the top 5 most influential people in director-actor
 ----
 CALL gds.pageRank.stream('proj')
 YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS personName, score AS influence
+RETURN 
+  gds.util.asNode(nodeId).name AS personName, 
+  score AS influence
 ORDER BY influence DESCENDING, personName LIMIT 5
 ----
 
