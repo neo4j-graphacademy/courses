@@ -55,13 +55,18 @@ CALL gds.graph.drop('proj', false);
 
 //create Cypher projection for network of people directing actors
 //filter to recent high grossing movies
-CALL gds.graph.project.cypher(
+MATCH (a1:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(a2)
+WHERE m.year >= 1990 AND m.revenue >= 10000000
+RETURN gds.graph.project(
   'proj',
-  'MATCH (a:Person) RETURN id(a) AS id, labels(a) AS labels',
-  'MATCH (a1:Person)-[:DIRECTED]->(m:Movie)<-[:ACTED_IN]-(a2)
-   WHERE m.year >= 1990 AND m.revenue >= 10000000
-   RETURN id(a1) AS source , id(a2) AS target, count(*) AS actedWithCount,
-    "DIRECTED_ACTOR" AS type'
+  a1,
+  a2,
+  {
+    sourceLabels: labels(a1),
+    targetLabels: labels(a2),
+    relationshipType: 'DIRECTED_ACTOR',
+    relationshipProperties: {actedWithCount: count(*)}
+  }
 );
 ----
 
