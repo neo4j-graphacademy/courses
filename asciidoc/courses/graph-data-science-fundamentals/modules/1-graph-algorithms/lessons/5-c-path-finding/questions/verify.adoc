@@ -1,9 +1,17 @@
 [.question.freetext]
 = Shortest Path
 
-Using just the `Actor` and `Movie` nodes and the `ACTED_IN` and `DIRECTED` relationships,  what is the shortest path (by number of relationship hops) between Kevin Bacon and Peta Wilson.
+What is the shortest path between 'Kevin Bacon' and 'Peta Wilson'?
 
-Use the Neo4j Browser window to the right of the screen to run GDS calls and enter the answer in the box below.
+You can use the same projection and a similar query to the previous lesson to find the answer.
+
+You will need to:
+
+. Create a projection (or use the same one as the previous lesson) of `Actor` and `Movie` nodes and `ACTED_IN` and `DIRECTED` relationships.
+. Create a query that matches the 2 `Actor` nodes and uses `gds.shortestPath.dijkstra.stream` function to find the shortest path
+. Count how many relationships there are between the source and target nodes.
+
+Enter the number of relationship hops between 'Kevin Bacon' and 'Peta Wilson':
 
 input::answer[]
 
@@ -14,7 +22,36 @@ input::answer[]
 [TIP,role=hint]
 .Hint
 ====
-You can use the same graph projection as the one created in the previous lesson. Make sure the relationships are projected with an `UNDIRECTED` orientation
+This is the Cypher you used in the previous lesson to find the shortest path between Kevin Bacon and Denzel Washington.
+
+[source, cypher, role=noplay]
+----
+// Create projection
+CALL gds.graph.project('proj',
+    ['Person','Movie'],
+    {
+        ACTED_IN:{orientation:'UNDIRECTED'},
+        DIRECTED:{orientation:'UNDIRECTED'}
+    }
+);
+
+// Find shortest path
+MATCH (kevin:Actor{name : 'Kevin Bacon'})
+MATCH (denzel:Actor{name : 'Denzel Washington'})
+
+CALL gds.shortestPath.dijkstra.stream(
+    'proj', 
+    {
+        sourceNode:kevin, 
+        TargetNode:denzel
+    }
+)
+
+YIELD sourceNode, targetNode, path
+RETURN sourceNode, targetNode, nodes(path) as path;
+----
+
+There is a path consisting of four relationships between Kevin Bacon and Denzel Washington.
 ====
 
 [TIP,role=solution]
@@ -37,16 +74,21 @@ Then you can use a similar query to the one used in the previous lesson to find 
 
 [source, cypher]
 ----
-MATCH (a:Actor)
-WHERE a.name IN ['Kevin Bacon', 'Peta Wilson']
-WITH collect(id(a)) AS nodeIds
-CALL gds.shortestPath.dijkstra.stream('proj', {sourceNode:nodeIds[0], TargetNode:nodeIds[1]})
+MATCH (kevin:Actor{name : 'Kevin Bacon'})
+MATCH (peta:Actor{name : 'Peta Wilson'})
+
+CALL gds.shortestPath.dijkstra.stream(
+    'proj', 
+    {
+        sourceNode:kevin, 
+        TargetNode:peta
+    }
+)
+
 YIELD sourceNode, targetNode, path
-RETURN gds.util.asNode(sourceNode).name AS sourceNodeName,
-    gds.util.asNode(targetNode).name AS targetNodeName,
-    nodes(path) as path;
+RETURN sourceNode, targetNode, nodes(path) as path;
 ----
 
 The answer is the number of relationships in the path.
-In this case, there are 6 relationships between Kevin Bacon and Peta Wilson.
+There are *6* relationships between Kevin Bacon and Peta Wilson.
 ====

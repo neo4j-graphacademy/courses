@@ -1,7 +1,12 @@
-// First create the graph projection,  and then call the
-// gds.degree.stream() procedure run the algorithm on the projection
 CALL gds.graph.project(
     'actor-directors',
-    ['labels'],
-    'RELATIONSHIP_TYPE'
+    ['??????', '??????'],
+    '??????'
 )
+
+CALL gds.degree.stream('actor-directors')
+YIELD nodeId, score
+RETURN 
+  gds.util.asNode(nodeId).name AS name, 
+  score AS movies
+ORDER BY ?????? DESC
