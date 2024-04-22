@@ -1,5 +1,7 @@
 = Native Projections
-:type: quiz
+:type: lesson
+:order: 2
+:sandbox: true
 
 // [.video]
 // video::xxxx[youtube,width=560,height=315]
@@ -9,14 +11,13 @@
 == Introduction
 In the last lesson you learned about the graph catalog. We briefly introduced graph projections there, but we didn't go into much depth. Understanding Graph projections is foundational to success in GDS, so we will spend the next two lessons covering them in more detail.
 
-There are 2 primary types of projections in GDS, native projections and cypher projections. In summary, native projections are optimized for efficiency and performance to support graph data science at scale. Cypher projections are optimized for flexibility and customization to support exploratory analysis, experimentation, and smaller graph projections.
+There are 2 primary types of projections in GDS, native projections and Cypher projections. In summary, native projections are the quickest way to create a GDS Graph from a Neo4j database. Cypher projections are more flexible and expressive.
 
 In this lesson we will cover native projections specifically - what they are and how to use them. In the next lesson we will do the same for Cypher projections.
 
 === About Native Projections
 
-We actually used a native projection in our last lesson.  When you call `gds.graph.project()` you are using a native projection.  Native projections provide the best performance by reading from the Neo4j store files directly. We recommend them for both development and production phases.
-
+We already used a native projection in our last lesson. When you call `gds.graph.project()` you are using a native projection. Native projections read from the Neo4j store files directly.
 
 In addition to just projecting node and relationship elements as-is from the database, native projections offer a variety of other features.  Below are a few of the big ones:
 
@@ -30,8 +31,17 @@ Below we cover the basic syntax for native projections and walk through a couple
 
 === Basic Syntax
 
-The native projection takes three mandatory arguments: `graphName`, `nodeProjection` and `relationshipProjection`. In addition, the optional `configuration` parameter allows us to further configure the graph creation.
+The native projection procedure link:https://neo4j.com/docs/graph-data-science/current/management-ops/graph-creation/graph-project/[`gds.graph.project`^] takes three mandatory arguments: `graphName`, `nodeProjection` and `relationshipProjection`. In addition, the optional `configuration` parameter allows us to further configure the graph creation.
 
+[source, cypher, role=noplay nocopy]
+----
+CALL gds.graph.project(
+  graphName: String,
+  nodeProjection: String or List or Map,
+  relationshipProjection: String or List or Map,
+  configuration: Map
+) 
+----
 
 [opts="header",cols="1,1,1, 4"]
 |===
@@ -49,14 +59,22 @@ Let's first consider the very basic scenario where we want to project nodes and 
 
 [source,cypher,role=nocopy]
 ----
-CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
+CALL gds.graph.project(
+  'native-proj',
+  ['User', 'Movie'], 
+  ['RATED']
+  );
 ----
 
-There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relationship type you can just use a single string value. We could for example just enter the value `RATED` for the `relationshipProjection` and get an equivalent projection.
+There are various forms of shorthand syntax too.  For example, if you plan to include only one node label or relationship type you can just use a single string value. For example, creating a project for just the `User` nodes and `RATED` relationship.
 
 [source, cypher,role=nocopy]
 ----
-CALL gds.graph.project('native-proj',['User', 'Movie'], 'RATED');
+CALL gds.graph.project(
+  'native-proj',
+  'User',
+  'RATED'
+  );
 ----
 
 
@@ -105,15 +123,28 @@ Take the graph we just projected as an example.  Say we want to count the number
 [source, cypher]
 ----
 CALL gds.graph.drop('native-proj', false);
-CALL gds.graph.project('native-proj',['User', 'Movie'], ['RATED']);
-CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+CALL gds.graph.project(
+  'native-proj',
+  ['User', 'Movie'], 
+  ['RATED']
+  );
+CALL gds.degree.mutate(
+  'native-proj', 
+  {mutateProperty: 'ratingCount'}
+  );
 ----
 
 [source, cypher]
 ----
-CALL gds.graph.nodeProperty.stream('native-proj','ratingCount', ['Movie'])
+CALL gds.graph.nodeProperty.stream(
+  'native-proj',
+  'ratingCount', 
+  ['Movie']
+  )
 YIELD nodeId, propertyValue
-RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+RETURN 
+  gds.util.asNode(nodeId).title AS movieTitle, 
+  propertyValue AS ratingCount
 ORDER BY movieTitle DESCENDING LIMIT 10
 ----
 
@@ -138,18 +169,27 @@ CALL gds.graph.project(
     'native-proj',
     ['User', 'Movie'],
     {RATED_BY: {type: 'RATED', orientation: 'REVERSE'}}
-);
+  );
 
-CALL gds.degree.mutate('native-proj', {mutateProperty: 'ratingCount'});
+CALL gds.degree.mutate(
+  'native-proj', 
+  {mutateProperty: 'ratingCount'}
+  );
 ----
 
 Now when we use the degree algorithm we will get the rating counts we need.
 
 [source, cypher]
 ----
-CALL gds.graph.nodeProperty.stream('native-proj','ratingCount', ['Movie'])
+CALL gds.graph.nodeProperty.stream(
+  'native-proj',
+  'ratingCount', 
+  ['Movie']
+  )
 YIELD nodeId, propertyValue
-RETURN gds.util.asNode(nodeId).title AS movieTitle, propertyValue AS ratingCount
+RETURN 
+  gds.util.asNode(nodeId).title AS movieTitle, 
+  propertyValue AS ratingCount
 ORDER BY movieTitle DESCENDING LIMIT 5
 ----
 
@@ -278,7 +318,7 @@ include::questions/1-native-projection-use-cases.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
-In this lesson we went over native projections, the primary graph projection mechanism in GDS.  Native Projections are optimized for efficiency and performance to support graph data science at scale.  Native projections have a rich syntax and set of configuration options that allow you to
+In this lesson we went over native projections, the primary graph projection mechanism in GDS. Native projections have a rich syntax and set of configuration options that allow you to:
 
 . filter the graph by node label and relationship types
 . include node and relationship properties
