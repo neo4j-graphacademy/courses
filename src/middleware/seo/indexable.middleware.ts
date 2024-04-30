@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { getCourseWithProgress } from "../../domain/services/get-course-with-progress";
 import NotFoundError from "../../errors/not-found.error";
 import { convertLessonOverview, convertModuleOverview } from "../../modules/asciidoc";
-import verify from 'googlebot-verify'
+import { isbot } from "isbot";
 import { GRAPHACADEMY_CHATBOT_USERAGENT, IS_PRODUCTION } from "../../constants";
 
 export default async function indexable(req: Request, res: Response, next: NextFunction) {
@@ -23,9 +23,8 @@ export default async function indexable(req: Request, res: Response, next: NextF
 
     // Is this a google bot?
     else {
-        const ip = req.headers['x-forwarded-for']
         try {
-            allowIndex = await verify(ip)
+            allowIndex = isbot(userAgent)
         }
         catch {
             // Do nothing
