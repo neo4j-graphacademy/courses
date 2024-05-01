@@ -1,2 +1,3 @@
-MATCH (source:Airport {iata: 'BNA'}), (target:Airport {iata: 'HKT'})  
-RETURN source, target
+MATCH (source:Airport {iata: '???'}), (target:Airport {iata: '???'})  
+MATCH p=shortestPath((??????)-[:??????*]->(??????))
+RETURN length(p) AS result

@@ -1,5 +1,7 @@
 = Cypher Projections
-:type: quiz
+:type: lesson
+:order: 4
+:sandbox: true
 
 // [.video]
 // video::xxxx[youtube,width=560,height=315]
@@ -8,25 +10,39 @@
 [.transcript]
 == Introduction
 
-While the native projection is scalable and fast, its filtering and aggregation capabilities aren’t as flexible as Cypher. The Cypher projection, as its name implies, uses Cypher to define the projection pattern, and as such, enables more flexibility.
+While the native projection requires less configuration, its filtering and aggregation capabilities aren’t as flexible as Cypher. The Cypher projection, as its name implies, uses Cypher to define the projection pattern and enables more flexibility.
 
-Cypher projections are intended to be used in exploratory analysis and developmental phases where additional flexibility and/or customization is needed.  They can also work in production settings where you plan to subset only a small portion of the graph, such as a relatively small community or neighborhood of nodes.
-
-While Cypher projections offer more flexibility and customization, they have a diminished focus on performance relative to native projections and as a result won’t perform as quickly or as well on larger graphs. This is a key trade-off to keep in mind whenever you consider using Cypher projections.
+Whether Cypher or native projection is faster, depends on your query. Its easiest to compare the two against your use-case.
 
 In this lesson, we will go over the cypher projection syntax, an applied example, where cypher projections are useful, and common strategies for transition from Cypher to native projections as workflows mature.
 
 === Syntax
 
-A Cypher projection takes three mandatory arguments: `graphName`, `nodeQuery`, and `relationshipQuery`. In addition, the optional `configuration` parameter allows us to further configure graph creation.
+To create a Cypher project you define a Cypher query and use the link:https://neo4j.com/docs/graph-data-science/current/management-ops/graph-creation/graph-project-cypher-projection/[`gds.graph.project`^] aggregation function to create the projection.
+
+[source, cypher]
+----
+MATCH (sourceNode:Node)-[r:RELATIONSHIP]->(targetNode:Node)
+WITH gds.graph.project(
+    graphName: String,
+    sourceNode: Node or Integer,
+    targetNode: Node or Integer,
+    dataConfig: Map,
+    configuration: Map
+) AS g
+RETURN g
+----
+
+A Cypher projection takes two mandatory arguments: `graphName` and `sourceNode`. For many use cases, you would also define a `targetNode`. In addition, the optional `configuration` parameter allows us to further configure graph creation.
 
 [opts="header",cols="1,1,8"]
 |===
 | Name              | Optional | Description
 | graphName         | no       | The name under which the graph is stored in the catalog.
-| nodeQuery         | no       | Cypher statement to project nodes. The query result must contain an `id` column. Optionally, a `labels` column can be specified to represent node labels. Additional columns are interpreted as properties.
-| relationshipQuery | no       | Cypher statement to project relationships. The query result must contain `source` and `target` columns. Optionally, a `type` column can be specified to represent relationship type. Additional columns are interpreted as properties.
-| configuration     | yes      | Additional parameters to configure the Cypher projection.
+| sourceNode         | no       | The source node of the relationship. Must not be null.
+| targetNode | yes       | The target node of the relationship. The targetNode can be null (for example due to an OPTIONAL MATCH), in which case the source node is projected as an unconnected node.
+| dataConfig | yes       | The target node of the relationship. The targetNode can be null (for example due to an OPTIONAL MATCH), in which case the source node is projected as an unconnected node.
+| configuration     | yes      | Additional parameters to configure the projection.
 |===
 
 === Applied Example
@@ -37,18 +53,41 @@ For the sake of this example, we will call a movie “recent” if it was releas
 
 The graph is not set up to answer this question well with a direct native projection. However, we can use a cypher projection to filter to the appropriate nodes and perform an aggregation to create an `ACTED_WITH` relationship that has a `actedWithCount` property going directly between actor nodes.
 
+The Cypher query to create this data set would be:
+
 [source, cypher]
 ----
-CALL gds.graph.project.cypher(
-  'proj-cypher',
-  'MATCH (a:Actor) RETURN id(a) AS id, labels(a) AS labels',
-  'MATCH (a1:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2)
-   WHERE m.year >= 1990 AND m.revenue >= 1000000
-   RETURN id(a1) AS source , id(a2) AS target, count(*) AS actedWithCount, "ACTED_WITH" AS type'
-);
+MATCH (source:Actor)-[r:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target)
+WHERE m.year >= 1990 AND m.revenue >= 1000000
+RETURN source.name, count(r) as actedWithCount
 ----
 
-Once that is done we can apply degree centrality like we did last lesson. Except we will weight the degree centrality by `actedWithCount` property and also directly stream the top 10 results back.  This counts how many times the actor has acted with other actors in recent, high grossing movies.
+The actor's name and the count of movies they acted in with other actors in recent, high-grossing movies are returned.  
+
+You can use this query to create a Cypher projection.
+
+[source, cypher]
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target)
+WHERE m.year >= 1990 AND m.revenue >= 1000000
+WITH source, target, count(r) as actedWithCount
+WITH gds.graph.project(
+    'cypher-proj',
+    source,
+    target,
+    { relationshipProperties: 
+        { 
+            actedWithCount: actedWithCount
+        }
+    }
+) AS g
+RETURN
+  g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels
+----
+
+Note how the `source` and `target` nodes are included as parameters. The `actedWithCount` property is included in the `relationshipProperties` in the `dataConfig` parameter.
+
+Once the projection is created we can apply degree centrality like we did last lesson. Except we will weight the degree centrality by `actedWithCount` property and also directly stream the top 10 results back.  This counts how many times the actor has acted with other actors in recent, high grossing movies.
 
 [source, cypher]
 ----
@@ -76,84 +115,15 @@ The results include some big name actors as we would expect.
 |===========================
 
 
-=== When To Use Cypher Projections
+=== Flexibility of Cypher Projections
 
 In the above example, there were two things that prevented us from directly using a native projection. They also happen to be two of the most common cases for using Cypher Projections.
 
 . *Complex Filtering:* Using node and/or relationship property conditions or other more complex MATCH/WHERE conditions to filter the graph, rather than just node label and relationship types.
 . *Aggregating Multi-Hop Paths with Weights:* The relationship projection required aggregating the `(Actor)-[ACTED_IN]-(Movie)-[ACTED_IN]-(Actor)` pattern to a `(Actor)-[ACTED_WITH {actedWithCount}]-(Actor)` pattern where the `actedWithCount` is a relationship weight property. This type of projection, where we need to transform multi-hop paths into an aggregated relationship that connects the source and target node, is a commonly occurring pattern in graph analytics.
 
-There are a few other special use cases for Cypher projections too, including merging different node labels and relationship types and defining virtual relationships between nodes based on property conditions or other query logic.
+Further options enabled by Cypher projections include merging different node labels and relationship types and defining virtual relationships between nodes based on property conditions or other query logic.
 
-
-=== Transitioning to Native Projections
-
-While Cypher projections are great for experimenting with these patterns and for small subsets of the graph, we encourage you to transition to native projections as workflows mature, graph projections become larger, and fast performance becomes more important.
-
-For example, with the calculations we made above, we can instead use the following workflow which takes advantage of collapse path in a native projection. This technique does not weight the resulting relationships, so while the ranking of top actors is not exactly the same it is still very similar.
-
-[source, cypher]
-----
-//set a node label based on recent release and revenue conditions
-MATCH (m:Movie)
-WHERE m.year >= 1990 AND m.revenue >= 1000000
-SET m:RecentBigMovie;
-
-//native projection with reverse relationships
-CALL gds.graph.project('proj-native',
-  ['Actor','RecentBigMovie'],
-  {
-  	ACTED_IN:{type:'ACTED_IN'},
-    HAS_ACTOR:{type:'ACTED_IN', orientation: 'REVERSE'}
-  }
-);
-
-//collapse path utility for relationship aggregation - no weight property
-CALL gds.beta.collapsePath.mutate('proj-native',{
-    pathTemplates: [['ACTED_IN', 'HAS_ACTOR']],
-    allowSelfLoops: false,
-    mutateRelationshipType: 'ACTED_WITH'
-});
-----
-
-[source, cypher]
-----
-//count actors that acted with the most other actors in recent high grossing movies and stream the top 15
-CALL gds.degree.stream('proj-native', {nodeLabels:['Actor'], relationshipTypes: ['ACTED_WITH']})
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS name, score
-ORDER BY score DESC LIMIT 15
-----
-
-[options="header"]
-|===========================
-| name               | score
-| Bruce Willis       | 114.0
-| Robert De Niro     | 109.0
-| Denzel Washington  | 96.0
-| Johnny Depp        | 90.0
-| Nicolas Cage       | 86.0
-| Julianne Moore     | 84.0
-| Samuel L. Jackson  | 82.0
-| Morgan Freeman     | 81.0
-| Ben Affleck        | 81.0
-| Brad Pitt          | 79.0
-| Sandra Bullock     | 77.0
-| George Clooney     | 77.0
-| Julia Roberts      | 75.0
-| Matt Damon         | 75.0
-| Keanu Reeves       | 74.0
-|===========================
-
-Here are some general tips for transition workflow from cypher to native projections depending on the initial use case:
-
-. *Filtering with Node Property Conditions*: Add a label to nodes that meet the property condition(s) so you can filter in the native projection
-. *Filtering with Relationship Property Conditions:* If possible, add a label to source and target nodes for each relationship that meets the property condition. Otherwise, consider adding an additional relationship type to your data model to capture the relationships that meet the condition.
-. *Aggregating Multi-Hop Paths:*
-    .. See if collapse-path can meet your use case needs.  It doesn’t weight relationships, but results can often be very similar to weighted aggregations
-    .. For certain types of problems on large projections, similarity and embedding algorithms can be used to approximate the aggregated relationships.
-
-For other complex use cases it will often come back to your data model in the Neo4j database.  Is it possible to adjust your data model so node labels and relationship types better distinguish the data you want to filter on for data science application?  This may involve aggregating certain paths into single relationships, developing more node labels and or relationship types, or other types of transformations.
 
 === Check your understanding
 
@@ -168,6 +138,6 @@ include::questions/3-cypher-projection-usage.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson we learned about Cypher projections. What they are, how and when to use them, their pros and cons relative to Native projections, and how to transition between Cypher and native projection strategies.
+In this lesson we learned about Cypher projections. What they are, how and when to use them.
 
 In the next lesson, you will be challenged to create your own Cypher projection.

@@ -1,3 +1,3 @@
 MATCH (source:Airport {iata: 'BNA'}), (target:Airport {iata: 'HKT'})  
-MATCH p=shortestPath((source)-[:HAS_ROUTE*]->(target))
-RETURN p
+MATCH p=??????((source)-[:HAS_ROUTE*]->(target))
+RETURN ??????(p) AS result

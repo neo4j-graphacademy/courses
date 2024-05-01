@@ -7,4 +7,4 @@ WHERE size(labelsOrTypes) = 1
 AND size(properties) = 1
 AND "ACTED_IN" IN labelsOrTypes
 AND "role" in properties
-return count(*) = 2 as outcome
+return count(*) >= 2 as outcome

@@ -1,0 +1,97 @@
+= Create a Vector Index
+:order: 3
+:type: lesson
+:sandbox: true
+
+To query embeddings, you need to create a vector index. 
+A vector index significantly increases the speed of similarity searches by pre-computing the similarity between vectors and storing them in the index.
+
+In this lesson, you will create vector indexes on the `embedding` property of the `Question` and `Answer` nodes.
+
+== Create the Question Index
+
+You will use the `CREATE VECTOR INDEX` Cypher statement to create the index:
+
+.CREATE VECTOR INDEX Syntax
+[source,cypher, role=noplay nocopy]
+----
+CREATE VECTOR INDEX [index_name] [IF NOT EXISTS]
+FOR (n:LabelName)
+ON (n.propertyName)
+OPTIONS "{" option: value[, ...] "}"
+----
+
+`CREATE VECTOR INDEX` expects the following parameters:
+
+* `index_name` - The name of the index
+* `LabelName` - The node label on which to index
+* `propertyName` - The property on which to index
+* `OPTIONS` - The options for the index, where you can specify:
+** `vector.dimensions` - The dimension of the embedding e.g. OpenAI embeddings consist of `1536` dimensions.
+** `vector.similarity_function` - The similarity function to use when comparing values in this index - this can be `euclidean` or `cosine`.
+
+Review and run the following Cypher to create the vector index:
+
+.Create the vector index
+[source,cypher]
+----
+CREATE VECTOR INDEX questions IF NOT EXISTS
+FOR (q:Question)
+ON q.embedding
+OPTIONS {indexConfig: {
+ `vector.dimensions`: 1536,
+ `vector.similarity_function`: 'cosine'
+}}
+----
+
+Note that the index is called `questions`, is against the `Question` label, and is on the `.embedding` property. The `vector.dimensions` is `1536` (as used by OpenAI) and the `vector.similarity_function` is `cosine`. The `IF NOT EXISTS` clause ensures that the statement only creates the index if it does not already exist.
+
+Run the statement to create the index.
+
+[TIP]
+.Choosing a Similarity Function
+====
+Generally, cosine will perform best for text embeddings, but you may want to experiment with other functions.
+
+You can link:https://neo4j.com/docs/cypher-manual/current/indexes-for-vector-search/#indexes-vector-similarity[read more about similarity functions in the documentation^].
+
+Typically, you will choose a similarity function closest to the loss function used when training the embedding model. You should refer to the model's documentation for more information.
+====
+
+=== Check the index creation status
+
+The index will be updated asynchronously. You can check the status of the index population using the `SHOW INDEXES` statement:
+
+Check that you created the index successfully using the `SHOW INDEXES` command.
+
+.Show Indexes
+[source,cypher]
+----
+SHOW INDEXES WHERE type = "VECTOR"
+----
+
+You should see a result similar to the following:
+
+.Show Indexes Result
+|===
+| id | name | state | populationPercent | type
+|1 | "questions" | "ONLINE" | `100.0` | "VECTOR"
+|===
+
+Once the `state` is listed as online, the index will be ready to query.
+
+The `populationPercentage` field indicates the proportion of node and property pairing.
+
+When the `populationPercentage` is `100.0`, all the movie embeddings have been indexed.
+
+
+== Check Your Understanding
+
+include::questions/1-create-index-syntax.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to create a vector index using the `CREATE VECTOR INDEX` Cypher statement.
+
+In the next lesson, you will use what you have learned to create a vector index for the `Answer` nodes.

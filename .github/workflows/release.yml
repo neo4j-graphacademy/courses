@@ -53,8 +53,8 @@ jobs:
           args: --acl public-read
         env:
           AWS_S3_BUCKET: ${{ secrets.GA_S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.DEVREL_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEVREL_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AC_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.GA_AWS_REGION }}
           SOURCE_DIR: "public"
           DEST_DIR: "assets"
@@ -66,19 +66,22 @@ jobs:
     steps:
       # Configure AWS
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AC_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AC_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.GA_AWS_REGION }}
+          aws-access-key-id: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      # Restart cluster to download new content
-      - name: Restart Cluster
-        uses: kenju/kubernetes-action@master
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Rollout
+        uses: kodermax/kubectl-aws-eks@main
         env:
           KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         with:
-          args: "rollout restart -n graphacademy-prod deployment/graphacademy"
+          args: rollout restart -n graphacademy-prod deployment/graphacademy
 
   invalidate-cache:
     runs-on: ubuntu-latest
@@ -100,5 +103,5 @@ jobs:
           DISTRIBUTION: ${{ secrets.GA_CLOUDFRONT_DISTRIBUTION }}
           PATHS: "/*"
           AWS_REGION: ${{ secrets.GA_AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.DEVREL_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DEVREL_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AC_SECRET_ACCESS_KEY }}
