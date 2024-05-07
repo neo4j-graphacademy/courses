@@ -47,7 +47,8 @@ export default async function getEnrolments(tx: Transaction, user: Partial<User>
             .*,
             courseSlug: c.slug,
             completed: e:CompletedEnrolment,
-            failed: NOT e:CompletedEnrolment AND e:FailedEnrolment,
+            failed: (NOT e:CompletedEnrolment AND e:FailedEnrolment) OR (c:Certification AND e.lastSeenAt <= datetime() - duration('PT1H')),
+            availableAfter: CASE WHEN c:Certification THEN e.lastSeenAt + duration('PT1H') ELSE null END,
             completedModules: [ (e)-[:COMPLETED_MODULE]->(m) | m.link ],
             completedLessons: [ (e)-[:COMPLETED_LESSON]->(l) | l.link ],
             status: CASE

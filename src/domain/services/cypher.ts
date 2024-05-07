@@ -18,7 +18,7 @@ export function courseCypher(enrolment?: string, user?: string, course = 'c', mo
             certification: ${course}:Certification,
             categories: [ (${course})-[:IN_CATEGORY]->(category) | ${categoryCypher('category')} ],
             ${enrolment !== undefined ? `ref: ${enrolment}.ref,` : ''}
-            ${enrolment !== undefined ? `failed: ${enrolment}:FailedEnrolment, availableAfter: toString(e.failedAt + duration('PT24H')),` : ''}
+            ${enrolment !== undefined ? `failed: ${enrolment}:FailedEnrolment OR (${course}:Certification AND ${enrolment}.lastSeenAt <= datetime() - duration('PT1H30M')), availableAfter: toString(e.failedAt + duration('PT24H')),` : ''}
             ${enrolment !== undefined ? `enrolmentId: ${enrolment}.id, certificateId: ${enrolment}.certificateId, certificateNumber: ${enrolment}.certificateNumber, enrolled: ${enrolment} IS NOT NULL, certificateUrl: '/c/'+ ${enrolment}.certificateId +'/', completed: ${enrolment}:CompletedEnrolment, enrolledAt: ${enrolment}.createdAt, completedAt: ${enrolment}.completedAt, lastSeenAt: ${enrolment}.lastSeenAt, ` : ''}
             ${enrolment !== undefined ? `next: [ (${course})-[:FIRST_MODULE]->()-[:NEXT*0..]->(element) WHERE not (${enrolment})-->(element) | element { .title, .link } ][0],` : ''}
             ${enrolment !== undefined ? `completedPercentage: CASE
