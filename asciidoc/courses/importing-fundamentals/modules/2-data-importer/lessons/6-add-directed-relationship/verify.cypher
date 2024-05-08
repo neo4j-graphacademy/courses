@@ -1,0 +1,1 @@
+MATCH (:Person)-[:DIRECTED]->(:Movie) RETURN true as outcome LIMIT 1
