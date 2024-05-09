@@ -120,20 +120,27 @@ jobs:
 
             - name: Update task definition
               run: |
-                TARGET_IMAGE="${{ steps.login-ecr.outputs.registry }}/graphacademy:${{ needs.rebuild.outputs.tag }}"
                 jq '.taskDefinition.containerDefinitions[0].image = env.TARGET_IMAGE' task-definition.json > new-task-def.json
+              env:
+                TARGET_IMAGE: "${{ steps.login-ecr.outputs.registry }}/graphacademy:${{ needs.rebuild.outputs.tag }}"
 
             - name: Register new task definition
+              id: update_task_def
               run: |
                 TASK_DEFINITION_OUTPUT=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json)
                 NEW_REVISION=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.revision')
                 TARGET_ID=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskDefinitionArn')
                 TARGET_ARN=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskRoleArn')
-
+                echo "::set-output name=new_revision::$NEW_REVISION"
+                echo "::set-output name=target_id::$TARGET_ID"
+                echo "::set-output name=target_arn::$TARGET_ARN"
 
             - name: Update AWS ECS service
               run: |
                 aws ecs update-service --cluster Devrel-graphacademy-cluster --service Devrel-graphacademy-service --task-definition graphacademy-task:${{env.NEW_REVISION}}
+              env:
+                NEW_REVISION: ${{ steps.update_task_def.outputs.new_revision }}
+
         outputs:
           new_revision: ${{ steps.update_task_def.outputs.new_revision }}
           target_id: ${{ steps.update_task_def.outputs.target_id }}
@@ -159,7 +166,7 @@ jobs:
             sudo apt-get install jq
             sudo pip install yq
 
-        - name: Read YAML configurations
+        - name: Read YAML configurations, register new tasks, update EventBridge Schedules and Targets
           run: |
             yq e ".env" deployment-config/cron-config.yaml > env.json
             CERTIFICATIONS_CRON=$(yq e ".certifications.cron" deployment-config/cron-config.yaml)
@@ -170,11 +177,6 @@ jobs:
             REMINDERS_COMMAND=$(yq e ".reminders.command" deployment-config/cron-config.yaml)
             REMINDERS_TASK_NAME=$(yq e ".reminders.taskName" deployment-config/cron-config.yaml)
 
-        - name: Update task definitions and get new revision numbers
-          run: |
-            echo "::set-output name=new_revision::$NEW_REVISION"
-            echo "::set-output name=target_id::$TARGET_ID"
-            echo "::set-output name=target_arn::$TARGET_ARN"
             CERT_DEF=$(aws ecs describe-task-definition --task-definition $CERTIFICATIONS_TASK_NAME)
             REM_DEF=$(aws ecs describe-task-definition --task-definition $REMINDERS_TASK_NAME)
             
@@ -184,8 +186,6 @@ jobs:
             CERTIFICATIONS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_CERT_DEF" --query 'taskDefinition.revision' --output text)
             REMINDERS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_REM_DEF" --query 'taskDefinition.revision' --output text)
 
-        - name: Update EventBridge rules with new targets and revisions
-          run: |
             AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
             aws events put-rule --name $CERTIFICATIONS_RULE_NAME --schedule-expression "$CERTIFICATIONS_CRON"
             aws events put-targets --rule $CERTIFICATIONS_RULE_NAME --targets "Id=$TARGET_ID,Arn=$TARGET_ARN,EcsParameters={TaskDefinitionArn=arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ AWS_ACCOUNT_ID }}:task-definition/$CERTIFICATIONS_TASK_NAME:$CERTIFICATIONS_REVISION}"
