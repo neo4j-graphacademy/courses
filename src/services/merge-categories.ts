@@ -55,6 +55,10 @@ const loadCategory = (slug: string): CategoryWithParent => {
 export async function mergeCategories(): Promise<void> {
     const categories = loadCategories()
 
+    // Disable all categories
+    await write(`MATCH (c:Category) SET c.status = 'disabled'`)
+
+    // Run import and update status
     await write(`
         UNWIND $categories AS row
         MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
