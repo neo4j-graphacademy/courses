@@ -62,6 +62,7 @@ jobs:
 
     rebuild:
         runs-on: ubuntu-latest
+        needs: invalidate-cache
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -77,6 +78,15 @@ jobs:
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v2
 
+            - name: Create tag
+              id: create_tag
+              uses: anothrNick/github-tag-action@1.39.0
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                WITH_V: true
+                FIRST_VERSION: '1.0.0'
+                DEFAULT_BUMP: minor
+
             - name: Build and push
               uses: docker/build-push-action@v5
               env:
@@ -84,7 +94,8 @@ jobs:
               with:
                   context: .
                   push: true
-                  tags: ${{ steps.login-ecr.outputs.registry }}/graphacademy:latest
+                  tags: "${{steps.login-ecr.outputs.registry}}/graphacademy:${{steps.create_tag.outputs.tag}}"
+
     rollout:
         runs-on: ubuntu-latest
         needs: rebuild
@@ -103,9 +114,98 @@ jobs:
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v1
 
-            - name: Rollout
-              uses: kodermax/kubectl-aws-eks@main
-              env:
-                  KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-              with:
-                  args: rollout restart -n graphacademy-prod deployment/graphacademy
+            - name: Pull container definition
+              run: |
+                aws ecs describe-task-definition --task-definition graphacademy-task > task-definition.json
+
+            - name: Update task definition
+              run: |
+                TARGET_IMAGE="${{ steps.login-ecr.outputs.registry }}/graphacademy:${{ needs.rebuild.outputs.tag }}"
+                jq '.taskDefinition.containerDefinitions[0].image = env.TARGET_IMAGE' task-definition.json > new-task-def.json
+
+            - name: Register new task definition
+              run: |
+                TASK_DEFINITION_OUTPUT=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json)
+                NEW_REVISION=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.revision')
+                TARGET_ID=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskDefinitionArn')
+                TARGET_ARN=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskRoleArn')
+
+
+            - name: Update AWS ECS service
+              run: |
+                aws ecs update-service --cluster Devrel-graphacademy-cluster --service Devrel-graphacademy-service --task-definition graphacademy-task:${{env.NEW_REVISION}}
+        outputs:
+          new_revision: ${{ steps.update_task_def.outputs.new_revision }}
+          target_id: ${{ steps.update_task_def.outputs.target_id }}
+          target_arn: ${{ steps.update_task_def.outputs.target_arn }}
+
+    update-eventbridge:
+      runs-on: ubuntu-latest
+      needs: set-env
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v1
+          with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ secrets.AWS_REGION }}
+
+        - name: Install dependencies
+          run: |
+            sudo apt-get update
+            sudo apt-get install jq
+            sudo pip install yq
+
+        - name: Read YAML configurations
+          run: |
+            yq e ".env" deployment-config/cron-config.yaml > env.json
+            CERTIFICATIONS_CRON=$(yq e ".certifications.cron" deployment-config/cron-config.yaml)
+            CERTIFICATIONS_COMMAND=$(yq e ".certifications.command" deployment-config/cron-config.yaml)
+            CERTIFICATIONS_TASK_NAME=$(yq e ".certifications.taskName" deployment-config/cron-config.yaml)
+            
+            REMINDERS_CRON=$(yq e ".reminders.cron" deployment-config/cron-config.yaml)
+            REMINDERS_COMMAND=$(yq e ".reminders.command" deployment-config/cron-config.yaml)
+            REMINDERS_TASK_NAME=$(yq e ".reminders.taskName" deployment-config/cron-config.yaml)
+
+        - name: Update task definitions and get new revision numbers
+          run: |
+            echo "::set-output name=new_revision::$NEW_REVISION"
+            echo "::set-output name=target_id::$TARGET_ID"
+            echo "::set-output name=target_arn::$TARGET_ARN"
+            CERT_DEF=$(aws ecs describe-task-definition --task-definition $CERTIFICATIONS_TASK_NAME)
+            REM_DEF=$(aws ecs describe-task-definition --task-definition $REMINDERS_TASK_NAME)
+            
+            NEW_CERT_DEF=$(echo $CERT_DEF | jq '.taskDefinition | .containerDefinitions[0].environment=env | .containerDefinitions[0].command=["'${CERTIFICATIONS_COMMAND}'"]')
+            NEW_REM_DEF=$(echo $REM_DEF | jq '.taskDefinition | .containerDefinitions[0].environment=env | .containerDefinitions[0].command=["'${REMINDERS_COMMAND}'"]')
+            
+            CERTIFICATIONS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_CERT_DEF" --query 'taskDefinition.revision' --output text)
+            REMINDERS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_REM_DEF" --query 'taskDefinition.revision' --output text)
+
+        - name: Update EventBridge rules with new targets and revisions
+          run: |
+            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+            aws events put-rule --name $CERTIFICATIONS_RULE_NAME --schedule-expression "$CERTIFICATIONS_CRON"
+            aws events put-targets --rule $CERTIFICATIONS_RULE_NAME --targets "Id=$TARGET_ID,Arn=$TARGET_ARN,EcsParameters={TaskDefinitionArn=arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ AWS_ACCOUNT_ID }}:task-definition/$CERTIFICATIONS_TASK_NAME:$CERTIFICATIONS_REVISION}"
+            
+            aws events put-rule --name $REMINDERS_RULE_NAME --schedule-expression "$REMINDERS_CRON"
+            aws events put-targets --rule $REMINDERS_RULE_NAME --targets "Id=$TARGET_ID,Arn=$TARGET_ARN,EcsParameters={TaskDefinitionArn=arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ AWS_ACCOUNT_ID }}:task-definition/$REMINDERS_TASK_NAME:$REMINDERS_REVISION}"
+
+    cleanup:
+      runs-on: ubuntu-latest
+      needs: [rollout, update-eventbridge]
+      if: always()
+      steps:
+        - name: Remove temp files
+          run: |
+            if test -f "env.json"; then
+                rm env.json
+            fi
+            if test -f "task-definition.json"; then
+                rm task-definition.json
+            fi
+            if test -f "new-task-def.json"; then
+                rm new-task-def.json
+            fi
