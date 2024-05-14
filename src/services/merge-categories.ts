@@ -58,6 +58,9 @@ export async function mergeCategories(): Promise<void> {
     // Disable all categories
     await write(`MATCH (c:Category) SET c.status = 'disabled'`)
 
+    // Remove all parent-child relationships
+    await write(`MATCH (p:Category)-[r:HAS_CHILD]->(c:Category) DELETE r`)
+
     // Run import and update status
     await write(`
         UNWIND $categories AS row
