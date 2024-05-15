@@ -109,48 +109,32 @@ jobs:
                   tags: "${{steps.login-ecr.outputs.registry}}/graphacademy:${{steps.create_tag.outputs.tag}}"
 
     deploy:
-        runs-on: ubuntu-latest
-        needs: rebuild
-        steps:
-            - name: Install AWS CLI
-              uses: unfor19/install-aws-cli-action@v1
+      runs-on: ubuntu-latest
+      needs: rebuild
+      steps:
+        - name: Install AWS CLI
+          uses: unfor19/install-aws-cli-action@v1
 
-            - name: Configure AWS credentials
-              uses: aws-actions/configure-aws-credentials@v4
-              with:
-                  role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
-                  aws-region: ${{ secrets.GA_AWS_REGION }}
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v4
+          with:
+            role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
+            aws-region: ${{ secrets.GA_AWS_REGION }}
 
-            - name: Login to Amazon ECR
-              id: login-ecr
-              uses: aws-actions/amazon-ecr-login@v1
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v1
 
-            - name: Pull container definition
-              run: |
-                aws ecs describe-task-definition --task-definition graphacademy-task > task-definition.json
-
-            - name: Update task definition
-              run: |
-                jq '.taskDefinition.containerDefinitions[0].image = env.TARGET_IMAGE' task-definition.json > new-task-def.json
-              env:
-                TARGET_IMAGE: "${{ steps.login-ecr.outputs.registry }}/graphacademy:${{ needs.rebuild.outputs.tag }}"
-
-            - name: Register new task definition
-              id: update_task_def
-              run: |
-                TASK_DEFINITION_OUTPUT=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json)
-                NEW_REVISION=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.revision')
-                TARGET_ID=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskDefinitionArn')
-                TARGET_ARN=$(echo $TASK_DEFINITION_OUTPUT | jq -r '.taskDefinition.taskRoleArn')
-                echo "::set-output name=new_revision::$NEW_REVISION"
-                echo "::set-output name=target_id::$TARGET_ID"
-                echo "::set-output name=target_arn::$TARGET_ARN"
-
-            - name: Update AWS ECS service
-              run: |
-                aws ecs update-service --cluster Devrel-graphacademy-cluster --service Devrel-graphacademy-service --task-definition graphacademy-task:${{env.NEW_REVISION}}
-              env:
-                NEW_REVISION: ${{ steps.update_task_def.outputs.new_revision }}
+        - name: Deploy to Amazon ECS service
+          uses: fabfuel/ecs-deploy@1.9.1
+          with:
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            region: ${{ secrets.GA_AWS_REGION }}
+            cluster: 'devrel-graphacademy-cluster'
+            service: 'devrel-graphacademy-service'
+            task-definition: 'graphacademy-task'
+            image: '${{ steps.login-ecr.outputs.registry }}/graphacademy:${{ needs.rebuild.outputs.tag }}'
 
     update-eventbridge:
       runs-on: ubuntu-latest
