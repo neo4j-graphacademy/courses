@@ -171,36 +171,36 @@ jobs:
             sudo apt-get install jq
             sudo pip install yq
 
-        - name: Read YAML configurations, update Eventbridge Schedules and Targets
-          run: |
-            tasks=$(yq e '.crons' deployment-config/cron-config.yaml | yq e '[.[]]' -)
-            ENV_VARS=$(yq e '.env | map({(.name): .valueFrom.secretKeyRef.key}) | add' deployment-config/cron-config.yaml)
+            - name: Read YAML configurations, update Eventbridge Schedules and Targets
+      run: |
+        tasks=$(yq e '.crons' deployment-config/cron-config.yaml | yq e '[.[]]' -)
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        ENV_NAME=${{ needs.set_environment.outputs.env_name }}
+        
+        if [ "$ENV_NAME" == "master" ]; then
+            ENV_NAME="production"
+        fi
 
-            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            
-            for task in "${tasks[@]}"
-            do
-              NAME=$(echo $task | yq e '.name' -)
-              COMMAND=$(echo $task | yq e -j '.command')
-              CRON=$(echo $task | yq e '.cron' -)
-              TASK_NAME="${NAME}-task-cron"
-              RULE_NAME="${NAME}-rule"
-            
-              ENV_NAME=${{ needs.set_environment.outputs.env_name }}
-              if [ "$ENV_NAME" == "master" ]; then
-                ENV_NAME="production"
-              fi
-              EVENTBRDIGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"              
-              
-              DEF=$(aws ecs describe-task-definition --task-definition "graphacademy-task")
-              
-              NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" ".taskDefinition | .containerDefinitions[0].image=env.TARGET_IMAGE | .containerDefinitions[0].command=$command | .family=\"${TASK_NAME}\"")              
-              
-              response=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF")
-              revision=$(echo $response | jq -r '.taskDefinition.revision')
-              target_id=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
-              target_arn=$(echo $response | jq -r '.taskDefinition.taskRoleArn')
-              
-              aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
-              aws events put-targets --rule $RULE_NAME --targets 'Id='"$target_id"',Arn='"$target_arn"',EcsParameters={TaskDefinitionArn="arn:aws:ecs:'"${{ secrets.AWS_REGION }}"':'"${AWS_ACCOUNT_ID}"':task-definition/'"$TASK_NAME"':'"$revision"', RoleArn="'$EVENTBRDIGE_ROLE'"}'
-            done
+        for task in "${tasks[@]}"
+        do
+          NAME=$(echo $task | yq e '.name' -)
+          COMMAND=$(echo $task | yq e -j '.command')
+          CRON=$(echo $task | yq e '.cron' -)
+          TASK_NAME="${NAME}-task-cron"
+          RULE_NAME="${NAME}-rule"
+          ENV_VARS=$(echo $task | yq e '.env | map({(.name): .valueFrom.secretKeyRef.key}) | add' -)
+
+          EVENTBRDIGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"              
+        
+          DEF=$(aws ecs describe-task-definition --task-definition "graphacademy-task")
+        
+          NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" ".taskDefinition | .containerDefinitions[0].image=env.TARGET_IMAGE | .containerDefinitions[0].command=$command | .containerDefinitions[0].environment=$ENV_VARS | .family=\"${TASK_NAME}\"")              
+        
+          response=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF")
+          revision=$(echo $response | jq -r '.taskDefinition.revision')
+          target_id=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
+          target_arn=$(echo $response | jq -r '.taskDefinition.taskRoleArn')
+        
+          aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
+          aws events put-targets --rule $RULE_NAME --targets 'Id='"$target_id"',Arn='"$target_arn"',EcsParameters={TaskDefinitionArn="arn:aws:ecs:'"${{ secrets.AWS_REGION }}"':'"${AWS_ACCOUNT_ID}"':task-definition/'"$TASK_NAME"':'"$revision"', RoleArn="'$EVENTBRDIGE_ROLE'"}'
+        done
