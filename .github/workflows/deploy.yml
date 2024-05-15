@@ -1,14 +1,30 @@
-name: Release
+name: Deploy to AWS
 
 on:
-    workflow_dispatch:
-    push:
-        tags:
-            - 'v*' # Push events to matching v*, i.e. v1.0, v2.1.3
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - development
 
 jobs:
+    set_environment:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Set up environment based on branch
+          id: environment_check
+          run: |
+            SIMPLE_REF=$(echo ${GITHUB_REF#refs/heads/} | tr / -)
+            
+            echo "env_name=${SIMPLE_REF}" >> $GITHUB_OUTPUT
+      outputs:
+        env_name: ${{ steps.environment_check.outputs.env_name }}
+
     assets:
         runs-on: ubuntu-latest
+        needs: [set_environment]
+        environment:
+          name: ${{ needs.set_environment.outputs.env_name }}
 
         steps:
             - name: Checkout
@@ -22,9 +38,8 @@ jobs:
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  aws-access-key-id: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
-                  aws-region: ${{ secrets.GA_AWS_REGION }}
+                role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
+                aws-region: ${{ secrets.AWS_REGION }}
 
             - name: Install NPM Dependencies
               run: npm install
@@ -41,9 +56,8 @@ jobs:
                   args: --acl public-read
               env:
                   AWS_S3_BUCKET: ${{ secrets.GA_S3_BUCKET }}
-                  AWS_ACCESS_KEY_ID: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
-                  AWS_SECRET_ACCESS_KEY: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
-                  AWS_REGION: ${{ secrets.GA_AWS_REGION }}
+                  GH_OIDC_ROLE_ARN: ${{ secrets.GH_OIDC_ROLE_ARN }}
+                  AWS_REGION: ${{ secrets.AWS_REGION }}
                   SOURCE_DIR: 'public'
                   DEST_DIR: 'assets'
 
@@ -56,9 +70,8 @@ jobs:
               env:
                   DISTRIBUTION: ${{ secrets.GA_CLOUDFRONT_DISTRIBUTION }}
                   PATHS: '/assets'
-                  AWS_REGION: ${{ secrets.GA_AWS_REGION }}
-                  AWS_ACCESS_KEY_ID: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
-                  AWS_SECRET_ACCESS_KEY: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
+                  AWS_REGION: ${{ secrets.AWS_REGION }}
+                  role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
 
     rebuild:
         runs-on: ubuntu-latest
@@ -70,9 +83,8 @@ jobs:
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  aws-access-key-id: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
-                  aws-region: us-east-1
+                  role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
+                  aws-region: ${{ secrets.AWS_REGION }}
 
             - name: Login to Amazon ECR Private
               id: login-ecr
@@ -96,7 +108,7 @@ jobs:
                   push: true
                   tags: "${{steps.login-ecr.outputs.registry}}/graphacademy:${{steps.create_tag.outputs.tag}}"
 
-    rollout:
+    deploy:
         runs-on: ubuntu-latest
         needs: rebuild
         steps:
@@ -106,8 +118,7 @@ jobs:
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  aws-access-key-id: ${{ secrets.GA_DEPLOY_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.GA_DEPLOY_SECRET_ACCESS_KEY }}
+                  role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
                   aws-region: ${{ secrets.GA_AWS_REGION }}
 
             - name: Login to Amazon ECR
@@ -141,14 +152,9 @@ jobs:
               env:
                 NEW_REVISION: ${{ steps.update_task_def.outputs.new_revision }}
 
-        outputs:
-          new_revision: ${{ steps.update_task_def.outputs.new_revision }}
-          target_id: ${{ steps.update_task_def.outputs.target_id }}
-          target_arn: ${{ steps.update_task_def.outputs.target_arn }}
-
     update-eventbridge:
       runs-on: ubuntu-latest
-      needs: set-env
+      needs: [set_environment, deploy]
       steps:
         - name: Checkout code
           uses: actions/checkout@v2
@@ -156,8 +162,7 @@ jobs:
         - name: Configure AWS credentials
           uses: aws-actions/configure-aws-credentials@v1
           with:
-            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
             aws-region: ${{ secrets.AWS_REGION }}
 
         - name: Install dependencies
@@ -166,46 +171,36 @@ jobs:
             sudo apt-get install jq
             sudo pip install yq
 
-        - name: Read YAML configurations, register new tasks, update EventBridge Schedules and Targets
+        - name: Read YAML configurations, update Eventbridge Schedules and Targets
           run: |
-            yq e ".env" deployment-config/cron-config.yaml > env.json
-            CERTIFICATIONS_CRON=$(yq e ".certifications.cron" deployment-config/cron-config.yaml)
-            CERTIFICATIONS_COMMAND=$(yq e ".certifications.command" deployment-config/cron-config.yaml)
-            CERTIFICATIONS_TASK_NAME=$(yq e ".certifications.taskName" deployment-config/cron-config.yaml)
-            
-            REMINDERS_CRON=$(yq e ".reminders.cron" deployment-config/cron-config.yaml)
-            REMINDERS_COMMAND=$(yq e ".reminders.command" deployment-config/cron-config.yaml)
-            REMINDERS_TASK_NAME=$(yq e ".reminders.taskName" deployment-config/cron-config.yaml)
-
-            CERT_DEF=$(aws ecs describe-task-definition --task-definition $CERTIFICATIONS_TASK_NAME)
-            REM_DEF=$(aws ecs describe-task-definition --task-definition $REMINDERS_TASK_NAME)
-            
-            NEW_CERT_DEF=$(echo $CERT_DEF | jq '.taskDefinition | .containerDefinitions[0].environment=env | .containerDefinitions[0].command=["'${CERTIFICATIONS_COMMAND}'"]')
-            NEW_REM_DEF=$(echo $REM_DEF | jq '.taskDefinition | .containerDefinitions[0].environment=env | .containerDefinitions[0].command=["'${REMINDERS_COMMAND}'"]')
-            
-            CERTIFICATIONS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_CERT_DEF" --query 'taskDefinition.revision' --output text)
-            REMINDERS_REVISION=$(aws ecs register-task-definition --cli-input-json "$NEW_REM_DEF" --query 'taskDefinition.revision' --output text)
+            tasks=$(yq e '.crons' deployment-config/cron-config.yaml | yq e '[.[]]' -)
+            ENV_VARS=$(yq e '.env | map({(.name): .valueFrom.secretKeyRef.key}) | add' deployment-config/cron-config.yaml)
 
             AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            aws events put-rule --name $CERTIFICATIONS_RULE_NAME --schedule-expression "$CERTIFICATIONS_CRON"
-            aws events put-targets --rule $CERTIFICATIONS_RULE_NAME --targets "Id=$TARGET_ID,Arn=$TARGET_ARN,EcsParameters={TaskDefinitionArn=arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ AWS_ACCOUNT_ID }}:task-definition/$CERTIFICATIONS_TASK_NAME:$CERTIFICATIONS_REVISION}"
             
-            aws events put-rule --name $REMINDERS_RULE_NAME --schedule-expression "$REMINDERS_CRON"
-            aws events put-targets --rule $REMINDERS_RULE_NAME --targets "Id=$TARGET_ID,Arn=$TARGET_ARN,EcsParameters={TaskDefinitionArn=arn:aws:ecs:${{ secrets.AWS_REGION }}:${{ AWS_ACCOUNT_ID }}:task-definition/$REMINDERS_TASK_NAME:$REMINDERS_REVISION}"
-
-    cleanup:
-      runs-on: ubuntu-latest
-      needs: [rollout, update-eventbridge]
-      if: always()
-      steps:
-        - name: Remove temp files
-          run: |
-            if test -f "env.json"; then
-                rm env.json
-            fi
-            if test -f "task-definition.json"; then
-                rm task-definition.json
-            fi
-            if test -f "new-task-def.json"; then
-                rm new-task-def.json
-            fi
+            for task in "${tasks[@]}"
+            do
+              NAME=$(echo $task | yq e '.name' -)
+              COMMAND=$(echo $task | yq e -j '.command')
+              CRON=$(echo $task | yq e '.cron' -)
+              TASK_NAME="${NAME}-task-cron"
+              RULE_NAME="${NAME}-rule"
+            
+              ENV_NAME=${{ needs.set_environment.outputs.env_name }}
+              if [ "$ENV_NAME" == "master" ]; then
+                ENV_NAME="production"
+              fi
+              EVENTBRDIGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"              
+              
+              DEF=$(aws ecs describe-task-definition --task-definition "graphacademy-task")
+              
+              NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" ".taskDefinition | .containerDefinitions[0].image=env.TARGET_IMAGE | .containerDefinitions[0].command=$command | .family=\"${TASK_NAME}\"")              
+              
+              response=$(aws ecs register-task-definition --cli-input-json "$NEW_DEF")
+              revision=$(echo $response | jq -r '.taskDefinition.revision')
+              target_id=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
+              target_arn=$(echo $response | jq -r '.taskDefinition.taskRoleArn')
+              
+              aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
+              aws events put-targets --rule $RULE_NAME --targets 'Id='"$target_id"',Arn='"$target_arn"',EcsParameters={TaskDefinitionArn="arn:aws:ecs:'"${{ secrets.AWS_REGION }}"':'"${AWS_ACCOUNT_ID}"':task-definition/'"$TASK_NAME"':'"$revision"', RoleArn="'$EVENTBRDIGE_ROLE'"}'
+            done
