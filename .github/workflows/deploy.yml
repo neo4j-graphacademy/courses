@@ -77,6 +77,10 @@ jobs:
   deploy:
       runs-on: ubuntu-latest
       needs: assets
+      permissions:
+        id-token: write
+        contents: read
+
       steps:
           - name: Checkout
             uses: actions/checkout@v4
@@ -84,14 +88,12 @@ jobs:
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
-                role-to-assume: ${{ secrets.GH_OIDC_ROLE_ARN }}
+                role-to-assume: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
                 aws-region: ${{ secrets.GA_AWS_REGION }}
 
           - name: Login to Amazon ECR Private
             id: login-ecr
             uses: aws-actions/amazon-ecr-login@v2
-            with:
-              aws-region: ${{ secrets.GA_AWS_REGION }}
 
           - name: Create tag
             id: create_tag
@@ -124,7 +126,6 @@ jobs:
               echo "task_definition_arn=$TASK_DEFINITION_ARN" >> $GITHUB_ENV
             env:
               TASK_NAME: ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task
-              AWS_DEFAULT_REGION: ${{ secrets.GA_AWS_REGION }}
 
           - name: Deploy new task definition to ECS
             uses: aws-actions/amazon-ecs-deploy-task-definition@v1
