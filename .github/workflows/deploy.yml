@@ -24,7 +24,7 @@ jobs:
           
           echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
     outputs:
-      environment: ${{ steps.environment_check.outputs.environment }}
+      environment: ${{ steps.environment_check.outputs.ENVIRONMENT }}
 
   assets:
       runs-on: ubuntu-latest
@@ -60,7 +60,7 @@ jobs:
             run: npm run build:ui
 
           - name: Sync Assets
-            run: aws s3 sync public/ s3://${{ needs.set_environment.outputs.environment }}-graphacademy-assets/assets/ --acl public-read
+            run: aws s3 sync public/ s3://${{ needs.set_environment.outputs.ENVIRONMENT }}-graphacademy-assets/assets/ --acl public-read
 
 #    invalidate-cache:
 #        runs-on: ubuntu-latest
@@ -85,27 +85,26 @@ jobs:
           - name: Checkout
             uses: actions/checkout@v4
 
-          - name: Debug
-            run: echo  ${{ secrets.GA_AWS_REGION }}
-
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
                 role-to-assume: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
-                aws-region: us-east-1
+                aws-region: ${{ secrets.GA_AWS_REGION }}
 
           - name: Login to Amazon ECR Private
             id: login-ecr
             uses: aws-actions/amazon-ecr-login@v2
+            env:
+              AWS_REGION: ${{ secrets.GA_AWS_REGION }}
 
           - name: Generate timestamp
             id: timestamp
-            run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
+            run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
 
           - name: Build and push
             uses: docker/build-push-action@v5
             env:
-              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.timestamp }}"
+              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
             with:
               context: .
               push: true
@@ -114,34 +113,33 @@ jobs:
           - name: Set and output URL with tag
             id: output_url
             run: |
-              imageURL="${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.timestamp }}"
-              echo "imageURL=$imageURL" >> $GITHUB_ENV
-              echo "::set-output name=imageURL::$imageURL"
+              imageURL="${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              echo "IMAGEURL=$imageURL" >> $GITHUB_OUTPUT
             env:
               REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-              ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
-              TIMESTAMP: ${{ steps.timestamp.outputs.timestamp }}
+              ENVIRONMENT: ${{ needs.set_environment.outputs.ENVIRONMENT }}
+              TIMESTAMP: ${{ steps.timestamp.outputs.TIMESTAMP }}
 
           - name: Retrieve the latest task definition and update it
             id: register-task-def
             run: |
-              IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.environment}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.timestamp}}"
+              IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.ENVIRONMENT}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.TIMESTAMP}}"
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
               NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" '.taskDefinition | .containerDefinitions[0].image = $IMAGE_URI')
               echo "$NEW_TASK_DEF" > new-task-def.json
-              
+
               REGISTER_RESPONSE=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json)
               TASK_DEFINITION_ARN=$(echo "$REGISTER_RESPONSE" | jq -r '.taskDefinition.taskDefinitionArn')
-              echo "task_definition_arn=$TASK_DEFINITION_ARN" >> $GITHUB_ENV
+              echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> $GITHUB_OUTPUT
             env:
-              TASK_NAME: ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task
+              TASK_NAME: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task
 
           - name: Deploy new task definition to ECS
             uses: aws-actions/amazon-ecs-deploy-task-definition@v1
             with:
-              service: ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-service
-              cluster: ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-cluster
-              task-definition: ${{ env.task_definition_arn }}
+              service: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-service
+              cluster: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-cluster
+              task-definition: ${{ steps.register-task-def.outputs.TASK_DEFINITION_ARN }}
 
   update-eventbridge:
     runs-on: ubuntu-latest
