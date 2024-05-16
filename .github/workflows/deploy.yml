@@ -95,28 +95,21 @@ jobs:
             id: login-ecr
             uses: aws-actions/amazon-ecr-login@v2
 
-          - name: Create tag
-            id: create_tag
-            uses: anothrNick/github-tag-action@1.39.0
-            env:
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              WITH_V: true
-              FIRST_VERSION: '1.0.0'
-              DEFAULT_BUMP: minor
+          - name: Generate timestamp
+            id: timestamp
+            run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M%S')"
 
           - name: Build and push
             uses: docker/build-push-action@v5
-            env:
-                GITHUB_OAUTH_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
             with:
                 context: .
                 push: true
-                tags: "${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.environment}}-devrel-graphacademy-repository:${{steps.create_tag.outputs.tag}}"
+                tags: "${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.environment}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.timestamp}}"
 
           - name: Retrieve the latest task definition and update it
             id: register-task-def
             run: |
-              IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-repository:${{ steps.create_tag.outputs.tag }}"
+              IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.environment}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.timestamp}}"
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
               NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" '.taskDefinition | .containerDefinitions[0].image = $IMAGE_URI')
               echo "$NEW_TASK_DEF" > new-task-def.json
