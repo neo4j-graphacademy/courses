@@ -8,7 +8,7 @@ import { Language } from '../types';
 import { categoryOverviewPath } from '../utils';
 
 
-interface CategoryWithParent {
+interface CategoryWithParents {
     slug: string;
     status: 'active' | 'disabled';
     title: string;
@@ -18,26 +18,35 @@ interface CategoryWithParent {
     description: string;
     shortName: string;
 
-    parent?: string;
+    parents: { category: string, order: number }[];
 }
 
-const loadCategories = (): CategoryWithParent[] => {
+const loadCategories = (): CategoryWithParents[] => {
     const folder = path.join(CATEGORY_DIRECTORY)
     return fs.readdirSync(folder)
         .map(filename => basename(filename, '.adoc'))
         .map(slug => loadCategory(slug))
 }
 
-const loadCategory = (slug: string): CategoryWithParent => {
+const loadCategory = (slug: string): CategoryWithParents => {
     const file = loadFile(categoryOverviewPath(slug))
 
     const status = file.getAttribute(ATTRIBUTE_STATUS, 'active')
-    const parent = file.getAttribute(ATTRIBUTE_PARENT, null)
     const caption = file.getAttribute(ATTRIBUTE_CAPTION, null)
     const shortName = file.getAttribute(ATTRIBUTE_SHORTNAME, null)
     const description = file.getContent()
     const link = file.getAttribute(ATTRIBUTE_LINK, null)
     const language = file.getAttribute(ATTRIBUTE_LANGUAGE, DEFAULT_LANGUAGE)
+
+
+    const parents = file.getAttribute(ATTRIBUTE_PARENT, '')
+        .split(',')
+        .map((e: string) => e?.trim() || '')
+        .filter((e: string) => e !== '')
+        .map((entry: string) => entry.split(':'))
+        // @ts-ignore
+        .map(([category, order]) => ({ order: order || '99', category: category?.trim() }))
+
 
     return {
         slug,
@@ -48,7 +57,7 @@ const loadCategory = (slug: string): CategoryWithParent => {
         caption,
         description,
         shortName,
-        parent,
+        parents,
     }
 }
 
@@ -67,9 +76,10 @@ export async function mergeCategories(): Promise<void> {
         MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
         SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .link }
 
-        FOREACH (_ IN CASE WHEN row.parent IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (p:Category {id: apoc.text.base64Encode(row.parent)})
-            MERGE (p)-[:HAS_CHILD]->(c)
+        FOREACH (parent in row.parents |
+            MERGE (p:Category {id: apoc.text.base64Encode(parent.category)})
+            MERGE (p)-[r:HAS_CHILD]->(c)
+            SET r.order = parent.order
         )
     `, { categories })
 
