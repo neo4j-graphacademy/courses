@@ -123,16 +123,20 @@ jobs:
             id: register-task-def
             run: |
               IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.ENVIRONMENT}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.TIMESTAMP}}"
+              TASK_NAME="${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task"
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
-              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" '.taskDefinition | .containerDefinitions[0].image = $IMAGE_URI')
+              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" '
+                .taskDefinition |
+                del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+                .containerDefinitions[0].image = $IMAGE_URI
+              ')
               echo "$NEW_TASK_DEF"
               echo "$NEW_TASK_DEF" > new-task-def.json
-
+              
               REGISTER_RESPONSE=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json)
               TASK_DEFINITION_ARN=$(echo "$REGISTER_RESPONSE" | jq -r '.taskDefinition.taskDefinitionArn')
-              echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> $GITHUB_OUTPUT
+              echo "TASK_DEFINITION_ARN=$TASK_DEFINITION_ARN" >> $GITHUB_ENV
             env:
-              TASK_NAME: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task
               AWS_REGION: us-east-1
 
           - name: Deploy new task definition to ECS
