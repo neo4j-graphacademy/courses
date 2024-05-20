@@ -7,7 +7,7 @@ import { appendParams, categoryCypher } from "./cypher";
 
 interface DbCategory extends Category<any> {
     order: number;
-    parents: string[]
+    parents: { id: string, order: number }[]
 }
 
 export async function getCoursesByCategory<T extends Course>(user?: User, term: string | undefined = undefined, language: Language = LANGUAGE_EN): Promise<Category<T>[]> {
@@ -64,6 +64,20 @@ export async function getCoursesByCategory<T extends Course>(user?: User, term: 
 
     return root.map((category: DbCategory) => ({
         ...category,
-        children: categories.filter((row: DbCategory) => row.parents.includes(category.id))
+        children: categories
+            // Find only the categories under this parent
+            .filter(
+                (row: DbCategory) => row.parents.map(row => row.id).includes(category.id)
+            )
+            // Assign the order
+            .map((child: DbCategory) => {
+                const parentItem = child.parents.find(parent => parent.id === category.id)
+                return {
+                    ...child,
+                    order: parentItem?.order || 99
+                }
+            })
+            .sort((a, b) => a.order < b.order ? -1 : 1)
+
     })) as DbCategory[]
 }

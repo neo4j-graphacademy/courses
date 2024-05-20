@@ -4,16 +4,21 @@ import { Course } from "../model/course";
 
 let categories: Category<Course>[]
 
+type CategoryMapping = {
+    slug: string;
+    order: number;
+}
+
 type IntermediateCategory = Omit<Category<Course>, 'children'> & {
-    parents: string[];
-    children: string[];
+    parents: CategoryMapping[];
+    children: CategoryMapping[];
 }
 
 
 function getCategoryWithChildren(category: IntermediateCategory, categories: IntermediateCategory[]): Category<Course> {
     return {
         ...category,
-        children: categories.filter(item => item.parents.includes(category.slug))
+        children: categories.filter(item => item.parents.map(cat => cat.slug).includes(category.slug))
             .map(category => getCategoryWithChildren(category, categories))
     }
 }
@@ -28,8 +33,8 @@ export default async function getCategories(tx: Transaction): Promise<Category<C
         RETURN c {
             .*,
             link: coalesce(c.link, '/categories/'+ c.slug +'/'),
-            children: [ (c)-[:HAS_CHILD]->(ch) | ch.slug ],
-            parents: [ (c)<-[:HAS_CHILD]-(p) | p.slug ]
+            children: [ (c)-[chr:HAS_CHILD]->(ch) | {slug: ch.slug, order: chr.order} ],
+            parents: [ (c)<-[pr:HAS_CHILD]-(p) | {slug: p.slug, order: pr.order} ]
         } AS category
     `, {
 
