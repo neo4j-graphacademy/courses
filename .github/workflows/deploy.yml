@@ -107,7 +107,6 @@ jobs:
             env:
               IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
               aws-region: us-east-1
-              GITHUB_OAUTH_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
 
           - name: Set and output URL with tag
             id: output_url
@@ -125,15 +124,17 @@ jobs:
               IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.ENVIRONMENT}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.TIMESTAMP}}"
               TASK_NAME="${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task"
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
-              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" '
+              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" --arg GITHUB_OAUTH_TOKEN "$GITHUB_OAUTH_TOKEN" '
                 .taskDefinition |
                 del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-                .containerDefinitions[0].image = $IMAGE_URI
+                .containerDefinitions[0].image = $IMAGE_URI |
+                .containerDefinitions[0].environment += [{"name": "GITHUB_OAUTH_TOKEN", "value": $GITHUB_OAUTH_TOKEN}]
               ')
               echo "$NEW_TASK_DEF"
               echo "$NEW_TASK_DEF" > new-task-def.json
             env:
               AWS_REGION: us-east-1
+              GITHUB_OAUTH_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
           - name: Deploy new task definition to ECS
             uses: aws-actions/amazon-ecs-deploy-task-definition@v1
             with:
