@@ -13,13 +13,7 @@ jobs:
     steps:
       - name: Set up environment based on branch
         id: environment_check
-        run: |
-          echo ${{ secrets.NEO4J_HOST }}
-          echo ${{ secrets.NEO4J_USERNAME }}
-          echo ${{ secrets.BASE_URL }}
-          echo ${{ secrets.COMMUNITY_GRAPH_HOST }}
-          echo ${{ secrets.COMMUNITY_GRAPH_USERNAME }}
-          
+        run: |          
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           
           if [[ "$BRANCH_NAME" = "master" ]]; then
@@ -130,17 +124,41 @@ jobs:
               IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.ENVIRONMENT}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.TIMESTAMP}}"
               TASK_NAME="${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task"
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
-              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" --arg GITHUB_OAUTH_TOKEN "$GITHUB_OAUTH_TOKEN" '
-                .taskDefinition |
-                del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-                .containerDefinitions[0].image = $IMAGE_URI |
-                .containerDefinitions[0].environment += [{"name": "GITHUB_OAUTH_TOKEN", "value": $GITHUB_OAUTH_TOKEN}]
+
+              # Use the AWS CLI to fetch the secret values from AWS Secrets Manager
+              NEO4J_HOST=$(aws secretsmanager get-secret-value --secret-id NEO4J_HOST | jq -r .SecretString)
+              NEO4J_USERNAME=$(aws secretsmanager get-secret-value --secret-id NEO4J_USERNAME | jq -r .SecretString)
+              NEO4J_PASSWORD=$(aws secretsmanager get-secret-value --secret-id NEO4J_PASSWORD | jq -r .SecretString)
+              BASE_URL=$(aws secretsmanager get-secret-value --secret-id BASE_URL | jq -r .SecretString)
+              COMMUNITY_GRAPH_HOST=$(aws secretsmanager get-secret-value --secret-id COMMUNITY_GRAPH_HOST | jq -r .SecretString)
+              COMMUNITY_GRAPH_PASSWORD=$(aws secretsmanager get-secret-value --secret-id COMMUNITY_GRAPH_PASSWORD | jq -r .SecretString)
+              COMMUNITY_GRAPH_USERNAME=$(aws secretsmanager get-secret-value --secret-id COMMUNITY_GRAPH_USERNAME | jq -r .SecretString)
+
+              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" \
+                                                   --arg NEO4J_HOST "$NEO4J_HOST" \
+                                                   --arg NEO4J_USERNAME "$NEO4J_USERNAME" \
+                                                   --arg NEO4J_PASSWORD "$NEO4J_PASSWORD" \
+                                                   --arg BASE_URL "$BASE_URL" \
+                                                   --arg COMMUNITY_GRAPH_HOST "$COMMUNITY_GRAPH_HOST" \
+                                                   --arg COMMUNITY_GRAPH_PASSWORD "$COMMUNITY_GRAPH_PASSWORD" \
+                                                   --arg COMMUNITY_GRAPH_USERNAME "$COMMUNITY_GRAPH_USERNAME" '
+               .taskDefinition |
+               del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+               .containerDefinitions[0].image = $IMAGE_URI |
+               .containerDefinitions[0].environment += [
+                    {"name": "NEO4J_HOST", "value": $NEO4J_HOST},
+                    {"name": "NEO4J_USERNAME", "value": $NEO4J_USERNAME},
+                    {"name": "NEO4J_PASSWORD", "value": $NEO4J_PASSWORD},
+                    {"name": "BASE_URL", "value": $BASE_URL},
+                    {"name": "COMMUNITY_GRAPH_HOST", "value": $COMMUNITY_GRAPH_HOST},
+                    {"name": "COMMUNITY_GRAPH_PASSWORD", "value": $COMMUNITY_GRAPH_PASSWORD},
+                    {"name": "COMMUNITY_GRAPH_USERNAME", "value": $COMMUNITY_GRAPH_USERNAME}
+                  ]
               ')
               echo "$NEW_TASK_DEF"
               echo "$NEW_TASK_DEF" > new-task-def.json
             env:
               AWS_REGION: us-east-1
-              GITHUB_OAUTH_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
           - name: Deploy new task definition to ECS
             uses: aws-actions/amazon-ecs-deploy-task-definition@v1
             with:
