@@ -198,11 +198,16 @@ jobs:
 
       - name: Read YAML configurations, update Eventbridge Schedules and Targets
         run: |
+          # Extract the 'crons' array from the YAML file and convert it to a JSON array
           tasks=$(yq eval '.crons' deployment-config/cron-config.yaml | jq -c '.[]')
+
+          # Get AWS account ID and environment name
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ENV_NAME=${{ needs.set_environment.outputs.environment }}
 
+          # Loop through each task in the JSON array
           echo "$tasks" | while read -r task; do
+            # Extract values from the task JSON object
             NAME=$(echo $task | jq -r '.name')
             COMMAND=$(echo $task | jq -c '.command')
             CRON=$(echo $task | jq -r '.cron')
@@ -210,14 +215,15 @@ jobs:
             TASK_NAME="${ENV_NAME}-${NAME}-task-cron"
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
 
+            # Initialize environment variables JSON array
             ENV_VARS_JSON="[]"
-            for var_name in ${ENV_VARS}
-            do
+            # Loop through each environment variable
+            for var_name in ${ENV_VARS}; do
               var_value=$(aws secretsmanager get-secret-value --secret-id $var_name --region us-east-1 --query SecretString --output text)
               ENV_VARS_JSON=$(echo $ENV_VARS_JSON | jq --arg name "$var_name" --arg value "$var_value" '. += [{"name": $name, "value": $value}]')
             done
 
-            EVENTBRDIGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
+            EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
 
             DEF=$(aws ecs describe-task-definition --task-definition ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task)
 
@@ -231,5 +237,5 @@ jobs:
             target_arn=$(echo $response | jq -r '.taskDefinition.taskRoleArn')
 
             aws events put-rule --name $RULE_NAME --schedule-expression $CRON
-            aws events put-targets --rule $RULE_NAME --targets 'Id='"$target_id"',Arn='"$target_arn"',EcsParameters={TaskDefinitionArn="arn:aws:ecs:us-east-1:'"$AWS_ACCOUNT_ID"':task-definition/'"$TASK_NAME"':'"$revision"', RoleArn="'$EVENTBRDIGE_ROLE'"}'
+            aws events put-targets --rule $RULE_NAME --targets 'Id='"$target_id"',Arn='"$target_arn"',EcsParameters={TaskDefinitionArn="arn:aws:ecs:us-east-1:'"${AWS_ACCOUNT_ID}"':task-definition/'"$TASK_NAME"':'"$revision"', RoleArn="'$EVENTBRIDGE_ROLE'"}'
           done
