@@ -193,18 +193,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq
-          sudo pip install yq
+          sudo apt-get install -y wget
+          sudo wget -qO- https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 | sudo tee /usr/bin/jq > /dev/null
+          sudo chmod +x /usr/bin/jq
+          sudo pip install yq==4.9.2
 
       - name: Read YAML configurations, update Eventbridge Schedules and Targets
         run: |
-          tasks=$(yq eval '.crons' deployment-config/cron-config.yaml)
+          tasks=$(yq eval '.crons' deployment-config/cron-config.yaml -o=json)
 
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ENV_NAME=${{ needs.set_environment.outputs.environment }}
 
           echo "$tasks" | jq -c '.[]' | while read -r task; do
-            # Extract values from the task JSON object
             NAME=$(echo $task | jq -r '.name')
             COMMAND=$(echo $task | jq -c '.command')
             CRON=$(echo $task | jq -r '.cron')
@@ -213,7 +214,7 @@ jobs:
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
 
             ENV_VARS_JSON="[]"
-            echo $ENV_VARS | jq -r '.[]' | while read -r var_name; do
+            echo "$ENV_VARS" | jq -r '.[]' | while read -r var_name; do
               var_value=$(aws secretsmanager get-secret-value --secret-id $var_name --region us-east-1 --query SecretString --output text)
               ENV_VARS_JSON=$(echo $ENV_VARS_JSON | jq --arg name "$var_name" --arg value "$var_value" '. += [{"name": $name, "value": $value}]')
             done
@@ -234,5 +235,6 @@ jobs:
             aws events put-rule --name $RULE_NAME --schedule-expression $CRON
             aws events put-targets --rule $RULE_NAME --targets "Id=${target_id},Arn=${target_arn},EcsParameters={TaskDefinitionArn=arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:task-definition/${TASK_NAME}:${revision}, RoleArn=${EVENTBRIDGE_ROLE}}"
           done
+      
       
   
