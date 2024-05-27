@@ -214,10 +214,18 @@ jobs:
             TASK_NAME="${ENV_NAME}-${NAME}-task-cron"
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
           
+            ENV_VARS_ARRAY=($(echo $ENV_VARS | jq -r '.[]'))
+
             output="["
     
-            for var in "${ENV_VARS[@]}"; do
-              secret=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/$var" --region us-east-1 --query SecretString --output text)
+            for var in "${ENV_VARS_ARRAY[@]}"; do
+              secret_name="dev/graphacademy/$var"
+              if [[ ! $secret_name =~ ^[a-zA-Z0-9/_+=.@-]+$ ]]; then
+                echo "Invalid secret name: $secret_name"
+                exit 1
+              fi
+              
+              secret=$(aws secretsmanager get-secret-value --secret-id "$secret_name" --region us-east-1 --query SecretString --output text)
               value=$(echo $secret | jq -r ".\"$var\"")
               env_var="{\"name\":\"$var\",\"value\":\"$value\"}"
               output+="$env_var,"
