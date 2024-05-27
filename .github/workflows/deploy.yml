@@ -214,31 +214,28 @@ jobs:
             TASK_NAME="${ENV_NAME}-${NAME}-task-cron"
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
           
-            OUTPUT=()
-            ENV_JSON_ARRAY='['
-            
-            for VAR in "${ENV_VARS[@]}"
-            do
-              RESULT=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/${VAR}" --region us-east-1 --query SecretString --output text | jq -c .)
-              ENV_JSON_OBJ=$(echo "{ \"name\": \"${VAR}\", \"value\": ${RESULT} }")
-              ENV_JSON_ARRAY="${ENV_JSON_ARRAY}${ENV_JSON_OBJ},"
-              OUTPUT+=($RESULT)
+            output="["
+    
+            for var in "${ENV_VARS[@]}"; do
+              secret=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/$var" --region us-east-1 --query SecretString --output text)
+              value=$(echo $secret | jq -r ".\"$var\"")
+              env_var="{\"name\":\"$var\",\"value\":\"$value\"}"
+              output+="$env_var,"
             done
-          
-            ENV_JSON_ARRAY=$(echo "${ENV_JSON_ARRAY%?}]")
-            echo "ENV_JSON_ARRAY: $ENV_JSON_ARRAY"
+    
+            output="${output%,}]"
           
             EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
           
             DEF=$(aws ecs describe-task-definition --task-definition ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task)
           
-            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$ENV_JSON_ARRAY" \
-              '.taskDefinition |
-              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-              .containerDefinitions[0].command = $command |
-              .containerDefinitions[0].environment = $environment |
-              .family = "'$TASK_NAME'"
-            ')
+            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" \
+                  '.taskDefinition |
+                  del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+                  .containerDefinitions[0].command = $command |
+                  .containerDefinitions[0].environment = $environment |
+                  .family = "'$TASK_NAME'"
+                ')
           
             echo "$NEW_DEF"
             echo "$NEW_DEF" > "new-task-def-${NAME}.json"
