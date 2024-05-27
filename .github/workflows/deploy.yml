@@ -216,15 +216,24 @@ jobs:
           
             echo $ENV_VARS
           
-            ENV_VARS_JSON="[]"
-            echo "$ENV_VARS" | jq -r '.[]' | while read -r var_name; do
+            VAR_NAMES=$(echo "$ENV_VARS" | jq -r '.[]')
+
+            for var_name in $VAR_NAMES; do
               echo "dev/graphacademy/$var_name"
               var_value=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/$var_name" --region us-east-1 --query SecretString --output text)
               echo $var_value
-              ENV_VARS_JSON=$(echo $ENV_VARS_JSON | jq --arg name "$var_name" --arg value "$var_value" '. += [{($name): $value}]')
+            
+              if echo "$var_value" | jq -e . >/dev/null 2>&1; then
+                var_value_json=$(echo "$var_value" | jq -c .)
+              else
+                var_value_json=$(jq -n --arg value "$var_value" '{"value": $value}')
+              fi
+              echo $var_value_json
+            
+              ENV_VARS_JSON=$(echo $ENV_VARS_JSON | jq --arg name "$var_name" --argjson value "$var_value_json" '. += [{($name): $value}]')
+              echo $ENV_VARS_JSON
             done
-            echo $ENV_VARS_JSON
-          
+            
             echo "Resulting env vars JSON:"
             echo "$ENV_VARS_JSON"
           
