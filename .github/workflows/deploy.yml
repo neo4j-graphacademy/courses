@@ -214,33 +214,26 @@ jobs:
             TASK_NAME="${ENV_NAME}-${NAME}-task-cron"
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
           
-            echo $ENV_VARS
-          
-            VAR_NAMES=$(echo "$ENV_VARS" | jq -r '.[]')
-
-            for var_name in $VAR_NAMES; do
-              echo "dev/graphacademy/$var_name"
-              var_value=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/$var_name" --region us-east-1 --query SecretString --output text)
-              echo $var_value
+            OUTPUT=()
+            ENV_JSON_ARRAY='['
             
-              if echo "$var_value" | jq -e . >/dev/null 2>&1; then
-                var_value_json=$(echo "$var_value" | jq -c .)
-              else
-                var_value_json=$(jq -n --arg value "$var_value" '$value')
-              fi
-            
-              ENV_VARS_JSON=$(echo $ENV_VARS_JSON | jq --arg name "$var_name" --argjson value "$var_value_json" '. += [{($name): $value}]')
+            for VAR in "${ENV_VARS[@]}"
+            do
+              RESULT=$(aws secretsmanager get-secret-value --secret-id "dev/graphacademy/${VAR}" --region us-east-1 --query SecretString --output text | jq -c .)
+              ENV_JSON_OBJ=$(echo "{ \"name\": \"${VAR}\", \"value\": ${RESULT} }")
+              ENV_JSON_ARRAY="${ENV_JSON_ARRAY}${ENV_JSON_OBJ},"
+              OUTPUT+=($RESULT)
             done
-            
-            echo "Resulting env vars JSON:"
-            echo "$ENV_VARS_JSON"
+          
+            ENV_JSON_ARRAY=$(echo "${ENV_JSON_ARRAY%?}]")
+            echo "ENV_JSON_ARRAY: $ENV_JSON_ARRAY"
           
             EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
           
             DEF=$(aws ecs describe-task-definition --task-definition ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task)
           
-            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$ENV_VARS_JSON" '
-              .taskDefinition |
+            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$ENV_JSON_ARRAY" \
+              '.taskDefinition |
               del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
               .containerDefinitions[0].command = $command |
               .containerDefinitions[0].environment = $environment |
