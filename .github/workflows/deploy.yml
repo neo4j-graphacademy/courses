@@ -213,28 +213,23 @@ jobs:
             ENV_VARS=$(echo $task | jq -c '.env')
             TASK_NAME="${ENV_NAME}-${NAME}-task-cron"
             RULE_NAME="${ENV_NAME}-${NAME}-rule"
-          
             ENV_VARS_ARRAY=($(echo $ENV_VARS | jq -r '.[]'))
 
             output="["
-    
             for var in "${ENV_VARS_ARRAY[@]}"; do
               secret_name="dev/graphacademy/$var"
               if [[ ! $secret_name =~ ^[a-zA-Z0-9/_+=.@-]+$ ]]; then
                 echo "Invalid secret name: $secret_name"
                 exit 1
               fi
-              
               secret=$(aws secretsmanager get-secret-value --secret-id "$secret_name" --region us-east-1 --query SecretString --output text)
               value=$(echo $secret | jq -r ".\"$var\"")
               env_var="{\"name\":\"$var\",\"value\":\"$value\"}"
               output+="$env_var,"
             done
-    
             output="${output%,}]"
           
             EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
-          
             DEF=$(aws ecs describe-task-definition --task-definition ${{ needs.set_environment.outputs.environment }}-devrel-graphacademy-task)
           
             NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" \
@@ -245,22 +240,15 @@ jobs:
                   .family = "'$TASK_NAME'"
                 ')
           
-            echo "$NEW_DEF"
             echo "$NEW_DEF" > "new-task-def-${NAME}.json"
           
             response=$(aws ecs register-task-definition --cli-input-json file://new-task-def-${NAME}.json)
-            echo $response
             revision=$(echo $response | jq -r '.taskDefinition.revision')
-            echo $revision
             target_id=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
-            echo $target_id
             target_arn=$(echo $response | jq -r '.taskDefinition.taskRoleArn')
-            echo $target_arn
         
-            echo "$CRON"
             aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
-            echo "here"
-            aws events put-targets --rule $RULE_NAME --targets "Id=${target_id},Arn=${target_arn},EcsParameters={TaskDefinitionArn=arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:task-definition/${TASK_NAME}:${revision}, RoleArn=${EVENTBRIDGE_ROLE}}"
+            aws events put-targets --rule $RULE_NAME --targets "Id=${target_id},Arn=${target_arn},RoleArn=${EVENTBRIDGE_ROLE},EcsParameters={TaskDefinitionArn=arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:task-definition/${TASK_NAME}:${revision}}"
           done
   
     
