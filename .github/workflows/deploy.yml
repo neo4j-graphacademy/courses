@@ -35,6 +35,8 @@ jobs:
         contents: read
       env:
         AWS_REGION: us-east-1
+        ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
+        ASSUME_ROLE: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
 
       steps:
           - name: Checkout
@@ -48,7 +50,7 @@ jobs:
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
-              role-to-assume: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
+              role-to-assume: ${{ env.ASSUME_ROLE }}
               aws-region: us-east-1
 
           - name: Install NPM Dependencies
@@ -61,7 +63,8 @@ jobs:
             run: npm run build:ui
 
           - name: Sync Assets
-            run: aws s3 sync public/ s3://${{ needs.set_environment.outputs.ENVIRONMENT }}-graphacademy-assets/assets/ --acl public-read
+            run: aws s3 sync public/ s3://${{ env.ENVIRONMENT }}-graphacademy-assets/assets/ --acl public-read
+
 #    invalidate-cache:
 #        runs-on: ubuntu-latest
 #        needs: assets
@@ -80,6 +83,10 @@ jobs:
       permissions:
         id-token: write
         contents: read
+      env:
+        AWS_REGION: us-east-1
+        ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
+        ASSUME_ROLE: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
       steps:
           - name: Checkout
             uses: actions/checkout@v4
@@ -87,7 +94,7 @@ jobs:
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
-                role-to-assume: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
+                role-to-assume: ${{ env.ASSUME_ROLE }}
                 aws-region: us-east-1
 
           - name: Login to Amazon ECR Private
@@ -103,26 +110,25 @@ jobs:
             with:
               context: .
               push: true
-              tags: ${{env.IMAGE}}
+              tags: ${{ env.IMAGE }}
             env:
-              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
-              aws-region: us-east-1
+              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              aws-region: ${{ env.AWS_REGION }}
 
           - name: Set and output URL with tag
             id: output_url
             run: |
-              imageURL="${{ steps.login-ecr.outputs.registry }}/${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              imageURL="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
               echo "IMAGEURL=$imageURL" >> $GITHUB_ENV
             env:
               REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-              ENVIRONMENT: ${{ needs.set_environment.outputs.ENVIRONMENT }}
-              TIMESTAMP: ${{ steps.timestamp.outputs.TIMESTAMP }}
 
           - name: Retrieve the latest task definition and update it
             id: register-task-def
             run: |
-              IMAGE_URI="${{steps.login-ecr.outputs.registry}}/${{needs.set_environment.outputs.ENVIRONMENT}}-devrel-graphacademy-repository:${{steps.timestamp.outputs.TIMESTAMP}}"
-              TASK_NAME="${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-task"
+              IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              TASK_NAME="${{ env.ENVIRONMENT }}-devrel-graphacademy-task"
+              
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
               if [ $? -ne 0 ]; then
                 echo "Failed to describe task definition: $TASK_NAME 🚫"
@@ -196,8 +202,8 @@ jobs:
           - name: Deploy new task definition to ECS
             uses: aws-actions/amazon-ecs-deploy-task-definition@v1
             with:
-              service: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-service
-              cluster: ${{ needs.set_environment.outputs.ENVIRONMENT }}-devrel-graphacademy-cluster
+              service: ${{ env.ENVIRONMENT }}-devrel-graphacademy-service
+              cluster: ${{ env.ENVIRONMENT }}-devrel-graphacademy-cluster
               task-definition: new-task-def.json
 
   update-eventbridge:
@@ -206,6 +212,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      AWS_REGION: us-east-1
+      ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
+      ASSUME_ROLE: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -213,7 +223,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}
+          role-to-assume: ${{ env.ASSUME_ROLE }}
           aws-region: us-east-1
 
       - name: Install jq and yq
@@ -230,7 +240,7 @@ jobs:
           tasks=$(yq r -j deployment-config/cron-config.yaml crons)
           
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          ENV_NAME=${{ needs.set_environment.outputs.environment }}
+          ENV_NAME=${{ env.ENVIRONMENT }}
           
           echo "$tasks" | jq -c '.[]' | while read -r task; do
             NAME=$(echo $task | jq -r '.name')
