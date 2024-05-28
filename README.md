@@ -286,11 +286,11 @@ This value defaults to `false`.
 
 ## Deployment
 
-The live site is hosted via AWS using Kubernetes - Kudos to Max for sorting this out!
+The live site is hosted via AWS ECS.
 
 To redeploy:
 
-> Build the latest version:
+> To trigger latest version Build the latest version:
 
 ```
 skaffold build -t latest
