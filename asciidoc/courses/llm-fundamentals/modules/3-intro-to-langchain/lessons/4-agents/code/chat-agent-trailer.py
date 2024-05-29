@@ -5,6 +5,9 @@ from langchain import hub
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.schema import StrOutputParser
+# tag::import-youtube[]
+from langchain_community.tools import YouTubeSearchTool
+# end::import-youtube[]
 from langchain_community.chat_message_histories import Neo4jChatMessageHistory
 from langchain_community.graphs import Neo4jGraph
 from uuid import uuid4
@@ -32,8 +35,18 @@ prompt = ChatPromptTemplate.from_messages(
 
 movie_chat = prompt | llm | StrOutputParser()
 
+# tag::youtube[]
+youtube = YouTubeSearchTool()
+# end::youtube[]
+
 def get_memory(session_id):
     return Neo4jChatMessageHistory(session_id=session_id, graph=graph)
+
+# tag::trailer-search[]
+def call_trailer_search(input):
+    input = input.replace(",", " ")
+    return youtube.run(input)
+# end::trailer-search[]
 
 # tag::tools[]
 tools = [
@@ -41,24 +54,25 @@ tools = [
         name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
         func=movie_chat.invoke,
-    )
+    ),
+    Tool.from_function(
+        name="Movie Trailer Search",
+        description="Use when needing to find a movie trailer. The question will include the word trailer. Return a link to a YouTube video.",
+        func=call_trailer_search,
+    ),
 ]
 # end::tools[]
 
-# tag::agent[]
 agent_prompt = hub.pull("hwchase17/react-chat")
 agent = create_react_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools)
-# end::agent[]
 
-#tag::chat_agent[]
 chat_agent = RunnableWithMessageHistory(
     agent_executor,
     get_memory,
     input_messages_key="input",
     history_messages_key="chat_history",
 )
-#end::chat_agent[]
 
 while True:
     q = input("> ")

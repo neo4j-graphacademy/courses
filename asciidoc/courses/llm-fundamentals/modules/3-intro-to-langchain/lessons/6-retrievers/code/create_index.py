@@ -1,5 +1,6 @@
 from langchain_openai import OpenAIEmbeddings
-from langchain_vectorstores.neo4j_vector import Neo4jVector
+from langchain_community.graphs import Neo4jGraph
+from langchain_community.vectorstores import Neo4jVector
 from langchain.schema import Document
 
 # A list of Documents
@@ -11,14 +12,20 @@ documents = [
 ]
 
 # Service used to create the embeddings
-embedding_provider = OpenAIEmbeddings(openai_api_key="sk-...")
+embedding_provider = OpenAIEmbeddings(
+    openai_api_key="sk-..."
+)
+
+graph = Neo4jGraph(
+    url="bolt://localhost:7687",
+    username="neo4j",
+    password="pleaseletmein"
+)
 
 new_vector = Neo4jVector.from_documents(
     documents,
     embedding_provider,
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
+    graph=graph,
     index_name="myVectorIndex",
     node_label="Chunk",
     text_node_property="text",

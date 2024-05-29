@@ -1,17 +1,22 @@
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores.neo4j_vector import Neo4jVector
+from langchain_community.graphs import Neo4jGraph
+from langchain_community.vectorstores import Neo4jVector
 
 embedding_provider = OpenAIEmbeddings(
     openai_api_key="sk-..."
 )
 
-movie_plot_vector = Neo4jVector.from_existing_index(
-    embedding_provider,
+graph = Neo4jGraph(
     url="bolt://localhost:7687",
     username="neo4j",
-    password="pleaseletmein",
+    password="pleaseletmein"
+)
+
+movie_plot_vector = Neo4jVector.from_existing_index(
+    embedding_provider,
+    graph=graph,
     index_name="moviePlots",
-    embedding_node_property="embedding",
+    embedding_node_property="plotEmbedding",
     text_node_property="plot",
 )
 

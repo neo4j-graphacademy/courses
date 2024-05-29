@@ -33,7 +33,6 @@ Question: {question}
 cypher_generation_prompt = PromptTemplate(
     template=CYPHER_GENERATION_TEMPLATE,
     input_variables=["schema", "question"], 
-    # validate_template=True, 
 )
 
 cypher_chain = GraphCypherQAChain.from_llm(
