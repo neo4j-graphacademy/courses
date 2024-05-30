@@ -12,13 +12,6 @@ Storing conversation history in a Neo4j database allows you to analyze the conve
 
 == Connecting to a Neo4j instance
 
-You must install the `neo4j` Python package to connect to a Neo4j database.
-
-[source,shell]
-----
-pip install neo4j
-----
-
 The following code will connect to a Neo4j database and run a simple query.
 
 [source,python]
@@ -56,7 +49,9 @@ You can refresh the schema by calling the `graph.refresh_schema()` method.
 
 == Conversation History
 
-In the previous lesson, you used the `ChatMessageHistory` component to store conversation history in memory.
+In the previous lesson, you created a program that used the `ChatMessageHistory` component to store conversation history in memory.
+
+You will now update this program to store the conversation history in your Neo4j sandbox using the `Neo4jChatMessageHistory` component.
 
 [%collapsible]
 .Reveal the code
@@ -66,8 +61,6 @@ In the previous lesson, you used the `ChatMessageHistory` component to store con
 include::../3.5-memory/code/chat-model-memory.py[tags=**]
 ----
 ====
-
-You will now update this program to store the conversation history in your Neo4j sandbox using the `Neo4jChatMessageHistory` component.
 
 === Session ID
 
@@ -107,17 +100,19 @@ Username:: [copy]#{sandbox_username}#
 Password:: [copy]#{sandbox_password}#
 ====
 
-Previously the `get_memory` function returned an instance of  `ChatMessageHistory`. 
+Previously, the `get_memory` function returned an instance of  `ChatMessageHistory`. 
 
 The `get_memory` function should now return an instance of `Neo4jChatMessageHistory`.
 The `session_id` should be passed as a parameter, along with the `graph` connection you just created.
 
 [source,python]
 ----
+include::code/chat-model-memory-neo4j.py[tags=import-neo4j-chat]
+
 include::code/chat-model-memory-neo4j.py[tags=get-memory]
 ----
 
-Finally, you need to add the `SESSION_ID` to the `config` when you `invoke` the chat model.
+Finally, you must add the `SESSION_ID` to the `config` when you `invoke` the chat model.
 
 [source,python]
 ----
@@ -140,7 +135,7 @@ The conversation history will now be stored in your Neo4j sandbox.
 
 The conversation history is stored using the following data model:
 
-image::images/Neo4jChatMessageHistory.svg[A graph data model showing 2 nodes Session and Message connected by a LAST_MESSAGE relationship. There is a circular NEXT relationship on the Message node.]
+image::images/Neo4jChatMessageHistory.png[A graph data model showing 2 nodes Session and Message connected by a LAST_MESSAGE relationship. There is a circular NEXT relationship on the Message node.]
 
 The `Session` node represents a conversation session and has an `id` property.
 
@@ -149,7 +144,7 @@ The `Message` node represents a message in the conversation and has the followin
 * `content` - The message content
 * `type` - The message type: `human`, `ai`, or `system`
 
-The `LAST_MESSAGE` relationship connects the `Session` node to the last `Message` node in the conversation. The `NEXT` relationship connects `Message` nodes in the conversation.
+The `LAST_MESSAGE` relationship connects the `Session` node to the conversation's last `Message` node. The `NEXT` relationship connects `Message` nodes in the conversation.
 
 You can return the graph of the conversation history using the following Cypher query:
 
@@ -158,6 +153,8 @@ You can return the graph of the conversation history using the following Cypher 
 MATCH (s:Session)-[:LAST_MESSAGE]->(last:Message)<-[:NEXT*]-(msg:Message)
 RETURN s, last, msg
 ----
+
+image::images/conversation-graph.svg[A graph showing a Session node connected to a Message through with a LAST_MESSAGE relationship. Message nodes are connected to each other with NEXT relationships.]
 
 You can return the conversation history for a single session by filtering on the `Session.id` property.
 
