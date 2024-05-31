@@ -1,18 +1,30 @@
 from langchain_openai import ChatOpenAI
-# tag::import-messages[]
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-# end::import-messages[]
 from langchain.schema import StrOutputParser
-# tag::import-memory[]
-from langchain_community.chat_message_histories import ChatMessageHistory
-# end::import-memory[]
-# tag::import-runnable[]
 from langchain_core.runnables.history import RunnableWithMessageHistory
-# end::import-runnable[]
+# tag::import-neo4j[]
+from langchain_community.graphs import Neo4jGraph
+# end::import-neo4j[]
+# tag::import-neo4j-chat[]
+from langchain_community.chat_message_histories import Neo4jChatMessageHistory
+# end::import-neo4j-chat[]
+# tag::session-id[]
+from uuid import uuid4
+
+SESSION_ID = str(uuid4())
+print(f"Session ID: {SESSION_ID}")
+# end::session-id[]
 
 chat_llm = ChatOpenAI(openai_api_key="sk-...")
 
-# tag::prompt[]
+# tag::neo4j-graph[]
+graph = Neo4jGraph(
+    url="bolt://localhost:7687",
+    username="neo4j",
+    password="pleaseletmein"
+)
+# end::neo4j-graph[]
+
 prompt = ChatPromptTemplate.from_messages(
     [
         (
@@ -24,16 +36,12 @@ prompt = ChatPromptTemplate.from_messages(
         ("human", "{question}"),
     ]
 )
-# end::prompt[]
 
-# tag::memory[]
-memory = ChatMessageHistory()
-
+# tag::get-memory[]
 def get_memory(session_id):
-    return memory
-# end::memory[]
+    return Neo4jChatMessageHistory(session_id=session_id, graph=graph)
+# end::get-memory[]
 
-# tag::chat-history[]
 chat_chain = prompt | chat_llm | StrOutputParser()
 
 chat_with_message_history = RunnableWithMessageHistory(
@@ -42,8 +50,6 @@ chat_with_message_history = RunnableWithMessageHistory(
     input_messages_key="question",
     history_messages_key="chat_history",
 )
-# end::chat-history[]
-
 
 current_weather = """
     {
@@ -54,10 +60,10 @@ current_weather = """
         ]
     }"""
 
-# tag::loop[]
 while True:
     question = input("> ")
 
+    # tag::invoke[]
     response = chat_with_message_history.invoke(
         {
             "context": current_weather,
@@ -65,9 +71,9 @@ while True:
             
         }, 
         config={
-            "configurable": {"session_id": "none"}
+            "configurable": {"session_id": SESSION_ID}
         }
     )
+    # end::invoke[]
     
     print(response)
-# end::loop[]

@@ -1,7 +1,8 @@
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+# tag::import[]
 from langchain.schema import StrOutputParser
+# end::import[]
 
 llm = OpenAI(
     openai_api_key="sk-...")
@@ -14,11 +15,9 @@ Respond using cockney rhyming slang.
 Tell me about the following fruit: {fruit}
 """)
 
-llm_chain = LLMChain(
-    llm=llm,
-    prompt=template,
-    output_parser=StrOutputParser()
-)
+# tag::llm_chain[]
+llm_chain = template | llm | StrOutputParser()
+# end::llm_chain[]
 
 response = llm_chain.invoke({"fruit": "apple"})
 

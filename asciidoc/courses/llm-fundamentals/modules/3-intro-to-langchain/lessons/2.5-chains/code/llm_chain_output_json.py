@@ -1,7 +1,8 @@
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+# tag::import[]
 from langchain.output_parsers.json import SimpleJsonOutputParser
+# end::import[]
 
 llm = OpenAI(
     openai_api_key="sk-...")
@@ -16,11 +17,9 @@ Output JSON as {{"description": "your response here"}}
 Tell me about the following fruit: {fruit}
 """)
 
-llm_chain = LLMChain(
-    llm=llm,
-    prompt=template,
-    output_parser=SimpleJsonOutputParser()
-)
+# tag::llm_chain[]
+llm_chain = template | llm | SimpleJsonOutputParser()
+# end::llm_chain[]
 
 response = llm_chain.invoke({"fruit": "apple"})
 
