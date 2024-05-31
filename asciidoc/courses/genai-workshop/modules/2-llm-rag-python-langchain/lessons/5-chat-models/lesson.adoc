@@ -13,13 +13,13 @@ Open the `2-llm-rag-python-langchain\chat_model.py` file.
 .chat_model.py
 [source,python]
 ----
-include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model.py[]
+include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model.py[tag=**]
 ----
 
 Review this program and identify the following:
 
-* The prompt provides the instructions to the LLM.
-* The chain is created using a `ChatOpenAI` object and the prompt.
+* The prompt is a series of messages ("system" and "human")
+* The chain consists of the prompt, a `ChatOpenAI` object and an output parser
 * The question is passed to the chat model as a parameter of the `invoke` method.
 
 Run the program and note how the LLM responds to the question.
@@ -36,10 +36,10 @@ Open the `2-llm-rag-python-langchain\chat_model_context.py` file.
 .chat_model_context.py
 [source,python]
 ----
-include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model_context.py[]
+include::{repository-raw}/main/2-llm-rag-python-langchain/chat_model_context.py[tag=**]
 ----
 
-The prompt contains an additional `context` variable to pass the surf conditions to the LLM.
+The prompt contains an additional `context` system message to pass the surf conditions to the LLM.
 
 [source,python]
 ----
@@ -67,16 +67,7 @@ Run the program and predict what the response will be.
 ====
 Below is a typical response. The LLM has used the context passed in the prompt to provide a more accurate response.
 
-    {
-        'context': {
-            "surf": [
-                {"beach": "Fistral", "conditions": "6ft waves and offshore winds"},
-                {"beach": "Polzeath", "conditions": "Flat and calm"},
-                {"beach": "Watergate Bay", "conditions": "3ft waves and onshore winds"}
-            ]},
-        'question': 'What is the weather like on Watergate Bay?',
-        'text': "Dude, the surf at Watergate Bay is pumping! We got some sick 3ft waves rolling in, but unfortunately, we got some onshore winds messing with the lineup. But hey, it's all good, still plenty of stoke to be had out there!"
-    }
+    Dude, the surf at Watergate Bay is pumping! We got some sick 3ft waves rolling in, but unfortunately, we got some onshore winds messing with the lineup. But hey, it's all good, still plenty of stoke to be had out there!
 ====
 
 Investigate what happens when you change the context by adding additional beach conditions.
@@ -100,45 +91,86 @@ Without a memory the conversation may go in circles:
 
 You are going to add a memory to the chat model code.
 
+You will modify the program to store the chat history in Neo4j and pass it to the LLM in the prompt.
+
+You will need to:
+
+. Connect to the Neo4j database
+. Create a function that returns a `Neo4jChatMessageHistory` component that will store the chat history
+. Modify the prompt to include the chat history
+. Wrap the chat chain in a link:https://python.langchain.com/v0.2/docs/concepts/#runnable-interface[_Runnable_] that will store and retrieve the chat history
+
+=== Add History to the Prompt
+
+Start by importing the required components.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=imports]
+----
+
 As each call to the LLM is stateless, you need to include the chat history in every call to the LLM. 
-You can modify the prompt template to include the `{chat_history}` in a variable.
+You can modify the prompt template to include the chat history as a list of messages using a `MessagesPlaceholder` object.
 
 [source, python]
 ----
 include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=prompt]
 ----
 
-The `chat_history` variable will contain the conversation history.
+=== Session ID
 
-You will use the link:https://python.langchain.com/docs/modules/memory/types/buffer[Conversation Buffer] memory type to store the conversation history between you and the LLM.
+You must create and assign a session ID to each conversation to identify them.
+You can generate a random UUID using the Python `uuid.uuid4` function.
 
-Create the `ConversationBufferMemory` and pass it to the `LLMChain`:
-
-[source, python]
-----
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=import_memory]
-
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=memory]
-
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=chat_chain]
-----
-
-There are three parameters to the `ConversationBufferMemory`:
-
-* `memory_key` - is the variable in the prompt that will hold the conversation history
-* `input_key` - is the variable in the prompt that will hold the user's question to the chat model
-* `return_messages` - when True, the conversation history will be returned as a list
-
-When you create the `LLMChain`, the `memory` parameter should be set to the `ConversationBufferMemory` instance.
-
-When you ask the chat model multiple questions, the LLM will use the context from the previous questions when responding.
-
-Create a simple loop and ask the chat model a few questions:
+Create a new `SESSION_ID` constant in your chat model program.
 
 [source, python]
 ----
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=response]
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=session-id]
 ----
+
+=== Neo4j Chat Message History
+
+Create a `Neo4jGraph` object to connect to your Neo4j sandbox.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=neo4j-graph]
+----
+
+The chain will require a callback function to return a memory component. 
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=get-memory]
+----
+
+The `get_memory` function will return an instance of `Neo4jChatMessageHistory`.
+You should pass the `session_id` and the `graph` connection you created as parameters.
+
+== Chat Message History
+
+You can now create a new chain using the `RunnableWithMessageHistory`, passing the `chat_chain` and the `get_memory` function.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=chat-history]
+----
+
+== Invoke the Chat Model
+
+When you call the `chat_with_message_history` chain, the user's question and the response will be stored in the `ChatMessageHistory` memory component.
+Every subsequent call to the `chat_with_message_history` chain will include the chat history in the prompt.
+
+Put the call to the `chat_with_message_history` chain in a loop and ask the chat model a few questions.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_memory.py[tag=chat-history]
+----
+
+[NOTE]
+The `SESSION_ID` is passed to the chain in the `invoke` configuration.
 
 [%collapsible]
 .Click to reveal the complete code.
@@ -149,20 +181,21 @@ include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_model_m
 ----
 ====
 
-[TIP]
-.See the conversation history
-====
-You can set the `LLMChain` `verbose` parameter to `True` to see the conversation history in the console.
-[source, python]
+=== Conversation History Graph
+
+The conversation history is stored using the following data model:
+
+image::images/Neo4jChatMessageHistory.png[A graph data model showing 2 nodes Session and Message connected by a LAST_MESSAGE relationship. There is a circular NEXT relationship on the Message node.]
+
+You can return the graph of the conversation history using the following Cypher query:
+
+[source, cypher]
 ----
-chat_chain = LLMChain(
-    llm=chat_llm, 
-    prompt=prompt, 
-    memory=memory, 
-    verbose=True
-    )
+MATCH (s:Session)-[:LAST_MESSAGE]->(last:Message)<-[:NEXT*]-(msg:Message)
+RETURN s, last, msg
 ----
-====
+
+image::images/conversation-graph.svg[A graph showing a Session node connected to a Message through with a LAST_MESSAGE relationship. Message nodes are connected to each other with NEXT relationships.]
 
 == Continue
 
@@ -173,6 +206,6 @@ read::Move on[]
 [.summary]
 == Lesson Summary
 
-In this lesson, you learned about ..
+You learned how to use an LLM chat model, give it context, and store the conversation memory in Neo4j.
 
-In the next lesson, you will learn about ..
+In the next lesson, you will learn how to create agents.
