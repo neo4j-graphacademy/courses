@@ -1,0 +1,126 @@
+= Applying Conversation History
+:type: challenge
+:order: 3
+:optional: true
+
+To pass this lesson, use the `getHistory()` and `saveHistory()` methods to save and retrieve the conversation history from the database.
+
+1. Add a config object to the `chain.invoke()` call, passing `{ configurable: { sessionId } }`
+2. Within `RunnablePassthrough.assign()`, use the `sessionId` from `config.configurable?` to retrieve the message history via the `getHistory()` function.  Assign this to the `history` key
+3. Add a `MessagesPlaceholder` for `history` to the `ChatMessagePromptTemplate`
+4. Save the input and response to the database using the `saveHistory()` function
+
+[%collapsible]
+.Solution
+====
+
+[source,typescript]
+----
+export async function call(
+  message: string,
+  sessionId: string
+): Promise<string> {
+  const embeddings = new OpenAIEmbeddings({
+    openAIApiKey: process.env.OPEN_AI_API_KEY,
+  });
+  const store = await Neo4jVectorStore.fromExistingGraph(embeddings, {
+    url: process.env.NEO4J_URI,
+    username: process.env.NEO4J_USERNAME,
+    password: process.env.NEO4J_PASSWORD,
+    nodeLabel: "Talk",
+    textNodeProperties: ["title", "description"],
+    indexName: "talk_embeddings_openai",
+    embeddingNodeProperty: "embedding",
+    retrievalQuery: `
+    RETURN node.description AS text, score,
+    node {
+      .time, .title,
+      url: 'https://athens.cityjsconf.org/'+ node.url,
+      speaker: [
+        (node)-[:GIVEN_BY]->(s) |
+        s { .name, .company, .x_handle, .bio }
+      ][0],
+      room: [ (node)-[:IN_ROOM]->(r) | r.name ][0],
+      tags: [ (node)-[:HAS_TAG]->(t) | t.name ]
+
+    } AS metadata
+  `,
+  });
+  const retriever = store.asRetriever();
+
+  // 1. create a prompt template
+  const prompt = ChatPromptTemplate.fromMessages([
+    SystemMessagePromptTemplate.fromTemplate(
+      `You are a helpful assistant helping users with queries
+      about the CityJS Athens conference.
+      Answer the user's question to the best of your ability.
+      If you do not know the answer, just say you don't know.
+      `
+    ),
+    SystemMessagePromptTemplate.fromTemplate(
+      `
+        Here are some talks to help you answer the question.
+        Don't use your pre-trained knowledge to answer the question.
+        Always include a full link to the meetup.
+        If the answer isn't included in the documents, say you don't know.
+
+        Documents:
+        {documents}
+      `
+    ),
+    new MessagesPlaceholder("history"),
+    HumanMessagePromptTemplate.fromTemplate(`Question: {message}`),
+  ]);
+
+  // 2. choose an LLM
+  const llm = new ChatOpenAI({
+    openAIApiKey: process.env.OPENAI_API_KEY,
+    temperature: 0.9,
+  });
+
+  // 3. parse the response
+  const parser = new StringOutputParser();
+
+  // 4. runnable sequence (LCEL)
+  const chain = RunnableSequence.from<RunInput, string>([
+    RunnablePassthrough.assign({
+      history: (input, config) => getHistory(config?.configurable.sessionId, 3),
+      documents: new RunnablePick("input").pipe(
+        retriever.pipe((docs) => JSON.stringify(docs))
+      ),
+    }),
+    prompt,
+    llm,
+    new StringOutputParser(),
+  ]);
+
+  // 5. invoke the chain
+  const output = await chain.invoke(
+    { message },
+    {
+      configurable: {
+        sessionId,
+      },
+    }
+  );
+
+  // 6. Save history
+  await saveHistory(sessionId, message, output);
+
+  return output;
+}
+----
+====
+
+
+
+== Verify Challenge
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+
+== Summary
+
+Loving your work!
+
+
