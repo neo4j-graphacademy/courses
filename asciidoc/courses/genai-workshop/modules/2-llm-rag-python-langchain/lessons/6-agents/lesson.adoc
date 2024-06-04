@@ -23,12 +23,11 @@ You should be able to identify the following:
 
 . A chat model is being used to have a conversation about movies
 . The prompt which sets the context for the LLM and the input variables
-. That memory is used to store the conversation history
-. A chain is created to link the chat model, prompt, and memory together
+. That memory is used to store the conversation history in a Neo4j database
 
 In addition to the above, the following is new:
 
-. A tool is created using the chain.run method:
+. A tool is created using the chain:
 +
 [source,python]
 ----
@@ -39,6 +38,12 @@ include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.p
 [source, python]
 ----
 include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.py[tag=agent]
+----
+. The agent is wrapped in a `RunnableWithMessageHistory` chain that allows it to interact with the memory:
++
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent.py[tag=chat_agent]
 ----
 
 Tools are interfaces that an agent can interact with. 
@@ -72,7 +77,6 @@ The `AgentExecutor` class runs the agent. It expects the following parameters:
 
 * The `agent` to run
 * The `tools` that the agent can use
-* The `memory` which will store the conversation history
 
 You may find the following additional parameters useful when initializing an agent:
 
@@ -85,8 +89,7 @@ You may find the following additional parameters useful when initializing an age
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
-    memory=memory,
-    max_interations=3,
+    max_iterations=3,
     verbose=True,
     handle_parse_errors=True
 )
@@ -103,11 +106,25 @@ Import the `YouTubeSearchTool` and create a new tool.
 
 [source, python]
 ----
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=import_youtube]
+include::c{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=**]
 
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=youtube]
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=**]
+----
 
-include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=tools]
+The `YouTubeSearchTool` tool expects a search term and the number of results passed as a comma-separated string.
+
+The agent may pass queries containing commas, so create a function to strip the commas from the query and pass the query to the `YouTubeSearchTool`.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=**]
+----
+
+Finally, add the `call_trailer_search` function to the `tools` list.
+
+[source, python]
+----
+include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_trailer.py[tag=**]
 ----
 
 [%collapsible]
@@ -121,11 +138,17 @@ include::{repository-raw}/main/2-llm-rag-python-langchain/solutions/chat_agent_t
 
 The model will then use the `name` and `description` for each tool to decide which tool to use.
 
-The model should use the `YouTubeSearchTool` tool when prompted to find a movie trailer.
+When prompted to find a movie trailer, the model should use the `YouTubeSearchTool` tool.
 
     [user] Find the movie trailer for the Matrix.
 
-    [agent] ['https://www.youtube.com/watch?v=vKQi3bBA1y8&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D', 'https://www.youtube.com/watch?v=9ix7TUGVYIo&pp=ygUUTWF0cml4IG1vdmllIHRyYWlsZXI%3D']
+    [agent] Here are the movie trailers for "The Matrix":
+    
+    The Matrix - Official Trailer #1 -       
+        https://www.youtube.com/watch?v=vKQi3bBA1y8&pp=ygUKVGhlIE1hdHJpeA%3D%3D
+    
+    The Matrix - Official Trailer #2 - 
+        https://www.youtube.com/watch?v=xrYg_qKX-aI&pp=ygUKVGhlIE1hdHJpeA%3D%3D
 
 However, when asked about movies, genres or plots, the model will use the `chat_chain` tool.
 
@@ -137,7 +160,11 @@ As the agent also uses the conversation memory, you can refer back to the previo
 
     [user] Can you find the trailer
 
-    [agent] ['https://www.youtube.com/watch?v=RrAz1YLh8nY&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy', 'https://www.youtube.com/watch?v=OKqqboXuvyE&pp=ygUeVGhlIFRyZWUgb2YgTGlmZSBtb3ZpZSB0cmFpbGVy']
+    [agent] Here are two links to the trailer for "The Tree of Life":
+
+    Link 1 - https://www.youtube.com/watch?v=RrAz1YLh8nY&pp=ygUQVGhlIFRyZWUgb2YgTGlmZQ%3D%3D
+    
+    Link 2 - https://www.youtube.com/watch?v=cv-dH5gHi1c&pp=ygUQVGhlIFRyZWUgb2YgTGlmZQ%3D%3D
 
 Agents and tools allow you to create more adaptable and flexible models to perform multiple tasks.
 
