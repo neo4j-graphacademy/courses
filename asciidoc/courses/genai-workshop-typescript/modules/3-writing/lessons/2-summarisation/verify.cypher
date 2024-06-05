@@ -1,0 +1,1 @@
+MATCH (t:Test) RETURN count(t) > 0
