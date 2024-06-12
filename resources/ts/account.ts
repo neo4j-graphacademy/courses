@@ -1,5 +1,8 @@
 import { copyToClipboard } from "./modules/clipboard"
 
+type InputTypes = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+
+
 export default function account() {
     // Copy link
     document.querySelectorAll('.share-form-action--copy').forEach(el => {
@@ -25,18 +28,33 @@ export default function account() {
         })
     })
 
+
+
     // Enable submit button on change
     document.querySelectorAll('form').forEach(form => {
         const submit = form.querySelectorAll('button')
+        const elements = form.querySelectorAll<InputTypes>('input, select, textarea')
+
+
+        const required = Array.from<InputTypes>(elements)
+            .filter((element: InputTypes) => element.hasAttribute('required'))
+
+        const enableSubmit = () => {
+            const completed = required.every(
+                (el: InputTypes) => el.value.length >= 2
+            )
+            if (completed) {
+                submit.forEach(el => el.removeAttribute('disabled'))
+            } else {
+                submit.forEach(el => el.setAttribute('disabled', 'disabled'))
+            }
+        }
 
         form.querySelectorAll('input, select, textarea').forEach(
             el => {
-                el.addEventListener('change', () => {
-                    submit.forEach(el => el.removeAttribute('disabled'))
-                })
-                el.addEventListener('keyup', () => {
-                    submit.forEach(el => el.removeAttribute('disabled'))
-                })
+
+                el.addEventListener('change', enableSubmit)
+                el.addEventListener('keyup', enableSubmit)
 
             })
     })
