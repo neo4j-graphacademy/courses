@@ -2,179 +2,207 @@
 :type: challenge
 :order: 3
 :lab: {repository-link}/
+:branch: lc-0.2
 
-The first step towards an LLM-integrated chatbot is to create an **Agent**.
+Your app will interact with the LLM through an _Agent_.
 
-You may recall in the link:/courses/llm-fundamentals/3-intro-to-langchain/4-agents/[Agents lesson in the Neo4j & LLM Fundamentals course^], that Agents are objects that use an LLM to identify and execute a sequence of actions in response to a user input.
+Agents are objects that use an LLM to identify and execute actions in response to a user's input.
+You can learn more in the link:/courses/llm-fundamentals/3-intro-to-langchain/4-agents/[Agents lesson in the Neo4j & LLM Fundamentals course^].
 
-In this challenge, you must:
+In this lesson, you will create and integrate a new agent into the chatbot.
 
-1. Use the `create_react_agent` function to create a new agent
-2. Create a handler function that instructs the agent to handle messages
-3. Call the new handler function from `bot.py`
+You will need to:
 
-lab::Open in Online IDE[]
+. Create a chat chain as a _tool_ for the agent.
+. Create a new agent.
+. Create a handler function that instructs the agent to handle messages.
+. Call the new handler function from `bot.py`
+
+Open the `agent.py` file.
+The code imports the `llm` and `graph` instances you created in previous lessons.
+
+.agent.py
+[source,python]
+----
+include::{repository-raw}/{branch}/agent.py[]
+----
+
+== Create a tool
+
+Tools are components that the Agent can use to perform actions. 
+
+During this course, you will create multiple tools for the Agent to perform specific tasks. 
+A tool is also required for "general chat" so the agent can respond to a user's input when no other tool is available.
+
+Create a new `movie_chat` chain for the agent to use for general chat:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=import_movie_chat]
+
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=movie_chat]
+----
+
+When you initialize the agent, you must pass a list of tools to the agent.
+
+Add the `movie_chat` tool to a `tools` list:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=import_tool]
+
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=tools]
+----
+
+When creating a tool, you specify three arguments:
+
+1. The name of the tool, in this case, `General Chat`.
+2. A description that the agent LLM will use when deciding which tool to use for a particular task.
+3. The function to call once the agent has selected the tool. This tool, `movie_chat.invoke`, will return a response from the LLM.
+
+
+== Conversation memory
+
+The agent will need to be able to store and retrieve recent messages, allowing the agent to have a _conversation_, not simply respond to the last message.
+
+You will use the `Neo4jChatMessageHistory` class to store and retrieve messages from your Neo4j sandbox.
+
+When initializing the agent, you must specify a callback function to return the memory component.
+The agent will pass a `session_id` to the callback, which you can use to retrieve the specific conversation for that session.
+
+Add a callback `get_memory` function that returns a `Neo4jChatMessageHistory` object:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=import_memory]
+
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=get_memory]
+----
+
+The `graph` object you created in the last lesson connects the `Neo4jChatMessageHistory` object to your Neo4j sandbox.
 
 
 == Initializing an Agent
 
 Langchain provides functions for creating a new Agent.
-There are different link:https://python.langchain.com/docs/modules/agents/agent_types/[types of agents^] that you can create. The `create_react_agent()` function creates a _ReAct_ - Reasoning and Acting) agent type.
+There are different link:https://python.langchain.com/docs/modules/agents/agent_types/[types of agents^] that you can create. 
+You will use the `create_react_agent()` function to create a _ReAct_ - Reasoning and Acting) agent type.
 
-Agents are run using an `AgentExecutor` object, which is responsible for executing the actions returned by the Agent.
+You run an agent using an `AgentExecutor` object, which is responsible for executing the actions returned by the Agent.
 
-To create a new agent, create a new `agent.py` file, and copy and paste the code below.
+Finally, you will wrap the agent in a `RunnableWithMessageHistory` object to handle the conversation history.
 
-[source,python]
-----
-from langchain.agents import AgentExecutor, create_react_agent
-from langchain import hub
-
-# Include the LLM from a previous lesson
-from llm import llm
-
-include::{repository-raw}/main/solutions/agent.py[tag=agent]
-----
-
-The code is still missing some variables used in the `create_react_agent` call, so we'll cover them one by one.
-
-
-=== `llm`
-
-This is set to the instance of `ChatOpenAI` created in link:../1-llm/[Creating an LLM Instance^].
+Add the code to initialize the agent:
 
 [source,python]
 ----
-from llm import llm
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=import_agent]
+
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=agent]
 ----
 
-=== `tools`
-
-The `AgentExecutor` requires a list of `tools`.
-
-Tools are objects that can be used by the Agent to perform actions.
-
-During this course, you will create multiple tools that can be used by the Agent to perform specific tasks. However, a tool is required for "general chat" so the agent can respond to a user's input when no other tool is available.
-
-Add this code to the `agent.py` file to create a new tool that can be used for general chat.
-
-Import the `Tool` class into `agent.py`.
-
-.Importing the Tool class
-[source,python]
-----
-include::{repository-raw}/main/solutions/tools/general.py[tags=importtool]
-----
-
-Then add the tool to a `tools` list using the `Tool.from_function()` static method.
-
-.Registering the Tool
-[source,python]
-----
-include::{repository-raw}/main/solutions/tools/general.py[tags=tool]
-----
-
-The function expects three arguments:
-
-1. The name of the tool, in this case, `General Chat`.
-2. A description that the agent LLM will use when deciding which tool it should use for a particular task.
-3. The function to call once this tool has been selected. In this case, `llm.invoke()`, which will return a response from the LLM.
-
-=== `agent_prompt`
+=== Agent prompt
 
 An agent requires a prompt. You could create a prompt, but in this example, the program pulls a pre-existing prompt from the link:https://smith.langchain.com/hub/[Langsmith Hub^].
 
 The link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[`hwcase17/react-chat`^] prompt instructs the model to provide an answer using the tools available in a specific format.
 
-=== Conversation Memory
-
-To allow the bot to maintain a list of recent messages, you can pass an instance of `ConversationBufferWindowMemory` to the `initialize_agent()` function.
-
-
-// TODO: Update to Neo4jConversationalMemory
-
-[source,python]
-.Conversational Memory
-----
-include::{repository-raw}/main/solutions/agent.py[tag=importmemory]
-include::{repository-raw}/main/solutions/agent.py[tag=memory]
-----
-
+In the next lesson, you will modify the agent prompt.
 
 == Verbose Output
 
-When the `verbose` argument is set to `True`, you can view the reasoning the agent has used in the console.
+The `verbose` argument of the `AgentExecutor` is set to `True` - this will output the agent's reasoning to the console.
+
+Verbose output is helpful when debugging the agent's behavior and understanding how it makes decisions.
 
 [%collapsible]
 .An example output
 ====
     > Entering new AgentExecutor chain...
-    {
-        "action": "Cypher QA",
-        "action_input": "What are some films starring Leonardo DiCaprio?"
-    }
+    Thought: Do I need to use a tool? Yes
+    Action: General Chat
+    Action Input: "Input": "tell me about a movie"Title: "Inception"
 
-    > Entering new GraphCypherQAChain chain...
-    Generated Cypher:
-    MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-    WHERE p.name = "Leonardo DiCaprio"
-    RETURN m.title AS film_starring_Leonardo_DiCaprio
-    Full Context:
-    [{'film_starring_Leonardo_DiCaprio': 'Great Gatsby, The'}, {'film_starring_Leonardo_DiCaprio': 'Gangs of New York'}, {'film_starring_Leonardo_DiCaprio': 'Aviator, The'}, {'film_starring_Leonardo_DiCaprio': 'Departed, The'}, {'film_starring_Leonardo_DiCaprio': 'Total Eclipse'}, {'film_starring_Leonardo_DiCaprio': 'Basketball Diaries, The'}, {'film_starring_Leonardo_DiCaprio': 'Titanic'}, {'film_starring_Leonardo_DiCaprio': 'Man in the Iron Mask, The'}, {'film_starring_Leonardo_DiCaprio': "William Shakespeare's Romeo + Juliet"}, {'film_starring_Leonardo_DiCaprio': 'Blood Diamond'}]
+    "Inception" is a 2010 sci-fi thriller directed by Christopher Nolan, known for his work on "The Dark Knight" trilogy and "Interstellar." The film features a star-studded cast including Leonardo DiCaprio, Joseph Gordon-Levitt, Ellen Page, Tom Hardy, and Marion Cotillard.
 
     > Finished chain.
-
-    Observation: {'query': 'What are some films starring Leonardo DiCaprio?', 'result': 'Some films starring Leonardo DiCaprio include "Great Gatsby, The", "Gangs of New York", "Aviator, The", "Departed, The", "Total Eclipse", "Basketball Diaries, The", "Titanic", "Man in the Iron Mask, The", "William Shakespeare\'s Romeo + Juliet", and "Blood Diamond".'}
-    Thought:{
-        "action": "Final Answer",
-        "action_input": "Some films starring Leonardo DiCaprio include 'Great Gatsby, The', 'Gangs of New York', 'Aviator, The', 'Departed, The', 'Total Eclipse', 'Basketball Diaries, The', 'Titanic', 'Man in the Iron Mask, The', 'William Shakespeare's Romeo + Juliet', and 'Blood Diamond'."
-    }
 ====
-
 
 == Add a Handler Function
 
-The `agent_executor` object is callable and expects a single input, the user's input.
-The function returns a `dict` that will contain an `output` key containing the final response generated by the LLM.
+The `chat_agent` object is callable and will expect two parameters:
 
-At the bottom of the file, create a new `generate_response()` function to replicate the value.
-The role of the function should be to take a single string input, call the `agent` object and return the answer generated by the LLM.
+. The user's input
+. A `session_id` to identify the conversation
 
+Streamlit will pass the user input from `bot.py`.
+
+You can use the `get_session_id()` function in the `util.py` module to retrieve a session ID from Streamlit.
+
+Add a new `generate_response()` function to the `agent.py` file to handle the user's input:
 
 [source,python]
-.Conversational Memory
 ----
-include::{repository-raw}/main/solutions/agent.py[tag=generate_response]
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=import_get_session_id]
+
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=generate_response]
 ----
+
+Review the code and note that:
+
+. The function takes a single string, `user_input`.
+. The `user_input` is passed to `chat_agent.invoke` method
+. A `session_id` is retrieved using the `get_session_id()` function
+. The function returns a single string - the final response, `output`, from the LLM.
+
+[%collapsible]
+.View the complete agent.py code
+====
+[source]
+----
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=**]
+----
+====
 
 == Calling the new Handler function
 
-You can now update the bot to call the new `generate_response()` function by modifying the `handle_submit()` function in `bot.py`.
+You can now update `bot.py` to call the new `generate_response()` function by modifying the `handle_submit()`
 
-Start by importing the `generate_response()` from the `agent.py` file.
-
-
-[source,python]
-----
-include::{repository-raw}/main/solutions/agent.py[tag=import]
-----
-
-Now modify the `handle_submit()` button to instead call the `handle_submit()` method.
-You can use the `write_message()` function to display the message on screen.
-
+Open `bot.py` and import the `generate_response()` function from `agent.py`:
 
 [source,python]
 ----
-include::{repository-raw}/main/solutions/agent.py[tag=submit]
+include::{repository-raw}/{branch}/solutions/bot.py[tag=import_agent]
 ----
 
+Modify the `handle_submit()` function to call `generate_response()` and write the `response`:
 
-== Receving a Response
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/bot.py[tag=submit]
+----
 
-You should now have the makings of an intelligent LLM-integrated chatbot.
-If you ask a question, you should get a generated response from the LLM appended to the list of messages.
+[%collapsible]
+.View the complete bot.py code
+====
+[source]
+----
+include::{repository-raw}/{branch}/solutions/bot.py[tag=**]
+----
+====
 
-video::images/working-with-llm.mp4[role=cdn,width=610,height=410]
+== Receiving a Response
+
+You now have the start of an intelligent LLM-integrated chatbot.
+
+Run the Streamlit app and test the chatbot:
+
+[source, sh]
+----
+streamlit run bot.py
+----
+
+image::images/working-with-llm.gif[A conversation with the chatbot, asking a question and getting a response]
 
 Once you have received a response from the LLM, click the button below to mark the challenge as completed.
 
@@ -184,7 +212,7 @@ read::It works![]
 [.summary]
 == Summary
 
-In this lesson, you created a Conversation agent that is capable of communicating with an LLM.
-However, it is a good idea to specify what kind of questions the LLM can respond to.
+In this lesson, you created a Conversation agent capable of communicating with an LLM.
+However, it is a good idea to specify what type of questions the LLM can respond to.
 
-In the next lesson, you will define the scope of the agent and restrict the type of responses it provides.
+In the next lesson, you will define the agent's scope and restrict the type of responses it provides.

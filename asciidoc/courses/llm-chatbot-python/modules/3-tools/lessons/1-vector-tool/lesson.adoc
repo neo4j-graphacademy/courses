@@ -1,6 +1,7 @@
 = Neo4j Retriever Tool
 :type: challenge
 :order: 1
+:branch: lc-0.2
 
 In the link:/courses/llm-fundamentals/2-vectors-semantic-search/[Vectors & Semantic Search module of the Neo4j & LLM Fundamentals course^], you learned that unstructured content is often converted to vector embeddings to make them easy to compare and contrast, in an approach called Semantic Search.
 
@@ -11,66 +12,73 @@ In this challenge, you will use that knowledge to create and register a tool tha
 You will need to:
 
 1. Create an instance of a Neo4j Vector Store
-2. Use the Neo4j Vector Store to create a Retriever
-3. Create a Retrieval QA Chain that will handle the user input, create an embedding and use that to find similar documents in the Neo4j Vector Store
-4. Register the Retrieval Chain as a tool in `agent.py`.
+2. Use the Neo4j Vector Store to create a retriever
+3. Create a retriever chain that will handle the user input, create an embedding, and use that to find similar documents in the Neo4j Vector Store
+4. Register the retriever chain as a tool in `agent.py`.
 
 == Creating a Neo4j Vector Store
 
-In Langchain, a Vector Store is a special type of store that handles the interaction between the application and a Vector database.
+In Langchain, a Vector Store handles the interaction between the application and a Vector database.
 
 To interact with link:https://neo4j.com/docs/cypher-manual/current/indexes-for-vector-search/[Neo4j Vector Search Indexes^], you must create an instance of the `Neo4jVector` store.
 
-In the project root, create a new folder called `tools`.
-This is where you will store the code for new tools you create.
+Open the `tools/vector.py` file in the `tools` directory.
+The `tools` directory is where you will store the code for new tools you create.
 
-In the `tools/` folder, create a new file called `vector.py`.
-
-Add the following code to import `streamlit`, the `Neo4jVector` class, and the `llm` and `embeddings` objects created earlier in the course.
-
-.Importing the Neo4jVector class
+.tools/vector.py
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tags=importst]
-include::{repository-raw}/main/solutions/tools/vector.py[tags=importvector]
-include::{repository-raw}/main/solutions/tools/vector.py[tags=importllm]
+include::{repository-raw}/{branch}/tools/vector.py[tag=**]
 ----
+
+The `streamlit` library and the `llm`, `embeddings`, and `graph` objects you created are already imported.
 
 A `plotEmbedding` property, containing the vector embeddings of the `plot`, has been added to the `Movie` nodes in the database, and a vector index, `moviePlots`, has been created.
 
-Because the index already exists in the database, you can use the `Neo4jVector.from_existing_index` static method.
+[%collapsible]
+.View the plot embedding
+====
+
+Run the following Cypher to view the `plotEmbedding` property of the movie "Toy Story".
+
+[source,cypher]
+----
+MATCH (m:Movie {title: "Toy Story"})
+RETURN m.plot, m.plotEmbedding
+----
+
+====
+
+As the index already exists in the database, you can use the `Neo4jVector.from_existing_index` static method.
 
 .Creating a Neo4jVector
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tag=vector]
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=import_vector]
+
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=vector]
 ----
 
 In the above call, the method is passed the following parameters:
 
-1. The `embeddings` object that will be used to embed the user input.
-2. The full URI of the Neo4j Instance, as set in `.streamlit/secrets.toml`.
-3. The username required to connect to the database as set in `.streamlit/secrets.toml`.
-4. The password required to authenticate the Neo4j user, as set in `.streamlit/secrets.toml`.
-5. The name of the index.  The index created in the link:/courses/llm-fundamentals[Neo4j & LLM Fundamentals course] was named  `moviePlots`.
-6. The label of node used to populate the index, in this case, `Movie`.
-7. The name of the property that holds the original plain-text value, in this case, `plot`.
-8. The name of the property that holds the embedding of the original text, in this case, `plotEmbedding`.
+. The `embeddings` object to embed the user input.
+. The `graph` object to interact with the database.
+. The name of the index, in this case `moviePlots`
+. The label of node used to populate the index, in this case, `Movie`.
+. The name of the property that holds the original plain-text value, in this case, `plot`.
+. The name of the property that holds the embedding of the original text, in this case, `plotEmbedding`.
 
 
 === Modifying the Retrieval Query
 
 The last parameter passed, `retrieval_query`, is an optional parameter that allows you to define which information is returned by the Cypher statement, loaded into each `Document` and subsequently passed to the LLM.
-This value is appended to the end of the query after the index has been searched, and should always contain a `RETURN` clause.
+This value is appended to the end of the query after searching the index, and should always contain a `RETURN` clause.
 
 The final statement should return a `text` value and a map of `metadata`, although what you specify in the `metadata` is up to you.
 
-By default, this generates a list of properties, but in this example, the parameter is used to return specific information about the Movie node, including a link to the original movie listing on link:https://www.themoviedb.org/[themoviedb.org^].
+By default, this generates a list of properties, in this example, the parameter returns specific information about the Movie node, including a link to the original movie listing on link:https://www.themoviedb.org/[themoviedb.org^].
 
 The `directors` and `actors` fields provide information about the `(:Person)` nodes linked to the movie via `:DIRECTED` and `:ACTED_IN` relationships.
-
-// TODO: Provide an example result
-
 
 [TIP]
 .Vector Creation Options
@@ -81,114 +89,140 @@ The `Neo4jVector` class also holds static methods for link:https://api.python.la
 
 == Creating a Retriever
 
-In Langchain applications, **Retrievers** are classes that are designed to retrieve documents from a **Store**.
-Vector Retrievers are a specific type of retriever that are designed to retrieve documents from a **Vector Store** based on similarity.
+In Langchain applications, you can use **Retrievers** classes to retrieve documents from a **Store**.
+Vector Retrievers are a specific type of retriever that retrieve documents from a **Vector Store** based on similarity.
 
-All Store instances have an `as_retriever()` method which returns a Retriever configured to get documents from the store itself.
+All store instances have an `as_retriever()` method, which returns a retriever configured to get documents from the store.
 
 To create an instance of the `Neo4jVectorRetriever`, call the `as_retriever()` method.
 
 .Creating a Neo4jVector
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tag=retriever]
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=retriever]
 ----
 
-== Retrieval QA Chain
+== Retrieval Chain
 
-The `RetrievalQA` chain will be responsible for creating an embedding from the user's input, calling the Retriever to identify similar documents, and passing them to an LLM to generate a response.
+The retrieval chain creates an embedding from the user's input, call the retriever to identify similar documents, and pass them to an LLM to generate a response.
 
-Start by importing the `RetrievalQA` chain class.
+The chain will need a prompt that accepts the documents as `{context}` and the user input as `{input}`:
 
-.Importing the RetrievalQA class
+.Create the prompt
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tags=importretrievalqa]
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=import_chat_prompt]
+
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=prompt]
 ----
 
-Call the static `.from_llm()` method on the `RetrievalQA` to create a new chain, passing the following parameters:
+Create a retrieval chain that uses the `llm`, `prompt`, and `retriever` objects:
 
-1. The LLM that used to process the chain
-2. A *Stuff* chain is a relatively straightforward chain that _stuffs_, or inserts, documents into a prompt and passes that prompt to an LLM.
-3. The Chain should use the `Neo4jVectorRetriever` created in the previous step.
-
-.Creating a new RetrievalQA Chain
+.Create the chain
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tags=qa]
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=import_chain]
+
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=chain]
 ----
 
+The code first creates a QA (question/answer) chain using `create_stuff_documents_chain`.
+A *Stuff* chain is a relatively straightforward chain that _stuffs_, or inserts, documents into a prompt and passes that prompt to an LLM.
+
+The retrieval chain is then created from the retriever and QA chain using `create_retrieval_chain`.
 
 [TIP]
 .More Complex 'Stuff' Retrieval Chains
 ====
-We have chosen to use the `.from_llm()` method here because the `.plot` properties in the database are relatively short.
-The function returns an instance with default prompts.
+You can modify the prompt to include more information about how to process the documents.
+For example, if you were hitting token limits, you could add a step to summarize the content before sending it to the LLM.
+====
 
-// TODO: Link? Reference?
-If you find that you hit token limits, can also define chains with custom prompts that summarize the content before sending the information to the LLM.
+Finally, you must add a function that can be used as a tool and invokes the chain when called.
+
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=get_movie_plot]
+----
+
+[%collapsible]
+.View the complete code
+====
+.tools/vector.py
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/tools/vector.py[tag=**]
+----
 ====
 
 
-== Registering the Retrieval QA Chain as a Tool
+== Registering the Retriever as a Tool
 
-Now the Retrieval QA Chain is ready to register as a tool.
+You can now use the retrieval chain as a tool in your agent.
 
-You may recall in the previous module, that you created a "General Chat" tool in `agent.py`.
+This tool will be in addition to the "General Chat" tool you created in the previous module.
 
-Import the `kg_qa` Retrieval QA Chain from the `tools.vector` module.
+Open the `agent.py` file and import the `get_movie_plot` function from the `tools.vector` module:``
 
-.Importing the kg_qa chain
+.agent.py
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tags=importkgqa]
+include::{repository-raw}/{branch}/solutions/agent-vector.py[tag=import_get_movie_plot]
 ----
 
-Add the tool to the `tools` array using the `.from_function()` static method.
+Add the `get_movie_plot` function to the `tools` array:
 
-.Registering the Tool
 [source,python]
 ----
-include::{repository-raw}/main/solutions/tools/vector.py[tags=tool]
+include::{repository-raw}/{branch}/solutions/agent-vector.py[tag=tools]
 ----
+
+The agent will use the tool's `name` and `description` to identify what tool to use.
+
+[%collapsible]
+.View the complete code
+====
+.agent.py
+[source,python]
+----
+include::{repository-raw}/{branch}/solutions/agent-vector.py[tag=**]
+----
+====
 
 [TIP]
 .The @tool Decorator
 ====
-You can either use the Tool using a static function or annotate the function with the `@tool` decorator.
-However, do note that to use the `@tool` decorator, the function must accept a single `str` input and return a single `str` output.
+You can create the tool using the static function `Tool.from_function` or annotate the function with the `@tool` decorator.
+However, note that to use the `@tool` decorator, the function must accept a single `str` input and return a single `str` output.
 ====
-
 
 == Testing the Tool
 
-To test the tool, ask the bot to list movies with a similar **plot** to another film.
-The bot should respond with a message starting with something along the lines of _"Based on the information provided..."_.
+To test the tool, ask the bot to find movies with a particular **plot**.
+The bot should respond with a message starting with a film based on that plot.
 
 image::images/similar-plot-to-toy-story.png[The Bot responds]
 
 In this case, the response generated by the LLM also included links to the movie listings returned by the query as part of the `metadata` map.
 
-In your console, you should see that the Agent has executed the **Vector Search Index** action with the name of the movie you mentioned.
-
+In your console, you should see that the Agent has executed the **Movie Plot Search** action with the query.
 
 [%collapsible]
 .Executor Chain Output
 ====
     > Entering new AgentExecutor chain...
-    {
-        "action": "Vector Search Index",
-        "action_input": "toy story"
-    }
-    Observation: {'question': 'toy story', 'answer': 'Based on the information provided, "Toy Story" is a movie about a cowboy doll who feels threatened and jealous when a new spaceman figure becomes the top toy in a boy\'s room. It is a heartwarming animated film that explores themes of friendship, loyalty, and acceptance. You can find more information about "Toy Story" on its listing on The Movie Database: [Toy Story](https://www.themoviedb.org/movie/862)', 'sources': '', 'source_documents': [Document(page_content="A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room.", metadata={'tmdbId': '862', 'title': 'Toy Story', 'source': 'https://www.themoviedb.org/movie/862', 'actors': [['Jim Varney', 'Slinky Dog (voice)'], ['Tim Allen', 'Buzz Lightyear (voice)'], ['Tom Hanks', 'Woody (voice)'], ['Don Rickles', 'Mr. Potato Head (voice)']], 'directors': ['John Lasseter']}), Document(page_content='A young boy must restore order when a group of bullies steal the magical book that acts as a portal between Earth and the imaginary world of Fantasia.', metadata={'tmdbId': '27793', 'title': 'NeverEnding Story III, The', 'source': 'https://www.themoviedb.org/movie/27793', 'actors': [['Jack Black', 'Slip'], ['Melody Kay', 'Nicole'], ['Carole Finn', 'Mookie'], ['Jason James Richter', 'Bastian Bux']], 'directors': ['Peter MacDonald']}), Document(page_content='A troubled child summons the courage to help a friendly alien escape Earth and return to his home-world.', metadata={'tmdbId': '601', 'title': 'E.T. the Extra-Terrestrial', 'source': 'https://www.themoviedb.org/movie/601', 'actors': [['Peter Coyote', 'Keys'], ['Robert MacNaughton', 'Michael'], ['Henry Thomas', 'Elliott'], ['Dee Wallace', 'Mary']], 'directors': ['Steven Spielberg']}), Document(page_content='When a boy learns that a beloved killer whale is to be killed by the aquarium owners, the boy risks everything to free the whale.', metadata={'tmdbId': '1634', 'title': 'Free Willy', 'source': 'https://www.themoviedb.org/movie/1634', 'actors': [['Lori Petty', 'Rae Lindley'], ['Jayne Atkinson', 'Annie Greenwood'], ['August Schellenberg', 'Randolph Johnson'], ['Jason James Richter', 'Jesse']], 'directors': ['Simon Wincer']})]}
-    Thought:{
-        "action": "Final Answer",
-        "action_input": "Based on the information provided, \"Toy Story\" has a similar plot to movies like \"NeverEnding Story III\", \"E.T. the Extra-Terrestrial\", and \"Free Willy\". These movies also involve themes of friendship, adventure, and overcoming obstacles. You can find more information about these movies on their respective listings on The Movie Database: [NeverEnding Story III](https://www.themoviedb.org/movie/27793), [E.T. the Extra-Terrestrial](https://www.themoviedb.org/movie/601), and [Free Willy](https://www.themoviedb.org/movie/1634)."
-    }
+
+    Thought: The user is asking for a movie with a specific plot. I need to use a tool to find this information.
+    Action: Movie Plot Search
+    Action Input: Toys coming to life{'input': 'Toys coming to life', 'context': [Document(page_content="A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room.", metadata={'title': 'Toy Story', 'tmdbId': '862', 'source': 'https://www.themoviedb.org/movie/862', 'actors': [['Jim Varney', 'Slinky Dog (voice)'], ['Tim Allen', 'Buzz Lightyear (voice)'], ['Tom Hanks', 'Woody (voice)'], ['Don Rickles', 'Mr. Potato Head (voice)']], 'directors': ['John Lasseter']}), Document(page_content="One of puppet-maker Geppetto's creations comes magically to life. This puppet, Pinocchio, has one major desire and that is to become a real boy someday. In order to accomplish this goal he ...", metadata={'title': 'Adventures of Pinocchio, The', 'tmdbId': '18975', 'source': 'https://www.themoviedb.org/movie/18975', 'actors': [['Martin Landau', 'Geppetto'], ['Udo Kier', 'Lorenzini'], ['Geneviève Bujold', 'Leona'], ['Jonathan Taylor Thomas', 'Pinocchio']], 'directors': ['Steve Barron']}), Document(page_content='A living puppet, with the help of a cricket as his conscience, must prove himself worthy to become a real boy.', metadata={'title': 'Pinocchio', 'tmdbId': '10895', 'source': 'https://www.themoviedb.org/movie/10895', 'actors': [['Mel Blanc', 'Gideon (hiccup) (voice) (uncredited)'], ['Don Brodie', 'Carnival Barker (voice) (uncredited)'], ['Walter Catlett', "'Honest John' Worthington Foulfellow (voice) (uncredited)"], ['Marion Darlington', 'Birds (voice) (uncredited)']], 'directors': ['Ben Sharpsteen', 'Hamilton Luske', ' T. Hee', 'Norman Ferguson']}), Document(page_content='A boy born the size of a small doll is kidnapped by a genetic lab and must find a way back to his father in this inventive adventure filmed using stop motion animation techniques. Tom meets...', metadata={'title': 'Secret Adventures of Tom Thumb, The', 'tmdbId': '18242', 'source': 'https://www.themoviedb.org/movie/18242', 'actors': [['Nick Upton', 'Pa Thumb'], ['Deborah Collard', 'Ma Thumb'], ['Frank Passingham', 'Man']], 'directors': ['Dave Borthwick']})], 'answer': 'No, the context does not discuss toys coming to life.'}The tool has provided several movies where toys come to life, including Toy Story, The Adventures of Pinocchio, Pinocchio, and The Secret Adventures of Tom Thumb.
+    Final Answer: Here are some movies where toys come to life:
+    1. "Toy Story" - A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room. [More Info](https://www.themoviedb.org/movie/862)
+    2. "The Adventures of Pinocchio" - One of puppet-maker Geppetto's creations comes magically to life. This puppet, Pinocchio, has one major desire and that is to become a real boy someday. [More Info](https://www.themoviedb.org/movie/18975)
+    3. "Pinocchio" - A living puppet, with the help of a cricket as his conscience, must prove himself worthy to become a real boy. [More Info](https://www.themoviedb.org/movie/10895)
+    4. "The Secret Adventures of Tom Thumb" - A boy born the size of a small doll is kidnapped by a genetic lab and must find a way back to his father. [More Info](https://www.themoviedb.org/movie/18242)
 
     > Finished chain.
 ====
-
 
 Once you have tested the bot, click the button below to mark the challenge as completed.
 
@@ -199,4 +233,4 @@ read::It works![]
 
 In this lesson, you added a new tool that uses the Vector Search Index to identify movies with similar plots to the user's input.
 
-In the next lesson, you will create a tool that uses the LLM to generate a Cypher statement and executes it against the database.
+In the next lesson, you will create a tool that uses the LLM to generate a Cypher statement and execute it against the database.
