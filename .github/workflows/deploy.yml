@@ -11,7 +11,6 @@ on:
       - development
 
 jobs:
-
   set_environment:
     runs-on: ubuntu-latest
     steps:
@@ -23,11 +22,12 @@ jobs:
           if [[ "$BRANCH_NAME" = "main" ]]; then
             ENVIRONMENT="production"
           else
-            ENVIRONMENT=$BRANCH_NAME
+            ENVIRONMENT="development"
           fi
+          
           echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
     outputs:
-      environment: ${{ steps.environment_check.outputs.ENVIRONMENT }}
+      environment: ${{ steps.environment_check.outputs.environment }}
 
   assets:
       runs-on: ubuntu-latest
@@ -42,25 +42,20 @@ jobs:
           - name: Checkout
             uses: actions/checkout@v4
 
-          - name: Set Assume Role
-            id: set_assume_role
+          - name: Set env variables for secrets
             run: |
-              if [ "${{ needs.set_environment.outputs.environment }}" = "production" ]; then
-                echo "ASSUME_ROLE=${{ secrets.GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-              else
-                echo "ASSUME_ROLE=${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-              fi
+              echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
 
           - name: Use Node.js 20
             uses: actions/setup-node@v3
             with:
-                node-version: '20'
+              node-version: '20'
 
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
-              role-to-assume: ${{ env.ASSUME_ROLE }}
-              aws-region: us-east-1
+              role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+              aws-region: ${AWS_REGION}
 
           - name: Install NPM Dependencies
             run: npm install
@@ -92,28 +87,19 @@ jobs:
           - name: Checkout
             uses: actions/checkout@v4
 
-          - name: Set Assume Role
-            id: set_assume_role
+          - name: Set env variables for secrets
             run: |
-              if [ "${{ needs.set_environment.outputs.environment }}" = "production" ]; then
-                echo "ASSUME_ROLE=${{ secrets.GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-              else
-                echo "ASSUME_ROLE=${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-              fi
+              echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
 
           - name: Configure AWS credentials
             uses: aws-actions/configure-aws-credentials@v4
             with:
-                role-to-assume: ${{ env.ASSUME_ROLE }}
-                aws-region: us-east-1
+              role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+              aws-region: ${AWS_REGION}
 
           - name: Login to Amazon ECR Private
             id: login-ecr
             uses: aws-actions/amazon-ecr-login@v2
-
-          - name: Generate timestamp
-            id: timestamp
-            run: echo "TIMESTAMP=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
 
           - name: Build and push
             uses: docker/build-push-action@v5
@@ -122,21 +108,13 @@ jobs:
               push: true
               tags: ${{ env.IMAGE }}
             env:
-              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ github.sha }}"
               aws-region: ${{ env.AWS_REGION }}
-
-          - name: Set and output URL with tag
-            id: output_url
-            run: |
-              imageURL="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
-              echo "IMAGEURL=$imageURL" >> $GITHUB_OUTPUT
-            env:
-              REGISTRY: ${{ steps.login-ecr.outputs.registry }}
 
           - name: Retrieve the latest task definition and update it
             id: register-task-def
             run: |
-              IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ steps.timestamp.outputs.TIMESTAMP }}"
+              IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ github.sha }}"
               TASK_NAME="${{ env.ENVIRONMENT }}-devrel-graphacademy-task"
               
               TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
@@ -225,20 +203,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set Assume Role
-        id: set_assume_role
+      - name: Set env variables for secrets
         run: |
-          if [ "${{ needs.set_environment.outputs.environment }}" = "production" ]; then
-            echo "ASSUME_ROLE=${{ secrets.GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-          else
-            echo "ASSUME_ROLE=${{ secrets.DEVELOPMENT_GH_OIDC_ROLE_ARN }}" >> $GITHUB_ENV
-          fi
+          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ASSUME_ROLE }}
-          aws-region: us-east-1
+          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          aws-region: ${AWS_REGION}
 
       - name: Install jq and yq
         run: |
