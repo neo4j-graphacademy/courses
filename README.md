@@ -286,30 +286,44 @@ This value defaults to `false`.
 
 ## Deployment
 
-The live site is hosted via AWS using Kubernetes - Kudos to Max for sorting this out!
+The live site is hosted via AWS ECS.
 
 To redeploy:
 
-> Build the latest version:
+> To trigger build and deploy, trigger the deployment from Github Actions Panel:
 
-```
-skaffold build -t latest
-```
+1. In Github, click on the "Actions" tab located at the top of your repository page.
+2. From the workflow list on the left, select "Deploy to AWS ECS" workflow.
+3. Above the list of workflow runs, click "Run workflow".
 
-Then when it's built and pushed you just need to do `kubectl rollout restart deployment/graphacademy -n graphacademy-prod`
-
-or kill the running pod and the deployment will spawn a new one.
-
-```
-docker login -u AWS -p $(aws ecr get-login-password --region us-east-1) 715633473519.dkr.ecr.us-east-1.amazonaws.com
-skaffold build -t latest
-kubectl rollout restart deployment/graphacademy -n graphacademy-prod
-```
+   ***IMPORTANT: For the next step (4) if you use branch master, it will deploy on production. If you use branch development, it will deploy on development.***
+4. Under "Use workflow from", use the dropdown to select the branch that you would like to use.
+5. Click "Run workflow".
 
 ### Updating environment variables
 
-To update environment variables in production:
+To update environment variables for the website:
 
-1. Search for `GraphAcademy Prod` under Developer Relations in 1password, then download the `production.env` file
-2. Copy the file into `k8s/production` and rename the file as `.env`
-3. Run `kubectl apply -k k8s/production`
+1. Log into the AWS account. Use the production account for production values and the development account for development values. 
+2. Search for AWS Secrets Manager.
+3. Go to the "Secrets" tab on the left.
+4. Click on the secret name you want to update.
+5. In the "Secret value" section, click "Retrieve secret value" on the right.
+6. Click the "Edit" button on the right.
+7. Edit the values and save. 
+8. Trigger the "Deploy to AWS ECS" workflow from the appropriate branch. Use the master branch for production or the development branch for development.
+
+### Updating cron schedule
+
+To update the cron schedule, edit the `cron` attribute in the relevant item in `deployment-config/cron-config.yaml`.  
+> Note: The cron string syntax is AWS EventBridge syntax, not Linux syntax. [Here you can find more information about AWS EventBridge Rules cron syntax.](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html)
+
+### Creating new cron job
+
+To create a new cron job, in `deployment-config/cron-config.yaml`, create a new object under the `crons` attribute.
+> Note: The cron string syntax is AWS EventBridge syntax, not Linux syntax [Here you can find more information about AWS EventBridge Rules cron syntax.](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html)
+
+### Adding new environment variables
+
+To add a new environment variable, append the new variable name to the `env` attribute in `deployment-config/cron-config.yaml`.
+Contact the deployment team to add the secret to the appropriate AWS account.
