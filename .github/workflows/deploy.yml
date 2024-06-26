@@ -102,93 +102,18 @@ jobs:
             uses: aws-actions/amazon-ecr-login@v2
 
           - name: Build and push
-            uses: docker/build-push-action@v5
+            uses: docker/build-push-action@v6
             with:
               context: .
               push: true
-              tags: ${{ env.IMAGE }}
+              tags: "${{ env.IMAGE }}:${{ github.sha }}","${{ env.IMAGE }}:latest"
             env:
-              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ github.sha }}"
-              aws-region: ${{ env.AWS_REGION }}
+              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-graphacademy-repository"
 
-          - name: Retrieve the latest task definition and update it
-            id: register-task-def
-            run: |
-              IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-devrel-graphacademy-repository:${{ github.sha }}"
-              TASK_NAME="${{ env.ENVIRONMENT }}-devrel-graphacademy-task"
-              
-              TASK_DEF=$(aws ecs describe-task-definition --task-definition $TASK_NAME)
-              if [ $? -ne 0 ]; then
-                echo "Failed to describe task definition: $TASK_NAME 🚫"
-                exit 1
-              fi
-              if [ -z "$TASK_DEF" ]; then
-                echo "No task definition found for: $TASK_NAME 🚫"
-                exit 1
-              fi
-              
-              get_secret_value() {
-                local secret_name=$1
-                local secret_value
-                secret_value=$(aws secretsmanager get-secret-value --secret-id "$secret_name" --query "SecretString" --output text)
-                echo $secret_value
-                if [ $? -ne 0 ]; then
-                  echo "Failed to fetch $secret_name from AWS Secrets Manager 🚫"
-                  exit 1
-                fi
-              }
-              
-              NEO4J_HOST=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/NEO4J_HOST" | jq -r .NEO4J_HOST)
-              NEO4J_USERNAME=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/NEO4J_USERNAME" | jq -r .NEO4J_USERNAME)
-              NEO4J_PASSWORD=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/NEO4J_PASSWORD" | jq -r .NEO4J_PASSWORD)
-              BASE_URL=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/BASE_URL" | jq -r .BASE_URL)
-              COMMUNITY_GRAPH_HOST=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/COMMUNITY_GRAPH_HOST" | jq -r .COMMUNITY_GRAPH_HOST)
-              COMMUNITY_GRAPH_PASSWORD=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/COMMUNITY_GRAPH_PASSWORD" | jq -r .COMMUNITY_GRAPH_PASSWORD)
-              COMMUNITY_GRAPH_USERNAME=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/COMMUNITY_GRAPH_USERNAME" | jq -r .COMMUNITY_GRAPH_USERNAME)
-              AUTH0_CLIENT_ID=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/AUTH0_CLIENT_ID" | jq -r .AUTH0_CLIENT_ID)
-              AUTH0_CLIENT_SECRET=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/AUTH0_CLIENT_SECRET" | jq -r .AUTH0_CLIENT_SECRET)
-              AUTH0_ISSUER_BASE_URL=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/AUTH0_ISSUER_BASE_URL" | jq -r .AUTH0_ISSUER_BASE_URL)
-              GOOGLE_ANALYTICS_MEASUREMENT_ID=$(get_secret_value "${{ env.ENVIRONMENT }}/graphacademy/GOOGLE_ANALYTICS_MEASUREMENT_ID" | jq -r .GOOGLE_ANALYTICS_MEASUREMENT_ID)
-  
-              NEW_TASK_DEF=$(echo "$TASK_DEF" | jq --arg IMAGE_URI "$IMAGE_URI" \
-                                                   --arg NEO4J_HOST "$NEO4J_HOST" \
-                                                   --arg NEO4J_USERNAME "$NEO4J_USERNAME" \
-                                                   --arg NEO4J_PASSWORD "$NEO4J_PASSWORD" \
-                                                   --arg BASE_URL "$BASE_URL" \
-                                                   --arg COMMUNITY_GRAPH_HOST "$COMMUNITY_GRAPH_HOST" \
-                                                   --arg COMMUNITY_GRAPH_PASSWORD "$COMMUNITY_GRAPH_PASSWORD" \
-                                                   --arg AUTH0_CLIENT_ID "$AUTH0_CLIENT_ID" \
-                                                   --arg AUTH0_CLIENT_SECRET "$AUTH0_CLIENT_SECRET" \
-                                                   --arg AUTH0_ISSUER_BASE_URL "$AUTH0_ISSUER_BASE_URL" \
-                                                   --arg GOOGLE_ANALYTICS_MEASUREMENT_ID "$GOOGLE_ANALYTICS_MEASUREMENT_ID" \
-                                                   --arg COMMUNITY_GRAPH_USERNAME "$COMMUNITY_GRAPH_USERNAME" '
-              .taskDefinition |
-              del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
-              .containerDefinitions[0].image = $IMAGE_URI |
-              .containerDefinitions[0].environment = [
-                  {"name": "NEO4J_HOST", "value": $NEO4J_HOST},
-                  {"name": "NEO4J_USERNAME", "value": $NEO4J_USERNAME},
-                  {"name": "NEO4J_PASSWORD", "value": $NEO4J_PASSWORD},
-                  {"name": "BASE_URL", "value": $BASE_URL},
-                  {"name": "COMMUNITY_GRAPH_HOST", "value": $COMMUNITY_GRAPH_HOST},
-                  {"name": "COMMUNITY_GRAPH_PASSWORD", "value": $COMMUNITY_GRAPH_PASSWORD},
-                  {"name": "COMMUNITY_GRAPH_USERNAME", "value": $COMMUNITY_GRAPH_USERNAME},
-                  {"name": "AUTH0_CLIENT_ID", "value": $AUTH0_CLIENT_ID},
-                  {"name": "GOOGLE_ANALYTICS_MEASUREMENT_ID", "value": $GOOGLE_ANALYTICS_MEASUREMENT_ID},
-                  {"name": "AUTH0_CLIENT_SECRET", "value": $AUTH0_CLIENT_SECRET},
-                  {"name": "AUTH0_ISSUER_BASE_URL", "value": $AUTH0_ISSUER_BASE_URL}
-                ]
-              ')
-              echo "$NEW_TASK_DEF"
-              echo "$NEW_TASK_DEF" > new-task-def.json
-            env:
-              AWS_REGION: us-east-1
-          - name: Deploy new task definition to ECS
-            uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+          - name: Deploying services with an env file
+            uses: brunocascio/ecs-deploy@v2.2.0
             with:
-              service: ${{ env.ENVIRONMENT }}-devrel-graphacademy-service
-              cluster: ${{ env.ENVIRONMENT }}-devrel-graphacademy-cluster
-              task-definition: new-task-def.json
+              args: deploy ${{ env.ENVIRONMENT }}-graphacademy-cluster ${{ env.ENVIRONMENT }}-graphacademy-service
 
   update-eventbridge:
     runs-on: ubuntu-latest
@@ -224,7 +149,7 @@ jobs:
 
       - name: Read YAML configurations, update EventBridge Schedules and Targets
         run: |
-          tasks=$(yq r -j deployment-config/cron-config.yaml crons)
+          tasks=$(yq r -j deployment-config/cron-config-${{ env.ENVIRONMENT }}.yaml crons)
           
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ENV_NAME=${{ env.ENVIRONMENT }}
@@ -264,8 +189,8 @@ jobs:
             done
             output="${output%,}]"
           
-            EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-devrel-graphacademy-ecs-events-role"
-            DEF=$(aws ecs describe-task-definition --task-definition ${ENV_NAME}-devrel-graphacademy-task)
+            EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-graphacademy-ecs-events-role"
+            DEF=$(aws ecs describe-task-definition --task-definition ${ENV_NAME}-graphacademy-task)
           
             NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" \
                   '.taskDefinition |
@@ -288,7 +213,7 @@ jobs:
               export private_subnets
             fi
             
-            cluster_name=${ENV_NAME}-devrel-graphacademy-cluster
+            cluster_name=${ENV_NAME}-graphacademy-cluster
             response=$(aws ecs register-task-definition --cli-input-json file://new-task-def-${NAME}.json)
             revision=$(echo $response | jq -r '.taskDefinition.revision')
             task_arn=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
