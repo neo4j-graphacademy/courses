@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Use Node.js 16
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         env:
           NEO4J_HOST: ${{ secrets.PROD_NEO4J_HOST }}
           NEO4J_USERNAME: ${{ secrets.PROD_NEO4J_USERNAME }}
@@ -44,11 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       # Sync images to CDN
       - name: Sync public/ to S3
-        uses: jakejarvis/s3-sync-action@master
+        uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read
         env:
@@ -64,7 +64,6 @@ jobs:
     needs:
       - update-database
     steps:
-      # Configure AWS
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -74,14 +73,12 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Rollout
-        uses: kodermax/kubectl-aws-eks@main
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      - name: Deploying services with an env file
+        uses: brunocascio/ecs-deploy@v2.2.0
         with:
-          args: rollout restart -n graphacademy-prod deployment/graphacademy
+          args: deploy production-graphacademy-cluster production-graphacademy-service
 
   invalidate-cache:
     runs-on: ubuntu-latest
@@ -90,7 +87,7 @@ jobs:
     steps:
       # Configure AWS
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AC_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AC_SECRET_ACCESS_KEY }}
