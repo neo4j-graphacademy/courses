@@ -3,6 +3,8 @@ FROM node:16-alpine
 WORKDIR /app
 COPY . /app/
 
+RUN apk add jq curl
+
 # Build site including dev dependencies
 ENV NODE_ENV production
 RUN npm install --include=dev
