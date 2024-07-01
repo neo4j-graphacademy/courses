@@ -414,14 +414,15 @@ router.get('/rewards', requiresAuth(), async (req, res, next) => {
 })
 
 const redeemForm = async (req, res, next) => {
+    let user, reward
     try {
         if (!PRINTFUL_STORE_ID) {
             throw new NotFoundError('Store not found')
         }
 
-        const user = await getUser(req) as User
+        user = await getUser(req) as User
         const rewards = await getRewards(user)
-        const reward = rewards.find(reward => reward.slug === req.params.slug)
+        reward = rewards.find(reward => reward.slug === req.params.slug)
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
@@ -510,7 +511,14 @@ const redeemForm = async (req, res, next) => {
             errors: req.errors || {},
         })
     }
-    catch (e) {
+    catch (e: any) {
+        notify(e, event => {
+            event.setUser(user?.id, user.email, user.name)
+            event.addMetadata('reward', reward || {})
+            event.addMetadata('order', {
+                store: PRINTFUL_STORE_ID,
+            })
+        })
         next(e)
     }
 }
