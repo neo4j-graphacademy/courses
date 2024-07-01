@@ -1,9 +1,9 @@
 FROM node:16-alpine
+
 WORKDIR /app
+COPY . /app/
 
 RUN apk add jq curl
-
-COPY . /app/
 
 # Build site including dev dependencies
 ENV NODE_ENV production
@@ -13,7 +13,6 @@ RUN npm run build
 
 # Reinstall only production dependencies
 RUN npm install
-
 RUN chmod +x /app/start
 
 EXPOSE 3000
