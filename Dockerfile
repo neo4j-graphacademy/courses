@@ -14,4 +14,4 @@ RUN npm install
 RUN chmod +x /app/start
 
 EXPOSE 3000
-CMD ["/app/bootstrap.sh"]
+CMD ["/app/start"]
