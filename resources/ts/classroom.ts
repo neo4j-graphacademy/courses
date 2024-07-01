@@ -192,8 +192,6 @@ function toggleNavigation() {
 export default function classroom() {
     const body = document.querySelector('body')
 
-    console.log(body);
-
     if (!body?.classList.contains('layout--classroom')) {
         return;
     }

@@ -86,6 +86,6 @@ export function lessonCypher(enrolment?: string, lesson = 'l'): string {
 }
 
 export function categoryCypher(alias = 'category', parents = false) {
-    const parentsCypher = parents ? `, parents: [(${alias})<-[:HAS_CHILD]-(p) | p.id ] ` : ''
-    return `${alias} { .id, .slug, .title, .description, .shortName, link: coalesce(${alias}.link, '/categories/'+ ${alias}.slug +'/') ${parentsCypher} }`
+    const parentsCypher = parents ? `, parents: [(${alias})<-[pr:HAS_CHILD]-(p) | { id: p.id, order: pr.order } ] ` : ''
+    return `${alias} { .id, .slug, .title, .description, .shortName, .caption, link: coalesce(${alias}.link, '/categories/'+ ${alias}.slug +'/') ${parentsCypher} }`
 }

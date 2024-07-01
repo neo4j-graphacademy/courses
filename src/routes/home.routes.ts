@@ -43,16 +43,16 @@ router.get('/', async (req, res, next) => {
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
 
-        const paths = categories?.find(category => category.slug === 'paths')
+        const paths = categories?.find(category => category.slug === 'topic')
 
         // TODO: Reinstate these categories
         if (paths?.children) {
-            paths.children = paths?.children.filter(category => !['aura', 'administrator', 'analyst'].includes(category.slug))
+            paths.children = paths?.children.filter(category => !['foundation'].includes(category.slug))
         }
 
         const certification = categories.find(category => category.slug === 'certification')
 
-        const activePath = 'llms'
+        const activePath = 'generative-ai'
 
         const translateEn = translate(LANGUAGE_EN)
 

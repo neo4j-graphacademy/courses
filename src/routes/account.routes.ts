@@ -43,52 +43,91 @@ router.use((req, res, next) => {
     next()
 })
 
-/**
- * @GET /account/
- *
- * Display user account details
- */
-router.get('/', requiresAuth(), async (req, res, next) => {
+const accountForm = async (req, res, next, vars = {}) => {
     try {
-        const user = await getUser(req) as User
+        const user = await getUser(req)
         const countries = await getCountriesAsRecord()
 
-        res.render('account/edit', {
-            title: 'My Account',
-            // hero: {
-            //     title: 'My Account',
-            // },
+        const title = req.originalUrl.includes('complete') ? 'Complete Account | My Account' : 'My Account'
+        const template = req.originalUrl.includes('complete') ? 'account/complete' : 'account/edit'
+
+        res.render(template, {
+            title,
             user,
             countries,
             classes: 'account',
+            returnTo: req.query.returnTo || '/account/',
+            input: {},
+            ...vars,
         })
     }
     catch (e) {
         next(e)
     }
-})
+}
+
+const processAccountForm = async (req, res, next) => {
+    try {
+        const token = await getToken(req)
+        const team = getTeam(req)
+        const user = await getUser(req) as User
+
+        const { nickname, givenName, position, company, country, unsubscribe, bio } = req.body
+
+        // Validation
+        const required = ['nickname', 'givenName', 'country', 'position', 'company']
+        const errors: string[] = []
+
+        for (const key of required) {
+            const value = req.body[key]
+
+            if (value === undefined || !value || value.length < 2) {
+                errors.push(`Please enter a valid ${key}`)
+            }
+        }
+
+        if (errors.length === 0) {
+            const unsubscribed = unsubscribe === 'true'
+
+            await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio }, team)
+
+            req.flash('success', 'Your personal information has been updated')
+
+            res.redirect(req.body.returnTo || '/account/')
+        }
+        else {
+            // Set error message and display form
+            res.locals.error = 'Please try again'
+
+            return accountForm(req, res, next, {
+                errorMessage: '',
+                errors,
+                // body: req.body,
+                input: req.body,
+            })
+        }
+
+    }
+    catch (e) {
+        next(e)
+    }
+}
+
+/**
+ * @GET /account/
+ *
+ * Display user account details
+ */
+router.get('/', requiresAuth(), (req, res, next) => accountForm(req, res, next))
+
+
 
 /**
  * @GET /account/complete/
  *
  * Prompt the user to enter their details or explicitly skip
  */
-router.get('/complete', requiresAuth(), async (req, res) => {
-    const user = await getUser(req)
-    const countries = await getCountriesAsRecord()
-
-    res.render('account/complete', {
-        title: 'Complete Account | My Account',
-        // hero: {
-        //     title: 'Complete Your Account',
-        //     byline: 'We would like to know more about you.',
-        // },
-        user,
-        countries,
-        classes: 'account',
-        returnTo: req.query.returnTo || '/account/'
-    })
-})
+router.get('/complete', requiresAuth(), (req, res, next) => accountForm(req, res, next))
 
 /**
  * @GET /account/skip
@@ -96,6 +135,9 @@ router.get('/complete', requiresAuth(), async (req, res) => {
  * Skip the account completion step
  */
 router.get('/skip', requiresAuth(), async (req, res, next) => {
+    // Disable skip button
+    return res.redirect('/account/complete/')
+
     try {
         const token = await getToken(req)
         const team = getTeam(req)
@@ -117,27 +159,8 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
  *
  * Update user details
  */
-router.post('/', requiresAuth(), async (req, res, next) => {
-    try {
-        const token = await getToken(req)
-        const team = getTeam(req)
-        const user = await getUser(req) as User
-
-        // TODO: Validation
-        const { nickname, givenName, position, company, country, unsubscribe, bio } = req.body
-
-        const unsubscribed = unsubscribe === 'true'
-
-        await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio }, team)
-
-        req.flash('success', 'Your personal information has been updated')
-
-        res.redirect(req.body.returnTo || '/account/')
-    }
-    catch (e) {
-        next(e)
-    }
-})
+router.post('/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
+router.post('/complete/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
 
 /**
  * @GET /account/verify
@@ -391,14 +414,15 @@ router.get('/rewards', requiresAuth(), async (req, res, next) => {
 })
 
 const redeemForm = async (req, res, next) => {
+    let user, reward
     try {
         if (!PRINTFUL_STORE_ID) {
             throw new NotFoundError('Store not found')
         }
 
-        const user = await getUser(req) as User
+        user = await getUser(req) as User
         const rewards = await getRewards(user)
-        const reward = rewards.find(reward => reward.slug === req.params.slug)
+        reward = rewards.find(reward => reward.slug === req.params.slug)
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
@@ -487,7 +511,14 @@ const redeemForm = async (req, res, next) => {
             errors: req.errors || {},
         })
     }
-    catch (e) {
+    catch (e: any) {
+        notify(e, event => {
+            event.setUser(user?.id, user.email, user.name)
+            event.addMetadata('reward', reward || {})
+            event.addMetadata('order', {
+                store: PRINTFUL_STORE_ID,
+            })
+        })
         next(e)
     }
 }
