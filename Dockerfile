@@ -1,8 +1,6 @@
 FROM node:16-alpine
+
 WORKDIR /app
-
-RUN apk add jq curl
-
 COPY . /app/
 
 # Build site including dev dependencies
@@ -13,8 +11,7 @@ RUN npm run build
 
 # Reinstall only production dependencies
 RUN npm install
-
 RUN chmod +x /app/start
 
 EXPOSE 3000
-CMD ["/app/start"]
+CMD ["/app/bootstrap.sh"]
