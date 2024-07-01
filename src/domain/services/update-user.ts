@@ -46,8 +46,6 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
 
     // automatically join a team?
     if (team !== undefined) {
-        console.log(',my team', team);
-
         await joinTeam(user, team)
     }
 

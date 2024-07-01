@@ -24,6 +24,7 @@ export function getWebhooks<T>(storeId: string) {
 }
 
 export function addWebhook(storeId: string, url: string, types: string[]) {
+
     return api.post(
         '/webhooks',
         { url, types },
