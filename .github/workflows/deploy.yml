@@ -74,47 +74,6 @@ jobs:
               aws s3 sync public/ s3://cdn.graphacademy.neo4j.com --acl public-read
             fi
 
-  deploy:
-      runs-on: ubuntu-latest
-      needs: [set_environment, assets]
-      permissions:
-        id-token: write
-        contents: read
-      env:
-        AWS_REGION: us-east-1
-        ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
-      steps:
-          - name: Checkout
-            uses: actions/checkout@v4
-
-          - name: Set env variables for secrets
-            run: |
-              echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
-          - name: Configure AWS credentials
-            uses: aws-actions/configure-aws-credentials@v4
-            with:
-              role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
-              aws-region: ${{ env.AWS_REGION }}
-
-          - name: Login to Amazon ECR Private
-            id: login-ecr
-            uses: aws-actions/amazon-ecr-login@v2
-
-          - name: Build and push
-            uses: docker/build-push-action@v6
-            with:
-              context: .
-              push: true
-              tags: "${{ env.IMAGE }}:${{ github.sha }},${{ env.IMAGE }}:latest"
-            env:
-              IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-graphacademy-repository"
-
-          - name: Deploying services with an env file
-            uses: brunocascio/ecs-deploy@v2.2.0
-            with:
-              args: deploy ${{ env.ENVIRONMENT }}-graphacademy-cluster ${{ env.ENVIRONMENT }}-graphacademy-service
-
   update-eventbridge:
     runs-on: ubuntu-latest
     needs: [set_environment, assets, deploy]
@@ -155,7 +114,8 @@ jobs:
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ENV_NAME=${{ env.ENVIRONMENT }}
           
-          cat ./deployment-config/cron-config-${ENV_NAME}.yaml
+          yq -o=json deployment-config/cron-config-${ENV_NAME}.yaml
+          yq -o=json '.crons' deployment-config/cron-config-${ENV_NAME}.yaml
           tasks=$(yq -o=json '.crons' deployment-config/cron-config-${ENV_NAME}.yaml)
           echo "$tasks" | jq -c '.[]' | while read -r task; do
             NAME=$(echo $task | jq -r '.name')
@@ -234,3 +194,44 @@ jobs:
               echo "Target was added successfully ✅"
             fi
           done
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [set_environment, assets]
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set env variables for secrets
+        run: |
+          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Private
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: "${{ env.IMAGE }}:${{ github.sha }},${{ env.IMAGE }}:latest"
+        env:
+          IMAGE: "${{ steps.login-ecr.outputs.registry }}/${{ env.ENVIRONMENT }}-graphacademy-repository"
+
+      - name: Deploying services with an env file
+        uses: brunocascio/ecs-deploy@v2.2.0
+        with:
+          args: deploy ${{ env.ENVIRONMENT }}-graphacademy-cluster ${{ env.ENVIRONMENT }}-graphacademy-service
