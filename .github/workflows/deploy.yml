@@ -192,12 +192,12 @@ jobs:
             EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-graphacademy-ecs-events-role"
             DEF=$(aws ecs describe-task-definition --task-definition ${ENV_NAME}-graphacademy-task)
           
-            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" --argjson name "cron-$NAME" \
+            NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" \
                   '.taskDefinition |
                   del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
                   .containerDefinitions[0].command = $command |
                   .containerDefinitions[0].environment = $environment |
-                  .containerDefinitions[0].logConfiguration.options.awslogs-stream-prefix = $name |
+                  .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = "cron-'$NAME'" |
                   .family = "'$TASK_NAME'"
                 ')
           
@@ -206,11 +206,11 @@ jobs:
           
             if [ "${ENV_NAME}" = "development" ]; then
               IFS=',' read -ra private_subnets <<< "${{ vars.DEVELOPMENT_PRIVATE_SUBNETS }}"
-              export security_group_id=${{ vars.DEVELOPMENT_SECURITY_GROUP }}
+              export security_group_id="${{ vars.DEVELOPMENT_SECURITY_GROUP }}"
               export private_subnets
             elif [ "${ENV_NAME}" = "production" ]; then
               IFS=',' read -ra private_subnets <<< "${{ vars.PRODUCTION_PRIVATE_SUBNETS }}"
-              export security_group_id=${{ vars.PRODUCTION_SECURITY_GROUP }}
+              export security_group_id="${{ vars.PRODUCTION_SECURITY_GROUP }}"
               export private_subnets
             fi
             
@@ -221,10 +221,9 @@ jobs:
             target_arn="arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/${cluster_name}"  
           
             aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
-          
-            put_targets_response=$(aws events put-targets --rule $RULE_NAME --targets "Id=${ENV_NAME}-${NAME}-task-cron,Arn=${target_arn},RoleArn=${EVENTBRIDGE_ROLE},EcsParameters={TaskDefinitionArn=${task_arn}}")          
+                
             put_targets_response=$(aws events put-targets --rule $RULE_NAME --targets "Id=${ENV_NAME}-${NAME}-task-cron,Arn=${target_arn},RoleArn=${EVENTBRIDGE_ROLE},EcsParameters={TaskDefinitionArn=${task_arn},LaunchType=FARGATE,NetworkConfiguration={awsvpcConfiguration={Subnets=[\"${private_subnets[0]}\",\"${private_subnets[1]}\",\"${private_subnets[2]}\"],SecurityGroups=[\"$security_group_id\"],AssignPublicIp=DISABLED}}}")            
-            echo "FailedEntryCount: $(echo $put_targets_response | jq -r '.FailedEntryCount')"
+          
             if [ "$(echo $put_targets_response | jq -r '.FailedEntryCount')" -ne 0 ]; then
               echo "Failed to set targets"
               exit 1
