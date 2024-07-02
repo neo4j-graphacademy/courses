@@ -144,6 +144,12 @@ jobs:
           sudo wget -qO- https://github.com/mikefarah/yq/releases/download/4.44.2/yq_linux_amd64 | sudo tee /usr/bin/yq > /dev/null
           sudo chmod +x /usr/bin/yq
 
+      - name: Get CRON config from the file
+        id: cronConfig
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -p yaml -o json '.crons' deployment-config/cron-config-${{ env.ENVIRONMENT }}.yaml
+
       - name: Read YAML configurations, update EventBridge Schedules and Targets
         shell: bash
         run: |
@@ -151,6 +157,8 @@ jobs:
           
           AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ENV_NAME=${{ env.ENVIRONMENT }}
+          
+          echo ${{ steps.cronConfig.outputs.result }}
           
           yq -p yaml -o json deployment-config/cron-config-${ENV_NAME}.yaml
           yq -p yaml -o json '.crons' deployment-config/cron-config-${ENV_NAME}.yaml
