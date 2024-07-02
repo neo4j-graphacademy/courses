@@ -6,87 +6,92 @@ import { isbot } from "isbot";
 import { GRAPHACADEMY_CHATBOT_USERAGENT, IS_PRODUCTION } from "../../constants";
 
 export default async function indexable(req: Request, res: Response, next: NextFunction) {
-    const userAgent = req.headers['user-agent']
+    try {
+        const userAgent = req.headers['user-agent']
 
-    // Is the user allowed to index this page?
-    let allowIndex = false
+        // Is the user allowed to index this page?
+        let allowIndex = false
 
-    // Local googlebot testing
-    if (!IS_PRODUCTION && req.query.googlebot === 'true') {
-        allowIndex = true
-    }
-
-    // Check for GeaphAcademy Chatbot user agent
-    else if (userAgent?.startsWith(GRAPHACADEMY_CHATBOT_USERAGENT)) {
-        allowIndex = true
-    }
-
-    // Is this a google bot?
-    else {
-        try {
-            allowIndex = isbot(userAgent)
+        // Local googlebot testing
+        if (!IS_PRODUCTION && req.query.googlebot === 'true') {
+            allowIndex = true
         }
-        catch {
-            // Do nothing
+
+        // Check for GeaphAcademy Chatbot user agent
+        else if (userAgent?.startsWith(GRAPHACADEMY_CHATBOT_USERAGENT)) {
+            allowIndex = true
         }
-    }
 
-    // If indexing isn't allowed, advance to next middleware
-    if (!allowIndex) {
-        return next()
-    }
+        // Is this a google bot?
+        else {
+            try {
+                allowIndex = isbot(userAgent)
+            }
+            catch {
+                // Do nothing
+            }
+        }
 
-    // Get Course Information
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_, __, courseSlug, moduleSlug, lessonSlug] = req.originalUrl.split('?')[0].split('/')
+        // If indexing isn't allowed, advance to next middleware
+        if (!allowIndex) {
+            return next()
+        }
 
-    const course = await getCourseWithProgress(courseSlug)
+        // Get Course Information
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const [_, __, courseSlug, moduleSlug, lessonSlug] = req.originalUrl.split('?')[0].split('/')
 
-    if (!course) {
-        return next(new NotFoundError())
-    }
+        const course = await getCourseWithProgress(courseSlug)
 
-    // Check for Module
-    if (moduleSlug !== undefined) {
-        const module = course.modules.find(module => module.slug === moduleSlug)
-
-        if (!module) {
+        if (!course) {
             return next(new NotFoundError())
         }
 
-        // Render Lesson?
-        if (lessonSlug) {
-            const lesson = module.lessons.find(lesson => lesson.slug === lessonSlug)
+        // Check for Module
+        if (moduleSlug !== undefined) {
+            const module = course.modules.find(module => module.slug === moduleSlug)
 
-            if (!lesson) {
+            if (!module) {
                 return next(new NotFoundError())
             }
 
-            const doc = await convertLessonOverview(courseSlug, moduleSlug, lessonSlug)
+            // Render Lesson?
+            if (lessonSlug) {
+                const lesson = module.lessons.find(lesson => lesson.slug === lessonSlug)
 
-            return res.render('course/lesson', {
-                title: lesson.title,
-                next: lesson.next,
-                previous: lesson.previous,
+                if (!lesson) {
+                    return next(new NotFoundError())
+                }
+
+                const doc = await convertLessonOverview(courseSlug, moduleSlug, lessonSlug)
+
+                return res.render('course/lesson', {
+                    title: lesson.title,
+                    next: lesson.next,
+                    previous: lesson.previous,
+                    course,
+                    module,
+                    lesson,
+                    doc,
+                })
+            }
+
+            // Render Module
+            const doc = await convertModuleOverview(courseSlug, moduleSlug)
+
+            return res.render('course/module', {
+                ...module,
+                title: module.title,
                 course,
-                module,
-                lesson,
-                doc,
+                module, doc
             })
+
         }
 
-        // Render Module
-        const doc = await convertModuleOverview(courseSlug, moduleSlug)
-
-        return res.render('course/module', {
-            ...module,
-            title: module.title,
-            course,
-            module, doc
-        })
-
+        // No indexable content to display
+        next()
     }
-
-    // No indexable content to display
-    next()
+    catch (e) {
+        next(e)
+    }
 }
