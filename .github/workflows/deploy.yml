@@ -189,15 +189,15 @@ jobs:
                         ')
 
                     echo "$NEW_DEF" > "new-task-def-${NAME}.json"
+                    cat "new-task-def-${NAME}.json"
+                    
                     IFS=',' read -ra private_subnets <<< "${{ vars[env.N_AWS_PRIVATE_SUBNETS] }}"
                     export security_group_id="${{ vars[env.N_AWS_SECURITY_GROUP_ID] }}"
                     export private_subnets
 
-                    cluster_name=${ENV_NAME}-graphacademy-cluster
                     response=$(aws ecs register-task-definition --cli-input-json file://new-task-def-${NAME}.json)
-                    revision=$(echo $response | jq -r '.taskDefinition.revision')
                     task_arn=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
-                    target_arn="arn:aws:ecs:${{ vars.AWS_REGION }}:${AWS_ACCOUNT_ID}:cluster/${cluster_name}"
+                    target_arn="arn:aws:ecs:${{ vars.AWS_REGION }}:${AWS_ACCOUNT_ID}:cluster/${ENV_NAME}-graphacademy-cluster"
 
                     aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
                     put_targets_response=$(aws events put-targets --rule $RULE_NAME --targets "Id=${ENV_NAME}-${NAME}-task-cron,Arn=${target_arn},RoleArn=${EVENTBRIDGE_ROLE},EcsParameters={TaskDefinitionArn=${task_arn},LaunchType=FARGATE,NetworkConfiguration={awsvpcConfiguration={Subnets=[\"${private_subnets[0]}\",\"${private_subnets[1]}\",\"${private_subnets[2]}\"],SecurityGroups=[\"$security_group_id\"],AssignPublicIp=DISABLED}}}")
