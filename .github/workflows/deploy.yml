@@ -18,10 +18,9 @@ jobs:
                   BRANCH_NAME=${GITHUB_REF#refs/heads/}
                   BRANCH_NAME=${BRANCH_NAME#refs/tags/}
 
+                  ENVIRONMENT="development"
                   if [[ "$BRANCH_NAME" == v* ]]; then
                     ENVIRONMENT="production"
-                  else
-                    ENVIRONMENT="development"
                   fi
 
                   echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
@@ -35,7 +34,6 @@ jobs:
             id-token: write
             contents: read
         env:
-            AWS_REGION: us-east-1
             ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout
@@ -54,13 +52,24 @@ jobs:
               uses: aws-actions/configure-aws-credentials@v4
               with:
                   role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
-                  aws-region: ${{ env.AWS_REGION }}
+                  aws-region: ${{ vars.AWS_REGION }}
 
             - name: Install NPM Dependencies
               run: npm install
 
             - name: Build CSS
               run: npm run build:css
+
+            - name: Build Front-end JS
+              run: npm run build:ui
+
+            - name: Sync Assets
+              run: |
+                  if [ "${{ env.ENVIRONMENT }}" = "development" ]; then
+                    aws s3 sync public/ s3://${{ env.ENVIRONMENT }}-graphacademy-assets/assets/ --acl public-read
+                  elif [ "${{ env.ENVIRONMENT }}" = "production" ]; then
+                    aws s3 sync public/ s3://cdn.graphacademy.neo4j.com --acl public-read
+                  fi
 
     deploy:
         runs-on: ubuntu-latest
@@ -69,7 +78,6 @@ jobs:
             id-token: write
             contents: read
         env:
-            AWS_REGION: us-east-1
             ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout
@@ -83,7 +91,7 @@ jobs:
               uses: aws-actions/configure-aws-credentials@v4
               with:
                   role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
-                  aws-region: ${{ env.AWS_REGION }}
+                  aws-region: ${{ vars.AWS_REGION }}
 
             - name: Login to Amazon ECR Private
               id: login-ecr
@@ -110,7 +118,6 @@ jobs:
             id-token: write
             contents: read
         env:
-            AWS_REGION: us-east-1
             ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout code
@@ -119,17 +126,18 @@ jobs:
             - name: Set env variables for secrets
               run: |
                   echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
+                  echo "N_AWS_PRIVATE_SUBNETS=${ENVIRONMENT}_PRIVATE_SUBNETS" >> $GITHUB_ENV
+                  echo "N_AWS_SECURITY_GROUP_ID=${ENVIRONMENT}_SECURITY_GROUP" >> $GITHUB_ENV
+                  echo "N_AWS_SECRET_ARN=${ENVIRONMENT}_GRAPHACADEMY_SECRET_ARN" >> $GITHUB_ENV
 
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
                   role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
-                  aws-region: ${{ env.AWS_REGION }}
+                  aws-region: ${{ vars.AWS_REGION }}
 
-            - name: Install jq and yq
+            - name: Install jq
               run: |
-                  sudo apt-get update
-                  sudo apt-get install -y wget
                   sudo wget -qO- https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 | sudo tee /usr/bin/jq > /dev/null
                   sudo chmod +x /usr/bin/jq
 
@@ -140,77 +148,62 @@ jobs:
                   cmd: yq -p yaml -o json '.crons' deployment-config/cron-config-${{ env.ENVIRONMENT }}.yaml
 
             - name: Read YAML configurations, update EventBridge Schedules and Targets
+              env:
+                  SECRET_ARN: ${{ vars[env.N_AWS_SECRET_ARN] }}
               run: |
                   AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
                   ENV_NAME=${{ env.ENVIRONMENT }}
+                  SECRET_ARN=${{ env.SECRET_ARN }}
 
                   echo '${{ steps.cronConfig.outputs.result }}' | jq -c '.[]' | while read -r task; do
                     NAME=$(echo $task | jq -r '.name')
                     COMMAND=$(echo $task | jq -c '.command')
                     CRON=$(echo "$task" | jq -r '.cron')
                     ENV_VARS=$(echo $task | jq -c '.env')
+                    ENV_VARS_ARRAY=($(echo $ENV_VARS | jq -r '.[]'))
+                  
                     TASK_NAME="${ENV_NAME}-graphacademy-${NAME}-task-cron"
                     RULE_NAME="${ENV_NAME}-graphacademy-${NAME}-rule"
-                    ENV_VARS_ARRAY=($(echo $ENV_VARS | jq -r '.[]'))
 
-                    output="["
+                    secrets="["
                     for var in "${ENV_VARS_ARRAY[@]}"; do
-                      secret_name="${ENV_NAME}/graphacademy/$var"
-
-                      if [[ ! $secret_name =~ ^[a-zA-Z0-9/_+=.@-]+$ ]]; then
-                        echo "Invalid secret name: $secret_name 🚫"
-                        exit 1
-                      fi
-
-                      secret=$(aws secretsmanager get-secret-value --secret-id "$secret_name" --region us-east-1 --query SecretString --output text)
-                      if [ $? -ne 0 ]; then
-                        echo "Failed to fetch secret: $secret_name 🚫"
-                        exit 1
-                      fi
-
+                      secret=$(aws secretsmanager get-secret-value --secret-id "${SECRET_ARN}" --query SecretString --output text)
                       value=$(echo $secret | jq -r ".\"$var\"")
+                  
                       if [ $? -ne 0 ]; then
                         echo "Failed to parse json value for: $var 🚫"
                         exit 1
                       fi
 
-                      env_var="{\"name\":\"$var\",\"value\":\"$value\"}"
-                      output+="$env_var,"
+                      env_var="{\"name\":\"${var}\",\"valueFrom\":\"${SECRET_ARN}:${var}::\"}"
+                      secrets+="$env_var,"
                     done
-                    output="${output%,}]"
+                    secrets="${secrets%,}]"
 
                     EVENTBRIDGE_ROLE="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ENV_NAME}-graphacademy-ecs-events-role"
                     DEF=$(aws ecs describe-task-definition --task-definition ${ENV_NAME}-graphacademy-task)
 
-                    NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson environment "$output" \
+                    NEW_DEF=$(echo $DEF | jq --argjson command "$COMMAND" --argjson secrets "$secrets" \
                           '.taskDefinition |
-                          del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy) |
+                          del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .containerDefinitions[0].environment) |
                           .containerDefinitions[0].command = $command |
-                          .containerDefinitions[0].environment = $environment |
+                          .containerDefinitions[0].secrets = $secrets |
                           .containerDefinitions[0].logConfiguration.options["awslogs-stream-prefix"] = "cron-'$NAME'" |
                           .containerDefinitions[0].logConfiguration.options["awslogs-group"] = "'$ENV_NAME'-graphacademy-cron" |
                           .family = "'$TASK_NAME'"
                         ')
 
                     echo "$NEW_DEF" > "new-task-def-${NAME}.json"
-                    if [ "${ENV_NAME}" = "development" ]; then
-                      IFS=',' read -ra private_subnets <<< "${{ vars.DEVELOPMENT_PRIVATE_SUBNETS }}"
-                      export security_group_id="${{ vars.DEVELOPMENT_SECURITY_GROUP }}"
-                      export private_subnets
-                    elif [ "${ENV_NAME}" = "production" ]; then
-                      IFS=',' read -ra private_subnets <<< "${{ vars.PRODUCTION_PRIVATE_SUBNETS }}"
-                      export security_group_id="${{ vars.PRODUCTION_SECURITY_GROUP }}"
-                      export private_subnets
-                    fi
+                    
+                    IFS=',' read -ra private_subnets <<< "${{ vars[env.N_AWS_PRIVATE_SUBNETS] }}"
+                    export security_group_id="${{ vars[env.N_AWS_SECURITY_GROUP_ID] }}"
+                    export private_subnets
 
-                    cluster_name=${ENV_NAME}-graphacademy-cluster
                     response=$(aws ecs register-task-definition --cli-input-json file://new-task-def-${NAME}.json)
-                    revision=$(echo $response | jq -r '.taskDefinition.revision')
                     task_arn=$(echo $response | jq -r '.taskDefinition.taskDefinitionArn')
-                    target_arn="arn:aws:ecs:us-east-1:${AWS_ACCOUNT_ID}:cluster/${cluster_name}"
+                    target_arn="arn:aws:ecs:${{ vars.AWS_REGION }}:${AWS_ACCOUNT_ID}:cluster/${ENV_NAME}-graphacademy-cluster"
 
                     aws events put-rule --name $RULE_NAME --schedule-expression "$CRON"
-
                     put_targets_response=$(aws events put-targets --rule $RULE_NAME --targets "Id=${ENV_NAME}-${NAME}-task-cron,Arn=${target_arn},RoleArn=${EVENTBRIDGE_ROLE},EcsParameters={TaskDefinitionArn=${task_arn},LaunchType=FARGATE,NetworkConfiguration={awsvpcConfiguration={Subnets=[\"${private_subnets[0]}\",\"${private_subnets[1]}\",\"${private_subnets[2]}\"],SecurityGroups=[\"$security_group_id\"],AssignPublicIp=DISABLED}}}")
 
                     if [ "$(echo $put_targets_response | jq -r '.FailedEntryCount')" -ne 0 ]; then
