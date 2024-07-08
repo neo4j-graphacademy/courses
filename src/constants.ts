@@ -80,7 +80,7 @@ export const SLACK_TOKEN: string | undefined = process.env.SLACK_TOKEN
 export const SLACK_CHANNEL: string | undefined = process.env.SLACK_CHANNEL
 
 // Google Analytics
-export const GOOGLE_ANALYTICS_MEASUREMENT_ID: string | undefined = 'G-CDKB23GC9G' // process.env.GOOGLE_ANALYTICS_MEASUREMENT_ID
+export const GOOGLE_TAG_MANAGER_ID: string | undefined = process.env.GOOGLE_TAG_MANAGER_ID || 'GTM-WK23PSS'
 
 // Twitter
 export const TWITTER_TAG_ID: string | undefined = process.env.TWITTER_TAG_ID

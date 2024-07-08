@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import { BASE_URL, CDN_URL, CHATBOT_NEO4J_HOST, CHATBOT_NEO4J_PASSWORD, CHATBOT_NEO4J_USERNAME, GOOGLE_ANALYTICS_MEASUREMENT_ID, IS_PRODUCTION, PUBLIC_BUGSNAG_API_KEY, TWITTER_TAG_ID } from '../constants'
+import { BASE_URL, CDN_URL, CHATBOT_NEO4J_HOST, CHATBOT_NEO4J_PASSWORD, CHATBOT_NEO4J_USERNAME, GOOGLE_TAG_MANAGER_ID, IS_PRODUCTION, PUBLIC_BUGSNAG_API_KEY, TWITTER_TAG_ID } from '../constants'
 import { LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP, STATUS_DRAFT, STATUS_ACTIVE, NEGATIVE_STATUSES } from '../domain/model/course'
 import {
     LESSON_TYPE_VIDEO,
@@ -31,7 +31,7 @@ export function registerLocals(app: Express) {
 
         // GA
         res.locals.ga = {
-            id: GOOGLE_ANALYTICS_MEASUREMENT_ID,
+            gtm_id: GOOGLE_TAG_MANAGER_ID,
         }
 
         // Bugsnag
