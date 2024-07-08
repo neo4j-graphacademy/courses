@@ -141,6 +141,11 @@ export async function convertLessonOverview(course: string, module: string, less
         return cache.get(key) as string
     }
 
+    if (attributes.repository) {
+        console.log('at conversion', attributes.slug, attributes.repository);
+
+    }
+
     const document = await getLessonOverview(course, module, lesson, attributes)
 
     const html = convert(document, { attributes })

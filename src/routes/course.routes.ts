@@ -847,6 +847,9 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
 
+        console.log('on lesson', course.slug, course.repository);
+
+
         // If not enrolled, send to course home
         if (course.enrolled !== true) {
             req.flash('info', 'You must be enrolled to view this content')
@@ -890,6 +893,9 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             ...await getPageAttributes(req, course, module, lesson),
             ...flattenAttributes({ sandbox: sandbox || {} }),
         }
+
+        console.log('after attributes', attributes.slug, attributes.repository);
+
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
 

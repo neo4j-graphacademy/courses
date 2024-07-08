@@ -196,6 +196,9 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
     const availableAfter = course.availableAfter ? new Date(course.availableAfter) : undefined
 
+    console.log('at format', course.slug, course.repository);
+
+
     return {
         ...course,
         title_encoded: encodeURIComponent(course.title),
@@ -470,7 +473,6 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     }
 
     // LLM API Key?
-
     if (user && course.allowsLLMCalls) {
         attributes['llm-api-key'] = generateBearerToken(user, course.slug)
         attributes['llm-api-base'] = getProxyURL()

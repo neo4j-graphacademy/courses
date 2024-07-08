@@ -32,5 +32,10 @@ export default async function getCourses(tx?: Transaction): Promise<Course[]> {
 
     courses = res.records.map(row => row.get('course') as Course)
 
+    console.log('course cache', courses.map(course => ({
+        slug: course.slug,
+        repository: course.repository,
+    })));
+
     return courses
 }
