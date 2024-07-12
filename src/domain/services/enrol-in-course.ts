@@ -1,59 +1,69 @@
+import { ManagedTransaction } from "neo4j-driver";
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
 import { notify } from "../../middleware/bugsnag.middleware";
 import { writeTransaction } from "../../modules/neo4j";
 import { UserEnrolled } from "../events/UserEnrolled";
-import { STATUS_DRAFT } from "../model/course";
+import { CourseWithProgress, STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
 import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
 
+export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined, allowCertification = true) {
+    const res = await tx.run<Partial<CourseWithProgress>>(`
+        MATCH (c:Course {slug: $slug})
+        ${allowCertification ? '' : "WHERE not c.link CONTAINS 'certifications'"}
+
+        MERGE (u:User {sub: $user})
+        ON CREATE SET u.createdAt = datetime(),
+            u.givenName = $givenName,
+            u.name = $name,
+            u.picture = $picture
+        SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid()),
+            u.refs = CASE WHEN $ref IS NOT NULL THEN apoc.coll.toSet(coalesce(u.refs, []) + $ref)
+                ELSE u.refs END
+        MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
+        ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
+        ON MATCH SET e.updatedAt = datetime()
+        SET e.lastSeenAt = datetime(),
+            e.ref = $ref
+        MERGE (u)-[:HAS_ENROLMENT]->(e)
+        MERGE (e)-[:FOR_COURSE]->(c)
+        REMOVE e:FailedEnrolment
+        RETURN {
+            user: {
+                id: u.id
+            },
+            id: e.id,
+            sandbox: [ (e)-[:HAS_SANDBOX]->(s) | s ][0],
+            course: ${courseCypher('e', 'u')},
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt
+        } AS enrolment
+    `, appendParams({
+        draft: STATUS_DRAFT,
+        slug,
+        user: user.sub,
+        name: user.nickname || user.name,
+        email: user.email,
+        givenName: user.name,
+        picture: user.picture,
+        ref: ref || null,
+        team: team || null,
+    }))
+
+    if (res.records.length === 0) {
+        throw new NotFoundError(`Could not enrol in course ${slug}.  Course could not could not be found.`)
+    }
+
+    return res
+}
+
 export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined, team?: string): Promise<Enrolment> {
     const output = await writeTransaction(async tx => {
         // Save data to database
-        const res = await tx.run(`
-            MATCH (c:Course {slug: $slug})
-            MERGE (u:User {sub: $user})
-            ON CREATE SET u.createdAt = datetime(),
-                u.givenName = $givenName,
-                u.name = $name,
-                u.picture = $picture
-            SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid()),
-                u.refs = CASE WHEN $ref IS NOT NULL THEN apoc.coll.toSet(coalesce(u.refs, []) + $ref)
-                    ELSE u.refs END
-            MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
-            ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
-            ON MATCH SET e.updatedAt = datetime()
-            SET e.lastSeenAt = datetime(),
-                e.ref = $ref
-            MERGE (u)-[:HAS_ENROLMENT]->(e)
-            MERGE (e)-[:FOR_COURSE]->(c)
-            REMOVE e:FailedEnrolment
-            RETURN {
-                user: {
-                    id: u.id
-                },
-                id: e.id,
-                sandbox: [ (e)-[:HAS_SANDBOX]->(s) | s ][0],
-                course: ${courseCypher('e', 'u')},
-                createdAt: e.createdAt,
-                updatedAt: e.updatedAt
-            } AS enrolment
-        `, appendParams({
-            draft: STATUS_DRAFT,
-            slug,
-            user: user.sub,
-            name: user.nickname || user.name,
-            email: user.email,
-            givenName: user.name,
-            picture: user.picture,
-            ref: ref || null,
-        }))
-
-        if (res.records.length === 0) {
-            throw new NotFoundError(`Could not enrol in course ${slug}.  Course could not could not be found.`)
-        }
+        const res = await mergeEnrolment(tx, slug, user, ref, team, false)
 
         const enrolment = res.records[0].get('enrolment')
 

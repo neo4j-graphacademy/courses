@@ -56,6 +56,21 @@ export function convert(document: Asciidoctor.Document, options: Asciidoctor.Pro
     return document.convert(mergeDeep(baseOptions, options))
 }
 
+
+export function convertCertificationOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
+    const folder = path.join('certifications', slug)
+
+    const file = path.join(folder, 'course.adoc')
+
+    if (!fileExists(file)) {
+        throw new NotFoundError(`Course ${slug} could not be found`)
+    }
+
+    const document = loadFile(file, { attributes })
+
+    return Promise.resolve(convert(document))
+}
+
 export function convertCourseOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
     const folder = path.join('courses', slug)
 
@@ -139,11 +154,6 @@ export async function convertLessonOverview(course: string, module: string, less
 
     if (cache.has(key)) {
         return cache.get(key) as string
-    }
-
-    if (attributes.repository) {
-        console.log('at conversion', attributes.slug, attributes.repository);
-
     }
 
     const document = await getLessonOverview(course, module, lesson, attributes)

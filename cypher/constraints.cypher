@@ -55,3 +55,7 @@ CREATE INDEX IF NOT EXISTS FOR (n:Feedback) ON (n.createdAt);
 CREATE CONSTRAINT FOR (n:Feedback) REQUIRE (n.id) IS UNIQUE;
 
 CREATE CONSTRAINT FOR (n:Team) REQUIRE (n.id) IS UNIQUE;
+
+CREATE CONSTRAINT FOR (n:CertificationQuestion) REQUIRE (n.path) IS UNIQUE;
+
+CREATE CONSTRAINT FOR (n:CertificationAttempt) REQUIRE (n.id) IS UNIQUE;

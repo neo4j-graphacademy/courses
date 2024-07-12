@@ -90,20 +90,23 @@ router.get('/', async (req, res, next) => {
  */
 router.get('/sitemap.txt', async (req, res, next) => {
     try {
-        const result = await read(`
+        const result = await read<{ link: string }>(`
             MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
             WHERE NOT c.status IN $negative + ['redirect']
             UNWIND [ c.link, m.link, l.link  ] AS link
             RETURN distinct link
             UNION ALL MATCH (c:Category) RETURN '/categories/'+ c.slug AS link
+            UNION ALL MATCH (c:Certification) RETURN c.link AS link
         `, { negative: NEGATIVE_STATUSES })
 
         const links = result.records
             .filter(row => row.get('link') !== null)
             .map(row => `${BASE_URL}${row.get('link')}`)
-            .join('\n')
 
-        res.send(links)
+
+        links.push(`${BASE_URL}/certifications/`)
+
+        res.send(links.join('\n'))
     }
     catch (e) {
         next(e)
