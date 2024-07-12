@@ -233,14 +233,20 @@ const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImport[]) =
         FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
         FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
         FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
-        FOREACH (r IN [(c)-[r:PREREQUISITE]->(n) WHERE NOT n.slug IN course.prerequisiteSlugs | r] | DELETE r)
+        FOREACH (r IN [(c)-[r:HAS_PREREQUISITE]->(n) WHERE NOT n.slug IN course.prerequisiteSlugs | r] | DELETE r)
 
-        FOREACH (slug IN course.prerequisiteSlugs |
-            MERGE (prereq:Course {slug: slug})
-            MERGE (c)-[:HAS_PREREQUISITE]->(prereq)
-        )
 
         WITH c, course
+
+        CALL {
+            WITH c, course
+
+            UNWIND range(0, size(course.prerequisiteSlugs)-1) AS idx
+            WITH c, course, idx, course.prerequisiteSlugs[ idx ] AS slug
+            MERGE (prereq:Course {slug: slug})
+            MERGE (c)-[r:HAS_PREREQUISITE]->(prereq)
+            SET r.order = idx
+        }
 
         UNWIND course.categories AS row
         MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
