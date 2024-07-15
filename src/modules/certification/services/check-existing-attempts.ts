@@ -34,7 +34,8 @@ export type CertificationStatus = {
   certificateId: string | undefined;
   certificateUrl: string | undefined;
   completed: boolean;
-  percentage: number; // Percentage of total questions  that are correct
+  finished: boolean;
+  percentage: number; // Percentage of total questions that are correct
   failed: boolean;
   updatedAt: string; //DateTime;
   createdAt: string; //DateTime;
@@ -73,10 +74,10 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
 
     RETURN a.id AS id,
       e:CompletedEnrolment AS completed,
+      NOT e:CompletedEnrolment AS failed,
       round(100.0 * correct / assigned, 1) AS percentage,
       e.certificateId AS certificateId,
       '/c/'+e.certificateId +'/' AS certificateUrl,
-      NOT e:CompletedEnrolment AS failed,
       toString(a.updatedAt) AS updatedAt,
       toString(a.createdAt) AS createdAt,
       toString(a.expiresAt) AS expiresAt,
@@ -88,6 +89,7 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
       assigned,
       answered,
       100.0 * answered / assigned AS progress,
+      answered = assigned AS finished,
       CASE WHEN answered > 0 THEN 100.0 * correct / answered ELSE 0 END AS score,
       c { .title, .slug, .link, .caption } AS course,
       q { .*,
@@ -101,7 +103,7 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
     const output = res.records[0].toObject()
 
     // Has user already completed it?
-    if (output.completed) {
+    if (output.completed || output.assigned === output.answered) {
       action = NextCertificationAction.SUCCEEDED
     }
     // Within an hour, continue the current attempt

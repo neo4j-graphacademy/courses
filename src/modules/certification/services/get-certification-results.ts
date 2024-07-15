@@ -83,7 +83,7 @@ export default async function getCertificationResults(slug: string, user: User):
       correct,
       assigned,
       round(100.0 * correct / assigned, 1) AS percentage,
-      round(100.0 * correct / assigned, 1) > c.passPercentage AS passed,
+      100.0 * correct / assigned >= c.passPercentage AS passed,
       questions
 
   `, { slug, sub: user.sub })

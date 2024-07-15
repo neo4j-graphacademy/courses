@@ -72,9 +72,9 @@ export default async function getCertification(slug: string, user: User | undefi
       MATCH(c: Course: Certification { slug: $slug })
       RETURN c {
         .*,
-    certification: true,
-    categories: [(c) - [: IN_CATEGORY] -> (n) | n { .slug, .title }]
-  } AS course
+        certification: true,
+        categories: [(c) - [: IN_CATEGORY] -> (n) | n { .slug, .title }]
+      } AS course
     `, { slug })
 
     if (res.records.length === 0) {
@@ -89,9 +89,7 @@ export default async function getCertification(slug: string, user: User | undefi
     let completed = false
     let failed = false
 
-
     if (user !== undefined) {
-
       attempt = await checkExistingAttempts(tx, slug, user)
 
       completed = attempt.completed === true
