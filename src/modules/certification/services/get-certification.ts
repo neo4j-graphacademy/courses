@@ -40,7 +40,7 @@ async function getPrerequisiteProgress(tx: ManagedTransaction, slug: string, use
     WITH c, u, cc, e,
     COUNT {(e)-[:COMPLETED_LESSON]->()} AS completed,
     COUNT {(cc)-[:HAS_MODULE|HAS_LESSON*2]->(l) WHERE not l:OptionalLesson } AS mandatory
-    WITH c, u, cc, CASE WHEN e:CompletedEnrolment THEN 100 ELSE round(100.0 * completed / mandatory, 1) END AS percentage
+    WITH c, u, cc, CASE WHEN e:CompletedEnrolment THEN 100 WHEN mandatory = 0 THEN 0 ELSE round(100.0 * completed / mandatory, 1) END AS percentage
     WITH c, u, apoc.map.fromPairs(collect([ cc.slug, percentage ])) AS progress
   `: 'WITH c, {} AS progress'
 
