@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs'
-import { join } from ''
+import { join } from 'path'
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
@@ -34,7 +34,7 @@ export default function initEmailListeners(): Promise<void> {
 
             let emailDirectory = ''
 
-            if (event.course.certification && existsSync(join(ASCIIDOC_DIRECTORY, 'certifications', event.course.slug, 'email'))) {
+            if (event.course.certification && event.course.slug !== undefined && existsSync(join(ASCIIDOC_DIRECTORY, 'certifications', event.course.slug, 'emails'))) {
                 emailDirectory = `certifications/${event.course.slug}/`
             }
             else if (event.course.emails?.includes(template)) {
