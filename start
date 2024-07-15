@@ -1,33 +1,38 @@
 #! /bin/sh
 
+TMP_FOLDER=/tmp
+TARGET_FOLDER=/app
+
 echo "Saving credentials..."
 echo $GOOGLE_APPLICATION_CREDENTIALS_CONTENT >> $GOOGLE_APPLICATION_CREDENTIALS
 
 COURSE_RELEASE=$(curl -q https://api.github.com/repos/neo4j-graphacademy/courses/tags | jq 'sort_by( .name | ltrimstr("v") | split(".") | map(tonumber) ) | reverse |.[0].zipball_url' | tr -d '"')
 
 echo "Downloading $COURSE_RELEASE"
-wget -q -O /tmp/courses.zip $COURSE_RELEASE
-unzip -q -d /tmp/courses /tmp/courses.zip
+wget -q -O $TMP_FOLDER/courses.zip $COURSE_RELEASE
+unzip -q -d $TMP_FOLDER/courses $TMP_FOLDER/courses.zip
 
 if [[ $? -gt 0 ]]; then
    echo "Unzipping course content failed, either because of bad file or failure to download zip"
    exit 1
 fi
 
-cp -rf /tmp/courses/*/asciidoc/ /app/ 2>/dev/null
+cp -rf $TMP_FOLDER/courses/*/asciidoc/ $TARGET_FOLDER/asciidoc 2>/dev/null
 
 
-CERTIFICATION_RELEASE=$(curl -q https://api.github.com/repos/neo4j-graphacademy/certifications/tags | jq 'sort_by( .name | ltrimstr("v") | split(".") | map(tonumber) ) | reverse |.[0].zipball_url' | tr -d '"')
+CERTIFICATION_RELEASE=$(curl -H "Authorization: Bearer $GITHUB_TOKEN" -q https://api.github.com/repos/neo4j-graphacademy/certifications/tags | jq 'sort_by( .name | ltrimstr("v") | split(".") | map(tonumber) ) | reverse |.[0].zipball_url' | tr -d '"')
+
+echo "$TMP_FOLDER/certifications.zip"
 
 echo "Downloading $CERTIFICATION_RELEASE"
-wget -q -O /tmp/certifications.zip $CERTIFICATION_RELEASE
-unzip -q -d /tmp/certifications /tmp/certifications.zip
+wget -q -O $TMP_FOLDER/certifications.zip --header="Authorization: Bearer $GITHUB_TOKEN" $CERTIFICATION_RELEASE
+unzip -q -d $TMP_FOLDER/certifications $TMP_FOLDER/certifications.zip
 
 if [[ $? -gt 0 ]]; then
    echo "Unzipping certifications content failed, either because of bad file or failure to download zip"
    exit 1
 fi
 
-cp -rf /tmp/certifications/*/asciidoc/certifications/ /app/asciidoc/certifications/ 2>/dev/null
+cp -rf $TMP_FOLDER/certifications/*/asciidoc/certifications/ $TARGET_FOLDER/asciidoc/certifications/ 2>/dev/null
 
 npm run $1

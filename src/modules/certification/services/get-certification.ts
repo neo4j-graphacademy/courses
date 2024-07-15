@@ -71,6 +71,7 @@ export default async function getCertification(slug: string, user: User | undefi
       MATCH (c:Course:Certification {slug: $slug})
       RETURN c {
         .*,
+        certification: true,
         categories: [(c)-[:IN_CATEGORY]->(n) | n { .slug, .title }]
       } AS course
     `, { slug })
