@@ -43,9 +43,6 @@ export default function saveAnswer(slug: string, user: User, questionId: string,
 
     `, { attemptId: status.id, questionId, answers, })
 
-    console.log(answerRes.records.map(row => row.toObject()));
-
-
     // Has the user finished?
     if (answerRes.records.length === 0) {
       throw new NotFoundError(`Question ${questionId} could not be found`)

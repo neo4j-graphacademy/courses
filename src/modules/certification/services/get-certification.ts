@@ -37,29 +37,30 @@ async function getPrerequisiteProgress(tx: ManagedTransaction, slug: string, use
   // Cypher for user progress
   const userWhere = user ? `
     OPTIONAL MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(cc)<-[:HAS_PREREQUISITE]-(c)
+    USING INDEX u:User(sub)
     WITH c, u, cc, e,
     COUNT {(e)-[:COMPLETED_LESSON]->()} AS completed,
     COUNT {(cc)-[:HAS_MODULE|HAS_LESSON*2]->(l) WHERE not l:OptionalLesson } AS mandatory
-    WITH c, u, cc, CASE WHEN e:CompletedEnrolment THEN 100 ELSE round(100.0 * completed / mandatory, 1) END AS percentage
+    WITH c, u, cc, CASE WHEN e:CompletedEnrolment THEN 100 WHEN mandatory = 0 THEN 0 ELSE round(100.0 * completed / mandatory, 1) END AS percentage
     WITH c, u, apoc.map.fromPairs(collect([ cc.slug, percentage ])) AS progress
   `: 'WITH c, {} AS progress'
 
   // Get Prerequisites
   const res = await tx.run<PrerequisiteProgress>(`
-    MATCH (c:Course {slug:  $slug})
+    MATCH(c: Course { slug: $slug })
 
     ${userWhere}
 
-    MATCH (c)-[r:HAS_PREREQUISITE]->(p)
+    MATCH(c) - [r: HAS_PREREQUISITE] -> (p)
     WITH * ORDER BY r.order ASC
 
     RETURN
       p.link AS link,
-      p.slug AS slug,
-      p.caption AS caption,
-      p.title AS title,
-      progress[p.slug] AS progress
-  `, { slug, sub: user?.sub })
+    p.slug AS slug,
+    p.caption AS caption,
+    p.title AS title,
+    progress[p.slug] AS progress
+    `, { slug, sub: user?.sub })
 
   return res.records.map(record => record.toObject())
 }
@@ -68,12 +69,12 @@ async function getPrerequisiteProgress(tx: ManagedTransaction, slug: string, use
 export default async function getCertification(slug: string, user: User | undefined): Promise<CertificationResponse> {
   const res = await readTransaction<CertificationResponse>(async tx => {
     const res = await tx.run(`
-      MATCH (c:Course:Certification {slug: $slug})
+      MATCH(c: Course: Certification { slug: $slug })
       RETURN c {
         .*,
-        certification: true,
-        categories: [(c)-[:IN_CATEGORY]->(n) | n { .slug, .title }]
-      } AS course
+    certification: true,
+    categories: [(c) - [: IN_CATEGORY] -> (n) | n { .slug, .title }]
+  } AS course
     `, { slug })
 
     if (res.records.length === 0) {
@@ -90,6 +91,7 @@ export default async function getCertification(slug: string, user: User | undefi
 
 
     if (user !== undefined) {
+
       attempt = await checkExistingAttempts(tx, slug, user)
 
       completed = attempt.completed === true
@@ -97,7 +99,6 @@ export default async function getCertification(slug: string, user: User | undefi
       available = attempt.action === NextCertificationAction.CREATE
       inProgress = attempt.action === NextCertificationAction.CONTINUE
     }
-
     const prerequisites = await getPrerequisiteProgress(tx, slug, user)
 
     return {

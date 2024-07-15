@@ -9,10 +9,9 @@ type QuestionOutput = {
 }
 
 export default function getQuestionHTML(certification: string, id: string): Promise<QuestionOutput> {
-  const filepath = `courses/${certification}/questions/${id}`
+  const filepath = `certifications/${certification}/questions/${id}`
 
   const file = loadFile(filepath)
-
 
   // Remove Hint and Solution from HTML
   const $ = load(convert(file, {
