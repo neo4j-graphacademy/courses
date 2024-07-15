@@ -80,9 +80,6 @@ export default async function startCertification(slug: string, user: User, ref: 
     async tx => {
       const { action } = await checkExistingAttempts(tx, slug, user)
 
-      console.log({ action });
-
-
       if (action == NextCertificationAction.CREATE) {
         const { attemptId } = await createAttempt(tx, slug, user, ref, team)
 
