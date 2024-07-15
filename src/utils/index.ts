@@ -40,7 +40,11 @@ export async function getBadge<T extends Course>(course: T): Promise<string | un
 
 export async function getIllustration<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
-        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'illustration.svg')
+        let badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'illustration.svg')
+
+        if (!fs.existsSync(badgePath)) {
+            badgePath = path.join(ASCIIDOC_DIRECTORY, 'certifications', course.slug, 'illustration.svg')
+        }
 
         if (!fs.existsSync(badgePath)) {
             return resolve(undefined)
@@ -470,7 +474,6 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     }
 
     // LLM API Key?
-
     if (user && course.allowsLLMCalls) {
         attributes['llm-api-key'] = generateBearerToken(user, course.slug)
         attributes['llm-api-base'] = getProxyURL()
