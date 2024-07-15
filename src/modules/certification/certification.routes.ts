@@ -29,7 +29,6 @@ const ERROR_TIMES_UP = 'Time is up.  Here are your results.'
 router.get(`/`, forceTrailingSlash, async (req, res, next) => {
     try {
         const file = loadFile(`pages/certification.adoc`)
-
         const certifications = await getCertifications()
 
         res.render('certification', {
