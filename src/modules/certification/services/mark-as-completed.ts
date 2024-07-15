@@ -4,10 +4,10 @@ export default async function markAsCompleted(tx: ManagedTransaction, attemptId:
   // TODO: Remove hardcoded pass percentage
   const res = await tx.run<{ completed: boolean }>(`
     MATCH (a:CertificationAttempt {id: $attemptId})<-[:HAS_ATTEMPT]-(e)-[:FOR_COURSE]->(c)
-    WITH a, e,
+    WITH a, c, e,
       COUNT { (a)-[:PROVIDED_ANSWER {correct: true}]->() } AS correct,
       COUNT { (a)-[:ASSIGNED_QUESTION]->() } AS assigned
-    WITH a, e, correct, assigned, 100.0 * correct / assigned AS score
+    WITH a, c, e, correct, assigned, 100.0 * correct / assigned AS score
 
     SET a.updatedAt = datetime(),
       e.updatedAt = datetime(),
