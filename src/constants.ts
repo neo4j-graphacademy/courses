@@ -47,6 +47,7 @@ export const ATTRIBUTE_CLASSMARKER_ID = 'classmarker-id'
 export const ATTRIBUTE_CLASSMARKER_REFERENCE = 'classmarker-reference'
 export const ATTRIBUTE_TYPE = 'type'
 export const ATTRIBUTE_ORDER = 'order'
+
 export const ATTRIBUTE_DURATION = 'duration'
 export const ATTRIBUTE_SANDBOX = 'sandbox'
 export const ATTRIBUTE_REPOSITORY = 'repository'
@@ -62,6 +63,6 @@ export const ATTRIBUTE_REWARD_IMAGE = 'reward-image'
 export const ATTRIBUTE_REWARD_PROVIDER = 'reward-provider'
 export const ATTRIBUTE_REWARD_PRODUCT_ID = 'reward-product-id'
 export const ATTRIBUTE_DESCRIPTION = 'description'
-export const ATTRIBUTE_QUESTIONS = 'questions'
-export const ATTRIBUTE_PASS_PERCENTAGE = 'pass-percentage'
+
+
 export const ATTRIBUTE_KEY_POINTS = 'key-points'
