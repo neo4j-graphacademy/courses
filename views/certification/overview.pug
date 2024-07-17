@@ -1,0 +1,190 @@
+extends ../layouts/default
+include ../mixins/progress
+include ../mixins/completed
+
+block main
+  .course-container
+    .course-overview.secondary
+      .container
+        .major
+          h1.heading !{course.title}
+
+          .course-meta
+            dl.course-meta-list
+              if course.duration
+                dt.course-meta-term
+                  | !{svg.iconDurationSmall}
+                  span Course Duration
+                dd.course-meta-details.course-meta-duration
+                  | !{course.duration}
+              dt.course-meta-term
+                span Categories
+              dd.course-meta-details.course-meta-categories
+                a(href='/certifications/') Certifications
+                //- for category in course.categories.slice(0, 1)
+                //-   a(href=category.link) !{category.title}
+                //-   | !{' '}
+
+          p.byline !{course.caption}
+
+
+          .course-actions
+            if !user
+              a.btn.btn--primary(href=`/login/?return=${course.link}/enrol/`) Sign in or Register to Take Certification
+            else if completed
+              a.btn.btn--primary(href=certificateUrl) View Certificate
+              br
+              a.body-small.text-muted(href=`${course.link}results/`) View result summary
+
+            else if inProgress
+              a.btn.btn--primary(href=`${course.link}exam/`) Resume Exam
+            else if available
+              if failed
+                a.btn.btn--primary(href='./enrol/') Retake Certification
+                br
+                a.body-small.text-muted(href=`${course.link}results/`) You scored !{percentage}%. Review your result summary.
+              else
+                a.btn.btn--primary(href='./enrol/') Take Certification
+            else if failed
+              a.btn.btn--disabled('#') Retake Certification
+              br
+              span.body-small.text-muted You may try again !{relativeTime(new Date(availableAfter))}.
+                |
+                |
+                |
+                a(href=`${course.link}results/`) View your result summary
+                | .
+
+
+        .minor.course-certification
+          img(src=cdn(`img/courses/backgrounds/${course.slug}.png`) alt=`Course illustration for ${course.title}`)
+
+
+
+
+  .course-description.course-container
+    .container
+      .major.doc
+        | !{doc}
+
+        | !{translate('overviewsupport')}
+        | !{translate('overviewfeedback')}
+
+        //- Unenrol?
+        if user && course.enrolled
+          if course.certification
+            .course-unenrol
+              h3 Unenroll
+              a.course-unenrol-link.btn--danger.btn--unenrol(href=`${course.link}unenrol`) !{translate('delete-certification', 'Delete Certification')}
+          else
+            .course-unenrol
+              h3 Unenroll
+              p
+                a.course-unenrol-link.btn--danger.btn--unenrol(href=`${course.link}unenrol`) !{translate('unenroll', 'Unenroll from course')}
+
+      .minor
+        if finished
+          if failed
+            .card.card--failed
+              .card-body
+                h3.card-title Review Results
+
+                p You answered
+                  |
+                  |
+                  strong !{correct}
+                  |
+                  | of
+                  |
+                  strong !{assigned}
+                  |
+                  |
+                  | questions correctly, giving you a total score of
+                  |
+                  strong !{percentage}%
+                  | .
+
+                p
+                  a(href=`${course.link}results/`) Review your results
+
+                  if available
+                    |
+                    |
+                    | or
+                    |
+                    |
+                    a(href=`${course.link}enrol/`) retake the exam
+                    | .
+
+          if completed
+            include ./partials/share
+
+        else if inProgress
+            .card.card--in-progress
+              .card-body
+                h3.card-title Exam in Progress
+                p You still have time remaining to complete the exam.
+                p
+                  a.btn.btn--primary(href=`${course.link}exam`) Resume Exam
+
+        if prerequisites
+          .card.card--prerequisites.course-structure
+            div.toc-module
+              h3.toc-module-header Prerequites
+              p We recommend completing the following courses to learn everything you need to know to pass this certification.
+
+              ul.prerequisites.toc-module-lessons
+                for course in prerequisites
+                  if course.progress >= 100
+                    li.prerequisite.prerequisite--completed.toc-module-lesson
+                      a(href=course.link)
+                        span.prerequisite-title.lesson-title !{course.title}
+                        span.prerequisite-status.lesson-optional !{svg.iconCheck}
+                          //- Complete
+
+                  else if course.progress != null
+                    li.prerequisite.prerequisite--in-progress.toc-module-lesson
+                      a(href=course.link)
+                        span.prerequisite-title.lesson-title !{course.title}
+                        span.prerequisite-status.lesson-optional !{Math.round(course.progress)}%
+                          | !{svg.iconDurationSmall}
+                  else
+                    li.prerequisite.prerequisite--not-started.toc-module-lesson
+                      a(href=course.link)
+                        span.prerequisite-title.lesson-title !{course.title}
+                        //- span.prerequisite-status !{course.progress}
+
+  //- .course-description
+  //-   .container
+  //-     .full
+  //-       h2 Certification Details
+
+  //-   .course-container.no-padding
+  //-     .container
+  //-       div.certification-detail
+  //-         h3
+  //-           | !{'<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.375 28.125C11.5758 28.125 19.5204 29.2218 27.0701 31.2768C28.1606 31.5737 29.25 30.7629 29.25 29.6327V28.125M5.625 6.75V7.875C5.625 8.49632 5.12132 9 4.5 9H3.375M3.375 9V8.4375C3.375 7.50552 4.13052 6.75 5.0625 6.75H30.375M3.375 9V22.5M30.375 6.75V7.875C30.375 8.49632 30.8787 9 31.5 9H32.625M30.375 6.75H30.9375C31.8695 6.75 32.625 7.50552 32.625 8.4375V23.0625C32.625 23.9945 31.8695 24.75 30.9375 24.75H30.375M32.625 22.5H31.5C30.8787 22.5 30.375 23.0037 30.375 23.625V24.75M30.375 24.75H5.625M5.625 24.75H5.0625C4.13052 24.75 3.375 23.9945 3.375 23.0625V22.5M5.625 24.75V23.625C5.625 23.0037 5.12132 22.5 4.5 22.5H3.375M22.5 15.75C22.5 18.2353 20.4853 20.25 18 20.25C15.5147 20.25 13.5 18.2353 13.5 15.75C13.5 13.2647 15.5147 11.25 18 11.25C20.4853 11.25 22.5 13.2647 22.5 15.75ZM27 15.75H27.0112V15.7613H27V15.75ZM9 15.75H9.01125V15.7613H9V15.75Z" stroke="#014063" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+  //-           | Cost
+  //-         p
+  //-           | Free.  This certification is available to you at no cost.
+
+  //-       div.certification-detail
+  //-         h3
+  //-           | !{'<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 25.875V27.386C13.5 28.5795 13.0259 29.7241 12.182 30.568L11.25 31.5H24.75L23.818 30.568C22.9741 29.7241 22.5 28.5795 22.5 27.386V25.875M31.5 7.875V22.5C31.5 24.364 29.989 25.875 28.125 25.875H7.875C6.01104 25.875 4.5 24.364 4.5 22.5V7.875M31.5 7.875C31.5 6.01104 29.989 4.5 28.125 4.5H7.875C6.01104 4.5 4.5 6.01104 4.5 7.875M31.5 7.875V18C31.5 19.864 29.989 21.375 28.125 21.375H7.875C6.01104 21.375 4.5 19.864 4.5 18V7.875" stroke="#014063" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+  //-           | Format
+  //-         p
+  //-           | !{course.questions} short-response and multiple choice questions.
+
+  //-       div.certification-detail
+  //-         h3
+  //-           | !{'<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 9V18H24.75M31.5 18C31.5 25.4558 25.4558 31.5 18 31.5C10.5442 31.5 4.5 25.4558 4.5 18C4.5 10.5442 10.5442 4.5 18 4.5C25.4558 4.5 31.5 10.5442 31.5 18Z" stroke="#014063" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+  //-           | Alotted time
+  //-         p
+  //-           | You have one hour to complete the exam.
+
+  //-       div.certification-detail
+  //-         h3
+  //-           | !{'<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.1875 3.375H8.4375C7.50552 3.375 6.75 4.13052 6.75 5.0625V30.9375C6.75 31.8695 7.50552 32.625 8.4375 32.625H27.5625C28.4945 32.625 29.25 31.8695 29.25 30.9375V17.4375M15.1875 3.375H15.75C23.2058 3.375 29.25 9.41916 29.25 16.875V17.4375M15.1875 3.375C17.9834 3.375 20.25 5.64156 20.25 8.4375V10.6875C20.25 11.6195 21.0055 12.375 21.9375 12.375H24.1875C26.9834 12.375 29.25 14.6416 29.25 17.4375M13.5 22.5L16.875 25.875L22.5 18" stroke="#014063" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
+  //-           | Passing Score
+  //-         p
+  //-           | You will need to score > #{course.passPercentage}% to receive the certificate.

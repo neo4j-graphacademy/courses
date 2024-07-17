@@ -28,7 +28,7 @@ export async function getUserEnrolments(sub: string, property: ValidLookupProper
 
             const course = courses.find(course => course.slug == enrolment.courseSlug)
 
-            if (course) {
+            if (course && course.certification === false) {
                 byStatus[status].push(await mergeCourseAndEnrolment(course, enrolment))
             }
         }

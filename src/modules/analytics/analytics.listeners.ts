@@ -50,7 +50,7 @@ export default function initAnalyticsListeners(): Promise<void> {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories?.map(category => category.title),
             })
         })
 
@@ -119,7 +119,7 @@ export default function initAnalyticsListeners(): Promise<void> {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories?.map(category => category.title),
                 throughQuiz: event.throughQuiz
             })
         })

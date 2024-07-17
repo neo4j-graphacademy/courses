@@ -13,7 +13,7 @@ import testRoutes from './routes/testing.routes'
 import pageRoutes from './routes/asciidoc.routes'
 import browserRoutes from './routes/browser.routes'
 import languageRoutes from './routes/language.routes'
-import certificationRoutes from './routes/certification.routes'
+import certificationRoutes from './modules/certification/certification.routes'
 import apiRoutes from './routes/api'
 import teamRoutes from './routes/team.routes'
 import { applyErrorHandlers } from './middleware/error-handlers.middleware'
@@ -102,7 +102,8 @@ export default function initApp(driver: Driver) {
     app.use('/teams', teamRoutes)
     app.use('/', languageRoutes)
     app.use('/', pageRoutes)
-    app.use('/', certificationRoutes)
+    app.get('/certification', (req, res) => res.redirect('/certifications/'))
+    app.use('/certifications', certificationRoutes)
 
     if (process.env.NODE_ENV === 'dev') {
         console.log('dev');

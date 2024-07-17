@@ -40,7 +40,11 @@ export async function getBadge<T extends Course>(course: T): Promise<string | un
 
 export async function getIllustration<T extends Course>(course: T): Promise<string | undefined> {
     return new Promise((resolve, reject) => {
-        const badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'illustration.svg')
+        let badgePath = path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'illustration.svg')
+
+        if (!fs.existsSync(badgePath)) {
+            badgePath = path.join(ASCIIDOC_DIRECTORY, 'certifications', course.slug, 'illustration.svg')
+        }
 
         if (!fs.existsSync(badgePath)) {
             return resolve(undefined)
@@ -195,9 +199,6 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const enrolledAt = course.enrolledAt ? new Date((course.enrolledAt as string).toString()) : undefined
     const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
     const availableAfter = course.availableAfter ? new Date(course.availableAfter) : undefined
-
-    console.log('at format', course.slug, course.repository);
-
 
     return {
         ...course,

@@ -1,19 +1,23 @@
 #! /bin/sh
 
-echo "Saving credentials..."
+TMP_FOLDER=/tmp
+TARGET_FOLDER=/app
+
+echo "Saving Google credentials..."
 echo $GOOGLE_APPLICATION_CREDENTIALS_CONTENT >> $GOOGLE_APPLICATION_CREDENTIALS
 
-RELEASE=$(curl -q https://api.github.com/repos/neo4j-graphacademy/courses/tags | jq 'sort_by( .name | ltrimstr("v") | split(".") | map(tonumber) ) | reverse |.[0].zipball_url' | tr -d '"')
+for folder in "certifications" "courses"
+do
+   echo "Downloading $folder"
 
-echo "Downloading $RELEASE"
-wget -q -O /tmp/content.zip $RELEASE
-unzip -q -d /tmp/content /tmp/content.zip
+   wget -q -O $TMP_FOLDER/$folder.zip https://production-graphacademy-assets.s3.amazonaws.com/content/$folder.zip
+   unzip -q -d $TMP_FOLDER/$folder $TMP_FOLDER/$folder.zip
+done
 
-if [[ $? -gt 0 ]]; then
-   echo "Unzipping content failed, either because of bad file or failure to download zip"
-   exit 1
-fi
+echo "Copying courses"
+cp -rf $TMP_FOLDER/courses/*/asciidoc/ $TARGET_FOLDER/asciidoc #2>/dev/null
 
-cp -rf /tmp/content/*/asciidoc/ /app/ 2>/dev/null
+echo "Overwriting certifications"
+cp -rf $TMP_FOLDER/certifications/*/asciidoc/certifications/ $TARGET_FOLDER/asciidoc/certifications/ #2>/dev/null
 
 npm run $1

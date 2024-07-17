@@ -3,8 +3,6 @@ import { cleanCode, copyToClipboard } from './modules/clipboard'
 const SANDBOX_SELECTOR = 'classroom-sandbox'
 const SANDBOX_SELECTOR_VISIBLE = 'classroom-sandbox--visible'
 
-// TODO: Edit button
-
 function findCode(button): string | undefined {
     let parent = button.parentNode
 

@@ -76,7 +76,9 @@ const OPTION_INCORRECT = 'question-option--incorrect'
 
 const COMMENT_SELECTOR = 'hljs-comment'
 const COMMENT_SELECTOR_SELECT_PREFIX = '/*select'
+const COMMENT_SELECTOR_SELECT_PYTHON_PREFIX = '#select'
 const COMMENT_SELECTOR_INPUT_PREFIX = '/*input'
+const COMMENT_SELECTOR_INPUT_PYTHON_PREFIX = '#input'
 
 const CONTENT_SELECTOR = 'classroom-content'
 
@@ -117,7 +119,7 @@ const getQuestionDetails = (element: Element): Question => {
     const parent = element.parentElement as Element
 
     const question = element.querySelector('h3, h2')
-    const id = question?.getAttribute('id')!
+    const id = question?.getAttribute('id') || 'answers'
 
     return {
         parent,
@@ -297,7 +299,7 @@ const formatSelectInSourceQuestion = async (element: Element): Promise<Question>
 
     // Place <select> in the source block
     Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
-        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX))
+        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_SELECT_PYTHON_PREFIX))
         .forEach(el => {
             const parentElement = el.parentElement!
 
@@ -344,7 +346,7 @@ const formatInputInSourceQuestion = async (element: Element): Promise<Question> 
 
     // Place <select> in the source block
     Array.from(element.querySelectorAll(`.${COMMENT_SELECTOR}`))
-        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX))
+        .filter(el => el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PREFIX) || el.innerHTML.startsWith(COMMENT_SELECTOR_INPUT_PYTHON_PREFIX))
         .forEach(el => {
             const commentParent = el.parentElement!
 
@@ -903,6 +905,7 @@ export const getQuestionsOnPage: () => Question[] = () => questionsOnPage
 const setupQuestions = async () => {
     // Don't run if lesson is already completed
     const body = document.getElementsByTagName('body')[0]
+
     if (body && body.classList.contains(LESSON_COMPLETED)) {
         setupAnswers()
         return;
@@ -914,7 +917,7 @@ const setupQuestions = async () => {
             .map(div => formatQuestion(div))
     )
 
-    if (questionsOnPage.length && !body.classList.contains('quiz')) {
+    if (questionsOnPage.length && !body.classList.contains('quiz') && !body.classList.contains('layout--exam')) {
         // Add Submit button
         const parent = questionsOnPage[0].parent;
         const button = createSubmitButton(`Check Answer${questionsOnPage.length > 1 ? 's' : ''}`)
@@ -1012,6 +1015,10 @@ const setButtonNegativeState = (button: HTMLButtonElement) => {
 
 const setupVerify = () => {
     const body = document.getElementsByTagName('body')[0]
+
+    if (body.classList.contains('layout--exam')) {
+        return
+    }
 
     Array.from(document.querySelectorAll('.btn-verify'))
         .map((button: Element) => {

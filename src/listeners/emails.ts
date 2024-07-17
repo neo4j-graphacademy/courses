@@ -1,9 +1,11 @@
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
+import { join } from 'path'
 import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend } from '../modules/mailer'
+import { ASCIIDOC_DIRECTORY } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
@@ -30,7 +32,15 @@ export default function initEmailListeners(): Promise<void> {
             const template = 'user-completed-course'
             const email = event.user.email
 
-            const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
+            let emailDirectory = ''
+
+            if (event.course.certification && event.course.slug !== undefined && existsSync(join(ASCIIDOC_DIRECTORY, 'certifications', event.course.slug, 'emails'))) {
+                emailDirectory = `certifications/${event.course.slug}/`
+            }
+            else if (event.course.emails?.includes(template)) {
+                emailDirectory = `courses/${event.course.slug}/`
+            }
+
 
             // Progress to
             let progressTo1, progressTo2, progressTo3
