@@ -46,8 +46,8 @@ export function registerLocals(app: Express) {
         // Language Dropdown
         res.locals.languages = {
             [LANGUAGE_EN]: getPhrase(LANGUAGE_EN, 'language', LANGUAGE_EN),
-            [LANGUAGE_CN]: getPhrase(LANGUAGE_CN, 'language', LANGUAGE_CN),
-            [LANGUAGE_JP]: getPhrase(LANGUAGE_JP, 'language', LANGUAGE_JP),
+            // [LANGUAGE_CN]: getPhrase(LANGUAGE_CN, 'language', LANGUAGE_CN),
+            // [LANGUAGE_JP]: getPhrase(LANGUAGE_JP, 'language', LANGUAGE_JP),
         }
 
         res.locals.path = req.path

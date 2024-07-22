@@ -57,6 +57,8 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
 
         const { course, updatedAt, ...status } = await getCertification(slug, user)
 
+        console.log(status);
+
         const updated = typeof updatedAt === 'string' ? new Date(updatedAt) : updatedAt
 
         // Emit user viewed course
@@ -67,7 +69,7 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
         const doc = await convertCertificationOverview(course.slug)
 
         res.render('certification/overview', {
-            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${status.completed ? 'course--completed' : ''}`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${status.passed ? 'course--completed' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -185,9 +187,16 @@ router.post('/:slug/exam', requiresAuth(), async (req, res, next) => {
         let { answers } = req.body
 
         // TODO: Validation
+        if (answers === undefined) {
+            req.flash('info', 'Please provide an answer')
+            res.redirect(req.originalUrl)
+            return
+        }
+
         if (typeof answers === 'string') {
             answers = [answers]
         }
+
 
         answers = answers.map((answer: string) => answer.trim())
 
@@ -206,6 +215,10 @@ router.get('/:slug/results', requiresAuth(), async (req, res) => {
     const user = await getUser(req) as User
 
     const results = await getCertificationResults(slug, user)
+
+    if (results === undefined) {
+        return res.redirect(`/certifications/${slug}/`)
+    }
 
     res.render('certification/results', {
         ...results,

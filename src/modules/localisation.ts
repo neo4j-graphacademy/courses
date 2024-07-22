@@ -10,8 +10,8 @@ const languages = new Map<Language, LanguageMap>()
 export function initLocalisation() {
     const enabled: Language[] = [
         LANGUAGE_EN,
-        LANGUAGE_JP,
-        LANGUAGE_CN,
+        // LANGUAGE_JP,
+        // LANGUAGE_CN,
     ]
 
     enabled.forEach((language: Language) => {
@@ -23,14 +23,14 @@ export function initLocalisation() {
         file.getBlocks().map(block => {
             let html = ``
 
-            if ( block.getTitle() ) {
+            if (block.getTitle()) {
                 const level = block.getLevel() as number + 1
                 html += `<h${level}>${block.getTitle()}</h${level}>`
             }
 
             html += block.getContent()
 
-            attributes[ block.getId() ] = html
+            attributes[block.getId()] = html
         })
 
         languages.set(language, attributes)

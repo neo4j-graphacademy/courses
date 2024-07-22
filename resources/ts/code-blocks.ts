@@ -43,6 +43,8 @@ function handlePlayClick(e) {
 }
 
 export function handleCopyClick(e) {
+    e.preventDefault()
+
     let button = e.target as HTMLElement
 
     if (button.tagName === 'svg') {

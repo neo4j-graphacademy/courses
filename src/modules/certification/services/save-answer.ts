@@ -1,19 +1,20 @@
 import { ManagedTransaction } from "neo4j-driver";
 import { User } from "../../../domain/model/user";
 import { writeTransaction } from "../../neo4j";
-import checkExistingAttempts, { CertificationQuestion, CertificationStatus, NextCertificationAction } from "./check-existing-attempts";
+import checkExistingAttempts, { CertificationStatus, NextCertificationAction } from "./check-existing-attempts";
 import NotFoundError from "../../../errors/not-found.error";
 import markAsCompleted from "./mark-as-completed";
 import { emitter } from "../../../events";
 import { UserCompletedCourse } from "../../../domain/events/UserCompletedCourse";
-import { Course } from "../../../domain/model/course";
+import getNextQuestion from "./get-next-question";
+import { AbridgedCertification } from "./get-certification-information";
 
 export default function saveAnswer(slug: string, user: User, questionId: string, answers: string[]): Promise<CertificationStatus> {
   return writeTransaction(async (tx: ManagedTransaction) => {
     // Check status
     const status = await checkExistingAttempts(tx, slug, user)
 
-    if (status.action !== NextCertificationAction.CONTINUE) {
+    if (status.action !== NextCertificationAction.CONTINUE || status.attemptId === undefined) {
       return status
     }
 
@@ -41,7 +42,8 @@ export default function saveAnswer(slug: string, user: User, questionId: string,
 
         COUNT { (a)-[:ASSIGNED_QUESTION]->() } > COUNT { (a)-[:PROVIDED_ANSWER]->() } AS continue
 
-    `, { attemptId: status.id, questionId, answers, })
+    `,
+      { attemptId: status.attemptId, questionId, answers, })
 
     // Has the user finished?
     if (answerRes.records.length === 0) {
@@ -51,12 +53,12 @@ export default function saveAnswer(slug: string, user: User, questionId: string,
     const shouldContinue = answerRes.records[0].get('continue')
 
     // User has run out of questions
-    if (status.id && shouldContinue === false) {
-      await markAsCompleted(tx, status.id)
+    if (status.attemptId && shouldContinue === false) {
+      await markAsCompleted(tx, status.attemptId)
 
       emitter.emit(new UserCompletedCourse(
         user,
-        status.course as Partial<Course>,
+        status.course as AbridgedCertification,
         undefined
       ))
 
@@ -66,29 +68,12 @@ export default function saveAnswer(slug: string, user: User, questionId: string,
     }
 
     // Shall we continue with the next question?
-    const questionRes = await tx.run<CertificationQuestion>(`
-      MATCH (a:CertificationAttempt {id: $attemptId})-[:ASSIGNED_QUESTION]->(q)-[:IN_CATEGORY]->(c)
-      WHERE not (a)-[:PROVIDED_ANSWER]->(q)
-      RETURN q {
-          .*,
-          category: [ (q)-[:IN_CATEGORY]->(c) | c { .slug, .title } ][0]
-        } AS question
-      ORDER BY c.order ASC, q.level ASC, rand() ASC LIMIT 1
-    `, { attemptId: status.id })
-
-    if (questionRes.records.length === 0) {
-      return {
-        action: NextCertificationAction.COMPLETE,
-      }
-    }
-
-    const question = questionRes.records[0].toObject()
+    const { action, question } = await getNextQuestion(tx, slug, status.attemptId)
 
     return {
       ...status,
-      action: NextCertificationAction.CONTINUE,
-      ...question,
+      action,
+      question,
     }
   })
-
 }

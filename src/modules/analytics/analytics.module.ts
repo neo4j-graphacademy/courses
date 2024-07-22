@@ -38,6 +38,11 @@ export function initAnalytics() {
 
         return analytics
     }
+    else {
+        return {
+            track: console.log,
+        }
+    }
 }
 
 export function trackEvent(event: string, userId: string, properties: Record<string, any> = {}) {

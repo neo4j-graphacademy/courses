@@ -58,22 +58,26 @@ export default function initEmailListeners(): Promise<void> {
             }
 
             // Get Course Recommendations
-            const suggestions = await getSuggestionsForEnrolment(event.course.enrolmentId)
+            let suggestion1, suggestion2, suggestion3, somethingDifferent
 
-            let suggestion2, suggestion3, somethingDifferent
+            if (event.course.enrolmentId) {
+                const suggestions = await getSuggestionsForEnrolment(event.course.enrolmentId)
 
-            const [suggestion1] = suggestions
+                if (suggestions.length > 0) {
+                    suggestion1 = suggestions[0]
+                }
+                if (suggestions.length > 1) {
+                    somethingDifferent = suggestions[suggestions.length - 1]
+                }
+                if (suggestions.length > 2) {
+                    suggestion2 = suggestions[1]
 
-            if (suggestions.length > 1) {
-                somethingDifferent = suggestions[suggestions.length - 1]
+                }
+                if (suggestions.length > 3) {
+                    suggestion2 = suggestions[2]
+                }
             }
-            if (suggestions.length > 2) {
-                suggestion2 = suggestions[1]
 
-            }
-            if (suggestions.length > 3) {
-                suggestion2 = suggestions[2]
-            }
 
             // Summary PDF?
             const attachments = event.course.summaryPdf !== undefined ? [{

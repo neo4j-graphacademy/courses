@@ -97,6 +97,9 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
     if (decodeURIComponent(req.params.course).length === 9 && req.params.course.startsWith('neo4j-')) {
         return res.redirect('/courses/neo4j-fundamentals/')
     }
+    else if (req.params.course === 'neo4j-certification') {
+        return res.redirect('/certifications/neo4j-certification/')
+    }
 
     try {
         const user = await getUser(req)

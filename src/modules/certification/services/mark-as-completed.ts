@@ -1,7 +1,6 @@
 import { ManagedTransaction } from "neo4j-driver";
 
 export default async function markAsCompleted(tx: ManagedTransaction, attemptId: string): Promise<{ completed: boolean }> {
-  // TODO: Remove hardcoded pass percentage
   const res = await tx.run<{ completed: boolean }>(`
     MATCH (a:CertificationAttempt {id: $attemptId})<-[:HAS_ATTEMPT]-(e)-[:FOR_COURSE]->(c)
     WITH a, c, e,

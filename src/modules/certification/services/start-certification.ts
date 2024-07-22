@@ -9,7 +9,7 @@ import checkExistingAttempts, { NextCertificationAction } from "./check-existing
 
 // Is there an active attempt?
 // Is there an attempt within the last 24 hours?
-async function createAttempt(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined): Promise<{ enrolmentId: string, attemptId: string, questions: number }> {
+export async function createAttempt(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined): Promise<{ enrolmentId: string, attemptId: string, questions: number }> {
   // Merge (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
   const enrolmentRes = await mergeEnrolment(tx, slug, user, ref, team, true)
   const enrolment = enrolmentRes.records[0].get('enrolment')
@@ -21,11 +21,17 @@ async function createAttempt(tx: ManagedTransaction, slug: string, user: User, r
   // Create (a)-[:ASSIGNED_QUESTION]->(q)
 
   const attemptRes = await tx.run<{ id: string, questions: number }>(`
-      MATCH (e:Enrolment {id: $enrolmentId})
+      MATCH (e:Enrolment {id: $enrolmentId})-[:FOR_COURSE]->(c)
       CREATE (a:CertificationAttempt {
         id: randomUuid(),
         createdAt: datetime(),
-        expiresAt: datetime() + duration('PT1H')
+        expiresAt: datetime() + duration(
+          'PT' +
+          coalesce(
+            split(c.duration, ' ')[0]
+            + left(split(c.duration, ' ')[1], 1)
+          , '30M')
+        )
       })
       CREATE (e)-[:HAS_ATTEMPT]->(a)
 
