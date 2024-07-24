@@ -4,23 +4,53 @@ on:
   workflow_dispatch:
 
 jobs:
+
+  set_environment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up environment based on branch
+        id: environment_check
+        shell: bash
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          BRANCH_NAME=${BRANCH_NAME#refs/tags/}
+
+          ENVIRONMENT="development"
+          if [[ "$BRANCH_NAME" == v* ]]; then
+            ENVIRONMENT="production"
+          fi
+
+          echo "environment=${ENVIRONMENT,,}" >> $GITHUB_OUTPUT
+    outputs:
+      environment: ${{ steps.environment_check.outputs.environment }}
+
   rollout:
     runs-on: ubuntu-latest
+    needs: set_environment
     permissions:
       id-token: write
       contents: read
+    env:
+      ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set env variables for secrets
+        run: |
+          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.GH_OIDC_ROLE_ARN }}
-          aws-region: ${{ secrets.GA_AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Deploying services with an env file
         uses: brunocascio/ecs-deploy@v2.2.0
+        env:
+          CLUSTER_NAME: ${{ env.ENVIRONMENT }}-graphacademy-cluster
+          SERVICE_NAME: ${{ env.ENVIRONMENT }}-graphacademy-service
         with:
-          args: deploy production-graphacademy-cluster production-graphacademy-service
+          args: deploy ${{ env.CLUSTER_NAME }} ${{ env.SERVICE_NAME }} --timeout -1
+
