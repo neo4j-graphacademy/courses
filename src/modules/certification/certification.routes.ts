@@ -57,8 +57,6 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
 
         const { course, updatedAt, ...status } = await getCertification(slug, user)
 
-        console.log(status);
-
         const updated = typeof updatedAt === 'string' ? new Date(updatedAt) : updatedAt
 
         // Emit user viewed course
