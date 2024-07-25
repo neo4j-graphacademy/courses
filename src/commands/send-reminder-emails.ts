@@ -26,6 +26,7 @@ const main = async () => {
     const res = await read(`
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)-[:FOR_COURSE]->(c)
         WHERE datetime() - duration('P7DT1H30M') <= e.lastSeenAt AND e.lastSeenAt <= datetime() - duration('P7D')
+          AND not c:Certification
           AND not e:CompletedEnrolment
           AND (e.reminderSentAt IS NULL OR e.reminderSentAt < datetime() - duration('P5D'))
           AND u.email IS NOT NULL
