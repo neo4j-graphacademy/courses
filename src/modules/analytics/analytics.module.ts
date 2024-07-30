@@ -34,7 +34,11 @@ export function initAnalytics() {
     const key = analyticsApiKey()
 
     if (key) {
+        console.log(`[analytics] Init with key ${key.substring(0, 3)}...`)
+
         analytics = new Analytics(key)
+
+        analytics.track({ event: ANALYTICS_EVENT_STARTED, anonymousId: 'server' })
 
         return analytics
     }

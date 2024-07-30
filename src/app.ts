@@ -21,7 +21,7 @@ import { Driver } from 'neo4j-driver'
 import { registerSession } from './middleware/session.middleware'
 import { initBugsnag, useErrorHandler, useRequestHandler } from './middleware/bugsnag.middleware'
 import { verifyJwt } from './middleware/verify-jwt.middleware'
-import { initAnalytics } from './modules/analytics/analytics.module'
+import { initAnalytics, trackEvent } from './modules/analytics/analytics.module'
 import { saveRef } from './middleware/save-ref.middleware'
 import { endProfiling, startProfiling } from './middleware/profiling.middleware'
 import { initLocalisation } from './modules/localisation'
@@ -106,8 +106,6 @@ export default function initApp(driver: Driver) {
     app.use('/certifications', certificationRoutes)
 
     if (process.env.NODE_ENV === 'dev') {
-        console.log('dev');
-
         app.use('/test', testRoutes)
     }
 
