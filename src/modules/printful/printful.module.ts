@@ -88,7 +88,6 @@ export async function getCountries(): Promise<Country[]> {
     const countries = await api.get<{ result: Country[] }>('/countries')
         .then(res => res.data.result)
 
-
     return countries.sort((a, b) => a.name < b.name ? -1 : 1)
 }
 

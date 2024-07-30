@@ -516,19 +516,41 @@ export function repositoryBlobUrl(value: string) {
 }
 
 
+export enum OptInStatus {
+    ASSUMED = "assumed",
+    SOFT = "soft",
+    REQUIRED = "required"
+}
 
-let countries: Record<string, any>
+type Country = {
+    code: string;
+    name: string;
+    optin: OptInStatus;
+}
+
+let countries: Country[]
 
 /**
  * A list of contries in {[2 letter code]: "country name"} format
- * @returns Record<string, any>
+ * @returns {Country}
  */
-export function getCountries(): Promise<Record<string, any>> {
+export function getCountries(): Promise<Country[]> {
     if (!countries) {
         countries = require('../../resources/json/countries.json')
     }
 
     return Promise.resolve(countries)
+}
+
+/**
+ * Get a country from the country list
+ * @param code
+ * @returns {Country | undefined}
+ */
+export async function getCountry(code: string): Promise<Country | undefined> {
+    const countries = await getCountries()
+
+    return countries.find(row => row.code === code)
 }
 
 /**

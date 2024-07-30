@@ -15,7 +15,7 @@ import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
 import { notify } from '../middleware/bugsnag.middleware'
 import { getProduct, getCountries, formatRecipient, getCountryAndState } from '../modules/printful/printful.module'
-import { getCountries as getCountriesAsRecord } from '../utils'
+import { getCountry, getCountries as getCountriesAsRecord } from '../utils'
 import createVariantOrder from '../modules/printful/services/create-variant-order.service'
 import { setUserProfileVisibility } from '../domain/services/set-user-profile-visibility'
 import { getTeam } from '../middleware/save-ref.middleware'
@@ -59,6 +59,8 @@ const accountForm = async (req, res, next, vars = {}) => {
             returnTo: req.query.returnTo || '/account/',
             input: {},
             ...vars,
+            buttonText: req.originalUrl.includes('complete') ? 'Complete Account' : 'Save Changed',
+            optin: req.originalUrl.includes('complete') ? 'Complete Account' : 'Save Changed',
         })
     }
     catch (e) {
@@ -86,10 +88,26 @@ const processAccountForm = async (req, res, next) => {
             }
         }
 
+        const countryInformation = await getCountry(country)
+
+        let optin = false
+        if (countryInformation?.optin === 'soft') {
+            // Soft opt-in, opt in unless they tick the box
+            optin = req.body.soft === undefined
+        }
+        else if (countryInformation?.optin === 'required') {
+            // Required opt-in, opt in if they tick the box
+            optin = req.body.required !== undefined
+        }
+        else if (countryInformation?.optin === 'assumed') {
+            // assumed opt-in, regardless
+            optin = true
+        }
+
         if (errors.length === 0) {
             const unsubscribed = unsubscribe === 'true'
 
-            await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio }, team)
+            await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio, optin, optinMethod: countryInformation?.optin }, team)
 
             req.flash('success', 'Your personal information has been updated')
 

@@ -1,6 +1,7 @@
 import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
+import { OptInStatus } from "../../utils";
 import { UserUpdatedAccount } from "../events/UserUpdatedAccount";
 import { User } from "../model/user";
 import joinTeam from "./teams/join-team";
@@ -15,6 +16,8 @@ export interface UserUpdates {
     unsubscribed?: boolean;
     sidebarHidden?: boolean;
     prefersTranscript?: boolean;
+    optin?: boolean;
+    optinMethod?: OptInStatus;
 }
 
 export async function updateUser(token: string, user: User, updates: UserUpdates, team?: string): Promise<User> {

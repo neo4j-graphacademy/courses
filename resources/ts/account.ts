@@ -4,6 +4,38 @@ type InputTypes = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 
 
 export default function account() {
+    // Account form switch optin
+    const country = document.getElementById('country') as HTMLSelectElement
+    const soft_optin = document.getElementById('soft')
+    const required_optin = document.getElementById('required')
+
+    if (country && soft_optin && required_optin) {
+        const displayOptIn = () => {
+            const selected = country.querySelector(`option[value="${country.value}"]`)
+            const optin = selected?.getAttribute('data-optin')
+
+            if (optin === 'required') {
+                soft_optin.style.display = 'none'
+                required_optin.style.display = 'block'
+            }
+            else if (optin === 'soft') {
+                soft_optin.style.display = 'block'
+                required_optin.style.display = 'none'
+            }
+            else {
+                soft_optin.style.display = 'none'
+                required_optin.style.display = 'none'
+            }
+        }
+
+        country.addEventListener('change', (e) => {
+            e.preventDefault()
+            displayOptIn()
+        })
+
+        displayOptIn()
+    }
+
     // Copy link
     document.querySelectorAll('.share-form-action--copy').forEach(el => {
         el.addEventListener('click', e => {
