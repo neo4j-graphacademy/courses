@@ -60,7 +60,7 @@ const accountForm = async (req, res, next, vars = {}) => {
             input: {},
             ...vars,
             buttonText: req.originalUrl.includes('complete') ? 'Complete Account' : 'Save Changed',
-            optin: req.originalUrl.includes('complete') ? 'Complete Account' : 'Save Changed',
+            optin: req.originalUrl.includes('complete'),
         })
     }
     catch (e) {
