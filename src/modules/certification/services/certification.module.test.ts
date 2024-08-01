@@ -5,6 +5,7 @@ import { createAttempt } from './start-certification'
 import { User } from '../../../domain/model/user'
 import initNeo4j, { createDriver } from '../../neo4j'
 import saveAnswer from './save-answer'
+import markAsCompleted from './mark-as-completed'
 
 config()
 
@@ -21,6 +22,7 @@ describe('Certification Module', () => {
       process.env.NEO4J_USERNAME as string,
       process.env.NEO4J_PASSWORD as string,
     )
+
 
     session = driver.session()
 
@@ -40,13 +42,13 @@ describe('Certification Module', () => {
   })
 
   afterAll(async () => {
-    // await driver.executeQuery(`
-    //   MATCH (u:User {sub: $sub})
-    //   FOREACH (n in [ (u)-[*1..2]->(n:Enrolment|CertificationAttempt) | n] |
-    //     DETACH DELETE n
-    //   )
-    //   DETACH DELETE u
-    // `, { sub })
+    await driver.executeQuery(`
+      MATCH (u:User {sub: $sub})
+      FOREACH (n in [ (u)-[*1..2]->(n:Enrolment|CertificationAttempt) | n] |
+        DETACH DELETE n
+      )
+      DETACH DELETE u
+    `, { sub })
 
     await driver.close()
   })
@@ -70,7 +72,6 @@ describe('Certification Module', () => {
         }
       )
 
-
       // Answer all of the questions correctly
       let last: CertificationStatus | undefined
       while (res.answers.length) {
@@ -93,6 +94,15 @@ describe('Certification Module', () => {
       expect(status.passed).toBe(true)
       expect(status.hasResults).toBe(true)
       expect(status.action).toBe(NextCertificationAction.COMPLETE)
+
+      // Complete the enrolment
+      const complete = await session.executeWrite(
+        async tx => markAsCompleted(tx, res.attemptId)
+      )
+
+      expect(complete.completed).toBe(true)
+      expect(complete.passed).toBe(true)
+      expect(complete.percentage).toBe(100)
     })
   })
 })

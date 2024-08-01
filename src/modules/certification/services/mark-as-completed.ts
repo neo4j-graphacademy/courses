@@ -1,7 +1,13 @@
 import { ManagedTransaction } from "neo4j-driver";
 
-export default async function markAsCompleted(tx: ManagedTransaction, attemptId: string): Promise<{ completed: boolean }> {
-  const res = await tx.run<{ completed: boolean }>(`
+type CompletedRecord = {
+  completed: boolean;
+  percentage: number;
+  passed: boolean;
+}
+
+export default async function markAsCompleted(tx: ManagedTransaction, attemptId: string): Promise<CompletedRecord> {
+  const res = await tx.run<CompletedRecord>(`
     MATCH (a:CertificationAttempt {id: $attemptId})<-[:HAS_ATTEMPT]-(e)-[:FOR_COURSE]->(c)
     WITH a, c, e,
       COUNT { (a)-[:PROVIDED_ANSWER {correct: true}]->() } AS correct,
@@ -26,7 +32,9 @@ export default async function markAsCompleted(tx: ManagedTransaction, attemptId:
         a:UnsuccessfulAttempt
     )
 
-    RETURN a:CompletedEnrolment AS complete
+    RETURN e:CompletedEnrolment AS completed,
+      score AS percentage,
+      score >= c.passPercentage AS passed
   `, { attemptId })
 
   return res.records[0].toObject()
