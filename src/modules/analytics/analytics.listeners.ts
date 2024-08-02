@@ -180,6 +180,7 @@ export default function initAnalyticsListeners(): Promise<void> {
         emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
             trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
                 ...event.user,
+                ...event.updates
             })
         })
 
