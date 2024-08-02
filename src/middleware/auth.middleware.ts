@@ -106,7 +106,9 @@ export default function applyAuth(app: Express) {
         const url = new URL(returnUrl, BASE_URL)
 
         // Append the ref for persistence after login
+        // @ts-ignore
         if (typeof req.session['ref'] == 'string') {
+            // @ts-ignore
             url.searchParams.set('ref', req.session['ref'])
         }
 

@@ -1,5 +1,5 @@
 import { config } from 'dotenv'
-import { Driver, driver as connect, auth, Session, int } from "neo4j-driver"
+import { Driver, Session, int } from "neo4j-driver"
 import checkExistingAttempts, { NextCertificationAction } from './check-existing-attempts'
 import { createAttempt } from './start-certification'
 import { User } from '../../../domain/model/user'

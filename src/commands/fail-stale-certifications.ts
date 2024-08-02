@@ -1,26 +1,58 @@
-import initNeo4j, { write } from "../modules/neo4j"
+import initNeo4j, { write, writeTransaction } from "../modules/neo4j"
 
 import {
-    NEO4J_HOST,
-    NEO4J_USERNAME,
-    NEO4J_PASSWORD
+  NEO4J_HOST,
+  NEO4J_USERNAME,
+  NEO4J_PASSWORD
 } from '../constants'
+
+import markAsCompleted from "../modules/certification/services/mark-as-completed"
+import { emitter } from "../events"
+import { initAnalytics } from "../modules/analytics/analytics.module"
+import initEmailListeners from "../listeners/emails"
+import { UserCompletedCourse } from "../domain/events/UserCompletedCourse"
+import { User } from "../domain/model/user"
+import { CourseWithProgress } from "../domain/model/course"
+
 
 
 const main = async () => {
-    const driver = await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
+  const driver = await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
-    const res = await write(`
-        MATCH (e:Enrolment)-[:FOR_COURSE]->(c:Certification)
-        WHERE e.createdAt <= datetime() - duration('PT1H') and not e:CompletedEnrolment and not e:FailedEnrolment
-        WITH e LIMIT 1000
-        SET e:FailedEnrolment, e.failedAt = e.createdAt + duration('PT1H'), e.failedReason = 'timeout'
-        RETURN count(*) AS count
-    `)
+  initAnalytics()
+  await initEmailListeners()
 
-    console.log(`\n😩 ${res.records[0]?.get('count') || 0} certifications marked as failed`)
+  const res = await write<{ user: User, course: CourseWithProgress, attemptId: string }>(`
+    MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:HAS_ATTEMPT]->(a:CertificationAttempt),
+        (e)-[:FOR_COURSE]->(c)
+    WHERE a.createdAt <= datetime() - duration('PT1H') and not e:CompletedEnrolment and not e:FailedEnrolment
+    RETURN a.id AS attemptId,
+        u { .* } AS user,
+        c { .title, .slug } AS course
+  `)
 
-    await driver.close()
+
+  if (res.records.length > 0) {
+    await writeTransaction(async tx => {
+      for (const record of res.records) {
+        const output = await markAsCompleted(tx, record.get('attemptId'))
+
+        if (output.passed) {
+          emitter.emit(
+            new UserCompletedCourse(
+              record.get('user'),
+              record.get('course'),
+              undefined
+            )
+          )
+        }
+      }
+    })
+  }
+
+  console.log(`\n😩 ${res.records.length || 0} certifications marked as completed`)
+
+  await driver.close()
 }
 
 // eslint-disable-next-line

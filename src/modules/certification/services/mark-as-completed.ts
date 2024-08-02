@@ -25,6 +25,7 @@ export default async function markAsCompleted(tx: ManagedTransaction, attemptId:
       SET a:SuccessfulAttempt,
         e:CompletedEnrolment,
         e.certificateId = randomUuid()
+      REMOVE a:FailedEnrolment
     )
 
     FOREACH (_ IN CASE WHEN score < c.passPercentage THEN [1] ELSE [] END |

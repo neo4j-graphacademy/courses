@@ -1,9 +1,9 @@
 import { config } from 'dotenv'
-import { Driver, driver as connect, auth, Session, int } from "neo4j-driver"
+import { Driver, Session } from "neo4j-driver"
 import checkExistingAttempts, { CertificationStatus, NextCertificationAction } from './check-existing-attempts'
 import { createAttempt } from './start-certification'
 import { User } from '../../../domain/model/user'
-import initNeo4j, { createDriver } from '../../neo4j'
+import initNeo4j from '../../neo4j'
 import saveAnswer from './save-answer'
 import markAsCompleted from './mark-as-completed'
 

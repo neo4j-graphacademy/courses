@@ -1,4 +1,4 @@
-import { Language, LANGUAGE_CN, LANGUAGE_EN, LANGUAGE_JP } from "../domain/model/course";
+import { Language, LANGUAGE_EN, } from "../domain/model/course";
 import { loadFile } from "./asciidoc";
 
 type Phrase = string
