@@ -14,10 +14,17 @@ import {
 } from './constants'
 import { cacheHTML } from './modules/asciidoc/services/cache-html';
 
+
 console.log(`Connecting to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
 
 initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
     .then((driver: Driver) => initApp(driver))
+    .then(async (app: Express) => {
+        // Cache HTML
+        await cacheHTML()
+
+        return app
+    })
     .then(async (app: Express) => {
         await initListeners()
         return app

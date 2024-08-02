@@ -86,7 +86,6 @@ export async function cacheHTML(): Promise<void> {
 
     let cached = 0
 
-
     for (const row of courses) {
         cached += await cacheCourseFromHtml(row.course)
     }
