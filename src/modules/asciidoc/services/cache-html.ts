@@ -1,35 +1,48 @@
 import { ASCIIDOC_CACHING_ENABLED } from "../../../constants";
-import { addToCache, convertLessonOverview, generateLessonCacheKey } from "..";
+import { convertLessonOverview, generateLessonCacheKey } from "..";
 import { read } from "../../neo4j";
 import { getPageAttributes } from "../../../utils";
-import { STATUS_ACTIVE } from "../../../domain/model/course";
+import { Course, STATUS_ACTIVE } from "../../../domain/model/course";
+
+export async function cache(course: Course, module: string, lesson: string): Promise<string> {
+    // Generate Attributes for the page
+    const attributes = await getPageAttributes(undefined, course)
+
+    // Get Cache Key
+    const key = generateLessonCacheKey(course.slug, module, lesson)
+
+    // console.log(key);
+
+    // Generate HTMl
+    await convertLessonOverview(course.slug, module, lesson, attributes)
+
+    return key
+}
+
+export async function getLessons() {
+    const res = await read<{ course: Course, module: string, lesson: string }>(`
+        MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
+        WHERE c.status = $active
+        RETURN c {.* } AS course, m.slug AS module, l.slug AS lesson
+    `, { active: STATUS_ACTIVE })
+
+    return res.records.map(row => row.toObject())
+}
 
 export async function cacheHTML(): Promise<void> {
     if (!ASCIIDOC_CACHING_ENABLED) {
+        console.log('[caching] disabled');
+
         return
     }
 
-    const res = await read(`
-        MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
-        WHERE c.status = $active AND l.disableCache = false
-        RETURN c AS course, m.slug AS module, l.slug AS lesson
-    `, { active: STATUS_ACTIVE })
+    console.log('[caching] enabled');
 
-    res.records.forEach(async row => {
-        const { course, module, lesson } = row.toObject()
+    const lessons = await getLessons()
 
-        // Generate Attributes for the page
-        const attributes = await getPageAttributes(undefined, course.properties)
+    for (const { course, module, lesson } of lessons) {
+        await cache(course, module, lesson)
+    }
 
-        // Get Cache Key
-        const key = generateLessonCacheKey(course.properties.slug, module, lesson)
-
-        // Generate HTMl
-        const html = await convertLessonOverview(course.properties.slug, module, lesson, attributes)
-
-        // Cache it
-        addToCache(key, html)
-    })
-
-    console.log(`🧠 Caching ${res.records.length} lessons`)
+    console.log(`🧠 Cached ${lessons.length} lessons`)
 }

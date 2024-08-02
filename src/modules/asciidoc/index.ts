@@ -9,7 +9,7 @@ import { ASCIIDOC_CACHING_ENABLED, ASCIIDOC_DIRECTORY } from '../../constants'
 import NotFoundError from '../../errors/not-found.error'
 import { mergeDeep } from '../../utils'
 import { CourseStatus, CourseStatusInformation } from '../../domain/model/course'
-import { ATTRIBUTE_DISABLE_CACHE, ATTRIBUTE_ORDER } from '../../domain/model/lesson'
+import { ATTRIBUTE_ORDER } from '../../domain/model/lesson'
 import { labBlockProcessor } from './extensions/lab-block-processor.extension'
 import { workspaceBlockProcessor } from './extensions/workspace-block-processor.extension'
 
@@ -153,7 +153,7 @@ export async function convertLessonOverview(course: string, module: string, less
     const key = generateLessonCacheKey(course, module, lesson)
 
     if (cache.has(key)) {
-        return cache.get(key) as string
+        return getAndReplace(key, attributes)
     }
 
     const document = await getLessonOverview(course, module, lesson, attributes)
@@ -161,16 +161,30 @@ export async function convertLessonOverview(course: string, module: string, less
     const html = convert(document, { attributes })
 
     // Cache for future visits?
-    checkAddToCache(key, html, document)
+    checkAddToCache(key, html)
 
     return html
 }
 
 
-function checkAddToCache(key: string, html: string, document: Asciidoctor.Document) {
-    if (document.getAttribute(ATTRIBUTE_DISABLE_CACHE, 'false') !== 'true' && ASCIIDOC_CACHING_ENABLED) {
+function checkAddToCache(key: string, html: string) {
+    if (ASCIIDOC_CACHING_ENABLED) {
         cache.set(key, html)
     }
+}
+
+export function getFromCache(key: string): string | undefined {
+    return cache.get(key)
+}
+
+export function getAndReplace(key: string, attributes: Record<string, any>): string {
+    let html = getFromCache(key) as string
+
+    for (const [key, value] of Object.entries(attributes)) {
+        html = html?.replace(`${key}`, value)
+    }
+
+    return html
 }
 
 export function addToCache(key: string, html: string): void {
