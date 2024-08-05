@@ -83,3 +83,74 @@ export function categoryBadgePath(slug: string): string {
 export function categoryBannerPath(slug: string) {
     return path.join(PUBLIC_DIRECTORY, 'img', 'categories', 'banners', `${slug}.png`)
 }
+
+/**
+ * Generate a link to the repository README
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryLink(value: string) {
+    return `https://github.com/${value}`
+}
+
+/**
+ * Generate base URL for raw repository files
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryRawUrl(value: string) {
+    return `https://raw.githubusercontent.com/${value}`
+}
+
+/**
+ * Generate base URL for linking to files
+ *
+ * @param value The repository - eg neo4j-graphacademy/app-nodejs
+ * @return {string}  A URL to append the branch and file path to
+ */
+export function repositoryBlobUrl(value: string) {
+    return `https://github.com/${value}/blob`
+}
+
+/**
+ * Check that a value is true or true-ish
+ *
+ * @param value any
+ * @returns boolean
+ */
+export function isTruthy(value: any): boolean {
+    if (typeof value === 'boolean') {
+        return value
+    }
+    if (typeof value === 'string' && value === 'true') {
+        return true
+    }
+
+    return false
+}
+
+/**
+ * Deep merge two objects.
+ *
+ * @param target
+ * @param ...sources
+ */
+export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<string, any>[]): Record<string, any> {
+    const output = Object.assign({}, target)
+
+    while (sources.length) {
+        const source = sources.shift()
+
+        for (const key in source) {
+            if (!output.hasOwnProperty(key)) {
+                Object.assign(output, { [key]: source[key] })
+            } else {
+                Object.assign(output[key], source[key])
+            }
+        }
+    }
+
+    return output
+}

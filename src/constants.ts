@@ -19,12 +19,16 @@ export const IMG_DIRECTORY = path.join(PUBLIC_DIRECTORY, 'img')
 export const COURSE_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'courses')
 export const CATEGORY_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'categories')
 
+export const BUILD_DIRECTORY = path.resolve(__dirname, '..', 'build')
+export const HTML_DIRECTORY = path.join(BUILD_DIRECTORY, 'html')
+
 
 // Course Import
 export const DEFAULT_COURSE_THUMBNAIL = '/img/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = 'draft'
 export const DEFAULT_LANGUAGE = 'en'
 export const DEFAULT_LESSON_TYPE = 'lesson'
+export const STATUS_ACTIVE = 'active'
 export const STATUS_DISABLED = 'disabled'
 
 // Asciidoc attributes
@@ -64,5 +68,7 @@ export const ATTRIBUTE_REWARD_PROVIDER = 'reward-provider'
 export const ATTRIBUTE_REWARD_PRODUCT_ID = 'reward-product-id'
 export const ATTRIBUTE_DESCRIPTION = 'description'
 
-
 export const ATTRIBUTE_KEY_POINTS = 'key-points'
+
+// Workspace
+export const WORKSPACE_URL = process.env.WORKSPACE_URL || 'https://workspace-preview.neo4j.io'
