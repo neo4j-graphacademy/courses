@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fs, { existsSync } from 'fs'
 import path from 'path'
 import asciidoctor, { Asciidoctor } from '@asciidoctor/core'
 import './converter'
@@ -56,10 +56,8 @@ export function convert(document: Asciidoctor.Document, options: Asciidoctor.Pro
     return document.convert(mergeDeep(baseOptions, options))
 }
 
-
 export function convertCertificationOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
     const folder = path.join('certifications', slug)
-
     const file = path.join(folder, 'course.adoc')
 
     if (!fileExists(file)) {
@@ -71,9 +69,16 @@ export function convertCertificationOverview(slug: string, attributes?: Record<s
     return Promise.resolve(convert(document))
 }
 
-export function convertCourseOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
-    const folder = path.join('courses', slug)
+export function convertCourseOverview(slug: string, attributes: Record<string, any> = {}): Promise<string> {
+    // Check Cache
+    const cacheKey = generateCourseOverviewCacheKey(slug)
+    const cached = getAndReplace(cacheKey, attributes)
 
+    if (cached !== undefined) {
+        return Promise.resolve(cached)
+    }
+
+    const folder = path.join('courses', slug)
     const file = path.join(folder, 'course.adoc')
 
     if (!fileExists(file)) {
@@ -86,6 +91,14 @@ export function convertCourseOverview(slug: string, attributes?: Record<string, 
 }
 
 export function convertCourseSummary(slug: string, attributes: Record<string, any> = {}): Promise<string> {
+    // Check Cache
+    const cacheKey = generateCourseSummaryCacheKey(slug)
+    const cached = getAndReplace(cacheKey, attributes)
+
+    if (cached !== undefined) {
+        return Promise.resolve(cached)
+    }
+
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.adoc')
 
@@ -115,6 +128,14 @@ export function courseSummaryPdfPath(slug: string): Promise<string | undefined> 
 }
 
 export function convertModuleOverview(course: string, module: string, attributes: Record<string, any> = {}): Promise<string> {
+    // Check Cache
+    const cacheKey = generateModuleCacheKey(course, module)
+    const cached = getAndReplace(cacheKey, attributes)
+
+    if (cached !== undefined) {
+        return Promise.resolve(cached)
+    }
+
     const folder = path.join('courses', course, 'modules', module)
     const file = path.join(folder, 'module.adoc')
 
@@ -150,10 +171,12 @@ export function getLessonOverview(course: string, module: string, lesson: string
 }
 
 export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<string> {
-    const key = generateLessonCacheKey(course, module, lesson)
+    // Check Cache
+    const cacheKey = generateLessonCacheKey(course, module, lesson)
+    const cached = getAndReplace(cacheKey, attributes)
 
-    if (cache.has(key)) {
-        return getAndReplace(key, attributes)
+    if (cached !== undefined) {
+        return Promise.resolve(cached)
     }
 
     const document = await getLessonOverview(course, module, lesson, attributes)
@@ -161,13 +184,13 @@ export async function convertLessonOverview(course: string, module: string, less
     const html = convert(document, { attributes })
 
     // Cache for future visits?
-    checkAddToCache(key, html)
+    checkAddToCache(cacheKey, html)
 
     return html
 }
 
 
-function checkAddToCache(key: string, html: string) {
+export function checkAddToCache(key: string, html: string) {
     if (ASCIIDOC_CACHING_ENABLED) {
         cache.set(key, html)
     }
@@ -181,7 +204,7 @@ export function getAndReplace(key: string, attributes: Record<string, any>): str
     let html = getFromCache(key) as string
 
     for (const [key, value] of Object.entries(attributes)) {
-        html = html?.replace(`${key}`, value)
+        html = html.replace(`{${key}}`, value)
     }
 
     return html
@@ -191,8 +214,20 @@ export function addToCache(key: string, html: string): void {
     cache.set(key, html)
 }
 
+export function generateCourseOverviewCacheKey(course: string): string {
+    return `${course}/course.html`
+}
+
+export function generateCourseSummaryCacheKey(course: string): string {
+    return `${course}/summary.html`
+}
+
+export function generateModuleCacheKey(course: string, module: string): string {
+    return `${course}/${module}/index.html`
+}
+
 export function generateLessonCacheKey(course: string, module: string, lesson: string): string {
-    return `${course}/${module}/${lesson}`
+    return `${course}/${module}/${lesson}/index.html`
 }
 
 
