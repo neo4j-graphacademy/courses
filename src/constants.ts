@@ -18,6 +18,8 @@ export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
 
 export const ASCIIDOC_DIRECTORY = path.resolve(__dirname, '..', process.env.ASCIIDOC_DIRECTORY || 'asciidoc')
 export const PUBLIC_DIRECTORY = path.resolve(__dirname, '..', 'public')
+export const BUILD_DIRECTORY = path.resolve(__dirname, '..', process.env.BUILD_DIRECTORY || 'build')
+export const HTML_DIRECTORY = path.join(BUILD_DIRECTORY, 'html')
 
 // Community
 export const COMMUNITY_HAS_BASE_URL = !!DISCOURSE_BASE_URL
