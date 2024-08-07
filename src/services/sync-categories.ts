@@ -3,8 +3,7 @@ import path, { basename } from 'path'
 import fs from 'fs'
 import { loadFile } from '../modules/asciidoc'
 import { write } from '../modules/neo4j';
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, ATTRIBUTE_STATUS, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE } from '../constants';
-import { Language } from '../types';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, ATTRIBUTE_STATUS, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE, Language } from '../constants';
 import { categoryOverviewPath } from '../utils';
 
 
@@ -61,7 +60,7 @@ const loadCategory = (slug: string): CategoryWithParents => {
     }
 }
 
-export async function mergeCategories(): Promise<void> {
+export async function syncCategories(): Promise<void> {
     const categories = loadCategories()
 
     // Disable all categories

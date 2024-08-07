@@ -1,7 +1,7 @@
 /* eslint-disable */
 import initNeo4j, { close } from '../modules/neo4j';
-import { mergeCourses } from '../services/merge-courses';
-import { mergeCategories } from '../services/merge-categories';
+import { syncCourses } from '../services/sync-courses';
+import { syncCategories } from '../services/sync-categories';
 
 import {
     NEO4J_HOST,
@@ -27,8 +27,8 @@ console.log(`Loading content from ${ASCIIDOC_DIRECTORY}`);
 
 
 initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
-    .then(() => mergeCourses())
-    .then(() => mergeCategories())
+    .then(() => syncCourses())
+    .then(() => syncCategories())
     .then(() => {
         const end = Date.now()
 

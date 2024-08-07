@@ -6,7 +6,7 @@ export const padOrder = (order: string | number): string => {
     return ('0000' + order).slice(-4)
 }
 
-export const getOrderAttribute = (folder: string, file: Asciidoctor.Document): string => {
+export const getOrderAttribute = (folder: string, file: Asciidoctor.Document): number => {
     let order = file.getAttribute(ATTRIBUTE_ORDER, null)
 
     if (typeof order === 'string') {
@@ -23,7 +23,7 @@ export const getOrderAttribute = (folder: string, file: Asciidoctor.Document): s
         order = padOrder(orderParts[0])
     }
 
-    return order
+    return parseInt(order)
 }
 
 export const getDateAttribute = (file: Asciidoctor.Document, attribute: string): string | undefined => {
@@ -38,6 +38,10 @@ export function courseOverviewPath(slug: string): string {
 
 export function courseSummaryPath(slug: string): string {
     return path.join(COURSE_DIRECTORY, slug, 'summary.adoc')
+}
+
+export function moduleOverviewPath(course: string, module: string): string {
+    return path.join(COURSE_DIRECTORY, course, 'modules', module, 'module.adoc')
 }
 
 export function courseBadgePath(slug: string): string {
@@ -129,6 +133,11 @@ export function isTruthy(value: any): boolean {
     }
 
     return false
+}
+
+export function attributeIsTruthy(file: Asciidoctor.Document, attribute: string, defaultValue: any = null) {
+    const value = file.getAttribute(attribute, defaultValue)
+    return isTruthy(value)
 }
 
 /**

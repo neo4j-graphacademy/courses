@@ -6,6 +6,12 @@ config({
     path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env'
 })
 
+export enum Language {
+    EN = "en",
+    JP = "jp",
+    CN = "cn",
+}
+
 // Neo4j Credentials
 export const NEO4J_HOST: string = process.env.NEO4J_HOST as string
 export const NEO4J_USERNAME: string = process.env.NEO4J_USERNAME as string
