@@ -7,12 +7,12 @@ import { CourseToImport } from "./load/load-courses"
  */
 export const disableAllCourses = (tx: ManagedTransaction, valid: string[]) => tx.run(`
   MATCH (c:Course)
-  WHERE NOT c.slug IN $valid
+  WHERE NOT c.status IN $valid AND not c:Certification
   SET c.status = $status
 `, { valid, status: STATUS_DISABLED })
 
 export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImport[]) => {
-    tx.run(`
+  tx.run(`
       UNWIND $courses AS course
       MERGE (c:Course {slug: course.slug})
       SET
@@ -64,8 +64,8 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] | DELETE r )
   `, { courses })
 
-    // Translations
-    tx.run(`
+  // Translations
+  tx.run(`
       UNWIND $courses AS course
       MATCH (c:Course {slug: course.slug})
 
@@ -75,8 +75,8 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       )
   `, { courses })
 
-    // Next Courses
-    tx.run(`
+  // Next Courses
+  tx.run(`
       UNWIND $courses AS course
       MATCH (c:Course {slug: course.slug})
 
@@ -169,8 +169,8 @@ export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) => 
 
 // Integrity Checks
 export const checkSchema = (session: Session) => session.readTransaction(async tx => {
-    // Next Links?
-    const next = await tx.run(`
+  // Next Links?
+  const next = await tx.run(`
       MATCH (a)-[:NEXT]->(b)
       WITH a, b, count(*) AS count
 
@@ -179,7 +179,7 @@ export const checkSchema = (session: Session) => session.readTransaction(async t
       RETURN *
   `)
 
-    if (next.records.length > 1) {
-        throw new Error(`Too many next links: \n ${JSON.stringify(next.records.map(row => row.toObject()), null, 2)}`)
-    }
+  if (next.records.length > 1) {
+    throw new Error(`Too many next links: \n ${JSON.stringify(next.records.map(row => row.toObject()), null, 2)}`)
+  }
 })
