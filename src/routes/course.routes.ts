@@ -17,7 +17,7 @@ import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { canonical, courseBannerPath, flattenAttributes, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
+import { canonical, courseBannerPath, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -874,12 +874,11 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
         }
 
-        // Add sandbox attributes to Page Attributes?
-        let sandbox: Sandbox | undefined
-
-        if (course.usecase && user && course.completed === false && lesson.disableCache !== false) {
+        // Find or create the sandbox
+        if (course.usecase && user && course.completed === false) {
             try {
-                sandbox = await createAndSaveSandbox(token, user, course)
+                await createAndSaveSandbox(token, user, course)
+
             }
             catch (e: any) {
                 // Silent error, already reported in sandbox module
@@ -892,7 +891,6 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Build Attributes for adoc
         const attributes = {
             ...await getPageAttributes(req, course, module, lesson),
-            ...flattenAttributes({ sandbox: sandbox || {} }),
         }
 
         const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)

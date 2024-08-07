@@ -439,6 +439,8 @@ export function sortCourses(courses: Course[]) {
  * @param course {Course}
  * @return {Record<string, any>}
  */
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getPageAttributes(req: Request | undefined, course: Course, module?: Module, lesson?: Lesson): Promise<Record<string, any>> {
     const user = req ? await getUser(req) : undefined
 
@@ -448,13 +450,13 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         shared: path.join(ASCIIDOC_DIRECTORY, 'shared'),
     }
 
-    const cacheDisabled = lesson && lesson?.disableCache === true
-
-    if (req && user && course.usecase && cacheDisabled) {
+    if (req && user && course.usecase && !course.completed) {
         const token = await getToken(req)
 
         const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
 
+        attributes['sandbox-ip'] = sandboxConfig?.ip
+        attributes['sandbox-boltPort'] = sandboxConfig?.boltPort
         attributes['sandbox-scheme'] = sandboxConfig?.scheme
         attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
         attributes['sandbox-username'] = sandboxConfig?.username

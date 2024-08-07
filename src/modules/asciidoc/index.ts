@@ -1,4 +1,4 @@
-import fs, { existsSync } from 'fs'
+import fs from 'fs'
 import path from 'path'
 import asciidoctor, { Asciidoctor } from '@asciidoctor/core'
 import './converter'
@@ -205,7 +205,10 @@ export function getAndReplace(key: string, attributes: Record<string, any>): str
 
     if (html !== undefined) {
         for (const [key, value] of Object.entries(attributes)) {
-            html = html.replace(`{${key}}`, value)
+            const find = `{${key}}`
+            while (html.includes(find)) {
+                html = html.replace(find, value)
+            }
         }
     }
 

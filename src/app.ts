@@ -30,7 +30,6 @@ import { initPrintful } from './modules/printful'
 import hardenExpress from './middleware/harden.middleware'
 import initChatbot from './modules/chatbot'
 import { registerTranslationMiddleware } from './middleware/translation.middleware'
-import { cacheHTML } from './modules/asciidoc/services/cache-html'
 
 export default function initApp(driver: Driver) {
     const app = express()

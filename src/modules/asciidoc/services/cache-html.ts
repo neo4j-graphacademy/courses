@@ -1,4 +1,4 @@
-import { ASCIIDOC_CACHING_ENABLED, HTML_DIRECTORY } from "../../../constants";
+import { ASCIIDOC_CACHING_ENABLED, BUILD_DIRECTORY, HTML_DIRECTORY } from "../../../constants";
 import { checkAddToCache, convertLessonOverview, generateCourseOverviewCacheKey, generateCourseSummaryCacheKey, generateLessonCacheKey, generateModuleCacheKey } from "..";
 import { read } from "../../neo4j";
 import { getPageAttributes } from "../../../utils";
@@ -80,7 +80,7 @@ export async function cacheHTML(): Promise<void> {
         return
     }
 
-    console.log('[caching] enabled');
+    console.log(`[caching] enabled using ${BUILD_DIRECTORY}`);
 
     const courses = await getCourseStructure()
 
