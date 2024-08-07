@@ -33,16 +33,10 @@ jobs:
         permissions:
             id-token: write
             contents: read
-        env:
-            ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
-            GITHUB_TOKEN: ${{ secrets.AC_GITHUB_OAUTH_TOKEN }}
+        environment: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
-
-            - name: Set env variables for secrets
-              run: |
-                  echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
 
             - name: Use Node.js 20
               uses: actions/setup-node@v4
@@ -52,7 +46,7 @@ jobs:
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+                  role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
                   aws-region: ${{ vars.AWS_REGION }}
 
             - name: Install NPM Dependencies
@@ -65,12 +59,7 @@ jobs:
               run: npm run build:ui
 
             - name: Sync Assets
-              run: |
-                  if [ "${{ env.ENVIRONMENT }}" = "development" ]; then
-                    aws s3 sync public/ s3://${{ env.ENVIRONMENT }}-graphacademy-assets/assets/ --acl public-read
-                  elif [ "${{ env.ENVIRONMENT }}" = "production" ]; then
-                    aws s3 sync public/ s3://cdn.graphacademy.neo4j.com --acl public-read
-                  fi
+              run: aws s3 sync public/ s3://${{ vars.ASSETS_BUCKET_NAME }} --acl public-read
 
     deploy:
         runs-on: ubuntu-latest
@@ -78,20 +67,17 @@ jobs:
         permissions:
             id-token: write
             contents: read
+        environment: ${{ needs.set_environment.outputs.environment }}
         env:
             ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Set env variables for secrets
-              run: |
-                  echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+                  role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
                   aws-region: ${{ vars.AWS_REGION }}
 
             - name: Login to Amazon ECR Private
@@ -118,23 +104,17 @@ jobs:
         permissions:
             id-token: write
             contents: read
+        environment: ${{ needs.set_environment.outputs.environment }}
         env:
             ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Set env variables for secrets
-              run: |
-                  echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-                  echo "N_AWS_PRIVATE_SUBNETS=${ENVIRONMENT}_PRIVATE_SUBNETS" >> $GITHUB_ENV
-                  echo "N_AWS_SECURITY_GROUP_ID=${ENVIRONMENT}_SECURITY_GROUP" >> $GITHUB_ENV
-                  echo "N_AWS_SECRET_ARN=${ENVIRONMENT}_GRAPHACADEMY_SECRET_ARN" >> $GITHUB_ENV
-
             - name: Configure AWS credentials
               uses: aws-actions/configure-aws-credentials@v4
               with:
-                  role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+                  role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
                   aws-region: ${{ vars.AWS_REGION }}
 
             - name: Install jq
@@ -150,7 +130,7 @@ jobs:
 
             - name: Read YAML configurations, update EventBridge Schedules and Targets
               env:
-                  SECRET_ARN: ${{ vars[env.N_AWS_SECRET_ARN] }}
+                  SECRET_ARN: ${{ vars.GRAPHACADEMY_SECRET_ARN }}
               run: |
                   AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
                   ENV_NAME=${{ env.ENVIRONMENT }}
@@ -196,8 +176,8 @@ jobs:
 
                     echo "$NEW_DEF" > "new-task-def-${NAME}.json"
 
-                    IFS=',' read -ra private_subnets <<< "${{ vars[env.N_AWS_PRIVATE_SUBNETS] }}"
-                    export security_group_id="${{ vars[env.N_AWS_SECURITY_GROUP_ID] }}"
+                    IFS=',' read -ra private_subnets <<< "${{ vars.AWS_PRIVATE_SUBNETS }}"
+                    export security_group_id="${{ vars.AWS_SECURITY_GROUP_ID }}"
                     export private_subnets
 
                     response=$(aws ecs register-task-definition --cli-input-json file://new-task-def-${NAME}.json)
