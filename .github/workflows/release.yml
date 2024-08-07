@@ -28,10 +28,9 @@ jobs:
       environment: ${{ steps.environment_check.outputs.environment }}
 
   update_database:
+    if: needs.set_environment.outputs.environment == 'production'
     runs-on: ubuntu-latest
     needs: set_environment
-    env:
-      ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,7 +45,6 @@ jobs:
 
       # Sync content to production DB
       - name: Sync content to Prod Instance
-        if: env.ENVIRONMENT == 'production'
         env:
           NEO4J_HOST: ${{ secrets.PROD_NEO4J_HOST }}
           NEO4J_USERNAME: ${{ secrets.PROD_NEO4J_USERNAME }}
@@ -55,7 +53,6 @@ jobs:
 
       # Test the database
       - name: Test Database
-        if: env.ENVIRONMENT == 'production'
         env:
           NEO4J_HOST: ${{ secrets.PROD_NEO4J_HOST }}
           NEO4J_USERNAME: ${{ secrets.PROD_NEO4J_USERNAME }}
@@ -67,48 +64,42 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    needs: [set_environment, update_database]
+    needs: [set_environment]
+    environment: ${{ needs.set_environment.outputs.environment }}
     env:
       ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set env variables for secrets
-        run: |
-          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       # Sync images to CDN
       - name: Sync public/ to S3
         if: env.ENVIRONMENT == 'production'
-        run: aws s3 sync ./public s3://${{ secrets.GA_S3_BUCKET }}/assets --acl public-read
+        run: aws s3 sync ./public s3://${{ vars.ASSETS_BUCKET_NAME }}/assets --acl public-read
 
   upload_zip:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    needs: [set_environment, update_database, sync_assets]
+    needs: [set_environment, sync_assets]
+    environment: ${{ needs.set_environment.outputs.environment }}
     env:
       ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set env variables for secrets
-        run: |
-          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Create course asciidoc zip
@@ -116,7 +107,7 @@ jobs:
 
       - name: Upload courses to S3
         run: |
-          aws s3 cp ./courses.zip "s3://${{ env.ENVIRONMENT }}-graphacademy-certs-courses/content/courses.zip"
+          aws s3 cp ./courses.zip "s3://${{ vars.CERTS_COURSES_BUCKET_NAME }}/content/courses.zip"
 
       - name: Install NPM Dependencies
         run: npm install --include=dev
@@ -126,28 +117,25 @@ jobs:
 
       - name: Upload HTML to S3
         run: |
-          aws s3 cp ./html.zip "s3://${{ env.ENVIRONMENT }}-graphacademy-certs-courses/content/html.zip"
+          aws s3 cp ./html.zip "s3://${{ vars.CERTS_COURSES_BUCKET_NAME }}/content/html.zip"
 
   restart-cluster:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-    needs: [set_environment, update_database, sync_assets, upload_zip]
+    needs: [set_environment, sync_assets, upload_zip]
+    environment: ${{ needs.set_environment.outputs.environment }}
     env:
       ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set env variables for secrets
-        run: |
-          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Deploying services with an env file
@@ -160,7 +148,8 @@ jobs:
 
   invalidate_cache:
     runs-on: ubuntu-latest
-    needs: [set_environment, update_database, sync_assets, upload_zip]
+    needs: [set_environment, sync_assets, upload_zip]
+    environment: ${{ needs.set_environment.outputs.environment }}
     env:
       ENVIRONMENT: ${{ needs.set_environment.outputs.environment }}
     permissions:
@@ -170,21 +159,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set env variables for secrets
-        run: |
-          echo "N_AWS_DEPLOY_ROLE_ARN=${ENVIRONMENT}_GH_OIDC_ROLE_ARN" >> $GITHUB_ENV
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars[env.N_AWS_DEPLOY_ROLE_ARN] }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # Invalidate the CDN cache
       - name: Invalidate CloudFront Cache
         uses: chetan/invalidate-cloudfront-action@v2
-        if: env.ENVIRONMENT == 'production'
         env:
-          DISTRIBUTION: ${{ secrets.GA_CLOUDFRONT_DISTRIBUTION }}
+          DISTRIBUTION: ${{ vars.CDN_DISTRIBUTION_ID }}
           PATHS: "/*"
           AWS_REGION: ${{ vars.AWS_REGION }}
