@@ -88,26 +88,42 @@ const processAccountForm = async (req, res, next) => {
             }
         }
 
-        const countryInformation = await getCountry(country)
+        // Unsubscribe from operational emails
+        const unsubscribed = unsubscribe === 'true'
 
-        let optin = false
-        if (countryInformation?.optin === 'soft') {
-            // Soft opt-in, opt in unless they tick the box
-            optin = req.body.soft === undefined
+        const data: Record<string, any> = {
+            nickname,
+            givenName,
+            position,
+            company,
+            country,
+            unsubscribed,
+            bio,
+            method: 'update',
         }
-        else if (countryInformation?.optin === 'required') {
-            // Required opt-in, opt in if they tick the box
-            optin = req.body.required !== undefined
-        }
-        else if (countryInformation?.optin === 'assumed') {
-            // assumed opt-in, regardless
-            optin = true
+
+        // Also include opt-in information on account completion
+        if (req.originalUrl.includes('complete')) {
+            const countryInformation = await getCountry(country)
+
+            if (countryInformation?.optin === 'soft') {
+                // Soft opt-in, opt in unless they tick the box
+                data.optin = req.body.soft === undefined
+            }
+            else if (countryInformation?.optin === 'required') {
+                // Required opt-in, opt in if they tick the box
+                data.optin = req.body.required !== undefined
+            }
+            else if (countryInformation?.optin === 'assumed') {
+                // assumed opt-in, regardless
+                data.optin = true
+            }
+
+            data.method = 'complete'
         }
 
         if (errors.length === 0) {
-            const unsubscribed = unsubscribe === 'true'
-
-            await updateUser(token, user, { nickname, givenName, position, company, country, unsubscribed, bio, optin, optinMethod: countryInformation?.optin }, team)
+            await updateUser(token, user, data, team)
 
             req.flash('success', 'Your personal information has been updated')
 

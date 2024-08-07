@@ -200,11 +200,13 @@ export function getFromCache(key: string): string | undefined {
     return cache.get(key)
 }
 
-export function getAndReplace(key: string, attributes: Record<string, any>): string {
-    let html = getFromCache(key) as string
+export function getAndReplace(key: string, attributes: Record<string, any>): string | undefined {
+    let html = getFromCache(key)
 
-    for (const [key, value] of Object.entries(attributes)) {
-        html = html.replace(`{${key}}`, value)
+    if (html !== undefined) {
+        for (const [key, value] of Object.entries(attributes)) {
+            html = html.replace(`{${key}}`, value)
+        }
     }
 
     return html
