@@ -3,7 +3,7 @@ FROM node:16-alpine
 WORKDIR /app
 COPY . /app/
 
-RUN apk add jq curl
+RUN apk add aws-cli curl jq
 
 # Build site including dev dependencies
 ENV NODE_ENV production
