@@ -145,11 +145,6 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
 
   MERGE (m)-[:HAS_LESSON]->(l)
 
-  // Clean up questions
-  FOREACH (q IN [ (l)-[:HAS_QUESTION]->(q) | q ] |
-      SET q:DeletedQuestion
-  )
-
   // Detach question
   FOREACH (r IN [ (l)-[r:HAS_QUESTION]->() | r ] |
       DELETE r
