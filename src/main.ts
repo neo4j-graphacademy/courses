@@ -28,11 +28,6 @@ initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
         return app
     })
     .then((app: Express) => {
-        void cacheHTML()
-
-        return app
-    })
-    .then((app: Express) => {
         const server = app.listen(PORT || 3000, () => {
             emitter.emit(new AppInit(app, server))
         })
