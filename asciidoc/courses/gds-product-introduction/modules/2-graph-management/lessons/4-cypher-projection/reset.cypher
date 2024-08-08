@@ -1,3 +1,3 @@
 MATCH(m:RecentBigMovie) REMOVE m:RecentBigMovie;
-CALL gds.graph.drop('proj-native', false);
-CALL gds.graph.drop('proj-cypher', false);
+CALL gds.graph.drop('native-proj', false);
+CALL gds.graph.drop('cypher-proj', false);
