@@ -76,7 +76,7 @@ export function lessonCypher(enrolment?: string, lesson = 'l'): string {
                             previous: [ (${lesson})<-[:NEXT]-(prev) |
                                 prev { .slug, .title, .link }
                             ][0],
-                            questions: [ (${lesson})-[:HAS_QUESTION]->(q) WHERE not q:DeletedQuestion | q {
+                            questions: [ (${lesson})-[:HAS_QUESTION]->(q) | q {
                                     .id,
                                     .slug
                                 }
