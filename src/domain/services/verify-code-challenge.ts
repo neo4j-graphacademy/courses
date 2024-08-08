@@ -67,7 +67,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
                 }))
 
                 const passed = values.every(point => point.correct)
-                const actuals = values.map(value => `${value.id}: ${value.answers ? JSON.stringify(value.answers) : '(unknown'}`)
+                const actuals = values.map(value => `${value.id}: ${value.answers ? JSON.stringify(value.answers) : '(unknown)'}`)
                 const reason = values.filter(value => value.reason)
                     .map(value => value.reason as string)
 

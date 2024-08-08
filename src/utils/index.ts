@@ -251,14 +251,14 @@ export function getSandboxConfig(
     lesson?: Lesson | LessonWithProgress
 ): Promise<SandboxConfig> {
     let showSandbox = false
-    let sandboxVisible = typeof lesson?.sandbox === 'string'
+    let sandboxVisible = typeof lesson?.sandbox === 'string' || lesson?.sandbox === true
 
     // If usecase is set and it is not null, show sandbox
     if (course.usecase !== undefined && course.usecase !== null) {
         showSandbox = true
     }
     // If :sandbox: is set to 'true' in lesson.adoc (eg. set and not false)
-    else if (typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false') {
+    else if (lesson?.sandbox === true && typeof lesson?.sandbox === 'string' && lesson?.sandbox !== 'false') {
         showSandbox = true
     }
 
