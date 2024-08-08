@@ -9,7 +9,7 @@ import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import getRewards, { Reward } from '../domain/services/rewards/get-rewards'
-import { updateUser, UserUpdates } from '../domain/services/update-user'
+import { AccountUpdateMethod, updateUser, UserUpdates } from '../domain/services/update-user'
 import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
 import { getToken, getUser, requestEmailVerification } from '../middleware/auth.middleware'
@@ -99,7 +99,7 @@ const processAccountForm = async (req, res, next) => {
             country,
             unsubscribed,
             bio,
-            method: 'update',
+            method: AccountUpdateMethod.UPDATE,
         }
 
         // Also include opt-in information on account completion
@@ -119,11 +119,11 @@ const processAccountForm = async (req, res, next) => {
                 data.optin = true
             }
 
-            data.method = 'complete'
+            data.method = AccountUpdateMethod.COMPLETE
         }
 
         if (errors.length === 0) {
-            await updateUser(token, user, data, team)
+            await updateUser(data.method, token, user, data, team)
 
             req.flash('success', 'Your personal information has been updated')
 
@@ -177,7 +177,7 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
         const team = getTeam(req)
         const user = await getUser(req) as User
 
-        await updateUser(token, user, {} as UserUpdates, team)
+        await updateUser(AccountUpdateMethod.COMPLETE, token, user, {} as UserUpdates, team)
 
         req.flash('success', 'Your personal information has been updated')
 
@@ -374,7 +374,7 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
         if (type === UI_EVENT_HIDE_SIDEBAR || type === UI_EVENT_SHOW_SIDEBAR) {
             req.session['classroomHideSidebar'] = type === UI_EVENT_HIDE_SIDEBAR
 
-            await updateUser('', user, {
+            await updateUser(AccountUpdateMethod.UPDATE, '', user, {
                 sidebarHidden: type === UI_EVENT_HIDE_SIDEBAR
             })
         }
@@ -383,7 +383,7 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
         if (type === UI_EVENT_SHOW_TRANSCRIPT || type === UI_EVENT_SHOW_VIDEO) {
             req.session['prefersTranscript'] = type === UI_EVENT_SHOW_TRANSCRIPT
 
-            await updateUser('', user, {
+            await updateUser(AccountUpdateMethod.UPDATE, '', user, {
                 prefersTranscript: type === UI_EVENT_SHOW_TRANSCRIPT
             })
         }

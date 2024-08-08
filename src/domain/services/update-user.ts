@@ -2,6 +2,7 @@ import NotFoundError from "../../errors/not-found.error";
 import { emitter } from "../../events";
 import { write } from "../../modules/neo4j";
 import { OptInStatus } from "../../utils";
+import { UserCompletedAccount } from "../events/UserCompletedAccount";
 import { UserUpdatedAccount } from "../events/UserUpdatedAccount";
 import { User } from "../model/user";
 import joinTeam from "./teams/join-team";
@@ -20,7 +21,12 @@ export interface UserUpdates {
     optinMethod?: OptInStatus;
 }
 
-export async function updateUser(token: string, user: User, updates: UserUpdates, team?: string): Promise<User> {
+export enum AccountUpdateMethod {
+    COMPLETE = "complete",
+    UPDATE = "update",
+}
+
+export async function updateUser(method: AccountUpdateMethod = AccountUpdateMethod.UPDATE, token: string, user: User, updates: UserUpdates, team?: string): Promise<User> {
     // Null keys that don't exist
     for (const key in updates) {
         if (typeof updates[key] === 'string' && updates[key].trim() === '') {
@@ -53,7 +59,12 @@ export async function updateUser(token: string, user: User, updates: UserUpdates
     }
 
     // Fire event
-    emitter.emit(new UserUpdatedAccount(user, updates))
+    if (method === AccountUpdateMethod.COMPLETE) {
+        emitter.emit(new UserCompletedAccount(user, updates))
+    }
+    else {
+        emitter.emit(new UserUpdatedAccount(user, updates))
+    }
 
     return {
         ...user,

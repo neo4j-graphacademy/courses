@@ -1,4 +1,5 @@
 import { UserAttemptedLesson } from '../../domain/events/UserAttemptedLesson'
+import { UserCompletedAccount } from '../../domain/events/UserCompletedAccount'
 import { UserCompletedCourse } from '../../domain/events/UserCompletedCourse'
 import { UserCompletedLesson } from '../../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../../domain/events/UserEnrolled'
@@ -33,7 +34,8 @@ import {
     ANALYTICS_EVENT_SHOW_VIDEO,
     ANALYTICS_EVENT_SHOW_TRANSCRIPT,
     ANALYTICS_EVENT_USER_UPDATED_ACCOUNT,
-    ANALYTICS_EVENT_USER_RESET_DATABASE
+    ANALYTICS_EVENT_USER_RESET_DATABASE,
+    ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -179,6 +181,13 @@ export default function initAnalyticsListeners(): Promise<void> {
 
         emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
             trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
+                ...event.user,
+                ...event.updates
+            })
+        })
+
+        emitter.on<UserCompletedAccount>(UserCompletedAccount, event => {
+            trackEvent(ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT, event.user.sub, {
                 ...event.user,
                 ...event.updates
             })
