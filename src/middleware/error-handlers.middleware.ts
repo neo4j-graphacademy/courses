@@ -85,8 +85,10 @@ export function applyErrorHandlers(app: Express) {
             })
         }
 
+
         if (process.env.NODE_ENV === 'production') {
-            console.log(error);
+            console.log('resorting to to 500');
+            console.log({ error });
 
             return res.status(500).render('simple', {
                 title: 'Internal Server Error',
