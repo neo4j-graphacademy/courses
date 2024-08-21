@@ -6,7 +6,18 @@ import { UserEnrolled } from '../../domain/events/UserEnrolled'
 import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
 import { UserLogin } from '../../domain/events/UserLogin'
 import { UserResetDatabase } from '../../domain/events/UserResetDatabase'
-import { UI_EVENT_SANDBOX_TOGGLE, UI_EVENT_SHOW_HINT, UI_EVENT_SHOW_SOLUTION, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO, UI_EVENT_SUPPORT_TOGGLE, UI_EVENT_VIDEO_ENDED, UI_EVENT_VIDEO_PAUSED, UI_EVENT_VIDEO_PLAYING, UserUiEvent } from '../../domain/events/UserUiEvent'
+import {
+    UI_EVENT_SANDBOX_TOGGLE,
+    UI_EVENT_SHOW_HINT,
+    UI_EVENT_SHOW_SOLUTION,
+    UI_EVENT_SHOW_TRANSCRIPT,
+    UI_EVENT_SHOW_VIDEO,
+    UI_EVENT_SUPPORT_TOGGLE,
+    UI_EVENT_VIDEO_ENDED,
+    UI_EVENT_VIDEO_PAUSED,
+    UI_EVENT_VIDEO_PLAYING,
+    UserUiEvent,
+} from '../../domain/events/UserUiEvent'
 import { UserUnenrolled } from '../../domain/events/UserUnenrolled'
 import { UserUpdatedAccount } from '../../domain/events/UserUpdatedAccount'
 import { UserViewedCourse } from '../../domain/events/UserViewedCourse'
@@ -35,7 +46,7 @@ import {
     ANALYTICS_EVENT_SHOW_TRANSCRIPT,
     ANALYTICS_EVENT_USER_UPDATED_ACCOUNT,
     ANALYTICS_EVENT_USER_RESET_DATABASE,
-    ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT
+    ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT,
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -47,16 +58,17 @@ export default function initAnalyticsListeners(): Promise<void> {
             })
         })
 
-        emitter.on<UserViewedCourse>(UserViewedCourse, event => {
+        emitter.on<UserViewedCourse>(UserViewedCourse, (event) => {
             trackEvent(ANALYTICS_EVENT_COURSE_VIEW, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories?.map(category => category.title),
+                categories: event.course.categories?.map((category) => category.title),
+                completedPercentage: event.course.completedPercentage,
             })
         })
 
-        emitter.on<UserViewedLesson>(UserViewedLesson, event => {
+        emitter.on<UserViewedLesson>(UserViewedLesson, (event) => {
             trackEvent(ANALYTICS_EVENT_LESSON_VIEW, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
@@ -65,21 +77,23 @@ export default function initAnalyticsListeners(): Promise<void> {
                 lessonSlug: event.lesson.slug,
                 lessonName: event.lesson.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
+                completedPercentage: event.course.completedPercentage,
             })
         })
 
-        emitter.on<UserEnrolled>(UserEnrolled, event => {
+        emitter.on<UserEnrolled>(UserEnrolled, (event) => {
             trackEvent(ANALYTICS_EVENT_COURSE_ENROLL, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
                 ref: event.course.ref,
+                completedPercentage: event.course.completedPercentage,
             })
         })
 
-        emitter.on<UserAttemptedLesson>(UserAttemptedLesson, event => {
+        emitter.on<UserAttemptedLesson>(UserAttemptedLesson, (event) => {
             trackEvent(ANALYTICS_EVENT_LESSON_ATTEMPT, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
@@ -88,90 +102,89 @@ export default function initAnalyticsListeners(): Promise<void> {
                 lessonSlug: event.lesson.slug,
                 lessonName: event.lesson.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
                 passed: event.passed,
                 answers: event.answers,
+                completedPercentage: event.course.completedPercentage,
             })
         })
 
-        emitter.on<UserUnenrolled>(UserUnenrolled, event => {
+        emitter.on<UserUnenrolled>(UserUnenrolled, (event) => {
             trackEvent(ANALYTICS_EVENT_COURSE_UNENROLL, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
             })
         })
 
-        emitter.on<UserCompletedLesson>(UserCompletedLesson, event => {
+        emitter.on<UserCompletedLesson>(UserCompletedLesson, (event) => {
             trackEvent(ANALYTICS_EVENT_LESSON_COMPLETION, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
                 moduleSlug: event.module.slug,
                 moduleName: event.module.title,
                 lessonSlug: event.lesson.slug,
                 lessonName: event.lesson.title,
+                completedPercentage: event.course.completedPercentage,
             })
         })
 
-        emitter.on<UserCompletedCourse>(UserCompletedCourse, event => {
+        emitter.on<UserCompletedCourse>(UserCompletedCourse, (event) => {
             trackEvent(ANALYTICS_EVENT_COURSE_COMPLETION, event.user.sub, {
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories?.map(category => category.title),
-                throughQuiz: event.throughQuiz
+                categories: event.course.categories?.map((category) => category.title),
+                throughQuiz: event.throughQuiz,
+                completedPercentage: 100,
             })
         })
 
-        emitter.on<UserUiEvent>(UserUiEvent, event => {
+        emitter.on<UserUiEvent>(UserUiEvent, (event) => {
             switch (event.type) {
                 case UI_EVENT_SANDBOX_TOGGLE:
                     trackEvent(ANALYTICS_EVENT_TOGGLE_SANDBOX, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_SUPPORT_TOGGLE:
                     trackEvent(ANALYTICS_EVENT_TOGGLE_SUPPORT, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_SHOW_HINT:
                     trackEvent(ANALYTICS_EVENT_SHOW_HINT, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_SHOW_SOLUTION:
                     trackEvent(ANALYTICS_EVENT_SHOW_SOLUTION, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_VIDEO_PLAYING:
                     trackEvent(ANALYTICS_EVENT_VIDEO_PLAYING, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_VIDEO_PAUSED:
                     trackEvent(ANALYTICS_EVENT_VIDEO_PAUSED, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_VIDEO_ENDED:
                     trackEvent(ANALYTICS_EVENT_VIDEO_ENDED, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_SHOW_VIDEO:
                     trackEvent(ANALYTICS_EVENT_SHOW_VIDEO, event.user.sub, event.meta)
-                    break;
+                    break
 
                 case UI_EVENT_SHOW_TRANSCRIPT:
                     trackEvent(ANALYTICS_EVENT_SHOW_TRANSCRIPT, event.user.sub, event.meta)
-                    break;
+                    break
             }
         })
 
-        emitter.on<UserExecutedQuery>(UserExecutedQuery, event => {
-            const {
-                user,
-                metaData,
-                ...other
-            } = event
+        emitter.on<UserExecutedQuery>(UserExecutedQuery, (event) => {
+            const { user, metaData, ...other } = event
 
             trackEvent(ANALYTICS_EVENT_COMMAND_CYPHER, user.sub, {
                 ...metaData,
@@ -179,27 +192,27 @@ export default function initAnalyticsListeners(): Promise<void> {
             })
         })
 
-        emitter.on<UserUpdatedAccount>(UserUpdatedAccount, event => {
+        emitter.on<UserUpdatedAccount>(UserUpdatedAccount, (event) => {
             trackEvent(ANALYTICS_EVENT_USER_UPDATED_ACCOUNT, event.user.sub, {
                 ...event.user,
-                ...event.updates
+                ...event.updates,
             })
         })
 
-        emitter.on<UserCompletedAccount>(UserCompletedAccount, event => {
+        emitter.on<UserCompletedAccount>(UserCompletedAccount, (event) => {
             trackEvent(ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT, event.user.sub, {
                 ...event.user,
-                ...event.updates
+                ...event.updates,
             })
         })
 
-        emitter.on<UserResetDatabase>(UserResetDatabase, event => {
+        emitter.on<UserResetDatabase>(UserResetDatabase, (event) => {
             trackEvent(ANALYTICS_EVENT_USER_RESET_DATABASE, event.user.sub, {
                 ...event.user,
                 courseSlug: event.course.slug,
                 courseName: event.course.title,
                 usecase: event.course.usecase,
-                categories: event.course.categories.map(category => category.title),
+                categories: event.course.categories.map((category) => category.title),
                 moduleSlug: event.module.slug,
                 moduleName: event.module.title,
                 lessonSlug: event.lesson.slug,
