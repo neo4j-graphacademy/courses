@@ -455,6 +455,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
 
         const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
 
+        attributes['sandbox-host'] = sandboxConfig?.host
         attributes['sandbox-ip'] = sandboxConfig?.ip
         attributes['sandbox-boltPort'] = sandboxConfig?.boltPort
         attributes['sandbox-scheme'] = sandboxConfig?.scheme
