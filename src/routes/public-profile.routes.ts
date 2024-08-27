@@ -69,11 +69,16 @@ router.get('/:id', async (req, res, next) => {
             })
         }
 
+        const countries = await getCountries()
+
         res.render('profile/achievements', {
             classes: 'public-profile',
             title,
-            countries: await getCountries(),
-            profile: user,
+            countries,
+            profile: {
+                ...user,
+                country: countries.find(country => country.code === user.country),
+            },
             own,
             categories,
             breadcrumbs,
