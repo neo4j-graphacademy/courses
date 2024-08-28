@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { BASE_URL, CDN_URL } from "../../constants";
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL } from "../../constants";
 import { forceTrailingSlash } from "../../middleware/trailing-slash.middleware";
 import { convertCertificationOverview, loadFile } from "../asciidoc";
 import getCertifications from "../../domain/services/get-certifications";
@@ -18,6 +18,8 @@ import { certificationOgBannerImage, } from "../../routes/route.utils";
 import getQuestionHTML from "./services/get-question-html";
 import getCertificationResults from "./services/get-certification-results";
 import getCertification from "./services/get-certification";
+import { existsSync } from "fs";
+import path from "path";
 
 const router = Router({
     caseSensitive: true,
@@ -98,6 +100,29 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
     }
     catch (e) {
         next(e)
+    }
+})
+
+/**
+ * @GET /:slug/illustration
+ *
+ * Find and send the illustration.svg file in the course root
+ */
+router.get('/:slug/illustration', (req, res) => {
+    try {
+        let filePath = path.join(ASCIIDOC_DIRECTORY, 'certifications', req.params.slug, 'illustration.svg')
+
+        if (!existsSync(filePath)) {
+            filePath = path.join(__dirname, '..', '..', '..', 'resources', 'svg', 'illustrationDefault.svg')
+        }
+
+        res.header('Content-Type', 'image/svg+xml')
+
+        res.sendFile(filePath)
+    }
+    catch (e) {
+        return '<svg></svg>'
+        // next(e)
     }
 })
 
