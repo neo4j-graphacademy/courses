@@ -1,1 +1,0 @@
-CALL gds.graph.drop('native-proj', false);
