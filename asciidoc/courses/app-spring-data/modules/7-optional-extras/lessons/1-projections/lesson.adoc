@@ -1,0 +1,173 @@
+= Spring Data Neo4j Projections
+:order: 1
+:type: lesson
+
+This lesson covers the basics of projections in Spring Data Neo4j. You will learn what a projection is, when it is useful, as well as how to create and use it in your application.
+
+== What is a projection?
+
+Projections contain some subset or manipulation of a domain entity and act like a "view" of that entity. There are a few different situations where projections are invaluable, mostly centered around needing customized versions of a large object.
+
+There are also two types of projections in SDN: interface-based and DTO-based. Interface-based projections are useful when you want to create a projection that contains a subset of properties from a domain entity. DTO-based projections can be more flexible using a custom query to create a projection with additional properties.
+
+For example, if you have a domain entity with many properties or large values, it becomes cumbersome to work with, alter, and transport. You can create a projection that only contains a few properties, reducing the data that is sent over the wire. Or you could add extra properties  for a specific use that are not part of the domain entity, such as a calculated value.
+
+Lastly, Spring Data Neo4j supports multi-level projections, where you can create a projection that contains a projection. This is useful when you want a subset of properties from a domain entity, but also a subset of a related entity.
+
+We will look at many of these scenarios in this lesson.
+
+== Interface-based projections
+
+Interface-based projections are a great place to start. They are simple to create and use, and commonly used when you want to trim down an entity for user views or retrieval.
+
+Let's take our `Movie` entity as an example. There are sixteen fields on the entity, which is a lot to work with!
+
+[source,java]
+----
+@Node
+public class Movie {
+    @Id
+    private String movieId;
+
+    private String title;
+    private String plot;
+    private String poster;
+    private String url;
+    private String imdbId;
+    private String tmdbId;
+    private String released;
+
+    private Long year;
+    private Long runtime;
+    private Long budget;
+    private Long revenue;
+    private Long imdbVotes;
+
+    private Double imdbRating;
+
+    private String[] languages;
+    private String[] countries;
+
+    //constructor, getters, and setters
+}
+----
+
+When we were saving new movies back in Module 5, we only sent a few values, making our return results show a lot of `null` values. What if more of our data contained empty values or we wanted to provide a page for users to scroll through all movies, but didn't want to display every field? 
+
+We could write a projection to only include a few key fields. Let's create a projection that only contains the `title`, `released`, and `poster` properties for each movie.
+
+=== MovieProjection interface
+
+To create a projection, we need to create an interface that contains the properties we want to include. We will call this interface `MovieProjection`.
+
+[source,java]
+----
+public interface MovieProjection {
+    String getTitle();
+    String getReleased();
+    String getPoster();
+}
+----
+
+Now let's update our `MovieRepository` and `MovieController` by adding a new method to return a list of `MovieProjection` instead of `Movie`.
+
+[source,java]
+----
+interface MovieRepository extends Neo4jRepository<Movie, String> {
+    //other methods
+
+    Iterable<MovieProjection> findAllMovieProjectionsBy();
+}
+
+@RestController
+@RequestMapping("/movies")
+public class MovieController {
+    //other methods
+
+    @GetMapping("/movielist")
+    Iterable<MovieProjection> findAllMovieProjections() { 
+        return movieRepo.findAllMovieProjectionsBy(); 
+    }
+}
+----
+
+[NOTE]
+----
+As mentioned in the https://docs.spring.io/spring-data/neo4j/reference/projections/sdn-projections.html#projections.sdn.full-example[documentation^], the return type of the method is different from the repository's domain type, and therefore must use properties defined in the domain type. The suffix `By` is needed to make SDN not look for a property called `MovieProjections` in the `Movie` class.
+----
+
+Now, when we test the application and call the `/movies/movielist` endpoint, we will only get the three properties we specified in our projection.
+
+[source,shell]
+----
+curl localhost:8080/movies/movielist
+----
+
+== DTO-based projections
+
+While we can use a DTO projections similarly to interface-based projections with a subset of existing domain class properties, DTO-based projections really shine when we want to add additional properties to our projection.
+
+What if we want to calculate cast size and add it to our display data as a fun fact for users to know? Let's create a DTO projection that contains the `title`, `released`, `poster`, and `castSize` properties to find out!
+
+=== MovieDTO class
+
+First, we need to create a DTO class that contains the properties we want to include in our projection. We will call this class `MovieDTOProjection`.
+
+[source,java]
+----
+public class MovieDTOProjection {
+
+    String title;
+    String released;
+    String poster;
+
+    Long castSize;
+
+    //getters and setters
+}
+----
+
+Now let's update our `MovieRepository` and `MovieController` by adding a new method to return a list of `MovieDTOProjection`.
+
+[source,java]
+----
+interface MovieRepository extends Neo4jRepository<Movie, String> {
+    //other methods
+
+    @Query("MATCH (m:Movie)<-[r:ACTED_IN]-(p:Person) RETURN m, COUNT(p) AS castSize")
+    Iterable<MovieDTOProjection> findAllDTOProjectionsWithCustomQuery();
+}
+
+@RestController
+@RequestMapping("/movies")
+public class MovieController {
+    //other methods
+
+    @GetMapping("/dtocast")
+    Iterable<MovieDTOProjection> findAllMovieDTOProjections() { 
+        return movieRepo.findAllDTOProjectionsWithCustomQuery();
+    }
+}
+----
+
+In this repository method, we are using a custom query to calculate the `castSize` so that it maps to the property name in our DTO class.
+
+Now, when we test the application and call the `/movies/dtocast` endpoint, we will get the four properties we specified in our projection, including the calculated `castSize` property.
+
+[source,shell]
+----
+curl localhost:8080/movies/movielist
+----
+
+Note that nearly all of the cast sizes have a value of `4`. This is likely because the data was only imported with a maximum of four actors per movie. If we wanted to get a more accurate cast size, we would need to update our data import to include all actors for each movie.
+
+== Further reading
+
+More information on projections and additional capabilities can be found in the documentation for https://docs.spring.io/spring-data/neo4j/reference/projections/sdn-projections.html[Spring Data Neo4j Projections^].
+
+[.summary]
+== Summary
+
+In this lesson, you learned about and created two different kinds of projections - interface-based and DTO-based.
+
+Next, you will learn about some tips and tricks to working with Spring Data Neo4j.
