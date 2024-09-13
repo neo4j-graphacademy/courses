@@ -13,12 +13,12 @@ const main = async () => {
     const driver = await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
     console.log(`Connected to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
 
-    const res = await write<{ count: number }>(`
+    const res = await write<{ count: number, id: string }>(`
       MATCH (new:User {${property}: $new_id})
       MATCH (old:User {${property}: $old_id})-[r:HAS_ENROLMENT]->(e)
       DELETE r
       MERGE (new)-[:HAS_ENROLMENT]->(e)
-      RETURN count(*) AS count
+      RETURN count(*) AS count, new.id AS id
 
     `, { property, old_id, new_id })
 
@@ -26,7 +26,11 @@ const main = async () => {
     console.log(`     -- Old Profile: https://graphacademy.neo4j.com/u/${old_id}/`)
     console.log(`     -- New Profile: https://graphacademy.neo4j.com/u/${new_id}/`)
     console.log('')
-    console.log(`Your enrolments have been transferred to your new public profile at https://graphacademy.neo4j.com/u/${new_id}/`)
+    if (res.records.length) {
+      const id = res.records[0].get('id')
+      console.log(`Your enrolments have been transferred to your new public profile at https://graphacademy.neo4j.com/u/${id}/`)
+
+    }
 
     await driver.close()
   }
