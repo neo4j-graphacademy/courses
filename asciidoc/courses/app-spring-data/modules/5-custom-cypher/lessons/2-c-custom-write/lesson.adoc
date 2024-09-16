@@ -1,24 +1,19 @@
 = Challenge: Create Custom Cypher for Write
 :order: 2
 :type: challenge
-:lab-file: src/main/resources/challenges/custom-write/challenge.java
-:lab-solution: src/main/resources/challenges/custom-write/solution.java
-:lab: {repository-blob}/main/{lab-file}
 
 Your challenge is to create a custom method in the repository interface using the `@Query` annotation with a provided Cypher statement that writes to the database.
 Once you have created the method and query, you will need to test the application and verify the results.
 
 == Define a custom repository method
 
-We are going to set a property in the database when a movie is created or updated. While we could do this by defining programmatically by adding a new field to the `Movie` class, we will use a custom Cypher query to do this instead to avoid cluttering our domain class for read operations.
+We are going to set a property in the database when a movie is created or updated. While we could do this programmatically by adding a new field to the `Movie` class, this is a background field that the user does not need. Instead, we will use a custom Cypher query to avoid cluttering our domain class on read operations.
 
-Open the `MovieRepository` interface in your editor and add a new method called `saveWithAudit()` that takes a `Movie` object as a parameter and return a `Movie`. Add the `@Query` annotation to the method and provide the following Cypher statement as the value:
+Open the `MovieRepository` interface in your editor and add a new method called `saveWithAudit()` that takes a `Movie` object as a parameter and returns a `Movie`. Add the `@Query` annotation to the method and provide the following Cypher statement as the value:
 
 [source,cypher]
 ----
-MERGE (m:Movie {movieId: $movie.__id__})
- SET m += $movie.__properties__, m.lastUpdated = datetime()
-RETURN m;
+include::code/saveWithAudit.cypher[]
 ----
 
 Now implement that newly-created method in the `MovieController` class by creating a new endpoint at `/movies/saveaudit` that takes a `Movie` object as a parameter and returns a `Movie` object. Use the `saveWithAudit()` method to save the movie and return the result.
@@ -28,25 +23,8 @@ Now implement that newly-created method in the `MovieController` class by creati
 ====
 [source,java]
 ----
-interface MovieRepository extends Neo4jRepository<Movie, String> {
-    //other methods
-
-    @Query("MERGE (m:Movie {movieId: $movie.__id__})" +
-            "SET m += $movie.__properties__, m.lastUpdated = datetime()" +
-            "RETURN m;")
-    Movie saveWithAudit(Movie movie);
-}
-
-@RestController
-@RequestMapping("/movies")
-public class MovieController {
-    //other repository injection, constructor, and methods
-
-    @PostMapping("/saveaudit")
-    Movie saveWithAudit(@RequestBody Movie movie) {
-        return movieRepo.saveWithAudit(movie);
-    }
-}
+include::code/MovieRepository.java[]
+include::code/MovieController.java[]
 ----
 ====
 
@@ -61,7 +39,7 @@ curl localhost:8080/movies/save \
   -d @src/main/resources/movie.json
 ----
 
-You won't see the added field in the terminal output, but if you query the database in Neo4j Browser, you will see the new field. You can run the following query to see the results:
+You won't see the added field in the terminal output, but if you query the database in Neo4j Browser, you will see the new `lastUpdated` field. You can run the following query to see the results:
 
 [source,cypher]
 ----
@@ -72,6 +50,7 @@ RETURN m;
 == Check Your Understanding
 
 include::questions/1-custom-cypher.adoc[leveloffset=+1]
+include::questions/2-write-field.adoc[leveloffset=+1]
 
 [.summary]
 == Lesson Summary
