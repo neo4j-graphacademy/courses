@@ -26,8 +26,8 @@ FROM 'https://data.neo4j.com/importing-cypher/movies.csv'
 AS row
 MERGE (m:Movie {movieId: toInteger(row.movieId)})
 SET
-m.tmdbId = toInteger(row.tmdbId),
-m.imdbId = toInteger(row.imdbId),
+m.tmdbId = toInteger(row.movie_tmdbId),
+m.imdbId = toInteger(row.movie_imdbId),
 m.released = row.released,
 m.title = row.title,
 m.year = row.year,
