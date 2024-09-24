@@ -5,10 +5,9 @@ import { loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag.middleware'
 import formData from 'form-data';
 import { decode } from 'html-entities'
+import { MAIL_FROM, MAIL_REPLY_TO, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
 
 export function isEnabled(): boolean {
-    const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
-
     return !!MAILGUN_API_KEY && !!MAILGUN_DOMAIN
 }
 
@@ -18,8 +17,6 @@ interface Attachment {
 }
 
 export function send(to: string, subject: string, html: string, tag?: string, attachments?: Attachment[]): void {
-    const { MAILGUN_API_KEY, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO } = process.env
-
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
         const mailgun = new Mailgun(formData)
 

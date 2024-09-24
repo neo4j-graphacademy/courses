@@ -5,14 +5,13 @@ import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend, send } from '../modules/mailer'
-import { ASCIIDOC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
         console.log('[email enabled]');
     }
     else {
-        const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
         console.log('[email disabled]', { MAILGUN_API_KEY, MAILGUN_DOMAIN });
     }
 

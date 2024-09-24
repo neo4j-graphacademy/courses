@@ -49,6 +49,13 @@ export const COMMUNITY_GRAPH_HOST: string = process.env.COMMUNITY_GRAPH_HOST as 
 export const COMMUNITY_GRAPH_USERNAME: string = process.env.COMMUNITY_GRAPH_USERNAME as string
 export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASSWORD as string
 
+// Mailgun
+export const MAILGUN_API_KEY: string | undefined = process.env.MAILGUN_API_KEY
+export const MAILGUN_DOMAIN: string | undefined = process.env.MAILGUN_DOMAIN
+
+export const MAIL_FROM: string | undefined = process.env.MAIL_FROM
+export const MAIL_REPLY_TO: string | undefined = process.env.MAIL_REPLY_TO
+
 // Enrolment Reminder Emails
 export const ENROLMENT_REMINDER_LIMIT: string = process.env.ENROLMENT_REMINDER_LIMIT as string
 export const ENROLMENT_REMINDER_DAYS: string = process.env.ENROLMENT_REMINDER_DAYS as string
