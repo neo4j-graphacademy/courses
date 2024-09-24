@@ -9,6 +9,14 @@ import { ASCIIDOC_DIRECTORY } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
+        console.log('[email enabled]');
+    }
+    else {
+        const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
+        console.log('[email disabled]', { MAILGUN_API_KEY, MAILGUN_DOMAIN });
+    }
+
+    if (isEnabled()) {
         send('adam@neo4j.com, martin.ohanlon@neo4j.com', 'Email Working!', 'This has been run from the server')
 
         emitter.on<UserEnrolled>(UserEnrolled, event => {
