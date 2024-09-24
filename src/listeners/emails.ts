@@ -4,11 +4,13 @@ import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
-import { isEnabled, prepareAndSend } from '../modules/mailer'
+import { isEnabled, prepareAndSend, send } from '../modules/mailer'
 import { ASCIIDOC_DIRECTORY } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
+        send('adam@neo4j.com, martin.ohanlon@neo4j.com', 'Email Working!', 'This has been run from the server')
+
         emitter.on<UserEnrolled>(UserEnrolled, event => {
             if (event.user.unsubscribed) {
                 return
