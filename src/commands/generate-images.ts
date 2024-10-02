@@ -15,7 +15,7 @@ const main = async () => {
     await copyImageAssets()
 }
 
-async function render(outputTo: string, overline: string | undefined, title: string, byline: string, illustration?: string, badge?: string) {
+async function render(outputTo: string, overline: string | undefined, title: string, byline: string, illustration?: string, badge?: string, bannerStyle?: string) {
     const bannerFunction = pug.compileFile(path.join(__dirname, '..', '..', 'views', 'banner.pug'))
     const css = fs.readFileSync(path.join(__dirname, '..', '..', 'resources', 'css', 'banner.css'))
 
@@ -26,6 +26,7 @@ async function render(outputTo: string, overline: string | undefined, title: str
         badge,
         illustration,
         css,
+        bannerStyle,
     })
 
     const output = await nodeHtmlToImage({
@@ -56,6 +57,7 @@ async function renderCourseBanner(slug: string) {
             file.getAttribute('caption'),
             illustration,
             badge,
+            file.getAttribute('banner-style'),
         )
     }
     catch (e: any) {

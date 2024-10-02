@@ -47,6 +47,7 @@ app.get('/:course', async (req, res) => {
         overline: file.getAttribute('overline'),
         title: file.getTitle(),
         byline: file.getAttribute('caption'),
+        bannerStyle: file.getAttribute('banner-style', 'dark'),
         badge,
         illustration,
         css,
