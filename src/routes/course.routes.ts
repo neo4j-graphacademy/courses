@@ -1219,9 +1219,36 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         }
 
         // Redirect to gitpod
-        const redirectTo = `https://gitpod.io#${env.join(',')}/${repositoryUrl}`
+        const redirectTo = `https://gitpod.io/new#${env.join(',')}/${repositoryUrl}`
 
         res.redirect(redirectTo)
+    }
+    catch (e) {
+        nextfn(e)
+    }
+})
+
+/**
+ * @GET  /:course/:module/:lesson/kgbuilder
+ *
+ * Labs are hands-on coding challenges served through Gitpod.
+ * This URL
+ *
+ */
+router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res, nextfn) => {
+    try {
+        const user = await getUser(req) as User
+        const token = await getToken(req)
+        const course = await getCourseWithProgress(req.params.course, user)
+        const sandbox = await getSandboxForUseCase(token, user, course.usecase as string)
+
+        let redirectTo = `https://llm-graph-builder.neo4jlabs.com/`
+
+        if (sandbox) {
+            redirectTo = `${redirectTo}?connectURL=bolt://${sandbox.username}:${sandbox.password}@${sandbox.host}:${sandbox.boltPort}`
+        }
+
+        return res.redirect(redirectTo)
     }
     catch (e) {
         nextfn(e)
