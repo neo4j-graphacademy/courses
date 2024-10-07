@@ -505,7 +505,7 @@ export function repositoryLink(value: string) {
  * @return {string}  A URL to append the branch and file path to
  */
 export function repositoryRawUrl(value: string) {
-    return `https://raw.githubusercontent.com/${value}`
+    return `https://raw.githubusercontent.com/${value}/refs/heads`
 }
 
 /**
