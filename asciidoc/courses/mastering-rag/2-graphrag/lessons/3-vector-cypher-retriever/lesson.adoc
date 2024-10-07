@@ -1,0 +1,132 @@
+= VectorCypherRetriever
+:order: 3
+:type: lesson
+:sandbox: true
+
+== Understanding VectorCypherRetriever
+
+The `VectorCypherRetriever` combines vector similarity with Cypher queries to retrieve relevant nodes from your Neo4j recommendations database. This integration allows for more refined searches by applying graph-specific filters alongside semantic similarity.
+
+=== How It Works
+
+* **Cypher Filtering**: Applies a Cypher query to filter nodes based on specific criteria.
+
+== When to Use VectorCypherRetriever
+
+* **Combined Filtering and Similarity**: When you need to filter nodes based on properties or relationships before performing a similarity search.
+* **Structured and Unstructured Data**: Your graph contains both structured properties and unstructured text data.
+* **Advanced Querying**: Require complex retrieval logic that leverages Cypher’s capabilities alongside vector similarity.
+
+== Setting Up VectorCypherRetriever
+
+Follow these steps to set up and use the `VectorCypherRetriever`.
+
+=== Step 1: Install Required Libraries
+
+Install the necessary Python packages:
+
+[source, bash]
+----
+pip install neo4j-graphrag neo4j openai
+----
+
+=== Step 2: Connect to Your Neo4j Database
+
+Establish a connection using the Neo4j Python driver:
+
+[source, python]
+----
+from neo4j import GraphDatabase
+
+uri = "neo4j://localhost:7687"
+username = "neo4j"
+password = "recommendations"
+
+driver = GraphDatabase.driver(uri, auth=(username, password))
+----
+
+Placeholder for Image: Neo4j Connection Diagram
+
+=== Step 3: Set Up the Embedding Function
+
+Define a function to generate query embeddings using OpenAI's model:
+
+[source, python]
+----
+import os
+
+os.environ["OPENAI_API_KEY"] = "sk-…"
+----
+
+=== Step 4: Initialize the VectorCypherRetriever
+
+Create an instance of `VectorCypherRetriever` with a Cypher query:
+
+[source, python]
+----
+from neo4j_graphrag import VectorCypherRetriever
+
+retrieval_query = """
+MATCH
+(actor:Actor)-[:ACTED_IN]->(node)
+RETURN
+node.title AS movie_title,
+node.plot AS movie_plot,
+collect(actor.name) AS actors;
+"""
+
+embedder = OpenAIEmbeddings(model="text-embedding-ada-002")
+vc_retriever = VectorCypherRetriever(
+    driver,
+    index_name="moviePlotsEmbedding",
+    embedder=embedder,
+    retrieval_query=retrieval_query,
+)
+----
+* `driver`: Neo4j database driver.
+* `embedding_function`: Function to generate query embeddings.
+* `vector_property`: Property storing node embeddings.
+* `top_k`: Number of top similar nodes to retrieve.
+* `cypher_query`: Cypher statement to filter nodes before similarity search.
+
+Placeholder for Image: Retrieval Process Flow
+
+== Example in Action
+
+Assume you have a recommendations database with movies, each having an `embedding` property and a `genre` attribute.
+
+=== Running the Retriever
+
+Given a query, `VectorCypherRetriever` finds semantically similar thriller movies with strong female leads:
+
+[source, python]
+----
+from neo4j_graphrag.generation import GraphRAG
+
+llm = OpenAILLM(model_name="gpt-4o", model_params={"temperature": 0})
+rag = GraphRAG(retriever=retriever, llm=llm)
+query_text = "Who were the actors in the movie about the magic jungle board game?"
+response = rag.search(query_text=query_text, retriever_config={"top_k": 5})
+print(response.answer)
+----
+=== Expected Output
+
+----
+The actors in the movie "Jumanji," which is about a magical board game, are Robin Williams, Bradley Pierce, Kirsten Dunst, and Jonathan Hyde.
+----
+
+== Tips for Effective Use
+
+* **Consistent Embeddings**: Use the same model for query and node embeddings.
+* **Vector Indexing**: Create a vector index in Neo4j on the `embedding` property to speed up searches.
+* **Optimize Cypher Queries**: Ensure your Cypher queries are efficient to reduce retrieval time.
+
+== Summary
+
+You've learned how to use `VectorCypherRetriever` to perform filtered semantic searches in Neo4j, enhancing your RAG pipeline by combining Cypher queries with vector similarity.
+
+== Next Steps
+
+In the next lesson, you'll learn how to build a GraphRAG pipeline using the `VectorCypherRetriever`.
+
+read::Continue to Building a GraphRAG Pipeline[]
