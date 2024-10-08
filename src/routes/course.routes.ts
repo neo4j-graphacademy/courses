@@ -1245,7 +1245,7 @@ router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res
         let redirectTo = `https://llm-graph-builder.neo4jlabs.com/`
 
         if (sandbox) {
-            redirectTo = `${redirectTo}?connectURL=bolt://${sandbox.username}:${sandbox.password}@${sandbox.host}:${sandbox.boltPort}`
+            redirectTo = `${redirectTo}?connectURL=bolt://${sandbox.username}:${sandbox.password}@${sandbox.ip}:${sandbox.boltPort}`
         }
 
         return res.redirect(redirectTo)
