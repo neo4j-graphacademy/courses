@@ -1,1 +1,1 @@
-MATCH (c:Chunk)-[]-(n) DETACH DELETE n;
+MATCH (c:Chunk)-[]-(n) DETACH DELETE n, c;
