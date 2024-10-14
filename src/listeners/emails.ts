@@ -16,8 +16,6 @@ export default function initEmailListeners(): Promise<void> {
     }
 
     if (isEnabled()) {
-        send('adam@neo4j.com, martin.ohanlon@neo4j.com', 'Email Working!', 'This has been run from the server')
-
         emitter.on<UserEnrolled>(UserEnrolled, event => {
             if (event.user.unsubscribed) {
                 return
