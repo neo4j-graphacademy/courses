@@ -5,16 +5,16 @@ import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend, } from '../modules/mailer'
-import { ASCIIDOC_DIRECTORY, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
+import { ASCIIDOC_DIRECTORY, MAIL_FROM, MAIL_REPLY_TO, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
+    const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
     if (isEnabled()) {
-        const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
 
-        console.log('[email enabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN });
+        console.log('[email enabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
     }
     else {
-        console.log('[email disabled]', { MAILGUN_API_KEY: MAILGUN_API_KEY?.substring(0, 5), MAILGUN_DOMAIN });
+        console.log('[email disabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
     }
 
     if (isEnabled()) {
