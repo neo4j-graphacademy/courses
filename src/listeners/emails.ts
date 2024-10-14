@@ -4,15 +4,17 @@ import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { UserEnrolled } from '../domain/events/UserEnrolled'
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { emitter } from '../events'
-import { isEnabled, prepareAndSend, send } from '../modules/mailer'
+import { isEnabled, prepareAndSend, } from '../modules/mailer'
 import { ASCIIDOC_DIRECTORY, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
 
 export default function initEmailListeners(): Promise<void> {
     if (isEnabled()) {
-        console.log('[email enabled]');
+        const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
+
+        console.log('[email enabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN });
     }
     else {
-        console.log('[email disabled]', { MAILGUN_API_KEY, MAILGUN_DOMAIN });
+        console.log('[email disabled]', { MAILGUN_API_KEY: MAILGUN_API_KEY?.substring(0, 5), MAILGUN_DOMAIN });
     }
 
     if (isEnabled()) {
@@ -27,7 +29,7 @@ export default function initEmailListeners(): Promise<void> {
             const emailDirectory = event.course.emails?.includes(template) ? `courses/${event.course.slug}/` : ''
 
             if (!event.course.certification) {
-                prepareAndSend(template, email, { ...event }, emailDirectory, template)
+                void prepareAndSend(template, email, { ...event }, emailDirectory, template)
             }
         })
 
@@ -92,7 +94,7 @@ export default function initEmailListeners(): Promise<void> {
                 data: readFileSync(event.course.summaryPdf)
             }] : []
 
-            prepareAndSend(
+            void prepareAndSend(
                 template,
                 email,
                 {
