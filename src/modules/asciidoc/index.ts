@@ -12,7 +12,7 @@ import { CourseStatus, CourseStatusInformation } from '../../domain/model/course
 import { ATTRIBUTE_ORDER } from '../../domain/model/lesson'
 import { labBlockProcessor } from './extensions/lab-block-processor.extension'
 import { workspaceBlockProcessor } from './extensions/workspace-block-processor.extension'
-import { kbBuilderBlockProcessor } from './extensions/kgbuilder-block-processor.extension'
+import { kgBuilderBlockProcessor } from './extensions/kgbuilder-block-processor.extension'
 
 // Cached Pages
 const cache: Map<string, string> = new Map()
@@ -28,7 +28,7 @@ browserBlockProcessor(registry)
 verifyBlockProcessor(registry)
 labBlockProcessor(registry)
 workspaceBlockProcessor(registry)
-kbBuilderBlockProcessor(registry)
+kgBuilderBlockProcessor(registry)
 
 // Convert options
 const baseOptions: Asciidoctor.ProcessorOptions = {

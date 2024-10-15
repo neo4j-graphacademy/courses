@@ -53,8 +53,8 @@ export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASS
 export const MAILGUN_API_KEY: string | undefined = process.env.MAILGUN_API_KEY
 export const MAILGUN_DOMAIN: string | undefined = process.env.MAILGUN_DOMAIN
 
-export const MAIL_FROM: string | undefined = process.env.MAIL_FROM || 'Adam at GraphAcademy <no-reply@mail.graphacademy.neo4j.com>'
-export const MAIL_REPLY_TO: string | undefined = process.env.MAIL_REPLY_TO || 'graphacademy@neo4j.com'
+export const MAIL_FROM: string | undefined = process.env.MAIL_FROM
+export const MAIL_REPLY_TO: string | undefined = process.env.MAIL_REPLY_TO
 
 // Enrolment Reminder Emails
 export const ENROLMENT_REMINDER_LIMIT: string = process.env.ENROLMENT_REMINDER_LIMIT as string

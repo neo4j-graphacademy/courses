@@ -76,8 +76,6 @@ export async function prepareAndSend(filename: AsciidocEmailFilename, email: str
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
-        const res = await send(email, decode(subject), html, tag, attachments)
-
-        console.log(`[email] sent ${filename} to  ${email} (${JSON.stringify(res)})`)
+        await send(email, decode(subject), html, tag, attachments)
     }
 }
