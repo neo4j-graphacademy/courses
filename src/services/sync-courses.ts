@@ -1,6 +1,6 @@
 /* tslint:disable:no-console */
 import { getDriver } from '../modules/neo4j';
-import { checkSchema, disableAllCourses, mergeCourseDetails, mergeLessonDetails, mergeModuleDetails, mergeQuestionDetails } from './tx';
+import { checkSchema, disableAllCourses, mergeCourseDetails, mergeLessonDetails, mergeModuleDetails, mergeQuestionDetails } from './load/tx';
 import load from './load';
 
 export async function syncCourses(): Promise<void> {
