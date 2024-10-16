@@ -1,14 +1,6 @@
-package com.example.appspringdata;
-
-import org.springframework.data.annotation.Id;
-import org.springframework.data.neo4j.core.schema.Node;
-
-// tag::class[]
+// tag::movie-actors[]
 @Node
 public class Movie {
-    // end::class[]
-
-    // tag::properties[]
     @Id
     private String movieId;
 
@@ -30,12 +22,12 @@ public class Movie {
 
     private String[] languages;
     private String[] countries;
-    // end::properties[]
 
-    // tag::constructor[]
-    public Movie(String movieId, String title, String plot, String poster, String url, String imdbId, String tmdbId,
-            String released, Long year, Long runtime, Long budget, Long revenue, Long imdbVotes, Double imdbRating,
-            String[] languages, String[] countries) {
+    @Relationship(value = "ACTED_IN", direction = Relationship.Direction.INCOMING)
+    private List<Role> actors;
+
+
+    public Movie(String movieId, String title, String plot, String poster, String url, String imdbId, String tmdbId, String released, Long year, Long runtime, Long budget, Long revenue, Long imdbVotes, Double imdbRating, String[] languages, String[] countries) {
         this.movieId = movieId;
         this.title = title;
         this.plot = plot;
@@ -53,11 +45,12 @@ public class Movie {
         this.languages = languages;
         this.countries = countries;
     }
-    // end::constructor[]
 
-    // tag::getter_setter[]
     public String getMovieId() {
         return movieId;
+    }
+
+    public void setMovieId(String movieId) {
         this.movieId = movieId;
     }
 
@@ -68,7 +61,6 @@ public class Movie {
     public void setTitle(String title) {
         this.title = title;
     }
-    // end::getter_setter[]
 
     public String getPlot() {
         return plot;
@@ -181,4 +173,13 @@ public class Movie {
     public void setCountries(String[] countries) {
         this.countries = countries;
     }
+
+    public List<Role> getActors() {
+        return actors;
+    }
+
+    public void setActors(List<Role> actors) {
+        this.actors = actors;
+    }
 }
+// end::movie-actors[]
