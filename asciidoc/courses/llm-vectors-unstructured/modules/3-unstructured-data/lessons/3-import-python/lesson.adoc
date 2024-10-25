@@ -1,0 +1,166 @@
+= Import data with Python and LangChain
+:order: 3
+:type: challenge
+:disable-cache: true
+:sandbox: true
+
+In this lesson, you will use Python and LangChain to chunk up course content and create embeddings for each chunk.
+You will then load the chunks into a Neo4j graph database.
+
+== Course data
+
+You will load the content from the course link:https://graphacademy.neo4j.com/courses/llm-fundamentals/[Neo4j & LLM Fundamentals^].
+
+The course repository contains the course data.
+
+Open the `llm-vectors-unstructured\data` directory in your code editor.
+
+You should note the following structure:
+
+* `asciidoc` - contains all the course content in ascidoc format
+** `courses` - the course content
+*** `llm-fundamentals` - the course name
+**** `modules` - contains numbered directories for each module
+***** `01-name` - the module name
+****** `lessons` - contains numbered directories for each lesson
+******* `01-name` - the lesson name
+******** `lesson.adoc` - the lesson content
+
+== Load the content and chunk it
+
+You can now load the content and chunk it using Python and LangChain.
+
+You will split the lesson content into chunks of text, around 1500 characters long, with each chunk containing one or more paragraphs.
+You can determine the paragraph in the content with two newline characters (`\n\n`).
+
+Open the `llm-vectors-unstructured/create_vector.py` file and review the program:
+
+[source,python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/create_vector.py[]
+----
+
+The program uses the link:https://api.python.langchain.com/en/latest/document_loaders/langchain_community.document_loaders.directory.DirectoryLoader.html[`DirectoryLoader`^] class to load the content from the `llm-vectors-unstructured/data/asciidoc` directory.
+
+[IMPORTANT]
+.Course content location
+====
+If you are working on your local machine, you may need to modify the `COURSES_PATH` variable to point to the location of the course content on your computer.
+====
+
+Your task is to add the code to:
+
+. Create a link:https://api.python.langchain.com/en/latest/text_splitter/langchain.text_splitter.CharacterTextSplitter.html[`CharacterTextSplitter`^] object to split the content into chunks of text.
+. Use the `split_documents` method to split the documents into chunks of text based on the existence of `\n\n` and a chunk size of 1500 characters.
+
+Create the CharacterTextSplitter object to split the content into paragraphs (`\n\n`).
+
+[source,python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=import_splitter]
+
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=splitter]
+----
+
+Split the documents into chunks of text.
+
+[source,python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=split]
+----
+
+You can run your code now to see the chunks of text.
+The program should output a list of `Document` objects containing the _chunked up_ lesson content.
+
+[NOTE]
+.Splitting
+====
+The content isn't split simply by a character (`\n\n`) or on a fixed number of characters.
+The process is more complicated.
+Chunks should be up to maximum size but conform to the character split.
+
+In this example, the `split_documents` method does the following:
+
+. Splits the documents into paragraphs (using the `separator` - `\n\n`)
+. Combines the paragraphs into chunks of text that are up 1500 characters (`chunk_size`)
+** if a single paragraph is longer than 1500 characters, the method will not split the paragraph but create a chunk larger than 1500 characters
+. Adds the last paragraph in a chunk to the start of the next paragraph to create an overlap between chunks.
+** if the last paragraph in a chunk is more than 200 characters (`chunk_overlap`) it will *not* be added to the next chunk
+
+This process ensures that:
+
+* Chunks are never too small.
+* That a paragraph is never split between chunks.
+* That chunks are significantly different, and the overlap doesn't result in a lot of repeated content.
+
+Investigate what happens when you modify the `separator`, `chunk_size` and `chunk_overlap` parameters.
+====
+
+== Create vector index
+
+Once you have chunked the content, you can use the LangChain link:https://python.langchain.com/docs/integrations/vectorstores/neo4jvector[`Neo4jVector`^] and link:https://api.python.langchain.com/en/latest/embeddings/langchain_community.embeddings.openai.OpenAIEmbeddings.html[`OpenAIEmbeddings`^] classes to create the embeddings, the vector index, and store the chunks in a Neo4j graph database.
+
+Modify your Python program to include the following code:
+
+[source, python]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=import_vector]
+
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=vector]
+----
+
+The `Neo4jVector.from_documents` method:
+
+. Creates embeddings for each chunk using the `OpenAIEmbeddings` object.
+. Creates nodes with the label `Chunk` and the properties `text` and `embedding` in the Neo4j database.
+. Creates a vector index called `chunkVector`.
+
+[%collapsible]
+.View the complete code
+====
+[source]
+----
+include::{repository-raw}/main/llm-vectors-unstructured/solutions/create_vector.py[tag=**]
+----
+====
+
+Run the program to create the chunk nodes and vector index. It may take a minute or two to complete.
+
+== View chunks in the sandbox
+
+You can now view the chunks in the Neo4j sandbox.
+
+[source,cypher]
+----
+MATCH (c:Chunk) RETURN c LIMIT 25
+----
+
+You can also query the vector index to find similar chunks.
+For example, you can find lesson chunks relating to a specific question, "What does Hallucination mean?":
+
+[source,cypher]
+----
+WITH genai.vector.encode(
+    "What does Hallucination mean?",
+    "OpenAI",
+    { token: "sk-..." }) AS userEmbedding
+CALL db.index.vector.queryNodes('chunkVector', 6, userEmbedding)
+YIELD node, score
+RETURN node.text, score
+----
+
+[IMPORTANT]
+Remember to replace `sk-...` with your OpenAI API key.
+
+Experiment with different questions and see how the vector index can find similar chunks.
+
+== Check Your Understanding
+
+include::questions/1-character-split.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to chunk data and create a vector index using Python and LangChain.
+
+In the next lesson, you will use the OpenAI API to create an embedding.

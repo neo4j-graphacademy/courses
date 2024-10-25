@@ -1,0 +1,172 @@
+= Creating the Agent
+:type: challenge
+:lab-filename: agent.ts
+:lab-file: modules/agent/{lab-filename}
+:lab: {repository-blob}/main/src/{lab-file}
+:lab-solution: src/solutions/{lab-file}
+:test-filename: agent.test.ts
+:test-file: src/modules/agent/{test-filename}
+:order: 3
+
+Now that you have a set of tools, you will need an agent to execute them.
+
+The link:{lab}[{lab-file} file^] contains an `async initAgent()` function that the route handler calls with an `input` and `sessionId` and expects a string to be returned.
+
+.The initAgent function
+[source,typescript]
+----
+include::{repository-raw}/main/src/{lab-file}[tag="function"]
+----
+
+The function should return a runnable sequence that:
+
+1. Uses the conversation history to rephrase the input into a standalone question
+2. Pass the rephrased question to an agent executor
+3. Return the output as a string
+
+lab::Open `{lab-filename}`[]
+
+
+== Creating a new Agent
+
+First, inside the `initAgent()` function, use the link:../2-tools/[the `initTools()` function from the previous lesson^] to create an array of tools for the agent to use.
+
+.Agent Tools
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="tools", indent=0]
+----
+
+Next, the agent will need a set of instructions to follow when processing the request.
+
+You can use the `pull()` function from `@langchain/hub` package to pull a pre-written agent prompt from the link:https://docs.smith.langchain.com/category/prompt-hub[LangChain Hub^].
+In this case, we can use the link:https://smith.langchain.com/hub/search?q=hwchase17/openai-functions-agent[`hwchase17/openai-functions-agent` prompt^], a simple prompt designed to work with OpenAI Function agents.
+
+.Agent Tools
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="prompt", indent=0]
+----
+
+The `llm`, `tools`, and `prompt` arguments can be passed to the `createOpenAIFunctionsAgent()` function to create a new Agent instance.
+
+.Agent Tools
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="agent", indent=0]
+----
+
+[TIP]
+.OpenAI Functions Agent
+====
+The GPT 3.5-turbo and GPT-4 models are fine-tuned to select the appropriate tool from a list based on its metadata.  As such, the link:https://js.langchain.com/docs/modules/agents/agent_types/openai_functions_agent[OpenAI Functions Agent^] is an excellent choice for an agent with many tools or complex RAG requirements.
+
+You can link:https://js.langchain.com/docs/modules/agents/agent_types/[view a list of available agents in the LangChain documentation^].
+====
+
+Agents are invoked through an instance of an Agent **Executor**.
+Use the `agent` and `tools` variables to create a new `AgentExecutor` instance.
+
+.Agent Executor
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="executor", indent=0]
+----
+
+
+== Rephrasing the question
+
+The chain must generate a rephrased question before being passed to the agent executor.
+Luckily, you link:/courses/llm-chatbot-typescript/3-conversation-history/[built the functionality in the Conversation History module^].
+
+Use the `initRephraseChain()` function to create a new instance of the Rephrase Question Chain.
+
+.Rephrase Question Chain
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="rephrasechain", indent=0]
+----
+
+== Runnable Sequence
+
+Now you have everything you need to build your sequence.
+It is time to bring everything together.
+
+=== Get History
+
+Use the `RunnablePassthrough.assign()` method to get any conversation history from the database.
+
+.Get History
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="history", indent=0]
+----
+
+[TIP]
+.Configurable Options
+====
+The second parameter provides a configuration the chain can access and utilize throughout its execution.
+
+This function extracts the sessionId from the `config.configurable` object, passed as the second argument.
+====
+
+=== Rephase the question
+
+The chain input has both `input` and `history` keys, the expected inputs of the `rephaseQuestionChain`.
+
+Call `.assign()` to assign the rephrased question to the `rephrasedQuestion` key.
+
+.Rephrasing the question
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="rephrase", indent=0]
+----
+
+
+=== Execute the agent
+
+The agent now has all the information needed to decide which tool to use and generate an output.
+
+Use the `.pipe()` method to pass the entire input and configuration to the executor.
+
+.Pipe to the executor
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="execute", indent=0]
+----
+
+Finally, the agent will return a structured output, including an `input` field.
+
+Use the `.pick()` function to return the `output` value.
+
+.Pick the output
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="output", indent=0]
+----
+
+
+== Completed function
+
+If you have followed the steps, your `initAgent()` implementation should resemble the following.
+
+
+.Completed initAgent() function
+[source,typescript]
+----
+include::{repository-raw}/main/{lab-solution}[tag="function", indent=0]
+----
+
+
+include::../../../../includes/test.adoc[leveloffset=+1]
+
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+In this challenge, you wrote the code to create a chain that rephrases a user input into a standalone question and passes it on to an agent instance that then acts on the question.
+
+In the next lesson, you will integrate the agent into the front end.

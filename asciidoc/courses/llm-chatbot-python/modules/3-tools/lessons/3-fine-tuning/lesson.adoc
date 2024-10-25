@@ -1,77 +1,56 @@
 = Fine-tuning The Cypher Generation
 :order: 3
+:branch: main
 
-Have you tried asking the bot [copy]#Who directed The Matrix?#
+With any dataset, there are peculiarities that you need to account for.
 
-If you ask it, it should respond telling you that it cannot provide an answer.
+Have you tried asking the bot [copy]#What year was The Matrix released?#
+If you ask it, it may respond, telling you that it cannot provide an answer.
 This is due to a peculiarity in the data.
-
-Your challenge is to update the instructions used during the Cypher generation process.
 
 == The Problem
 
-In the previous module, as part of link:../../2-configuration/4-defining-scope/[defining the scope of the chatbot^], we included an instruction not to answer the question if it was not provided in the context.
+If you look at the database, movies with a title starting with _The_ have the _The_ portion moved to the end in the `.title` property.
+For example, **The 39 Steps** is stored as **39 Steps, The**. 
 
-If you take a look at the database movies with a title starting with _The_ have the _The_ portion moved to the end in the `.title` property.
-For example, **The 39 Steps** is stored as **39 Steps, The**.
+The database also contains embeddings for the movie titles.
+The Cypher the LLM generates will sometimes return these embeddings, resulting in a token limit error when the LLM tried to process the returned data.
 
-To fix this or any other data-related discrepancies, we can fine-tune the Cypher generation process by modifying the instructions used by the LLM when generating the Cypher statement.
-
-[TIP]
-.Original Prompts
-====
-You can https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/chains/graph_qa/prompts.py[view the the default prompts used to instruct the LLM^] for inspiration.
-
-Make sure that your prompt includes two placeholders, `\{schema}` and `\{question}`.
-====
-
-The template you provide must be a string that includes these two placeholders.
-
+To fix these or any other data-related discrepancies, you can fine-tune the Cypher generation process by modifying the prompt and instructions used by the LLM when generating the Cypher statement.
 
 == The Solution
 
-In `tools/cypher.py`, you must create a `PromptTemplate`.
-Start by importing the `PromptTemplate` class.
+You can pass a `cypher_prompt` when creating Cypher QA chain. 
+The prompt must include two placeholders, `\{schema}` and `\{question}`, which will be populated by the chain.
+
+In `tools/cypher.py`, create a cypher generation prompt that addresses these issues:
 
 [source,python]
-.Imports
 ----
-include::{repository-raw}/main/solutions/tools/fewshot.py[tag=import-prompt-template]
-----
+include::{repository-raw}/{branch}/solutions/tools/cypher-finetuned.py[tag=import-prompt-template]
 
+include::{repository-raw}/{branch}/solutions/tools/cypher-finetuned.py[tag=prompt]
 
-Next, create a variable called `CYPHER_GENERATION_TEMPLATE` and set it to a string containing some instructions.
-Remember to include the `\{schema}` and `\{question}` placeholders.
-
-[source,python]
-.Creating a template
-----
-include::{repository-raw}/main/solutions/tools/fewshot.py[tag=prompt]
+include::{repository-raw}/{branch}/solutions/tools/cypher-finetuned.py[tag=template]
 ----
 
-The `PromptTemplate` class has a static `.from_template()` method that allows you to pass a plain string.
-Use this method to create a variable called `cypher_prompt`.
+Review the prompt and note how specific instructions are provided to deal with:
 
-[source,python]
-.Cypher Template
-----
-include::{repository-raw}/main/solutions/tools/fewshot.py[tag=template]
-----
+. The `The` prefix in movie titles.
+. Not to return embeddings or entire nodes (which could contain embeddings).
 
-Finally, append the `cypher_prompt` keyword argument to the `initialize_agent()` function call.
+Add the `cypher_prompt` when creating the `cypher_qa` chain:
 
 [source,python]
 .Append the Cypher Prompt argument
 ----
-include::{repository-raw}/main/solutions/tools/fewshot.py[tag=cypher-qa]
+include::{repository-raw}/{branch}/solutions/tools/cypher-finetuned.py[tag=cypher-qa]
 ----
 
 == Testing the Prompt
 
-Ask the question [copy]#Who directed The Matrix?# and keep an eye on the console.
-You should see that the Cypher statement is now generated with `, The` appended to the string.
-
-video::./images/who-directed-the-matrix.mp4[role=cdn,width=610,height=410]
+Ask the question [copy]#What year was The Matrix released?#
+You should see the Cypher statement with `, The` appended to the string.
 
 [%collapsible]
 .Console output
@@ -120,6 +99,9 @@ video::./images/who-directed-the-matrix.mp4[role=cdn,width=610,height=410]
 
 ====
 
+However, the Cypher generated may still generate errors or the wrong results.
+You can further improve the responses by using few-shot prompting, which you will learn about in the next lesson.
+
 Once you have completed the steps, click the button below to mark the lesson as completed.
 
 read::It works![]
@@ -128,6 +110,6 @@ read::It works![]
 [.summary]
 == Summary
 
-In this lesson, you used fine-tuning to fix a problem with Cypher statement generation.
+In this lesson, you used fine-tuning to problems with Cypher statement generation.
 
 In the next lesson, you will learn how few-shot prompting can help improve the quality of the Cypher statements generated by the LLM.

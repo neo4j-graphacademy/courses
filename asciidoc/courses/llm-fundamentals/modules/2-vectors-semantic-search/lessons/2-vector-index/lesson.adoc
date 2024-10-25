@@ -41,18 +41,18 @@ movieId, embedding
 ====
 link:https://platform.openai.com/docs/guides/embeddings/what-are-embeddings[OpenAI's text-embedding-ada-002 model^] was used to create the embeddings. It is a cost-effective model that can generate embeddings for text.
 
-A simple Python script calls the embedding endpoint served by OpenAI. The link:https://github.com/neo4j-graphacademy/llm-fundamentals/blob/main/openai_embeddings.py[code^] is available in the link:https://github.com/neo4j-graphacademy/llm-fundamentals[github.com/graphacademy/llm-fundamentals^] repository.
+A simple Python script calls the embedding endpoint served by OpenAI. The link:https://github.com/neo4j-graphacademy/llm-fundamentals/blob/main/plot_openai_embeddings.py[code^] is available in the link:https://github.com/neo4j-graphacademy/llm-fundamentals[github.com/graphacademy/llm-fundamentals^] repository.
 
 Each LLM will provide an embedding in its shape. 
 ====
 
 == Loading Embeddings
 
-The embeddings will be stored as a `.embedding` property on the `(:Movie)` node.
+The embeddings will be stored as a `.plotEmbedding` property on the `(:Movie)` node.
 
 You will use the `LOAD CSV` command to load the embeddings into the Neo4j Sandbox instance.
 
-The following Cypher loads the embeddings CSV file, performs a `MATCH` query to find the `(:Movie)` node with the corresponding `movieId` property, and then sets the `.embedding` property on that node.
+The following Cypher loads the embeddings CSV file, performs a `MATCH` query to find the `(:Movie)` node with the corresponding `movieId` property, and then sets the `.plotEmbedding` property on that node.
 
 Review this Cypher statement before running it.
 
@@ -63,7 +63,7 @@ LOAD CSV WITH HEADERS
 FROM 'https://data.neo4j.com/llm-fundamentals/openai-embeddings.csv'
 AS row
 MATCH (m:Movie {movieId: row.movieId})
-CALL db.create.setNodeVectorProperty(m, 'embedding', apoc.convert.fromJsonList(row.embedding))
+CALL db.create.setNodeVectorProperty(m, 'plotEmbedding', apoc.convert.fromJsonList(row.embedding))
 RETURN count(*)
 ----
 
@@ -71,16 +71,16 @@ The statement:
 
 * Loads the CSV file
 * Matches the `(:Movie)` node with the corresponding `movieId` property
-* Calls `db.create.setNodeVectorProperty()` procedure to set the `embedding` property
+* Calls `db.create.setNodeVectorProperty()` procedure to set the `plotEmbedding` property
 * The procedure also validates that the property is a valid vector
 
 Run the statement to create the Movie embeddings.
 
-Once complete, you can query the database to see the `.embedding` property on the `(:Movie)` nodes.
+Once complete, you can query the database to see the `.plotEmbedding` property on the `(:Movie)` nodes.
 
 [source,cypher]
 MATCH (m:Movie {title: "Toy Story"})
-RETURN m.title AS title, m.plot AS plot, m.embedding
+RETURN m.title AS title, m.plot AS plot, m.plotEmbedding
 
 [TIP]
 .LOAD CSV and Strings
@@ -96,42 +96,41 @@ You can link:https://graphacademy.neo4j.com/courses/importing-cypher/[learn how 
 
 You will need to create a vector index to search across these embeddings.
 
-You will use the `db.index.vector.createNodeIndex()` procedure to create the index:
+You will use the `CREATE VECTOR INDEX` Cypher statement to create the index:
 
-.db.index.vector.createNodeIndex Syntax
+.CREATE VECTOR INDEX Syntax
 [source,cypher, role=noplay nocopy]
 ----
-CALL db.index.vector.createNodeIndex(
-    indexName :: STRING,
-    label :: STRING,
-    propertyKey :: STRING,
-    vectorDimension :: INTEGER,
-    vectorSimilarityFunction :: STRING)
+CREATE VECTOR INDEX [index_name] [IF NOT EXISTS]
+FOR (n:LabelName)
+ON (n.propertyName)
+OPTIONS "{" option: value[, ...] "}"
 ----
 
-`db.index.vector.createNodeIndex()` expects the following parameters:
+`CREATE VECTOR INDEX` expects the following parameters:
 
-* `indexName` - The name of the index
-* `label` - The node label on which to index
-* `propertyKey` - The property key on which to index
-* `vectorDimension` - The dimension of the embedding e.g. OpenAI embeddings consist of `1536` dimensions.
-* `vectorSimilarityFunction` - The similarity function to use when comparing values in this index - this can be `euclidean` or `cosine`.
+* `index_name` - The name of the index
+* `LabelName` - The node label on which to index
+* `propertyName` - The property on which to index
+* `OPTIONS` - The options for the index, where you can specify:
+** `vector.dimensions` - The dimension of the embedding e.g. OpenAI embeddings consist of `1536` dimensions.
+** `vector.similarity_function` - The similarity function to use when comparing values in this index - this can be `euclidean` or `cosine`.
 
 Review and run the following Cypher to create the vector index:
 
 .Create the vector index
 [source,cypher]
 ----
-CALL db.index.vector.createNodeIndex(
-    'moviePlots',
-    'Movie',
-    'embedding',
-    1536,
-    'cosine'
-)
+CREATE VECTOR INDEX moviePlots IF NOT EXISTS
+FOR (m:Movie)
+ON m.plotEmbedding
+OPTIONS {indexConfig: {
+ `vector.dimensions`: 1536,
+ `vector.similarity_function`: 'cosine'
+}}
 ----
 
-Note that the index is called `moviePlots`, it is against the `Movie` label, and it is on the `.embedding` property. The `vectorDimension` is `1536` (as used by OpenAI) and the similarity function is `cosine`.
+Note that the index is called `moviePlots`, it is against the `Movie` label, and it is on the `.plotEmbedding` property. The `vector.dimensions` is `1536` (as used by OpenAI) and the `vector.similarity_function` is `cosine`. The `IF NOT EXISTS` clause ensures that the statement only creates the index if it does not already exist.
 
 Run the statement to create the index.
 
@@ -212,13 +211,13 @@ Review this Cypher before running it.
 ----
 MATCH (m:Movie {title: 'Toy Story'})
 
-CALL db.index.vector.queryNodes('moviePlots', 6, m.embedding)
+CALL db.index.vector.queryNodes('moviePlots', 6, m.plotEmbedding)
 YIELD node, score
 
 RETURN node.title AS title, node.plot AS plot, score
 ----
 
-The query finds the _Toy Story_ `Movie` node and uses the `.embedding` property to find the most similar plots. The `db.index.vector.queryNodes()` procedure uses the `moviePlots` vector index to find similar embeddings.
+The query finds the _Toy Story_ `Movie` node and uses the `.plotEmbedding` property to find the most similar plots. The `db.index.vector.queryNodes()` procedure uses the `moviePlots` vector index to find similar embeddings.
 
 Run the query. The procedure returns the requested number of approximate nearest neighbor nodes and their similarity score, ordered by the score.
 

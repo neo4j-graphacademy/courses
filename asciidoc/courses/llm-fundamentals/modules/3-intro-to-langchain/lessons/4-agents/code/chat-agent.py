@@ -1,42 +1,73 @@
-from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain.chains.conversation.memory import ConversationBufferMemory
-from langchain.agents import AgentType, initialize_agent
+from langchain_openai import ChatOpenAI
+from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import Tool
+from langchain import hub
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain.schema import StrOutputParser
+from langchain_community.chat_message_histories import Neo4jChatMessageHistory
+from langchain_community.graphs import Neo4jGraph
+from uuid import uuid4
 
-llm = ChatOpenAI(
-    openai_api_key="sk-..."
+SESSION_ID = str(uuid4())
+print(f"Session ID: {SESSION_ID}")
+
+llm = ChatOpenAI(openai_api_key="sk-...")
+
+graph = Neo4jGraph(
+    url="bolt://localhost:7687",
+    username="neo4j",
+    password="pleaseletmein"
 )
 
-prompt = PromptTemplate(
-    template="""
-    You are a movie expert. You find movies from a genre or plot. 
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a movie expert. You find movies from a genre or plot.",
+        ),
+        ("human", "{input}"),
+    ]
+)
 
-    ChatHistory:{chat_history} 
-    Question:{input}
-    """, 
-    input_variables=["chat_history", "input"]
-    )
+movie_chat = prompt | llm | StrOutputParser()
 
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
+def get_memory(session_id):
+    return Neo4jChatMessageHistory(session_id=session_id, graph=graph)
 
-chat_chain = LLMChain(llm=llm, prompt=prompt, memory=memory, verbose=True)
-
+# tag::tools[]
 tools = [
     Tool.from_function(
-        name="ChatOpenAI",
+        name="Movie Chat",
         description="For when you need to chat about movies. The question will be a string. Return a string.",
-        func=chat_chain.run,
-        return_direct=True
+        func=movie_chat.invoke,
     )
 ]
+# end::tools[]
 
-agent = initialize_agent(
-    tools, llm, memory=memory, 
-    agent=AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION,
+# tag::agent[]
+agent_prompt = hub.pull("hwchase17/react-chat")
+agent = create_react_agent(llm, tools, agent_prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools)
+# end::agent[]
+
+#tag::chat_agent[]
+chat_agent = RunnableWithMessageHistory(
+    agent_executor,
+    get_memory,
+    input_messages_key="input",
+    history_messages_key="chat_history",
 )
+#end::chat_agent[]
 
 while True:
-    q = input(">")
-    print(agent.run(q))
+    q = input("> ")
+
+    response = chat_agent.invoke(
+        {
+            "input": q
+        },
+        {"configurable": {"session_id": SESSION_ID}},
+    )
+    
+    print(response["output"])

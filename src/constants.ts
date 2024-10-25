@@ -6,6 +6,12 @@ config({
     path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env'
 })
 
+export enum Language {
+    EN = "en",
+    JP = "jp",
+    CN = "cn",
+}
+
 // Neo4j Credentials
 export const NEO4J_HOST: string = process.env.NEO4J_HOST as string
 export const NEO4J_USERNAME: string = process.env.NEO4J_USERNAME as string
@@ -19,12 +25,16 @@ export const IMG_DIRECTORY = path.join(PUBLIC_DIRECTORY, 'img')
 export const COURSE_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'courses')
 export const CATEGORY_DIRECTORY = path.join(ASCIIDOC_DIRECTORY, 'categories')
 
+export const BUILD_DIRECTORY = path.resolve(__dirname, '..', 'build')
+export const HTML_DIRECTORY = path.join(BUILD_DIRECTORY, 'html')
+
 
 // Course Import
 export const DEFAULT_COURSE_THUMBNAIL = '/img/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = 'draft'
 export const DEFAULT_LANGUAGE = 'en'
 export const DEFAULT_LESSON_TYPE = 'lesson'
+export const STATUS_ACTIVE = 'active'
 export const STATUS_DISABLED = 'disabled'
 
 // Asciidoc attributes
@@ -47,9 +57,12 @@ export const ATTRIBUTE_CLASSMARKER_ID = 'classmarker-id'
 export const ATTRIBUTE_CLASSMARKER_REFERENCE = 'classmarker-reference'
 export const ATTRIBUTE_TYPE = 'type'
 export const ATTRIBUTE_ORDER = 'order'
+
 export const ATTRIBUTE_DURATION = 'duration'
 export const ATTRIBUTE_SANDBOX = 'sandbox'
 export const ATTRIBUTE_REPOSITORY = 'repository'
+export const ATTRIBUTE_PREREQUISITES = 'prerequisites'
+export const ATTRIBUTE_BRANCH = 'branch'
 export const ATTRIBUTE_OPTIONAL = 'optional'
 export const ATTRIBUTE_DISABLE_CACHE = 'disable-cache'
 export const ATTRIBUTE_UPDATED_AT = 'updated-at'
@@ -60,6 +73,8 @@ export const ATTRIBUTE_REWARD_IMAGE = 'reward-image'
 export const ATTRIBUTE_REWARD_PROVIDER = 'reward-provider'
 export const ATTRIBUTE_REWARD_PRODUCT_ID = 'reward-product-id'
 export const ATTRIBUTE_DESCRIPTION = 'description'
-export const ATTRIBUTE_QUESTIONS = 'questions'
-export const ATTRIBUTE_PASS_PERCENTAGE = 'pass-percentage'
+
 export const ATTRIBUTE_KEY_POINTS = 'key-points'
+
+// Workspace
+export const WORKSPACE_URL = process.env.WORKSPACE_URL || 'https://workspace-preview.neo4j.io'

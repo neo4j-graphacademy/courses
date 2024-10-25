@@ -1,5 +1,5 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.graphs import Neo4jGraph
+from langchain_openai import ChatOpenAI
+from langchain_community.graphs import Neo4jGraph
 from langchain.chains import GraphCypherQAChain
 from langchain.prompts import PromptTemplate
 
@@ -13,6 +13,7 @@ graph = Neo4jGraph(
     password="pleaseletmein",
 )
 
+# tag::template[]
 CYPHER_GENERATION_TEMPLATE = """
 You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
 Convert the user's question based on the schema.
@@ -35,18 +36,17 @@ RETURN m.title, g.name
 Schema: {schema}
 Question: {question}
 """
+# end::template[]
 
 cypher_generation_prompt = PromptTemplate(
     template=CYPHER_GENERATION_TEMPLATE,
-    input_variables=["schema", "question"], 
-    # validate_template=True, 
+    input_variables=["schema", "question"],
 )
 
 cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True  
+    verbose=True
 )
-
-cypher_chain.run("What genre of Movie has Tom Hanks directed?")
+cypher_chain.invoke({"query": "What movies has Tom Hanks directed and what are the genres?"})

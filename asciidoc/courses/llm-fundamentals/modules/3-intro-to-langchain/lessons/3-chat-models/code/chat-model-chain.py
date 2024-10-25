@@ -1,21 +1,24 @@
-from langchain.chat_models.openai import ChatOpenAI
-from langchain.prompts.prompt import PromptTemplate
-from langchain.chains import LLMChain
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.schema import StrOutputParser
 
-chat_llm = ChatOpenAI(
-    openai_api_key="sk-..."
+chat_llm = ChatOpenAI(openai_api_key="sk-...")
+
+prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are a surfer dude, having a conversation about the surf conditions on the beach. Respond using surfer slang.",
+        ),
+        (
+            "human", 
+            "{question}"
+        ),
+    ]
 )
 
-prompt = PromptTemplate(template="""You are a surfer dude, having a conversation about the surf conditions on the beach.
-Respond using surfer slang.
+chat_chain = prompt | chat_llm | StrOutputParser()
 
-Question: {question}
-""", input_variables=["question"])
-
-chat_chain = LLMChain(llm=chat_llm, prompt=prompt)
-
-response = chat_chain.run(
-    question="What are the conditions like?"
-)
+response = chat_chain.invoke({"question": "What is the weather like?"})
 
 print(response)

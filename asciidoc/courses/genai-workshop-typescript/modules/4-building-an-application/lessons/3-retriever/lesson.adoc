@@ -1,0 +1,115 @@
+= Retrieval Augmented Generation
+:type: challenge
+:order: 3
+
+To pass this lesson, you will need to link:../../3-writing/3-vector-index[use the `Neo4jVectorStore` created in the Vectors lesson^] to retrieve similar documents to the user's query and add them to the `ChatMessagePromptTemplate` to provide context to the LLM.
+
+
+
+[%collapsible]
+.Solution
+====
+
+[source,typescript]
+----
+import {
+  ChatPromptTemplate,
+  SystemMessagePromptTemplate,
+  HumanMessagePromptTemplate
+ } from "@langchain/core/prompts";
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { RunnableSequence, RunnablePassthrough } from "@langchain/core/runnables";
+import { Neo4jVectorStore } from "@langchain/community/vectorstores/neo4j_vector";
+
+export async function call(
+  message: string,
+  sessionId: string
+): Promise<string> {
+  const embeddings = new OpenAIEmbeddings({
+    openAIApiKey: process.env.OPEN_AI_API_KEY,
+  });
+  const store = await Neo4jVectorStore.fromExistingGraph(embeddings, {
+    url: process.env.NEO4J_URI,
+    username: process.env.NEO4J_USERNAME,
+    password: process.env.NEO4J_PASSWORD,
+    nodeLabel: "Talk",
+    textNodeProperties: ["title", "description"],
+    indexName: "talk_embeddings_openai",
+    embeddingNodeProperty: "embedding",
+    retrievalQuery: `
+    RETURN node.description AS text, score,
+    node {
+      .time, .title,
+      url: 'https://athens.cityjsconf.org/'+ node.url,
+      speaker: [
+        (node)-[:GIVEN_BY]->(s) |
+        s { .name, .company, .x_handle, .bio }
+      ][0],
+      room: [ (node)-[:IN_ROOM]->(r) | r.name ][0],
+      tags: [ (node)-[:HAS_TAG]->(t) | t.name ]
+
+    } AS metadata
+  `,
+  });
+  const retriever = store.asRetriever();
+
+  // 1. create a prompt template
+  const prompt = ChatPromptTemplate.fromMessages([
+    SystemMessagePromptTemplate.fromTemplate(
+      `You are a helpful assistant helping users with queries
+      about the CityJS Athens conference.
+      Answer the user's question to the best of your ability.
+      If you do not know the answer, just say you don't know.`
+    ),
+    SystemMessagePromptTemplate.fromTemplate(
+      `Here are some talks to help you answer the question.
+      Don't use your pre-trained knowledge to answer the question.
+      Always include a full link to the meetup.
+      If the answer isn't included in the documents, say you don't know.
+
+      Documents:
+      {documents}`
+    ),
+    HumanMessagePromptTemplate.fromTemplate(`Question: {message}`),
+  ]);
+
+  // 2. choose an LLM
+  const llm = new ChatOpenAI({
+    openAIApiKey: process.env.OPENAI_API_KEY,
+    temperature: 0.9,
+  });
+
+  // 3. parse the response
+  const parser = new StringOutputParser();
+
+  // 4. runnable sequence (LCEL)
+  const chain = RunnableSequence.from<RunInput, string>([
+    RunnablePassthrough.assign({
+      documents: RunnableSequence.from([
+        (input) => input.message,
+        retriever.pipe((docs) => JSON.stringify(docs)),
+      ]),
+    }),
+    prompt,
+    llm,
+    new StringOutputParser(),
+  ]);
+
+  // 5. invoke the chain
+  const output = await chain.invoke(
+    { message },
+  );
+
+
+  return output;
+}
+----
+
+====
+
+read::It works![]
+
+== Summary
+
+Nice work!

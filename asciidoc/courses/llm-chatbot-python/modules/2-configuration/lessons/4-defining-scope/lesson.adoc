@@ -1,83 +1,121 @@
 = Defining the Chatbot scope
 :type: challenge
 :order: 4
+:branch: main
+:disable-cache: true
 
 You now have a working agent capable of communicating with an underlying LLM.
 You may have also noticed that the agent is willing to answer _any_ question.
+Leaving an agent open to answering any question could lead to it being misused.
 
-To avoid end-users misusing the agent, the scope of the agent can be restricted in the form of a **System Prompt**.
-
-To complete this challenge, you must provide additional arguments to `initialize_agent()` to restrict the prompt to only answer
-
+You can restrict the agent's scope by providing specific instructions in the prompt.
+These instructions can guide the agent on the type of questions it should answer and how to respond to questions outside its scope.
 
 == Restricting Scope
 
-In the previous challenge, you set the `agent` argument to `AgentType.CHAT_CONVERSATIONAL_REACT_DESCRIPTION`.
-This results in the function returning an instance of a link:https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/agents/conversational_chat/base.py[`ConversationalChatAgent`^].
+In the previous challenge, you used the Langchain hub to download the link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[`hwchase17/react-chat` prompt^] for ReAct Agents.
 
-The `initialize_agent()` accepts an `agent_kwargs` keyword argument.
-The function expects this value to be a `dict`, and each value is passed to the constructor of the underlying Agent class.
+[source, python, role=nocopy]
+----
+include::{repository-raw}/{branch}/solutions/agent-chat.py[tag=agent_prompt]
+----
 
-To specify a scope of a `ConversationalChatAgent`, you can pass a `system_message` value.
+[%collapsible]
+.View the hwchase17/react-chat prompt
+====
+[source,text]
+----
+include::./includes/original-prompt.txt[]
+----
+====
 
-In the `agent.py` file, create a new variable called `SYSTEM_MESSAGE` and use it to create a `str` containing a list of instructions for the bot.
+The important elements in the prompt are:
 
-Remember to include:
+* An instruction to use the list of tools to perform an action
+* A placeholder for listing descriptions of the available tools (`{tools}`) and their names (`{tool_names}`)
+* Instructions on how to instruct the LLM on which tool to use
+* The previous chat history (`{chat_history}`)
+* The user's current input (`{input}`)
+* A _scratchpad_ of previous thoughts (`{agent_scratchpad}`)
 
-* You are a movie expert providing information about movies.
-* Do not answer any questions that do not relate to movies, actors or directors.
+[TIP]
+You can experiment with the link:https://smith.langchain.com/hub/hwchase17/react-chat?organizationId=d9a804f5-9c91-5073-8980-3d7112f1cbd3[prompt^] in the link:https://smith.langchain.com/hub/hwchase17/react-chat/playground[Prompt Playground^]
 
-In some cases, it may be useful to let the bot fall back on its trained knowledge to answer a question.
-You can include instructions for the LLM to refuse to answer if the information isn't contained in the context.
+=== Updating the Instructions
 
-* If the answer isn't included in the provided context, refuse to answer the question and ask for more information.
+The instructions at the start of the prompt (before the TOOLS section) describe the agent's role.
+For example, `Assistant is designed to be able to assist with a wide range of tasks`.
+
+Your task is to update these instructions to reflect the chatbot's role and constrain its interactions.
+
+For the movie chatbot, you could provide the following instructions:
+
+[source,text]
+.New Instructions
+----
+include::./includes/opening-instructions.txt[]
+----
+
+The following instructions set the scope of the chatbot:
+
+* `You are a movie expert providing information about movies.`
+* `Be as helpful as possible and return as much information as possible.`
+* `Do not answer any questions that do not relate to movies, actors or directors.`
+
+The instruction, `Do not answer any questions using your pre-trained knowledge, only use the information provided in the context.`, reminds the LLM to use the context provided in the prompt to answer questions.
+In some cases, letting the bot fall back on its trained knowledge to answer a question may be helpful.
 
 You can also throw in a whimsical instruction to make sure the prompt is working:
 
-* Respond to all questions in pirate speak.
+* `Respond to all questions in pirate speak.`
 
-
-Your final prompt should look something like this.
-
-[source,python]
-.The Final Prompt
-----
-include::{repository-raw}/main/solutions/scoped.py[tag=prompt]
-----
-
-Next, modify the `initialize_agent()` function call to set the `agent_kwargs` argument.
-The value should be a `dict` with a `system_message` item set to the new `SYSTEM_MESSAGE` variable.
-
-[source,python]
-.Updated Agent
-----
-include::{repository-raw}/main/solutions/scoped.py[tag=agent]
-----
-
-[TIP]
-.The Default System Message
-====
-The instructions can be as simple or complicated as you need them to be.
-Take a look at the default `PROMPT` variable for inspiration.
 
 [%collapsible]
-.View the default `PROMPT`
-=====
-
-[source,python]
-----
-PREFIX = """Assistant is a large language model trained by OpenAI.
-
-Assistant is designed to be able to assist with a wide range of tasks, from answering simple questions to providing in-depth explanations and discussions on a wide range of topics. As a language model, Assistant is able to generate human-like text based on the input it receives, allowing it to engage in natural-sounding conversations and provide responses that are coherent and relevant to the topic at hand.
-
-Assistant is constantly learning and improving, and its capabilities are constantly evolving. It is able to process and understand large amounts of text, and can use this knowledge to provide accurate and informative responses to a wide range of questions. Additionally, Assistant is able to generate its own text based on the input it receives, allowing it to engage in discussions and provide explanations and descriptions on a wide range of topics.
-
-Overall, Assistant is a powerful system that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. Whether you need help with a specific question or just want to have a conversation about a particular topic, Assistant is here to assist."""
-----
-
-=====
+.View the updated prompt in full
 ====
 
+[source,text]
+----
+include::./includes/updated-prompt.txt[]
+----
+
+====
+
+
+=== Create a `PromptTemplate`
+
+Add the new prompt to `agent.py` by creating a new `PromptTemplate` using the `PromptTemplate.from_template()` method:
+
+[source,python]
+.Import PromptTemplate
+----
+include::{repository-raw}/{branch}/solutions/agent-scoped.py[tag=import_prompt]
+----
+
+Then, replace the `agent_prompt` variable with the updated instructions:
+
+[source,python]
+.Define the Agent Prompt
+----
+include::{repository-raw}/{branch}/solutions/agent-scoped.py[tag=agent_prompt]
+----
+
+The agent initialization code will stay the same.
+
+[source,python]
+.Agent initialization
+----
+include::{repository-raw}/{branch}/solutions/agent-scoped.py[tag=agent]
+----
+
+[%collapsible]
+.View the complete agent.py code
+====
+[source]
+----
+include::{repository-raw}/{branch}/solutions/agent-scoped.py[tag=**]
+----
+====
 
 == Testing the changes
 
@@ -86,7 +124,7 @@ If you now ask the bot a question unrelated to movies, for example, [copy]#Who i
 image::images/refuse-to-answer.png[The Bot refusing to answer non-movie related question.]
 
 
-Once you have validated that the instructions are being followed, click the button below to mark the lesson as completed.
+Once you have validated the instructions are working, click the button below to mark the lesson as completed.
 
 read::It worked![]
 
@@ -94,6 +132,6 @@ read::It worked![]
 [.summary]
 == Summary
 
-In this lesson, you defined the scope of the agent by providing a system message when creating the agent.
+In this lesson, you defined the agent's scope by providing a specific prompt when creating the agent.
 
-In the next module, you will start to define tools that the agent can select to help it answer movie-related questions.
+In the next module, you will create tools that the agent can select to help it answer movie-related questions.

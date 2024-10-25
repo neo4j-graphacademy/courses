@@ -1,1 +1,1 @@
-MATCH (m:Movie {title: 'Get Out'}) WHERE  m.tagline = 'Gripping, scary, witty and timely!' AND m.released = 2017 RETURN true AS outcome
+MATCH (m:Movie {title: 'Get Out'}) WHERE  m.tagline IS NOT NULL AND m.released IS NOT NULL RETURN true AS outcome

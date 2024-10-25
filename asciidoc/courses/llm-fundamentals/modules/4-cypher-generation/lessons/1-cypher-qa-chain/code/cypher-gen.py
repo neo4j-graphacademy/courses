@@ -1,8 +1,9 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.graphs import Neo4jGraph
+from langchain_openai import ChatOpenAI
+from langchain_community.graphs import Neo4jGraph
 from langchain.chains import GraphCypherQAChain
 from langchain.prompts import PromptTemplate
 
+# tag::openai-neo4j[]
 llm = ChatOpenAI(
     openai_api_key="sk-..."
 )
@@ -12,7 +13,9 @@ graph = Neo4jGraph(
     username="neo4j",
     password="pleaseletmein",
 )
+# end::openai-neo4j[]
 
+# tag::template[]
 CYPHER_GENERATION_TEMPLATE = """
 You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
 Convert the user's question based on the schema.
@@ -20,18 +23,24 @@ Convert the user's question based on the schema.
 Schema: {schema}
 Question: {question}
 """
+# end::template[]
 
+# tag::prompt[]
 cypher_generation_prompt = PromptTemplate(
     template=CYPHER_GENERATION_TEMPLATE,
-    input_variables=["schema", "question"], 
-    # validate_template=True, 
+    input_variables=["schema", "question"],
 )
+# end::prompt[]
 
+# tag::cypher-chain[]
 cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True  
+    verbose=True
 )
+# end::cypher-chain[]
 
-cypher_chain.run("What role did Tom Hanks play in Toy Story?")
+# tag::invoke[]
+cypher_chain.invoke({"query": "What is the plot of the movie Toy Story?"})
+# end::invoke[]

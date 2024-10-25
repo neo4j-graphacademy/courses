@@ -37,6 +37,14 @@ describe('QA Tests', () => {
                     expect(modulePaths.length).toBeGreaterThan(0)
                 })
 
+                it('should have an illustration', () => {
+                    const illustrationPath = join(__dirname, '..', 'asciidoc',
+                        'courses', slug, 'illustration.adoc')
+                    const exists = existsSync(illustrationPath)
+
+                    expect(exists).toBe(true)
+                })
+
                 for (modulePath of modulePaths) {
                     const moduleSlug = modulePath.split(sep).reverse()[0]
                     const lessonPaths = globSync(globJoin(__dirname, '..', 'asciidoc',
