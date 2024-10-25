@@ -1,9 +1,6 @@
 @SpringBootTest
 class AppSpringDataApplicationTests {
-    final Driver driver;
-    public AppSpringDataApplicationTests(@Autowired Driver driver) {
-        this.driver = driver;
-    }
+    //Driver injection
 
     @Test
     final void testConnection() {
