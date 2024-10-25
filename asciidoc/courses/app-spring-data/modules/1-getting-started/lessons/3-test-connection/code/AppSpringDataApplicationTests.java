@@ -1,6 +1,6 @@
 @SpringBootTest
 class AppSpringDataApplicationTests {
-    //Driver injection
+    // Driver injection
 
     @Test
     final void testConnection() {
