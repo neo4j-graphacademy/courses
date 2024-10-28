@@ -1,6 +1,6 @@
 import { emitter } from "../../../events";
 import { write } from "../../../modules/neo4j";
-import { UserCompletedCourse } from "../../events/UserCompletedCourse";
+import { CompletionSource, UserCompletedCourse } from "../../events/UserCompletedCourse";
 import { CourseWithProgress } from "../../model/course";
 import { User } from "../../model/user";
 import { appendParams, courseCypher, } from "../cypher";
@@ -11,19 +11,21 @@ export async function saveQuizResults(user: User, token: string, course: string,
 
         SET e:CompletedEnrolment:CompletedWithQuiz,
             e.completedAt = datetime(),
-            e.quizAnswers = $answers
+            e.quizAnswers = $answers,
+            e.source = $source
 
         RETURN ${courseCypher('e')} AS course
     `, appendParams({
         sub: user.sub,
         course,
         answers: JSON.stringify(answers),
+        source: CompletionSource.QUIZ
     }))
 
     const [first] = res.records
     const courseWithProgress: CourseWithProgress = first.get('course')
 
-    emitter.emit(new UserCompletedCourse(user, courseWithProgress, token, true))
+    emitter.emit(new UserCompletedCourse(user, courseWithProgress, token, CompletionSource.QUIZ))
 
     return courseWithProgress
 }

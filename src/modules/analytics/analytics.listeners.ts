@@ -1,6 +1,6 @@
 import { UserAttemptedLesson } from '../../domain/events/UserAttemptedLesson'
 import { UserCompletedAccount } from '../../domain/events/UserCompletedAccount'
-import { UserCompletedCourse } from '../../domain/events/UserCompletedCourse'
+import { CompletionSource, UserCompletedCourse } from '../../domain/events/UserCompletedCourse'
 import { UserCompletedLesson } from '../../domain/events/UserCompletedLesson'
 import { UserEnrolled } from '../../domain/events/UserEnrolled'
 import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
@@ -138,7 +138,8 @@ export default function initAnalyticsListeners(): Promise<void> {
                 courseName: event.course.title,
                 usecase: event.course.usecase,
                 categories: event.course.categories?.map((category) => category.title),
-                throughQuiz: event.throughQuiz,
+                source: event.source,
+                throughQuiz: event.source === CompletionSource.QUIZ,
                 completedPercentage: 100,
             })
         })

@@ -6,6 +6,7 @@ import { User } from '../../../domain/model/user'
 import initNeo4j from '../../neo4j'
 import saveAnswer from './save-answer'
 import markAsCompleted from './mark-as-completed'
+import { CompletionSource } from '../../../domain/events/UserCompletedCourse'
 
 config()
 
@@ -97,7 +98,7 @@ describe('Certification Module', () => {
 
       // Complete the enrolment
       const complete = await session.executeWrite(
-        async tx => markAsCompleted(tx, res.attemptId)
+        async tx => markAsCompleted(tx, res.attemptId, CompletionSource.WEBSITE)
       )
 
       expect(complete.completed).toBe(true)
