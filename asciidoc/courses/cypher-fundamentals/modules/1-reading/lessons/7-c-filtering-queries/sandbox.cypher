@@ -1,3 +1,3 @@
-MATCH (a:Person)-[:ACTED_IN]->(m:Movie)
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
 WHERE 
-RETURN a.name
+RETURN p.name
