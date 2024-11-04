@@ -24,13 +24,12 @@ describe('Certification Module', () => {
       process.env.NEO4J_PASSWORD as string,
     )
 
-
     session = driver.session()
 
     const res = await driver.executeQuery(`
-            CREATE (u:User:CheckExistingAttemptsTest {sub: 'test|'+ randomUuid()})
-            RETURN u.sub AS sub
-        `)
+      CREATE (u:User:CheckExistingAttemptsTest {sub: 'test|'+ randomUuid()})
+      RETURN u.sub AS sub
+    `)
 
     sub = res.records[0].get('sub')
     user = {

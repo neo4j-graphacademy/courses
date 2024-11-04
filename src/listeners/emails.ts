@@ -6,6 +6,8 @@ import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-f
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend, } from '../modules/mailer'
 import { ASCIIDOC_DIRECTORY, MAIL_FROM, MAIL_REPLY_TO, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
+import UserCreatedTeam from '../domain/events/UserCreatedTeam'
+import { UserJoinedTeam } from '../domain/events/UserJoinedTeam'
 
 export default function initEmailListeners(): Promise<void> {
     // const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
@@ -111,6 +113,28 @@ export default function initEmailListeners(): Promise<void> {
                 template,
                 attachments
             )
+        })
+
+        emitter.on<UserCreatedTeam>(UserCreatedTeam, async event => {
+            if (event.user.unsubscribed) {
+                return
+            }
+
+            const email = event.user.email
+            const template = 'user-created-team'
+
+            void prepareAndSend(template, email, { ...event })
+        })
+
+        emitter.on<UserJoinedTeam>(UserJoinedTeam, async event => {
+            if (event.user.unsubscribed) {
+                return
+            }
+
+            const email = event.user.email
+            const template = 'user-joined-team'
+
+            void prepareAndSend(template, email, { ...event })
         })
     }
 

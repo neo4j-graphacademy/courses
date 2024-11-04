@@ -1,7 +1,14 @@
+import { ManagedTransaction } from "neo4j-driver";
 import NotFoundError from "../../../errors/not-found.error";
-import { read } from "../../../modules/neo4j";
-import Team from "../../model/team";
+import { read, readTransaction } from "../../../modules/neo4j";
+import { mergeCourseAndEnrolment } from "../../../utils";
+import { Course, CourseWithProgress } from "../../model/course";
+import Team, { MembershipRole } from "../../model/team";
 import { User } from "../../model/user";
+import { appendParams, courseCypher } from "../cypher";
+import { getTeamWork } from "./get-team";
+import getUserMembership from "./get-user-membership";
+import { MembershipStatus } from "./get-user-membership";
 
 type Leaderboard = {
   user: Partial<User>;
@@ -15,14 +22,15 @@ type Leaderboard = {
 }[]
 
 type LeaderboardOutput = {
-  team: Team,
-  leaderboard: Leaderboard,
-  isMember: boolean
-}
+  team: Team;
+  courses: CourseWithProgress[] | undefined;
+  membership: MembershipStatus;
+  leaderboard: Leaderboard[] | undefined;
+} & MembershipStatus;
 
-export default async function getLeaderboard(id: string, user: User | undefined): Promise<LeaderboardOutput> {
-  const res = await read<LeaderboardOutput>(`
-    MATCH (t:Team {id: $id})<-[:MEMBER_OF]-(u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
+async function getLeaderboardWork(tx: ManagedTransaction, id): Promise<Leaderboard[] | undefined> {
+  const res = await tx.run(`
+      MATCH (t:Team {id: $id})<-[:MEMBER_OF]-(u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
     WITH *,
       COUNT { (c)-[:HAS_MODULE|HAS_LESSON]->(l) WHERE not l:OptionalLesson } AS lessons,
       COUNT { (e)-[:COMPLETED_LESSON]->(l) } AS completed,
@@ -58,30 +66,45 @@ export default async function getLeaderboard(id: string, user: User | undefined)
         courses: [ n IN courses WHERE n[1] | { link: n[0].link, title: n[0].title, slug: n[0].slug } ]
       }) AS leaderboard
 
-    RETURN t {
-      .*,
-      memberCount: size(userSubs)
-    } AS team,
-    leaderboard[0..20] AS leaderboard,
-    $sub IS NOT NULL AND $sub IN userSubs AS isMember
+    RETURN leaderboard[0..20] AS leaderboard
+    `, appendParams({ id }))
 
-  `, { id, sub: user?.sub || null })
+  if (res.records.length) {
+    return res.records[0].get('leaderboard')
+  }
+}
+
+export default async function getLeaderboard(id: string, user: User | undefined): Promise<LeaderboardOutput> {
+  const res = await readTransaction<LeaderboardOutput>(async tx => {
+    // Team Information
+    const { team, courses } = await getTeamWork(tx, id, user)
+
+    // Leaderboard
+    const leaderboard = await getLeaderboardWork(tx, id)
+
+    // Membership
+    const membership = user ? await getUserMembership(tx, user.sub, id) : {}
+
+    return {
+      team,
+      courses,
+      membership,
+      leaderboard,
+    }
+  })
+
+  const { team, membership } = res
 
   // Does it exist?
-  if (res.records.length === 0) {
+  if (!team) {
     throw new NotFoundError(`Couldn't find a Team with the ID ${id}`)
   }
 
-  const { team, leaderboard, isMember } = res.records[0].toObject()
 
   // Is it public?
-  if (!team.public && !isMember) {
+  if (!team.public && !membership.isMember) {
     throw new NotFoundError(`Couldn't find a Team with the ID ${id}*`)
   }
 
-  return {
-    team,
-    leaderboard,
-    isMember
-  }
+  return res
 }
