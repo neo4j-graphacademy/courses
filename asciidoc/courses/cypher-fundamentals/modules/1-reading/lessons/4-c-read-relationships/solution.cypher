@@ -1,2 +1,2 @@
-MATCH (m:Movie {title: 'Cloud Atlas'})<-[:DIRECTED]-(p)
-RETURN count(p) AS answer
+MATCH (m:Movie {title: "Cloud Atlas"} )<-[:DIRECTED]-(p:Person)
+RETURN p.name
