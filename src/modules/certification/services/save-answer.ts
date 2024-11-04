@@ -8,6 +8,7 @@ import { emitter } from "../../../events";
 import { CompletionSource, UserCompletedCourse } from "../../../domain/events/UserCompletedCourse";
 import getNextQuestion from "./get-next-question";
 import { AbridgedCertification } from "./get-certification-information";
+import { UserFailedCertification } from "../../../domain/events/UserFailedCertification";
 
 export default function saveAnswer(slug: string, user: User, questionId: string, answers: string[]): Promise<CertificationStatus> {
   return writeTransaction(async (tx: ManagedTransaction) => {
@@ -56,11 +57,20 @@ export default function saveAnswer(slug: string, user: User, questionId: string,
     if (status.attemptId && shouldContinue === false) {
       const res = await markAsCompleted(tx, status.attemptId, CompletionSource.WEBSITE)
 
-      emitter.emit(new UserCompletedCourse(
-        user,
-        status.course as AbridgedCertification,
-        res.source
-      ))
+      if (res.passed) {
+        emitter.emit(new UserCompletedCourse(
+          user,
+          status.course as AbridgedCertification,
+          res.source
+        ))
+      }
+      else {
+        emitter.emit(new UserFailedCertification(
+          user,
+          status.course as AbridgedCertification,
+          res.source
+        ))
+      }
 
       return {
         action: NextCertificationAction.COMPLETE,

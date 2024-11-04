@@ -6,18 +6,20 @@ import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-f
 import { emitter } from '../events'
 import { isEnabled, prepareAndSend, } from '../modules/mailer'
 import { ASCIIDOC_DIRECTORY, MAIL_FROM, MAIL_REPLY_TO, MAILGUN_API_KEY, MAILGUN_DOMAIN } from '../constants'
+import { UserFailedCertification } from '../domain/events/UserFailedCertification'
 import UserCreatedTeam from '../domain/events/UserCreatedTeam'
 import { UserJoinedTeam } from '../domain/events/UserJoinedTeam'
 
-export default function initEmailListeners(): Promise<void> {
-    // const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
 
-    // if (isEnabled()) {
-    //     console.log('[email enabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
-    // }
-    // else {
-    //     console.log('[email disabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
-    // }
+export default function initEmailListeners(): Promise<void> {
+    const obscuredKey = MAILGUN_API_KEY ? `${MAILGUN_API_KEY.substring(0, 5)}...${MAILGUN_API_KEY.substring(MAILGUN_API_KEY.length - 6, MAILGUN_API_KEY.length - 1)}` : '(undefined)'
+
+    if (isEnabled()) {
+        console.log('[email enabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
+    }
+    else {
+        console.log('[email disabled]', { MAILGUN_API_KEY: obscuredKey, MAILGUN_DOMAIN, MAIL_FROM, MAIL_REPLY_TO });
+    }
 
     if (isEnabled()) {
         emitter.on<UserEnrolled>(UserEnrolled, event => {
@@ -33,6 +35,33 @@ export default function initEmailListeners(): Promise<void> {
             if (!event.course.certification) {
                 void prepareAndSend(template, email, { ...event }, emailDirectory, template)
             }
+        })
+
+        emitter.on<UserFailedCertification>(UserFailedCertification, event => {
+            if (event.user.unsubscribed) {
+                return
+            }
+
+            const template = 'user-failed-exam'
+            const email = event.user.email
+
+
+            let emailDirectory = ''
+
+            if (event.course.certification && event.course.slug !== undefined && existsSync(join(ASCIIDOC_DIRECTORY, 'certifications', event.course.slug, 'emails'))) {
+                emailDirectory = `certifications/${event.course.slug}/`
+            }
+            else if (event.course.emails?.includes(template)) {
+                emailDirectory = `courses/${event.course.slug}/`
+            }
+
+            void prepareAndSend(
+                template,
+                email,
+                event as Record<string, any>,
+                emailDirectory,
+                template,
+            )
         })
 
         emitter.on<UserCompletedCourse>(UserCompletedCourse, async event => {

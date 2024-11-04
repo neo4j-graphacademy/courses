@@ -225,7 +225,6 @@ router.post('/:slug/exam', requiresAuth(), async (req, res, next) => {
             answers = [answers]
         }
 
-
         answers = answers.map((answer: string) => answer.trim())
 
         // Save the question answer

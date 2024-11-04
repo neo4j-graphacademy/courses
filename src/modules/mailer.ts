@@ -42,7 +42,7 @@ export async function send(to: string, subject: string, html: string, tag?: stri
     }
 }
 
-export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder' | 'reward-ordered' | 'reward-shipped' | 'user-created-team' | 'user-joined-team'
+export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder' | 'reward-ordered' | 'reward-shipped' | 'user-failed-exam' | 'user-created-team' | 'user-joined-team'
 
 interface PreparedEmail {
     subject: string;

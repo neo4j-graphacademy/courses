@@ -13,8 +13,7 @@ import initEmailListeners from "../listeners/emails"
 import { CompletionSource, UserCompletedCourse } from "../domain/events/UserCompletedCourse"
 import { User } from "../domain/model/user"
 import { CourseWithProgress } from "../domain/model/course"
-
-
+import { UserFailedCertification } from "../domain/events/UserFailedCertification"
 
 const main = async () => {
   const driver = await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
@@ -45,6 +44,13 @@ const main = async () => {
               output.source
             )
           )
+        }
+        else {
+          emitter.emit(new UserFailedCertification(
+            record.get('user'),
+            record.get('course'),
+            output.source
+          ))
         }
       }
     })
