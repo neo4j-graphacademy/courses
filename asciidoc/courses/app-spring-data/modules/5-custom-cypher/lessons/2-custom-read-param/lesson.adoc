@@ -7,12 +7,26 @@ In this lesson, you will learn how to write custom methods and queries that take
 
 == Defining a custom repository method with parameters
 
-You can also define custom methods that take parameters. For instance, what if you wanted to find all of the movies that a specific person acted in. In the `src/main/java/com/example/appspringdata` folder, open the `MovieRepository.java` and define another custom method.
+You can also define custom methods that take parameters. For instance, what if you wanted to find all of the movies that a specific person acted in.
+
+In the `src/main/java/com/example/appspringdata` folder, open the `MovieRepository.java` and define another custom method shown below.
 
 [source,java]
 ----
-include::code/MovieRepository.java[tag=find-person-movies]
-include::code/MovieController.java[tag=find-person-movies]
+    @Query("MATCH (m:Movie)<-[r:ACTED_IN]-(p:Person {name: $name})" +
+            "RETURN m, collect(r), collect(p);")
+    Iterable<Movie> findMoviesByPerson(String name);
+----
+
+Next, add a new method in the `MovieController` class that calls this method, passing in a `RequestParam` for a name.
+
+[source,java]
+----
+    //new method to call the custom `findMoviesByPerson()` method
+    @GetMapping("/person")
+    Iterable<Movie> findMoviesByPerson(@RequestParam String name) {
+        return movieRepo.findMoviesByPerson(name);
+    }
 ----
 
 Full code for the `MovieRepository` and `MovieController` classes is available in the dropdown below.
@@ -22,31 +36,25 @@ Full code for the `MovieRepository` and `MovieController` classes is available i
 ====
 [source,java]
 ----
-include::code/MovieRepositoryComplete.java[]
-include::code/MovieControllerComplete.java[]
+include::code/MovieRepository.java[]
+include::code/MovieController.java[]
 ----
 ====
 
 In the repository interface, you have a new method called `findMoviesByPerson()` that takes a `String` parameter called `name`. You annotate the method with `@Query` and provide a Cypher statement that will return all of the movies that a person acted in, using the `$name` parameter to match the `Person` with the name provided in the parameter.
 
-In the controller, there is a new method called `findMoviesByPerson()` that calls the custom repository method and passes in the name from a URL parameter. You also need a `@GetMapping` annotation to map the method to `/movies/person`. All that is left is to test.
+In the controller, there is a new method called `findMoviesByPerson()` that calls the custom repository method and passes in the name from a URL parameter. You also need a `@GetMapping` annotation to map the method to `/movies/person`.
 
 == Testing the findMoviesByPerson() custom method
 
 Just as before, you can test the new method by running the application and calling the `/movies/person` endpoint with a name parameter to search. You should see a response with all of the movies that the person node is connected to, each with their `ACTED_IN` relationships and `Person` nodes.
-
-//TODO: Figure out how this works in Gitpod!
 
 [source,shell]
 ----
 curl localhost:8080/movies/person?name=Robin%20Williams
 ----
 
-[TIP]
-.Using URL parameters
-====
-Depending on your shell, you may need to surround the entire url with quotes (e.g. `curl "localhost:8080/movies/person?name=Robin%20Williams"`).
-====
+image::images/sdn-findMoviesByPerson-results.png[Find movies by person results,width=600,align=center]
 
 Feel free to run the provided query in the right-hand tab to see the results there as well. You can also try passing in different actors' names to the request and see the results.
 

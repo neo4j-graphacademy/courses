@@ -1,4 +1,11 @@
+
 // tag::movie-controller[]
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import java.util.Optional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
 @RestController
 @RequestMapping("/movies")
 public class MovieController {
@@ -8,7 +15,7 @@ public class MovieController {
         this.movieRepo = movieRepo;
     }
 
-    @GetMapping()
+    @GetMapping
     Iterable<Movie> findAllMovies() {
         return movieRepo.findAll();
     }

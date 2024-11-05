@@ -1,4 +1,9 @@
+
 // tag::person[]
+import org.springframework.data.neo4j.core.schema.Id;
+import org.springframework.data.neo4j.core.schema.Node;
+import java.time.LocalDate;
+
 @Node
 public class Person {
     @Id
@@ -14,7 +19,8 @@ public class Person {
     private LocalDate born;
     private LocalDate died;
 
-    public Person(String imdbId, String tmdbId, String name, String bio, String poster, String url, String bornIn, LocalDate born, LocalDate died) {
+    public Person(String imdbId, String tmdbId, String name, String bio, String poster, String url, String bornIn,
+            LocalDate born, LocalDate died) {
         this.imdbId = imdbId;
         this.tmdbId = tmdbId;
         this.name = name;
