@@ -1,4 +1,10 @@
+
 // tag::movie-actors[]
+import org.springframework.data.annotation.Id;
+import org.springframework.data.neo4j.core.schema.Node;
+import org.springframework.data.neo4j.core.schema.Relationship;
+import java.util.List;
+
 @Node
 public class Movie {
     @Id
@@ -24,10 +30,11 @@ public class Movie {
     private String[] countries;
 
     @Relationship(value = "ACTED_IN", direction = Relationship.Direction.INCOMING)
-    private List<Role> actors;
+    private List<Person> actors;
 
-
-    public Movie(String movieId, String title, String plot, String poster, String url, String imdbId, String tmdbId, String released, Long year, Long runtime, Long budget, Long revenue, Long imdbVotes, Double imdbRating, String[] languages, String[] countries) {
+    public Movie(String movieId, String title, String plot, String poster, String url, String imdbId, String tmdbId,
+            String released, Long year, Long runtime, Long budget, Long revenue, Long imdbVotes, Double imdbRating,
+            String[] languages, String[] countries) {
         this.movieId = movieId;
         this.title = title;
         this.plot = plot;
@@ -174,11 +181,11 @@ public class Movie {
         this.countries = countries;
     }
 
-    public List<Role> getActors() {
+    public List<Person> getActors() {
         return actors;
     }
 
-    public void setActors(List<Role> actors) {
+    public void setActors(List<Person> actors) {
         this.actors = actors;
     }
 }
