@@ -50,6 +50,7 @@ export default function initApp(driver: Driver) {
 
     // Init bugsnag
     initBugsnag()
+    useErrorHandler(app)
 
     // Pre-auth static routes
     app.use(express.static(path.join(__dirname, '..', 'public')))
@@ -114,9 +115,6 @@ export default function initApp(driver: Driver) {
 
     // Chatbot Routes
     void initChatbot(app)
-
-    // Bugsnag Error Handler
-    useErrorHandler(app)
 
     // Generic Error Handlers
     applyErrorHandlers(app)

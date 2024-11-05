@@ -69,15 +69,16 @@ export function applyErrorHandlers(app: Express) {
     app.use(async (error: Error, req: Request, res: Response, next: NextFunction) => {
         const user = await getUser(req)
 
-        if (error instanceof NotFoundError) {
+
+        if (error instanceof NotFoundError || (error as any).status === 404) {
             return notFoundError(req, res, error)
         }
 
-        if (error instanceof UnauthorizedError) {
-            return unauthorized(error, req, res)
-        }
+        // if (error instanceof UnauthorizedError || (error as any).status === 401) {
+        //     return unauthorized(error, req, res)
+        // }
 
-        if ((error as AxiosError).response?.status === 401) {
+        if ((error as AxiosError).response?.status === 401 || (error as any).status === 401) {
             let redirectTo = '/login'
 
             if (req.method === 'GET') {
