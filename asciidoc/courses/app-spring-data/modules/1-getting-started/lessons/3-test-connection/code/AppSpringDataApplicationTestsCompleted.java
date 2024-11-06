@@ -1,3 +1,5 @@
+package com.example.appspringdata;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.neo4j.driver.Driver;

@@ -1,5 +1,6 @@
-
 // tag::movie[]
+package com.example.appspringdata;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 
