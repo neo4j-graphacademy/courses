@@ -7,10 +7,12 @@ public class MovieController {
         this.movieRepo = movieRepo;
     }
 
+    // tag::findAllMovies[]
     @GetMapping()
     Iterable<Movie> findAllMovies() {
         return movieRepo.findMoviesSubset();
     }
+    // end::findAllMovies[]
 
     @GetMapping("/{movieId}")
     Optional<Movie> findMovieById(@PathVariable String movieId) {
@@ -28,4 +30,3 @@ public class MovieController {
         System.out.println("Deleted movie with movieId: " + movieId);
     }
 }
-

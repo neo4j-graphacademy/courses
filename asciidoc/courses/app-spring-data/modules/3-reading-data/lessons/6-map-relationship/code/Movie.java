@@ -1,9 +1,10 @@
 
-// tag::movie-actors[]
 import org.springframework.data.annotation.Id;
 import org.springframework.data.neo4j.core.schema.Node;
+// tag::import[]
 import org.springframework.data.neo4j.core.schema.Relationship;
 import java.util.List;
+// end::import[]
 
 @Node
 public class Movie {
@@ -29,8 +30,12 @@ public class Movie {
     private String[] languages;
     private String[] countries;
 
+    // tag::relationship[]
     @Relationship(value = "ACTED_IN", direction = Relationship.Direction.INCOMING)
+    // end::relationship[]
+    // tag::actor_field[]
     private List<Person> actors;
+    // end::actor_field[]
 
     public Movie(String movieId, String title, String plot, String poster, String url, String imdbId, String tmdbId,
             String released, Long year, Long runtime, Long budget, Long revenue, Long imdbVotes, Double imdbRating,
@@ -181,6 +186,7 @@ public class Movie {
         this.countries = countries;
     }
 
+    // tag::getter_setter[]
     public List<Person> getActors() {
         return actors;
     }
@@ -188,5 +194,5 @@ public class Movie {
     public void setActors(List<Person> actors) {
         this.actors = actors;
     }
+    // end::getter_setter[]
 }
-// end::movie-actors[]
