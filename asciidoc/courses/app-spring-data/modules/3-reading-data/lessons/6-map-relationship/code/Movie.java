@@ -1,8 +1,10 @@
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.neo4j.core.schema.Node;
+// tag::import[]
 import org.springframework.data.neo4j.core.schema.Relationship;
 import java.util.List;
+// end::import[]
 
 @Node
 public class Movie {
