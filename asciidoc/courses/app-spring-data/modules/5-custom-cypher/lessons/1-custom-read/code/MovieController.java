@@ -7,10 +7,12 @@ public class MovieController {
         this.movieRepo = movieRepo;
     }
 
+    // tag::findAllMovies[]
     @GetMapping()
     Iterable<Movie> findAllMovies() {
         return movieRepo.findMoviesSubset();
     }
+    // end::findAllMovies[]
 
     @GetMapping("/{movieId}")
     Optional<Movie> findMovieById(@PathVariable String movieId) {
