@@ -30,4 +30,3 @@ public class MovieController {
         System.out.println("Deleted movie with movieId: " + movieId);
     }
 }
-
