@@ -84,6 +84,10 @@ const isUnhelpful = (el: HTMLDivElement) => {
       <label for="inaccurate">${window.i18n.inaccurate}</label>
     </div>
     <div>
+      <input id="technical" type="radio" class="feedback-option" data-reason="technical" name="specific" value="technical">
+      <label for="technical">${window.i18n.technical}</label>
+    </div>
+    <div>
         <input id="other" type="radio" class="feedback-option" data-reason="other" name="specific" value="other">
         <label for="other">${window.i18n.other}</label>
     </div>
