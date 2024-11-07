@@ -7,6 +7,7 @@ import { workspaceBlockProcessor } from './extensions/workspace-block-processor.
 import { ASCIIDOC_DIRECTORY } from '../../constants'
 import { join } from 'path'
 import { mergeDeep } from '../../utils'
+import { kgBuilderBlockProcessor } from './extensions/kgbuilder-block-processor.extension'
 
 // Reader
 const doc = asciidoctor()
@@ -19,6 +20,7 @@ browserBlockProcessor(registry)
 verifyBlockProcessor(registry)
 labBlockProcessor(registry)
 workspaceBlockProcessor(registry)
+kgBuilderBlockProcessor(registry)
 
 // Convert options
 const baseOptions: Asciidoctor.ProcessorOptions = {
