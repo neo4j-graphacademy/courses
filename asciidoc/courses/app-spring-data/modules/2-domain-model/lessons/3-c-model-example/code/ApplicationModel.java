@@ -12,7 +12,7 @@ class Order {
     @Relationship(value = "SOLD", direction = Relationship.Direction.INCOMING)
     Employee employee;
 
-    //constructor, getters, and setters
+    // constructor, getters, and setters
 }
 
 @Node
@@ -22,7 +22,7 @@ class Customer {
     String customerName;
     String loyaltyId;
 
-    //constructor, getters, and setters
+    // constructor, getters, and setters
 }
 
 @Node
@@ -32,6 +32,6 @@ class Employee {
     String employeeName;
     LocalDate startDate;
 
-    //constructor, getters, and setters
+    // constructor, getters, and setters
 }
 // end::model[]
