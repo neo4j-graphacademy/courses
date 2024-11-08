@@ -73,7 +73,7 @@ router.get('/', async (req, res, next) => {
             }],
             banner: {
                 text: 'Help us improve your experience on GraphAcademy  - ',
-                link: 'https://forms.gle/rggNn3iDTmcpMasV6',
+                link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
                 cta: 'Complete the survey',
             },
             translate: translateEn,
