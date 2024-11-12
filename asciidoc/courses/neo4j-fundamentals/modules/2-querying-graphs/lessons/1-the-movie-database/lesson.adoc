@@ -2,32 +2,25 @@
 :order: 1
 :sandbox: true
 
-GraphAcademy has created a Neo4j sandbox instance for you to play around with.
-The graph contains a dataset of movies, actors and directors from link:https://www.themoviedb.org/[The Movie Database (TMDB)^].
-The graph also contains ratings that users on the website have given to movies.
+GraphAcademy has created a Neo4j sandbox instance for you to explore.
 
-You can view the database schema by running the following Cypher statement in the integrated query window to the right.
+The graph database contains: 
 
-[source,cypher]
-----
-CALL db.schema.visualize()
-----
+* Movies, actors and directors from link:https://www.themoviedb.org/[The Movie Database (TMDB)^].
+* Movie ratings by users of the website.
 
-This is a built-in procedure that examines the database and returns the labels, relationship types and properties held in the database.
+The graph is structure with the following nodes and relationships:
 
-image::./images/recommendation-schema.png[The Movie Recommendations schema]
-
+image::./images/schema-simple.svg[The graph schema, showing Person, Movie, Genre and User nodes connected by ACTED_IN, DIRECTED, IN_GENRE and RATED relationships.]
 
 == People
 
 The graph contains 19047 nodes with a `:Person` label.
 Each of these may have one or more outgoing `:ACTED_IN` and `:DIRECTED` relationships to a node with the label `:Movie`.
 
-Each `Person` node has a `name` property, which has been indexed to ensure that we can quickly look-up people by name.
+Each `Person` node has an unique `name` property, as well as other properties such as `bio` and `born`.`
 
-Each `Movie` node has a `title` property, and may contain a number of other properties including `plot`, `released` and `url` which contains a link to its page on link:https://www.themoviedb.org/[TMDB^].
-
-The following Cypher statement will find the node for Tom Hanks.
+Run the following Cypher statement to find a `Person` node with the `name` attribute 'Tom Hanks'.
 
 [source,cypher]
 .Tom Hanks
@@ -37,58 +30,85 @@ WHERE n.name = 'Tom Hanks'
 RETURN n
 ----
 
-You can double-click the node to view the movies that he has acted in and directed.
+image:images/tom-hanks.png[The result of the above query showing a single node labelled Tom Hanks]
 
-[TIP]
-.People, Actors and Directors
-====
-You may have noticed that the `:Actor` and `:Director` nodes in the visualization have the same relationship types.
-For the purpose of the visualization, these are treated as different nodes but in the context of the database a person can an actor, director, or both.
-This is an example of using labels to identify a subset of the graph to enhance performance.
-====
+You can view the node properties by selecting the node. 
+
+You can expand a node's relationships by doubling click the node.
+
+image:images/tom-hanks-rels.svg[The Tom Hanks node connected to Movie nodes with ACTED_IN relationships]
 
 == Movies
 
-Movies are categorised into one or more genres.
+Each `Movie` node has a `title` property, and may contain a number of other properties including `plot`, `released` and `url` which contains a link to its page on link:https://www.themoviedb.org/[TMDB^].
+
+Run the following Cypher statement to find the movie 'Toy Story' and the people who acted in the movie.
+
+[source,cypher]
+----
+MATCH (m:Movie)<-[r:ACTED_IN]->(p:Person)
+WHERE m.title = 'Toy Story'
+RETURN m, r, p
+----
+
+image:images/toy-story-actors.svg[The results of the query showing the Toy Story movie node and Person nodes connected by ACTED_IN relationships]
+
+Movies are categorized into one or more genres.
 For example, Toy Story is categorized as Adventure, Animation, Children, Comedy and Fantasy.
 
 [source,cypher]
 .Movie Genres
 ----
-MATCH (m:Movie)-[:IN_GENRE]->(g)
+MATCH (m:Movie)-[r:IN_GENRE]->(g:Genre)
 WHERE m.title = 'Toy Story'
-RETURN m, g
+RETURN m, r, g
 ----
+
+Experiment with these queries. Try and find different films and actors.
 
 == User Ratings
 
-
 The graph contains 671 users and over 100k ratings.
-
-The **rating** the user has given for the movie is stored as a property on the relationship.
-This is an example of a more natural data modeling mentioned in the previous model.
-It is easy for a non-technical user to understand the data model.
-
-
-// TODO: Re-implement tabs...
-[.tab]
-.Result
-====
-image::images/ratings.png[Ratings for Mr Love]
-====
-
-[.tab]
-.Cypher
-====
 
 [source,cypher]
 ----
-MATCH (u:User {name: "Mr. Jason Goodlove"})-[r:RATED]->(m:Movie)
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE u.name = "Mr. Jason Love"
 RETURN u, r, m
 ----
 
-====
+The **rating** the user has given for the movie is stored as a property on the `RATED` relationship.
 
+image::images/ratings.png[Graph of ratings for Mr Love]
+
+You can return tabular data by returning the properties of the nodes.
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE u.name = "Mr. Jason Love"
+RETURN u.name, r.rating, m.title
+----
+
+You will learn more about querying graphs using Cypher in GraphAcademy course link:/courses/cypher-fundamentals[Cypher Fundamentals^].
+
+[TIP]
+====
+You can view the database schema by running the following Cypher statement in the integrated query window to the right.
+
+[source,cypher]
+----
+CALL db.schema.visualization()
+----
+
+This is a built-in procedure that examines the database and returns the labels, relationship types and properties held in the database.
+
+You may notice that the `:Actor` and `:Director` nodes in the visualization have the same relationship types.
+
+For the purpose of the visualization, these are treated as different nodes but in the context of the database a `Person` can an `Actor`, `Director`, or both.
+
+This is an example of using multiple labels on a single node.
+====
 
 == Check Your Understanding
 
