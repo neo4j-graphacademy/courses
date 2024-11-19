@@ -48,6 +48,27 @@ import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
 
 const router = Router()
 
+
+/**
+ * Redirects
+*/
+const redirects = {
+    '/courses/gds-certification/': '/certifications/gds-certification/',
+    '/courses/neo4j-certification/': '/certifications/neo4j-certification/',
+    '/courses/llm-chatbot/': '/courses/llm-chatbot-python/',
+    '/courses/app-go-old/': '/courses/app-go/',
+    '/courses/neo4j/': '/courses/neo4j-fundamentals/',
+}
+
+router.use((req, res, next) => {
+    if (redirects[req.originalUrl]) {
+        return res.redirect(301, redirects[req.originalUrl])
+    }
+
+    next()
+})
+
+
 /**
  * Course Breadcrumbs
  */

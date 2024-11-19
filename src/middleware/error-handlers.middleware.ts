@@ -2,6 +2,7 @@ import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
+import UnauthorizedError from '../errors/unauthorized.error';
 import { getUser } from './auth.middleware';
 
 export function applyErrorHandlers(app: Express) {
@@ -37,6 +38,14 @@ export function applyErrorHandlers(app: Express) {
     }
 
     const unauthorized = (err: Error, req: Request, res: Response) => {
+        if (req.header('Content-type') == 'application/json') {
+            return res.status(401).json({
+                error: {
+                    message: err.message || 'Unauthorized Request',
+                }
+            })
+        }
+
         res.status(401)
             .render('simple', {
                 title: 'Unauthorized Request',
@@ -60,15 +69,16 @@ export function applyErrorHandlers(app: Express) {
     app.use(async (error: Error, req: Request, res: Response, next: NextFunction) => {
         const user = await getUser(req)
 
-        if ((error as NotFoundError).status === 404) {
+
+        if (error instanceof NotFoundError || (error as any).status === 404) {
             return notFoundError(req, res, error)
         }
 
-        if ((error as NotFoundError).status === 401) {
-            return unauthorized(error, req, res)
-        }
+        // if (error instanceof UnauthorizedError || (error as any).status === 401) {
+        //     return unauthorized(error, req, res)
+        // }
 
-        if ((error as AxiosError).response?.status === 401) {
+        if ((error as AxiosError).response?.status === 401 || (error as any).status === 401) {
             let redirectTo = '/login'
 
             if (req.method === 'GET') {

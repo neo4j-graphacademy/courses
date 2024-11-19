@@ -72,9 +72,9 @@ router.get('/', async (req, res, next) => {
                 name: 'apple-itunes-app', content: 'app-id=1557747094'
             }],
             banner: {
-                text: 'Join us on November 7 for NODES 24 - ',
-                link: 'https://neo4j.com/nodes2024/agenda/',
-                cta: 'View the agenda',
+                text: 'Help us improve your experience on GraphAcademy  - ',
+                link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
+                cta: 'Complete the survey',
             },
             translate: translateEn,
         })

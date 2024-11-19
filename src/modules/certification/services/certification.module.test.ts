@@ -6,6 +6,7 @@ import { User } from '../../../domain/model/user'
 import initNeo4j from '../../neo4j'
 import saveAnswer from './save-answer'
 import markAsCompleted from './mark-as-completed'
+import { CompletionSource } from '../../../domain/events/UserCompletedCourse'
 
 config()
 
@@ -23,13 +24,12 @@ describe('Certification Module', () => {
       process.env.NEO4J_PASSWORD as string,
     )
 
-
     session = driver.session()
 
     const res = await driver.executeQuery(`
-            CREATE (u:User:CheckExistingAttemptsTest {sub: 'test|'+ randomUuid()})
-            RETURN u.sub AS sub
-        `)
+      CREATE (u:User:CheckExistingAttemptsTest {sub: 'test|'+ randomUuid()})
+      RETURN u.sub AS sub
+    `)
 
     sub = res.records[0].get('sub')
     user = {
@@ -97,7 +97,7 @@ describe('Certification Module', () => {
 
       // Complete the enrolment
       const complete = await session.executeWrite(
-        async tx => markAsCompleted(tx, res.attemptId)
+        async tx => markAsCompleted(tx, res.attemptId, CompletionSource.WEBSITE)
       )
 
       expect(complete.completed).toBe(true)

@@ -22,6 +22,7 @@ import { getTeam } from '../middleware/save-ref.middleware'
 import getUserTeams from '../domain/services/teams/get-user-teams'
 import leaveTeam from '../domain/services/teams/leave-team'
 import joinTeam from '../domain/services/teams/join-team'
+import createTeam from '../domain/services/teams/create-team'
 
 const router = Router()
 
@@ -649,15 +650,23 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
  *
  * List all teams for the user
  */
-router.get('/teams', requiresAuth(), async (req, res) => {
+const renderTeamsPage = async (req, res, tab = 'join', error?: string, errors = {}) => {
     const user = await getUser(req) as User
     const teams = await getUserTeams(user)
 
     res.render('account/teams', {
-        title: `Teams | Rewards`,
+        title: `Teams`,
         classes: 'account',
         teams,
+        tab,
+        errors,
+        body: req.body || {},
+        messages: error ? [[error]] : []
     })
+}
+
+router.get('/teams', requiresAuth(), async (req, res) => {
+    renderTeamsPage(req, res)
 })
 
 /**
@@ -667,20 +676,26 @@ router.get('/teams', requiresAuth(), async (req, res) => {
  *
  * {"name", "description", "public", "open"}
  */
-router.post('/teams/', requiresAuth(), () => {
-    throw new NotFoundError('Not implemented')
-})
+router.post('/teams/', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
 
-/**
- * POST /teams/:id
- *
- * Update team information (if you are the owner)
- *
- * {"id": "neo4j-devrel", "pin": "1234"}
- */
-// router.post('/teams/:id', requiresAuth(), () => {
-//     throw new NotFoundError('Not implemented')
-// })
+        const { name, description, isPublic, open, } = req.body;
+
+        const { errors, team } = await createTeam(user, name, description, isPublic === 'true', open === 'true')
+
+        if (team !== undefined) {
+            req.flash('success', 'Your team has been created')
+
+            return res.redirect(`/teams/${team.id}/`);
+        }
+
+        return renderTeamsPage(req, res, 'create', 'Unable to create team', errors)
+    }
+    catch (e) {
+        next(e);
+    }
+})
 
 /**
  * POST /teams/join

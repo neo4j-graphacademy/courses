@@ -1,4 +1,4 @@
-import { UserCompletedCourse } from "../../../domain/events/UserCompletedCourse"
+import { CompletionSource, UserCompletedCourse } from "../../../domain/events/UserCompletedCourse"
 import { CourseWithProgress } from "../../../domain/model/course"
 import { User } from "../../../domain/model/user"
 import { appendParams, courseCypher } from "../../../domain/services/cypher"
@@ -72,7 +72,7 @@ export async function saveClassmarkerResult(sub: string, first: string, last: st
     const course: CourseWithProgress = await formatCourse(record.get('course'))
 
     if (passed) {
-        emitter.emit(new UserCompletedCourse(user, course, undefined))
+        emitter.emit(new UserCompletedCourse(user, course, CompletionSource.CRON))
     }
 
     return course

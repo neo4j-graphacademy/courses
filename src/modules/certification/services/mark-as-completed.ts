@@ -1,12 +1,18 @@
 import { ManagedTransaction } from "neo4j-driver";
+import { CompletionSource } from "../../../domain/events/UserCompletedCourse";
 
 type CompletedRecord = {
   completed: boolean;
   percentage: number;
   passed: boolean;
+  source: CompletionSource;
 }
 
-export default async function markAsCompleted(tx: ManagedTransaction, attemptId: string): Promise<CompletedRecord> {
+export default async function markAsCompleted(
+  tx: ManagedTransaction,
+  attemptId: string,
+  source: CompletionSource = CompletionSource.WEBSITE
+): Promise<CompletedRecord> {
   const res = await tx.run<CompletedRecord>(`
     MATCH (a:CertificationAttempt {id: $attemptId})<-[:HAS_ATTEMPT]-(e)-[:FOR_COURSE]->(c)
     WITH a, c, e,
@@ -19,7 +25,8 @@ export default async function markAsCompleted(tx: ManagedTransaction, attemptId:
       e.lastSeenAt = datetime(),
       e.completedAt = datetime(),
       e.percentage = score,
-      e.attempts = COUNT { (e)-[:HAS_ATTEMPT]->() }
+      e.attempts = COUNT { (e)-[:HAS_ATTEMPT]->() },
+      e.source = $source
 
     FOREACH (_ IN CASE WHEN score >= c.passPercentage THEN [1] ELSE [] END |
       SET a:SuccessfulAttempt,
@@ -35,8 +42,9 @@ export default async function markAsCompleted(tx: ManagedTransaction, attemptId:
 
     RETURN e:CompletedEnrolment AS completed,
       score AS percentage,
-      score >= c.passPercentage AS passed
-  `, { attemptId })
+      score >= c.passPercentage AS passed,
+      e.source AS source
+  `, { attemptId, source })
 
   return res.records[0].toObject()
 }

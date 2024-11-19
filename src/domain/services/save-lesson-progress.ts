@@ -4,7 +4,7 @@ import { writeTransaction } from "../../modules/neo4j";
 import { formatCourse } from "../../utils";
 import { UserAnsweredQuestion } from "../events/UserAnsweredQuestion";
 import { UserAttemptedLesson } from "../events/UserAttemptedLesson";
-import { UserCompletedCourse } from "../events/UserCompletedCourse";
+import { CompletionSource, UserCompletedCourse } from "../events/UserCompletedCourse";
 import { UserCompletedLesson } from "../events/UserCompletedLesson";
 import { UserCompletedModule } from "../events/UserCompletedModule";
 import { Answer } from "../model/answer";
@@ -163,7 +163,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
             // Emit if user has completed the course
             if (courseCompletedInTransaction && courseWithProgress.completed) {
-                emitter.emit(new UserCompletedCourse(user, courseWithProgress, token))
+                emitter.emit(new UserCompletedCourse(user, courseWithProgress, token, CompletionSource.WEBSITE))
             }
         }
     }
