@@ -24,6 +24,8 @@ export default function hardenExpress(app: Express) {
                         's7.addthis.com',
                         'd2wy8f7a9ursnm.cloudfront.net',
                         'cdn.lr-ingest.com',
+                        'consent.cookebot.com',
+                        'consentcdn.cookebot.com',
                         'translate-pa.googleapis.com',
                         (req, res) => `'nonce-${res.locals.nonce}'`
                     ],
@@ -34,6 +36,7 @@ export default function hardenExpress(app: Express) {
                         "'self'",
                         DOMAIN,
                         'www.youtube.com',
+                        'www.googletagmanager.com',
                         AUTH0_ISSUER_BASE_URL as string,
                     ].filter(n => n !== undefined),
                     connectSrc: ['*'],
