@@ -1,6 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain_community.graphs import Neo4jGraph
-from langchain.chains import GraphCypherQAChain
+from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain.prompts import PromptTemplate
 
 llm = ChatOpenAI(
@@ -36,7 +35,7 @@ cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True
+    verbose=True,
 )
 
 cypher_chain.invoke({"query": "Who acted in The Matrix?"})
