@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 # end::import-messages[]
 from langchain.schema import StrOutputParser
 # tag::import-memory[]
-from langchain_neo4j import ChatMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 # end::import-memory[]
 # tag::import-runnable[]
 from langchain_core.runnables.history import RunnableWithMessageHistory

@@ -35,7 +35,7 @@ cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True
+    verbose=True,
 )
 
 cypher_chain.invoke({"query": "Who acted in The Matrix?"})

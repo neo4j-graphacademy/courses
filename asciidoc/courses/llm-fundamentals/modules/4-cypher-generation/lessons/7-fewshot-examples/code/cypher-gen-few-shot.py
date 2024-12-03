@@ -46,6 +46,7 @@ cypher_chain = GraphCypherQAChain.from_llm(
     llm,
     graph=graph,
     cypher_prompt=cypher_generation_prompt,
-    verbose=True
+    verbose=True,
+    allow_dangerous_requests=True
 )
 cypher_chain.invoke({"query": "What movies has Tom Hanks directed and what are the genres?"})
