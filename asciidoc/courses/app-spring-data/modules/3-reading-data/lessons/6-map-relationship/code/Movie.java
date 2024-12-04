@@ -122,17 +122,9 @@ public class Movie {
         return countries;
     }
 
-    public void setCountries(String[] countries) {
-        this.countries = countries;
-    }
-
     // tag::getter[]
     public List<Person> getActors() {
         return actors;
-    }
-
-    public void setActors(List<Person> actors) {
-        this.actors = actors;
     }
     // end::getter[]
 }

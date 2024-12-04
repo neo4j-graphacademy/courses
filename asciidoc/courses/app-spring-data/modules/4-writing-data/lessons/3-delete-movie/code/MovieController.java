@@ -36,10 +36,8 @@ public class MovieController {
     }
 
     // tag::delete-method[]
-    @DeleteMapping("/delete")
     void delete(@RequestParam String movieId) {
-        movieRepo.deleteById(movieId);
-        System.out.println("Deleted movie with movieId: " + movieId);
     }
     // end::delete-method[]
 }
+// end::delete-method[]
