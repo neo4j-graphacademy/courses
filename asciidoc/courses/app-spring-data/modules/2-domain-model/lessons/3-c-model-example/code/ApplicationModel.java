@@ -2,6 +2,7 @@
 @Node
 class Order {
     @Id
+    @GeneratedValue(UUIDStringGenerator.class)
     String transactionId;
     String orderNumber;
     LocalDate orderDate;
@@ -18,6 +19,7 @@ class Order {
 @Node
 class Customer {
     @Id
+    @GeneratedValue(UUIDStringGenerator.class)
     String customerId;
     String customerName;
     String loyaltyId;
@@ -28,6 +30,7 @@ class Customer {
 @Node
 class Employee {
     @Id
+    @GeneratedValue(UUIDStringGenerator.class)
     String employeeId;
     String employeeName;
     LocalDate startDate;
