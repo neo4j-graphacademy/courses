@@ -9,6 +9,23 @@ public class Role {
     @TargetNode
     private final Person person;
 
-    //constructor, getters, and setters
+    // tag::boilerplate[]
+    public Role(String id, String role, Person person) {
+        this.id = id;
+        this.role = role;
+        this.person = person;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public Person getPerson() {
+        return person;
+    }
+    // end::boilerplate[]
 }
-// end::role-property[]
