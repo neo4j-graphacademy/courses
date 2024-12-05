@@ -22,5 +22,5 @@ public class Movie {
     private String[] languages;
     private String[] countries;
 
-    //constructor, getters, and setters
+    // constructor and getters
 }
