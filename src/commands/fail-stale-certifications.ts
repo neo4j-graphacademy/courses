@@ -28,6 +28,7 @@ const main = async () => {
     RETURN a.id AS attemptId,
         u { .* } AS user,
         c { .title, .slug } AS course
+    ORDER BY a.createdAt ASC
   `)
 
 

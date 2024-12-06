@@ -6,6 +6,7 @@ type CompletedRecord = {
   percentage: number;
   passed: boolean;
   source: CompletionSource;
+  enrolmentId: string;
 }
 
 export default async function markAsCompleted(
@@ -32,7 +33,7 @@ export default async function markAsCompleted(
       SET a:SuccessfulAttempt,
         e:CompletedEnrolment,
         e.certificateId = randomUuid()
-      REMOVE a:FailedEnrolment
+      REMOVE e:FailedEnrolment
     )
 
     FOREACH (_ IN CASE WHEN score < c.passPercentage THEN [1] ELSE [] END |
@@ -43,7 +44,8 @@ export default async function markAsCompleted(
     RETURN e:CompletedEnrolment AS completed,
       score AS percentage,
       score >= c.passPercentage AS passed,
-      e.source AS source
+      e.source AS source,
+      e.id AS enrolmentId
   `, { attemptId, source })
 
   return res.records[0].toObject()

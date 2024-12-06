@@ -91,7 +91,7 @@ export default async function startCertification(slug: string, user: User, ref: 
 
         return {
           action,
-          id: attemptId,
+          attemptId,
         }
       }
 
