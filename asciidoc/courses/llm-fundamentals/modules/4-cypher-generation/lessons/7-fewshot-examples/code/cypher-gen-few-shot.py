@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 from langchain.chains import GraphCypherQAChain
 from langchain.prompts import PromptTemplate
 
@@ -27,7 +27,7 @@ If no data is returned, do not attempt to answer the question.
 Only respond to questions that require you to construct a Cypher statement.
 Do not include any explanations or apologies in your responses.
 
-Examples: 
+Examples:
 
 Find movies and genres:
 MATCH (m:Movie)-[:IN_GENRE]->(g)

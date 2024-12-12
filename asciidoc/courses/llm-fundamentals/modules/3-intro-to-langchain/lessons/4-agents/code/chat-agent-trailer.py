@@ -8,8 +8,8 @@ from langchain.schema import StrOutputParser
 # tag::import-youtube[]
 from langchain_community.tools import YouTubeSearchTool
 # end::import-youtube[]
-from langchain_community.chat_message_histories import Neo4jChatMessageHistory
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j.chat_message_histories.neo4j import Neo4jChatMessageHistory
+from langchain_neo4j import Neo4jGraph
 from uuid import uuid4
 
 SESSION_ID = str(uuid4())
@@ -83,5 +83,5 @@ while True:
         },
         {"configurable": {"session_id": SESSION_ID}},
     )
-    
+
     print(response["output"])
