@@ -1,26 +1,30 @@
+import os
+from dotenv import load_dotenv
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
-# tag::import[]
 from langchain.output_parsers.json import SimpleJsonOutputParser
-# end::import[]
 
-llm = OpenAI(
-    openai_api_key="sk-...")
+def create_fruit_chain():
+    load_dotenv()
+    
+    llm = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-template = PromptTemplate.from_template("""
-You are a cockney fruit and vegetable seller.
-Your role is to assist your customer with their fruit and vegetable needs.
-Respond using cockney rhyming slang.
+    template = PromptTemplate.from_template("""
+    You are a cockney fruit and vegetable seller.
+    Your role is to assist your customer with their fruit and vegetable needs.
+    Respond using cockney rhyming slang.
 
-Output JSON as {{"description": "your response here"}}
+    Output JSON as {{"description": "your response here"}}
 
-Tell me about the following fruit: {fruit}
-""")
+    Tell me about the following fruit: {fruit}
+    """)
 
-# tag::llm_chain[]
-llm_chain = template | llm | SimpleJsonOutputParser()
-# end::llm_chain[]
+    return template | llm | SimpleJsonOutputParser()
 
-response = llm_chain.invoke({"fruit": "apple"})
+def main():
+    llm_chain = create_fruit_chain()
+    response = llm_chain.invoke({"fruit": "apple"})
+    print(response)
 
-print(response)
+if __name__ == "__main__":
+    main()

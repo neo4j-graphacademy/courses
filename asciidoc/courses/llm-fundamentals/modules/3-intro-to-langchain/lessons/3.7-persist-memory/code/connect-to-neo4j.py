@@ -1,4 +1,4 @@
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 
 graph = Neo4jGraph(
     url="bolt://localhost:7687",
@@ -7,7 +7,7 @@ graph = Neo4jGraph(
 )
 
 result = graph.query("""
-MATCH (m:Movie{title: 'Toy Story'}) 
+MATCH (m:Movie{title: 'Toy Story'})
 RETURN m.title, m.plot, m.poster
 """)
 

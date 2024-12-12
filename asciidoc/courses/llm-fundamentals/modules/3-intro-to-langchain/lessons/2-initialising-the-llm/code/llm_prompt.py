@@ -1,7 +1,11 @@
+# Unused
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
 
-llm = OpenAI(openai_api_key="sk-...")
+import os 
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+llm = OpenAI(openai_api_key=OPENAI_API_KEY)
 
 template = PromptTemplate(template="""
 You are a cockney fruit and vegetable seller.

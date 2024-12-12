@@ -3,10 +3,10 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import StrOutputParser
 from langchain_core.runnables.history import RunnableWithMessageHistory
 # tag::import-neo4j[]
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 # end::import-neo4j[]
 # tag::import-neo4j-chat[]
-from langchain_community.chat_message_histories import Neo4jChatMessageHistory
+from langchain_neo4j.chat_message_histories.neo4j import Neo4jChatMessageHistory
 # end::import-neo4j-chat[]
 # tag::session-id[]
 from uuid import uuid4
@@ -68,12 +68,12 @@ while True:
         {
             "context": current_weather,
             "question": question,
-            
-        }, 
+
+        },
         config={
             "configurable": {"session_id": SESSION_ID}
         }
     )
     # end::invoke[]
-    
+
     print(response)
