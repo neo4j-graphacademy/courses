@@ -21,6 +21,7 @@ export default function hardenExpress(app: Express) {
                         'www.youtube.com',
                         'cdn.graphacademy.neo4j.com',
                         'neo4j.com',
+                        'go.neo4j.com',
                         's7.addthis.com',
                         'd2wy8f7a9ursnm.cloudfront.net',
                         'cdn.lr-ingest.com',
