@@ -7,9 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain.schema import StrOutputParser
 from langchain_community.tools import YouTubeSearchTool
-from langchain_community.chat_message_histories import Neo4jChatMessageHistory
-from langchain_community.graphs import Neo4jGraph
-from langchain_community.vectorstores import Neo4jVector
+from langchain_neo4j import Neo4jChatMessageHistory, Neo4jGraph, Neo4jVector
 from uuid import uuid4
 
 SESSION_ID = str(uuid4())
