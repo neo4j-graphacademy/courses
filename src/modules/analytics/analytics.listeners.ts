@@ -23,6 +23,7 @@ import { UserUpdatedAccount } from '../../domain/events/UserUpdatedAccount'
 import { UserViewedCourse } from '../../domain/events/UserViewedCourse'
 import { UserViewedLesson } from '../../domain/events/UserViewedLesson'
 import { emitter } from '../../events'
+import { OrderCreated } from '../printful/events/OrderCreated'
 import {
     analyticsApiKey,
     ANALYTICS_EVENT_COMMAND_CYPHER,
@@ -47,6 +48,7 @@ import {
     ANALYTICS_EVENT_USER_UPDATED_ACCOUNT,
     ANALYTICS_EVENT_USER_RESET_DATABASE,
     ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT,
+    ANALYTICS_EVENT_USER_ORDERED_REWARD,
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -219,6 +221,14 @@ export default function initAnalyticsListeners(): Promise<void> {
                 lessonSlug: event.lesson.slug,
                 lessonName: event.lesson.title,
             })
+        })
+
+        emitter.on<OrderCreated>(OrderCreated, (event) => {
+            trackEvent(ANALYTICS_EVENT_USER_ORDERED_REWARD, event.user.sub, {
+                order: event.order,
+                reward: event.reward,
+            })
+
         })
     }
 
