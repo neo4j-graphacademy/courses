@@ -1,4 +1,4 @@
-from langchain_community.graphs import Neo4jGraph
+from langchain_neo4j import Neo4jGraph
 
 graph = Neo4jGraph(
     url="bolt://localhost:7687",
