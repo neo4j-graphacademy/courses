@@ -1,1 +1,3 @@
-CALL db.schema.visualization()
+MATCH (n:Person)
+WHERE n.name = 'Tom Hanks'
+RETURN n
