@@ -57,21 +57,21 @@ export async function syncCourses(): Promise<void> {
     console.log(`   -- 🤨 ${questionCount} questions`);
 
 
-    // Clean {FIRST|LAST}_{MODULE|LESSON}
+    // Clean {FIRST|LAST|NEXT}_{MODULE|LESSON}
     await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
-            MATCH ()-[r:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE]->()
+            MATCH (:Module)-[r:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE|NEXT_MODULE]->()
             DELETE r
         `)
     })
-    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE]-> chain`);
+    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE|NEXT_MODULE]-> chain`);
 
     // Clean NEXT chain
     await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
-            MATCH ()-[r:NEXT]->()
+            MATCH (:Lesson)-[r:NEXT]->()
             DELETE r
         `)
     })
@@ -87,7 +87,7 @@ export async function syncCourses(): Promise<void> {
             // Recreate (:Module) NEXT chain
             await tx.run(`
                 MATCH (c:Course)-[:HAS_MODULE]->(m)
-                WHERE c.slug IN $batch
+                WHERE c.slug IN $batch AND NOT m:DeletedModule
                 WITH c, m ORDER BY m.order ASC
                 WITH c, collect(m) AS modules
 
@@ -114,7 +114,7 @@ export async function syncCourses(): Promise<void> {
             // Recreate (:Lesson) NEXT chain
             await tx.run(`
                 MATCH (m:Module)-[:HAS_LESSON]->(l)
-                WHERE m.link IN $batch
+                WHERE m.link IN $batch AND NOT l:DeletedModule AND NOT l:DeletedLesson
                 WITH m, l ORDER BY l.order ASC
                 WITH m, collect(l) AS lessons
 
@@ -129,8 +129,6 @@ export async function syncCourses(): Promise<void> {
                 UNWIND range(0, size(lessons)-2) AS idx
                 WITH lessons[idx] AS last, lessons[idx+1] AS next
                 MERGE (last)-[:NEXT]->(next)
-
-                RETURN *
 
             `, { batch })
         }
