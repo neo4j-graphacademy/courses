@@ -1,3 +1,4 @@
+import os
 from langchain_openai import OpenAIEmbeddings
 from langchain_neo4j import Neo4jGraph, Neo4jVector
 from langchain.schema import Document
@@ -12,13 +13,13 @@ documents = [
 
 # Service used to create the embeddings
 embedding_provider = OpenAIEmbeddings(
-    openai_api_key="sk-..."
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein"
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 
 new_vector = Neo4jVector.from_documents(

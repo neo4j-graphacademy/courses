@@ -1,11 +1,12 @@
 # tag::import[]
+import os
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage  
 # end::import[]
 
 # tag::llm[]
 chat_llm = ChatOpenAI(
-    openai_api_key="sk-..."
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 # end::llm[]
 
