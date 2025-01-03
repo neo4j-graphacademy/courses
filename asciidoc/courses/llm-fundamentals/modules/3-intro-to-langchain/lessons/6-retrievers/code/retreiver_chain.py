@@ -1,17 +1,22 @@
+import os
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_neo4j import Neo4jGraph, Neo4jVector
 
-OPENAI_API_KEY = "sk-..."
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY)
+llm = ChatOpenAI(
+    openai_api_key=OPENAI_API_KEY
+)
 
-embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+embedding_provider = OpenAIEmbeddings(
+    openai_api_key=OPENAI_API_KEY
+)
 
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein"
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 
 movie_plot_vector = Neo4jVector.from_existing_index(

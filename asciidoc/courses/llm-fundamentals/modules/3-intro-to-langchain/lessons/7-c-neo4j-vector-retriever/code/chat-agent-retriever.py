@@ -1,3 +1,4 @@
+import os
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.agents import AgentExecutor, create_react_agent
@@ -13,16 +14,16 @@ from uuid import uuid4
 SESSION_ID = str(uuid4())
 print(f"Session ID: {SESSION_ID}")
 
-OPENAI_API_KEY = "sk-..."
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 llm = ChatOpenAI(openai_api_key=OPENAI_API_KEY)
 
 embedding_provider = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein"
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 
 prompt = ChatPromptTemplate.from_messages(
@@ -88,8 +89,7 @@ chat_agent = RunnableWithMessageHistory(
     history_messages_key="chat_history",
 )
 
-while True:
-    q = input("> ")
+while (q := input("> ")) != "exit":
 
     response = chat_agent.invoke(
         {

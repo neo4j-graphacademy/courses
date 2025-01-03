@@ -1,15 +1,16 @@
+import os
 from langchain_openai import ChatOpenAI
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain.prompts import PromptTemplate
 
 llm = ChatOpenAI(
-    openai_api_key="sk-..."
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 
 # tag::template[]
@@ -49,4 +50,7 @@ cypher_chain = GraphCypherQAChain.from_llm(
     verbose=True,
     allow_dangerous_requests=True
 )
-cypher_chain.invoke({"query": "What movies has Tom Hanks directed and what are the genres?"})
+
+result = cypher_chain.invoke({"query": "What movies has Tom Hanks directed and what are the genres?"})
+
+print(result)
