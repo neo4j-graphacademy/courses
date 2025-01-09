@@ -1,3 +1,4 @@
+import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema import StrOutputParser
@@ -15,13 +16,15 @@ SESSION_ID = str(uuid4())
 print(f"Session ID: {SESSION_ID}")
 # end::session-id[]
 
-chat_llm = ChatOpenAI(openai_api_key="sk-...")
+chat_llm = ChatOpenAI(
+    openai_api_key=os.getenv("OPENAI_API_KEY")
+)
 
 # tag::neo4j-graph[]
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein"
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 # end::neo4j-graph[]
 
@@ -60,9 +63,8 @@ current_weather = """
         ]
     }"""
 
-while True:
-    question = input("> ")
-
+while (question := input("> ")) != "exit":
+    
     # tag::invoke[]
     response = chat_with_message_history.invoke(
         {

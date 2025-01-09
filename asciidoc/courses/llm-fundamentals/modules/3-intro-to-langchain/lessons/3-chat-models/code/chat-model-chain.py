@@ -1,8 +1,11 @@
+import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 
-chat_llm = ChatOpenAI(openai_api_key="sk-...")
+chat_llm = ChatOpenAI(
+    openai_api_key=os.getenv("OPENAI_API_KEY")
+)
 
 prompt = ChatPromptTemplate.from_messages(
     [

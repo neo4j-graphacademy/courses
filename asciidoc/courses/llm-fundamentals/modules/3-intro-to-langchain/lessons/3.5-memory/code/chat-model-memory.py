@@ -1,3 +1,4 @@
+import os
 from langchain_openai import ChatOpenAI
 # tag::import-messages[]
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -10,7 +11,9 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 # end::import-runnable[]
 
-chat_llm = ChatOpenAI(openai_api_key="sk-...")
+chat_llm = ChatOpenAI(
+    openai_api_key=os.getenv("OPENAI_API_KEY")
+)
 
 # tag::prompt[]
 prompt = ChatPromptTemplate.from_messages(
@@ -55,8 +58,7 @@ current_weather = """
     }"""
 
 # tag::loop[]
-while True:
-    question = input("> ")
+while (question := input("> ")) != "exit":
 
     response = chat_with_message_history.invoke(
         {
