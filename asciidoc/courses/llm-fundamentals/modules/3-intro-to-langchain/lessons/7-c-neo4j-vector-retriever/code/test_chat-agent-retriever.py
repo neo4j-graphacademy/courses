@@ -1,4 +1,4 @@
-def test_chat_agent_trailer(test_helpers, monkeypatch):
+def test_chat_agent_retriever(test_helpers, monkeypatch):
 
     output = test_helpers.run_module(
         monkeypatch, 
