@@ -1,0 +1,3 @@
+CREATE FULLTEXT INDEX plotFulltext IF NOT EXISTS
+FOR (m:Movie)
+ON EACH [m.plot]
