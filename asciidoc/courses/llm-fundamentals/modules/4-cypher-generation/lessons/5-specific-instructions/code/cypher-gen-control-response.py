@@ -1,15 +1,16 @@
+import os
 from langchain_openai import ChatOpenAI
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
 from langchain.prompts import PromptTemplate
 
 llm = ChatOpenAI(
-    openai_api_key="sk-..."
+    openai_api_key=os.getenv("OPENAI_API_KEY")
 )
 
 graph = Neo4jGraph(
-    url="bolt://localhost:7687",
-    username="neo4j",
-    password="pleaseletmein",
+    url=os.getenv("NEO4J_URI"),
+    username=os.getenv("NEO4J_USERNAME"),
+    password=os.getenv("NEO4J_PASSWORD")
 )
 
 CYPHER_GENERATION_TEMPLATE = """
@@ -42,4 +43,6 @@ cypher_chain = GraphCypherQAChain.from_llm(
     allow_dangerous_requests=True
 )
 
-cypher_chain.invoke({"query": "What role did Tom Hanks play in Toy Story?"})
+result = cypher_chain.invoke({"query": "What role did Tom Hanks play in Toy Story?"})
+
+print(result)
