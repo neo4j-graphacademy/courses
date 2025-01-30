@@ -1,3 +1,3 @@
 MATCH (m:Movie) 
-WHERE "Jamaica" IN m.countries
+WHERE ??????
 RETURN m.title, m.countries 
