@@ -1,3 +1,3 @@
 MATCH (m:Movie)
-WHERE m.poster IS NOT NULL
+WHERE ??????
 RETURN m.title
