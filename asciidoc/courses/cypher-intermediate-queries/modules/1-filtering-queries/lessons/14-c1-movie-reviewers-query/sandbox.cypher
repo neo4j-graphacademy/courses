@@ -1,0 +1,4 @@
+MATCH (m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE g.name = 'Film-Noir'
+MATCH (?)<-[:??????]-(u:??????)
+RETURN m.title, u.name
