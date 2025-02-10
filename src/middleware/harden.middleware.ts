@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import helmet from "helmet"
+import helmet from 'helmet'
 import nonce from 'nonce-express'
 import { AUTH0_ISSUER_BASE_URL, DOMAIN, IS_PRODUCTION } from '../constants'
 
@@ -28,11 +28,9 @@ export default function hardenExpress(app: Express) {
                         'consent.cookebot.com',
                         'consentcdn.cookebot.com',
                         'translate-pa.googleapis.com',
-                        (req, res) => `'nonce-${res.locals.nonce}'`
+                        (req, res) => `'nonce-${res.locals.nonce}'`,
                     ],
-                    imgSrc: [
-                        '*', 'data:'
-                    ],
+                    imgSrc: ['*', 'data:'],
                     frameSrc: [
                         "'self'",
                         DOMAIN,
@@ -41,20 +39,12 @@ export default function hardenExpress(app: Express) {
                         'consentcdn.cookiebot.com',
                         'consent.cookebot.com',
                         AUTH0_ISSUER_BASE_URL as string,
-                    ].filter(n => n !== undefined),
-                    frameAncestors: [
-                        'self', 'https://*.saleshood.com',
-                    ],
+                    ].filter((n) => n !== undefined),
+                    frameAncestors: ['self', 'https://*.saleshood.com'],
                     connectSrc: ['*'],
-                    baseUri: [
-                        "'self'",
-                        'cdn.graphacademy.neo4j.com'
-                    ],
-                    workerSrc: [
-                        "'self'",
-                        'blob:',
-                    ]
-                }
+                    baseUri: ["'self'", 'cdn.graphacademy.neo4j.com'],
+                    workerSrc: ["'self'", 'blob:'],
+                },
             }),
             helmet.noSniff()
         )
