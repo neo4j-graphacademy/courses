@@ -1,5 +1,5 @@
 import pug from 'pug'
-import Mailgun from 'mailgun.js'
+import Mailgun, { MessagesSendResult } from 'mailgun.js'
 import { flattenAttributes } from '../utils'
 import { loadFile } from './asciidoc'
 import { notify } from '../middleware/bugsnag.middleware'
@@ -16,7 +16,7 @@ interface Attachment {
     filename: string;
 }
 
-export function send(to: string, subject: string, html: string, tag?: string, attachments?: Attachment[]): void {
+export async function send(to: string, subject: string, html: string, tag?: string, attachments?: Attachment[]): Promise<void | MessagesSendResult> {
     if (MAILGUN_API_KEY && MAILGUN_DOMAIN) {
         const mailgun = new Mailgun(formData)
 
@@ -25,8 +25,7 @@ export function send(to: string, subject: string, html: string, tag?: string, at
             key: MAILGUN_API_KEY,
         })
 
-
-        mailer.messages.create(MAILGUN_DOMAIN, {
+        return mailer.messages.create(MAILGUN_DOMAIN, {
             from: MAIL_FROM,
             'h:Reply-To': MAIL_REPLY_TO,
             to,
@@ -43,7 +42,7 @@ export function send(to: string, subject: string, html: string, tag?: string, at
     }
 }
 
-export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder' | 'reward-ordered' | 'reward-shipped'
+export type AsciidocEmailFilename = 'user-completed-course' | 'user-enrolled' | 'user-enrolment-reminder' | 'reward-ordered' | 'reward-shipped' | 'user-failed-exam' | 'user-created-team' | 'user-joined-team'
 
 interface PreparedEmail {
     subject: string;
@@ -71,12 +70,12 @@ export function prepareEmail(filename: AsciidocEmailFilename, attributesToBeFlat
     }
 }
 
-export function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, string | Record<string, any>>, directory = '', tag?: string, attachments?: Attachment[]): void {
+export async function prepareAndSend(filename: AsciidocEmailFilename, email: string, data: Record<string, string | Record<string, any>>, directory = '', tag?: string, attachments?: Attachment[]): Promise<void> {
     const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
 
     if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
-        send(email, decode(subject), html, tag, attachments)
+        await send(email, decode(subject), html, tag, attachments)
     }
 }

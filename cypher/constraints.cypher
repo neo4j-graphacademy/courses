@@ -61,3 +61,5 @@ CREATE CONSTRAINT IF NOT EXISTS FOR (n:CertificationQuestion) REQUIRE (n.path) I
 CREATE CONSTRAINT IF NOT EXISTS FOR (n:CertificationAttempt) REQUIRE (n.id) IS UNIQUE;
 
 CREATE INDEX IF NOT EXISTS FOR (n:CertificationAttempt) ON (n.createdAt);
+
+CREATE INDEX for (a:Attempt) on a.createdAt;

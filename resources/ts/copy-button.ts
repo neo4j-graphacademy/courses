@@ -20,10 +20,10 @@ export default function copyButtons() {
             const target = createElement('span', 'target', Array.from(element.childNodes))
             const label = createElement('span', 'btn-label', ['Copy Text'])
 
-            const children = [ target, label ]
+            const children = [target, label]
 
             // @ts-ignore
-            const button = createElement('button', 'btn-inline-copy', children)
+            const button = createElement('button', 'btn-inline-copy notranslate', children)
 
             button.addEventListener('click', e => handleCopyClick(e))
 

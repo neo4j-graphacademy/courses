@@ -1,4 +1,4 @@
-import { Transaction } from "neo4j-driver";
+import { ManagedTransaction } from "neo4j-driver";
 import { User, ValidLookupProperty } from "../../model/user";
 import { Sandbox } from "../../model/sandbox";
 import { EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_BOOKMARKED } from "../../model/enrolment";
@@ -38,7 +38,7 @@ type DatabaseEnrolment = Omit<IntermediateEnrolment, 'createdAt' | 'completedAt'
 }
 
 
-export default async function getEnrolments(tx: Transaction, user: Partial<User>, property: ValidLookupProperty = 'sub', courseSlug?: string): Promise<IntermediateEnrolment[]> {
+export default async function getEnrolments(tx: ManagedTransaction, user: Partial<User>, property: ValidLookupProperty = 'sub', courseSlug?: string): Promise<IntermediateEnrolment[]> {
     const res = await tx.run<{ enrolment: DatabaseEnrolment }>(`
         MATCH (u:User {\`${property}\`: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course)
         WHERE NOT c.status IN $exclude

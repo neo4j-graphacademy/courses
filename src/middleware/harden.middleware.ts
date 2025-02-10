@@ -1,5 +1,5 @@
 import { Express } from 'express'
-import helmet from "helmet"
+import helmet from 'helmet'
 import nonce from 'nonce-express'
 import { AUTH0_ISSUER_BASE_URL, DOMAIN, IS_PRODUCTION } from '../constants'
 
@@ -21,31 +21,30 @@ export default function hardenExpress(app: Express) {
                         'www.youtube.com',
                         'cdn.graphacademy.neo4j.com',
                         'neo4j.com',
+                        'go.neo4j.com',
                         's7.addthis.com',
                         'd2wy8f7a9ursnm.cloudfront.net',
                         'cdn.lr-ingest.com',
+                        'consent.cookebot.com',
+                        'consentcdn.cookebot.com',
                         'translate-pa.googleapis.com',
-                        (req, res) => `'nonce-${res.locals.nonce}'`
+                        (req, res) => `'nonce-${res.locals.nonce}'`,
                     ],
-                    imgSrc: [
-                        '*', 'data:'
-                    ],
+                    imgSrc: ['*', 'data:'],
                     frameSrc: [
                         "'self'",
                         DOMAIN,
                         'www.youtube.com',
+                        'www.googletagmanager.com',
+                        'consentcdn.cookiebot.com',
+                        'consent.cookebot.com',
                         AUTH0_ISSUER_BASE_URL as string,
-                    ].filter(n => n !== undefined),
+                    ].filter((n) => n !== undefined),
+                    frameAncestors: ['self', 'https://*.saleshood.com'],
                     connectSrc: ['*'],
-                    baseUri: [
-                        "'self'",
-                        'cdn.graphacademy.neo4j.com'
-                    ],
-                    workerSrc: [
-                        "'self'",
-                        'blob:',
-                    ]
-                }
+                    baseUri: ["'self'", 'cdn.graphacademy.neo4j.com'],
+                    workerSrc: ["'self'", 'blob:'],
+                },
             }),
             helmet.noSniff()
         )

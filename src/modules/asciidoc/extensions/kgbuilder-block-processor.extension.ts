@@ -1,5 +1,5 @@
 /* eslint-disable */
-export function kbBuilderBlockProcessor(registry: any) {
+export function kgBuilderBlockProcessor(registry: any) {
   registry.blockMacro(function () {
     // @ts-ignore
     const self: any = this

@@ -1,8 +1,8 @@
 # GraphAcademy
 
-| Website                                                                                                                                                                          | Courses                                                                                                                                                                          |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [![Release](https://github.com/neo4j-graphacademy/website/actions/workflows/release.yml/badge.svg)](https://github.com/neo4j-graphacademy/website/actions/workflows/release.yml) | [![Release](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml/badge.svg)](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml) |
+| Website                                                                                                                                                                                  | Courses                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [![Deploy to AWS ECS](https://github.com/neo4j-graphacademy/website/actions/workflows/deploy.yml/badge.svg)](https://github.com/neo4j-graphacademy/website/actions/workflows/deploy.yml) | [![Release](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml/badge.svg)](https://github.com/neo4j-graphacademy/courses/actions/workflows/release.yml) |
 
 ## Installation
 
@@ -296,7 +296,8 @@ To redeploy:
 2. From the workflow list on the left, select "Deploy to AWS ECS" workflow.
 3. Above the list of workflow runs, click "Run workflow".
 
-   ***IMPORTANT: For the next step (4) if you use branch master, it will deploy on production. If you use branch development, it will deploy on development.***
+    **_IMPORTANT: For the next step (4) if you use branch master, it will deploy on production. If you use branch development, it will deploy on development._**
+
 4. Under "Use workflow from", use the dropdown to select the branch that you would like to use.
 5. Click "Run workflow".
 
@@ -304,23 +305,25 @@ To redeploy:
 
 To update environment variables for the website:
 
-1. Log into the AWS account. Use the production account for production values and the development account for development values. 
+1. Log into the AWS account. Use the production account for production values and the development account for development values.
 2. Search for AWS Secrets Manager.
 3. Go to the "Secrets" tab on the left.
 4. Click on the secret name you want to update.
 5. In the "Secret value" section, click "Retrieve secret value" on the right.
 6. Click the "Edit" button on the right.
-7. Edit the values and save. 
+7. Edit the values and save.
 8. Trigger the "Deploy to AWS ECS" workflow from the appropriate branch. Use the master branch for production or the development branch for development.
 
 ### Updating cron schedule
 
-To update the cron schedule, edit the `cron` attribute in the relevant item in `deployment-config/cron-config.yaml`.  
+To update the cron schedule, edit the `cron` attribute in the relevant item in `deployment-config/cron-config.yaml`.
+
 > Note: The cron string syntax is AWS EventBridge syntax, not Linux syntax. [Here you can find more information about AWS EventBridge Rules cron syntax.](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html)
 
 ### Creating new cron job
 
 To create a new cron job, in `deployment-config/cron-config.yaml`, create a new object under the `crons` attribute.
+
 > Note: The cron string syntax is AWS EventBridge syntax, not Linux syntax [Here you can find more information about AWS EventBridge Rules cron syntax.](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html)
 
 ### Adding new environment variables

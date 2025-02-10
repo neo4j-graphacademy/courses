@@ -20,6 +20,7 @@ import getCertificationResults from "./services/get-certification-results";
 import getCertification from "./services/get-certification";
 import { existsSync } from "fs";
 import path from "path";
+import NotFoundError from "../../errors/not-found.error";
 
 const router = Router({
     caseSensitive: true,
@@ -60,6 +61,10 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
         const { course, updatedAt, ...status } = await getCertification(slug, user)
 
         const updated = typeof updatedAt === 'string' ? new Date(updatedAt) : updatedAt
+
+        if (course === undefined) {
+            return next(new NotFoundError(`Could not find certification ${slug}`))
+        }
 
         // Emit user viewed course
         if (user) {
@@ -219,7 +224,6 @@ router.post('/:slug/exam', requiresAuth(), async (req, res, next) => {
         if (typeof answers === 'string') {
             answers = [answers]
         }
-
 
         answers = answers.map((answer: string) => answer.trim())
 

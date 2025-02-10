@@ -1,4 +1,6 @@
+import { emitter } from "../../../events";
 import { writeTransaction } from "../../../modules/neo4j";
+import { UserJoinedTeam } from "../../events/UserJoinedTeam";
 import Team from "../../model/team";
 import { User } from "../../model/user";
 
@@ -24,7 +26,15 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
       }
     }
 
-    const team = res.records[0].get('team') as Team
+    const team = res.records[0].get('team')
+
+    // handle incorrect pin
+    if (team && team.pin !== undefined && team.pin !== pin) {
+      return {
+        outcome: Outcome.INCORRECT_PIN,
+      }
+    }
+
     const joined = res.records[0].get('joined')
 
     if (joined) {
@@ -62,6 +72,8 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
   else if (outcome === Outcome.INCORRECT_PIN) {
     return { team, error: `Incorrect PIN for team ${id}` }
   }
+
+  emitter.emit(new UserJoinedTeam(user, team))
 
   return {
     team,

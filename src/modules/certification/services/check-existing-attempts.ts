@@ -71,9 +71,9 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
       a.expiresAt AS expiresAt,
       a.expiresAt + duration('P1D') AS availableAfter,
 
-      CASE WHEN assigned > 0 THEN 100.0 * correct / assigned ELSE null END AS percentage,
-      CASE WHEN answered > 0 THEN 100.0 * correct / answered ELSE 0 END AS currentPassPercentage,
-      CASE WHEN answered > 0 THEN 100.0 * answered / assigned ELSE 0 END AS progress,
+      CASE WHEN assigned > 0 THEN round(100.0 * correct / assigned, 2) ELSE null END AS percentage,
+      CASE WHEN answered > 0 THEN round(100.0 * correct / answered, 2) ELSE 0 END AS currentPassPercentage,
+      CASE WHEN answered > 0 THEN round(100.0 * answered / assigned, 2) ELSE 0 END AS progress,
 
 
       // Finished?

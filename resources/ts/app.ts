@@ -20,6 +20,7 @@ import contextMenu from './context-menu'
 import accordion from './accordion'
 import chatbot from './chatbot'
 import exam from './exam'
+import teamCourses from './team-courses'
 
 window.addEventListener('DOMContentLoaded', () => {
     highlight()
@@ -43,6 +44,7 @@ window.addEventListener('DOMContentLoaded', () => {
     contextMenu()
     accordion()
     exam()
+    teamCourses()
 
     // Lazyload images
     const ll = new lazyload()

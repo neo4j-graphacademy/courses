@@ -12,7 +12,7 @@ import { User } from '../domain/model/user'
 import { Sandbox } from '../domain/model/sandbox'
 import { readFileSync } from 'fs'
 import { courseSummaryPdfPath } from '../modules/asciidoc'
-import { UserCompletedCourse } from '../domain/events/UserCompletedCourse'
+import { CompletionSource, UserCompletedCourse } from '../domain/events/UserCompletedCourse'
 import { formatCourse } from '../utils'
 import { emitter } from '../events'
 import { CourseWithProgress } from '../domain/model/course'
@@ -243,7 +243,7 @@ router.get('/event/:event/:course', async (req, res) => {
             summary: true,
         })
 
-        emitter.emit(new UserCompletedCourse(user, course, undefined))
+        emitter.emit(new UserCompletedCourse(user, course, CompletionSource.WEBSITE))
 
         return res.send(`${req.params.event} fired!`)
     }

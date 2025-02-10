@@ -14,7 +14,7 @@ export function saveRef(req: Request, res: Response, next: NextFunction) {
         res.cookie('ref', req.session['ref'])
     }
     else if (req.query.utm_source) {
-        req.session['ref'] = `${req.query.utm_source}-${req.query.utm_medium}-${req.query.utm_campaign}-${req.query.utm_content}`
+        req.session['ref'] = `${req.query.utm_source}--${req.query.utm_medium}||${req.query.utm_campaign}||${req.query.utm_content}`
         res.cookie('ref', req.session['ref'])
     }
 
