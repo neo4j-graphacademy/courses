@@ -38,8 +38,13 @@ export default function hardenExpress(app: Express) {
                         DOMAIN,
                         'www.youtube.com',
                         'www.googletagmanager.com',
+                        'consentcdn.cookiebot.com',
+                        'consent.cookebot.com',
                         AUTH0_ISSUER_BASE_URL as string,
                     ].filter(n => n !== undefined),
+                    frameAncestors: [
+                        'self', 'https://*.saleshood.com',
+                    ],
                     connectSrc: ['*'],
                     baseUri: [
                         "'self'",
