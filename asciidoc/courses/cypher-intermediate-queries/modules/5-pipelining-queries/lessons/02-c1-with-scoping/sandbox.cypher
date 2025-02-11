@@ -1,4 +1,4 @@
-WITH 'Tom Hanks' AS theActor
+?????? 'Tom Hanks' AS ??????
 MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
-WHERE p.name = theActor
+WHERE p.name = ??????
 RETURN m.title AS title
