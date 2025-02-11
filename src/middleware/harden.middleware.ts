@@ -40,7 +40,7 @@ export default function hardenExpress(app: Express) {
                         'consent.cookebot.com',
                         AUTH0_ISSUER_BASE_URL as string,
                     ].filter((n) => n !== undefined),
-                    frameAncestors: ['self', 'https://*.saleshood.com'],
+                    frameAncestors: ['self', '*.saleshood.com', '*.neo4j.com'],
                     connectSrc: ['*'],
                     baseUri: ["'self'", 'cdn.graphacademy.neo4j.com'],
                     workerSrc: ["'self'", 'blob:'],
