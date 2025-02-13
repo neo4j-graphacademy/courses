@@ -1,3 +1,3 @@
 MATCH (m:Movie) 
-WHERE "German" IN m.languages
-RETURN count(m)
+WHERE "Jamaica" IN m.countries
+RETURN m.title, m.countries 

@@ -1,4 +1,5 @@
 MATCH (d:Director)-[:DIRECTED]-(m)
-RETURN d.name AS Director,
-count(*) AS numMovies
+RETURN 
+    d.name AS director,
+    count(*) AS numMovies
 ORDER BY numMovies DESC LIMIT 5

@@ -1,0 +1,3 @@
+MATCH (d:Director)-[:DIRECTED]->(m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE ?????? AND ??????
+RETURN d.name
