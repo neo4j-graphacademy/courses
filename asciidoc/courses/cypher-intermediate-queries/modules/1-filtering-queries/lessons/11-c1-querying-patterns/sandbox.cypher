@@ -1,0 +1,4 @@
+MATCH (p:Person)-[:DIRECTED]->(m:Movie)
+WHERE p.name = 'Rob Reiner'
+AND NOT ?????? {(?)-[:??????]->(?)}
+RETURN DISTINCT m.title
