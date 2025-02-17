@@ -6,7 +6,7 @@ const neo4j = require('neo4j-driver')
 
 config({ path: process.env.ENV_FILE || '.env.production' })
 
-describe('Database Tests', () => {
+describe(`Database Tests ${process.env.ENV_FILE}`, () => {
     let driver
     let dbCourses
 
