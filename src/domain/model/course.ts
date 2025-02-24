@@ -61,7 +61,7 @@ export interface Course {
     duration?: string;
     redirect?: string;
     thumbnail: string;
-    caption: string;
+    caption: string
     status: CourseStatus;
     interested?: string[];
     isInterested?: boolean;

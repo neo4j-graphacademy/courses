@@ -45,6 +45,7 @@ import { Sandbox } from '../domain/model/sandbox'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
 import getChatbot from '../modules/chatbot/chatbot.class'
 import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
+import { LESSON_TYPE_QUIZ } from '../domain/model/lesson'
 
 const router = Router()
 
@@ -939,8 +940,16 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Emit user viewed lesson
         emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
 
+        // Mark as read if there are no questions
+        if (lesson.questions.length === 0) {
+            await saveLessonProgress(user as User, course.slug, module.slug, lesson.slug, [], token)
+        }
+
+        // Has slides
+        const slides = /class=".*slide.*"/.test(doc)
+
         res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'}`,
+            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'} ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
             analytics: {
                 course: {
                     slug: course.slug,
@@ -974,6 +983,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             sandboxVisible,
             summary: await courseSummaryExists(req.params.course),
             translate: translate(course.language),
+            slides,
         })
     }
     catch (e) {

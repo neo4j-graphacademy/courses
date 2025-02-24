@@ -38,6 +38,8 @@ export interface Lesson {
     cypher: string | undefined;
     verify: string | undefined;
     optional: boolean;
+    slides: boolean;
+    sequential: boolean;
     disableCache: boolean;
     questions: Question[];
     previous: Pagination | undefined;

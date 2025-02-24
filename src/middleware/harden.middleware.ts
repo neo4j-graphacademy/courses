@@ -7,9 +7,8 @@ export default function hardenExpress(app: Express) {
     app.disable('x-powered-by')
     app.use(nonce())
 
-    if (IS_PRODUCTION) {
+    if (IS_PRODUCTION || true) {
         app.use(
-            helmet.frameguard({ action: 'sameorigin' }),
             helmet.contentSecurityPolicy({
                 useDefaults: true,
                 directives: {

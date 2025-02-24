@@ -1,5 +1,6 @@
 import { createElement } from "./modules/dom"
 import { logUiEvent } from "./modules/events"
+import { default as slides, CLASSROOM_SLIDES_VISIBLE } from "./slides"
 
 export function logToggle(type, visible) {
     logUiEvent(type, {
@@ -202,5 +203,6 @@ export default function classroom() {
     toggleToc()
     videoTabs()
     toggleNavigation()
+    slides()
     // moveCurrentLessonIntoView()
 }

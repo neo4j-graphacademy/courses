@@ -409,7 +409,7 @@ const LESSON_OUTCOME_PASSED = 'lesson-outcome--passed'
 const LESSON_OUTCOME_FAILED = 'lesson-outcome--failed'
 
 const removeFailedMessages = (parent) => {
-    parent.querySelectorAll(`.${LESSON_OUTCOME_FAILED}`)
+    parent?.querySelectorAll(`.${LESSON_OUTCOME_FAILED}`)
         .forEach(el => el.parentElement!.removeChild(el))
 }
 
@@ -889,23 +889,23 @@ const completedIndicator = () => {
 }
 
 
-const createSubmitButton = (text) => {
+const createSubmitButton = (text): HTMLButtonElement => {
     const button = createElement('button', 'btn btn--primary btn-submit', [
         loadingIndicator(),
         createElement('span', 'btn-label', [text])
     ])
 
-    return button
+    return button as HTMLButtonElement
 }
 
 let questionsOnPage: Question[] = []
 
 export const getQuestionsOnPage: () => Question[] = () => questionsOnPage
 
-const setupQuestions = async () => {
-    // Don't run if lesson is already completed
+const setupQuestions = async (): Promise<HTMLButtonElement | undefined> => {
     const body = document.getElementsByTagName('body')[0]
 
+    // Don't run if lesson is already completed
     if (body && body.classList.contains(LESSON_COMPLETED)) {
         setupAnswers()
         return;
@@ -920,7 +920,7 @@ const setupQuestions = async () => {
     if (questionsOnPage.length && !body.classList.contains('quiz') && !body.classList.contains('layout--exam')) {
         // Add Submit button
         const parent = questionsOnPage[0].parent;
-        const button = createSubmitButton(`Check Answer${questionsOnPage.length > 1 ? 's' : ''}`)
+        const button = createSubmitButton(`Check answer${questionsOnPage.length > 1 ? 's' : ''}`)
 
         parent.appendChild(button)
 
@@ -931,44 +931,8 @@ const setupQuestions = async () => {
             attempts++
 
             // Gather answers
-            const responses: Answer[] = questionsOnPage.map(question => {
-                let answers: string[] = [];
-
-                if (question.type === ANSWER_TYPE_FREETEXT) {
-                    answers = Array.from(question.element.querySelectorAll('input'))
-                        .map(input => {
-                            // Trim whitespace
-                            let output = input.value.trim()
-
-                            // Remove start and end quotes
-                            if (output.startsWith('"') && output.endsWith('"')) {
-                                output = output.substr(1, output.length - 2)
-                            }
-
-                            return output
-                        })
-                        .filter(value => value && value !== '')
-                }
-                else {
-                    answers = Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
-                        .map(element => element.getAttribute('value'))
-                        .filter(value => !!value)
-                        .map(value => value!.trim())
-                }
-
-                if (!answers.length) return
-
-                // @ts-ignore
-                const correctOptions = question.options.filter(option => option.correct).map(option => option.value)
-
-                return {
-                    id: question.id,
-                    answers,
-                    correct: answers.length === correctOptions.length && answers.every(answer => correctOptions.includes(answer!)),
-                }
-            })
-                .filter(e => !!e) as Answer[]
-
+            const responses: Answer[] = questionsOnPage.map(question => isQuestionCorrect(question))
+                .filter(e => !!e)
 
             // Send Progress to API
             setButtonLoadingState(button as HTMLButtonElement)
@@ -982,7 +946,10 @@ const setupQuestions = async () => {
             post(document.location.pathname, responses)
                 .then(res => handleResponse(parent, button, res, questionsOnPage, responses))
                 .catch(error => handleError(parent, button, error))
+
         })
+
+        return button
     }
 }
 
@@ -1013,6 +980,11 @@ const setButtonNegativeState = (button: HTMLButtonElement) => {
     }
 }
 
+/**
+ * Verify database
+ *
+ * @returns void
+ */
 const setupVerify = () => {
     const body = document.getElementsByTagName('body')[0]
 
@@ -1099,8 +1071,113 @@ const setupMarkAsReadButton = () => {
         })
 }
 
+const isQuestionCorrect = (question: Question): Answer => {
+    let answers: string[] = [];
+
+    if (question.type === ANSWER_TYPE_FREETEXT) {
+        answers = Array.from(question.element.querySelectorAll('input'))
+            .map(input => {
+                // Trim whitespace
+                let output = input.value.trim()
+
+                // Remove start and end quotes
+                if (output.startsWith('"') && output.endsWith('"')) {
+                    output = output.substr(1, output.length - 2)
+                }
+
+                return output
+            })
+            .filter(value => value && value !== '')
+    }
+    else {
+        answers = Array.from(document.querySelectorAll(`input[name="${question.id}"]:checked, select[name="${question.id}"] option:checked`))
+            .map(element => element.getAttribute('value'))
+            .filter(value => !!value)
+            .map(value => value!.trim())
+    }
+
+    // @ts-ignore
+    const correctOptions = question.options.filter(option => option.correct).map(option => option.value)
+
+    return {
+        id: question.id,
+        answers,
+        correct: answers.length === correctOptions.length && answers.every(answer => correctOptions.includes(answer!)),
+    }
+}
+
+const setupSequential = (submitButton) => {
+    const body = document.querySelector('body')
+    if (body && !body.classList.contains('lesson--sequential')) {
+        return
+    }
+
+    for (const i in questionsOnPage) {
+        const question = questionsOnPage[i]
+
+        if (parseInt(i) === 0) {
+            question.element.classList.add('question--current')
+        }
+
+        if (parseInt(i) < questionsOnPage.length - 1) {
+            const penultimate = parseInt(i) === questionsOnPage.length - 2
+
+
+
+            // Create "next button"
+            const nextButton = document.createElement('button')
+            nextButton.classList.add('btn', 'btn--primary')
+            nextButton.classList.add('btn', 'btn--next')
+            nextButton.innerText = 'Check answer'
+
+            nextButton.addEventListener('click', e => {
+                e.preventDefault()
+
+                const answer = isQuestionCorrect(question)
+
+                if (answer.correct) {
+                    // reset attempts
+                    attempts = 0
+
+                    // Set input as disabled, add correct class
+                    question.element.classList.add(QUESTION_CORRECT)
+                    question.element.querySelectorAll('input, select').forEach(input => {
+                        input.setAttribute('disabled', 'disabled')
+                    })
+
+                    // remove button
+                    question.element.removeChild(nextButton)
+
+                    // Move on to next question
+                    if (question.element.nextElementSibling) {
+                        question.element.nextElementSibling.classList.add('question--current')
+                        question.element.nextElementSibling.scrollIntoView({ behavior: 'smooth' })
+                    }
+
+                    // If penultimate question, show submit button
+                    if (penultimate) {
+                        submitButton.classList.add('btn--visible')
+                    }
+                }
+                else {
+                    // Set negative status
+                    question.element.classList.add(QUESTION_INCORRECT)
+
+                    setButtonNegativeState(nextButton)
+                    handleShowHints(question.element as HTMLElement)
+                }
+            })
+
+            question.element.appendChild(nextButton)
+        }
+    }
+}
+
 export default function questions() {
     setupVerify()
     setupMarkAsReadButton()
     setupQuestions()
+        .then((button) => {
+            setupSequential(button)
+        })
 }
