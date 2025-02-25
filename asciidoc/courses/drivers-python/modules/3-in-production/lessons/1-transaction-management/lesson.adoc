@@ -1,0 +1,156 @@
+= Transaction management
+:type: video
+:minutes: 10
+:slides: true
+
+[.slide.discrete]
+== Introduction
+In the previous module, you learned how to execute one-off Cypher statements using the `execute_query()`  method.
+
+The drawback of this method is that the entire record set is only available once the final result is returned. 
+For longer running queries or larger datasets, this can consume a lot of memory and a long wait for the final result.
+
+In a production application, you may also need finer control of database transactions or to run multiple related queries as part of a single transaction.
+
+Transaction functions allow you to run multiple queries in a single transaction while accessing results immediately.
+
+
+[TIP]
+.Understanding Transactions
+====
+Neo4j is an ACID-compliant transactional database, which means queries are executed as part of a single atomic transaction. This ensures your data operations are consistent and reliable.
+====
+
+
+[.slide]
+== Sessions
+
+To execute transactions, you need to open a session. The session object manages the underlying database connections and provides methods for executing transactions.
+
+[source,python]
+----
+with driver.session() as session:
+  # Call transaction functions here
+----
+
+Consuming a session within a try-with-resources statement will automatically close the session and release any underlying connections when the block is exited.
+
+[TIP]
+.Specifying a database
+====
+In a multi-database instance, you can specify the database to use when creating a session using the `database` parameter.
+====
+
+
+
+[.slide]
+== Transaction functions
+
+The session object provides two methods for managing transactions:
+
+* `Session.execute_read()`
+* `Session.execute_write()`
+
+If the entire function runs successfully, the transaction is committed automatically. If any errors occur, the entire transaction is rolled back.
+
+[TIP]
+.Transient errors
+====
+These functions will also retry if the transaction fails due to a transient error, for example, a network issue.
+====
+
+
+
+[.slide.col-2]
+== Unit of work patterns
+
+[.col]
+====
+A unit of work is a pattern that groups related operations into a single transaction. 
+
+[source,python]
+----
+def create_person(tx, name, age): # <1>
+  result = tx.run("""
+  CREATE (p:Person {name: $name, age: $age})
+  RETURN p
+  """, name=name, age=age) # <2>
+----
+====
+
+[.col]
+====
+<1> The first argument to the transaction function is always a `Transaction` object. Any additional keyword arguments are passed to the transaction function.
+
+<2> The `run()` method on the `Transaction` object is called to execute a Cypher statement.
+====
+
+[.slide]
+== Multiple Queries in One Transaction
+
+You can execute multiple queries within the same transaction function to ensure that all operations are completed or fail as a single unit.
+
+[source,python]
+----
+def transfer_funds(tx, from_account, to_account, amount):
+  # Deduct from first account
+  tx.run("MATCH (a:Account {id: $from}) SET a.balance = a.balance - $amount", from=from_account, amount=amount)
+  
+  # Add to second account
+  tx.run("MATCH (a:Account {id: $to}) SET a.balance = a.balance + $amount", to=to_account, amount=amount)
+----
+
+[WARNING]
+====
+Transaction state is maintained in memory, so be mindful of running too many operations in a single transaction. Break up very large operations into smaller transactions when possible.
+====
+
+[.slide.col-2]
+== Handling outputs 
+
+[.col]
+====
+The `execute_read()` and `execute_write()` methods return a `Result` object.
+
+The records contained within the result will be iterated over as soon as they are available.
+
+The result must be consumed within the transaction function.
+
+The `consume()` method discards any remaining records and returns a `Summary` object that can be used to access metadata about the transaction.
+====
+
+[.col]
+====
+
+
+
+[source,python]
+----
+with driver.session() as session:
+  def get_answer(tx, answer):
+    result = tx.run("RETURN $answer AS answer", 
+        answer=answer)
+
+    for record in result: # <1>
+      print(record["answer"])
+
+    return result.consume()
+
+  # Call the transaction function
+  summary = session.execute_read(get_answer, answer=42)
+
+  # Output the summary
+  print("Results available after", summary.result_available_after, 
+    "ms and consumed after", summary.result_consumed_after, "ms")
+----
+
+====
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to use transaction functions for read and write operations, implement the unit of work pattern, and execute multiple queries within a single transaction.
+
+You should use transaction functions for read and write operations when you to start consuming results as soon as they are available.
+
+Now it's your turn. In the next challenge, you will implement a unit of work pattern to create a new person in the database.
