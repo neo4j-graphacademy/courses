@@ -941,7 +941,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
 
         // Mark as read if there are no questions
-        if (lesson.questions.length === 0) {
+        if (lesson.questions.length === 0 && lesson.completed === false) {
             await saveLessonProgress(user as User, course.slug, module.slug, lesson.slug, [], token)
         }
 

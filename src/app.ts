@@ -30,6 +30,7 @@ import { initPrintful } from './modules/printful'
 import hardenExpress from './middleware/harden.middleware'
 import initChatbot from './modules/chatbot'
 import { registerTranslationMiddleware } from './middleware/translation.middleware'
+import { maintenance } from './middleware/maintenance.middleware'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -61,8 +62,6 @@ export default function initApp(driver: Driver) {
     // Start Profiling
     app.use(startProfiling)
 
-    // Maintenance Mode
-    // app.use(maintenance)
 
     // Load in languages
     initLocalisation()
@@ -72,6 +71,9 @@ export default function initApp(driver: Driver) {
 
     // Apply locals
     registerLocals(app)
+
+    // Maintenance Mode
+    app.use(maintenance)
 
     // Apply auth headers
     applyAuth(app)
