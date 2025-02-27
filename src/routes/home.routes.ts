@@ -72,7 +72,7 @@ router.get('/', async (req, res, next) => {
                 name: 'apple-itunes-app', content: 'app-id=1557747094'
             }],
             banner: {
-                text: 'Maintenance planned - 27 February from 10:00-12:00 UTC',
+                // text: 'Maintenance planned - 27 February from 10:00-12:00 UTC',
                 //     link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
                 //     cta: 'Complete the survey',
             },
