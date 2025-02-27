@@ -1,2 +1,5 @@
-MERGE (sandy:User {userId: 534}) SET sandy.name = "Sandy Jones"
-MERGE (clinton:User {userId: 105}) SET clinton.name = "Clinton Spencer"
+MERGE (s:User {userId: 534}) 
+SET s.name = "Sandy Jones"
+
+MERGE (c:User {userId: 105}) 
+SET c.name = "Clinton Spencer"
