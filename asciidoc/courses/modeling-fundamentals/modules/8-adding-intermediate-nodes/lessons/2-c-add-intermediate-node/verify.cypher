@@ -1,4 +1,8 @@
-MATCH (a:Actor)-[:PLAYED]->(role:Role)-[:IN_MOVIE]->(m:Movie),
-    (a)-[r:ACTED_IN]->(m)
-WITH * LIMIT 1
-RETURN role.name = r.role AS outcome;
+MATCH (role:Role)
+WITH count(role) as rCount
+UNWIND [
+    [rCount >= 1, "There should be at least 1 node with a Role label."]
+]
+AS row
+
+RETURN row[0] AS outcome, row[1] AS reason
