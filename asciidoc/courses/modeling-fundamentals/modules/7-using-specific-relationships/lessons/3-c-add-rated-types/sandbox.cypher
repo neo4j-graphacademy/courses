@@ -1,5 +1,5 @@
 // Modify this query to use the -[:RATED]->()
-// relationship to  create a new RATED_{rating}
+// relationship to create a new RATED_{rating}
 // relationship between the :User and a :Movie
 MATCH (n:Actor)-[:ACTED_IN]->(m:Movie)
 CALL apoc.merge.relationship(n,

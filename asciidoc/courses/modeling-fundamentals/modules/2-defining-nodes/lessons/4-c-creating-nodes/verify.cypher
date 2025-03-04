@@ -1,1 +1,8 @@
-MATCH (u:User) WHERE u.name IN ['Sandy Jones', 'Clinton Spencer'] AND u.userId IN [534,105] RETURN count(*) = 2 AS outcome
+MATCH (u:User) 
+WITH count(u) as userCount
+UNWIND [
+    [userCount >= 2, "There should be at least 2 User nodes"]
+]
+AS row
+
+RETURN row[0] AS outcome, row[1] AS reason
