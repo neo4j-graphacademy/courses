@@ -1,2 +1,5 @@
-MERGE (u:User {userId: 123})
-SET u.name = "User's Name"
+MERGE (s:User {userId: ???})
+SET s.name = "Sandy Jones"
+
+MERGE (c:User {userId: ???})
+SET c.name = "???"

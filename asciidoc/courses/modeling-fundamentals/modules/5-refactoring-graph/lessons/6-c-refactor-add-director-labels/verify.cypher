@@ -1,1 +1,8 @@
-MATCH (d:Director) WHERE d.name = 'Danny DeVito' OR d.name = 'Martin Scorsese' RETURN count (*) = 2 as outcome
+MATCH (d:Director)
+WITH count(d) as dCount
+UNWIND [
+    [dCount >= 2, "There should be at least 2 nodes with a `Director` label"]
+]
+AS row
+
+RETURN row[0] AS outcome, row[1] AS reason

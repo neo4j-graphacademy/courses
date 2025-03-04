@@ -22,3 +22,13 @@ MERGE (clinton )-[:RATED {rating:3}]->(hoffa)
 MERGE (casino:Movie {title: 'Casino', tmdbId: 524, released: '1995-11-22', imdbRating: 8.2, genres: ['Drama','Crime']})
 MERGE (martin:Person {name: 'Martin Scorsese', tmdbId: 1032})
 MERGE (martin)-[:DIRECTED]->(casino)
+SET tom:Actor
+SET meg:Actor
+SET danny:Actor
+SET jack:Actor
+SET danny:Director
+SET martin:Director
+SET apollo.languages = ['English']
+SET sleep.languages =  ['English']
+SET hoffa.languages =  ['English', 'Italian', 'Latin']
+SET casino.languages =  ['English'];
