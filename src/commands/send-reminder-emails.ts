@@ -1,5 +1,5 @@
-import { prepareAndSend } from '../modules/mailer'
-import initNeo4j, { close, read, write } from "../modules/neo4j"
+import { prepareAndSend } from '../modules/mailer/mailer'
+import initNeo4j, { close, read, write } from '../modules/neo4j'
 
 import {
     NEO4J_HOST,
@@ -16,14 +16,15 @@ import { int } from 'neo4j-driver'
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
 
-    console.log(`Connected to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
+    console.log(`Connected to ${NEO4J_HOST} as ${NEO4J_USERNAME}`)
 
     // const days = ENROLMENT_REMINDER_DAYS !== undefined ? parseInt(ENROLMENT_REMINDER_DAYS) : 7
     const limit = ENROLMENT_REMINDER_LIMIT !== undefined ? parseInt(ENROLMENT_REMINDER_LIMIT) : 50
 
     // Get enrolments that haven't been updated in the last X days and 23 hours
     // (but hasn't had another reminder email in the last three days)
-    const res = await read(`
+    const res = await read(
+        `
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)-[:FOR_COURSE]->(c)
         WHERE datetime() - duration('P7DT1H30M') <= e.lastSeenAt AND e.lastSeenAt <= datetime() - duration('P7D')
           AND not c:Certification
@@ -42,35 +43,52 @@ const main = async () => {
         } AS enrolment,
         c { .id, .slug, .title, .link } AS course
         LIMIT $limit
-    `, { limit: int(limit) })
+    `,
+        { limit: int(limit) }
+    )
 
-    console.log(`🚨 Preparing ${res.records.length} Reminder Email${res.records.length == 1 ? '' : 's'}`);
+    console.log(`🚨 Preparing ${res.records.length} Reminder Email${res.records.length == 1 ? '' : 's'}`)
 
     // Send reminder emails
     const ids = await Promise.all(
         res.records
-            .map(row => row.toObject())
+            .map((row) => row.toObject())
             .map(async (attributes: Record<string, any>) => {
                 const courseSummaryPdf = await courseSummaryPdfPath(attributes.course.slug)
-                const attachments = typeof courseSummaryPdf === 'string' ? [{
-                    filename: `${attributes.course.title} Summary.pdf`,
-                    data: readFileSync(courseSummaryPdf),
-                }] : []
+                const attachments =
+                    typeof courseSummaryPdf === 'string'
+                        ? [
+                            {
+                                filename: `${attributes.course.title} Summary.pdf`,
+                                content: readFileSync(courseSummaryPdf).toString('base64'),
+                            },
+                        ]
+                        : []
 
-                prepareAndSend('user-enrolment-reminder', attributes.user.email, attributes, '', 'user-enrolment-reminder', attachments)
+                prepareAndSend(
+                    'user-enrolment-reminder',
+                    attributes.user.email,
+                    attributes,
+                    '',
+                    'user-enrolment-reminder',
+                    attachments
+                )
 
                 return attributes.enrolment.id as string
             })
-            .filter(e => e !== undefined)
+            .filter((e) => e !== undefined)
     )
 
     // Update enrolments to stop duplicate reminders being sent
-    await write(`
+    await write(
+        `
         UNWIND $ids AS id
         MATCH (e:Enrolment {id: id})
         SET e.reminderSentAt = datetime()
         RETURN count(*)
-    `, { ids })
+    `,
+        { ids }
+    )
 
     await close()
 }

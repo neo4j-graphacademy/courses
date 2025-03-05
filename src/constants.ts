@@ -7,11 +7,19 @@ config({
     path: process.env.ENV_FILE ? process.env.ENV_FILE : '.env',
 })
 
-const { PROFILE, CACHE_ASCIIDOC, DISCOURSE_BASE_URL, DISCOURSE_CATEGORY_ID, DISCOURSE_CATEGORY_SLUG, COMMUNITY_RSS_FEED, DISCORD_ID } = process.env
+const {
+    PROFILE,
+    CACHE_ASCIIDOC,
+    DISCOURSE_BASE_URL,
+    DISCOURSE_CATEGORY_ID,
+    DISCOURSE_CATEGORY_SLUG,
+    COMMUNITY_RSS_FEED,
+    DISCORD_ID,
+} = process.env
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production'
 export const BASE_URL = process.env.BASE_URL
-export const DOMAIN = new URL(BASE_URL || 'http://localhost' as string).hostname
+export const DOMAIN = new URL(BASE_URL || ('http://localhost' as string)).hostname
 
 export const DEFAULT_COURSE_THUMBNAIL = '/img/static/course-placeholder.jpg'
 export const DEFAULT_COURSE_STATUS = STATUS_DRAFT
@@ -49,9 +57,8 @@ export const COMMUNITY_GRAPH_HOST: string = process.env.COMMUNITY_GRAPH_HOST as 
 export const COMMUNITY_GRAPH_USERNAME: string = process.env.COMMUNITY_GRAPH_USERNAME as string
 export const COMMUNITY_GRAPH_PASSWORD: string = process.env.COMMUNITY_GRAPH_PASSWORD as string
 
-// Mailgun
-export const MAILGUN_API_KEY: string | undefined = process.env.MAILGUN_API_KEY
-export const MAILGUN_DOMAIN: string | undefined = process.env.MAILGUN_DOMAIN
+// Sendgrid
+export const SENDGRID_API_KEY: string | undefined = process.env.SENDGRID_API_KEY
 
 export const MAIL_FROM: string | undefined = process.env.MAIL_FROM
 export const MAIL_REPLY_TO: string | undefined = process.env.MAIL_REPLY_TO
@@ -126,7 +133,8 @@ export const CHATBOT_NEO4J_PASSWORD = process.env.CHATBOT_NEO4J_PASSWORD
 export const CHATBOT_NEO4J_DATABASE = process.env.CHATBOT_NEO4J_DATABASE
 
 // Auth0
-export const AUTH0_ISSUER_BASE_URL = process.env.AUTH0_ISSUER_BASE_URL !== undefined ? new URL(process.env.AUTH0_ISSUER_BASE_URL).hostname : undefined
+export const AUTH0_ISSUER_BASE_URL =
+    process.env.AUTH0_ISSUER_BASE_URL !== undefined ? new URL(process.env.AUTH0_ISSUER_BASE_URL).hostname : undefined
 
 // Proxied OpenAI Keys
 export const OPENAI_PROXY_API_KEY = process.env.OPENAI_PROXY_API_KEY

@@ -1,11 +1,11 @@
-import { BASE_URL, PRINTFUL_STORE_ID } from "../../constants";
-import { AppInit } from "../../domain/events/AppInit";
-import { emitter } from "../../events";
-import { prepareAndSend } from "../mailer";
-import { OrderCreated } from "./events/OrderCreated";
-import OrderShipped from "./events/OrderShipped";
-import { addWebhook } from "./printful.module";
-import { ORDER_CREATED, ORDER_FAILED, ORDER_UPDATED, PACKAGE_SHIPPED } from "./types";
+import { BASE_URL, PRINTFUL_STORE_ID } from '../../constants'
+import { AppInit } from '../../domain/events/AppInit'
+import { emitter } from '../../events'
+import { prepareAndSend } from '../mailer/mailer'
+import { OrderCreated } from './events/OrderCreated'
+import OrderShipped from './events/OrderShipped'
+import { addWebhook } from './printful.module'
+import { ORDER_CREATED, ORDER_FAILED, ORDER_UPDATED, PACKAGE_SHIPPED } from './types'
 
 export default function initPrintfulListeners(): void {
     emitter.on<OrderCreated>(OrderCreated, ({ order }) => {
@@ -27,17 +27,12 @@ export default function initPrintfulListeners(): void {
 
     emitter.on<AppInit>(AppInit, async () => {
         if (PRINTFUL_STORE_ID && process.env.NODE_ENV === 'production') {
-            await addWebhook(
-                PRINTFUL_STORE_ID,
-                `${BASE_URL}/api/printful`,
-                [
-                    ORDER_CREATED,
-                    ORDER_UPDATED,
-                    ORDER_FAILED,
-                    PACKAGE_SHIPPED,
-                ]
-            )
+            await addWebhook(PRINTFUL_STORE_ID, `${BASE_URL}/api/printful`, [
+                ORDER_CREATED,
+                ORDER_UPDATED,
+                ORDER_FAILED,
+                PACKAGE_SHIPPED,
+            ])
         }
     })
-
 }

@@ -1,9 +1,9 @@
-import { send } from "../modules/mailer";
+import { send } from '../modules/mailer/mailer'
 
 function main() {
-  const val = send('adam@neo4j.com, martin.ohanlon@neo4j.com', 'Hello', 'This is a test')
+    const val = send('adam@neo4j.com, martin.ohanlon@neo4j.com', 'Hello', 'This is a test')
 
-  console.log(val)
+    console.log(val)
 }
 
 main()

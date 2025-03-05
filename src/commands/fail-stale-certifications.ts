@@ -24,7 +24,8 @@ const main = async () => {
   const res = await read<{ user: User, course: CourseWithProgress, attemptId: string }>(`
     MATCH (u:User)-[:HAS_ENROLMENT]->(e)-[:HAS_ATTEMPT]->(a:CertificationAttempt),
         (e)-[:FOR_COURSE]->(c)
-    WHERE a.createdAt <= datetime() - duration('PT1H') and not e:CompletedEnrolment and not e:FailedEnrolment
+    WHERE a.createdAt <= datetime() - duration('PT1H') and not e:CompletedEnrolment
+      AND (e.updatedAt IS NULL or e.updatedAt <= datetime() - duration('PT1H'))
     RETURN a.id AS attemptId,
         u { .* } AS user,
         c { .title, .slug } AS course

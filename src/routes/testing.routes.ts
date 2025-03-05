@@ -4,10 +4,10 @@ import { devSandbox } from '../domain/model/sandbox.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken, getUser } from '../middleware/auth.middleware'
 import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
-import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer'
+import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
-import { send } from '../modules/mailer'
+import { send } from '../modules/mailer/mailer'
 import { User } from '../domain/model/user'
 import { Sandbox } from '../domain/model/sandbox'
 import { readFileSync } from 'fs'
@@ -20,20 +20,22 @@ import { CourseWithProgress } from '../domain/model/course'
 const router = Router()
 
 router.get('/reset', async (req, res) => {
-    const result = await write(`
+    const result = await write(
+        `
         MATCH (u:User)-[:HAS_ENROLMENT]->(e:Enrolment)
         WHERE u.email = $email
         DETACH DELETE e
         RETURN count(*) AS count
-    `, { email: req.query.email })
+    `,
+        { email: req.query.email }
+    )
 
-    console.log('\n\n--\n', result.records[0].get('count'), ' enrolments deleted for ', req.query.email);
+    console.log('\n\n--\n', result.records[0].get('count'), ' enrolments deleted for ', req.query.email)
 
     res.redirect('/logout')
 })
 
 const sandboxes: Record<string, Sandbox> = {}
-
 
 router.post('/sandbox/tokeninfo', (req, res) => {
     const json = {
@@ -45,7 +47,7 @@ router.post('/sandbox/tokeninfo', (req, res) => {
 })
 
 router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
-    console.log(`[test sandbox] Sending ${Object.keys(sandboxes)}`);
+    console.log(`[test sandbox] Sending ${Object.keys(sandboxes)}`)
 
     res.json(Object.values(sandboxes))
 })
@@ -64,7 +66,7 @@ const runInstance = (req: Request, res: Response) => {
 
     sandboxes[sandboxHashKey] = sandbox
 
-    console.log(`[test sandbox] ${sandboxHashKey} created`);
+    console.log(`[test sandbox] ${sandboxHashKey} created`)
 
     res.json(sandbox)
 }
@@ -93,20 +95,19 @@ router.get('/sandbox/getSandboxByHashKey', (req, res) => {
 
     const sandbox = sandboxes[sandboxHashKey as string]
 
-    console.log(`[test sandbox] ${sandboxHashKey} found, created at ${sandbox.createdAt}`);
+    console.log(`[test sandbox] ${sandboxHashKey} found, created at ${sandbox.createdAt}`)
 
     const age = Date.now() - sandbox.createdAt
 
     if (age > 10000) {
-        console.log(`[test sandbox] ${sandboxHashKey} found, sending IP`);
+        console.log(`[test sandbox] ${sandboxHashKey} found, sending IP`)
         return res.send('127.0.0.1')
     }
 
-    console.log(`[test sandbox] ${sandboxHashKey} still too young, wait 10s`);
+    console.log(`[test sandbox] ${sandboxHashKey} still too young, wait 10s`)
 
     res.status(404).send('no ip')
 })
-
 
 router.get('/sandboxes', async (req, res, next) => {
     try {
@@ -115,8 +116,7 @@ router.get('/sandboxes', async (req, res, next) => {
         const sandboxes = await getSandboxes(token, user as User)
 
         res.json(sandboxes)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -134,8 +134,7 @@ router.get('/profile/sandbox', async (req, res, next) => {
         const profile = await getUserInfo(token, user as User)
 
         res.json(profile)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -145,8 +144,7 @@ router.get('/profile/oidc', async (req, res, next) => {
         const user = await req.oidc.fetchUserInfo()
 
         res.json(user)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -158,12 +156,10 @@ router.get('/profile/auth0', async (req, res, next) => {
         const profile = await getAuth0UserInfo(token, user as User)
 
         res.json(profile)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
-
 
 router.get('/session', (req, res) => {
     const session = req.session
@@ -206,12 +202,11 @@ router.get('/email/:template', async (req, res) => {
 
     if (req.query.send === 'true') {
         const summaryPath = await courseSummaryPdfPath('neo4j-fundamentals')
-        const attachments = summaryPath ? [{ filename: 'summary.pdf', data: readFileSync(summaryPath) }] : undefined
-
+        const attachments = summaryPath ? [{ filename: 'summary.pdf', content: readFileSync(summaryPath).toString() }] : undefined
 
         send('adam.cowley@neo4j.com', email.subject, email.html, 'test', attachments)
 
-        console.log('Email sent');
+        console.log('Email sent')
     }
 
     res.send(email.html)
@@ -222,7 +217,8 @@ router.get('/email/:template', async (req, res) => {
 
 router.get('/event/:event/:course', async (req, res) => {
     if (req.params.event == 'UserCompletedCourse') {
-        const result = await read(`
+        const result = await read(
+            `
             MATCH (u:User) WITH u ORDER BY rand() LIMIT 1
             MATCH (c:Course {slug: $course}) WITH u, c ORDER BY rand() LIMIT 1
             MATCH (e:Enrolment) WITH * LIMIT 1
@@ -231,7 +227,9 @@ router.get('/event/:event/:course', async (req, res) => {
                 enrolmentId: e.id,
                 modules: []
             } AS c, e
-        `, { course: req.params.course })
+        `,
+            { course: req.params.course }
+        )
 
         if (result.records.length == 0) {
             return res.send('No results from query - try seeding the database')
@@ -257,8 +255,8 @@ router.get('/style', (req, res) => {
         hero: {
             title: 'Free, Self-Paced, Hands-on Online Training',
             byline: 'Learn everything you need to know to about how to build, optimise and launch your Neo4j project, all from the Neo4j experts.',
-            overline: 'Learn with GraphAcademy'
-        }
+            overline: 'Learn with GraphAcademy',
+        },
     })
 })
 
