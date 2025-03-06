@@ -9,13 +9,15 @@
 
 [.col]
 ====
-Cypher has built-in support for handling points in space.
+Neo4j has built-in support for two-dimensional and three-dimensional spatial data types.
+These are referred to as **points**.
+A point may represent geographic coordinates (latitude, longitude) or Cartesian coordinates (x, y). 
 
 Depending on the values used to create the point, it can either be a `CartesianPoint` or a `WGS84Point`.  If you specify three values, these are considered three dimensional points.  Otherwise, they are considered two dimensional points.
 
 In Python, these values are represented by the `neo4j.spatial.CartesianPoint` and `neo4j.spatial.WGS84Point` classes, which are subclasses of the `neo4j.spatial.Point` class.
 
-The underlying values are saved as `x`, `y`, `z`, and an `SRID` that corresponds to the coordinate system.
+
 
 ====
 
@@ -36,26 +38,42 @@ The underlying values are saved as `x`, `y`, `z`, and an `SRID` that corresponds
 
 [.col]
 ====
-A Cartesian Point can be created in Cypher by supplying `x` and `y` values to the `point()` function.
-The optional `z` value represents the height.
+A Cartesian Point defines a point with x and y coordinates.
+An additional z value can be provided to define a three-dimensional point.
 
-To create a Cartesian Point in Python, you can import the `neo4j.spatial.CartesianPoint` class.
+You can create a cartesian point by passing a tuple of values to the `CartesianPoint` constructor or by passing `x`, `y` and `z` values to the point function in Cypher.
 
+.CartesianPoint
+[source,python]
+----
+twoD = CartesianPoint((x, y))
+threeD = CartesianPoint((x, y, z))
+----
+
+The driver will convert `point` data types created with an x, y and z value to an instance of the `CartesianPoint` class.
 ====
 
 [.col]
 ====
-.Cartesian
+
+
 [source,python]
 ----
-# Using X and Y values
-twoD=CartesianPoint((1.23, 4.56))
-print(twoD.x, twoD.y, twoD.srid) # 1.23, 4.56, 7203
+result = driver.execute_query("""
+RETURN point({x: 1.23, y: 4.56, z: 7.89}) AS threeD
+""")
 
-# Using X, Y and Z
-threeD=CartesianPoint((1.23, 4.56, 7.89))
-print(threeD.x, threeD.y, threeD.z, threeD.srid) # 1.23, 4.56, 7.89, 9157
+point = result.records[0]["threeD"]
+
+# <1> Accessing attributes
+print(point.x, point.y, point.z, point.srid) # 1.23, 4.56, 7.89, 9157
+
+# <2> Destructuring
+longitude, latitude, height = point
 ----
+
+The values can be accessed using the `x`, `y` and `z` attributes `<1>` or by destructuring the point `<2>`.
+
 ====
 
 [.slide.col-2]
@@ -63,21 +81,42 @@ print(threeD.x, threeD.y, threeD.z, threeD.srid) # 1.23, 4.56, 7.89, 9157
 
 [.col]
 ====
-A WGS84 Point can be created in Cypher by supplying `latitude` and `longitude` values to the `point()` function.
-To create a Cartesian Point in Python, you can import the `neo4j.spatial.WGS84Point` class.
+A WSG  _(World Geodetic System)_ point consists of a `latitude` and `longitude` value.
+An additional `height` value can be provided to define a three-dimensional point and can be created by passing a tuple of values to the `WGS84Point` constructor or by passing `longitude`, `latitude` and `height` values to the point function in Cypher.
+
+.WGS84Point
+[source,python]
+----
+ldn = WGS84Point((-0.118092, 51.509865))
+print(ldn.longitude, ldn.latitude, ldn.srid) # -0.118092, 51.509865, 4326
+
+shard = WGS84Point((-0.086500, 51.504501, 310))
+print(shard.longitude, shard.latitude, shard.height, shard.srid) # -0.0865, 51.504501, 310, 4979
+
+# Using destructuring
+longitude, latitude, height = shard
+----
+
 
 ====
 
 [.col]
 ====
-.WGS84
+The driver will return `WGS84Point` objects when `point` data types are created with `latitude` and `longitude` values in Cypher.  The values can be accessed using the `longitude`, `latitude` and `height` attributes or by destructuring the point.
+
+.Using point()
 [source,python]
 ----
-london=WGS84Point((-0.118092, 51.509865))
-print(london.longitude, london.latitude, london.srid) # -0.118092, 51.509865, 4326
+result = driver.execute_query("""
+RETURN point({
+    latitude: 51.5,
+    longitude: -0.118,
+    height: 100
+}) AS point
+""")
 
-the_shard=WGS84Point((-0.086500, 51.504501, 310))
-print(the_shard.longitude, the_shard.latitude, the_shard.height, the_shard.srid) # -0.0865, 51.504501, 310, 4979
+point = result.records[0]["point"]
+longitude, latitude, height = point
 ----
 ====
 
@@ -90,7 +129,11 @@ print(the_shard.longitude, the_shard.latitude, the_shard.height, the_shard.srid)
 The `point.distance` function can be used to calculate the distance between two points with the same SRID.
 The result is a `float` representing the distance in a straight line between the two points.
 
+[WARNING]
+.SRIDs must be compatible
+=====
 If the SRID values are different, the function will return `None`.
+=====
 
 ====
 
@@ -106,7 +149,7 @@ point2 = CartesianPoint((10, 10))
 
 # Query the distance using Cypher
 result = driver.execute_query("""
-    RETURN point.distance($p1, $p2) AS distance
+RETURN point.distance($p1, $p2) AS distance
 """, p1=point1, p2=point2)
 
 # Print the distance from the result
@@ -115,12 +158,16 @@ print(distance)  # 12.727922061357855
 ----
 
 
+link:../6c-using-spatial-types/[Advance to challenge,role=btn]
+
 ====
 
 [.summary]
 == Lesson Summary
 
 In this lesson, you learned about the `CartesianPoint` and `WGS84Point` classes and how to use them in Python.
+
+Regardless of the type of point, you can always access the individual components by destructuring the point object.
 
 For more information on Spatial types, link:https://neo4j.com/docs/cypher-manual/current/values-and-types/spatial/[view the Spatial types page in Cypher Manual^].
 
