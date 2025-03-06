@@ -2,185 +2,28 @@
 :type: video 
 :order: 3
 
-[.slide.discrete.col-2]
+[.slide.discrete]
 == Temporal types
 
-[.col]
-====
-The `neo4j.time` module provides temporal types for working with dates and times in Cypher. 
-These types have nanosecond precision and are compatible with `pytz`.
+The `neo4j.time` module provides classes for working with dates and times in Python. 
 
-Date and time types can either be serialized in Python or converted within a Cypher statement.
+Temporal types in Neo4j are a combination of date, time and timezone elements.
 
-Python's built-in temporal types can be used as parameters.
-
-The following table shows the mapping between Cypher and Python temporal types. 
-====
-
-[.col]
-====
 .Temporal Types
-[cols="1,3,1,1"]
+[cols="2,3,1,1,1"]
 |===
-| Neo4j Cypher Type | Python driver type | Python built-in type | `tzinfo`
+|Type |Description |Date? |Time? |Timezone?
 
-
-| Date
-| `neo4j.time.Date`
-| `datetime.date`
-|
-
-| Time
-| `neo4j.time.Time`
-| `datetime.time`
-| not `None`
-
-| LocalTime
-| `neo4j.time.Time`
-| `datetime.time`
-| `None`
-
-| DateTime
-| `neo4j.time.DateTime`
-| `datetime.datetime`
-| not `None`
-
-| LocalDateTime
-| `neo4j.time.DateTime`
-| `datetime.datetime`
-| `None`
-
-| Duration
-| `neo4j.time.Duration`
-| `datetime.timedelta`
-|
-
+|`Date` |A tuple of Year, Month and Day |Y | |
+|`Time` |A point in time |Y |Y |
+|`LocalTime` |A time without a timezone | |Y |
+|`DateTime` |A combination of Date and Time |Y |Y |Y
+|`LocalDateTime` |A combination of Date and Time without a timezone |Y |Y |
 |===
-====
-
-// [.slide]
-// .Working with Temporal types
-// [source,python,role=ncopy,subs="attributes+",indent=0]
-// ----
-// include::{repository-raw}/main/example/results.py[tag=temporal]
-// ----
-
-// Each of the above types has a number of attributes for accessing the different, for example `year`, `month`, `day`, and in the case of the types that include a time, `hour`, `minute` and `second`.
-
-// For more information, see link:https://neo4j.com/docs/api/python-driver/4.4/temporal_types.html[Temporal Data Types^&^].
 
 
-
-
-[.slide.col-2]
-== Date
-
-[.col]
-====
-
-[source,python]
-----
-from neo4j.time import Date
-
-driver.execute_query("""
-CREATE (a:Person {
-  born: $date,                   // <1>
-  updatedOn: date($datestring),  // <2>
-  createdOn: date(),             // <3>
-})
-""", date=Date(2018, 4, 30),     # <4>
-    datestring="2025-01-01"
-)
-----
-====
-
-[.col]
-====
-You can create a date in Cypher using the `date()` function, or using the `Date` class in Python.
-
-&nbsp;
-
-<1> You can pass a `Date` object as a parameter.
-<2> You can pass a date string in ISO format and cast the value as a date using Cypher's `date()` function.
-<3> Calling the `date()` function in Cypher creates a date for the current date.
-<4> The `Date` class accepts three arguments: year, month, and day.
-====
-
-[.slide.col-2]
-== Time
-
-[.col]
-====
-
-[source,python]
-----
-from neo4j.time import Time
-from datetime import timezone, timedelta
-
-# Create timezone UTC+2
-tz = timezone(timedelta(hours=2))
-
-driver.execute_query("""
-CREATE (e:Event {
-  startsAt: $time,                    // <1>
-  createdAt: time($timestring),       // <2>
-  updatedAt: time(),                  // <3>
-})
-""", time=Time(12, 30, 0, tzinfo=tz), # <4>
-    timestring="12:30:00+02:00"
-)
-----
-====
-
-
-[.col]
-====
-The time type with timezone information stores a time value with nanosecond precision and timezone information.
-
-&nbsp;
-
-<1> You can pass a `Time` object with timezone information as a parameter
-<2> You can pass a time string in ISO format with timezone offset
-<3> Calling the `time()` function in Cypher creates a time for the current time in the local timezone
-<4> The `Time` class accepts timezone information via the `tzinfo` parameter
-====
-
-[.slide.col-2]
-== LocalTime
-
-[.col]
-====
-
-[source,python]
-----
-from neo4j.time import Time
-
-driver.execute_query("""
-CREATE (s:Schedule {
-  openTime: $time,        // <1>
-  closeTime: localtime($timestring), // <2>
-  breakTime: localtime()  // <3>
-})
-""", time=Time(9, 0, 0), # <4>
-    timestring="17:00:00"
-)
-----
-====
-
-[.col]
-====
-A LocalTime represents a time _without timezone information_, useful for time-of-day values that don't need timezone context.
-
-&nbsp;
-
-<1> A `Time` object without timezone info represents a local time
-<2> Use `localtime()` in Cypher to parse time strings as local time
-<3> `localtime()` returns the current local time without timezone info
-<4> Create a local time by omitting the `tzinfo` parameter
-====
-
-[.slide.col-2]
-== DateTime
+[.slide.col-2.col-reverse]
+== Writing temporal types
 
 [.col]
 ====
@@ -190,112 +33,64 @@ A LocalTime represents a time _without timezone information_, useful for time-of
 from neo4j.time import DateTime
 from datetime import timezone, timedelta
 
-# Create timezone UTC+2
-tz = timezone(timedelta(hours=2))
-
 driver.execute_query("""
 CREATE (e:Event {
-  startsAt: $datetime,        // <1>
-  createdAt: datetime($dtstring), // <2>
-  updatedAt: datetime()  // <3>
+  startsAt: $datetime,              // <1>
+  createdAt: datetime($dtstring),   // <2>
+  updatedAt: datetime()             // <3>
 })
-""", datetime=DateTime(2024, 3, 15, 14, 30, 0, tzinfo=tz), # <4>
-    dtstring="2024-03-15T14:30:00+02:00"
+""", 
+  datetime=DateTime(
+    2024, 5, 15, 14, 30, 0, 
+    tzinfo=timezone(timedelta(hours=2))
+  ),  # <4>
+  dtstring="2024-05-15T14:30:00+02:00"
 )
 ----
 ====
 
 [.col]
 ====
-DateTime combines date and time information with timezone support.
+When you write temporal types to the database, you can pass the object as a parameter to the query or cast the value within a Cypher statement. 
 
-&nbsp;
+This example demonstrates how to:
 
-<1> Pass a `DateTime` object with timezone as a parameter
-<2> Parse an ISO format datetime string with timezone information
-<3> Get current date and time in the local timezone
-<4> Create a `DateTime` with year, month, day, hour, minute, second and timezone
+<1> Use a `DateTime` object as a parameter to the query (`<4>`)
+<2> Cast an link:https://www.iso.org/iso-8601-date-and-time-format.html[ISO 8601 format string^] within a Cypher statement
+<3> Get the current date and time using the `datetime()` function.
+
 ====
 
-[.slide.col-2]
-== LocalDateTime
+[.slide,.col-2]
+== Reading temporal types
 
 [.col]
 ====
+When reading temporal types from the database, you will receive an instance of the corresponding Python type unless you cast the value within your query.
+====
 
+[.col]
+====
 [source,python]
 ----
-from neo4j.time import DateTime
+# Query returning temporal types
+result = driver.execute_query("""
+RETURN date() as date, time() as time, datetime() as datetime, toString(datetime()) as asString
+""")
 
-driver.execute_query("""
-CREATE (e:Event {
-  scheduledFor: $datetime,        // <1>
-  createdAt: localdatetime($dtstring), // <2>
-  updatedAt: localdatetime()  // <3>
-})
-""", datetime=DateTime(2024, 3, 15, 14, 30), # <4>
-    dtstring="2024-03-15T14:30:00"
-)
+# Access the first record
+for record in result:
+    # Automatic conversion to Python driver types
+    date = record["date"]         # neo4j.time.Date
+    time = record["time"]         # neo4j.time.Time
+    datetime = record["datetime"] # neo4j.time.DateTime
+    asString = record["asString"] # str
 ----
 ====
-
-[.col]
-====
-LocalDateTime combines date and time _without timezone information_, useful for timestamps that don't need timezone context.
-
-&nbsp;
-
-<1> A `DateTime` without timezone represents a local datetime
-<2> Use `localdatetime()` to parse datetime strings without timezone
-<3> Get current local date and time without timezone information
-<4> Create local datetime by omitting the `tzinfo` parameter
-====
-
-
-[.slide.col-2]
-== Duration
-
-[.col]
-====
-
-[source,python]
-----
-from neo4j.time import Duration
-
-driver.execute_query("""
-CREATE (t:Task {
-    estimatedTime: $short_duration,     // <1>
-    deadline: datetime() + duration('P2M5DT3H'),  // <2>
-    timeSpent: duration($duration_string),  // <3>
-    reminderInterval: duration({     // <4>
-        days: 1,
-        hours: 12
-    })
-})
-""",
-    short_duration=Duration(hours=2, minutes=30),  # <5>
-    duration_string="P1Y2M"  # <6>
-)
-----
-====
-
-[.col]
-====
-Duration represents a period of time with components for months, days, seconds, and nanoseconds. It can be used to represent both fixed-length durations (like 5 hours) and variable-length durations (like 1 month).
-
-&nbsp;
-
-<1> Pass a Duration object as a parameter
-<2> Add a duration to a datetime in Cypher using ISO 8601 format
-<3> Parse a duration string in Cypher
-<4> Create a duration using a Cypher map
-<5> Create a Duration in Python specifying components
-<6> ISO 8601 format: P[nY][nM][nD]T[nH][nM][nS]
-====
-
 
 [.slide.col-2]
 == Working with Durations
+
 
 [.col]
 ====
@@ -303,31 +98,54 @@ Duration represents a period of time with components for months, days, seconds, 
 [source,python]
 ----
 from neo4j.time import Duration, DateTime
-from datetime import timedelta
 
-# Add duration to datetime
-now = DateTime.now()
-future = now + Duration(months=1, days=5)  # <1>
+startsAt = DateTime.now() 
+eventLength = Duration(hours=1, minutes=30)
+endsAt = startsAt + eventLength 
 
-# Add two durations
-total_time = Duration(hours=2) + Duration(minutes=30)  # <2>
-
-# Multiply duration
-double_time = Duration(days=1) * 2  # <3>
-
-# Convert to/from timedelta
-duration = Duration(seconds=timedelta(hours=2).total_seconds())  # <4>
+driver.execute_query("""
+CREATE (e:Event {
+  startsAt: $startsAt, endsAt: $endsAt,
+  duration: $eventLength, // <1>
+  interval: duration('P30M') // <2>
+})
+""",
+  startsAt=startsAt, endsAt=endsAt, eventLength=eventLength
+)
 ----
+
 ====
 
 [.col]
 ====
-Durations can be added to dates and times, and support arithmetic operations:
+Durations represent a period of time and can be used for date arithmetic in both Python and Cypher.  These types can also be created in Python or cast within a Cypher statement.
 
-&nbsp;
+<1> Pass an instance of `Duration` to the query
+<2> Use the `duration()` function to create a `Duration` object from an ISO 8601 format string
 
-<1> Add duration to datetime for date arithmetic
-<2> Combine durations with addition
-<3> Multiply duration by a number
-<4> Convert between Duration and timedelta
+[TIP]
+.Calculating durations
+=====
+You can use the `duration.between` method to calculate the duration between two date or time objects.
+=====
 
+====
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned about working with temporal types in Neo4j using the Python driver:
+
+* The `neo4j.time` module provides classes for handling dates, times, and durations
+* You can pass temporal objects as parameters or create them within Cypher statements
+* When reading temporal values from Neo4j, they are automatically converted to the appropriate Python driver types
+* Durations can be used for date arithmetic in both Python and Cypher
+
+[TIP]
+.Converting between driver and standard library types
+====
+The Neo4j Python driver's temporal types (like `DateTime`) are different from Python's standard library types (like `datetime.datetime`). If you need to convert between them:
+
+* To convert from driver types to standard library: use the `.to_native()` method
+* To convert from standard library to driver types: use the class constructor or `.from_native()` method
+====
