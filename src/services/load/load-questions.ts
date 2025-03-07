@@ -38,6 +38,7 @@ const loadQuestion = (lesson: LessonToImport, filename: string): QuestionToImpor
     id,
     filename: parsed.base,
     text: file.getTitle(),
+    lessonLink: lesson.link,
   } as QuestionToImport
 }
 
@@ -61,7 +62,6 @@ export default async function loadQuestions(lessons: LessonToImport[]): Promise<
         const question = await loadQuestion(lesson, filename)
         output.push(question)
       }
-
     }
   }
 

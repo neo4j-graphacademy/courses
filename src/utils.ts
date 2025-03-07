@@ -135,6 +135,17 @@ export function isTruthy(value: any): boolean {
     return false
 }
 
+export function attributeMayBeTruthy(file: Asciidoctor.Document, attribute: string, defaultValue: any = null) {
+    const value = file.getAttribute(attribute, defaultValue)
+    const truthy = isTruthy(value)
+
+    if (!truthy && value !== null && value !== undefined && value !== 'false') {
+        return value
+    }
+
+    return truthy
+}
+
 export function attributeIsTruthy(file: Asciidoctor.Document, attribute: string, defaultValue: any = null) {
     const value = file.getAttribute(attribute, defaultValue)
     return isTruthy(value)

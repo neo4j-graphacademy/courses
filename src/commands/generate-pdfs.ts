@@ -23,7 +23,7 @@ const main = async () => {
         })
         .filter(slug => !existsSync(join(COURSE_DIRECTORY, slug, 'summary.pdf')))
 
-    const browser = await puppeteer.launch({ headless: 'new' })
+    const browser = await puppeteer.launch({ headless: 'shell' })
 
     for (const course of courses) {
         const page = await browser.newPage()

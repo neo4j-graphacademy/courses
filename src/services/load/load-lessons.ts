@@ -2,8 +2,8 @@ import { join, parse } from "path";
 import { loadFile } from "../../modules/asciidoc";
 import { CourseToImport } from "./load-courses";
 import { ModuleToImport } from "./load-modules";
-import { attributeIsTruthy, getDateAttribute, getOrderAttribute } from "../../utils";
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_BRANCH, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_OPTIONAL, ATTRIBUTE_SANDBOX, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, COURSE_DIRECTORY, DEFAULT_LESSON_TYPE } from "../../constants";
+import { attributeIsTruthy, attributeMayBeTruthy, getDateAttribute, getOrderAttribute } from "../../utils";
+import { ASCIIDOC_DIRECTORY, ATTRIBUTE_BRANCH, ATTRIBUTE_DURATION, ATTRIBUTE_LAB, ATTRIBUTE_OPTIONAL, ATTRIBUTE_SANDBOX, ATTRIBUTE_SEQUENTIAL, ATTRIBUTE_SLIDES, ATTRIBUTE_TYPE, ATTRIBUTE_UPDATED_AT, COURSE_DIRECTORY, DEFAULT_LESSON_TYPE } from "../../constants";
 import { readdir } from "fs/promises";
 import { existsSync } from "fs";
 
@@ -22,32 +22,13 @@ export type LessonToImport = {
   order: number;
   lab: string;
   optional: boolean;
-  sandbox: boolean;
+  slides: boolean;
+  sequential: boolean;
+  sandbox: boolean | string;
   updatedAt: string | undefined;
   branch: string | undefined;
 }
 
-
-
-// const loadQuestions = async (module: ModuleToImport, slug: string): Promise<QuestionToImport[]> => {
-//   const questionsDir = join(COURSE_DIRECTORY, module.course.slug, 'modules', module.slug, 'lessons', slug, 'questions')
-//   const output: QuestionToImport[] = []
-
-//   if (existsSync(questionsDir)) {
-//     const questions = await readdir(questionsDir)
-//       .then(filenames => filenames.filter(
-//         filename => filename.endsWith('.adoc')
-//       ))
-
-//     for (const filename of questions) {
-//       const question = loadQuestion(questionsDir, filename)
-
-//       output.push(question)
-//     }
-//   }
-
-//   return output
-// }
 
 async function getLesson(module: ModuleToImport, slug: string): Promise<LessonToImport> {
   const file = loadFile(join(COURSE_DIRECTORY, module.course.slug, 'modules', module.slug, 'lessons', slug, 'lesson.adoc'), { parse_header_only: true })
@@ -62,9 +43,11 @@ async function getLesson(module: ModuleToImport, slug: string): Promise<LessonTo
     type: file.getAttribute(ATTRIBUTE_TYPE, DEFAULT_LESSON_TYPE),
     order,
     duration: file.getAttribute(ATTRIBUTE_DURATION, null),
-    sandbox: attributeIsTruthy(file, ATTRIBUTE_SANDBOX),
+    sandbox: attributeMayBeTruthy(file, ATTRIBUTE_SANDBOX),
     lab: file.getAttribute(ATTRIBUTE_LAB),
     optional: attributeIsTruthy(file, ATTRIBUTE_OPTIONAL, false),
+    slides: attributeIsTruthy(file, ATTRIBUTE_SLIDES, false),
+    sequential: attributeIsTruthy(file, ATTRIBUTE_SEQUENTIAL, false),
     updatedAt: getDateAttribute(file, ATTRIBUTE_UPDATED_AT),
     branch: file.getAttribute(ATTRIBUTE_BRANCH, 'main'),
   }
