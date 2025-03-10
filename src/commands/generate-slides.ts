@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs"
+import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, unlinkSync, writeFileSync } from "fs"
 import { COURSE_DIRECTORY, PUBLIC_DIRECTORY } from "../constants"
 import { join } from "path";
 import puppeteer from 'puppeteer'
@@ -41,26 +41,23 @@ const main = async () => {
             pdf,
             {}
         )
-    }
 
-    await copyToPublic()
+        // write to public directory 
+        const publicPath = join(PUBLIC_DIRECTORY, 'slides', `${course}.pdf`)
+        if (existsSync(publicPath)) {
+            await unlinkSync(publicPath)
+        }
+
+        await writeFileSync(
+            publicPath,
+            pdf,
+            {}
+        )
+    }
 
     console.log(`📖 ${courses.length} Slides PDFs generated`)
 }
 
-async function copyToPublic() {
-    return Promise.all(readdirSync(COURSE_DIRECTORY)
-        .filter(slug => {
-            const stats = statSync(join(COURSE_DIRECTORY, slug))
-            return stats.isDirectory() && existsSync(join(COURSE_DIRECTORY, slug, 'slides.pdf'))
-        })
-        .map(slug => {
-            const src = join(COURSE_DIRECTORY, slug, 'slides.pdf')
-            const dest = join(PUBLIC_DIRECTORY, 'slides', `${slug}.pdf`)
-            copyFileSync(src, dest)
-            return slug
-        }))
-}
 
 const server = app.listen(3001, async () => {
     await main()
