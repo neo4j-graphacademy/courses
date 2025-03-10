@@ -41,6 +41,9 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
       FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
       FOREACH (r IN [(c)-[r:HAS_PREREQUISITE]->(n) WHERE NOT n.slug IN course.prerequisiteSlugs | r] | DELETE r)
+      // Set all modules to deleted and detach
+      FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] | SET m:DeletedModule )
+      FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] | DELETE r )
 
       WITH c, course
 
@@ -59,9 +62,7 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       MERGE (c)-[r:IN_CATEGORY]->(cat)
       SET r.order = toInteger(row.order)
 
-      // Set all modules to deleted and detach
-      FOREACH (m IN [ (c)-[:HAS_MODULE]->(m) | m ] | SET m:DeletedModule )
-      FOREACH (r IN [ (c)-[r:HAS_MODULE]->() | r ] | DELETE r )
+      
   `, { courses })
 
   // Translations
@@ -127,6 +128,8 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
     l.sandbox = lesson.sandbox,
     l.cypher = lesson.cypher,
     l.verify = lesson.verify,
+    l.slides = lesson.slides,
+    l.sequential = lesson.sequential,
     l.status = 'active',
     l.lab = lesson.lab,
     l.link = m.link + lesson.slug +'/',

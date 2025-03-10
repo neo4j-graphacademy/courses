@@ -2,7 +2,7 @@ import express from 'express'
 import initNeo4j, { read } from './modules/neo4j'
 import { loadFile } from './modules/asciidoc'
 import { courseBadgePath, courseIllustrationPath, courseOverviewPath, courseSummaryPath } from './utils'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
 const app = express()
@@ -11,7 +11,9 @@ import {
     NEO4J_HOST,
     NEO4J_USERNAME,
     NEO4J_PASSWORD,
+    ATTRIBUTE_CAPTION,
 } from './constants'
+import { formatRepositoryLinks } from './services/build/build.utils'
 
 app.set('view engine', 'pug')
 
@@ -68,5 +70,73 @@ app.get('/:course/summary', async (req, res) => {
         css: readFileSync(join(__dirname, '..', 'resources', 'css', 'summary.css'))
     })
 })
+
+
+type Slide = {
+    title: string | undefined;
+    doc: string;
+}
+
+type Module = Slide & {
+    lessons: Slide[]
+}
+
+
+app.get('/:course/slides', async (req, res, next) => {
+    try {
+        // Load course information
+        const courseFile = loadFile(courseOverviewPath(req.params.course))
+        const courseAttributes = courseFile.getAttributes()
+
+        const illustration = readFileSync(courseIllustrationPath(req.params.course)).toString()
+
+        const attributes = formatRepositoryLinks({
+            repository: courseAttributes.repository,
+        })
+
+        const moduleFolder = join(__dirname, '..', 'asciidoc', 'courses', req.params.course, 'modules')
+
+        const modules: Module[] = []
+
+        for (const module of readdirSync(moduleFolder)) {
+            const moduleFile = loadFile(join(moduleFolder, module, 'module.adoc'))
+
+            const lessons: Slide[] = []
+
+            for (const lesson of readdirSync(join(moduleFolder, module, 'lessons'))) {
+                const lessonFile = loadFile(join(moduleFolder, module, 'lessons', lesson, 'lesson.adoc'), { attributes })
+                const doc = lessonFile.getContent()
+
+                if (doc.match(/class=".*slide.*"/)) {
+                    lessons.push({
+                        title: lessonFile.getTitle(),
+                        doc,
+                    })
+                }
+            }
+
+            modules.push({
+                title: moduleFile.getTitle(),
+                doc: moduleFile.getContent(),
+                lessons,
+            })
+        }
+
+        res.render('slides', {
+            // cdnUrl: 'http://localhost:3000',
+            cdnUrl: 'https://cdn.graphacademy.neo4j.com',
+            title: courseFile.getTitle(),
+            byline: courseFile.getAttribute('caption'),
+            illustration,
+            css: readFileSync(join(__dirname, '..', 'resources', 'css', 'slides.css')),
+            modules,
+        })
+    }
+    catch (e: any) {
+        console.error(e)
+        return res.status(404).send(e.message)
+    }
+})
+
 
 export default app
