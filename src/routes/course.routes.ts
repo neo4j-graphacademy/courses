@@ -453,7 +453,11 @@ router.get('/:course/slides.pdf', indexable, requiresAuth(), async (req, res, ne
             return res.redirect(course.link)
         }
 
-        res.sendFile(slides)
+        const cdnLink = `${CDN_URL}/slides/${course.slug}.pdf`
+
+        return res.redirect(cdnLink)
+
+        // res.sendFile(cdnLink)
     }
     catch (e) {
         next(e)
