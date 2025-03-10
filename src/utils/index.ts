@@ -162,6 +162,7 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         lastSeenAt: enrolment.lastSeenAt,
         completedCount,
         completedPercentage,
+        certificateId: enrolment.certificateId,
         certificateUrl: enrolment.certificateUrl,
         isInterested: enrolment.isInterested,
         modules: course.modules.map(module => ({

@@ -21,6 +21,7 @@ import accordion from './accordion'
 import chatbot from './chatbot'
 import exam from './exam'
 import teamCourses from './team-courses'
+import { showConfetti } from './certificate'
 
 window.addEventListener('DOMContentLoaded', () => {
     highlight()
@@ -48,4 +49,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Lazyload images
     const ll = new lazyload()
+
+    if (document.body.classList.contains('show-confetti')) {
+        showConfetti()
+    }
+
+    const debounce = (func: Function, wait: number) => {
+        let timeout: number;
+        return (...args: any[]) => {
+            clearTimeout(timeout);
+            timeout = window.setTimeout(() => func.apply(this, args), wait);
+        };
+    };
+
+    document.querySelectorAll('.confetti-trigger')
+        .forEach(trigger => trigger.addEventListener('mouseenter', debounce(showConfetti, 300)))
 })

@@ -8,7 +8,6 @@ export function logToggle(type, visible) {
     })
 }
 
-
 function toggleSandbox() {
     const SELECTOR = 'classroom-sandbox'
     const TOGGLE = `${SELECTOR}-toggle`

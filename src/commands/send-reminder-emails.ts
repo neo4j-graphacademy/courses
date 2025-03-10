@@ -9,9 +9,10 @@ import {
     // ENROLMENT_REMINDER_LIMIT,
     // ENROLMENT_REMINDER_DAYS,
 } from '../constants'
-import { courseSummaryPdfPath } from '../modules/asciidoc'
+import { courseSlidesPdfPath, courseSummaryPdfPath } from '../modules/asciidoc'
 import { readFileSync } from 'fs'
 import { int } from 'neo4j-driver'
+import { AttachmentJSON } from '@sendgrid/helpers/classes/attachment'
 
 const main = async () => {
     await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
@@ -54,18 +55,25 @@ const main = async () => {
         res.records
             .map((row) => row.toObject())
             .map(async (attributes: Record<string, any>) => {
-                const courseSummaryPdf = await courseSummaryPdfPath(attributes.course.slug)
-                const attachments =
-                    typeof courseSummaryPdf === 'string'
-                        ? [
-                            {
-                                filename: `${attributes.course.title} Summary.pdf`,
-                                content: readFileSync(courseSummaryPdf).toString('base64'),
-                            },
-                        ]
-                        : []
+                const attachments: AttachmentJSON[] = []
 
-                prepareAndSend(
+                const courseSlidePdf = await courseSlidesPdfPath(attributes.course.slug)
+                const courseSummaryPdf = await courseSummaryPdfPath(attributes.course.slug)
+
+                if (typeof courseSlidePdf === 'string') {
+                    attachments.push({
+                        filename: `${attributes.course.title} Slides.pdf`,
+                        content: readFileSync(courseSlidePdf).toString('base64'),
+                    })
+                }
+                else if (typeof courseSummaryPdf === 'string') {
+                    attachments.push({
+                        filename: `${attributes.course.title} Summary.pdf`,
+                        content: readFileSync(courseSummaryPdf).toString('base64'),
+                    })
+                }
+
+                await prepareAndSend(
                     'user-enrolment-reminder',
                     attributes.user.email,
                     attributes,

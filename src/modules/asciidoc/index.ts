@@ -120,9 +120,25 @@ export function courseSummaryExists(slug: string): Promise<boolean> {
     return Promise.resolve(fileExists(file))
 }
 
+export function courseSlidesExist(slug: string): Promise<boolean> {
+    const folder = path.join('courses', slug)
+    const file = path.join(folder, 'slides.pdf')
+
+    return Promise.resolve(fileExists(file))
+}
+
 export function courseSummaryPdfPath(slug: string): Promise<string | undefined> {
     const folder = path.join('courses', slug)
     const file = path.join(folder, 'summary.pdf')
+
+    const output = fileExists(file) ? path.join(ASCIIDOC_DIRECTORY, file) : undefined
+
+    return Promise.resolve(output)
+}
+
+export function courseSlidesPdfPath(slug: string): Promise<string | undefined> {
+    const folder = path.join('courses', slug)
+    const file = path.join(folder, 'slides.pdf')
 
     const output = fileExists(file) ? path.join(ASCIIDOC_DIRECTORY, file) : undefined
 

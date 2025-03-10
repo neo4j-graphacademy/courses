@@ -15,6 +15,7 @@ export interface IntermediateEnrolment {
     lastSeenAt: Date | undefined;
     completed: boolean;
     completedAt: Date | undefined;
+    recentlyCompleted: boolean;
     failed: boolean;
     isInterested: boolean;
     percentage: number;
@@ -23,6 +24,7 @@ export interface IntermediateEnrolment {
     ref: string | undefined;
     completedCount: number;
     completedPercentage: number | string;
+    certificateId: string | undefined;
     certificateUrl: string | undefined;
     sandbox?: Sandbox;
     completedModules: string[];
@@ -47,10 +49,11 @@ export default async function getEnrolments(tx: ManagedTransaction, user: Partia
             .*,
             courseSlug: c.slug,
             completed: e:CompletedEnrolment,
-            failed: (NOT e:CompletedEnrolment AND e:FailedEnrolment) OR (c:Certification AND e.lastSeenAt <= datetime() - duration('PT1H')),
+            failed: (NOT e:CompletedEnrolment AND e:FailedEnrolment) OR (c:Certification AND e.lastSeenAt <= datetime() - duration('P7D')),
             availableAfter: CASE WHEN c:Certification THEN e.lastSeenAt + duration('PT1H') ELSE null END,
             completedModules: [ (e)-[:COMPLETED_MODULE]->(m) | m.link ],
             completedLessons: [ (e)-[:COMPLETED_LESSON]->(l) | l.link ],
+            recentlyCompleted: e:CompletedEnrolment AND e.completedAt >= datetime() - duration('P14D'),
             status: CASE
                 WHEN e IS NOT NULL AND e:CompletedEnrolment THEN '${STATUS_COMPLETED}'
                 WHEN e IS NOT NULL AND e:FailedEnrolment THEN '${STATUS_FAILED}'

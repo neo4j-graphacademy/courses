@@ -1,7 +1,8 @@
 /**
  * DEPRECATED
  *
- * Sessions are no longer held in Neo4j and are instead held in redis
+ * As long as REDIS_HOST is set, sessions are instead held
+ * in redis.  Otherwise the database gets bloated with Session nodes
  */
 import initNeo4j, { write } from '../modules/neo4j'
 

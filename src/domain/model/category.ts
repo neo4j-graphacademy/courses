@@ -11,6 +11,7 @@ export interface Category<T extends Course> {
     slug: string;
     title: string;
     description: string;
+    courseCount: number;
     shortName?: string;
     caption?: string;
     children?: Category<T>[];

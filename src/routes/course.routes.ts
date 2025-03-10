@@ -7,11 +7,11 @@ import { getCourseWithProgress } from '../domain/services/get-course-with-progre
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
 import { createSandbox, getSandboxByHashKey, getSandboxForUseCase, SANDBOX_STATUS_NOT_FOUND } from '../modules/sandbox'
-import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSummaryExists } from '../modules/asciidoc'
+import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSlidesExist, courseSlidesPdfPath, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
-import { ASCIIDOC_DIRECTORY, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { registerInterest } from '../domain/services/register-interest'
 import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/model/course'
 import { resetDatabase } from '../domain/services/reset-database'
@@ -29,7 +29,7 @@ import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'
 import { UserViewedLesson } from '../domain/events/UserViewedLesson'
-import { getRef, getTeam } from '../middleware/save-ref.middleware'
+import { getCategory, getRef, getTeam } from '../middleware/save-ref.middleware'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 import { requiredCompletedProfile } from '../middleware/profile.middleware'
 import { translate } from '../modules/localisation'
@@ -45,10 +45,9 @@ import { Sandbox } from '../domain/model/sandbox'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
 import getChatbot from '../modules/chatbot/chatbot.class'
 import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
-import { LESSON_TYPE_QUIZ } from '../domain/model/lesson'
+import { UserSharedCertificate } from '../domain/events/UserSharedCertificate'
 
 const router = Router()
-
 
 /**
  * Redirects
@@ -340,8 +339,9 @@ router.get('/:course/enrol', requiresAuth(), /*requiresVerification,*/ requiredC
         const token = await getToken(req)
         const ref = getRef(req)
         const team = getTeam(req)
+        const category = getCategory(req)
 
-        const enrolment = await enrolInCourse(req.params.course, user, token, ref, team)
+        const enrolment = await enrolInCourse(req.params.course, user, token, ref, team, category)
 
         let goTo = enrolment.course.next?.link || `/courses/${enrolment.course.slug}/`
 
@@ -415,13 +415,73 @@ router.get('/:course/summary', indexable, requiresAuth(), async (req, res, next)
         const recommendations = await getSuggestionsForEnrolment(course.enrolmentId)
 
         res.render('course/summary', {
-            classes: `course-summary ${course.slug}`,
+            classes: `course-summary ${course.slug} show-confetti`,
+            hideToc: true,
+            hideSuccess: true,
+            hidePagination: true,
             title: 'Course Summary',
             course,
             recommendations,
             doc,
+            slides: await courseSlidesExist(course.slug),
             translate: translate(course.language),
         })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/slides
+ *
+ * If it exists, download slides.pdf
+ */
+router.get('/:course/slides.pdf', indexable, requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        if (!course.completed) {
+            return res.redirect(course.link)
+        }
+
+        const slides = await courseSlidesPdfPath(course.slug)
+
+        if (!slides) {
+            return res.redirect(course.link)
+        }
+
+        res.sendFile(slides)
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+/**
+ * @GET /:course/share/linkedin
+ *
+ * Add the users certificate to their linkedin profile
+ */
+router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req)
+
+        const course = await getCourseWithProgress(req.params.course, user)
+
+        if (user === undefined || typeof course.redirect === 'string') {
+            return res.redirect(course.redirect || '/courses/')
+        }
+
+        emitter.emit(new UserSharedCertificate(user, course))
+
+        // Year and month for LinkedIn
+        const year = course.completedAt ? course.completedAt.getFullYear() : null
+        const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
+
+        return res.redirect(`https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(course.title)}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId}&certUrl=${encodeURIComponent(course.certificateUrl || '')}`)
     }
     catch (e) {
         next(e)
@@ -808,7 +868,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
                 }
             },
             user,
-            feedback: true,
+            feedback: false,
             ...module,
             type: 'module',
             path: req.originalUrl,
@@ -1177,7 +1237,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         const token = await getToken(req)
         const user = await getUser(req)
 
-        const outcome = await saveLessonProgress(user as User, course, module, lesson, [], token)
+        const outcome = await saveLessonProgress(user as User, course, module, lesson, [], token, undefined, true)
 
         res.json(outcome)
     }

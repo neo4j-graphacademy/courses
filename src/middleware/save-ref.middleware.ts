@@ -18,6 +18,11 @@ export function saveRef(req: Request, res: Response, next: NextFunction) {
         res.cookie('ref', req.session['ref'])
     }
 
+    if (req.query.category) {
+        req.session['category'] = req.query.category
+        res.cookie('category', req.session['category'])
+    }
+
     next()
 }
 
@@ -40,4 +45,15 @@ export function getRef(req: Request): string | undefined {
 export function getTeam(req: Request): string | undefined {
     // @ts-ignore
     return req.session.team || req.cookies.team
+}
+
+/**
+ * Attempt to extract the `category` value from the current session
+ *
+ * @param req Express Request
+ * @returns string|undefined
+ */
+export function getCategory(req: Request): string | undefined {
+    // @ts-ignore
+    return req.session.category || req.cookies.category
 }

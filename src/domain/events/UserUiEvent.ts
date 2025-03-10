@@ -12,6 +12,7 @@ export const UI_EVENT_SHOW_TRANSCRIPT = 'show-transcript'
 export const UI_EVENT_SHOW_VIDEO = 'show-video'
 export const UI_EVENT_SHOW_SIDEBAR = 'show-sidebar'
 export const UI_EVENT_HIDE_SIDEBAR = 'hide-sidebar'
+export const UI_EVENT_SHARED_CERTIFICATE = 'shared-certificate'
 
 export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_CHATBOT_TOGGLE
@@ -25,6 +26,7 @@ export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_SHOW_VIDEO
     | typeof UI_EVENT_SHOW_SIDEBAR
     | typeof UI_EVENT_HIDE_SIDEBAR
+    | typeof UI_EVENT_SHARED_CERTIFICATE
 
 export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_SANDBOX_TOGGLE,
@@ -39,6 +41,7 @@ export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_SHOW_VIDEO,
     UI_EVENT_HIDE_SIDEBAR,
     UI_EVENT_SHOW_SIDEBAR,
+    UI_EVENT_SHARED_CERTIFICATE,
 ]
 
 export class UserUiEvent {

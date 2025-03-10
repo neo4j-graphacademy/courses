@@ -1,6 +1,7 @@
 import { createElement } from './modules/dom'
 import { logUiEvent } from './modules/events';
 import { post } from './modules/http'
+import { celebrate } from './modules/confetti'
 
 declare global {
     interface Window {
@@ -467,6 +468,22 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
             element.classList.add('summary--visible')
         }
 
+        // If skip button is clicked, add solution to the top of the summary
+        if (button.classList.contains('btn-skip')) {
+            // get .solution content
+            const solution = document.querySelector('.solution')
+            const summary = document.querySelector('.summary')
+
+            if (solution && summary) {
+                //  Remove solution from dom
+                solution.parentElement?.removeChild(solution)
+
+                // Prepend solution to summary
+                const firstParagraph = summary.querySelector('p')
+                summary.insertBefore(solution, firstParagraph)
+            }
+        }
+
         if (res.data.courseCompleted) {
             displayCourseCompleted(res)
         }
@@ -528,9 +545,12 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
 
         const firstIncorrect = document.querySelector(`.${QUESTION_INCORRECT}`)
 
+        const buttons = createElement('div', 'module-outcome-actions')
+
         // Reset button?
         const RESET_BUTTON_SELECTOR = 'btn--reset'
         const RESET_BUTTON_STATUS = 'btn-reset-status'
+
 
         if (res.data.reset === true) {
             const resetButton = createElement('a', `btn btn--small ${RESET_BUTTON_SELECTOR}`, [
@@ -559,11 +579,29 @@ const handleResponse = (parent, button, res, questionsOnPage: Question[], answer
                     })
             })
 
-            oops.appendChild(resetButton)
-            oops.appendChild(resetStatus)
+            buttons.appendChild(resetButton)
+            buttons.appendChild(resetStatus)
         }
 
+        const solution = document.querySelector('.solution')
+
+        if (attempts > 2 || solution?.classList.contains(ADMONITION_VISIBLE)) {
+            // Allow the user to skip
+            const skipButton = createElement('a', `btn btn--small btn-read btn-skip btn--complete`, [
+                // loadingIndicator(),
+                'Mark as completed',
+            ])
+
+
+            buttons.appendChild(createElement('span', 'spacer'))
+            buttons.append(skipButton)
+        }
+
+        oops.appendChild(buttons)
+
         parent.insertBefore(oops, firstIncorrect!)
+
+        setupMarkAsReadButton()
 
         // Scroll to error message
         oops.scrollIntoView()
@@ -715,6 +753,11 @@ const displayLessonCompleted = (res) => {
 }
 
 export const displayCourseCompleted = (res) => {
+    const currentUrl = window.location.pathname;
+    const coursePath = currentUrl.split('/').slice(0, 3).join('/');
+    return window.location.href = `${coursePath}/summary/`
+
+    /*
     const actions: HTMLElement[] = []
 
     const arrow = document.createElement('span')
@@ -804,6 +847,9 @@ export const displayCourseCompleted = (res) => {
 
     const sandboxToggle = document.querySelector('.classroom-sandbox-toggle')
     sandboxToggle?.parentElement!.removeChild(sandboxToggle)
+
+    celebrate()
+    */
 }
 
 const handleError = (parent, button, error) => {

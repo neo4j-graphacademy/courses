@@ -1,13 +1,14 @@
 import { Router } from 'express'
 import { BASE_URL } from '../constants'
-import { CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
+import { Course, CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
 import { canonical } from '../utils'
-import { STATUS_BOOKMARKED, STATUS_ENROLLED } from '../domain/model/enrolment'
+import { STATUS_BOOKMARKED, STATUS_ENROLLED, STATUS_RECENTLY_COMPLETED } from '../domain/model/enrolment'
+import { Category } from '../domain/model/category'
 
 const router = Router()
 
@@ -24,6 +25,8 @@ router.get('/', async (req, res, next) => {
         // Get current courses
         let current: CourseWithProgress[] = []
         let bookmarked: CourseWithProgress[] = []
+        let recentlyCompleted: CourseWithProgress[] = []
+        let userPaths: Category<Course>[] = []
 
         if (user) {
             try {
@@ -31,12 +34,16 @@ router.get('/', async (req, res, next) => {
 
                 current = output.enrolments[STATUS_ENROLLED] || []
                 bookmarked = output.enrolments[STATUS_BOOKMARKED] || []
+                recentlyCompleted = output.enrolments[STATUS_RECENTLY_COMPLETED] || []
+                userPaths = output.paths || []
 
                 current.sort((a, b) => a.lastSeenAt && b.lastSeenAt && a.lastSeenAt > b.lastSeenAt ? -1 : 1)
             }
             catch (e) {
+                console.error(e)
                 current = []
                 bookmarked = []
+                recentlyCompleted = []
             }
         }
 
@@ -62,20 +69,22 @@ router.get('/', async (req, res, next) => {
             classes: 'home transparent-nav preload',
             canonical: canonical('/'),
             current,
+            recentlyCompleted,
             bookmarked,
             categories,
             beginners,
             paths,
             certification,
+            userPaths,
             activePath,
             meta: [{
                 name: 'apple-itunes-app', content: 'app-id=1557747094'
             }],
-            banner: {
-                // text: 'Maintenance planned - 27 February from 10:00-12:00 UTC',
-                //     link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
-                //     cta: 'Complete the survey',
-            },
+            // banner: {
+            //     text: 'Help us improve your experience on GraphAcademy  - ',
+            //     link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
+            //     cta: 'Complete the survey',
+            // },
             translate: translateEn,
         })
     }

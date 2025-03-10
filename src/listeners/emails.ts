@@ -9,6 +9,8 @@ import { ASCIIDOC_DIRECTORY, MAIL_FROM, MAIL_REPLY_TO, SENDGRID_API_KEY } from '
 import { UserFailedCertification } from '../domain/events/UserFailedCertification'
 import UserCreatedTeam from '../domain/events/UserCreatedTeam'
 import { UserJoinedTeam } from '../domain/events/UserJoinedTeam'
+import { AttachmentJSON } from '@sendgrid/helpers/classes/attachment'
+import { courseSlidesPdfPath, courseSummaryPdfPath } from '../modules/asciidoc'
 
 export default function initEmailListeners(): Promise<void> {
     const obscuredKey = SENDGRID_API_KEY
@@ -118,16 +120,26 @@ export default function initEmailListeners(): Promise<void> {
                 }
             }
 
-            // Summary PDF?
-            const attachments =
-                event.course.summaryPdf !== undefined
-                    ? [
-                        {
-                            filename: `${event.course.title} Summary.pdf`,
-                            content: readFileSync(event.course.summaryPdf).toString('base64'),
-                        },
-                    ]
-                    : []
+            // Attach summary or
+            const attachments: AttachmentJSON[] = []
+
+            if (event.course.slug) {
+                const courseSlidePdf = await courseSlidesPdfPath(event.course.slug)
+                const courseSummaryPdf = await courseSummaryPdfPath(event.course.slug)
+
+                if (typeof courseSlidePdf === 'string') {
+                    attachments.push({
+                        filename: `${event.course.title} Slides.pdf`,
+                        content: readFileSync(courseSlidePdf).toString('base64'),
+                    })
+                }
+                else if (typeof courseSummaryPdf === 'string') {
+                    attachments.push({
+                        filename: `${event.course.title} Summary.pdf`,
+                        content: readFileSync(courseSummaryPdf).toString('base64'),
+                    })
+                }
+            }
 
             void prepareAndSend(
                 template,

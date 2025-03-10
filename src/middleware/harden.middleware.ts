@@ -7,7 +7,7 @@ export default function hardenExpress(app: Express) {
     app.disable('x-powered-by')
     app.use(nonce())
 
-    if (IS_PRODUCTION || true) {
+    if (IS_PRODUCTION) {
         app.use(
             helmet.contentSecurityPolicy({
                 useDefaults: true,
@@ -39,7 +39,6 @@ export default function hardenExpress(app: Express) {
                         'consent.cookebot.com',
                         AUTH0_ISSUER_BASE_URL as string,
                     ].filter((n) => n !== undefined),
-                    frameAncestors: ['self', '*.saleshood.com', '*.neo4j.com'],
                     connectSrc: ['*'],
                     baseUri: ["'self'", 'cdn.graphacademy.neo4j.com'],
                     workerSrc: ["'self'", 'blob:'],

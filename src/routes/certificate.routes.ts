@@ -27,9 +27,9 @@ router.get('/:id', async (req, res, next) => {
         const formatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' })
         const prettyDate = formatter.format(course.completedAt)
 
-
         res.render('profile/certificate', {
             title: [course.title, `${userName}'s Achievements`].join(' | '),
+            classes: 'show-confetti',
             course,
             name: userName,
             own: user.id === currentUser?.id,

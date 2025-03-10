@@ -14,7 +14,7 @@ import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
 
-export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string, ref?: string): Promise<LessonWithProgress & { answers: Answer[] }> {
+export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string, ref?: string, forceRead: boolean = false): Promise<LessonWithProgress & { answers: Answer[] }> {
     const {
         lessonWithProgress,
         moduleWithProgress,
@@ -59,10 +59,10 @@ export async function saveLessonProgress(user: User, course: string, module: str
                 MERGE (an)-[:TO_QUESTION]->(q)
             )
 
-            FOREACH (_ IN CASE WHEN size($answers) = size( [ (l)-[:HAS_QUESTION]->(q:Question) | q ] ) AND ALL (a IN $answers WHERE a.correct = true) THEN [1] ELSE [] END |
+            FOREACH (_ IN CASE WHEN $forceRead OR (size($answers) = size( [ (l)-[:HAS_QUESTION]->(q:Question) | q ] ) AND ALL (a IN $answers WHERE a.correct = true)) THEN [1] ELSE [] END |
                 SET a:SuccessfulAttempt
                 MERGE (e)-[r:COMPLETED_LESSON]->(l)
-                SET r.createdAt = datetime()
+                SET r.createdAt = datetime(), r.read = CASE WHEN $forceRead THEN true ELSE null END
             )
 
             RETURN ${lessonCypher('e')} AS lesson
@@ -73,6 +73,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             module,
             lesson,
             answers,
+            forceRead,
         })
 
         if (lessonResult.records.length === 0) {

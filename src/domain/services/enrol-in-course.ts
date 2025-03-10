@@ -10,7 +10,7 @@ import { User } from "../model/user";
 import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
 
-export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined, allowCertification = true) {
+export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined, allowCertification = true, category?: string) {
     const res = await tx.run<Partial<CourseWithProgress>>(`
         MATCH (c:Course {slug: $slug})
         ${allowCertification ? '' : "WHERE not c.link CONTAINS 'certifications'"}
@@ -22,14 +22,22 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
             u.picture = $picture
         SET u.email = coalesce($email, u.email), u.id = coalesce(u.id, randomUuid()),
             u.refs = CASE WHEN $ref IS NOT NULL THEN apoc.coll.toSet(coalesce(u.refs, []) + $ref)
-                ELSE u.refs END
+                ELSE u.refs END,
+            u.categories = CASE WHEN $category IS NOT NULL THEN apoc.coll.toSet(coalesce(u.categories, []) + $category) ELSE u.categories END
         MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
         ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
         ON MATCH SET e.updatedAt = datetime()
         SET e.lastSeenAt = datetime(),
-            e.ref = $ref
+            e.ref = $ref,
+            e.category = $category
         MERGE (u)-[:HAS_ENROLMENT]->(e)
         MERGE (e)-[:FOR_COURSE]->(c)
+
+        FOREACH (slug IN CASE WHEN $category IS NOT NULL THEN [$category] ELSE [] END |
+            MERGE (cat:Category {slug: slug})
+            MERGE (e)-[:THROUGH_CATEGORY]->(cat)
+        )
+
         REMOVE e:FailedEnrolment
         RETURN {
             user: {
@@ -51,6 +59,7 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
         picture: user.picture,
         ref: ref || null,
         team: team || null,
+        category: category || null,
     }))
 
     if (res.records.length === 0) {
@@ -60,10 +69,10 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
     return res
 }
 
-export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined, team?: string): Promise<Enrolment> {
+export async function enrolInCourse(slug: string, user: User, token: string, ref: string | undefined, team?: string, category?: string): Promise<Enrolment> {
     const output = await writeTransaction(async tx => {
         // Save data to database
-        const res = await mergeEnrolment(tx, slug, user, ref, team, false)
+        const res = await mergeEnrolment(tx, slug, user, ref, team, false, category)
 
         const enrolment = res.records[0].get('enrolment')
 
