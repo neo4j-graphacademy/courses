@@ -25,7 +25,7 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
                 ELSE u.refs END,
             u.categories = CASE WHEN $category IS NOT NULL THEN apoc.coll.toSet(coalesce(u.categories, []) + $category) ELSE u.categories END
         MERGE (e:Enrolment {id: apoc.text.base64Encode($slug +'--'+ u.sub)})
-        ON CREATE SET e.createdAt = datetime(), e.certificateId = randomUuid()
+        ON CREATE SET e.createdAt = datetime()
         ON MATCH SET e.updatedAt = datetime()
         SET e.lastSeenAt = datetime(),
             e.ref = $ref,
