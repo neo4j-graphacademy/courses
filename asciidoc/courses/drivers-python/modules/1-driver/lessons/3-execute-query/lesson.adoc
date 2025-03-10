@@ -1,5 +1,5 @@
 = Executing Cypher statements
-:type: video 
+:type: lesson 
 :slides: true
 :minutes: 10
 :order: 3
@@ -10,7 +10,7 @@
 
 [.col]
 ====
-To run one-off Cypher statements or statements that return a small number of records, use the `execute_query()` method.
+You can use the `execute_query()` method to run one-off Cypher statements or statements that return a small number of records.
 This method fetches a list of records and loads them into memory.
 
 
@@ -18,7 +18,7 @@ This method fetches a list of records and loads them into memory.
 ----
 cypher = """
 MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
-RETURN m.title AS title, r.roles AS roles
+RETURN m.title AS title, r.role AS role
 """
 name="Tom Hanks"
 
@@ -55,7 +55,7 @@ The `execute_query()` method returns an a tuple containing three objects:
 
 [source,python]
 ----
-print(keys) # ['title', 'roles']
+print(keys) # ['title', 'role']
 print(summary) # A summary of the query execution
 ----
 
@@ -68,11 +68,11 @@ You can access any item in the `RETURN` clause using square brackets.
 
 [source,python]
 ----
-# RETURN m.title AS title, r.roles AS roles
+# RETURN m.title AS title, r.role AS role
 
-for record in result:
+for record in records:
     print(record["title"]) # Toy Story
-    print(record["roles"]) # ["Woody"]
+    print(record["role"]) # "Woody"
 ----
 
 [.slide]
@@ -85,19 +85,20 @@ Rather than returning the tuple, the query will return the output of the `result
 [source,python]
 ----
 result = driver.execute_query(
-  "UNWIND range(0, 4) AS number RETURN number", 
-  result_transformer_=lambda result: [
-    # double the number for each record in the result
-    record['number'] *2 for record in result 
-  ]
+    cypher,
+    name=name,
+    result_transformer_= lambda result: [
+        f"Tom Hanks played {record['role']} in {record['title']}" 
+        for record in result
+    ]
 )
 
-print(result) # [0, 2, 4, 6, 8]
+print(result) # [Tom Hanks played Woody in Toy Story, ...]
 ----
 
 
 [.slide]
-== Working with Dataframes
+== Working with DataFrames
 
 The `Result` class provides a `to_df()` method that can be used to transform the result into a pandas `DataFrame`.
 
@@ -114,8 +115,7 @@ driver.execute_query(
 [.slide]
 == Reading and writing 
 
-By default, `execute_query()` runs in **WRITE** mode.  When in a clustered environment, this sends all queries to the cluster leader. 
-This puts unnecessary load on the leader. 
+By default, `execute_query()` runs in **WRITE** mode.  In a clustered environment, this sends all queries to the cluster leader, putting unnecessary load on the leader. 
 
 When you're only reading data, you can optimize performance by setting the `routing_` parameter to READ mode. 
 This distributes your read queries across all cluster members.
@@ -125,13 +125,14 @@ This distributes your read queries across all cluster members.
 from neo4j import Result, RoutingControl 
 
 driver.execute_query(
-  "UNWIND range(0, 4) AS number RETURN number", 
+  cypher, 
   result_transformer_=Result.to_df,
   routing_=RoutingControl.READ # or simply "r"
 )
 ----
 
-_You can also pass `r` for read mode and `w` for write mode._
+[TIP]
+You can also pass `r` for read mode and `w` for write mode.
 
 [.next.discrete]
 == Check your understanding
