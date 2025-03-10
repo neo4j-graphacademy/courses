@@ -5,7 +5,7 @@ import { BUILD_DIRECTORY, COURSE_DIRECTORY, STATUS_ACTIVE } from "../../constant
 import { writeFile } from "fs/promises";
 import { checkFolder, formatRepositoryLinks } from "./build.utils";
 
-function getPageAttributes(lesson: LessonToImport) {
+export function getPageAttributes(lesson: LessonToImport) {
   const combined = {
     ...lesson.course,
     ...lesson.course.repositories,

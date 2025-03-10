@@ -73,6 +73,8 @@ export const ATTRIBUTE_REWARD_IMAGE = 'reward-image'
 export const ATTRIBUTE_REWARD_PROVIDER = 'reward-provider'
 export const ATTRIBUTE_REWARD_PRODUCT_ID = 'reward-product-id'
 export const ATTRIBUTE_DESCRIPTION = 'description'
+export const ATTRIBUTE_SLIDES = 'slides'
+export const ATTRIBUTE_SEQUENTIAL = 'sequential'
 
 export const ATTRIBUTE_KEY_POINTS = 'key-points'
 
