@@ -1,6 +1,6 @@
 import { join, parse } from "path";
 import { LessonToImport } from "./load-lessons";
-import { loadFile } from "../../modules/asciidoc";
+import { convert, doc, loadFile } from "../../modules/asciidoc";
 import { COURSE_DIRECTORY } from "../../constants";
 import { existsSync } from "fs";
 import { readdir } from "fs/promises";
@@ -12,6 +12,14 @@ export type QuestionToImport = {
 }
 
 const generateQuestionId = (title: string): string => {
+  const adoc = `== ${title}`
+  const html = doc.load(adoc).convert()
+  const matches = html.match(/<h2 id="([^"]+)">/);
+
+  if (matches) {
+    return matches[1];
+  }
+
   return '_' + title.replace(/(<([^>]+)>)/gi, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
