@@ -12,7 +12,6 @@ export default async function buildHtml(): Promise<void> {
   for (const course of courses) {
     void buildCourseHtml(course)
   }
-
   console.log(`   -- ${courses.length} courses`)
 
   for (const module of modules) {
@@ -23,6 +22,5 @@ export default async function buildHtml(): Promise<void> {
   for (const lesson of lessons) {
     void buildLessonHtml(lesson)
   }
-
   console.log(`   -- ${lessons.length} lessons`)
 }

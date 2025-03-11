@@ -10,7 +10,7 @@ import { mergeDeep } from '../../utils'
 import { kgBuilderBlockProcessor } from './extensions/kgbuilder-block-processor.extension'
 
 // Reader
-const doc = asciidoctor()
+export const doc = asciidoctor()
 
 // Register Custom Blocks
 const registry = doc.Extensions.create()
