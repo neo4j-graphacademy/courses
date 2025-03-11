@@ -71,7 +71,7 @@ export async function syncCourses(): Promise<void> {
     await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
-            MATCH (:Lesson)-[r:NEXT]->()
+            MATCH (:Lesson|Module)-[r:NEXT]->()
             DELETE r
         `)
     })
