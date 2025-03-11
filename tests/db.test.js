@@ -11,7 +11,6 @@ describe(`Database Tests ${process.env.ENV_FILE}`, () => {
     let dbCourses
 
     beforeAll(async () => {
-
         driver = neo4j.driver(
             process.env.NEO4J_HOST,
             neo4j.auth.basic(process.env.NEO4J_USERNAME, process.env.NEO4J_PASSWORD)
