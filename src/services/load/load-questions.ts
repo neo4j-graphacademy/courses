@@ -40,7 +40,7 @@ const loadQuestion = (lesson: LessonToImport, filename: string): QuestionToImpor
       filename
     ), { parse_header_only: true }
   )
-  const id = file.getAttribute('id', generateQuestionId(file.getTitle()!))
+  const id = file.getAttribute('id', generateQuestionId(file.getDocumentTitle({ sanitize: true }) as string))
 
   return {
     id,
