@@ -61,11 +61,21 @@ export async function syncCourses(): Promise<void> {
     await session.executeWrite(async tx => {
         // Recreate (:Lesson) NEXT chain
         await tx.run(`
-            MATCH (:Module)-[r:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE|NEXT_MODULE]->()
+            MATCH (:Module)-[r:FIRST_LESSON|LAST_LESSON|NEXT_MODULE]->()
             DELETE r
         `)
     })
-    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|FIRST_MODULE|LAST_MODULE|NEXT_MODULE]-> chain`);
+    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|NEXT_MODULE]-> chain`);
+
+    // Clean {FIRST|LAST|NEXT}_MODULE
+    await session.executeWrite(async tx => {
+        // Recreate (:Lesson) NEXT chain
+        await tx.run(`
+            MATCH (:Course)-[r:FIRST_MODULE|LAST_MODULE]->()
+            DELETE r
+        `)
+    })
+    console.log(`   -- Removed -[:FIRST_MODULE|LAST_MODULE]-> chain`);
 
     // Clean NEXT chain
     await session.executeWrite(async tx => {
