@@ -1,0 +1,205 @@
+= Constructing Knowledge Graphs with an LLM
+:order: 9
+:type: challenge
+:branch: main
+
+Creating knowledge graphs from unstructured data can be complex, involving multiple steps of data query, cleanse, and transform.
+
+You can use the text analysis capabilities of Large Language Models (LLMs) to automate the extraction of entities and relationships from your unstructured text.
+
+An LLM generated the knowledge graph below of `Technologies`, `Concepts`, and `Skills` from a link:todo.link.to.lesson[lesson on grounding^].
+
+image::images/lesson-kg.svg[A knowledge graph showing the relationships between Technology Concepts and Skills, width=700,align=center]
+
+In this challenge, you will use an LLM to extend your graph with new entities and relationships found in the unstructured text data.
+
+== Extend your knowledge graph
+
+Open the `1-knowledge-graphs-vectors\llm_build_graph.py` starter code that creates the graph of lesson content.
+
+[%collapsible]
+.Click to view the starter code
+====
+[source]
+.llm_build_graph.py
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/llm_build_graph.py[tag=**]
+----
+====
+
+=== Create an LLM
+
+You need an LLM instance that will extract the entities and relationships:
+
+.Create the llm
+[source, python]
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=llm]
+----
+
+The `model_name` parameter defines which link:https://platform.openai.com/docs/models[OpenAI model^] will be used. 
+`gpt-3.5-turbo` is a good choice for this task given its accuracy, speed, and cost.
+
+=== Graph Transformer
+
+To extract the entities and relationships, you will use a graph transformer.
+The graph transformer takes unstructured text data, passes it to the LLM, and returns the entities and relationships.
+
+.Create the transformer
+[source, python]
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=doc_transformer]
+----
+
+The optional `allowed_nodes` and `allowed_relationships` parameters allow you to defined the types of nodes and relationships you want to extract from the text.
+
+In this example, the nodes are restricted to entities relevant to the content. 
+The relationships are not restricted, allowing the LLM to find any relationships between the entities.
+
+[IMPORTANT]
+Restricting the nodes and relationship will result in a more concise knowledge graph.
+A more concise graph may support you in answering specific questions but it could also be missing information.
+
+=== Extract entities and relationships
+
+For each chunk of text, you will use the transformer to convert the text into a graph.
+The transformer returns a set of graph documents that represent the entities and relationships in the text.
+
+.Call the transformer
+[source, python]
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=llm_graph_docs]
+----
+
+=== Map extracted entities to the paragraphs
+
+The graph documents contain the extracted nodes and relationships, but they are not linked to the original paragraphs.
+
+To understand which entities are related to which paragraphs, you will map the extracted nodes to the paragraphs.
+
+You will create a data model with a `HAS_ENTITY` relationship between the paragraphs and the entities.
+
+image::images/has_entity.svg[A data model showing a HAS_ENTITY relationship between the Paragraph and entity nodes, width=700,align=center]
+
+This code inserts the `Paragraph` node into the graph document, and creates a `HAS_ENTITY` relationship between the Paragraph and the extracted entity.
+
+.Map the entities to the paragraphs
+[source, python]
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=map_entities]
+----
+
+=== Add the graph documents
+
+Finally, you need to add the new graph documents to the Neo4j graph database.
+
+.Add the graph documents
+[source, python]
+----
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=llm_add_graph]
+----
+
+When you are ready, run the program to extend your graph.
+
+== Querying the knowledge graph
+
+You can view the generated entities using the following Cypher query:
+
+[source, cypher]
+MATCH (p:Paragraph)-[:HAS_ENTITY]-(e)
+RETURN p, e
+
+=== Entities
+
+The entities in the graph allow you to understand what the text is about.
+
+For example, you can find the most mentioned topics in the graph by counting the number of times a node label (or entity) appears in the graph.
+
+[source, cypher]
+----
+MATCH ()-[:HAS_ENTITY]->(e)
+RETURN labels(e) as labels, count(e) as nodes
+ORDER BY nodes DESC
+----
+
+You can drill down into the entity id to gain insights into the content.
+For example, you can find the most mentioned `Technology`.
+
+[source, cypher]
+----
+MATCH ()-[r:HAS_ENTITY]->(e:Technology)
+RETURN e.id AS entityId, count(r) AS mentions
+ORDER BY mentions DESC
+----
+
+=== Lessons
+
+The knowledge graph can also show you the connections within the content.
+For example, what lessons relate to each other.
+
+This Cypher query matches one specific document and uses the entities to find related documents:
+
+[source, cypher]
+----
+MATCH (l:Lesson {
+    name: "1-neo4j-and-genai"
+})-[:CONTAINS]->(p:Paragraph)
+
+MATCH (p)-[:HAS_ENTITY]->(entity)<-[:HAS_ENTITY]-(otherParagraph)
+MATCH (otherParagraph)<-[:CONTAINS]->(otherLesson)
+RETURN DISTINCT entity.id, otherLesson.name
+----
+
+The knowledge graph contains the relationships between entities in all the documents.
+It is often useful to be able to restrict the output to a specific chunk or document.
+
+This Cypher query restricts the output to a specific chunk or document:
+
+[source, cypher]
+----
+MATCH (l:Lesson {
+    name: "1-neo4j-and-genai"
+})-[:CONTAINS]->(p:Paragraph)
+MATCH (p)-[:HAS_ENTITY]->(e)
+
+MATCH path = (e)-[r]-(e2)
+WHERE (p)-[:HAS_ENTITY]->(e2)
+RETURN path
+----
+
+A path is returned representing the knowledge graph for this document.
+
+image::images/lesson-entity-graph.svg[The graph output from the previous Cypher query.]
+
+You can gain the nodes labels, ids, relationship types by _unwinding_ the path's relationships:
+
+[source, cypher]
+----
+MATCH (l:Lesson {
+    name: "1-neo4j-and-genai"
+})-[:CONTAINS]->(p:Paragraph)
+MATCH (p)-[:HAS_ENTITY]->(e)
+
+MATCH path = (e)-[r]-(e2)
+WHERE (p)-[:HAS_ENTITY]->(e2)
+
+UNWIND relationships(path) as rels
+RETURN
+    labels(startNode(rels))[0] as eLabel,
+    startNode(rels).id as eId,
+    type(rels) as relType,
+    labels(endNode(rels))[0] as e2Label,
+    endNode(rels).id as e2Id
+----
+
+Take some time to explore the knowledge graph to find relationships between entities and lessons.
+
+== Continue
+
+When you are ready, you can move on to the next task.
+
+read::Move on[]
+[.summary]
+== Summary
+
+You used an LLM to create a knowledge graph from unstructured text.
