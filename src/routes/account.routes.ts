@@ -588,6 +588,11 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Find Country
         const { country, state } = await getCountryAndState(body.country, body.state)
 
+        // Exclude CN for now
+        if (country.code.toUpperCase() == 'CN') {
+            throw new Error('Redemption is not available in your region at this time.')
+        }
+
         // Build & Validate Recipient
         const recipient = formatRecipient(
             [body.first_name, body.last_name].join(' '),
