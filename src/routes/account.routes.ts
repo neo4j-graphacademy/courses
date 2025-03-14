@@ -3,7 +3,7 @@ import { requiresAuth } from 'express-openid-connect'
 import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
 import { UiEventType, UI_EVENTS, UserUiEvent, UI_EVENT_HIDE_SIDEBAR, UI_EVENT_SHOW_SIDEBAR, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO } from '../domain/events/UserUiEvent'
-import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED } from '../domain/model/enrolment'
+import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED, STATUS_RECENTLY_COMPLETED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
@@ -23,6 +23,9 @@ import getUserTeams from '../domain/services/teams/get-user-teams'
 import leaveTeam from '../domain/services/teams/leave-team'
 import joinTeam from '../domain/services/teams/join-team'
 import createTeam from '../domain/services/teams/create-team'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { Course, CourseWithProgress } from '../domain/model/course'
+import { Category } from '../domain/model/category'
 
 const router = Router()
 
@@ -36,13 +39,80 @@ router.use((req, res, next) => {
             text: 'Neo4j GraphAcademy',
         },
         {
-            link: '/account',
+            link: '/account/',
             text: 'My Account',
         },
     ]
 
     next()
 })
+
+/**
+ * @GET /account/
+ *
+ * Account dashboard
+ *
+ */
+router.get('/', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
+
+
+        // Get Courses
+        const categories = await getCoursesByCategory(user)
+        const certifications = categories.find(category => category.slug === 'certification')
+        const certifiedProfessional = certifications?.courses?.find(course => course.slug === 'neo4j-certification')
+
+        console.log(certifications)
+        console.log(certifiedProfessional)
+
+        // Get current courses
+        let current: CourseWithProgress[] = []
+        let bookmarked: CourseWithProgress[] = []
+        let recentlyCompleted: CourseWithProgress[] = []
+        let userPaths: Category<Course>[] = []
+
+        if (user) {
+            try {
+                const output = await getUserEnrolments(user.sub)
+
+                current = output.enrolments[STATUS_ENROLLED] || []
+                bookmarked = output.enrolments[STATUS_BOOKMARKED] || []
+                recentlyCompleted = output.enrolments[STATUS_RECENTLY_COMPLETED] || []
+                userPaths = output.paths || []
+
+                current.sort((a, b) => a.lastSeenAt && b.lastSeenAt && a.lastSeenAt > b.lastSeenAt ? -1 : 1)
+            }
+            catch (e) {
+                console.error(e)
+                current = []
+                bookmarked = []
+                recentlyCompleted = []
+            }
+        }
+
+
+        // res.json({ user, categories, current, bookmarked, recentlyCompleted, userPaths })
+
+        res.render('account/dashboard', {
+            title: 'My Account',
+            classes: 'account',
+            user,
+            certifications,
+            categories,
+            certifiedProfessional,
+            current,
+            bookmarked,
+            recentlyCompleted,
+            userPaths,
+        })
+    }
+    catch (e) {
+        next(e)
+    }
+})
+
+
 
 const accountForm = async (req, res, next, vars = {}) => {
     try {
@@ -128,7 +198,7 @@ const processAccountForm = async (req, res, next) => {
 
             req.flash('success', 'Your personal information has been updated')
 
-            res.redirect(req.body.returnTo || '/account/')
+            res.redirect(req.body.returnTo || '/account/settings/')
         }
         else {
             // Set error message and display form
@@ -153,7 +223,7 @@ const processAccountForm = async (req, res, next) => {
  *
  * Display user account details
  */
-router.get('/', requiresAuth(), (req, res, next) => accountForm(req, res, next))
+router.get('/settings', requiresAuth(), (req, res, next) => accountForm(req, res, next))
 
 
 
@@ -194,7 +264,7 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
  *
  * Update user details
  */
-router.post('/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
+router.post('/settings/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
 router.post('/complete/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
 
 /**
