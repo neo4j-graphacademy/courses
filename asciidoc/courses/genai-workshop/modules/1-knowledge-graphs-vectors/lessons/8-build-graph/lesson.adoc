@@ -1,20 +1,18 @@
 = Build a Graph
-:order: 9
+:order: 8
 :type: challenge
-:sandbox: true
 :branch: main
-
 
 In the previous task, you used the `Neo4jVector` class to create `Chunk` nodes in the graph.
 Using `Neo4jVector` is an efficient and easy way to get started. 
 
 To create a graph where you can also understand the relationships within the data, you must incorporate the metadata into the data model.
 
-In this lesson, you will create a graph of the course content using the `neo4j` Python driver and OpenAI API. 
+In this lesson, you will create a graph of the course content. 
 
 == Data Model
 
-The data model you will create is a simplified version of the course content model you saw earlier.
+You will create a graph of the course content with the following data model:
 
 image::images/graphacademy-simple-graph.svg[Data model showing Course, Module, Lesson and Paragraph nodes and their relationships,width=700,align=center]
 
@@ -22,10 +20,11 @@ The graph will contain the following nodes, properties, and relationships:
 
 - `Course`, `Module`, and `Lesson` nodes with a `name` property
 - A `url` property on `Lesson` nodes will hold the GraphAcademy URL for the lesson
-- `Paragraph` nodes will have `text` and `embedding` property
+- `Paragraph` nodes will have `id,`, `text`, and `embedding` properties
 - The `HAS_MODULE`, `HAS_LESSON`, and `CONTAINS` relationships will connect the nodes
 
 You can extract the `name` properties and `url` metadata from the directory structure of the lesson files.
+
 For example, the first lesson of the Neo4j & LLM Fundamentals course has the following path:
 
 [source]
@@ -33,14 +32,14 @@ For example, the first lesson of the Neo4j & LLM Fundamentals course has the fol
 courses\llm-fundamentals\modules\1-introduction\lessons\1-neo4j-and-genai\lesson.adoc
 ----
 
-You can extract the following metadata from the path:
+The following metadata is in the path:
 
 - `Course.name` - `llm-fundamentals`
 - `Module.name` - `1-introduction`
 - `Lesson.name` - `1-neo4j-and-genai`
 - `Lesson.url` - `graphacademy.neo4j.com/courses/{Course.name}/{{Module.name}}/{Lesson.name}`
 
-== Extracting the data
+== Building the graph
 
 Open the `1-knowledge-graphs-vectors\build_graph.py` file in your code editor.
 
@@ -52,48 +51,43 @@ This starter code loads and chunks the course content.
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/build_graph.py[]
 ----
 
-For each chunk, you have to create an embedding of the text and extract the metadata.
+=== Extracting the data
 
-Create a function to create and return an embedding using the OpenAI API:
+For each chunk, you have to create an embedding of the text and extract the metadata:
 
-.Create embeddings
+. Create an OpenAI embedding provider instance to generate the embeddings.
++
+.Create embedding_provider
 [source, python]
 ----
-include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=get_embedding]
+include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=embedding]
 ----
 
-Create a 2nd function, which will extract the data from the chunk:
-
+. Create a function, which will extract the data from the chunk and create an embedding:
++
 .Get course data
 [source, python]
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=get_course_data]
 ----
-
++
 The `get_course_data` function:
 
-. Splits the document source path to extract the `course`, `module`, and `lesson` names
-. Constructs the `url` using the extracted names
-. Extracts the `text` from the chunk
-. Creates an `embedding` using the `get_embedding` function
-. Returns a dictionary containing the extracted data
+.. Creates a unique `id` for the paragraph
+.. Splits the document source path to extract the `course`, `module`, and `lesson` names
+.. Constructs the `url` using the extracted names
+.. Extracts the `text` from the chunk
+.. Creates an `embedding` using the `embedding_provider` instance
+.. Returns a dictionary containing the extracted data
 
-== Create the graph
+=== Creating the graph
 
 To create the graph, you will need to:
 
-. Create an OpenAI object to generate the embeddings
 . Connect to the Neo4j database
 . Iterate through the chunks
 . Extract the course data from each chunk
 . Create the nodes and relationships in the graph
-
-Create the OpenAI object:
-
-[source, python]
-----
-include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=openai]
-----
 
 Connect to the Neo4j sandbox:
 
@@ -108,7 +102,7 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_gr
 You could run your code now to check that you can connect to the OpenAI API and Neo4j sandbox.
 ====
 
-To create the data in the graph, you will need a function that incorporates the course data into a Cypher statement and runs it in a transaction.
+To create the data in the graph, you will need a function that incorporates the course data into a Cypher statement and runs it:
 
 .Create chunk function
 [source, python]
@@ -118,7 +112,7 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_gr
 
 The `create_chunk` function will accept the `data` dictionary created by the `get_course_data` function.
 
-You should be able to identify the `$course`, `$module`, `$lesson`, `$url`, `$text`, and `$embedding` parameters in the Cypher statement.
+You should be able to identify the `$course`, `$module`, `$lesson`, `$url`, `$id`, `$text`, and `$embedding` parameters in the Cypher statement.
 
 Iterate through the chunks and execute the `create_chunk` function:
 
@@ -129,12 +123,6 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_gr
 
 A new session is created for each chunk. The `execute_write` method calls the `create_chunk` function, passing the `data` dictionary created by the `get_course_data` function.
 
-Finally, close the driver.
-
-[source, python]
-----
-include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=close]
-----
 
 [%collapsible]
 .Click to view the complete code
@@ -200,4 +188,4 @@ read::Move on[]
 [.summary]
 == Summary
 
-You created a graph of the course content using the `neo4j` Python driver and OpenAI API.
+You created a graph of the course content using the Neo4j and LangChain.
