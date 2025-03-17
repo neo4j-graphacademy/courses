@@ -475,7 +475,7 @@ router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => 
 
         const course = await getCourseWithProgress(req.params.course, user)
 
-        if (user === undefined || typeof course.redirect === 'string') {
+        if (user === undefined || typeof course.redirect === 'string' || !course.completed) {
             return res.redirect(course.redirect || '/courses/')
         }
 
@@ -485,7 +485,7 @@ router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => 
         const year = course.completedAt ? course.completedAt.getFullYear() : null
         const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
 
-        return res.redirect(`https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(course.title)}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId}&certUrl=${encodeURIComponent(course.certificateUrl || '')}`)
+        return res.redirect(`https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(course.title)}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId}&certUrl=${encodeURIComponent(course.certificateUrl ? `${BASE_URL}${course.certificateUrl}` : '')}`)
     }
     catch (e) {
         next(e)

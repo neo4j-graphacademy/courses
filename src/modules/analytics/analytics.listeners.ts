@@ -6,6 +6,7 @@ import { UserEnrolled } from '../../domain/events/UserEnrolled'
 import { UserExecutedQuery } from '../../domain/events/UserExecutedQuery'
 import { UserLogin } from '../../domain/events/UserLogin'
 import { UserResetDatabase } from '../../domain/events/UserResetDatabase'
+import { UserSharedCertificate } from '../../domain/events/UserSharedCertificate'
 import {
     UI_EVENT_SANDBOX_TOGGLE,
     UI_EVENT_SHOW_HINT,
@@ -49,6 +50,7 @@ import {
     ANALYTICS_EVENT_USER_RESET_DATABASE,
     ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT,
     ANALYTICS_EVENT_USER_ORDERED_REWARD,
+    ANALYTICS_EVENT_USER_SHARED_CERTIFICATE,
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -143,6 +145,16 @@ export default function initAnalyticsListeners(): Promise<void> {
                 source: event.source,
                 throughQuiz: event.source === CompletionSource.QUIZ,
                 completedPercentage: 100,
+            })
+        })
+
+        emitter.on<UserSharedCertificate>(UserSharedCertificate, (event) => {
+            trackEvent(ANALYTICS_EVENT_USER_SHARED_CERTIFICATE, event.user.sub, {
+                courseSlug: event.course.slug,
+                courseName: event.course.title,
+                usecase: event.course.usecase,
+                categories: event.course.categories.map((category) => category.title),
+                certificateUrl: event.course.certificateUrl,
             })
         })
 
