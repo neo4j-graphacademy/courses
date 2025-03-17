@@ -125,6 +125,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
             FOREACH (_ IN CASE WHEN shouldComplete THEN [1] ELSE [] END |
                 SET e:CompletedEnrolment,
+                    e.certificateId = randomUuid(),
                     e.completedAt = datetime()
             )
 
@@ -138,6 +139,7 @@ export async function saveLessonProgress(user: User, course: string, module: str
             lessonWithProgress: {
                 ...lessonOutput,
                 courseCompleted: courseOutput.completed,
+                certificateId: courseOutput.certificateId,
             },
             moduleWithProgress: moduleOutput,
             moduleCompletedInTransaction: moduleShouldComplete,

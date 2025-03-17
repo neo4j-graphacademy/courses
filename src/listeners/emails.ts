@@ -153,6 +153,7 @@ export default function initEmailListeners(): Promise<void> {
                     suggestion2,
                     suggestion3,
                     somethingDifferent,
+                    certificateUrl: event.course.certificateUrl,
                 } as Record<string, any>,
                 emailDirectory,
                 template,

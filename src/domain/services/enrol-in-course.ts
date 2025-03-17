@@ -56,7 +56,7 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
         name: user.nickname || user.name,
         email: user.email,
         givenName: user.name,
-        picture: user.picture,
+        picture: user.picture || null,
         ref: ref || null,
         team: team || null,
         category: category || null,

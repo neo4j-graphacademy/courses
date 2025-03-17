@@ -52,4 +52,5 @@ export interface LessonWithProgress extends Lesson {
     completed: boolean;
     moduleCompleted?: boolean;
     courseCompleted?: boolean;
+    certificateId?: string;
 }
