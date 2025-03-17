@@ -1,7 +1,10 @@
-= Build a Graph
+= Creating a graph
 :order: 8
 :type: challenge
-:branch: main
+:branch: llm-kg
+
+[.slide.discrete]
+== Creating a graph
 
 In the previous task, you used the `Neo4jVector` class to create `Chunk` nodes in the graph.
 Using `Neo4jVector` is an efficient and easy way to get started. 
@@ -10,19 +13,26 @@ To create a graph where you can also understand the relationships within the dat
 
 In this lesson, you will create a graph of the course content. 
 
+[.slide.col-2]
 == Data Model
 
-You will create a graph of the course content with the following data model:
-
-image::images/graphacademy-simple-graph.svg[Data model showing Course, Module, Lesson and Paragraph nodes and their relationships,width=700,align=center]
-
-The graph will contain the following nodes, properties, and relationships:
+[.col]
+====
+You will create a graph of the course content containing the following nodes, properties, and relationships:
 
 - `Course`, `Module`, and `Lesson` nodes with a `name` property
 - A `url` property on `Lesson` nodes will hold the GraphAcademy URL for the lesson
-- `Paragraph` nodes will have `id,`, `text`, and `embedding` properties
+- `Paragraph` nodes will have `id`, `text`, and `embedding` properties
 - The `HAS_MODULE`, `HAS_LESSON`, and `CONTAINS` relationships will connect the nodes
+====
 
+[.col]
+====
+image::images/graphacademy-simple-graph.svg[Data model showing Course, Module, Lesson and Paragraph nodes and their relationships,width=700,align=center]
+====
+
+[.slide.discrete]
+== Data Model
 You can extract the `name` properties and `url` metadata from the directory structure of the lesson files.
 
 For example, the first lesson of the Neo4j & LLM Fundamentals course has the following path:
@@ -39,48 +49,63 @@ The following metadata is in the path:
 - `Lesson.name` - `1-neo4j-and-genai`
 - `Lesson.url` - `graphacademy.neo4j.com/courses/{Course.name}/{{Module.name}}/{Lesson.name}`
 
+[.slide]
 == Building the graph
 
-Open the `1-knowledge-graphs-vectors\build_graph.py` file in your code editor.
+Open the `1-knowledge-graphs-vectors\build_graph.py` starter code in your code editor.
 
-This starter code loads and chunks the course content.
+The starter code loads and chunks the course content.
 
+[.transcript-only]
+====
 .Load and chunk the content
 [source, python]
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/build_graph.py[]
 ----
+====
 
-=== Extracting the data
+[.slide]
+== Extracting the data
 
 For each chunk, you have to create an embedding of the text and extract the metadata:
 
-. Create an OpenAI embedding provider instance to generate the embeddings.
-+
+Create an OpenAI embedding provider instance to generate the embeddings:
+
 .Create embedding_provider
 [source, python]
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=embedding]
 ----
 
-. Create a function, which will extract the data from the chunk and create an embedding:
-+
-.Get course data
+[.slide.discrete.col-2]
+== Extracting the data
+[.col]
+====
+[start=2]
+Create a function to extract the metadata from the chunk:
+
 [source, python]
+.Get course data
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=get_course_data]
 ----
-+
+====
+
+[.col]
+====
 The `get_course_data` function:
 
-.. Creates a unique `id` for the paragraph
-.. Splits the document source path to extract the `course`, `module`, and `lesson` names
-.. Constructs the `url` using the extracted names
-.. Extracts the `text` from the chunk
-.. Creates an `embedding` using the `embedding_provider` instance
-.. Returns a dictionary containing the extracted data
+. Splits the document source path to extract the `course`, `module`, and `lesson` names
+. Constructs the `url` using the extracted names
+. Creates a unique `id` for the paragraph from the file name and the chunk position
+. Extracts the `text` from the chunk
+. Creates an `embedding` using the `embedding_provider` instance
+. Returns a dictionary containing the extracted data
+====
 
-=== Creating the graph
+[.slide]
+== Creating the graph
 
 To create the graph, you will need to:
 
@@ -89,6 +114,8 @@ To create the graph, you will need to:
 . Extract the course data from each chunk
 . Create the nodes and relationships in the graph
 
+[.slide.discrete]
+== Connect
 Connect to the Neo4j sandbox:
 
 [source, python]
@@ -102,6 +129,11 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_gr
 You could run your code now to check that you can connect to the OpenAI API and Neo4j sandbox.
 ====
 
+[.slide.col-2.discrete]
+== Create data
+
+[.col]
+====
 To create the data in the graph, you will need a function that incorporates the course data into a Cypher statement and runs it:
 
 .Create chunk function
@@ -109,11 +141,25 @@ To create the data in the graph, you will need a function that incorporates the 
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=create_chunk]
 ----
+====
 
+[.col]
+====
 The `create_chunk` function will accept the `data` dictionary created by the `get_course_data` function.
 
-You should be able to identify the `$course`, `$module`, `$lesson`, `$url`, `$id`, `$text`, and `$embedding` parameters in the Cypher statement.
+You should be able to identify the following parameters in the Cypher statement:
 
+- `$course` 
+- `$module`
+- `$lesson`
+- `$url`
+- `$id` 
+- `$text` 
+- `$embedding`
+====
+
+[.slide.discrete]
+== Create chunk
 Iterate through the chunks and execute the `create_chunk` function:
 
 [source, python]
@@ -121,21 +167,26 @@ Iterate through the chunks and execute the `create_chunk` function:
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=create]
 ----
 
-A new session is created for each chunk. The `execute_write` method calls the `create_chunk` function, passing the `data` dictionary created by the `get_course_data` function.
+The metadata is found for each chunk and used to create a new chunk in the graph.
 
-
+[.transcript-only]
+====
 [%collapsible]
 .Click to view the complete code
-====
+=====
 [source]
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/build_graph.py[tag=**]
 ----
+=====
 ====
 
 Run the code to create the graph.
+
+[NOTE]
 It will take a minute or two to complete as it creates the embeddings for each paragraph.
 
+[.slide]
 == Explore the graph
 
 View the graph by running the following Cypher:
@@ -148,7 +199,8 @@ RETURN *
 
 image::images/course-graph-result.svg[Result from the Cypher, a graph showing Course, Module, Lesson and Chunk nodes and their relationships,width=700,align=center]
 
-
+[.slide.discrete]
+== Create vector index
 You will need to create a vector index to query the paragraph embeddings.
 
 [source, cypher]
@@ -163,6 +215,8 @@ OPTIONS {indexConfig: {
 }}
 ----
 
+[.slide.discrete]
+== Query the vector index
 You can use the vector index and the graph to find a lesson to help with specific questions:
 
 [source, cypher]
@@ -178,13 +232,15 @@ MATCH (l:Lesson)-[:CONTAINS]->(node)
 RETURN l.name, l.url, score
 ----
 
-Explore the graph and see how the relationships between the nodes can bring additional meaning to the unstructured data.
-
+[.next]
 == Continue
+
+Explore the graph and see how the relationships between the nodes can bring additional meaning to the unstructured data.
 
 When you are ready, you can move on to the next task.
 
 read::Move on[]
+
 [.summary]
 == Summary
 

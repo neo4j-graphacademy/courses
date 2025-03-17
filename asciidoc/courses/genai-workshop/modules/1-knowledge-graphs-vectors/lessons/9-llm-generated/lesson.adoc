@@ -1,33 +1,56 @@
-= Constructing Knowledge Graphs with an LLM
+= Constructing Knowledge Graphs with LLMs
 :order: 9
 :type: challenge
-:branch: main
+:branch: llm-kg
+:slides: true
 
+[slide.discrete.col-2]
+== Unstructured data and graphs
+
+[.col]
+====
 Creating knowledge graphs from unstructured data can be complex, involving multiple steps of data query, cleanse, and transform.
 
 You can use the text analysis capabilities of Large Language Models (LLMs) to automate the extraction of entities and relationships from your unstructured text.
 
-An LLM generated the knowledge graph below of `Technologies`, `Concepts`, and `Skills` from a link:todo.link.to.lesson[lesson on grounding^].
+An LLM generated this knowledge graph of `Technologies`, `Concepts`, and `Skills` from a link:{repository-link}/{branch}/1-knowledge-graphs-vectors/data/asciidoc/courses/llm-fundamentals/modules/1-introduction/lessons/3-grounding/lesson.adoc[lesson on grounding LLMS^].
+====
 
+[.col]
+====
 image::images/lesson-kg.svg[A knowledge graph showing the relationships between Technology Concepts and Skills, width=700,align=center]
+====
+
+[.slide]
+== Extend your graph
 
 In this challenge, you will use an LLM to extend your graph with new entities and relationships found in the unstructured text data.
 
-== Extend your knowledge graph
-
 Open the `1-knowledge-graphs-vectors\llm_build_graph.py` starter code that creates the graph of lesson content.
 
+You will need to:
+
+. Create an LLM instance
+. Create a transformer to extract entities and relationships
+. Extract entities and relationships from the text
+. Map the entities to the paragraphs
+. Add the graph documents to the database
+
+[.transcript-only]
+====
 [%collapsible]
 .Click to view the starter code
-====
+=====
 [source]
 .llm_build_graph.py
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/llm_build_graph.py[tag=**]
 ----
+=====
 ====
 
-=== Create an LLM
+[.slide]
+== Create an LLM
 
 You need an LLM instance that will extract the entities and relationships:
 
@@ -40,7 +63,8 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_buil
 The `model_name` parameter defines which link:https://platform.openai.com/docs/models[OpenAI model^] will be used. 
 `gpt-3.5-turbo` is a good choice for this task given its accuracy, speed, and cost.
 
-=== Graph Transformer
+[.slide]
+== Graph Transformer
 
 To extract the entities and relationships, you will use a graph transformer.
 The graph transformer takes unstructured text data, passes it to the LLM, and returns the entities and relationships.
@@ -56,11 +80,17 @@ The optional `allowed_nodes` and `allowed_relationships` parameters allow you to
 In this example, the nodes are restricted to entities relevant to the content. 
 The relationships are not restricted, allowing the LLM to find any relationships between the entities.
 
+[.transcript-only]
+====
 [IMPORTANT]
+=====
 Restricting the nodes and relationship will result in a more concise knowledge graph.
 A more concise graph may support you in answering specific questions but it could also be missing information.
+=====
+====
 
-=== Extract entities and relationships
+[.slide]
+== Extract entities and relationships
 
 For each chunk of text, you will use the transformer to convert the text into a graph.
 The transformer returns a set of graph documents that represent the entities and relationships in the text.
@@ -71,25 +101,42 @@ The transformer returns a set of graph documents that represent the entities and
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=llm_graph_docs]
 ----
 
-=== Map extracted entities to the paragraphs
+[.slide.col-2]
+== Map extracted entities to the paragraphs
 
+[.col]
+====
 The graph documents contain the extracted nodes and relationships, but they are not linked to the original paragraphs.
 
 To understand which entities are related to which paragraphs, you will map the extracted nodes to the paragraphs.
 
 You will create a data model with a `HAS_ENTITY` relationship between the paragraphs and the entities.
+====
 
+[.col]
+====
 image::images/has_entity.svg[A data model showing a HAS_ENTITY relationship between the Paragraph and entity nodes, width=700,align=center]
+====
 
+[.slide.discrete.col-2]
+== Map extracted entities to the paragraphs
+    
+[.col]
+====
 This code inserts the `Paragraph` node into the graph document, and creates a `HAS_ENTITY` relationship between the Paragraph and the extracted entity.
+====
 
+[.col]
+====
 .Map the entities to the paragraphs
 [source, python]
 ----
 include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_build_graph.py[tag=map_entities]
 ----
+====
 
-=== Add the graph documents
+[.slide]
+== Add the graph documents
 
 Finally, you need to add the new graph documents to the Neo4j graph database.
 
@@ -101,6 +148,10 @@ include::{repository-raw}/{branch}/1-knowledge-graphs-vectors/solutions/llm_buil
 
 When you are ready, run the program to extend your graph.
 
+[NOTE]
+The program will take a few minutes to run as it waits for the LLM to response.
+
+[.slide]
 == Querying the knowledge graph
 
 You can view the generated entities using the following Cypher query:
@@ -109,11 +160,12 @@ You can view the generated entities using the following Cypher query:
 MATCH (p:Paragraph)-[:HAS_ENTITY]-(e)
 RETURN p, e
 
-=== Entities
+[.slide]
+== Entities
 
-The entities in the graph allow you to understand what the text is about.
+The entities in the graph allow you to understand what the context in the text.
 
-For example, you can find the most mentioned topics in the graph by counting the number of times a node label (or entity) appears in the graph.
+You can find the most mentioned topics in the graph by counting the number of times a node label (or entity) appears in the graph:
 
 [source, cypher]
 ----
@@ -122,6 +174,8 @@ RETURN labels(e) as labels, count(e) as nodes
 ORDER BY nodes DESC
 ----
 
+[.slide.discrete]
+== Entities
 You can drill down into the entity id to gain insights into the content.
 For example, you can find the most mentioned `Technology`.
 
@@ -132,7 +186,8 @@ RETURN e.id AS entityId, count(r) AS mentions
 ORDER BY mentions DESC
 ----
 
-=== Lessons
+[.slide]
+== Related lessons
 
 The knowledge graph can also show you the connections within the content.
 For example, what lessons relate to each other.
@@ -150,8 +205,12 @@ MATCH (otherParagraph)<-[:CONTAINS]->(otherLesson)
 RETURN DISTINCT entity.id, otherLesson.name
 ----
 
+[.slide.discrete.col-2]
+== Lesson entities
+
+[.col]
+====
 The knowledge graph contains the relationships between entities in all the documents.
-It is often useful to be able to restrict the output to a specific chunk or document.
 
 This Cypher query restricts the output to a specific chunk or document:
 
@@ -166,13 +225,27 @@ MATCH path = (e)-[r]-(e2)
 WHERE (p)-[:HAS_ENTITY]->(e2)
 RETURN path
 ----
+====
 
+[.col]
+====
 A path is returned representing the knowledge graph for this document.
 
 image::images/lesson-entity-graph.svg[The graph output from the previous Cypher query.]
+====
+
+[.slide.discrete.col-2]
+== Labels, ids, and relationships
+
+[.col]
+====
+Take some time to explore the knowledge graph to find relationships between entities and lessons.
 
 You can gain the nodes labels, ids, relationship types by _unwinding_ the path's relationships:
+====
 
+[.col]
+====
 [source, cypher]
 ----
 MATCH (l:Lesson {
@@ -191,9 +264,9 @@ RETURN
     labels(endNode(rels))[0] as e2Label,
     endNode(rels).id as e2Id
 ----
+====
 
-Take some time to explore the knowledge graph to find relationships between entities and lessons.
-
+[.next]
 == Continue
 
 When you are ready, you can move on to the next task.
