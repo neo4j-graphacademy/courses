@@ -2,6 +2,10 @@
 :order: 9
 :type: challenge
 :branch: llm-kg
+:slides: true
+
+[.slide.discrete]
+== Generating Cypher
 
 LLMs are good at writing Cypher queries when given good information, such as:
 
@@ -11,18 +15,23 @@ LLMs are good at writing Cypher queries when given good information, such as:
 
 You will learn how to use a language model to generate Cypher queries to query a Neo4j graph database.
 
+[.slide]
 == Generating Cypher
-
-LangChain includes the link:https://python.langchain.com/api_reference/neo4j/chains/langchain_neo4j.chains.graph_qa.cypher.GraphCypherQAChain.html[`GraphCypherQAChain`^]chain that can interact with a Neo4j graph database. It uses a language model to generate Cypher queries and then uses the graph to answer the question.
 
 Open the `2-llm-rag-python-langchain/cypher_chain.py` file and review the code.
 
+[.transcript-only]
+====
 [source,python]
 ----
 include::{repository-raw}/{branch}/2-llm-rag-python-langchain/cypher_chain.py[]
 ----
+====
 
-The program will generate a Cypher query based on the `question` and the graph database `schema`.
+The program uses the link:https://python.langchain.com/api_reference/neo4j/chains/langchain_neo4j.chains.graph_qa.cypher.GraphCypherQAChain.html[LangChain `GraphCypherQAChain`^] to generate a Cypher query based on the `question` and the graph database `schema`.
+
+[.slide.discrete]
+== Generating Cypher
 
 When you run the program, you should see the Cypher generated from the question and the data it returned. Something similar to:
 
@@ -35,8 +44,12 @@ When you run the program, you should see the Cypher generated from the question 
 
 The LLM used the database schema to generate an _appropriate_ Cypher query. LangChain then executed the query against the graph database, and the result returned.
 
+[.transcript-only]
+====
 include::../../../../../../shared/courses/llm/dangerous-requests.adoc[]
+====
 
+[.slide]
 == Inconsistent Results
 
 Investigate what happens when you ask the same question multiple times. Observe the generated Cypher query and the response.
@@ -56,13 +69,21 @@ The response may not be correct or even generate an error due to invalid Cypher.
 
 You can improve the responses by providing additional context and instructions to the LLM
 
+[.slide]
 == Provide specific instructions
 
 The LLM's training data included many Cypher statements, but these statements were not specific to the structure of your graph database. 
 
-You can provide specific instructions to the LLM to state that the generated Cypher statements should follow the schema.
+You can provide specific instructions to the LLM in the `CYPHER_GENERATION_TEMPLATE`.
 
+    Instructions:
+    Use only the provided relationship types and properties in the schema.
+    Do not use any other relationship types or properties that are not provided.
+
+[.transcript-only]
+====
 [source,python]
+.CYPHER_GENERATION_TEMPLATE
 ----
 CYPHER_GENERATION_TEMPLATE = """
 You are an expert Neo4j Developer translating user questions into Cypher to answer questions about movies and provide recommendations.
@@ -76,10 +97,20 @@ Schema: {schema}
 Question: {question}
 """
 ----
+====
+
+[.slide.discrete]
+== Data specific instructions
 
 The LLM may also need additional instructions about the data. 
-For movie titles that begin with "The", move "the" to the end.
+For example, movie titles that begin with "The" should be formatted differently.
 
+    Instructions:
+    For movie titles that begin with "The", move "the" to the end, 
+    for example "The 39 Steps" becomes "39 Steps, The" or "The Matrix" becomes "Matrix, The".
+
+[.transcript-only]
+====
 [source, python]
 ----
 CYPHER_GENERATION_TEMPLATE = """
@@ -95,10 +126,20 @@ Schema: {schema}
 Question: {question}
 """
 ----
+====
+
+[.slide.discrete]
+== Response instructions
 
 You can also instruct the LLM on how to respond.
-For example, only when it requires a Cypher statement and when it returns data.
+For example, only when response with a Cypher statement and when it returns data.
 
+    If no data is returned, do not attempt to answer the question.
+    Only respond to questions that require you to construct a Cypher statement.
+    Do not include any explanations or apologies in your responses.
+
+[.transcript-only]
+====
 [source, python]
 ----
 CYPHER_GENERATION_TEMPLATE = """
@@ -118,15 +159,25 @@ Schema: {schema}
 Question: {question}
 """
 ----
+====
 
+[.slide]
 == Examples
 
 Even with specific instructions, the LLM can still make mistakes.
+
 You can provide examples of questions and appropriate Cypher.
 This technique is known as link:https://www.promptingguide.ai/techniques/fewshot[Few-Shot Prompting^].
 
 For example, you could provide an example of how to find movies and genres:
 
+    Examples: 
+
+    Find movies and genres:
+    MATCH (m:Movie)-[:IN_GENRE]->(g)
+    RETURN m.title, g.name
+
+[.transcript-only]
 ====
 [source,python]
 ----
@@ -157,6 +208,7 @@ Question: {question}
 
 Experiment with different instructions and examples to see how you can improve the response of the Cypher generation.
 
+[.next]
 == Continue
 
 When you are ready, you can move on to the next task.
