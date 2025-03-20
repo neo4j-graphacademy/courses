@@ -1,10 +1,10 @@
-import { emitter } from '../../events'
-import { UserCompletedCourse, CompletionSource } from '../../domain/events/UserCompletedCourse'
+import { emitter } from '../events'
+import { UserCompletedCourse, CompletionSource } from '../domain/events/UserCompletedCourse'
 
-import { User } from '../../domain/model/user'
-import { CourseWithProgress } from '../../domain/model/course'
-import { getSuggestionsForEnrolment } from '../../domain/services/get-suggestions-for-enrolment'
-import * as asciidoc from '../../modules/asciidoc'
+import { User } from '../domain/model/user'
+import { CourseWithProgress } from '../domain/model/course'
+import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
+import * as asciidoc from '../modules/asciidoc'
 
 
 describe('Email Listeners', () => {

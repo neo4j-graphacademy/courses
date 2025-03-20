@@ -854,8 +854,11 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
         // Emit user viewed module
         emitter.emit(new UserViewedModule(user as User, course, module))
 
+        // Has slides
+        const slides = /class=".*slide.*"/.test(doc)
+
         res.render('course/module', {
-            classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''} ${module.completed ? 'module--completed' : ''}`,
+            classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''} ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
             analytics: {
                 course: {
                     slug: course.slug,
@@ -879,6 +882,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
             enrolled: course.enrolled,
             course,
             doc,
+            slides,
             showSandbox,
             sandboxVisible,
             sandboxUrl,

@@ -119,8 +119,16 @@ export default function slides() {
       }
 
       if (event.key === 'ArrowRight') {
-        if (slideIndex < slideElements.length - 1) {
-          setCurrentSlide(slideIndex + 1)
+        // If ctrl/cmd is pressed, go to next page
+        if (event.metaKey || event.ctrlKey) {
+          const nextLink = document.querySelector('.pagination-link--next > a') as HTMLAnchorElement;
+          if (nextLink) {
+            window.location.href = nextLink.href;
+          }
+        } else {
+          if (slideIndex < slideElements.length - 1) {
+            setCurrentSlide(slideIndex + 1);
+          }
         }
       }
     })
