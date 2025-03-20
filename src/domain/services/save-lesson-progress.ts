@@ -13,6 +13,7 @@ import { LessonWithProgress } from "../model/lesson";
 import { ModuleWithProgress } from "../model/module";
 import { User } from "../model/user";
 import { appendParams, courseCypher, lessonCypher } from "./cypher";
+import { getCourseWithProgress } from "./get-course-with-progress";
 
 export async function saveLessonProgress(user: User, course: string, module: string, lesson: string, answers: Answer[], token?: string, ref?: string, forceRead: boolean = false): Promise<LessonWithProgress & { answers: Answer[] }> {
     const {
@@ -118,21 +119,23 @@ export async function saveLessonProgress(user: User, course: string, module: str
             MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $course})
 
             WITH u, e, c,
-                size([ (e)-[:COMPLETED_LESSON]->(l) WHERE NOT l:OptionalLesson | l ]) AS completed,
-                size([ (c)-[:HAS_MODULE]->()-[:HAS_LESSON]->(l) WHERE NOT l:OptionalLesson | l ]) as total
+                [ (e)-[:COMPLETED_LESSON]->(l) WHERE NOT l:OptionalLesson | l ] AS completed,
+                [ (c)-[:HAS_MODULE]->()-[:HAS_LESSON]->(l) WHERE NOT l:OptionalLesson | l ] as total
 
-            WITH u, e, c, completed, total, NOT e:CompletedEnrolment AND completed = total AS shouldComplete
+            WITH u, e, c, completed, total, NOT e:CompletedEnrolment AND all(n IN total WHERE n IN completed) AS shouldComplete
 
             FOREACH (_ IN CASE WHEN shouldComplete THEN [1] ELSE [] END |
                 SET e:CompletedEnrolment,
-                    e.certificateId = randomUuid(),
-                    e.completedAt = datetime()
+                    e.completedAt = datetime(),
+                    e.certificateId = randomUuid()
             )
 
-            RETURN ${courseCypher('e', 'u')} AS course, shouldComplete
+            RETURN ${courseCypher('e', 'u')} AS course,
+                   e.certificateId as newCertificateId,
+                   shouldComplete
         `, appendParams({ sub: user.sub, course }))
 
-        const courseOutput: CourseWithProgress = await formatCourse<CourseWithProgress>(courseResult.records[0].get('course'))
+        const courseOutput = await formatCourse<CourseWithProgress>(courseResult.records[0].get('course'))
         const shouldComplete: boolean = courseResult.records[0].get('shouldComplete')
 
         return {
@@ -166,7 +169,10 @@ export async function saveLessonProgress(user: User, course: string, module: str
 
             // Emit if user has completed the course
             if (courseCompletedInTransaction && courseWithProgress.completed) {
-                emitter.emit(new UserCompletedCourse(user, courseWithProgress, token, CompletionSource.WEBSITE))
+                // Fetch fresh course data with new certificateId
+                const freshCourseData = await getCourseWithProgress(course, user, token)
+
+                emitter.emit(new UserCompletedCourse(user, freshCourseData, token, CompletionSource.WEBSITE))
             }
         }
     }

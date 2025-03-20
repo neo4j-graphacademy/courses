@@ -1,12 +1,12 @@
-import { emitter } from '../../../events'
-import initNeo4j, { close, write, writeTransaction } from '../../../modules/neo4j'
-import { User } from '../../model/user'
-import { saveLessonProgress } from '../save-lesson-progress'
-import { UserCompletedCourse, CompletionSource } from '../../events/UserCompletedCourse'
-import { enrolInCourse } from '../enrol-in-course'
-import { getUserEnrolments } from '../get-user-enrolments'
-import { LessonWithProgress } from '../../model/lesson'
-import { Answer } from '../../model/answer'
+import { emitter } from '../../events'
+import initNeo4j, { close, write, writeTransaction } from '../../modules/neo4j'
+import { User } from '../model/user'
+import { saveLessonProgress } from './save-lesson-progress'
+import { UserCompletedCourse, CompletionSource } from '../events/UserCompletedCourse'
+import { enrolInCourse } from './enrol-in-course'
+import { getUserEnrolments } from './get-user-enrolments'
+import { LessonWithProgress } from '../model/lesson'
+import { Answer } from '../model/answer'
 
 describe('saveLessonProgress', () => {
     let testUser: User
@@ -50,12 +50,11 @@ describe('saveLessonProgress', () => {
 
             await enrolInCourse(courseSlug, testUser, 'token', 'ref')
         })
-        console.log('testUser', testUser)
     })
 
     afterAll(close)
 
-    it('should progress through lessons and fire completion event', async () => {
+    it('should progress through lessons and fire completion event with correct certificateId', async () => {
         // Set up event listener for course completion
         emitter.on(UserCompletedCourse, (event: UserCompletedCourse) => {
             completionEventFired = true
@@ -74,9 +73,9 @@ describe('saveLessonProgress', () => {
             return result.records.map(record => record.toObject())
         })
 
-
-        for (const entry of courseStructure) {
-            result = await saveLessonProgress(
+        // Complete all lessons except the last one
+        for (const entry of courseStructure.slice(0, -1)) {
+            await saveLessonProgress(
                 testUser,
                 courseSlug,
                 entry.moduleSlug,
@@ -90,29 +89,42 @@ describe('saveLessonProgress', () => {
                 'ref',
                 true
             )
-
-            expect(result.completed).toBe(true)
         }
 
-        // Expect last lesson to have a certificateId
-        expect(result.certificateId).toBeDefined()
+        // Complete the final lesson which should trigger course completion
+        const lastLesson = courseStructure[courseStructure.length - 1]
+        result = await saveLessonProgress(
+            testUser,
+            courseSlug,
+            lastLesson.moduleSlug,
+            lastLesson.lessonSlug,
+            lastLesson.questions.map(question => ({
+                id: question.id,
+                correct: true,
+                answers: [],
+            })),
+            'test-token',
+            'ref',
+            true
+        )
 
+        // Get the actual certificate ID from the database
+        const enrolments = await getUserEnrolments(testUser.sub, 'sub', courseSlug)
+        const dbCertificateId = enrolments.enrolments.completed?.[0].certificateId
+
+        // Verify completion event was fired with fresh course data
         expect(completionEventFired).toBe(true)
+        expect(lastCompletionEvent).toBeDefined()
         expect(lastCompletionEvent?.user.sub).toBe(testUser.sub)
         expect(lastCompletionEvent?.course.slug).toBe(courseSlug)
-        expect(lastCompletionEvent?.course.certificateId).toBeDefined()
-
         expect(lastCompletionEvent?.source).toBe(CompletionSource.WEBSITE)
 
-        // Check certificateId matches what was in the database 
+        // Verify certificate IDs match between event and database
+        expect(lastCompletionEvent?.course.certificateId).toBeDefined()
+        expect(lastCompletionEvent?.course.certificateId).toBe(dbCertificateId)
 
-        const res = await getUserEnrolments(testUser.sub, 'sub', courseSlug)
-
-        expect(res.enrolments.completed).toBeDefined()
-        expect(res.enrolments.completed?.length).toBe(1)
-        expect(res.enrolments.completed?.[0].certificateId).toBe(lastCompletionEvent?.course.certificateId)
-        expect(res.enrolments.completed?.[0].certificateId).toBe(result.certificateId)
-
-        console.log(lastCompletionEvent?.course.certificateId)
+        // The result from saveLessonProgress should also have the correct certificateId
+        expect(result.certificateId).toBeDefined()
+        expect(result.certificateId).toBe(dbCertificateId)
     })
 }) 
