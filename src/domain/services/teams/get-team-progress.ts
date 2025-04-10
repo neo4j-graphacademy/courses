@@ -8,7 +8,7 @@ import getEnrolments from "../enrolments/get-enrolment";
 import { getTeamWork } from "./get-team";
 import getUserMembership, { MembershipStatus } from "./get-user-membership";
 
-type MemberProgress = Pick<User, 'id' | 'picture' | 'givenName' | 'email' | 'company' | 'country' | 'position'> & {
+type MemberProgress = Pick<User, 'id' | 'sub' | 'picture' | 'givenName' | 'email' | 'company' | 'country' | 'position'> & {
     enrolments: {
         title: string;
         slug: string;
@@ -45,7 +45,7 @@ export async function getTeamProgress(teamId: string, user: User | undefined): P
         // Get learning path
         const res = await tx.run(`
             MATCH (t:Team {id: $teamId})<-[:MEMBER_OF]-(u)
-            RETURN u { .id, .picture, .givenName, .email, .position, .company, .country,
+            RETURN u { .id, .sub, .picture, .givenName, .email, .position, .company, .country,
                 enrolments: [ (u)-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c) | c {
                     .slug,
                     .title,
