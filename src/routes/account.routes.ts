@@ -24,8 +24,11 @@ import leaveTeam from '../domain/services/teams/leave-team'
 import joinTeam from '../domain/services/teams/join-team'
 import createTeam from '../domain/services/teams/create-team'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
-import { Course, CourseWithProgress } from '../domain/model/course'
+import { Course, CourseWithProgress, CourseStatus, STATUS_ACTIVE, Language } from '../domain/model/course'
+import { Module } from '../domain/model/module'
 import { Category } from '../domain/model/category'
+import { getDashboardData } from '../domain/services/get-dashboard-data'
+import { getIllustration } from '../utils'
 
 const router = Router()
 
@@ -56,63 +59,39 @@ router.use((req, res, next) => {
 router.get('/', requiresAuth(), async (req, res, next) => {
     try {
         const user = await getUser(req) as User
+        const dashboardData = await getDashboardData(user)
 
-
-        // Get Courses
-        const categories = await getCoursesByCategory(user)
-        const certifications = categories.find(category => category.slug === 'certification')
-        const certifiedProfessional = certifications?.courses?.find(course => course.slug === 'neo4j-certification')
-
-        console.log(certifications)
-        console.log(certifiedProfessional)
-
-        // Get current courses
-        let current: CourseWithProgress[] = []
-        let bookmarked: CourseWithProgress[] = []
-        let recentlyCompleted: CourseWithProgress[] = []
-        let userPaths: Category<Course>[] = []
-
-        if (user) {
-            try {
-                const output = await getUserEnrolments(user.sub)
-
-                current = output.enrolments[STATUS_ENROLLED] || []
-                bookmarked = output.enrolments[STATUS_BOOKMARKED] || []
-                recentlyCompleted = output.enrolments[STATUS_RECENTLY_COMPLETED] || []
-                userPaths = output.paths || []
-
-                current.sort((a, b) => a.lastSeenAt && b.lastSeenAt && a.lastSeenAt > b.lastSeenAt ? -1 : 1)
-            }
-            catch (e) {
-                console.error(e)
-                current = []
-                bookmarked = []
-                recentlyCompleted = []
-            }
+        if (dashboardData.enrolments.length === 0) {
+            return res.redirect('/account/settings/')
         }
 
+        // Get illustrations for all courses
+        const illustrations: Record<string, string> = Object.fromEntries(
+            await Promise.all(
+                dashboardData.enrolments.map(
+                    async e => {
+                        const illustration = await getIllustration(e)
+                        return [e.slug, illustration]
+                    }
+                )
+            )
+        )
 
-        // res.json({ user, categories, current, bookmarked, recentlyCompleted, userPaths })
+        const rewards = await getRewards(user)
+
 
         res.render('account/dashboard', {
-            title: 'My Account',
+            title: 'Welcome back!',
             classes: 'account',
-            user,
-            certifications,
-            categories,
-            certifiedProfessional,
-            current,
-            bookmarked,
-            recentlyCompleted,
-            userPaths,
+            ...dashboardData,
+            rewards,
+            illustrations
         })
     }
     catch (e) {
         next(e)
     }
 })
-
-
 
 const accountForm = async (req, res, next, vars = {}) => {
     try {
@@ -224,8 +203,6 @@ const processAccountForm = async (req, res, next) => {
  * Display user account details
  */
 router.get('/settings', requiresAuth(), (req, res, next) => accountForm(req, res, next))
-
-
 
 /**
  * @GET /account/complete/
@@ -415,7 +392,6 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 router.get('/courses', requiresAuth(), courseHandler)
 router.get('/courses/:status', requiresAuth(), courseHandler)
 
-
 /**
  * @POST /account/event/:type
  *
@@ -490,7 +466,6 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
         next(e)
     }
 })
-
 
 /**
  * @GET /account/rewards
