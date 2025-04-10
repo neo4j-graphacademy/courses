@@ -136,6 +136,7 @@ export class Chatbot {
         const id = await writeSession.executeWrite(async tx => {
             const res = await tx.run<{ id: string }>(`
                 MERGE (u:User {sub: $sub})
+                ON CREATE SET u.id = randomUuid()
                 CREATE (r:Response {
                     id: randomUuid(),
                     createdAt: datetime(),

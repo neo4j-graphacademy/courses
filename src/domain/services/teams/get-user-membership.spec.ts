@@ -9,6 +9,35 @@ describe('getUserMembership', () => {
     beforeAll(async () => {
         config()
         await initNeo4j(process.env.NEO4J_HOST as string, process.env.NEO4J_USERNAME as string, process.env.NEO4J_PASSWORD as string)
+
+        // Delete test users and related nodes
+        await write(`
+            MATCH (u:User)
+            WHERE u.sub IN [$sub1, $sub2]
+            OPTIONAL MATCH (u)-[r]->(t:Team)
+            DETACH DELETE u, t
+        `, {
+            sub1: testUser.sub,
+            sub2: secondUser.sub
+        })
+
+        // Create fresh test users
+        await write(`
+            MERGE (u1:User {sub: $sub1})
+            SET u1.email= $email1,
+                u1.givenName= $givenName1
+
+            MERGE (u2:User {sub: $sub2})
+            SET u2.email = $email2,
+                u2.givenName = $givenName2
+        `, {
+            sub1: testUser.sub,
+            email1: testUser.email,
+            givenName1: testUser.givenName,
+            sub2: secondUser.sub,
+            email2: secondUser.email,
+            givenName2: secondUser.givenName
+        })
     })
 
     afterAll(async () => {
@@ -26,41 +55,6 @@ describe('getUserMembership', () => {
         email: 'second@example.com',
         givenName: 'Second User'
     } as User
-
-    // Clean up test data before each test
-    beforeEach(async () => {
-        // Delete test users and related nodes
-        await write(`
-            MATCH (u:User)
-            WHERE u.sub IN [$sub1, $sub2]
-            OPTIONAL MATCH (u)-[r]->(t:Team)
-            DETACH DELETE u, t
-        `, {
-            sub1: testUser.sub,
-            sub2: secondUser.sub
-        })
-
-        // Create fresh test users
-        await write(`
-            CREATE (u1:User {
-                sub: $sub1,
-                email: $email1,
-                givenName: $givenName1
-            }),
-            (u2:User {
-                sub: $sub2,
-                email: $email2,
-                givenName: $givenName2
-            })
-        `, {
-            sub1: testUser.sub,
-            email1: testUser.email,
-            givenName1: testUser.givenName,
-            sub2: secondUser.sub,
-            email2: secondUser.email,
-            givenName2: secondUser.givenName
-        })
-    })
 
     // Clean up after each test
     afterEach(async () => {

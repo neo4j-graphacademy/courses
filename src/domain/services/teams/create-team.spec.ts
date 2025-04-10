@@ -39,23 +39,12 @@ describe('createTeam', () => {
 
         // Create fresh test user
         await write(`
-            MERGE (u:User {
-                sub: $sub,
-                email: $email,
-                givenName: $givenName
-            })
+            MERGE (u:User {sub: $sub})
+            SET u.email =  $email,
+                u.givenName = $givenName
         `, testUser)
 
         jest.clearAllMocks()
-    })
-
-    // Clean up after all tests
-    afterEach(async () => {
-        await write(`
-            MATCH (u:User {sub: $sub})
-            OPTIONAL MATCH (u)-[r]->(t:Team)
-            DETACH DELETE u, t
-        `, { sub: testUser.sub })
     })
 
     it('should create a public team successfully', async () => {

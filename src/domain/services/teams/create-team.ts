@@ -28,7 +28,7 @@ export default async function createTeam(
 
 
   const result = await write<{ team: TeamWithMembership }>(`
-    MATCH (u:User {sub: $sub})
+    MERGE (u:User {sub: $sub})
     CREATE (t:Team {
       id: $id,
       name: $name,

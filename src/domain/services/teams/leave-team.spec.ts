@@ -41,16 +41,13 @@ describe('leaveTeam', () => {
 
         // Create fresh test users
         await write(`
-            CREATE (u1:User {
-                sub: $sub1,
-                email: $email1,
-                givenName: $givenName1
-            }),
-            (u2:User {
-                sub: $sub2,
-                email: $email2,
-                givenName: $givenName2
-            })
+            MERGE (u1:User {sub: $sub1})
+            SET u1.email= $email1,
+                u1.givenName= $givenName1
+
+            MERGE (u2:User {sub: $sub2})
+            SET u2.email = $email2,
+                u2.givenName = $givenName2
         `, {
             sub1: testUser.sub,
             email1: testUser.email,

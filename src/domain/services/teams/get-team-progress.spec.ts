@@ -43,23 +43,26 @@ describe('getTeamProgress', () => {
 
         await write(`
             MERGE (u1:User {
-                sub: $sub1,
+                sub: $sub1
+            }) 
+            SET u1 += {
                 id: $id1,
                 email: $email1,
                 givenName: $givenName1,
                 position: $position1,
                 company: $company1,
                 country: $country1
-            })
-            MERGE(u2:User {
-                sub: $sub2,
+            }
+
+            MERGE (u2:User {sub: $sub2})
+            SET u2 += {
                 id: $id2,
                 email: $email2,
                 givenName: $givenName2,
                 position: $position2,
                 company: $company2,
                 country: $country2
-            })
+            }
         `, {
             sub1: testUser.sub,
             id1: testUser.id,

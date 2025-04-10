@@ -16,7 +16,7 @@ export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user:
         ${allowCertification ? '' : "WHERE not c.link CONTAINS 'certifications'"}
 
         MERGE (u:User {sub: $user})
-        ON CREATE SET u.createdAt = datetime(),
+        ON CREATE SET u.id = randomUuid(), u.createdAt = datetime(),
             u.givenName = $givenName,
             u.name = $name,
             u.picture = $picture

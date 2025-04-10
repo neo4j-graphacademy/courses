@@ -23,9 +23,9 @@ describe('getTeam', () => {
 
     // Clean up database before each test
     beforeEach(async () => {
-        await write(`
-            MATCH (n) DETACH DELETE n
-        `)
+        // await write(`
+        //     MATCH (n) DETACH DELETE n
+        // `)
 
         await write(`
             MERGE (u:User {

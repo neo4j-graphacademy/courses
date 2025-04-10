@@ -8,6 +8,7 @@ export async function registerInterest(course: string, email: string, user: User
 
         FOREACH (_ IN CASE WHEN $user IS NOT NULL THEN [1] ELSE [] END |
             MERGE (u:User {sub: $user})
+            ON CREATE SET u.id = randomUuid()
             MERGE (u)-[r:INTERESTED_IN]->(c)
             ON CREATE SET r.createdAt = datetime()
             SET r.email = $email

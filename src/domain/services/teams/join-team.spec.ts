@@ -50,16 +50,13 @@ describe('joinTeam', () => {
 
         // Create fresh test users
         await write(`
-            CREATE (u1:User {
-                sub: $sub1,
-                email: $email1,
-                givenName: $givenName1
-            }),
-            (u2:User {
-                sub: $sub2,
-                email: $email2,
-                givenName: $givenName2
-            })
+            MERGE (u1:User {sub: $sub1})
+            SET u1.email= $email1,
+                u1.givenName= $givenName1
+
+            MERGE (u2:User {sub: $sub2})
+            SET u2.email = $email2,
+                u2.givenName = $givenName2
         `, {
             sub1: testUser.sub,
             email1: testUser.email,
@@ -178,6 +175,54 @@ describe('joinTeam', () => {
 
             expect(result.error).toBeDefined()
             expect(result.team).toBeUndefined()
+        }
+    })
+
+    it('should create user and join team if user does not exist', async () => {
+        // Create a public team
+        const { team: createdTeam } = await createTeam(
+            testUser,
+            'Public Team',
+            'Test Description',
+            true, // public
+            true  // open
+        )
+
+        expect(createdTeam).toBeDefined()
+
+        if (createdTeam) {
+            const newUser = {
+                sub: 'new-user-id',
+                email: 'new@example.com',
+                givenName: 'New User'
+            } as User
+
+            const result = await joinTeam(newUser, createdTeam.id)
+
+            expect(result.error).toBeUndefined()
+            expect(result.team).toBeDefined()
+            expect(result.team?.id).toBe(createdTeam.id)
+
+            // Verify event was emitted
+            expect(emitter.emit).toHaveBeenCalledWith(
+                expect.any(UserJoinedTeam)
+            )
+
+            // Verify database state
+            const dbResult = await read(`
+                MATCH (u:User {sub: $sub})-[r:MEMBER_OF]->(t:Team {id: $teamId})
+                RETURN u, r.createdAt
+            `, {
+                sub: newUser.sub,
+                teamId: createdTeam.id
+            })
+
+            expect(dbResult.records).toHaveLength(1)
+            const userNode = dbResult.records[0].get('u')
+            expect(userNode.properties.sub).toBe(newUser.sub)
+            expect(userNode.properties.email).toBe(newUser.email)
+            expect(userNode.properties.givenName).toBe(newUser.givenName)
+            expect(dbResult.records[0].get('r.createdAt')).toBeDefined()
         }
     })
 }) 

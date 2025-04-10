@@ -5,6 +5,7 @@ export async function bookmarkCourse(course: string, user: User): Promise<boolea
     const res = await write(`
         MATCH (c:Course {slug: $course})
         MERGE (u:User {sub: $sub})
+        ON CREATE SET u.id = randomUuid()
         SET u.email = coalesce($email, u.email)
 
         MERGE (u)-[r:INTERESTED_IN]->(c)
