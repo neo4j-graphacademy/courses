@@ -1,0 +1,370 @@
+extends ../layouts/default
+include ../mixins/date
+include ../mixins/progress
+include ./mixins/reward
+
+block main
+  .container.two-column.account-dashboard
+    h2.dashboard-welcome Welcome back, #{user.givenName || user.nickname || user.name}!
+
+  .container.two-column.account-dashboard
+    .column.column--major.column-left
+      //- congratulations
+      if recentlyCompleted.length 
+        div.account-congratulations
+          h2 Congratulations on completing 
+            br
+            a.confetti-trigger(href=recentlyCompleted[0].certificateUrl) !{recentlyCompleted[0].title}!
+          
+          p Here is a link to your certificate. Why not 
+            |
+            a(href=recentlyCompleted[0].link +'share/linkedin/' target='_blank') share your achievement on LinkedIn
+            | ?
+
+          p.share-form
+            a.share-form-link(href=baseUrl + recentlyCompleted[0].certificateUrl target='_blank') !{baseUrl + recentlyCompleted[0].certificateUrl}
+            a.share-form-action.share-form-action--copy(aria-label='Copy URL' href=baseUrl + recentlyCompleted[0].certificateUrl target='_blank') !{svg.iconCopy}
+              span.share-form-action-label Copy URL
+            a.share-form-action(aria-label='View Certificate' href=baseUrl + recentlyCompleted[0].certificateUrl target='_blank') !{svg.iconGo}
+              span.share-form-action-label Open Certificate
+
+      //- li.secondary-nav-item(class=path.startsWith('/account/rewards/') ? 'secondary-nav-item--active' : '')
+      //-           a(href='/account/rewards/')
+      //-             | 
+      //-             | Rewards &amp; Achievements
+      //-         li.secondary-nav-item(class=path.startsWith('/account/teams/') ? 'secondary-nav-item--active' : '')
+      //-           a(href='/account/teams/')
+      //-             | !{svg.iconAccountTeams}
+      //-             | Teams
+
+      //- Team Learning Path
+      if teams && teams.length > 0
+        .account-section
+          h2 !{svg.iconAccountTeams} #{teams[0].name}
+          .team-learning-path
+            .team-info
+              - const totalCourses = teams[0].courses.length
+              - const totalPercentage = Math.round(teams[0].courses.reduce((sum, course) => sum + (course.completedPercentage || 0), 0) / totalCourses)
+
+              p You have completed #{totalPercentage}% of the learning path set out by your team leader.
+              .team-progress
+                +progress({ enrolled: true, completedPercentage: totalPercentage })
+              p 
+                a.btn.btn--small(href=`/teams/${teams[0].id}`) Visit Team Page
+
+            .team-courses
+              ol.team-course-list
+                for course in teams[0].courses
+                  li.team-course-item(class=course.completedPercentage === 100 ? 'team-course-item--completed' : '')
+                    a(href=`/courses/${course.slug}`)
+                      div.course-information
+                        span.course-title !{course.title}
+                        if course.completedPercentage > 0
+                          span.course-progress !{Math.round(course.completedPercentage)}%
+                      if course.completedAt
+                        div.course-status Completed 
+                          +date(course.completedAt)
+                      else if course.lastSeenAt
+                        div.course-status Last seen 
+                          +date(course.lastSeenAt)
+      else if paths && paths.length > 0
+        .account-section
+          h2
+            a(href=`/categories/${paths[0].slug}/`) #{paths[0].title}
+          .team-learning-path
+            .team-info
+              - const totalCourses = paths[0].courses.length
+              - const totalPercentage = Math.round(paths[0].courses.reduce((sum, course) => sum + (course.completedPercentage || 0), 0) / totalCourses)
+
+              p You have completed #{totalPercentage}% of this learning path.
+              .team-progress
+                +progress({ enrolled: true, completedPercentage: totalPercentage })
+              p 
+                a.btn.btn--small(href=`/categories/${paths[0].slug}/`) View Learning Path
+
+            .team-courses
+              ol.team-course-list
+                for course in paths[0].courses
+                  li.team-course-item(class=course.completedPercentage === 100 ? 'team-course-item--completed' : '')
+                    a(href=course.link)
+                      div.course-information
+                        span.course-title !{course.title}
+                        if course.completedPercentage > 0
+                          span.course-progress !{Math.round(course.completedPercentage)}%
+                      if course.completedAt
+                        div.course-status Completed 
+                          +date(course.completedAt)
+                      else if course.lastSeenAt
+                        div.course-status Last seen 
+                          +date(course.lastSeenAt)
+
+      //- Current Enrolments
+      if enrolments.length
+        .account-section
+          h2 !{svg.iconAccountCourses} Continue where you left off
+
+          //- First course in prominent card
+          .account-courses
+            .account-course
+              .course-image
+                if illustrations[enrolments[0].slug]
+                  a.card-illustration(href=enrolments[0].link)
+                    | !{illustrations[enrolments[0].slug]}
+                else if enrolments[0].badge
+                  a.card-badge(href=enrolments[0].link)
+                    | !{enrolments[0].badge}
+
+              .course-details
+                a(href=enrolments[0].link) !{enrolments[0].title}
+                p.course-caption !{enrolments[0].caption}
+
+                if !enrolments[0].completed
+                  +progress(enrolments[0])
+                  
+                if enrolments[0].completedAt
+                  p.course-completed Completed
+                    |
+                    +date(enrolments[0].completedAt)
+                else if enrolments[0].lastSeenAt
+                  p.course-completed Last visited
+                    |
+                    +date(enrolments[0].lastSeenAt)
+
+              .course-actions
+                if enrolments[0].completed
+                  a.btn.btn--small(href=`/c/${enrolments[0].certificateId}/`) View Certificate
+                else
+                  a.btn.btn--small(href=`${enrolments[0].link}continue/`) Continue Course
+
+        //- Remaining courses in condensed list
+        if enrolments.length > 1
+          .account-section
+            .account-courses
+              for course in enrolments.slice(1, 3)
+                .account-course 
+                  .course-details
+                    a(href=course.link) !{course.title}
+                    p.course-caption !{course.caption}
+                    if course.completedAt
+                      p.course-completed Completed
+                        |
+                        +date(course.completedAt)
+
+                  if course.enrolled && !course.certification
+                    .course-progress
+                      +progress(course)
+
+                  .course-actions
+                    if course.completed
+                      a.btn.btn--small(href=course.certificateUrl) View Certificate
+                    else if course.enrolled
+                      a.btn.btn--small(href=`${course.link}continue/`) Continue Course
+                    else
+                      a.btn.btn--small(href=course.link) View Course
+
+                    .context-menu-container
+                      .context-menu-icon
+                        | !{svg.iconHorizontalDots}
+                      .context-menu
+                        if course.completed && course.summary
+                          a.context-menu-item(href=`${course.link}summary/`) View course summary
+                        if course.enrolled
+                          a.context-menu-item.context-menu-item--danger(href=`${course.link}unenrol/`) Delete enrollment
+                        if status == 'favorited'
+                          a.context-menu-item.context-menu-item--danger(href=`${course.link}bookmark/remove/?returnTo=${path}`) Remove from favorites
+            
+
+      //- //- rewards
+      //- if rewards.length
+      //-   .account-section
+      //-     .rewards
+      //-       h2 Learn &amp; earn rewards
+      //-       for reward in rewards
+
+      //-         +reward(reward)
+
+    .column.column--minor.column-right.certification-path
+
+      for c in certifications
+        if c.slug == 'neo4j-certification'
+          //- if c.completed
+          .certification-details
+            h2 !{svg.iconAccountRewards} Your path to certification
+            .certification-intro
+              p Pass the
+                |
+                |
+                a(href=c.link) !{c.title}
+                |
+                | exam with a score of 80% or higher to earn an exclusive t-shirt. 
+              
+              .certification-reward
+                img(src=c.rewardImage alt=`The exclusive ${c.title} t-shirt`)
+                
+            p We recommend taking the following courses before attempting the certification.
+
+          ol.certification-prerequisites
+            for course in c.prerequisites
+              li.course-prerequisite(class=[
+                course.completed ? 'course-prerequisite--completed' : '',
+                !course.completed && course.enrolled ? 'course-prerequisite--in-progress' : '',
+              ].join(' '))
+                a(href=course.link)
+                  div.course-information
+                    span.course-title !{course.title}
+                    if course.completedPercentage > 0
+                      span.course-progress !{Math.round(course.completedPercentage)}%
+                  if course.completedAt 
+                    div.course-status 
+                      //- | !{svg.iconCheck}
+                      | Completed  
+                      |
+                      |
+                      +date(course.completedAt)
+                  else if course.lastSeenAt
+                    div.course-status 
+                      //- | !{svg.iconCheck}
+                      | Last visited  
+                      |
+                      |
+                      +date(course.lastSeenAt)
+
+                //- +json(course)
+
+            //- li.course-prerequisite(class=c.completed ? 'course-prerequisite--completed' : 'course-prerequisite--in-progress')
+            //-   a.btn.btn--small(href=c.link) Attempt certification
+            //-   if c.completed
+            //-     div.course-status 
+            //-       //- | !{svg.iconCheck}
+            //-       | Completed  
+            //-       |
+            //-       |
+            //-       +date(c.completedAt)
+
+            if c.completed
+              p 
+                strong Congratulations!
+              p    You passed !{c.title} 
+                | 
+                | 
+                +date(c.completedAt)
+
+              p
+                a.btn.btn--small(href=c.certificateUrl) View your certificate
+            else
+              p
+                a.btn.btn--small(href=c.link) Attempt certification
+
+
+
+          //- +json(c)
+
+    //-   //- Team Learning Paths
+    //-   if teams.length
+    //-     .account-section
+    //-       h2 Your Team Learning Paths
+    //-       for team in teams
+    //-         .account-section
+    //-           h3 #{team.name}
+    //-           .accordion.accordion-courses
+    //-             for course in team.courses
+    //-               .accordion-item.accordion-course
+    //-                 .accordion-display
+    //-                   .course-title
+    //-                     a(href=`/courses/${course.slug}`) #{course.title}
+    //-                   if course.completedPercentage !== null
+    //-                     .course-progress
+    //-                       +progress({ completedPercentage: course.completedPercentage })
+
+    //-   //- Learning Paths
+    //-   if paths.length
+    //-     .account-section
+    //-       h2 Your Learning Paths
+    //-       for path in paths
+    //-         .account-section
+    //-           h3 #{path.title}
+    //-           .accordion.accordion-courses
+    //-             for course in path.courses
+    //-               .accordion-item.accordion-course
+    //-                 .accordion-display
+    //-                   .course-title
+    //-                     a(href=course.link) #{course.title}
+    //-                   if course.completedPercentage !== null
+    //-                     .course-progress
+    //-                       +progress({ completedPercentage: course.completedPercentage })
+
+    //- .column.column--minor.column-right
+    //-   //- Certification Status
+    //-   if certifications.length
+    //-     .account-section
+    //-       h2 Neo4j Certified Professional
+    //-       for cert in certifications
+    //-         if cert.completed
+    //-           .account-section
+    //-             p You are certified!
+    //-             if cert.completedAt
+    //-               p.course-completed Completed on 
+    //-                 +date(cert.completedAt)
+    //-             if cert.rewardOrderId
+    //-               a.btn.btn--small(href=`/c/${cert.rewardOrderId}/`) View Certificate
+    //-         else
+    //-           .account-section
+    //-             p You are not yet certified
+    //-             a.btn.btn--small(href=cert.link) Start Certification
+
+    //- .account-header
+
+    //- if current.length
+    //-   h2 Pick up where you left off
+
+    //-   .account-courses
+    //-     for course in current
+    //-       .account-course
+    //-         .course-image
+    //-           if course.illustration
+    //-             a.card-illustration(href=course.link)
+    //-               | !{course.illustration}
+    //-           else if course.badge
+    //-             a.card-badge(href=course.link)
+    //-               | !{course.badge}
+
+    //-         .course-details
+    //-           a(href=course.link) !{course.title}
+    //-           p.course-caption !{course.caption}
+    //-           if course.completedAt
+    //-             p.course-completed Completed
+    //-               |
+    //-               +date(course.completedAt)
+
+    //-         if course.enrolled && !course.certification
+    //-           .course-progress
+    //-             +progress(course)
+
+    //-         .course-actions
+    //-           if course.completed
+    //-             a.btn.btn--small(href=course.certificateUrl) View Certificate
+    //-           else if course.enrolled
+    //-             a.btn.btn--small(href=`${course.link}continue/`) Continue Course
+    //-           else
+    //-             a.btn.btn--small(href=course.link) View Course
+
+    //-           .context-menu-container
+    //-             .context-menu-icon
+    //-               | !{svg.iconHorizontalDots}
+    //-             .context-menu
+    //-               if course.completed && course.summary
+    //-                 a.context-menu-item(href=`${course.link}summary/`) View course summary
+    //-               if course.enrolled
+    //-                 a.context-menu-item.context-menu-item--danger(href=`${course.link}unenrol/`) Delete enrollment
+    //-               if status == 'favorited'
+    //-                 a.context-menu-item.context-menu-item--danger(href=`${course.link}bookmark/remove/?returnTo=${path}`) Remove from favorites
+
+    //-       +json(current)
+
+
+    //- //- .account-section
+    //- //-   h2#personal Your Details
+
+    //- //-   p In order to personalise your experience, we would like to know a little more about you.
+
+    //- //-   include ./partials/form

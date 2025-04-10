@@ -3,7 +3,7 @@ import { requiresAuth } from 'express-openid-connect'
 import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
 import { UiEventType, UI_EVENTS, UserUiEvent, UI_EVENT_HIDE_SIDEBAR, UI_EVENT_SHOW_SIDEBAR, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO } from '../domain/events/UserUiEvent'
-import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED } from '../domain/model/enrolment'
+import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED, STATUS_RECENTLY_COMPLETED } from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
@@ -23,6 +23,12 @@ import getUserTeams from '../domain/services/teams/get-user-teams'
 import leaveTeam from '../domain/services/teams/leave-team'
 import joinTeam from '../domain/services/teams/join-team'
 import createTeam from '../domain/services/teams/create-team'
+import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
+import { Course, CourseWithProgress, CourseStatus, STATUS_ACTIVE, Language } from '../domain/model/course'
+import { Module } from '../domain/model/module'
+import { Category } from '../domain/model/category'
+import { getDashboardData } from '../domain/services/get-dashboard-data'
+import { getIllustration } from '../utils'
 
 const router = Router()
 
@@ -36,12 +42,55 @@ router.use((req, res, next) => {
             text: 'Neo4j GraphAcademy',
         },
         {
-            link: '/account',
+            link: '/account/',
             text: 'My Account',
         },
     ]
 
     next()
+})
+
+/**
+ * @GET /account/
+ *
+ * Account dashboard
+ *
+ */
+router.get('/', requiresAuth(), async (req, res, next) => {
+    try {
+        const user = await getUser(req) as User
+        const dashboardData = await getDashboardData(user)
+
+        if (dashboardData.enrolments.length === 0) {
+            return res.redirect('/account/settings/')
+        }
+
+        // Get illustrations for all courses
+        const illustrations: Record<string, string> = Object.fromEntries(
+            await Promise.all(
+                dashboardData.enrolments.map(
+                    async e => {
+                        const illustration = await getIllustration(e)
+                        return [e.slug, illustration]
+                    }
+                )
+            )
+        )
+
+        const rewards = await getRewards(user)
+
+
+        res.render('account/dashboard', {
+            title: 'Welcome back!',
+            classes: 'account',
+            ...dashboardData,
+            rewards,
+            illustrations
+        })
+    }
+    catch (e) {
+        next(e)
+    }
 })
 
 const accountForm = async (req, res, next, vars = {}) => {
@@ -128,7 +177,7 @@ const processAccountForm = async (req, res, next) => {
 
             req.flash('success', 'Your personal information has been updated')
 
-            res.redirect(req.body.returnTo || '/account/')
+            res.redirect(req.body.returnTo || '/account/settings/')
         }
         else {
             // Set error message and display form
@@ -153,9 +202,7 @@ const processAccountForm = async (req, res, next) => {
  *
  * Display user account details
  */
-router.get('/', requiresAuth(), (req, res, next) => accountForm(req, res, next))
-
-
+router.get('/settings', requiresAuth(), (req, res, next) => accountForm(req, res, next))
 
 /**
  * @GET /account/complete/
@@ -194,7 +241,7 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
  *
  * Update user details
  */
-router.post('/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
+router.post('/settings/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
 router.post('/complete/', requiresAuth(), async (req, res, next) => processAccountForm(req, res, next))
 
 /**
@@ -345,7 +392,6 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
 router.get('/courses', requiresAuth(), courseHandler)
 router.get('/courses/:status', requiresAuth(), courseHandler)
 
-
 /**
  * @POST /account/event/:type
  *
@@ -420,7 +466,6 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
         next(e)
     }
 })
-
 
 /**
  * @GET /account/rewards

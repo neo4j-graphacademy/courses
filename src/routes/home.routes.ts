@@ -19,33 +19,17 @@ router.get('/', async (req, res, next) => {
     try {
         const user = await getUser(req)
 
+        // Redirect user to dashboard
+        if (user && !req.query.redirect?.toString().toLowerCase().includes('off')) {
+            const output = await getUserEnrolments(user.sub)
+            if ((output?.enrolments?.enrolled?.length || 0) > 0 || (output?.enrolments?.completed?.length || 0) > 0) {
+                return res.redirect('/account/')
+            }
+        }
+
         // Get Courses
         const categories = await getCoursesByCategory(user)
 
-        // Get current courses
-        let current: CourseWithProgress[] = []
-        let bookmarked: CourseWithProgress[] = []
-        let recentlyCompleted: CourseWithProgress[] = []
-        let userPaths: Category<Course>[] = []
-
-        if (user) {
-            try {
-                const output = await getUserEnrolments(user.sub)
-
-                current = output.enrolments[STATUS_ENROLLED] || []
-                bookmarked = output.enrolments[STATUS_BOOKMARKED] || []
-                recentlyCompleted = output.enrolments[STATUS_RECENTLY_COMPLETED] || []
-                userPaths = output.paths || []
-
-                current.sort((a, b) => a.lastSeenAt && b.lastSeenAt && a.lastSeenAt > b.lastSeenAt ? -1 : 1)
-            }
-            catch (e) {
-                console.error(e)
-                current = []
-                bookmarked = []
-                recentlyCompleted = []
-            }
-        }
 
         const beginners = categories.find(category => category.slug === 'experience')
             ?.children?.find(child => child.slug === 'beginners')
@@ -68,14 +52,10 @@ router.get('/', async (req, res, next) => {
             description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
             classes: 'home transparent-nav preload',
             canonical: canonical('/'),
-            current,
-            recentlyCompleted,
-            bookmarked,
             categories,
             beginners,
             paths,
             certification,
-            userPaths,
             activePath,
             meta: [{
                 name: 'apple-itunes-app', content: 'app-id=1557747094'

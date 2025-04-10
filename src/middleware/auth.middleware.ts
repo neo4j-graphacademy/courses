@@ -6,7 +6,7 @@ import jwt, { JwtPayload } from 'jsonwebtoken'
 import { UserLogin } from '../domain/events/UserLogin';
 import { User } from '../domain/model/user';
 import { emitter } from '../events';
-import { read } from '../modules/neo4j';
+import { read, write } from '../modules/neo4j';
 import { formatUser } from '../utils';
 import { BASE_URL } from '../constants';
 
@@ -40,8 +40,9 @@ export async function getUser(req: any): Promise<User | undefined> {
     if (req.dbUser) return req.dbUser;
     if (!req.oidc || !req.oidc.user) return undefined;
 
-    const res = await read(`
-        MATCH (u:User {sub: $sub})
+    const res = await write(`
+        MERGE (u:User {sub: $sub})
+        ON CREATE SET u.id = randomUuid(), u.createdAt = datetime()
         RETURN u {
             .*, profileHidden: u:HiddenProfile,
             teams: [ (u)-[:MEMBER_OF]->(t) | t {.*} ]
