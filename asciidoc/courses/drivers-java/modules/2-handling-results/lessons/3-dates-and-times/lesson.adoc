@@ -1,0 +1,156 @@
+= Dates and times
+:type: lesson 
+:order: 3
+
+// TODO - how does temporal types work in the Java driver?
+
+[.slide.discrete]
+== Temporal types
+
+The `neo4j.time` module provides classes for working with dates and times in Java. 
+
+Temporal types in Neo4j are a combination of date, time and timezone elements.
+
+.Temporal Types
+[cols="2,3,1,1,1"]
+|===
+|Type |Description |Date? |Time? |Timezone?
+
+|`Date` |A tuple of Year, Month and Day |Y | |
+|`Time` |The time of the day with a UTC offset |Y |Yfootnote:[`Time` only supports fixed UTC offsets.] |
+|`LocalTime` |A time without a timezone | |Y |
+|`DateTime` |A combination of Date and Time |Y |Y |Y
+|`LocalDateTime` |A combination of Date and Time without a timezone |Y |Y |
+|===
+
+
+[.slide.col-2.col-reverse]
+== Writing temporal types
+
+[.col]
+====
+
+[source,Java]
+----
+from neo4j.time import DateTime
+from datetime import timezone, timedelta
+
+driver.execute_query("""
+CREATE (e:Event {
+  startsAt: $datetime,              // <1>
+  createdAt: datetime($dtstring),   // <2>
+  updatedAt: datetime()             // <3>
+})
+""", 
+    datetime=DateTime(
+        2024, 5, 15, 14, 30, 0, 
+        tzinfo=timezone(timedelta(hours=2))
+    ),  # <4>
+    dtstring="2024-05-15T14:30:00+02:00"
+)
+----
+====
+
+[.col]
+====
+When you write temporal types to the database, you can pass the object as a parameter to the query or cast the value within a Cypher statement. 
+
+This example demonstrates how to:
+
+<1> Use a `DateTime` object as a parameter to the query (`<4>`)
+<2> Cast an link:https://www.iso.org/iso-8601-date-and-time-format.html[ISO 8601 format string^] within a Cypher statement
+<3> Get the current date and time using the `datetime()` function.
+
+====
+
+[.slide,.col-2]
+== Reading temporal types
+
+[.col]
+====
+When reading temporal types from the database, you will receive an instance of the corresponding Java type unless you cast the value within your query.
+====
+
+[.col]
+====
+[source,Java]
+----
+# Query returning temporal types
+records, summary, keys = driver.execute_query("""
+RETURN date() as date, time() as time, datetime() as datetime, toString(datetime()) as asString
+""")
+
+# Access the first record
+for record in records:
+    # Automatic conversion to Java driver types
+    date = record["date"]           # neo4j.time.Date
+    time = record["time"]           # neo4j.time.Time
+    datetime = record["datetime"]   # neo4j.time.DateTime
+    as_string = record["asString"]  # str
+----
+====
+
+[.slide.col-2]
+== Working with Durations
+
+
+[.col]
+====
+
+[source,Java]
+----
+from neo4j.time import Duration, DateTime
+
+starts_at = DateTime.now() 
+event_length = Duration(hours=1, minutes=30)
+ends_at = startsAt + event_length
+
+driver.execute_query("""
+CREATE (e:Event {
+  startsAt: $startsAt, endsAt: $endsAt,
+  duration: $eventLength, // <1>
+  interval: duration('P30M') // <2>
+})
+""",
+    startsAt=starts_at, endsAt=ends_at, eventLength=event_length
+)
+----
+
+====
+
+[.col]
+====
+Durations represent a period of time and can be used for date arithmetic in both Java and Cypher.  These types can also be created in Java or cast within a Cypher statement.
+
+<1> Pass an instance of `Duration` to the query
+<2> Use the `duration()` function to create a `Duration` object from an ISO 8601 format string
+
+[TIP]
+.Calculating durations
+=====
+You can use the `duration.between` method to calculate the duration between two date or time objects.
+=====
+
+====
+
+link:../4c-working-with-dates-and-times/[Advance to challenge,role=btn]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned about working with temporal types in Neo4j using the Java driver:
+
+* The `neo4j.time` module provides classes for handling dates, times, and durations
+* You can pass temporal objects as parameters or create them within Cypher statements
+* When reading temporal values from Neo4j, they are automatically converted to the appropriate Java driver types
+* Durations can be used for date arithmetic in both Java and Cypher
+
+[TIP]
+.Converting between driver and standard library types
+====
+The Neo4j Java driver's temporal types (like `DateTime`) are different from Java's standard library types (like `datetime.datetime`). If you need to convert between them:
+
+* To convert from driver types to standard library: use the `.to_native()` method
+* To convert from standard library to driver types: use the class constructor or `.from_native()` method
+====

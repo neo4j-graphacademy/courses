@@ -1,0 +1,113 @@
+= Executing Cypher statements
+:type: lesson 
+:slides: true
+:minutes: 10
+:order: 3
+
+
+[.slide.col-2,discrete]
+== Introduction
+
+[.col]
+====
+You can use the `executableQuery()` method to run one-off Cypher statements or statements that return a small number of records.
+The `execute` method fetches a list of records and loads them into memory.
+
+[source,Java]
+----
+final String cypher = """
+    MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie)
+    RETURN m.title AS title, r.role AS role
+    """;
+final String name = "Tom Hanks";
+
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("name", name))
+    .execute();
+----
+====
+
+[.col]
+====
+
+. The `executableQuery` method expects a Cypher statement as a string as the first argument.
+. Parameters can be passed as a map using the `withParameters()` method.
+. The `execute()` method runs the query and returns the result.
+
+[TIP]
+.Using Parameters
+=====
+It is good practice to use parameters in your queries to avoid malicious code being injected into your Cypher statement.
+=====
+====
+
+
+[.slide]
+== Handling the Result
+
+The `execute()` method returns an link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/EagerResult.html[`EagerResult`^] object that contains:
+
+1. A list of link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/Record.html[`Record`^] objects
+2. A link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/summary/ResultSummary.html[ResultSummary^] of the query execution
+3. A list of keys specified in the `RETURN` clause
+
+[source,Java]
+----
+var records = result.records();
+var summary = result.summary();
+var keys = result.keys();
+
+System.out.println(records);
+System.out.println(summary);
+System.out.println(keys);
+----
+
+[.slide]
+== Accessing results
+
+Each row returned by the query is a `Record` object.  The `Record` object provides access to the data returned by the query.
+
+You can access any item in the `RETURN` clause using the `get` method.
+
+[source,Java]
+----
+// RETURN m.title AS title, r.role AS role
+
+var records = result.records();
+records.forEach(r -> {
+    System.out.println(r.get("title"));
+    System.out.println(r.get("role"));
+});
+----
+
+[.slide]
+== Reading and writing 
+
+By default, `execute_query()` runs in **WRITE** mode.  In a clustered environment, this sends all queries to the cluster leader, putting unnecessary load on the leader. 
+
+When you're only reading data, you can optimize performance by configuring the query to READ mode. 
+This distributes your read queries across all cluster members.
+
+[source,Java]
+----
+import org.neo4j.driver.RoutingControl;
+
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("name", name))
+    .withConfig(QueryConfig.builder()
+                .withRouting(RoutingControl.READ)
+                .build())
+    .execute(); 
+----
+
+
+[.next.discrete]
+== Check your understanding
+
+link:../4c-your-first-query/[Run your first query,role=btn]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to execute one-off Cypher statements using the `execute_query()` method and access the results.
+

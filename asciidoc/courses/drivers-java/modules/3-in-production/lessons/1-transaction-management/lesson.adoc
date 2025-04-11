@@ -1,0 +1,193 @@
+= Transaction management
+:type: lesson
+:minutes: 10
+:slides: true
+:order: 1
+
+[.slide.discrete]
+== Introduction
+In the previous module, you learned how to execute one-off Cypher statements using the `executableQuery()`  method.
+
+The drawback of this method is that the entire record set is only available once the final result is returned. 
+For longer running queries or larger datasets, this can consume a lot of memory and a long wait for the final result.
+
+In a production application, you may also need finer control of database transactions or to run multiple related queries as part of a single transaction.
+
+Transaction methods allow you to run multiple queries in a single transaction while accessing results immediately.
+
+
+[TIP]
+.Understanding Transactions
+====
+Neo4j is an ACID-compliant transactional database, which means queries are executed as part of a single atomic transaction. This ensures your data operations are consistent and reliable.
+====
+
+
+[.slide]
+== Sessions
+
+To execute transactions, you need to open a session. The session object manages the underlying database connections and provides methods for executing transactions.
+
+[source,Java]
+----
+try (var session = driver.session()) {
+    // Call transaction functions here
+}
+----
+
+Consuming a session within a `try-with-resources` will automatically close the session and release any underlying connections when the block is exited.
+
+[TIP]
+.Specifying a database
+====
+In a multi-database instance, you can specify the database to use when creating a session using `SessionConfig`.
+
+[source,Java]
+----
+import org.neo4j.driver.SessionConfig;
+
+try (var session = driver.session(
+    SessionConfig.builder().withDatabase("databaseName").build()
+    )) {
+    // Call transaction functions here
+}
+----
+====
+
+
+[.slide]
+== Transaction functions
+
+The link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/Session.html[`Session`^] object provides two methods for managing transactions:
+
+* `Session.executeRead()`
+* `Session.executeWrite()`
+
+If the entire function runs successfully, the transaction is committed automatically. If any errors occur, the entire transaction is rolled back.
+
+[TIP]
+.Transient errors
+====
+These functions will also retry if the transaction fails due to a transient error, for example, a network issue.
+====
+
+[.slide.col-2]
+== Unit of work patterns
+
+[.col]
+====
+A unit of work is a pattern that groups related operations into a single transaction. 
+
+[source,Java]
+----
+public static int createPerson(TransactionContext tx, String name, int age) { // <1>
+    var result = tx.run("""
+        CREATE (p:Person {name: $name, age: $age})
+        RETURN p
+        """, Map.of("name", name, "age", age)); // <2>
+    return result.list().size();
+}
+----
+====
+
+The unit of work is then executed using the `Session`.
+
+[source,Java]
+----
+try (var session = driver.session()) {
+    var count = session.executeWrite(tx -> createPerson(tx, name, age)); // <3>
+}
+----
+
+[.col]
+====
+1. The first argument to the transaction function is always a `TransactionContext` object. Any additional arguments are passed from the call to `Session.executeRead`/`Session.executeWrite`.
+2. The `run()` method on the `TransactionContext` object is called to execute a Cypher statement.
+3. The `executeWrite()` method is called on the session object to execute the transaction function. The result of the transaction function is returned to the caller.
+====
+
+[.slide]
+== Multiple Queries in One Transaction
+
+You can execute multiple queries within the same transaction function to ensure that all operations are completed or fail as a single unit.
+
+[source,Java]
+----
+public static void transferFunds(TransactionContext tx, String fromAccount, String toAccount, double amount) {
+    tx.run(
+        "MATCH (a:Account {id: $from_}) SET a.balance = a.balance - $amount",
+        Map.of("from_", fromAccount, "amount", amount)
+    );
+
+    tx.run(
+        "MATCH (a:Account {id: $to_}) SET a.balance = a.balance + $amount",
+        Map.of("to_", toAccount, "amount", amount)
+    );
+}
+----
+
+[.slide]
+== Transaction state
+====
+[WARNING]
+.Transaction state
+=====
+Transaction state is maintained in the DBMS's memory, so be mindful of running too many operations in a single transaction. Break up very large operations into smaller transactions when possible.
+=====
+====
+
+[.slide.col-2]
+== Handling outputs 
+
+[.col]
+====
+The `TransactionContext.run()` method returns a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/Result.html[`Result`^] object.
+
+The records contained within the result will be iterated over as soon as they are available.
+
+The result must be consumed within the transaction function.
+
+The `consume()` method discards any remaining records and returns a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/summary/ResultSummary.html[`ResultSummary`^] object that can be used to access metadata about the Cypher statement.
+
+The `Session.executeRead`/`Session.executeWrite` method will return the result of the transaction function upon successful execution.
+====
+
+[.col]
+====
+
+
+
+[source,Java]
+.Consuming results
+----
+public static ResultSummary getAnswer(TransactionContext tx, String answer) {
+        var result = tx.run("RETURN $answer AS answer", Map.of("answer", answer));
+        return result.consume();
+    }
+
+String result = "Hello, World!";
+try (var session = driver.session()) {
+    ResultSummary summary = session.executeWrite(tx -> getAnswer(tx, result));
+    System.out.println(
+        String.format(
+            "Results available after %d ms and consumed after %d ms",
+            summary.resultAvailableAfter(TimeUnit.MILLISECONDS),
+            summary.resultConsumedAfter(TimeUnit.MILLISECONDS)
+        )
+        
+    );
+}
+----
+
+====
+
+link:../2c-write-transaction/[Advance to the next lesson,role=btn]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to use transaction functions for read and write operations, implement the unit of work pattern, and execute multiple queries within a single transaction.
+
+You should use transaction functions for read and write operations when you to start consuming results as soon as they are available.
+
+In the next lesson, you will take a quiz to test your knowledge of using transactions.
