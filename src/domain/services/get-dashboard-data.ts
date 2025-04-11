@@ -6,7 +6,6 @@ import { Reward } from "./rewards/get-rewards"
 import { appendParams } from "./cypher"
 
 export type DashboardData = {
-    user: User
     enrolments: CourseWithProgress[]
     recentlyCompleted: CourseWithProgress[]
     teams: Array<{
@@ -174,7 +173,7 @@ export async function getDashboardData(user: User): Promise<DashboardData> {
                 }) as rewards
             }
 
-            RETURN u { .nickname, .displayName, .name, .picture } AS user,
+            RETURN 
                 [e in enrolments WHERE e.link STARTS WITH '/courses' AND e.completed = false | e] AS enrolments, 
                 recentlyCompleted, teams, paths, certifications, rewards
         `, appendParams({ sub: user.sub }))
@@ -185,7 +184,6 @@ export async function getDashboardData(user: User): Promise<DashboardData> {
         }
 
         return {
-            user: record.get('user'),
             enrolments: record.get('enrolments'),
             recentlyCompleted: record.get('recentlyCompleted'),
             teams: record.get('teams'),
