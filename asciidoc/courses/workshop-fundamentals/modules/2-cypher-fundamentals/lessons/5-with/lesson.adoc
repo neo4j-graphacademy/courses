@@ -1,8 +1,10 @@
-= Pipelining with `WITH`
+= Pipelining with WITH
 :type: lesson
 :order: 5
 :sandbox: true
+:slides: true
 
+[.slide]
 == What is WITH?
 
 In Cypher, the `WITH` clause is used to:
@@ -14,6 +16,23 @@ In Cypher, the `WITH` clause is used to:
 
 It’s similar to `RETURN`, but instead of just returning data, `WITH` is used to pass data to the next part of the query.
 
+[.slide]
+== Chaining with WITH
+
+You can chain queries together using `WITH`.
+
+Find all users who rated "Matrix, The" and then the other movies they rated.
+
+[cypher, source]
+----
+MATCH (u:User)-[:RATED]->(m:Movie {title: "Matrix, The"})
+WITH u, m
+MATCH (u)-[r:RATED]->(other:Movie)
+WHERE other <> m
+RETURN u.name, other.title, r.rating
+----
+
+[.slide]
 == Filter After Aggregation
 
 You can use `WITH` to filter results after aggregation.
@@ -28,51 +47,116 @@ WHERE movieCount > 5
 RETURN u.name, movieCount
 ----
 
-What's happening:
-- Match users who rated movies.
-- Use `WITH` to count how many movies each person rated.
-- Filter based on the aggregation.
-- Return the results.
+The query:
 
-== Sort and Limit
+- Matches users who rated movies.
+- Uses `WITH` to count how many movies each person rated.
+- Filters based on the aggregation.
+- Returns the results.
 
-Get the top 3 most-rated movies.
+[.slide]
+== Ordering and limiting
+
+You can use `WITH` to order and limit results.
+
+Find the top 3 rated movies, then find the actors who acted in them.
 
 [cypher, source]
 ----
-MATCH (:Person)-[r:RATED]->(m:Movie)
-WITH m, count(r) AS ratings
-ORDER BY ratings DESC
+MATCH (m:Movie)<-[r:RATED]-(u:User)
+WITH m, avg(r.rating) AS avgRating
+ORDER BY avgRating DESC 
 LIMIT 3
-RETURN m.title, ratings
+
+MATCH (p:Person)-[:ACTED_IN]->(m)
+RETURN m.title, avgRating, p.name
 ----
 
-Why use WITH here?
-- You aggregate (count ratings) and sort the results.
-- Then limit before returning the data.
-
-
-== Chaining with WITH
-
-You can chain queries together using `WITH`.
-
-MATCH (u:User)-[:RATED]->(m:Movie {title: "The Matrix"})
-WITH u
-MATCH (u)-[r:RATED]->(other:Movie)
-WHERE other <> m
-RETURN p.name, other.title, r.rating
-
-
-Key idea: Use WITH p to carry the person forward into the next part of the query.
-
-
+[.slide]
 == Challenges
 
-Get the top 5 people who gave the highest average rating. Return their name and average rating.
+Complete the queries to answer the following questions:
 
-💡 Hint: You'll need avg() and WITH to group and order results.
+. What is the lowest rated movie that has a `revenue` of more than $1 billion (1000000000)?
++
+[.transcript-only]
+====
+[source, cypher]
+----
+MATCH (m:Movie)
+WITH ? WHERE m.revenue > 1000000000
+
+MATCH (u:User)-[r:RATED]-(?)
+RETURN 
+    m.title AS title, 
+    m.revenue AS revenue, 
+    ???(?.??????) as avgRating
+ORDER BY ???????
+----
+====
+. Of the top 5 users who rated the most movies, who gave the lowest average rating?
++
+[.transcript-only]
+====
+[source, cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WITH ?, ?????(?) AS numberOfRatings
+ORDER BY ?????? DESC LIMIT ?
+
+MATCH (?)-[r:RATED]->(m:Movie)
+RETURN 
+    u.name AS name,
+    numberOfRatings,
+    ???(???????) AS ???????
+ORDER BY ??????
+----
+====
+
+[.transcript-only]
+====
+[%collapsible]
+.Click to reveal the answers
+=====
+. What is the lowest rated movie that has a `revenue` of more than $1 billion (1000000000)?
++
+[source, cypher]
+----
+MATCH (m:Movie)
+WITH m WHERE m.revenue > 1000000000
+
+MATCH (u:User)-[r:RATED]-(m)
+RETURN 
+    m.title AS title, 
+    m.revenue AS revenue, 
+    avg(r.rating) as avgRating
+ORDER BY avg(r.rating)
+----
+. Of the top 5 users who rated the most movies, who gave the lowest average rating?
++
+[source, cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WITH u, count(r) AS numberOfRatings
+ORDER BY numberOfRatings DESC LIMIT 5
+
+MATCH (u)-[r:RATED]->(m:Movie)
+RETURN 
+    u.name AS name,
+    numberOfRatings,
+    avg(r.rating) AS avgRating
+ORDER BY avgRating DESC
+----
+=====
+====
 
 
-Find all movies rated by people who have rated more than 10 movies.
+[next.discrete]
+== Next
 
-💡 Hint: Use WITH to filter out people first, then find their rated movies.
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how use `WITH` to chain queries together, filter results after aggregation, and order and limit results.
