@@ -2,8 +2,6 @@
 :type: lesson 
 :order: 3
 
-// TODO - Jennifer - how does temporal types work in the Java driver?
-
 [.slide.discrete]
 == Temporal types
 
@@ -30,24 +28,38 @@ Temporal types in Neo4j are a combination of date, time and timezone elements.
 [.col]
 ====
 
-[source,Java]
+[source,java]
 ----
-// from neo4j.time import DateTime
-// from datetime import timezone, timedelta
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 
-// driver.execute_query("""
-// CREATE (e:Event {
-//   startsAt: $datetime,              // <1>
-//   createdAt: datetime($dtstring),   // <2>
-//   updatedAt: datetime()             // <3>
-// })
-// """, 
-//     datetime=DateTime(
-//         2024, 5, 15, 14, 30, 0, 
-//         tzinfo=timezone(timedelta(hours=2))
-//     ),  # <4>
-//     dtstring="2024-05-15T14:30:00+02:00"
-// )
+String dtstring="2024-05-15T14:30:00+02:00";
+var datetime = ZonedDateTime.of(2024, 05, 15, 14, 30, 00, 0, ZoneId.of("+02:00"));
+
+var result = driver.executableQuery("""
+    CREATE (e:Event {
+        startsAt: $datetime,              // <1>
+        createdAt: datetime($dtstring),   // <2>
+        updatedAt: datetime()             // <3>
+    })
+    RETURN e.startsAt AS startsAt,
+        e.createdAt AS createdAt,
+        e.updatedAt AS updatedAt;
+    """)
+    .withParameters(
+        Map.of(
+            "datetime", datetime, // <4>
+            "dtstring", dtstring
+        ))
+    .execute();
+
+    var event = result.records().get(0);
+    var startsAt = event.get("startsAt").asZonedDateTime();
+    var createdAt = event.get("createdAt").asZonedDateTime();
+    var updatedAt = event.get("updatedAt").asZonedDateTime();
+    System.out.println(startsAt);  // 2024-05-15T14:30+02:00
+    System.out.println(createdAt); // 2024-05-15T14:30+02:00
+    System.out.println(updatedAt); // today's date and time with +00:00 timezone
 ----
 ====
 
@@ -73,20 +85,24 @@ When reading temporal types from the database, you will receive an instance of t
 
 [.col]
 ====
-[source,Java]
+[source,java]
 ----
-// # Query returning temporal types
-// records, summary, keys = driver.execute_query("""
-// RETURN date() as date, time() as time, datetime() as datetime, toString(datetime()) as asString
-// """)
+// Query returning temporal types
+var result = driver.executableQuery("""
+    RETURN date() as date, time() as time, 
+        datetime() as datetime, 
+        toString(datetime()) as asString;
+    """)
+    .execute();
 
-// # Access the first record
-// for record in records:
-//     # Automatic conversion to Java driver types
-//     date = record["date"]           # neo4j.time.Date
-//     time = record["time"]           # neo4j.time.Time
-//     datetime = record["datetime"]   # neo4j.time.DateTime
-//     as_string = record["asString"]  # str
+// Print each value
+var records = result.records();
+records.forEach(r -> {
+    System.out.println(r.get("date"));      // neo4j.time.Date
+    System.out.println(r.get("time"));      // neo4j.time.Time
+    System.out.println(r.get("datetime"));  // neo4j.time.DateTime
+    System.out.println(r.get("asString"));  // String
+});
 ----
 ====
 
@@ -97,33 +113,48 @@ When reading temporal types from the database, you will receive an instance of t
 [.col]
 ====
 
-[source,Java]
+[source,java]
 ----
-// from neo4j.time import Duration, DateTime
+import java.time.LocalDateTime;
+import java.time.Duration;
 
-// starts_at = DateTime.now() 
-// event_length = Duration(hours=1, minutes=30)
-// ends_at = startsAt + event_length
+// Create variables with duration and duration calculation
+var startsAt = LocalDateTime.now();
+var eventLength = Duration.ofHours(1).plusMinutes(30);
+var endsAt = startsAt.plus(eventLength);
 
-// driver.execute_query("""
-// CREATE (e:Event {
-//   startsAt: $startsAt, endsAt: $endsAt,
-//   duration: $eventLength, // <1>
-//   interval: duration('P30M') // <2>
-// })
-// """,
-//     startsAt=starts_at, endsAt=ends_at, eventLength=event_length
-// )
+var result = driver.executableQuery("""
+    CREATE (e:Event {
+        startsAt: $startsAt, 
+        endsAt: $endsAt,
+        duration: $eventLength, // <1>
+        interval: duration("PT1H30M") // <2>
+    })
+    RETURN e
+    """)
+    .withParameters(Map.of(
+        "startsAt", startsAt,
+        "endsAt", endsAt,
+        "eventLength", eventLength
+    ))
+    .execute();
+
+// Output results
+var event = result.records().get(0).get("e").asNode();
+System.out.println(event.get("startsAt")); // current datetime
+System.out.println(event.get("endsAt"));   // current datetime + 1h 30m
+System.out.println(event.get("duration")); // P0M0DT5400S (1h 30m in seconds)
+System.out.println(event.get("interval")); // P0M0DT5400S (1h 30m in seconds)
 ----
 
 ====
 
 [.col]
 ====
-Durations represent a period of time and can be used for date arithmetic in both Java and Cypher.  These types can also be created in Java or cast within a Cypher statement.
+Durations represent a period of time and can be used for date arithmetic in both Java and Cypher. These types can also be created in Java or cast within a Cypher statement.
 
-<1> Pass an instance of `Duration` to the query
-<2> Use the `duration()` function to create a `Duration` object from an ISO 8601 format string
+<1> Pass an instance of Java `Duration` to the query
+<2> Use the `duration()` Cypher function to create a `Duration` object from an ISO 8601 format string
 
 [TIP]
 .Calculating durations
@@ -147,10 +178,7 @@ In this lesson, you learned about working with temporal types in Neo4j using the
 * Durations can be used for date arithmetic in both Java and Cypher
 
 [TIP]
-.Converting between driver and standard library types
+.Converting between driver and Cypher types
 ====
-The Neo4j Java driver's temporal types (like `DateTime`) are different from Java's standard library types (like `datetime.datetime`). If you need to convert between them:
-
-* To convert from driver types to standard library: use the `.to_native()` method
-* To convert from standard library to driver types: use the class constructor or `.from_native()` method
+Because Neo4j was originally built in Java, nearly all of the Cypher data types align with Java's standard library types. However, there are some exceptions, especially when it comes to temporal types. The main differences are with the timezone values. To see which Java and Cypher mappings are different, see the https://neo4j.com/docs/java-manual/current/data-types/#_temporal_types[documentation page in the Java manual^].
 ====

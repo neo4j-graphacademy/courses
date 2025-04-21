@@ -3,8 +3,6 @@
 :minutes: 10
 :order: 5
 
-// TODO - Jennifer - update
-
 [.slide.discrete]
 == Points and locations
 
@@ -15,23 +13,22 @@ Neo4j has built-in support for two-dimensional and three-dimensional spatial dat
 These are referred to as **points**.
 A point may represent geographic coordinates (longitude, latitude) or Cartesian coordinates (x, y). 
 
-Depending on the values used to create the point, it can either be a `CartesianPoint` or a `WGS84Point`.  If you specify three values, these are considered three dimensional points.  Otherwise, they are considered two dimensional points.
+Depending on the values used to create the point, it can either be a two-dimensional or three-dimensional `PointValue`.  If you specify three values, these are considered three dimensional points.  Otherwise, they are considered two dimensional points.
 
-In Java, these values are represented by the `neo4j.spatial.CartesianPoint` and `neo4j.spatial.WGS84Point` classes, which are subclasses of the `neo4j.spatial.Point` class.
+In Java, these values are represented by the `org.neo4j.driver.types.Point` type, which is wrapped by the `org.neo4j.driver.Values` class to expose as a generic `Value` object.
 
-
+The `Point` type provides methods to access the coordinates and SRID of the point, allowing for easy manipulation and retrieval of spatial data.
 
 ====
 
 [.col]
 ====
-
 |===
 | Cypher Type | Java Type | SRID | 3D SRID
 
-| Point (Cartesian) | `neo4j.spatial.CartesianPoint` | `7203` | `9157`
+| Point (Cartesian) | `org.neo4j.driver.types.Point` | `7203` | `9157`
 
-| Point (WGS-84) | `neo4j.spatial.WGS84Point` | `4326` | `4979`
+| Point (WGS-84) | `org.neo4j.driver.types.Point` | `4326` | `4979`
 |===
 ====
 
@@ -43,41 +40,34 @@ In Java, these values are represented by the `neo4j.spatial.CartesianPoint` and 
 A Cartesian Point defines a point with x and y coordinates.
 An additional z value can be provided to define a three-dimensional point.
 
-You can create a cartesian point by passing a tuple of values to the `CartesianPoint` constructor or by passing `x`, `y` and `z` values to the point function in Cypher.
+You can create a cartesian point by passing `x`, `y` and optionally `z` values to the `Values.point()` function in Java or the Cypher `point()` function.
 
 .CartesianPoint
-[source,Java]
+[source,java]
 ----
-// from neo4j.spatial import CartesianPoint
+import org.neo4j.driver.Values;
 
-// two_d = CartesianPoint((x, y))
-// three_d = CartesianPoint((x, y, z))
+var 2dLocation = Values.point(x, y);
+var 3dLocation = Values.point(x, y, z);
 ----
 
-The driver will convert `point` data types created with an x, y and z value to an instance of the `CartesianPoint` class.
+The driver will convert `point` data types created with an x, y and z value to an instance of the `Point` interface.
 ====
 
 [.col]
 ====
-
-
-[source,Java]
+[source,java]
 ----
-// records, summary, keys = driver.execute_query = driver.execute_query("""
-// RETURN point({x: 1.23, y: 4.56, z: 7.89}) AS threeD
-// """)
+var result = driver.executableQuery("RETURN point({x: 1.23, y: 4.56, z: 7.89}) AS point")
+    .withConfig(QueryConfig.builder().withDatabase("neo4j").build())
+    .execute();
+var point = result.records().get(0).get("point");
 
-// point = records[0]["threeD"]
-
-// # <1> Accessing attributes
-// print(point.x, point.y, point.z, point.srid) # 1.23, 4.56, 7.89, 9157
-
-// # <2> Destructuring
-// x, y, z = point
+System.out.println(point);  // Point{srid=9157, x=1.23, y=4.56, z=7.89}
+System.out.println(point.asPoint().x() + ", " + point.asPoint().y() + ", " + point.asPoint().z());  // 1.23, 4.56, 7.89
 ----
 
-The values can be accessed using the `x`, `y` and `z` attributes `<1>` or by destructuring the point `<2>`.
-
+The values can be accessed using the `x`, `y` and `z` methods.
 ====
 
 [.slide.col-2]
@@ -85,44 +75,57 @@ The values can be accessed using the `x`, `y` and `z` attributes `<1>` or by des
 
 [.col]
 ====
-A WSG  _(World Geodetic System)_ point consists of a `latitude` and `longitude` value.
-An additional `height` value can be provided to define a three-dimensional point and can be created by passing a tuple of values to the `WGS84Point` constructor or by passing `longitude`, `latitude` and `height` values to the point function in Cypher.
+A WSG  _(World Geodetic System)_ point consists of a `latitude` (`y`) and `longitude` (`x`) value. An additional `height` (`z`) value can be provided to define a three-dimensional point.
+You can create a WGS84 point by passing `longitude`, `latitude` and `height` values to the point function in Cypher or passing the values to the `Values.point()` in Java.
 
 .WGS84Point
-[source,Java]
+[source,java]
 ----
-// from neo4j.spatial import WGS84Point
+import org.neo4j.driver.Values;
 
-// ldn = WGS84Point((-0.118092, 51.509865))
-// print(ldn.longitude, ldn.latitude, ldn.srid) # -0.118092, 51.509865, 4326
+var location2d = Values.point(4326, -0.118092, 51.509865);
+System.out.println(location2d.asPoint().x() + ", " + 
+                    location2d.asPoint().y() + ", " + 
+                    location2d.asPoint().srid());
+                    // -0.118092, 51.509865, 4326
 
-// shard = WGS84Point((-0.086500, 51.504501, 310))
-// print(shard.longitude, shard.latitude, shard.height, shard.srid) # -0.0865, 51.504501, 310, 4979
-
-// # Using destructuring
-// longitude, latitude, height = shard
-// ----
+var location3d = Values.point(4979, -0.086500, 51.504501, 310);
+System.out.println(location3d.asPoint().x() + ", " + 
+                    location3d.asPoint().y() + ", " + 
+                    location3d.asPoint().z() + ", " + 
+                    location3d.asPoint().srid());
+                    // -0.0865, 51.504501, 310, 4979
+----
 
 
 ====
 
 [.col]
 ====
-The driver will return `WGS84Point` objects when `point` data types are created with `latitude` and `longitude` values in Cypher.  The values can be accessed using the `longitude`, `latitude` and `height` attributes or by destructuring the point.
+The driver will return `WGS84Point` objects when `point` data types are created with `latitude` and `longitude` values in Cypher.  The values can be accessed using the `x`, `y` and `z` attributes.
 
 .Using point()
-[source,Java]
+[source,java]
 ----
-// records, summary, keys = driver.execute_query("""
-// RETURN point({
-//     latitude: 51.5,
-//     longitude: -0.118,
-//     height: 100
-// }) AS point
-// """)
+var result = driver.executableQuery("""
+        RETURN point({
+            latitude: 51.5,
+            longitude: -0.118,
+            height: 100
+        }) AS point
+    """)
+    .execute();
 
-// point = records[0]["point"]
-// longitude, latitude, height = point
+var point = result.records().get(0).get("point");
+var longitude = point.asPoint().x();
+var latitude = point.asPoint().y();
+var height = point.asPoint().z();
+var srid = point.asPoint().srid();
+System.out.println(longitude + ", " +
+                    latitude + ", " + 
+                    height + ", " +
+                    srid); // -0.118, 51.5, 100.0, 4979
+System.out.println(point.asPoint()); // Point{srid=4979, x=-0.118, y=51.5, z=100.0}
 ----
 ====
 
@@ -147,18 +150,19 @@ If the SRID values are different, the function will return `None`.
 ====
 [source,Java]
 ----
-// # Create two points
-// point1 = CartesianPoint((1, 1))
-// point2 = CartesianPoint((10, 10))
+// Create two points
+var point1 = Values.point(7203, 1.23, 4.56);
+var point2 = Values.point(7203, 2.34, 5.67);
 
-// # Query the distance using Cypher
-// records, summary, keys = driver.execute_query("""
-// RETURN point.distance($p1, $p2) AS distance
-// """, p1=point1, p2=point2)
+var result = driver.executableQuery("""
+        RETURN point.distance($p1, $p2) AS distance
+        """)
+        .withParameters(
+            Map.of("p1", point1, "p2", point2))
+        .execute();
 
-// # Print the distance from the result
-// distance = records[0]["distance"]
-// print(distance)  # 12.727922061357855
+var distance = result.records().get(0).get("distance").asDouble();
+System.out.println(distance);  // 1.5697770542341356
 ----
 
 
@@ -169,9 +173,9 @@ link:../6c-using-spatial-types/[Advance to challenge,role=btn]
 [.summary]
 == Lesson Summary
 
-In this lesson, you learned about the `CartesianPoint` and `WGS84Point` classes and how to use them in Java.
+In this lesson, you learned about how to work with 2D and 3D `Cartesian` and `WGS-84` points between Cypher and Java.
 
-Regardless of the type of point, you can always access the individual components by destructuring the point object.
+Regardless of the type of point, you can always access the individual components by accessing methods for the `x`, `y`, and `z` coordinates.
 
-For more information on Spatial types, link:https://neo4j.com/docs/cypher-manual/current/values-and-types/spatial/[view the Spatial types page in Cypher Manual^].
+For more information on Spatial types, view the link:https://neo4j.com/docs/cypher-manual/current/values-and-types/spatial/[spatial types page in Cypher Manual^] or the related https://neo4j.com/docs/java-manual/current/data-types/#_spatial_types[Java manual types and mapping page^].
 
