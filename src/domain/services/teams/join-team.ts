@@ -58,7 +58,7 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
     `, {
       sub: user.sub,
       email: user.email,
-      givenName: user.givenName,
+      givenName: user.givenName || null,
       id
     })
 
