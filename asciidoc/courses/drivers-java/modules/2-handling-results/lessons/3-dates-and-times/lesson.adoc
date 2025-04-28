@@ -5,8 +5,6 @@
 [.slide.discrete]
 == Temporal types
 
-The `neo4j.time` module provides classes for working with dates and times in Java. 
-
 Temporal types in Neo4j are a combination of date, time and timezone elements.
 
 .Temporal Types
@@ -15,14 +13,14 @@ Temporal types in Neo4j are a combination of date, time and timezone elements.
 |Type |Description |Date? |Time? |Timezone?
 
 |`Date` |A tuple of Year, Month and Day |Y | |
-|`Time` |The time of the day with a UTC offset |Y |Yfootnote:[`Time` only supports fixed UTC offsets.] |
+|`Time` |The time of the day with a UTC offset |Y |Y |
 |`LocalTime` |A time without a timezone | |Y |
 |`DateTime` |A combination of Date and Time |Y |Y |Y
 |`LocalDateTime` |A combination of Date and Time without a timezone |Y |Y |
 |===
 
 
-[.slide.col-2.col-reverse]
+[.slide.col-60-40]
 == Writing temporal types
 
 [.col]
@@ -32,34 +30,19 @@ Temporal types in Neo4j are a combination of date, time and timezone elements.
 ----
 import java.time.ZonedDateTime;
 import java.time.ZoneId;
-
 String dtstring="2024-05-15T14:30:00+02:00";
 var datetime = ZonedDateTime.of(2024, 05, 15, 14, 30, 00, 0, ZoneId.of("+02:00"));
-
 var result = driver.executableQuery("""
     CREATE (e:Event {
         startsAt: $datetime,              // <1>
         createdAt: datetime($dtstring),   // <2>
         updatedAt: datetime()             // <3>
     })
-    RETURN e.startsAt AS startsAt,
-        e.createdAt AS createdAt,
-        e.updatedAt AS updatedAt;
+    RETURN e.startsAt AS startsAt, e.createdAt AS createdAt, e.updatedAt AS updatedAt;
     """)
     .withParameters(
-        Map.of(
-            "datetime", datetime, // <4>
-            "dtstring", dtstring
-        ))
+        Map.of( "datetime", datetime, "dtstring", dtstring )) // <4> 
     .execute();
-
-    var event = result.records().get(0);
-    var startsAt = event.get("startsAt").asZonedDateTime();
-    var createdAt = event.get("createdAt").asZonedDateTime();
-    var updatedAt = event.get("updatedAt").asZonedDateTime();
-    System.out.println(startsAt);  // 2024-05-15T14:30+02:00
-    System.out.println(createdAt); // 2024-05-15T14:30+02:00
-    System.out.println(updatedAt); // today's date and time with +00:00 timezone
 ----
 ====
 
@@ -73,21 +56,40 @@ This example demonstrates how to:
 <2> Cast an link:https://www.iso.org/iso-8601-date-and-time-format.html[ISO 8601 format string^] within a Cypher statement
 <3> Get the current date and time using the `datetime()` function.
 
+[.transcript-only]
+=====
+
+You can cast the results of the query using the `asZonedDateTime()` method.
+
+[.col]
+
+[source,java]
+----
+var event = result.records().get(0);
+var startsAt = event.get("startsAt").asZonedDateTime();
+var createdAt = event.get("createdAt").asZonedDateTime();
+var updatedAt = event.get("updatedAt").asZonedDateTime();
+System.out.println(startsAt);  // 2024-05-15T14:30+02:00
+System.out.println(createdAt); // 2024-05-15T14:30+02:00
+System.out.println(updatedAt); // today's date and time with +00:00 timezone
+----
+
+=====
+
 ====
 
-[.slide,.col-2]
+[.slide.col-2]
 == Reading temporal types
 
 [.col]
 ====
-When reading temporal types from the database, you will receive an instance of the corresponding Java type unless you cast the value within your query.
+When reading temporal types from the database, you will receive an instance of the corresponding Java type.
 ====
 
 [.col]
 ====
 [source,java]
 ----
-// Query returning temporal types
 var result = driver.executableQuery("""
     RETURN date() as date, time() as time, 
         datetime() as datetime, 
@@ -95,7 +97,6 @@ var result = driver.executableQuery("""
     """)
     .execute();
 
-// Print each value
 var records = result.records();
 records.forEach(r -> {
     System.out.println(r.get("date"));      // neo4j.time.Date
@@ -106,9 +107,8 @@ records.forEach(r -> {
 ----
 ====
 
-[.slide.col-2]
+[.slide.col-60-40]
 == Working with Durations
-
 
 [.col]
 ====
@@ -117,34 +117,20 @@ records.forEach(r -> {
 ----
 import java.time.LocalDateTime;
 import java.time.Duration;
-
-// Create variables with duration and duration calculation
 var startsAt = LocalDateTime.now();
 var eventLength = Duration.ofHours(1).plusMinutes(30);
 var endsAt = startsAt.plus(eventLength);
-
 var result = driver.executableQuery("""
-    CREATE (e:Event {
-        startsAt: $startsAt, 
-        endsAt: $endsAt,
+    CREATE (e:Event { startsAt: $startsAt, endsAt: $endsAt,
         duration: $eventLength, // <1>
         interval: duration("PT1H30M") // <2>
     })
     RETURN e
     """)
     .withParameters(Map.of(
-        "startsAt", startsAt,
-        "endsAt", endsAt,
-        "eventLength", eventLength
+        "startsAt", startsAt, "endsAt", endsAt, "eventLength", eventLength
     ))
     .execute();
-
-// Output results
-var event = result.records().get(0).get("e").asNode();
-System.out.println(event.get("startsAt")); // current datetime
-System.out.println(event.get("endsAt"));   // current datetime + 1h 30m
-System.out.println(event.get("duration")); // P0M0DT5400S (1h 30m in seconds)
-System.out.println(event.get("interval")); // P0M0DT5400S (1h 30m in seconds)
 ----
 
 ====
@@ -155,6 +141,23 @@ Durations represent a period of time and can be used for date arithmetic in both
 
 <1> Pass an instance of Java `Duration` to the query
 <2> Use the `duration()` Cypher function to create a `Duration` object from an ISO 8601 format string
+
+    
+[.transcript-only]
+=====
+
+You can cast the results of the query by getting the properties from the node:
+
+[source,java]
+----
+// Output results
+var event = result.records().get(0).get("e").asNode();
+System.out.println(event.get("startsAt")); // current datetime
+System.out.println(event.get("endsAt"));   // current datetime + 1h 30m
+System.out.println(event.get("duration")); // P0M0DT5400S (1h 30m in seconds)
+System.out.println(event.get("interval")); // P0M0DT5400S (1h 30m in seconds)
+----
+=====
 
 [TIP]
 .Calculating durations
@@ -172,7 +175,7 @@ link:../4c-working-with-dates-and-times/[Advance to challenge,role=btn]
 
 In this lesson, you learned about working with temporal types in Neo4j using the Java driver:
 
-* The `neo4j.time` module provides classes for handling dates, times, and durations
+* Cypher provides classes for handling dates, times, and durations
 * You can pass temporal objects as parameters or create them within Cypher statements
 * When reading temporal values from Neo4j, they are automatically converted to the appropriate Java driver types
 * Durations can be used for date arithmetic in both Java and Cypher

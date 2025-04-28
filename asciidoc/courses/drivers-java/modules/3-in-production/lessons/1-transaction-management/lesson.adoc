@@ -6,7 +6,7 @@
 
 [.slide.discrete]
 == Introduction
-In the previous module, you learned how to execute one-off Cypher statements using the `executableQuery()`  method.
+You have learned how to execute one-off Cypher statements using the `executableQuery()`  method.
 
 The drawback of this method is that the entire record set is only available once the final result is returned. 
 For longer running queries or larger datasets, this can consume a lot of memory and a long wait for the final result.
@@ -37,9 +37,11 @@ try (var session = driver.session()) {
 
 Consuming a session within a `try-with-resources` will automatically close the session and release any underlying connections when the block is exited.
 
+[.transcript-only]
+====
 [TIP]
 .Specifying a database
-====
+=====
 In a multi-database instance, you can specify the database to use when creating a session using `SessionConfig`.
 
 [source,Java]
@@ -52,8 +54,8 @@ try (var session = driver.session(
     // Call transaction functions here
 }
 ----
+=====
 ====
-
 
 [.slide]
 == Transaction functions
@@ -71,37 +73,32 @@ If the entire function runs successfully, the transaction is committed automatic
 These functions will also retry if the transaction fails due to a transient error, for example, a network issue.
 ====
 
-[.slide.col-2]
+[.slide.col-60-40]
 == Unit of work patterns
 
 [.col]
 ====
-A unit of work is a pattern that groups related operations into a single transaction. 
+A unit of work groups operations into a single method, which is executed using the `Session`: 
 
 [source,Java]
 ----
+// Unit of work
 public static int createPerson(TransactionContext tx, String name, int age) { // <1>
     var result = tx.run("""
-        CREATE (p:Person {name: $name, age: $age})
-        RETURN p
+        CREATE (p:Person {name: $name, age: $age}) RETURN p
         """, Map.of("name", name, "age", age)); // <2>
     return result.list().size();
 }
-----
-====
-
-The unit of work is then executed using the `Session`.
-
-[source,Java]
-----
-try (var session = driver.session()) {
-    var count = session.executeWrite(tx -> createPerson(tx, name, age)); // <3>
+// Execute the unit of work
+try (var session = driver.session()) { // <3>
+    var count = session.executeWrite(tx -> createPerson(tx, name, age)); 
 }
 ----
+====
 
 [.col]
 ====
-1. The first argument to the transaction function is always a `TransactionContext` object. Any additional arguments are passed from the call to `Session.executeRead`/`Session.executeWrite`.
+1. The first argument to the transaction function is always a `TransactionContext` object. Any additional arguments are passed from the call to `Session.executeRead` / `Session.executeWrite`.
 2. The `run()` method on the `TransactionContext` object is called to execute a Cypher statement.
 3. The `executeWrite()` method is called on the session object to execute the transaction function. The result of the transaction function is returned to the caller.
 ====
@@ -118,7 +115,6 @@ public static void transferFunds(TransactionContext tx, String fromAccount, Stri
         "MATCH (a:Account {id: $from_}) SET a.balance = a.balance - $amount",
         Map.of("from_", fromAccount, "amount", amount)
     );
-
     tx.run(
         "MATCH (a:Account {id: $to_}) SET a.balance = a.balance + $amount",
         Map.of("to_", toAccount, "amount", amount)
@@ -126,8 +122,7 @@ public static void transferFunds(TransactionContext tx, String fromAccount, Stri
 }
 ----
 
-[.slide]
-== Transaction state
+[.transcript-only]
 ====
 [WARNING]
 .Transaction state
@@ -136,7 +131,7 @@ Transaction state is maintained in the DBMS's memory, so be mindful of running t
 =====
 ====
 
-[.slide.col-2]
+[.slide.col-40-60]
 == Handling outputs 
 
 [.col]
@@ -149,13 +144,11 @@ The result must be consumed within the transaction function.
 
 The `consume()` method discards any remaining records and returns a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/summary/ResultSummary.html[`ResultSummary`^] object that can be used to access metadata about the Cypher statement.
 
-The `Session.executeRead`/`Session.executeWrite` method will return the result of the transaction function upon successful execution.
+The `Session.executeRead` / `Session.executeWrite` method will return the result of the transaction function upon successful execution.
 ====
 
 [.col]
 ====
-
-
 
 [source,Java]
 .Consuming results
@@ -174,7 +167,6 @@ try (var session = driver.session()) {
             summary.resultAvailableAfter(TimeUnit.MILLISECONDS),
             summary.resultConsumedAfter(TimeUnit.MILLISECONDS)
         )
-        
     );
 }
 ----
