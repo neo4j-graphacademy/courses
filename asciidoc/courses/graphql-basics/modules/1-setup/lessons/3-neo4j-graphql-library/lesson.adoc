@@ -42,14 +42,11 @@ image::images/03crud.png[Generated CRUD API,width=500,align=center]
 // Query for image
 
 // {
-//   movies(where: {title_CONTAINS: "Matrix"}) {
+//   movies(where: { title: { contains: "Something" } } ) {
 //     title
 //     year
-//     genres(options: {limit: 2}) {
+//     genres(limit: 2) {
 //       name
-//     }
-//     recommended {
-//       title
 //     }
 //     actors {
 //       name
@@ -70,11 +67,88 @@ Single automatically generated queries:
 
 image::images/03generate.png[Generate Cypher from GraphQL, width=500, align=center]
 
+[%collapsible]
+.Click to reveal an example of a generated Cypher query
+====
+[source,GraphQL]
+.GraphQL Query
+----
+{
+  movies(where: { title:  {
+    eq: "River Runs Through It, A" 
+  }}) {
+    title
+    actors(limit: 2) {
+      name
+    }
+    genres {
+      name
+    }
+    directors {
+      name
+      movies(limit: 3){
+        title
+      }
+    }
+  }
+}
+----
+
+[source,Cypher]
+.Generated Cypher Query
+----
+MATCH (this:Movie)
+WHERE this.title = $param0
+CALL {
+    WITH this
+    MATCH (this)<-[this0:ACTED_IN]-(this1:Actor)
+    WITH DISTINCT this1
+    WITH this1 { .name } AS this1
+    
+    LIMIT $param1
+    RETURN collect(this1) AS var2
+}
+CALL {
+    WITH this
+    MATCH (this)-[this3:HAS_GENRE]->(this4:Genre)
+    WITH DISTINCT this4
+    WITH this4 { .name } AS this4
+    RETURN collect(this4) AS var5
+}
+CALL {
+    WITH this
+    MATCH (this)-[this6:DIRECTED]->(this7:Director)
+    WITH DISTINCT this7
+    CALL {
+        WITH this7
+        MATCH (this7)<-[this8:DIRECTED]-(this9:Movie)
+        WITH DISTINCT this9
+        WITH this9 { .title } AS this9
+        
+        LIMIT $param2
+        RETURN collect(this9) AS var10
+    }
+    WITH this7 { .name, movies: var10 } AS this7
+    RETURN collect(this7) AS var11
+}
+RETURN this { .title, actors: var2, genres: var5, directors: var11 } AS this
+----
+====
+
 === Extend GraphQL With Cypher
 
 To add custom logic beyond CRUD operations, you can use the https://neo4j.com/docs/graphql-manual/current/type-definitions/cypher/[`@cypher` GraphQL schema directive] to add computed fields bound to a Cypher statement to the GraphQL schema.
 
-image::images/03cypher.png[Extend GraphQL with Cypher, width=500, align=center]
+[source, GraphQL]
+----
+recommended(first: Int = 1): [Business] @cypher(
+    statement: """
+        MATCH (this)-[:RECOMMENDED]->(b:Business)
+        RETURN b
+    """,
+    columnName: "b"
+)
+----
 
 [.quiz]
 == Check Your Understanding
