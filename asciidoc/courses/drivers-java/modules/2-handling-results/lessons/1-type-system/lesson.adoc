@@ -1,0 +1,210 @@
+= Graph types
+:type: lesson
+:order: 1
+:slides: true
+
+[.slide.discrete.col-60-40]
+== Introduction
+
+[.col]
+====
+Let's take a look at the types of data returned by a Cypher query.
+
+The majority of the types returned by a Cypher query are mapped directly to Java types, but some more complex types need special handling.
+
+* Graph types - Nodes, Relationships and Paths
+* Spatial types - Points and distances
+
+[TIP]
+.Types in Neo4j Browser
+=====
+When graph types are returned by a query, they are visualized in a graph layout.
+=====
+====
+
+[.col]
+====
+
+[cols="1,1"]
+.Direct mapping
+|===
+| Java Type | Neo4j Cypher Type 
+
+| `null`
+| `null`
+
+| `Boolean`
+| `Boolean`
+
+| `Long`
+| `Integer`
+
+| `Double`
+| `Float`
+
+| `String`
+| `String`
+
+| `List`
+| `List`
+
+| `Map`
+| `Map`
+|===
+
+
+====
+
+[.slide]
+== Graph types
+
+The following code snippet finds all movies with the specified title and returns `person`, `acted_in` and `movie`.
+
+.Return Nodes and Relationships
+[source,Java]
+----
+final String cypher = """
+    MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+    RETURN path, person, actedIn, movie
+    """;
+final String title = "Toy Story";
+
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("title", title))
+    .execute();
+----
+
+
+[.slide]
+== Nodes
+
+Nodes are returned as a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/types/Node.html[`Node`^] object.
+
+.Working with Node Objects
+[source,Java,role=ncopy]
+----
+import org.neo4j.driver.types.Node;
+
+var records = result.records();
+records.forEach(r -> {
+    Node node = r.get("person").asNode();
+});
+----
+
+[.slide.discrete.col-2]
+== Nodes
+
+[.col]
+====
+[source,Java]
+----
+records.forEach(r -> {
+    Node node = r.get("person").asNode();
+
+    System.out.println(node.elementId()); // <1>
+    System.out.println(node.labels());    // <2>
+    System.out.println(node.values());    // <3>
+
+    System.out.println(node.get("name")); // <4>
+});
+----
+
+====
+
+[.col]
+====
+1. The `elementId()` method provides access to the node's element ID +
+    eg. `4:97b72e9c-ae4d-427c-96ff-8858ecf16f88:0` 
+2. The `labels()` method contains a list of labels attributed to the Node +
+    eg. `['Person', 'Actor']`
+3. The `values()` method provides access to the node's properties as an iterable of link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/Value.html[`Value`^] objects. +
+    eg. `{name: 'Tom Hanks', tmdbId: '31'}`
+4. A single property can be retrieved using the `get()` method.
+
+====
+
+[.slide.col-2]
+== Relationships
+
+[.col]
+====
+
+Relationships are returned as a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/types/Relationship.html[`Relationship`^] object.
+
+[source,Java]
+----
+import org.neo4j.driver.types.Relationship;
+
+records.forEach(r -> {
+    Relationship actedIn = r.get("actedIn").asRelationship();
+    
+    System.out.println(actedIn.elementId()); // <1>
+    System.out.println(actedIn.type()); // <2>
+    System.out.println(actedIn.values()); // <3>
+
+    System.out.println(actedIn.get("role")); // <4>
+
+    System.out.println(actedIn.startNodeElementId()); // <5>
+    System.out.println(actedIn.endNodeElementId()); // <6>
+});
+----
+
+====
+
+[.col]
+====
+1. `elementId()` - The element ID of the relationship + 
+eg. `5:1218f598-63ab-460f-ac59-36d4cadee840:167495`
+2. `type()` - Type of relationship + 
+eg. `ACTED_IN`
+3. `values()` - Returns relationship properties as name-value pairs (eg. `{role: 'Woody'}`)
+4. Access properties using the `get()` method
+5. `startNodeElementId` - The element ID of the `Node` at the start of the relationship
+6. `endNodeElementId` - The element ID of the `Node` at the end of the relationship
+====
+
+[.slide.col-2]
+== Paths
+
+[.col]
+====
+
+A path is a sequence of nodes and relationships and is returned as a `Path` object.
+
+
+[source,Java]
+----
+import org.neo4j.driver.types.Path;
+
+records.forEach(r -> {
+    Path path = r.get("path").asPath();
+    
+    System.out.println(path.nodes()); // <1>
+    System.out.println(path.relationships()); // <2>
+
+    System.out.println(path.start()); // <3>
+    System.out.println(path.end()); // <4>
+    System.out.println(path.length()); // <5>
+});
+----
+
+====
+
+[.col]
+====
+1. `nodes()` - An iterable of `Node` objects in the path
+2. `relationships()` - An iterable of `Relationship` objects in the path
+3. `start()` - The `Node` object at the start of the path
+4. `start()` - The `Node` object at the start of the path
+5. `length()` - The number of relationships within the path
+
+====
+
+link:../2c-accessing-graph-types/[Advance to challenge,role=btn]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about the types of data returned by a Cypher query and how to work with them in your application.
+
+Now it's time to test yourself on what you've learned.
