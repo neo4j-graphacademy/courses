@@ -8,7 +8,7 @@ import { getCoursesByCategory } from '../domain/services/get-courses-by-category
 import NotFoundError from '../errors/not-found.error'
 import { getUser } from '../middleware/auth.middleware'
 
-import { canonical, categoryBannerPath, flattenCategories, groupCoursesByStatus } from '../utils'
+import { canonical, categoryBannerPath, courseJsonLd, flattenCategories, groupCoursesByStatus, url } from '../utils'
 import { forceTrailingSlash } from '../middleware/trailing-slash.middleware'
 
 const router = Router()
@@ -75,6 +75,20 @@ router.get('/', forceTrailingSlash, async (req, res, next) => {
             description: 'Hands-on training. No installation required.',
             ogImage: `${CDN_URL}/img/og/og-categories.png`,
             ogTitle: 'Free Neo4j Courses from GraphAcademy',
+            jsonLd: {
+                '@context': 'https://schema.org',
+                '@type': 'ItemList',
+                name: 'GraphAcademy Courses',
+                description: 'Hands-on training. No installation required.',
+                itemListElement: flattened.map((category, index) => ({
+                    '@type': 'ListItem',
+                    position: index + 1,
+                    name: category.title,
+                    description: category.caption,
+                    url: url(`/categories/${category.slug}/`),
+                    item: category.courses?.map((course, index) => courseJsonLd(course)),
+                })),
+            }
         })
     }
     catch (e) {
@@ -136,7 +150,18 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             hasResults,
             ogTitle: slug === 'certification' ? `Free Neo4j Certifications from GraphAcademy` : `Free ${category.title.startsWith('Neo4j') ? '' : 'Neo4j'} ${category.title} Courses from GraphAcademy`,
             ogDescription: category.caption || 'Hands-on training. No installation required.',
-            ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`
+            ogImage: CDN_URL ? `${CDN_URL}/img/categories/banners/${category.slug}.png` : `/categories/${slug}/banner`,
+            jsonLd: {
+                '@context': 'https://schema.org',
+                '@type': 'ItemList',
+                name: 'GraphAcademy Courses',
+                description: 'Hands-on training. No installation required.',
+                itemListElement: category.courses?.map((course, index) => ({
+                    '@type': 'ListItem',
+                    position: index + 1,
+                    item: courseJsonLd(course),
+                })),
+            }
         })
     }
     catch (e) {

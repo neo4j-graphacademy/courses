@@ -18,7 +18,7 @@ import { courseSummaryExists, courseSummaryPdfPath, getStatusDetails } from '../
 import { getToken, getUser } from '../middleware/auth.middleware'
 import { getSandboxForUseCase } from '../modules/sandbox'
 import { isInt } from 'neo4j-driver'
-import { courseOgBadgeImage } from '../routes/route.utils'
+import { courseOgBadgeImage, courseOgBannerImage } from '../routes/route.utils'
 import { IntermediateEnrolment } from '../domain/services/enrolments/get-enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { generateBearerToken, getProxyURL } from '../modules/openai-proxy/openai-proxy.utils'
@@ -592,6 +592,37 @@ export function canonical(relative: string): string {
     return `${BASE_URL}${relative}`
 }
 
+export const url = (relative: string): string => {
+    return `${BASE_URL}${relative}`
+}
+
+export const courseJsonLd = (course: Course): Record<string, any> => {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'Course',
+        courseCode: course.slug,
+        name: course.title,
+        description: course.caption,
+        provider: {
+            '@type': 'Organization',
+            name: 'Neo4j',
+            url: 'https://neo4j.com',
+        },
+        thumbnailUrl: courseOgBannerImage(course.slug),
+        video: course.video ? {
+            '@type': 'VideoObject',
+            name: course.title,
+            description: course.caption,
+            contentUrl: course.video,
+        } : undefined,
+        prerequisites: course.prerequisites?.map(prerequisite => ({
+            '@type': 'Course',
+            name: prerequisite.title,
+            url: prerequisite.link,
+        })),
+
+    }
+}
 
 
 const DIVISIONS: { amount: number, name: Intl.RelativeTimeFormatUnit }[] = [

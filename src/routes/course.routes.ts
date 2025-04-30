@@ -17,7 +17,7 @@ import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { canonical, courseBannerPath, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
+import { canonical, courseBannerPath, courseJsonLd, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -166,6 +166,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
             course,
             title: `${course.title} | ${course.categories[0]?.title} `,
             canonical: canonical(course.link),
+            jsonLd: courseJsonLd(course),
             // ...course,
 
             translate: translate(course.language),
