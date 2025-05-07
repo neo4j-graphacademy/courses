@@ -115,8 +115,6 @@ router.get('/:slug', forceTrailingSlash, async (req, res, next) => {
             return next(new NotFoundError(`Category with slug ${slug} could not be found`))
         }
 
-        console.log(category.slug, category.redirect)
-
         if (category.redirect) {
             return res.redirect(301, url(category.redirect))
         }

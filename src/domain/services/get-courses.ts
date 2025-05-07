@@ -2,6 +2,7 @@ import { Transaction } from "neo4j-driver";
 import { appendParams, categoryCypher, moduleCypher } from "./cypher";
 import { Course } from "../model/course";
 import { read } from "../../modules/neo4j";
+import { formatCourse } from "../../utils";
 
 interface RecordShape { course: Course }
 
@@ -30,7 +31,7 @@ export default async function getCourses(tx?: Transaction): Promise<Course[]> {
 
     const res = await (tx ? tx.run<RecordShape>(query, params) : read(query, params))
 
-    courses = res.records.map(row => row.get('course') as Course)
+    courses = await Promise.all(res.records.map(row => formatCourse(row.get('course')) as Promise<Course>))
 
     return courses
 }

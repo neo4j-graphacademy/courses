@@ -97,8 +97,8 @@ router.get('/knowledge-graph-rag', async (req, res) => {
     }
 
     res.render('pages/knowledge-graph-rag', {
-        title: 'Knowledge Graph RAG',
-        description: 'Knowledge Graph RAG',
+        title: 'Knowledge Graph and GraphRAG courses on GraphAcademy',
+        description: 'Learn everything you need to know to combine Generative AI and knowledge graphs to produce highly accurate responses, with rich context and deep explainability.',
         classes: 'graphrag transparent-nav preload',
         courses: allCourses,
         link: '/knowledge-graph-rag/',
