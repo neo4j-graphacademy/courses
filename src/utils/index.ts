@@ -596,6 +596,21 @@ export const url = (relative: string): string => {
     return `${BASE_URL}${relative}`
 }
 
+export const categoryJsonLd = (category: Category<Course>): Record<string, any> => {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: category.title,
+        description: category.caption,
+        url: url(`/categories/${category.slug}/`),
+        itemListElement: category.courses?.map((course, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            item: courseJsonLd(course),
+        })),
+    }
+}
+
 export const courseJsonLd = (course: Course): Record<string, any> => {
     return {
         '@context': 'https://schema.org',

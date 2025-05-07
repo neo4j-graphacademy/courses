@@ -1,14 +1,13 @@
 import { Router } from 'express'
 import { BASE_URL } from '../constants'
-import { Course, CourseWithProgress, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
+import { Course, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
 import { getUser } from '../middleware/auth.middleware'
 import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
 import { canonical } from '../utils'
-import { STATUS_BOOKMARKED, STATUS_ENROLLED, STATUS_RECENTLY_COMPLETED } from '../domain/model/enrolment'
-import { Category } from '../domain/model/category'
+
 
 const router = Router()
 
@@ -50,7 +49,7 @@ router.get('/', async (req, res, next) => {
         res.render('home', {
             title: 'Free, Self-Paced, Hands-on Online Training ',
             description: 'Learn how to build, optimize and launch your Neo4j project, all from the Neo4j experts.',
-            classes: 'home transparent-nav preload',
+            classes: 'transparent-nav preload',
             canonical: canonical('/'),
             categories,
             beginners,
@@ -75,6 +74,42 @@ router.get('/', async (req, res, next) => {
     }
 })
 
+
+/**
+ * Landing page for Knowledge Graphs & Graph RAG
+ */
+router.get('/knowledge-graph-rag', async (req, res) => {
+    const user = await getUser(req)
+    const categories = await getCoursesByCategory(user)
+
+    const allCourses: Record<string, Course> = {}
+
+    for (const category of categories) {
+        if (category.children) {
+            for (const child of category.children) {
+                if (child.courses) {
+                    for (const course of child.courses) {
+                        allCourses[course.slug] = course
+                    }
+                }
+            }
+        }
+    }
+
+    res.render('pages/knowledge-graph-rag', {
+        title: 'Knowledge Graph RAG',
+        description: 'Knowledge Graph RAG',
+        classes: 'graphrag transparent-nav preload',
+        courses: allCourses,
+        link: '/knowledge-graph-rag/',
+        links: [{
+            href: "https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap",
+            rel: "stylesheet",
+
+        }]
+    })
+})
+
 /**
  * Generate sitemap
  */
@@ -97,6 +132,7 @@ router.get('/sitemap.txt', async (req, res, next) => {
             .map((row) => `${BASE_URL}${row.get('link')}`)
 
         links.push(`${BASE_URL}/certifications/`)
+        links.push(`${BASE_URL}/knowledge-graph-rag/`)
 
         res.send(links.join('\n'))
     } catch (e) {

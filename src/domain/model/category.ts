@@ -14,6 +14,7 @@ export interface Category<T extends Course> {
     courseCount: number;
     shortName?: string;
     caption?: string;
+    redirect?: string;
     children?: Category<T>[];
     courses?: T[];
 }
