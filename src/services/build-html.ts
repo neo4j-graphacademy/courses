@@ -15,11 +15,13 @@ export default async function buildHtml(): Promise<void> {
   console.log(`   -- ${courses.length} courses`)
 
   for (const module of modules) {
+    console.log(`   -- ${module.slug}`)
     void buildModuleHtml(module)
   }
   console.log(`   -- ${modules.length} modules`)
 
   for (const lesson of lessons) {
+    console.log(`   -- ${lesson.slug}`)
     void buildLessonHtml(lesson)
   }
   console.log(`   -- ${lessons.length} lessons`)
