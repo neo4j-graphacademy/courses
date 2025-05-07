@@ -30,18 +30,18 @@ router.get('/', async (req, res, next) => {
         // Get Courses
         const categories = await getCoursesByCategory(user)
 
+        const beginners = categories
+            .find((category) => category.slug === 'experience')
+            ?.children?.find((child) => child.slug === 'beginners')
 
-        const beginners = categories.find(category => category.slug === 'experience')
-            ?.children?.find(child => child.slug === 'beginners')
-
-        const paths = categories?.find(category => category.slug === 'topic')
+        const paths = categories?.find((category) => category.slug === 'topic')
 
         // TODO: Reinstate these categories
         if (paths?.children) {
-            paths.children = paths?.children.filter(category => !['foundation'].includes(category.slug))
+            paths.children = paths?.children.filter((category) => !['foundation'].includes(category.slug))
         }
 
-        const certification = categories.find(category => category.slug === 'certification')
+        const certification = categories.find((category) => category.slug === 'certification')
 
         const activePath = 'generative-ai'
 
@@ -57,47 +57,49 @@ router.get('/', async (req, res, next) => {
             paths,
             certification,
             activePath,
-            meta: [{
-                name: 'apple-itunes-app', content: 'app-id=1557747094'
-            }],
-            // banner: {
-            //     text: 'Help us improve your experience on GraphAcademy  - ',
-            //     link: 'https://forms.gle/PbXHbFPYvBKvnqE59',
-            //     cta: 'Complete the survey',
-            // },
+            meta: [
+                {
+                    name: 'apple-itunes-app',
+                    content: 'app-id=1557747094',
+                },
+            ],
+            banner: {
+                text: 'Call for Papers now Open for Nodes 2025',
+                link: 'https://sessionize.com/nodes-2025/',
+                cta: 'Submit your talk',
+            },
             translate: translateEn,
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
-
 
 /**
  * Generate sitemap
  */
 router.get('/sitemap.txt', async (req, res, next) => {
     try {
-        const result = await read<{ link: string }>(`
+        const result = await read<{ link: string }>(
+            `
             MATCH (c:Course)-[:HAS_MODULE]->(m)-[:HAS_LESSON]->(l)
             WHERE NOT c.status IN $negative + ['redirect']
             UNWIND [ c.link, m.link, l.link  ] AS link
             RETURN distinct link
             UNION ALL MATCH (c:Category) RETURN '/categories/'+ c.slug AS link
             UNION ALL MATCH (c:Certification) RETURN c.link AS link
-        `, { negative: NEGATIVE_STATUSES })
+        `,
+            { negative: NEGATIVE_STATUSES }
+        )
 
         const links = result.records
-            .filter(row => row.get('link') !== null)
-            .map(row => `${BASE_URL}${row.get('link')}`)
-
+            .filter((row) => row.get('link') !== null)
+            .map((row) => `${BASE_URL}${row.get('link')}`)
 
         links.push(`${BASE_URL}/certifications/`)
 
         res.send(links.join('\n'))
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
