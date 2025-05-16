@@ -1,0 +1,139 @@
+= Mapping Results to Java Objects
+:type: lesson 
+:slides: true
+:minutes: 15
+:order: 5
+
+[.slide.col-2]
+== Introduction
+
+[.col]
+As of the Neo4j Java driver 5.28.5, the driver includes an link:https://github.com/neo4j/neo4j-java-driver/discussions/1640[object mapping feature] that allows you to map query results directly to Java objects. This feature simplifies the process of working with Neo4j data in Java applications by eliminating the need for manual mapping with raw data types.
+
+[.col]
+====
+[NOTE]
+.Object Graph Mapping (OGM)
+=====
+The driver's new object mapping is not a full-fledged OGM solution. For a more comprehensive option, check out the https://neo4j.com/docs/ogm-manual/current/[Neo4j OGM library^].
+=====
+====
+
+[.slide]
+== Domain Model
+
+For a person domain class, create a new file in `src/main/java/com/neo4j/app` and name it `Person.java`. This example will use Java records (rather than class), but classes works similarly.
+
+[source,Java]
+----
+public record Person(String id, 
+                     String name) {
+}
+----
+
+[.slide.col-2]
+== Querying and Mapping Results
+
+[.col]
+====
+Next, open the `src/main/java/com/neo4j/app/App.java` file and add a method to query for a person by name and return an entity mapped to your `Person` record:
+
+[source,Java]
+----
+final String personCypher = """
+    MATCH (person:Person {name: $name})
+    RETURN person
+    """;
+final String name = "Tom Hanks";
+
+var person = driver.executableQuery(personCypher)
+    .withParameters(Map.of("name", name))
+    .execute()
+    .records()
+    .stream()
+    .map(record -> record.get("person").as(Person.class)) // <1>
+    .findFirst()
+    .orElseThrow(() -> new RuntimeException("Person not found")); // <2>
+
+System.out.println(person); // <3>
+----
+====
+
+[.col]
+====
+<1> `.as(Person.class)` returns a single record mapped to the `Person` class
+<2> `.findFirst().orElseThrow()` returns the first record or throws an exception if not found
+<3> Print the person object to the console
+====
+
+[.slide]
+== Adding a Connecting Node
+
+Now add the connecting `Movie` node to the domain. This will connect the `Movie` node to the `Person` node, returning a graph.
+
+[source,Java]
+----
+public record Movie(String id, 
+                    String title,
+                    List<Person> actors) {
+}
+----
+
+[.slide.col-2]
+== Querying and Returning a Graph
+
+[.col]
+Next, the query will find a single movie and must return results that _match the domain model's structure_. This means that the query should return a `Movie` node with a list of `Person` nodes as actors. The query uses the `COLLECT` clause to gather the actors into a list.
+
+[.col]
+====
+[source,Java]
+----
+final String movieCypher = """
+    MATCH (movie:Movie)
+    LIMIT 1
+    RETURN movie {
+        .*,
+        actors: COLLECT {
+            MATCH (actor:Person)-[r:ACTED_IN]->(movie)
+            RETURN actor
+        }
+    }
+    """;
+----
+====
+
+[.slide.col-2]
+== Mapping Results
+
+[.col]
+====
+Results are mapped to the `Movie` class using the `.as(Movie.class)` method. This will automatically map the `actors` list to a list of `Person` objects.
+
+[NOTE]
+.Missing properties
+=====
+Only the `movieId` and `title` are defined in the domain class so only those are mapped from the node in Neo4j. If you want to include more properties, you can add them to the class definition.
+=====
+====
+
+[.col]
+====
+[source,Java]
+----
+var movie = driver.executableQuery(movieCypher)
+            .execute()
+            .records()
+            .stream()
+            .map(record -> record.get("movie").as(Movie.class))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("No movie found"));
+
+System.out.println(movie);
+----
+====
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to use the Neo4j Java driver's object mapping feature to map query results directly to Java objects.
