@@ -1,0 +1,189 @@
+= Handling Graph Results
+:type: lesson
+:order: 4
+
+[.slide]
+== Graph types
+
+The following code snippet finds all movies with the specified title and returns `person`, `acted_in` and `movie`. The next few examples will show how to work with the returned nodes and relationships.
+
+.Return Nodes and Relationships
+[source,java]
+----
+final String cypher = """
+    MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+    RETURN path, person, actedIn, movie
+    """;
+final String title = "Toy Story";
+
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("title", title))
+    .execute();
+----
+
+[.slide.discrete.col-2]
+=== Nodes
+
+Nodes are returned as a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/types/Node.html[`Node`^] object.
+
+[.col]
+====
+.Working with Node Objects
+[source,java,role=ncopy]
+----
+import org.neo4j.driver.types.Node;
+
+var records = result.records();
+records.forEach(r -> {
+    Node node = r.get("person").asNode();
+
+    System.out.println(node.get("name")); // <1>
+});
+----
+====
+
+[.col]
+====
+You can also access other metadata of the node with the `.elementId()`, `.labels()`, and `.values()` methods.
+
+1. A single property can be retrieved using the `get()` method.
+====
+
+[.slide.col-2]
+=== Relationships
+
+[.col]
+====
+Relationships are returned as a link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/types/Relationship.html[`Relationship`^] object.
+
+[source,java]
+----
+import org.neo4j.driver.types.Relationship;
+
+records.forEach(r -> {
+    Relationship actedIn = r.get("actedIn").asRelationship();
+    
+    System.out.println(actedIn.get("role")); // <1>
+});
+----
+
+====
+
+[.col]
+====
+Similar to nodes, you can also access other relationship metadata with the `.elementId()`, `.type()`, `.values()`, `.startNodeElementId()`, and `.endNodeElementId()` methods.
+
+1. Access properties using the `get()` method
+====
+
+[.slide.col-2]
+=== Paths
+
+[.col]
+====
+
+A path is a sequence of nodes and relationships and is returned as a `Path` object.
+
+[source,java]
+----
+import org.neo4j.driver.types.Path;
+
+records.forEach(r -> {
+    Path path = r.get("path").asPath();
+    
+    System.out.println(path.nodes()); // <1>
+    System.out.println(path.relationships()); // <2>
+    System.out.println(path.length()); // <3>
+});
+----
+
+====
+
+[.col]
+====
+You can also access other metadata of the path such as the `.start()` and `.end()` methods.
+
+1. `nodes()` - An iterable of `Node` objects in the path
+2. `relationships()` - An iterable of `Relationship` objects in the path
+3. `length()` - The number of relationships within the path
+
+====
+
+[.slide.col-2]
+=== Object mapping
+
+[.col]
+====
+You can also map the results to a domain class using the `as()` method.
+
+For a `Person` class such as this one:
+
+====
+
+[.col]
+====
+[source,java]
+----
+public class Person {
+    private String imdbId;
+    private String name;
+
+    public Person(String imdbId, String name) {
+        this.imdbId = imdbId;
+        this.name = name;
+    }
+
+    public String getImdbId() {
+        return imdbId;
+    }
+    public void setImdbId(String imdbId) {
+        this.imdbId = imdbId;
+    }
+
+
+    public String getName() {
+        return name;
+    }
+    public void setName(String name) {
+        this.name = name;
+    }
+}
+----
+====
+
+[.slide.col-2]
+=== Object mapping
+
+[.col]
+====
+You can return the `Person` node and map it to the `Person.class` from the query using the `as()` method.
+
+[source,java]
+----
+var people = driver.executableQuery("""
+    MATCH (p:Person) 
+    RETURN p AS person
+    LIMIT 10;
+    """)
+    .execute()
+    .records()
+    .stream()
+    .map(record -> record.get("person").as(Person.class))
+    .toList();
+for (var person : people) {
+    System.out.println(person);
+}
+----
+====
+
+[.next.discrete]
+== Check your understanding
+
+link:../7c-accessing-results/[Take challenge,role=btn]
+
+[.summary]
+== Lesson Summary
+
+You now have all the information required to send Cypher queries to Neo4j and consume the results.
+
+Next, we will look at the Cypher Type System and some of the considerations that you need to make when working with values coming from Neo4j in your Java application.

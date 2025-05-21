@@ -1,0 +1,89 @@
+= Query Neo4j
+:type: lesson
+:order: 1
+
+This lesson will cover how to query Neo4j using the Java driver. For those who completed the https://graphacademy.neo4j.com/courses/drivers-java/[Using Neo4j with Java^] course, this lesson will be a refresher on the concepts.
+
+[.slide]
+== Executing Cypher Statements
+
+There are two main ways to execute Cypher statements using the Java driver.
+
+1. `.executableQuery()` method - the simplest and most common approach optimized for one-off queries because it executes and returns all results. For longer running queries or larger datasets, waiting for all results can consume a lot of memory and time.
+2. Create a session and use `.executeRead()`/`.executeWrite()` methods - this approach provides finer control of database transactions and ability to run multiple queries in a single transaction (helpful in a production environment).
+
+For this course, we will continue to focus on the first approach, using the `executableQuery()` method. However, more information on the second approach can be found in the https://neo4j.com/docs/java-manual/current/transactions/[Neo4j Java Driver documentation^].
+
+Here is an example using `executableQuery()`:
+
+[source,java]
+----
+var result = driver.executableQuery("""
+    MATCH (p:Person)-[r:ACTED_IN]->(:Movie {title: "The Matrix"})
+    RETURN p.name AS name, r.role AS role
+    """)
+    .execute();
+----
+
+[.slide]
+== Query Parameters
+
+When executing a Cypher statement, you can pass parameters to the query using the `withParameters()` method. This is useful for dynamic queries where you want to pass in values at runtime.
+
+For example using the query above, if you want to want to pass the `Movie` `title` of "The Matrix" as a query parameter, you can do it like this:
+
+[source,java]
+----
+var result = driver.executableQuery("""
+    MATCH (p:Person)-[r:ACTED_IN]->(:Movie {title: $title})
+    RETURN p.name AS name, r.role AS role
+    """)
+    .withParameters(Map.of("title", "The Matrix"))
+    .execute();
+----
+
+[.slide]
+== Handling the Result
+
+The `execute()` method returns an link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/EagerResult.html[`EagerResult`^] object that contains:
+
+. A list of link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/Record.html[`Record`^] objects
+. link:https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/summary/ResultSummary.html[`ResultSummary`^] of the query execution
+. A list of keys specified in the `RETURN` clause
+
+[source,java]
+----
+var records = result.records(); // <1>
+var summary = result.summary(); // <2>
+var keys = result.keys();       // <3>
+
+System.out.println(records);
+System.out.println(summary);
+System.out.println(keys);
+----
+
+[.slide]
+== Accessing results
+
+Each row returned by the query is a `Record` object.  The `Record` object provides access to the data returned by the query.
+
+You can access any item in the `RETURN` clause using the `get` method.
+
+[source,java]
+----
+var records = result.records();
+records.forEach(r -> {
+    System.out.println(r.get("name"));
+    System.out.println(r.get("role"));
+});
+----
+
+[.next.discrete]
+== Check your understanding
+
+link:../4c-executing-queries/[Take challenge,role=btn]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to execute a Cypher statement and access the results.
