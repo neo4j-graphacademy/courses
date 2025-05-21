@@ -1,0 +1,262 @@
+= Handling Query Results
+:type: lesson
+:order: 3
+
+[.slide.discrete.col-60-40]
+== Introduction
+
+[.col]
+====
+Let's take a look at the types of data returned by a Cypher query.
+
+The majority of the https://neo4j.com/docs/java-reference/5/extending-neo4j/values-and-types/[data types returned by a Cypher query map directly to Java types^], but there are a few types that need special handling.
+
+* Primitive types (select few) - `Integer`, `Float`, and temporal types
+* Spatial types - Points and distances
+* Graph types - Nodes, Relationships and Paths
+
+[TIP]
+.Types in Neo4j Browser
+=====
+When graph types are returned by a query, they are visualized in a graph layout.
+=====
+====
+
+=== Primitive Data Types
+
+[.col]
+====
+
+[cols="1,1"]
+.Core data type mapping
+|===
+| Java Type | Neo4j Cypher Type 
+
+| `Long`
+| `Integer`
+
+| `Double`
+| `Float`
+
+| `java.time.LocalDate`
+| `Date`
+
+| `java.time.OffsetTime`
+| `Time`
+
+| `java.time.LocalTime`
+| `LocalTime`
+
+| `java.time.ZonedDateTime`
+| `DateTime`
+
+| `java.time.LocalDateTime`
+| `LocalDateTime`
+
+| `java.time.temporal.TemporalAmount`
+| `Duration`
+|===
+
+====
+
+[.slide.discrete]
+=== Temporal types
+
+Temporal types in Neo4j are a combination of date, time, and timezone elements.
+
+.Temporal Types
+[cols="2,3,1,1,1"]
+|===
+|Type |Description |Date? |Time? |Timezone?
+
+|`Date` |A tuple of Year, Month and Day |Y | |
+|`Time` |The time of the day with a UTC offset |Y |Y |
+|`LocalTime` |A time without a timezone | |Y |
+|`DateTime` |A combination of Date and Time |Y |Y |Y
+|`LocalDateTime` |A combination of Date and Time without a timezone |Y |Y |
+|===
+
+[.slide.col-60-40]
+==== Writing temporal types
+
+[.col]
+====
+
+[source,java]
+----
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
+
+String dtstring="2024-05-15T14:30:00+02:00";
+var datetime = ZonedDateTime.of(2024, 05, 15, 14, 30, 00, 0, ZoneId.of("+02:00"));
+
+var result = driver.executableQuery("""
+    CREATE (e:Event {
+        startsAt: $datetime,              // <1>
+        createdAt: datetime($dtstring),   // <2>
+    })
+    RETURN e.startsAt AS startsAt, e.createdAt AS createdAt;
+    """)
+    .withParameters(
+        Map.of("datetime", datetime, "dtstring", dtstring)) // <3> 
+    .execute();
+----
+====
+
+[.col]
+====
+This example demonstrates how to:
+
+<1> Use a `DateTime` object as a parameter to the query (`<4>`)
+<2> Cast an link:https://www.iso.org/iso-8601-date-and-time-format.html[ISO 8601 format string^] within a Cypher statement
+<3> Get the current date and time using the `datetime()` function.
+
+====
+
+[.slide.col-2]
+==== Reading temporal types
+
+[.col]
+====
+When reading temporal types from the database, you will receive an instance of the corresponding Java type.
+====
+
+[.col]
+====
+[source,java]
+----
+var result = driver.executableQuery("""
+    RETURN datetime() as datetime, 
+        toString(datetime()) as asString;
+    """)
+    .execute();
+
+var records = result.records();
+records.forEach(r -> {
+    System.out.println(r.get("datetime"));  // neo4j.time.DateTime
+    System.out.println(r.get("asString"));  // String
+});
+----
+====
+
+[.slide.col-60-40]
+==== Working with Durations
+
+[.col]
+====
+
+[source,java]
+----
+import java.time.LocalDateTime;
+import java.time.Duration;
+
+var startsAt = LocalDateTime.now();
+var eventLength = Duration.ofHours(1).plusMinutes(30);
+var endsAt = startsAt.plus(eventLength);
+
+var result = driver.executableQuery("""
+    CREATE (e:Event { startsAt: $startsAt, endsAt: $endsAt,
+        duration: $eventLength, // <1>
+        interval: duration("PT1H30M") // <2>
+    })
+    RETURN e
+    """)
+    .withParameters(Map.of(
+        "startsAt", startsAt, "endsAt", endsAt, "eventLength", eventLength
+    ))
+    .execute();
+----
+
+====
+
+[.col]
+====
+Durations represent a period of time and can be used for date arithmetic in both Java and Cypher. These types can also be created in Java or cast within a Cypher statement.
+
+<1> Pass an instance of Java `Duration` to the query
+<2> Use the `duration()` Cypher function to create a `Duration` object from an ISO 8601 format string
+
+[.transcript-only]
+=====
+
+You can cast the results of the query by getting the properties from the node:
+
+[source,java]
+----
+// Output results
+var event = result.records().get(0).get("e").asNode();
+System.out.println(event.get("startsAt")); // current datetime
+System.out.println(event.get("endsAt"));   // current datetime + 1h 30m
+System.out.println(event.get("interval")); // P0M0DT5400S (1h 30m in seconds)
+----
+=====
+
+[TIP]
+.Calculating durations
+=====
+You can use the `duration.between` method to calculate the duration between two date or time objects.
+=====
+
+====
+
+[.slide.col-2]
+==== Spatial types
+
+[.col]
+====
+Neo4j has built-in support for two-dimensional and three-dimensional spatial data types (**point**) that may represent geographic coordinates (longitude, latitude) or Cartesian coordinates (x, y). 
+
+In Java, points are represented by the `org.neo4j.driver.types.Point` type, which is wrapped by the `org.neo4j.driver.Values` class to expose as a generic `Value` object.
+
+The `Point` type provides methods to access the coordinates and SRID (unique id of type of coordinate system) of the point, allowing for easy manipulation and retrieval of spatial data.
+====
+
+[.col]
+====
+|===
+| Cypher Type | Java Type | SRID | 3D SRID
+| Point (Cartesian) | `org.neo4j.driver.types.Point` | `7203` | `9157`
+| Point (WGS-84) | `org.neo4j.driver.types.Point` | `4326` | `4979`
+|===
+====
+
+[.slide.col-2]
+===== Spatial Distance
+
+[.col]
+====
+The `point.distance` function can be used to calculate the distance between two points with the same SRID, resulting in a `float` of the straight-line distance.
+
+[WARNING]
+.SRIDs must be compatible
+=====
+If the SRID values are different, the function will return `None`.
+=====
+
+====
+
+[.col]
+====
+[source,java]
+----
+var point1 = Values.point(7203, 1.23, 4.56);
+var point2 = Values.point(7203, 2.34, 5.67);
+
+var result = driver.executableQuery("""
+        RETURN point.distance($p1, $p2) AS distance
+        """)
+        .withParameters(
+            Map.of("p1", point1, "p2", point2))
+        .execute();
+
+var distance = result.records().get(0).get("distance").asDouble();
+System.out.println(distance);
+----
+====
+
+[.summary]
+== Lesson Summary
+
+You now have information required to send Cypher queries to Neo4j and consume the results with primitive, temporal, and spatial types with Java.
+
+Next, we will look at results with graph types and some of the considerations that you need to make when working with these types in your Java application.
