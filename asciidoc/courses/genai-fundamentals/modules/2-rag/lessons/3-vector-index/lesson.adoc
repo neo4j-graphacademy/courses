@@ -7,6 +7,8 @@ In the last lesson, you learned about embeddings, vectors and their role in RAG.
 
 In this lesson, you will learn how to create vector embeddings of text content in an existing Neo4j database.
 
+// TODO - should I simplify this lesson and remove all the loading embeddings and just get them to use it? I can refer them to the unstructured data and vectors course if they want to learn more
+
 == Vectorizing Movie Plots
 
 GraphAcademy created a Movie Recommendation Sandbox when you enrolled in this course. The sandbox database contains over 9000 movies, 15000 actors, and over 100000 user ratings.
@@ -200,8 +202,6 @@ The procedure yields two arguments:
 . A `node` which matches the query
 . A similarity `score` ranging from `0.0` to `1.0`.
 
-// TODO - MH comment - should we also show how to search for a user question embedding? should we prepare a few in a file?
-
 You can use this procedure to find the closest embedding value to a given embedding.
 
 For example, find movies with a similar plot to another.
@@ -235,6 +235,37 @@ Run the query. The procedure returns the requested number of approximate nearest
 |===
 
 The similarity score is between `0.0` and `1.0`, with `1.0` being the most similar. Note how the most similar plot is that of the _Toy Story_ movie itself!
+
+== Generate embedding
+
+You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/cypher-manual/current/genai-integrations/#single-embedding[`genai.vector.encode`^] function:
+
+[source, cypher]
+----
+WITH genai.vector.encode(
+    "Text to create embeddings for", 
+    "OpenAI", 
+    { token: "sk-..." }) AS embedding
+RETURN embedding
+----
+
+[IMPORTANT]
+You will need to replace `token: "sk-..."` with an link:https://platform.openai.com/api-keys[OpenAI API key^].
+
+You can use the embedding to query the vector index to find similar movies.
+
+[source, cypher]
+----
+WITH genai.vector.encode(
+    "A mysterious spaceship lands Earth", 
+    "OpenAI", 
+    { token: "sk-..." }) AS myMoviePlot
+CALL db.index.vector.queryNodes('moviePlots', 6, myMoviePlot)
+YIELD node, score
+RETURN node.title, node.plot, score
+----
+
+Experiment with different movie plots and observe the results.
 
 == Considerations
 

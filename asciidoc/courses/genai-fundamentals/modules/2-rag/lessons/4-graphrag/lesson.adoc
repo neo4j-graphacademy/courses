@@ -2,6 +2,72 @@
 :order: 4
 :type: lesson
 
+GraphRAG (Graph Retrieval Augmented Generation) is an approach that combines the strengths of graph databases with vector-based retrieval methods. 
+
+While vector RAG uses embeddings to find contextually relevant information, GraphRAG enhances this process by leveraging the relationships and structure within a graph.
+
+Benefits of GraphRAG:
+
+* *Richer Context*
++
+Graphs capture relationships between entities, enabling retrieval of more relevant and connected information.
+* *Improved Accuracy*
++
+By combining vector similarity with graph traversal, results are more precise and context-aware.
+* *Explainability*
++
+Graphs provide clear paths and connections, making it easier to understand why certain results were retrieved.
+*Flexible Queries*:
++
+GraphRAG supports complex queries, such as combining full-text, vector, and text-to-cypher searches.
+*Enhanced Reasoning*
++
+Graphs enable reasoning over data, supporting advanced use cases like recommendations and knowledge discovery.
+
+== Graph-Enhanced Vector Search
+
+A common approach to GraphRAG is to use a combination of vector search and graph traversal.
+
+This allows for the retrieval of relevant documents based on semantic similarity, followed by a graph traversal to find related entities or concepts.
+
+The high-level process is as follows:
+
+. A user submits a query.
+. The system uses a vector search to find nodes similar to the users query.
+. The graph is then traversed to find related nodes or entities.
+. The entities and relationships are added to the context for the LLM.
+. The related data could also be scored based on its relevance to the user query.
+
+image::images/llm-rag-vector-process.svg[A diagram showing a user question being passed to a vector search to find semantically similar data. The results are then used to find related nodes or entities in the graph. The most relevant results are used as context for the LLM.]
+
+The movie plot vector search example from the previous lesson can be enhanced with graph traversal.
+
+For example: 
+
+- Adding related actors, directors, or genres.
+- Finding other movies with similar themes or connections.
+- Using user ratings to filter or rank results.
+
+
+[source, cypher]
+----
+WITH genai.vector.encode(
+    "A mysterious spaceship lands Earth", 
+    "OpenAI", 
+    { token: "sk-..." }) AS myMoviePlot
+CALL db.index.vector.queryNodes('moviePlots', 6, myMoviePlot)
+YIELD node, score
+MATCH (node)<-[r:RATED]-()
+RETURN 
+  node.title AS title, node.plot AS plot, score AS similarityScore, 
+  collect { MATCH (node)-[:IN_GENRE]->(g) RETURN g.name } as genres, 
+  collect { MATCH (node)<-[:ACTED_IN]->(a) RETURN a.name } as actors, 
+  avg(r.rating) as userRating
+ORDER BY userRating DESC
+----
+
+
+
 
 
 How graphs can provide additional contextual information
@@ -18,3 +84,10 @@ Activity - search using vector, add additional context from the graph
 Understand that there are different GraphRAG patterns.
 
 Can describe the benefits of GraphRAG over vector RAG
+
+
+
+
+
+
+
