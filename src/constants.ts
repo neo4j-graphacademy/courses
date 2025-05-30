@@ -46,6 +46,9 @@ export const ATTRIBUTE_THUMBNAIL = 'thumbnail'
 export const ATTRIBUTE_CAPTION = 'caption'
 export const ATTRIBUTE_VIDEO = 'video'
 export const ATTRIBUTE_USECASE = 'usecase'
+export const ATTRIBUTE_DATABSE_PROVIDER = 'database-provider'
+export const ATTRIBUTE_GRAPH_ANALYTICS_PLUGIN = 'graph-analytics-plugin'
+export const ATTRIBUTE_VECTOR_OPTIMIZED = 'vector-optimized'
 export const ATTRIBUTE_CATEGORIES = 'categories'
 export const ATTRIBUTE_REDIRECT = 'redirect'
 export const ATTRIBUTE_PREVIOUS = 'previous'
@@ -75,6 +78,7 @@ export const ATTRIBUTE_REWARD_PRODUCT_ID = 'reward-product-id'
 export const ATTRIBUTE_DESCRIPTION = 'description'
 export const ATTRIBUTE_SLIDES = 'slides'
 export const ATTRIBUTE_SEQUENTIAL = 'sequential'
+
 
 export const ATTRIBUTE_KEY_POINTS = 'key-points'
 
