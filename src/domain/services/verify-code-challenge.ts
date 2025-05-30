@@ -1,6 +1,6 @@
 import { notify } from "../../middleware/bugsnag.middleware";
 import { createDriver } from "../../modules/neo4j";
-import { getSandboxForUseCase } from "../../modules/sandbox";
+import databaseProvider, { DatabaseProvider } from "../../modules/instances";
 import { getLessonCypherFile } from "../../utils";
 import { LessonWithProgress } from "../model/lesson";
 import { Answer } from "../model/answer";
@@ -30,7 +30,8 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const questionId = lessonData?.questions[0]?.slug || '_challenge'
 
     // No sandbox? Return false
-    const sandbox = usecase ? await getSandboxForUseCase(token, user, usecase) : undefined
+    const provider = await databaseProvider(progress.databaseProvider)
+    const sandbox = usecase ? await provider.getInstanceForUseCase(token, user, usecase) : undefined
 
     // Answer array
     let answers: Answer[] = createAnswer(questionId, 'Internal Server Error: unknown')

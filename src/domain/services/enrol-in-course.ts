@@ -7,7 +7,7 @@ import { UserEnrolled } from "../events/UserEnrolled";
 import { CourseWithProgress, STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
-import { createAndSaveSandbox } from "./create-and-save-sandbox";
+import { createAndSaveInstance } from "./create-and-save-instance";
 import { appendParams, courseCypher } from "./cypher";
 
 export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined, allowCertification = true, category?: string) {
@@ -82,7 +82,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         let sandbox
         if (course.usecase) {
             try {
-                sandbox = await createAndSaveSandbox(token, enrolment.user, course, tx)
+                sandbox = await createAndSaveInstance(token, enrolment.user, course, tx)
             }
             catch (e: any) {
                 // Continue to course, the course will try to

@@ -1,8 +1,8 @@
 export type Neo4jScheme = 'neo4j' | 'neo4j+s' | 'neo4j+scc' | 'bolt' | 'bolt+s' | 'bolt+scc'
 
-export interface Sandbox {
-    sandboxId: string;
-    sandboxHashKey: string;
+export interface Instance {
+    id: string;
+    hashKey: string;
     usecase: string;
 
     scheme: Neo4jScheme;
@@ -12,6 +12,9 @@ export interface Sandbox {
     username: string;
     password: string;
     expires: number;
+
+    vectorOptimized: boolean;
+    graphAnalyticsPlugin: boolean;
 
     [key: string]: any;
 }

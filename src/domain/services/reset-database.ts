@@ -1,11 +1,11 @@
-import { getSandboxForUseCase } from "../../modules/sandbox";
+import databaseProvider, { DatabaseProvider } from "../../modules/instances";
 import { createDriver } from '../../modules/neo4j';
 import { notify } from '../../middleware/bugsnag.middleware';
 import { getLessonCypherFile } from '../../utils';
 import { User } from "../model/user";
 import saveSandboxError from './save-sandbox-error';
 
-export async function resetDatabase(token: string, user: User, course: string, module: string, lesson: string, usecase: string): Promise<boolean> {
+export async function resetDatabase(token: string, user: User, course: string, module: string, lesson: string, sourceDatabaseProvider: DatabaseProvider, usecase: string): Promise<boolean> {
     // Check that a reset.cypher file exists
     const cypher = await getLessonCypherFile(course, module, lesson, 'reset')
 
@@ -14,7 +14,8 @@ export async function resetDatabase(token: string, user: User, course: string, m
     }
 
     // Check that a sandbox exists
-    const sandbox = await getSandboxForUseCase(token, user, usecase)
+    const provider = await databaseProvider(sourceDatabaseProvider)
+    const sandbox = await provider.getInstanceForUseCase(token, user, usecase)
 
     if (!sandbox) {
         return false

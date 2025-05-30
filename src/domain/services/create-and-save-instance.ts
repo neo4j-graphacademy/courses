@@ -1,11 +1,11 @@
 import { Transaction } from "neo4j-driver";
 import { write } from "../../modules/neo4j";
-import { createSandbox } from "../../modules/sandbox";
 import { CourseWithProgress } from "../model/course";
 import { User } from "../model/user";
-import { Sandbox } from "../model/sandbox";
+import { Instance } from "../model/instance";
+import databaseProvider from "../../modules/instances";
 
-export async function createAndSaveSandbox(token: string, user: User, course: CourseWithProgress, tx?: Transaction): Promise<Sandbox | undefined> {
+export async function createAndSaveInstance(token: string, user: User, course: CourseWithProgress, tx?: Transaction): Promise<Instance | undefined> {
     if (!course.usecase) {
         return
     }
@@ -17,7 +17,10 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
 
     const { enrolmentId, usecase, } = course
 
-    const sandboxOutput: Sandbox = await createSandbox(token, user, usecase)
+    // Create instance provider
+    const provider = await databaseProvider(course.databaseProvider)
+
+    const sandboxOutput: Instance = await provider.createInstance(token, user, usecase, course.vectorOptimized, course.graphAnalyticsPlugin)
 
     if (!sandboxOutput) {
         // Could not create sandbox for some reason
@@ -31,18 +34,18 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
 
     const query = `
         MERGE (e:Enrolment {id: $id})
-        MERGE (s:Sandbox {id: $sandbox.id})
+        MERGE (s:Instance {id: $sandbox.id})
         SET s += $sandbox,
                 s.createdAt = datetime(),
                 s.expiresAt = datetime({epochMillis: toInteger($sandbox.expires)}),
                 e.lastSeenAt = datetime()
-        MERGE (e)-[:HAS_SANDBOX]->(s)
-        RETURN s { .* } AS sandbox
+        MERGE (e)-[:HAS_INSTANCE]->(s)
+        RETURN s { .* } AS instance
     `
 
     const params = {
         id: enrolmentId,
-        sandbox: {
+        instance: {
             id: sandboxOutput.sandboxHashKey,
             sandboxId: sandboxOutput.sandboxId,
             sandboxHashKey: sandboxOutput.sandboxHashKey,
@@ -57,9 +60,13 @@ export async function createAndSaveSandbox(token: string, user: User, course: Co
         }
     }
 
-    const res = tx !== undefined
-        ? await tx.run(query, params)
-        : await write(query, params)
+    type createAndSaveInstanceResult = {
+        instance: Instance
+    }
 
-    return res.records[0].get('sandbox') as Sandbox
+    const res = tx !== undefined
+        ? await tx.run<createAndSaveInstanceResult>(query, params)
+        : await write<createAndSaveInstanceResult>(query, params)
+
+    return res.records[0].get('instance')
 }

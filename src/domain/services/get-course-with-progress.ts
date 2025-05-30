@@ -1,6 +1,6 @@
 import NotFoundError from "../../errors/not-found.error"
 import { readTransaction } from "../../modules/neo4j"
-import { getSandboxForUseCase } from "../../modules/sandbox"
+import databaseProvider from "../../modules/instances"
 import { mergeCourseAndEnrolment } from "../../utils"
 import { CourseWithProgress } from "../model/course"
 import { User } from "../model/user"
@@ -28,7 +28,8 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
     // Attempt to find a Sandbox instance
     try {
         if (user && token && course.usecase) {
-            course.sandbox = await getSandboxForUseCase(token, user, course.usecase)
+            const provider = await databaseProvider(course.databaseProvider)
+            course.sandbox = await provider.getInstanceForUseCase(token, user, course.usecase)
         }
     }
     catch (e) {

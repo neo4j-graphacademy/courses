@@ -71,6 +71,10 @@ export async function write<T extends Record<string, any> = Record<string, any>>
 }
 
 export async function readTransaction<T = any>(work, database: string | undefined = NEO4J_DATABASE): Promise<T> {
+    if (_driver === undefined) {
+        throw new Error('Driver not initialized.  You must call `initNeo4j` first.')
+    }
+
     const session = _driver.session({ database, defaultAccessMode: 'WRITE' })
 
     const res = await session.executeRead(work)
@@ -81,6 +85,10 @@ export async function readTransaction<T = any>(work, database: string | undefine
 }
 
 export async function writeTransaction<T = any>(work, database: string | undefined = NEO4J_DATABASE): Promise<T> {
+    if (_driver === undefined) {
+        throw new Error('Driver not initialized.  You must call `initNeo4j` first.')
+    }
+
     const session = _driver.session({ database, defaultAccessMode: 'WRITE' })
 
     const res = await session.executeWrite(work)

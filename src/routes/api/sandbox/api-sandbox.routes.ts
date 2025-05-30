@@ -4,16 +4,15 @@ import { User } from '../../../domain/model/user'
 import { getCourseWithProgress } from '../../../domain/services/get-course-with-progress'
 import NotFoundError from '../../../errors/not-found.error'
 import { getToken, getUser } from '../../../middleware/auth.middleware'
-import { getSandboxByHashKey, getSandboxes, getSandboxForUseCase } from '../../../modules/sandbox'
-
+import databaseProvider, { DatabaseProvider } from '../../../modules/instances'
 const router = Router()
 
-router.get('/', requiresAuth(), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:provider', requiresAuth(), async (req: Request, res: Response, next: NextFunction) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
 
-        const sandboxes = await getSandboxes(token, user)
+        const sandboxes = await databaseProvider(req.params.provider as DatabaseProvider).getInstancees(token, user)
 
         res.json(sandboxes)
     }
@@ -22,13 +21,14 @@ router.get('/', requiresAuth(), async (req: Request, res: Response, next: NextFu
     }
 })
 
-router.get('/usecase/:usecase', requiresAuth(), async (req: Request, res: Response, next: NextFunction) => {
+router.get('/:provider/usecase/:usecase', requiresAuth(), async (req: Request, res: Response, next: NextFunction) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
         const { usecase } = req.params
 
-        const sandbox = await getSandboxForUseCase(token, user, usecase)
+        const provider = await databaseProvider(req.params.provider as DatabaseProvider)
+        const sandbox = await provider.getInstanceForUseCase(token, user, usecase)
 
         res.json(sandbox)
     }
@@ -52,7 +52,8 @@ router.get('/courses/:slug', requiresAuth(), async (req: Request, res: Response,
             return res.status(404)
         }
 
-        const sandbox = await getSandboxForUseCase(token, user, course.usecase)
+        const provider = await databaseProvider(course.databaseProvider)
+        const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase)
 
         if (!sandbox) {
             throw new NotFoundError(`No sandbox for course ${course}, usecase: ${course.usecase}`)
@@ -65,13 +66,13 @@ router.get('/courses/:slug', requiresAuth(), async (req: Request, res: Response,
     }
 })
 
-router.get('/hash/:hash', requiresAuth(), async (req: Request, res: Response) => {
+router.get('/:provider/hash/:hash', requiresAuth(), async (req: Request, res: Response) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
         const { hash } = req.params
 
-        const { sandbox, status } = await getSandboxByHashKey(token, user, hash)
+        const { sandbox, status } = await databaseProvider(req.params.provider as DatabaseProvider).getInstanceById(token, user, hash)
 
         res.json({
             ...sandbox,
