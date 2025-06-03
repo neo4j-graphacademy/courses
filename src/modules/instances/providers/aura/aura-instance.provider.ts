@@ -3,6 +3,8 @@ import { Instance } from "../../../../domain/model/instance";
 import { User } from "../../../../domain/model/user";
 import axios, { AxiosInstance } from 'axios';
 import { AURA_API_URL, AURA_CLIENT_ID, AURA_CLIENT_SECRET, AURA_TENANT_ID } from "../../../../constants";
+import { read, write } from "../../../../modules/neo4j";
+import { notify, notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
 
 export class AuraInstanceProvider implements InstanceProvider {
     private api: AxiosInstance;
@@ -24,35 +26,29 @@ export class AuraInstanceProvider implements InstanceProvider {
     }
 
     static async generateToken(): Promise<string> {
-        try {
-            const response = await axios.post('https://api.neo4j.io/oauth/token',
-                'grant_type=client_credentials',
-                {
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Authorization': `Basic ${Buffer.from(`${AURA_CLIENT_ID}:${AURA_CLIENT_SECRET}`).toString('base64')}`
-                    }
+        const response = await axios.post('https://api.neo4j.io/oauth/token',
+            'grant_type=client_credentials',
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': `Basic ${Buffer.from(`${AURA_CLIENT_ID}:${AURA_CLIENT_SECRET}`).toString('base64')}`
                 }
-            );
+            }
+        );
 
-            return response.data.access_token;
-        } catch (e) {
-            console.error('Error generating Aura token:', e);
-            throw new Error('Failed to generate Aura token');
-        }
+        return response.data.access_token;
+
     }
 
     private mapAuraInstanceToInstance(auraInstance: any): Instance {
         const [userId, usecase] = auraInstance.name.split('||')
-
-        console.log(userId, usecase, auraInstance.name)
 
         return {
             id: auraInstance.id,
             hashKey: auraInstance.name,
             usecase,
             scheme: 'neo4j+s',
-            ip: undefined,
+            ip: `${auraInstance.id}.databases.neo4j.io`,
             host: `${auraInstance.id}.databases.neo4j.io`,
             boltPort: '7687',
             username: 'neo4j',
@@ -64,27 +60,102 @@ export class AuraInstanceProvider implements InstanceProvider {
         };
     }
 
-    async getInstanceForUseCase(token: string, user: User, usecase: string): Promise<Instance | undefined> {
-        const instances = await this.getInstances(token, user);
+    private async checkDatabaseForInstance(user: User, usecase: string): Promise<Instance | undefined> {
+        const params = {
+            sub: user.sub,
+            usecase
+        };
 
-        const name = this.getInstanceName(user, usecase)
+        try {
+            const result = await read<{ instance: Instance }>(`
+                MATCH (u:User {sub: $sub})-[:HAS_INSTANCE]->(i:Instance {usecase: $usecase})
+                RETURN i { .* } AS instance
+            `, params);
+            if (result.records.length > 0) {
+                const instance = result.records[0].get('instance');
 
-        console.log('looking for', name)
+                try {
+                    // Get updated instance status
+                    const { instance: updatedInstance, status } = await this.getInstanceById(this.token, user, instance.id);
 
-        const found = instances.find((instance: Instance) => instance.hashKey === name)
+                    // If instance exists, try to resume it
+                    if (status === 'PAUSED') {
+                        await this.resumeInstance(instance.id);
+                    }
 
-        console.log(' --found? ', !!found)
+                    return instance;
+                } catch (e: any) {
+                    // if 409, the instance is already running
+                    if (e.response?.status === 409 || e.response?.status === 403) {
+                        return instance;
+                    }
 
-        console.log('getInstanceForUseCase', { name, found, instances: instances.map(instance => instance.hashKey) })
+                    // If we get a 404, the instance no longer exists in Aura
+                    if (e.response?.status === 404) {
+                        await this.cleanupInstanceFromDatabase(instance.id);
+                        return undefined;
+                    }
 
-        // if (!found) {
-        //     throw new Error('Not implemented: ')
-        // }
+                    notifyPossibleRequestError(e, user)
 
-        return found
+                    throw e;
+                }
+            }
+        } catch (e) {
+            notifyPossibleRequestError(e, user)
+        }
+
+        return undefined;
     }
 
-    async getInstanceById(token: string, user: User, hash: string): Promise<{ instance: Instance; status: string }> {
+    private async cleanupInstanceFromDatabase(instanceId: string): Promise<void> {
+        const query = `
+            MATCH (s:Instance {id: $instanceId})
+            DETACH DELETE s
+        `;
+
+        try {
+            await write(query, { instanceId });
+        } catch (e) {
+            notifyPossibleRequestError(e, undefined)
+        }
+    }
+
+    private async resumeInstance(instanceId: string): Promise<void> {
+        await this.api.post(`/${instanceId}/resume`, {});
+    }
+
+    async getInstanceForUseCase(token: string, user: User, usecase: string): Promise<Instance | undefined> {
+        // First check the database
+        const dbInstance = await this.checkDatabaseForInstance(user, usecase);
+        if (dbInstance) {
+            // Check aura API to see if instance is running 
+            const { instance, status } = await this.getInstanceById(token, user, dbInstance.id);
+
+            // if running, return the instance 
+            if (status === 'RUNNING' || status === 'CREATING') {
+                return {
+                    ...dbInstance,
+                    status,
+                    usecase,
+                };
+            }
+
+            // if aura instance is not running, delete from database
+            if (status === 'NOT_FOUND') {
+                await this.cleanupInstanceFromDatabase(dbInstance.id);
+            }
+
+            // create a new instance and save it to the database 
+            const newInstance = await this.createInstance(token, user, usecase, false, false);
+
+            return newInstance;
+        }
+
+        return undefined;
+    }
+
+    async getInstanceById(token: string, user: User, hash: string): Promise<{ instance: Instance | undefined; status: string }> {
         try {
             const response = await this.api.get(`/${hash}`);
             const auraInstance = response.data.data;
@@ -95,11 +166,10 @@ export class AuraInstanceProvider implements InstanceProvider {
             };
         }
         catch (e: any) {
-            if (e.response?.status === 404) {
-                throw new Error(`Instance with ID ${hash} not found`);
+            return {
+                instance: undefined,
+                status: 'NOT_FOUND'
             }
-
-            throw e;
         }
     }
 
@@ -113,7 +183,7 @@ export class AuraInstanceProvider implements InstanceProvider {
                 .map((instance: any) => this.mapAuraInstanceToInstance(instance));
         }
         catch (e: any) {
-            console.error('Error fetching Aura instances:', e);
+            notifyPossibleRequestError(e, user)
             return [];
         }
     }
@@ -123,8 +193,8 @@ export class AuraInstanceProvider implements InstanceProvider {
             await this.api.delete(`/${id}`);
         }
         catch (e: any) {
-            if (e.response?.status === 404) {
-                throw new Error(`Instance with ID ${id} not found`);
+            if (e.response?.status === 404 || e.response?.status === 403) {
+                return;
             }
 
             throw e;
@@ -140,47 +210,55 @@ export class AuraInstanceProvider implements InstanceProvider {
      * @returns {string}
      */
     private getInstanceName(user: User, usecase: string): string {
-        // TODO: This is a temporary solution to ensure the name is <= 30 characters
-        // return `${user.sub}||*||${usecase}`
+        const [providerName = 'unknownprovider', id = 'unknownid'] = user.sub.split('|');
 
-        const [provider, id] = user.sub.split('|')
-        const shortenedProvider = provider.split('-').map(word => word[0]).join('')
-        const shortenedId = id.slice(-20)
+        const provider = providerName.split('-').map(word => word.slice(0, 1)).join('-') // 2 chars 
+        const sanitizedUsecase = usecase.split('-').map(word => word.slice(0, 1)).join('-') // 5 chars
 
-        const shortenedUsecase = usecase.split('-').map(word => word[0]).join('')
-
-        const fullName = `${shortenedProvider}-${shortenedId}||${shortenedUsecase}`
-        return fullName.slice(-30)
+        return `${provider}-${id}|${sanitizedUsecase}`;
     }
 
     async createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
         const name = this.getInstanceName(user, usecase)
-        console.log('createInstance', { name })
 
         const payload = {
-            // name: usecase,
+            name,
             type: 'free-db',
             cloud_provider: 'gcp',
             region: 'europe-west1',
             version: '5',
             memory: '1GB',
             tenant_id: AURA_TENANT_ID,
-            name,
             // TODO: enable this when supported
             // vector_optimized: vectorOptimized,
             // graph_analytics_plugin: graphAnalyticsPlugin,
         };
 
-        try {
-            const response = await this.api.post('', payload);
-            const auraInstance = response.data.data;
-            return this.mapAuraInstanceToInstance(auraInstance);
+        const response = await this.api.post('', payload);
+        const auraInstance = response.data.data;
+
+        const instance = this.mapAuraInstanceToInstance(auraInstance);
+
+        const res = await write<{ id: string }>(`
+                MATCH (u:User {sub: $sub})
+                CREATE (i:Instance {id: $instanceId})
+                SET i += $instance, 
+                    i.createdAt = datetime(),
+                    i.usecase = $usecase
+                CREATE (u)-[:HAS_INSTANCE]->(i)
+                RETURN elementId(i) as id
+            `, {
+            sub: user.sub,
+            usecase,
+            instanceId: instance.id,
+            instance
+        })
+
+        return {
+            ...instance,
+            usecase,
         }
-        catch (e: any) {
-            console.log(e.response.data)
-            console.error('Error creating Aura instance:', e);
-            throw e;
-        }
+
     }
 
     async getOrCreateInstanceForUseCase(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {

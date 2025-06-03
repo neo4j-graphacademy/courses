@@ -6,6 +6,7 @@ import { CourseWithProgress } from "../model/course"
 import { User } from "../model/user"
 import getCourses from "./get-courses"
 import getEnrolment from "./enrolments/get-enrolment"
+import { notifyPossibleRequestError } from "../../middleware/bugsnag.middleware"
 
 export async function getCourseWithProgress(slug: string, user?: User, token?: string): Promise<CourseWithProgress> {
     const course = await readTransaction<CourseWithProgress>(async tx => {
@@ -29,11 +30,12 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
     try {
         if (user && token && course.usecase) {
             const provider = await databaseProvider(course.databaseProvider)
-            course.sandbox = await provider.getInstanceForUseCase(token, user, course.usecase)
+            course.sandbox = await provider.getOrCreateInstanceForUseCase(token, user, course.usecase, course.vectorOptimized, course.graphAnalyticsPlugin)
         }
     }
     catch (e) {
         // Should be fine
+        notifyPossibleRequestError(e, user)
     }
 
     return course

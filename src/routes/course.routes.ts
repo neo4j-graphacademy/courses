@@ -24,7 +24,6 @@ import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feed
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals.middleware'
-import { createAndSaveInstance } from '../domain/services/create-and-save-instance'
 import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'
@@ -521,7 +520,6 @@ const checkInstanceExists = async (user: User, token: string, enrolment: CourseW
     }
 
     const provider = await databaseProvider(enrolment.databaseProvider)
-
     return provider.getOrCreateInstanceForUseCase(token, user, enrolment.usecase, enrolment.vectorOptimized, enrolment.graphAnalyticsPlugin)
 }
 
@@ -541,14 +539,11 @@ router.get('/:course/sandbox.json', requiresAuth(), /*requiresVerification,*/ as
             return res.status(404)
         }
 
-        // Check Sandbox Exists
-        const sandbox = await checkInstanceExists(user, token, enrolment)
-
-        if (!sandbox) {
+        if (!enrolment.sandbox) {
             throw new NotFoundError(`No sandbox for course ${course}, usecase: ${enrolment.usecase}`)
         }
 
-        res.json(sandbox)
+        res.json(enrolment.sandbox)
     }
     catch (e: any) {
         res.json({
@@ -949,7 +944,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Find or create the sandbox
         if (course.usecase && user && course.completed === false) {
             try {
-                await createAndSaveInstance(token, user, course)
+                await checkInstanceExists(user, token, course)
 
             }
             catch (e: any) {
