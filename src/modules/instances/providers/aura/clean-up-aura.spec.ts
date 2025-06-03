@@ -15,8 +15,9 @@ describe('Clean up Instances', () => {
         const instances = await provider.getInstances('', {} as User)
 
         for (const instance of instances) {
-            console.log(`Stopping instance ${instance.id}`)
-            await provider.stopInstance('', {} as User, instance.id)
+            if (instance.name.startsWith('test-')) {
+                await provider.stopInstance('', {} as User, instance.id)
+            }
         }
     })
 })
