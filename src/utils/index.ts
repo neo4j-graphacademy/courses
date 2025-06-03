@@ -617,7 +617,7 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
         '@type': 'Course',
         courseCode: course.slug,
         name: course.title,
-        description: course.caption,
+        description: course.caption || `Learn ${course.title} with Neo4j Graph Academy`,
         provider: {
             '@type': 'Organization',
             name: 'Neo4j',
@@ -635,7 +635,20 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
             name: prerequisite.title,
             url: prerequisite.link,
         })),
-
+        hasCourseInstance: [
+            {
+                '@type': 'CourseInstance',
+                courseMode: 'online',
+            }
+        ],
+        offers: [
+            {
+                '@type': 'Offer',
+                category: 'Free',
+                price: '0',
+                priceCurrency: 'USD'
+            }
+        ],
     }
 }
 
