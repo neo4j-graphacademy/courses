@@ -25,7 +25,7 @@ export type CourseToImport = {
   interested?: string[];
   isInterested?: boolean;
   usecase: string | undefined;
-  vectorOptimised?: boolean;
+  vectorOptimized?: boolean;
   graphAnalyticsPlugin?: boolean;
   badge?: string;
   prerequisiteSlugs: string[];
