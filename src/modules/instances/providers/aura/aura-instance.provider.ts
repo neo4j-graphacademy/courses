@@ -5,26 +5,23 @@ import axios, { AxiosInstance } from 'axios';
 import { AURA_API_URL, AURA_CLIENT_ID, AURA_CLIENT_SECRET, AURA_TENANT_ID } from "../../../../constants";
 import { read, write } from "../../../../modules/neo4j";
 import { notify, notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
+import { auth } from "express-openid-connect";
 
 export class AuraInstanceProvider implements InstanceProvider {
     private api: AxiosInstance;
+    private token: string | undefined;
 
-    constructor(private readonly token: string) {
+    constructor() {
         this.api = axios.create({
             baseURL: AURA_API_URL,
-            headers: {
-                'Authorization': `Bearer ${this.token}`
-            }
         });
     }
 
-    static async create(): Promise<AuraInstanceProvider> {
-        const token = await AuraInstanceProvider.generateToken();
-        const provider = new AuraInstanceProvider(token);
-
-        return provider;
-    }
-
+    /**
+     * Generates a new token for the Aura API
+     * 
+     * @returns {string}
+     */
     static async generateToken(): Promise<string> {
         const response = await axios.post('https://api.neo4j.io/oauth/token',
             'grant_type=client_credentials',
@@ -40,6 +37,12 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     }
 
+    /**
+     * Maps the data returned by the Aura API to an Instance object
+     * 
+     * @param auraInstance - The Aura instance to map
+     * @returns {Instance}
+     */
     private mapAuraInstanceToInstance(auraInstance: any): Instance {
         const [userId, usecase] = auraInstance.name.split('||')
 
@@ -60,6 +63,13 @@ export class AuraInstanceProvider implements InstanceProvider {
         };
     }
 
+    /**
+     * Checks the database for an instance of the given user and usecase
+     * 
+     * @param user - The user to check for
+     * @param usecase - The usecase to check for
+     * @returns {Instance | undefined}
+     */
     private async checkDatabaseForInstance(user: User, usecase: string): Promise<Instance | undefined> {
         const params = {
             sub: user.sub,
@@ -76,7 +86,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
                 try {
                     // Get updated instance status
-                    const { instance: updatedInstance, status } = await this.getInstanceById(this.token, user, instance.id);
+                    const { instance: updatedInstance, status } = await this.getInstanceById('', user, instance.id);
 
                     // If instance exists, try to resume it
                     if (status === 'PAUSED') {
@@ -108,6 +118,11 @@ export class AuraInstanceProvider implements InstanceProvider {
         return undefined;
     }
 
+    /**
+     * Removes a stale instance from the database
+     * 
+     * @param instanceId - The ID of the instance to cleanup
+     */
     private async cleanupInstanceFromDatabase(instanceId: string): Promise<void> {
         const query = `
             MATCH (s:Instance {id: $instanceId})
@@ -121,10 +136,32 @@ export class AuraInstanceProvider implements InstanceProvider {
         }
     }
 
-    private async resumeInstance(instanceId: string): Promise<void> {
-        await this.api.post(`/${instanceId}/resume`, {});
+    /**
+     * Debug method to check the current token state
+     */
+    public getTokenDebugInfo(): { hasToken: boolean; tokenLength: number } {
+        return {
+            hasToken: !!this.token,
+            tokenLength: this.token ? this.token.length : 0
+        };
     }
 
+    /**
+     * Refreshes the token and updates the API instance authorization header
+     */
+    private async refreshToken(): Promise<void> {
+        this.token = await AuraInstanceProvider.generateToken();
+    }
+
+
+    /**
+     * Gets an instance for a given usecase
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to get the instance for
+     * @param usecase - The usecase to get the instance for
+     * @returns {Instance | undefined}
+     */
     async getInstanceForUseCase(token: string, user: User, usecase: string): Promise<Instance | undefined> {
         // First check the database
         const dbInstance = await this.checkDatabaseForInstance(user, usecase);
@@ -155,9 +192,17 @@ export class AuraInstanceProvider implements InstanceProvider {
         return undefined;
     }
 
+    /**
+     * Gets an instance by ID
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to get the instance for
+     * @param hash - The hash of the instance to get
+     * @returns {Instance | undefined}
+     */
     async getInstanceById(token: string, user: User, hash: string): Promise<{ instance: Instance | undefined; status: string }> {
         try {
-            const response = await this.api.get(`/${hash}`);
+            const response = await this.get(`/instances/${hash}`);
             const auraInstance = response.data.data;
 
             return {
@@ -173,9 +218,16 @@ export class AuraInstanceProvider implements InstanceProvider {
         }
     }
 
+    /**
+     * Gets all instances
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to get the instances for
+     * @returns {Instance[]}
+     */
     async getInstances(token: string, user: User): Promise<Instance[]> {
         try {
-            const response = await this.api.get('');
+            const response = await this.get('/instances');
             const instances = response.data.data || [];
 
             return instances
@@ -188,9 +240,16 @@ export class AuraInstanceProvider implements InstanceProvider {
         }
     }
 
+    /**
+     * Stops an instance
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to stop the instance for
+     * @param id - The ID of the instance to stop
+     */
     async stopInstance(token: string, user: User, id: string): Promise<void> {
         try {
-            await this.api.delete(`/${id}`);
+            await this.delete(`/instances/${id}`);
         }
         catch (e: any) {
             if (e.response?.status === 404 || e.response?.status === 403) {
@@ -218,6 +277,89 @@ export class AuraInstanceProvider implements InstanceProvider {
         return `${provider}-${id}|${sanitizedUsecase}`;
     }
 
+    /**
+     * Makes a POST request to the Aura API
+     * 
+     * @param endpoint - The endpoint to make the request to
+     * @param payload - The payload to send with the request
+     * @returns {Promise<AxiosResponse>}
+     */
+    private async post(endpoint: string, payload: Record<string, any>) {
+        if (!this.token) {
+            await this.refreshToken();
+        }
+
+        try {
+            const res = await this.api.post(endpoint, payload, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            })
+
+            return res
+        } catch (e: any) {
+            if (e.response?.status === 401 || e.response?.status === 403) {
+                await this.refreshToken();
+                return this.post(endpoint, payload);
+            }
+
+            throw e;
+        }
+    }
+
+    private async get(endpoint: string) {
+        if (!this.token) {
+            await this.refreshToken();
+        }
+
+        try {
+            const res = await this.api.get(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            })
+
+            return res
+        } catch (e: any) {
+            if (e.response?.status === 401 || e.response?.status === 403) {
+                await this.refreshToken();
+                return this.get(endpoint);
+            }
+
+            throw e;
+        }
+    }
+
+    private async delete(endpoint: string) {
+        if (!this.token) {
+            await this.refreshToken();
+        }
+        try {
+            const res = await this.api.delete(endpoint, {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`
+                }
+            })
+
+            return res
+        } catch (e: any) {
+            if (e.response?.status === 401 || e.response?.status === 403) {
+                await this.refreshToken();
+                return this.delete(endpoint);
+            }
+
+            throw e;
+        }
+    }
+
+    /**
+     * Creates a new instance and saves a reference to it in the database
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to create the instance for
+     * @param usecase - The usecase to create the instance for
+     * @returns {Instance}
+     */
     async createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
         const name = this.getInstanceName(user, usecase)
 
@@ -234,7 +376,8 @@ export class AuraInstanceProvider implements InstanceProvider {
             // graph_analytics_plugin: graphAnalyticsPlugin,
         };
 
-        const response = await this.api.post('', payload);
+        const response = await this.post('/instances', payload)
+
         const auraInstance = response.data.data;
 
         const instance = this.mapAuraInstanceToInstance(auraInstance);
@@ -261,6 +404,14 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     }
 
+    /**
+     * Gets an instance for a given usecase or creates a new one if it doesn't exist
+     * 
+     * @param token - The token to use for the API call
+     * @param user - The user to get or create the instance for
+     * @param usecase - The usecase to get or create the instance for
+     * @returns {Instance}
+     */
     async getOrCreateInstanceForUseCase(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
         let instance = await this.getInstanceForUseCase(token, user, usecase);
 
@@ -269,5 +420,14 @@ export class AuraInstanceProvider implements InstanceProvider {
         }
 
         return instance;
+    }
+
+    /**
+     * Resumes an instance
+     * 
+     * @param instanceId - The ID of the instance to resume
+     */
+    private async resumeInstance(instanceId: string): Promise<void> {
+        await this.post(`/instances/${instanceId}/resume`, {});
     }
 } 

@@ -20,7 +20,7 @@ export default async function databaseProvider(provider: DatabaseProvider): Prom
     }
 
     if (provider === DATABASE_PROVIDER_AURA) {
-        return AuraInstanceProvider.create()
+        return new AuraInstanceProvider()
     }
 
     return Promise.resolve(new SandboxInstanceProvider())

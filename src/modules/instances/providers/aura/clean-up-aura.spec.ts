@@ -8,7 +8,7 @@ describe('Clean up Instances', () => {
     let provider: AuraInstanceProvider
 
     beforeAll(async () => {
-        provider = await AuraInstanceProvider.create()
+        provider = new AuraInstanceProvider()
     })
 
     it('should delete an instance', async () => {

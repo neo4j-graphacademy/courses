@@ -22,6 +22,9 @@ describe('AuraInstanceProvider', () => {
             throw new Error('AURA_CLIENT_ID, AURA_CLIENT_SECRET, and AURA_TENANT_ID environment variables must be set for integration tests.')
         }
 
+        provider = new AuraInstanceProvider()
+        testSuiteToken = ''
+
         // connect to neo4j
         await initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
 
@@ -80,6 +83,33 @@ describe('AuraInstanceProvider', () => {
         it('should generate a token', async () => {
             const token = await AuraInstanceProvider.generateToken();
             expect(token).toBeDefined()
+        })
+    })
+
+    describe('Token management', () => {
+        it('should generate a token', async () => {
+            const token = await AuraInstanceProvider.generateToken();
+            expect(token).toBeDefined()
+        })
+
+        it('should refresh the token when it expires', async () => {
+            const fakeToken = 'fake-token'
+            const useCase = `test-instance-${Date.now()}`
+
+            provider['token'] = fakeToken
+
+            const res = await provider.createInstance(testSuiteToken, user, useCase, false, false)
+
+            expect(provider['token']).not.toBe(fakeToken)
+
+            expect(res).toBeDefined()
+            expect(res.id).toBeDefined()
+            expect(res.usecase).toBe(useCase)
+            expect(res.username).toBeDefined()
+            expect(res.password).toBeDefined()
+
+            instances.push(res.id)
+
         })
     })
 
