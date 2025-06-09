@@ -4,8 +4,7 @@ import { User } from "../../../../domain/model/user";
 import axios, { AxiosInstance } from 'axios';
 import { AURA_API_URL, AURA_CLIENT_ID, AURA_CLIENT_SECRET, AURA_TENANT_ID } from "../../../../constants";
 import { read, write } from "../../../../modules/neo4j";
-import { notify, notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
-import { auth } from "express-openid-connect";
+import { notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
 
 export class AuraInstanceProvider implements InstanceProvider {
     private api: AxiosInstance;
@@ -19,7 +18,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Generates a new token for the Aura API
-     * 
+     *
      * @returns {string}
      */
     static async generateToken(): Promise<string> {
@@ -33,13 +32,13 @@ export class AuraInstanceProvider implements InstanceProvider {
             }
         );
 
-        return response.data.access_token;
+        return response.data.access_token as string;
 
     }
 
     /**
      * Maps the data returned by the Aura API to an Instance object
-     * 
+     *
      * @param auraInstance - The Aura instance to map
      * @returns {Instance}
      */
@@ -54,7 +53,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             ip: `${auraInstance.id}.databases.neo4j.io`,
             host: `${auraInstance.id}.databases.neo4j.io`,
             boltPort: '7687',
-            username: 'neo4j',
+            username: auraInstance.username || auraInstance.id,
             password: auraInstance.password,
             expires: 0,
             status: auraInstance.status,
@@ -65,7 +64,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Checks the database for an instance of the given user and usecase
-     * 
+     *
      * @param user - The user to check for
      * @param usecase - The usecase to check for
      * @returns {Instance | undefined}
@@ -120,7 +119,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Removes a stale instance from the database
-     * 
+     *
      * @param instanceId - The ID of the instance to cleanup
      */
     private async cleanupInstanceFromDatabase(instanceId: string): Promise<void> {
@@ -156,7 +155,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Gets an instance for a given usecase
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to get the instance for
      * @param usecase - The usecase to get the instance for
@@ -166,10 +165,10 @@ export class AuraInstanceProvider implements InstanceProvider {
         // First check the database
         const dbInstance = await this.checkDatabaseForInstance(user, usecase);
         if (dbInstance) {
-            // Check aura API to see if instance is running 
+            // Check aura API to see if instance is running
             const { instance, status } = await this.getInstanceById(token, user, dbInstance.id);
 
-            // if running, return the instance 
+            // if running, return the instance
             if (status === 'RUNNING' || status === 'CREATING') {
                 return {
                     ...dbInstance,
@@ -183,7 +182,7 @@ export class AuraInstanceProvider implements InstanceProvider {
                 await this.cleanupInstanceFromDatabase(dbInstance.id);
             }
 
-            // create a new instance and save it to the database 
+            // create a new instance and save it to the database
             const newInstance = await this.createInstance(token, user, usecase, false, false);
 
             return newInstance;
@@ -194,7 +193,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Gets an instance by ID
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to get the instance for
      * @param hash - The hash of the instance to get
@@ -220,7 +219,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Gets all instances
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to get the instances for
      * @returns {Instance[]}
@@ -242,7 +241,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Stops an instance
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to stop the instance for
      * @param id - The ID of the instance to stop
@@ -261,17 +260,17 @@ export class AuraInstanceProvider implements InstanceProvider {
     }
 
     /**
-     * Generate a unique name for the instance as a combination of the 
-     * user sub (unique ID) and the usecase 
-     * 
-     * @param user 
-     * @param usecase 
+     * Generate a unique name for the instance as a combination of the
+     * user sub (unique ID) and the usecase
+     *
+     * @param user
+     * @param usecase
      * @returns {string}
      */
     private getInstanceName(user: User, usecase: string): string {
         const [providerName = 'unknownprovider', id = 'unknownid'] = user.sub.split('|');
 
-        const provider = providerName.split('-').map(word => word.slice(0, 1)).join('-') // 2 chars 
+        const provider = providerName.split('-').map(word => word.slice(0, 1)).join('-') // 2 chars
         const sanitizedUsecase = usecase.split('-').map(word => word.slice(0, 1)).join('-') // 5 chars
 
         return `${provider}-${id}|${sanitizedUsecase}`;
@@ -279,7 +278,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Makes a POST request to the Aura API
-     * 
+     *
      * @param endpoint - The endpoint to make the request to
      * @param payload - The payload to send with the request
      * @returns {Promise<AxiosResponse>}
@@ -354,7 +353,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Creates a new instance and saves a reference to it in the database
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to create the instance for
      * @param usecase - The usecase to create the instance for
@@ -385,7 +384,7 @@ export class AuraInstanceProvider implements InstanceProvider {
         const res = await write<{ id: string }>(`
                 MATCH (u:User {sub: $sub})
                 CREATE (i:Instance {id: $instanceId})
-                SET i += $instance, 
+                SET i += $instance,
                     i.createdAt = datetime(),
                     i.usecase = $usecase
                 CREATE (u)-[:HAS_INSTANCE]->(i)
@@ -406,7 +405,7 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Gets an instance for a given usecase or creates a new one if it doesn't exist
-     * 
+     *
      * @param token - The token to use for the API call
      * @param user - The user to get or create the instance for
      * @param usecase - The usecase to get or create the instance for
@@ -424,10 +423,10 @@ export class AuraInstanceProvider implements InstanceProvider {
 
     /**
      * Resumes an instance
-     * 
+     *
      * @param instanceId - The ID of the instance to resume
      */
     private async resumeInstance(instanceId: string): Promise<void> {
         await this.post(`/instances/${instanceId}/resume`, {});
     }
-} 
+}
