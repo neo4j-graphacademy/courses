@@ -12,7 +12,7 @@ router.get('/:provider', requiresAuth(), async (req: Request, res: Response, nex
         const token = await getToken(req)
         const user = await getUser(req) as User
 
-        const sandboxes = await databaseProvider(req.params.provider as DatabaseProvider).getInstancees(token, user)
+        const sandboxes = databaseProvider(req.params.provider as DatabaseProvider).getInstances(token, user)
 
         res.json(sandboxes)
     }
@@ -27,7 +27,7 @@ router.get('/:provider/usecase/:usecase', requiresAuth(), async (req: Request, r
         const user = await getUser(req) as User
         const { usecase } = req.params
 
-        const provider = await databaseProvider(req.params.provider as DatabaseProvider)
+        const provider = databaseProvider(req.params.provider as DatabaseProvider)
         const sandbox = await provider.getInstanceForUseCase(token, user, usecase)
 
         res.json(sandbox)
@@ -52,7 +52,7 @@ router.get('/courses/:slug', requiresAuth(), async (req: Request, res: Response,
             return res.status(404)
         }
 
-        const provider = await databaseProvider(course.databaseProvider)
+        const provider = databaseProvider(course.databaseProvider)
         const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase)
 
         if (!sandbox) {
@@ -72,10 +72,10 @@ router.get('/:provider/hash/:hash', requiresAuth(), async (req: Request, res: Re
         const user = await getUser(req) as User
         const { hash } = req.params
 
-        const { sandbox, status } = await databaseProvider(req.params.provider as DatabaseProvider).getInstanceById(token, user, hash)
+        const { instance, status } = await databaseProvider(req.params.provider as DatabaseProvider).getInstanceById(token, user, hash)
 
         res.json({
-            ...sandbox,
+            ...instance,
             status,
         })
     }

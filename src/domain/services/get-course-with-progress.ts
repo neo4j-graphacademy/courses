@@ -29,7 +29,7 @@ export async function getCourseWithProgress(slug: string, user?: User, token?: s
     // Attempt to find a Sandbox instance
     try {
         if (user && token && course.usecase) {
-            const provider = await databaseProvider(course.databaseProvider)
+            const provider = databaseProvider(course.databaseProvider)
             course.sandbox = await provider.getOrCreateInstanceForUseCase(token, user, course.usecase, course.vectorOptimized, course.graphAnalyticsPlugin)
         }
     }

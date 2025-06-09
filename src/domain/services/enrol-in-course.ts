@@ -82,7 +82,7 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         let sandbox
         if (course.usecase) {
             try {
-                const provider = await databaseProvider(course.databaseProvider)
+                const provider = databaseProvider(course.databaseProvider)
                 sandbox = await provider.getInstanceForUseCase(token, enrolment.user, course.usecase)
             }
             catch (e: any) {

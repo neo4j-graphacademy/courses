@@ -30,7 +30,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const questionId = lessonData?.questions[0]?.slug || '_challenge'
 
     // No sandbox? Return false
-    const provider = await databaseProvider(progress.databaseProvider)
+    const provider = databaseProvider(progress.databaseProvider)
     const sandbox = usecase ? await provider.getInstanceForUseCase(token, user, usecase) : undefined
 
     // Answer array

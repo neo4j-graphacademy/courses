@@ -14,7 +14,7 @@ export async function resetDatabase(token: string, user: User, course: string, m
     }
 
     // Check that a sandbox exists
-    const provider = await databaseProvider(sourceDatabaseProvider)
+    const provider = databaseProvider(sourceDatabaseProvider)
     const sandbox = await provider.getInstanceForUseCase(token, user, usecase)
 
     if (!sandbox) {

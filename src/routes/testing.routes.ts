@@ -113,7 +113,7 @@ router.get('/:provider/instances', async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
-        const provider = await databaseProvider(req.params.provider as DatabaseProvider)
+        const provider = databaseProvider(req.params.provider as DatabaseProvider)
         const instances = await provider.getInstances(token, user as User)
 
         res.json(instances)

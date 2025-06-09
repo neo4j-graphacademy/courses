@@ -333,7 +333,7 @@ router.get('/:course/illustration', (req, res) => {
  *
  * Create an :Enrolment node between the user and the course within the database
  */
-router.get('/:course/enrol', requiresAuth(), /*requiresVerification,*/ requiredCompletedProfile, async (req, res, next) => {
+router.get('/:course/enrol', requiresAuth(), requiredCompletedProfile, async (req, res, next) => {
     try {
         const user = await getUser(req) as User
         const token = await getToken(req)
@@ -519,11 +519,11 @@ const checkInstanceExists = async (user: User, token: string, enrolment: CourseW
         return Promise.resolve(undefined)
     }
 
-    const provider = await databaseProvider(enrolment.databaseProvider)
+    const provider = databaseProvider(enrolment.databaseProvider)
     return provider.getOrCreateInstanceForUseCase(token, user, enrolment.usecase, enrolment.vectorOptimized, enrolment.graphAnalyticsPlugin)
 }
 
-router.get('/:course/sandbox.json', requiresAuth(), /*requiresVerification,*/ async (req, res) => {
+router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
@@ -613,9 +613,9 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
  *
  * Display the patched browser
  */
-router.get('/:course/browser', requiresAuth(), /*requiresVerification,*/ browser)
-router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
-router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/browser', requiresAuth(), browser)
+router.get('/:course/:module/browser', requiresAuth(), browser)
+router.get('/:course/:module/:lesson/browser', requiresAuth(), browser)
 
 const chat = async (req: Request, res: Response) => {
     try {
@@ -645,8 +645,8 @@ const chat = async (req: Request, res: Response) => {
     }
 }
 
-router.post('/:course/:module/chat', requiresAuth(), /*requiresVerification,*/ chat)
-router.post('/:course/:module/:lesson/chat', requiresAuth(), /*requiresVerification,*/ chat)
+router.post('/:course/:module/chat', requiresAuth(), chat)
+router.post('/:course/:module/:lesson/chat', requiresAuth(), chat)
 
 
 /**
@@ -790,7 +790,7 @@ router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => 
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
-router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/:module/browser', requiresAuth(), browser)
 
 
 /**
@@ -912,7 +912,7 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVerification,*/ classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', indexable, requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -1044,7 +1044,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
  * Allow the user to reset the database themselves
  *
  */
-router.post('/:course/:module/:lesson/reset/', requiresAuth(), /*requiresVerification,*/ async (req, res, nextfn) => {
+router.post('/:course/:module/:lesson/reset/', requiresAuth(), async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -1245,7 +1245,7 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         const user = await getUser(req) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
-        const provider = await databaseProvider(course.databaseProvider)
+        const provider = databaseProvider(course.databaseProvider)
         const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase as string)
 
         // If not enrolled, send to course home
@@ -1319,7 +1319,7 @@ router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res
         const user = await getUser(req) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
-        const provider = await databaseProvider(course.databaseProvider)
+        const provider = databaseProvider(course.databaseProvider)
         const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase as string)
 
         let redirectTo = `https://llm-graph-builder.neo4jlabs.com/`

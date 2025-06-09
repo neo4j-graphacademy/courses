@@ -1,8 +1,8 @@
 import axios, { AxiosResponse } from 'axios'
 import { AUTH0_ISSUER_BASE_URL, IS_PRODUCTION } from '../../../constants'
-import { devSandbox } from '../../../domain/model/instance.mocks'
+import { devInstance } from '../../../domain/model/instance.mocks'
 import { User } from '../../../domain/model/user'
-import { handleSandboxError } from './'
+import { handleSandboxError } from '../providers/sandbox/handle-sandbox-error'
 import { Instance } from '../../../domain/model/instance'
 import { InstanceProvider } from '../instance-provider.interface'
 
@@ -10,7 +10,7 @@ export const SANDBOX_STATUS_PENDING = 'PENDING'
 export const SANDBOX_STATUS_READY = 'READY'
 export const SANDBOX_STATUS_NOT_FOUND = 'NOTFOUND'
 
-export class SandboxInstanceProvider implements InstanceProvider {
+export class InstanceInstanceProvider implements InstanceProvider {
     private api() {
         const { SANDBOX_URL } = process.env
 
@@ -19,14 +19,14 @@ export class SandboxInstanceProvider implements InstanceProvider {
         })
     }
 
-    async getSandboxes(token: string, user: User, isRetry = false): Promise<Instance[]> {
+    async getInstances(token: string, user: User, isRetry = false): Promise<Instance[]> {
         if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
-            return [devSandbox()]
+            return [devInstance()]
         }
 
         try {
             const res = await this.api().get(
-                `SandboxGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`,
+                `InstanceGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`,
                 {
                     headers: {
                         authorization: `${token}`
@@ -34,28 +34,32 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 }
             )
 
-            return res.data.map((row: Sandbox) => ({
+            return res.data.map((row: Instance) => ({
                 ...row,
                 scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
                 username: 'neo4j',
                 host: `${row.sandboxHashKey}.neo4jsandbox.com`,
-            })) as Sandbox[]
+            })) as Instance[]
         }
         catch (e: any) {
             // Report Error
-            await handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
+            await handleSandboxError(token, user, 'InstanceGetRunningInstancesForUser', e)
 
             // Fail Silently
             return []
         }
     }
 
-    async getSandboxByHashKey(token: string, user: User, sandboxHashKey: string): Promise<{ sandbox: Instance; status: string }> {
-        const sandboxes = await this.getSandboxes(token, user)
+    async getInstanceById(token: string, user: User, hash: string): Promise<{ instance: Instance | undefined; status: string; }> {
+        return this.getInstanceByHashKey(token, user, hash)
+    }
+
+    async getInstanceByHashKey(token: string, user: User, sandboxHashKey: string): Promise<{ instance: Instance; status: string }> {
+        const sandboxes = await this.getInstances(token, user)
         const sandbox = sandboxes.find(row => row.sandboxHashKey === sandboxHashKey)
 
         try {
-            const res: AxiosResponse<string> = await this.api().get(`SandboxGetInstanceByHashKey?sandboxHashKey=${sandboxHashKey}&verifyConnect=true`, {
+            const res: AxiosResponse<string> = await this.api().get(`InstanceGetInstanceByHashKey?sandboxHashKey=${sandboxHashKey}&verifyConnect=true`, {
                 headers: {
                     authorization: `${token}`
                 },
@@ -63,7 +67,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
             // Has an IP address
             return {
-                sandbox: {
+                instance: {
                     ...sandbox,
                     ip: res.data.toString(),
                 } as Instance,
@@ -76,34 +80,34 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
             if (response.status === 404) {
                 return {
-                    sandbox: sandbox as Instance,
+                    instance: sandbox as Instance,
                     status: SANDBOX_STATUS_NOT_FOUND,
                 }
             } else if (response.status === 417) {
                 return {
-                    sandbox: sandbox as Sandbox,
+                    instance: sandbox as Instance,
                     status: SANDBOX_STATUS_PENDING,
                 }
             }
 
-            throw handleSandboxError(token, user, 'SandboxGetInstanceByHashKey', e)
+            throw handleSandboxError(token, user, 'InstanceGetInstanceByHashKey', e)
         }
     }
 
-    async getSandboxForUseCase(token: string, user: User, usecase: string, isRetry = false): Promise<Sandbox | undefined> {
+    async getInstanceForUseCase(token: string, user: User, usecase: string, isRetry = false): Promise<Instance | undefined> {
         if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
-            return devSandbox()
+            return devInstance()
         }
 
-        const sandboxes = await this.getSandboxes(token, user, isRetry)
+        const sandboxes = await this.getInstances(token, user, isRetry)
 
         return sandboxes.find(sandbox => sandbox.usecase === usecase)
     }
 
-    async stopSandbox(token: string, user: User, sandboxHashKey: string): Promise<void> {
+    async stopInstance(token: string, user: User, sandboxHashKey: string): Promise<void> {
         try {
             await this.api().post(
-                `SandboxStopInstance`,
+                `InstanceStopInstance`,
                 { sandboxHashKey, },
                 {
                     headers: {
@@ -113,7 +117,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             )
         }
         catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxStopInstance', e)
+            throw handleSandboxError(token, user, 'InstanceStopInstance', e)
         }
     }
 
@@ -121,9 +125,9 @@ export class SandboxInstanceProvider implements InstanceProvider {
         return new Promise(resolve => setTimeout(() => resolve(), timeout))
     }
 
-    async createSandbox(token: string, user: User, usecase: string, isRetry = false): Promise<Sandbox> {
+    async createInstance(token: string, user: User, usecase: string, isRetry = false): Promise<Instance> {
         // Prefer existing to avoid 400 errors
-        const existing = await this.getSandboxForUseCase(token, user, usecase, isRetry)
+        const existing = await this.getInstanceForUseCase(token, user, usecase, isRetry)
 
         if (existing) {
             return existing
@@ -131,7 +135,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
         try {
             const res = await this.api().post(
-                `SandboxRunInstance`,
+                `InstanceRunInstance`,
                 { usecase, cease_emails: true },
                 {
                     headers: {
@@ -140,12 +144,12 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 }
             )
 
-            // Bug in Sandbox API, on creation the password is hashed.
+            // Bug in Instance API, on creation the password is hashed.
             // Calling the API again will return the unencrypted password
-            const data = res.data as Sandbox
+            const data = res.data as Instance
 
             if (data.password?.startsWith('AQ')) {
-                return await this.getSandboxForUseCase(token, user, usecase) as Sandbox
+                return await this.getInstanceForUseCase(token, user, usecase) as Instance
             }
 
             return data
@@ -160,39 +164,39 @@ export class SandboxInstanceProvider implements InstanceProvider {
                     // Retry after a second
                     await this.sleep(2000)
 
-                    const existing = await this.getSandboxForUseCase(token, user, usecase, true)
+                    const existing = await this.getInstanceForUseCase(token, user, usecase, true)
 
-                    return existing as Sandbox
+                    return existing as Instance
                 }
-                // Sandbox Unauthorized (401) on SandboxRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
+                // Instance Unauthorized (401) on InstanceRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
                 else if (response.status === 401 && isRetry === false) {
                     // Retry after a second
                     await this.sleep(2000)
 
                     await this.createGraphAcademyUser(token, user)
 
-                    return this.createSandbox(token, user, usecase, true)
+                    return this.createInstance(token, user, usecase, true)
                 }
-                // Sandbox Uncategorised Error (503) on SandboxRunInstance: Request failed with status code 503 ({"message":"Service Unavailable"})
+                // Instance Uncategorised Error (503) on InstanceRunInstance: Request failed with status code 503 ({"message":"Service Unavailable"})
                 else if (response.status === 503 && isRetry === false) {
-                    await handleSandboxError(token, user, 'SandboxRunInstance', e)
+                    await handleSandboxError(token, user, 'InstanceRunInstance', e)
 
                     // Retry after a second
                     await this.sleep(2000)
 
-                    return this.createSandbox(token, user, usecase, true)
+                    return this.createInstance(token, user, usecase, true)
                 }
             }
 
-            throw handleSandboxError(token, user, 'SandboxRunInstance', e)
+            throw handleSandboxError(token, user, 'InstanceRunInstance', e)
         }
     }
 
-    async getOrCreateSandboxForUseCase(token: string, user: User, usecase: string): Promise<Sandbox> {
-        let sandbox = await this.getSandboxForUseCase(token, user, usecase)
+    async getOrCreateInstanceForUseCase(token: string, user: User, usecase: string): Promise<Instance> {
+        let sandbox = await this.getInstanceForUseCase(token, user, usecase)
 
         if (!sandbox) {
-            sandbox = await this.createSandbox(token, user, usecase)
+            sandbox = await this.createInstance(token, user, usecase)
         }
 
         return sandbox
@@ -201,7 +205,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
     private async createGraphAcademyUser(token: string, user: User) {
         try {
             await this.api().post(
-                `SandboxCreateGraphAcademyUser`,
+                `InstanceCreateGraphAcademyUser`,
                 {},
                 {
                     headers: {
@@ -211,7 +215,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             )
         }
         catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxCreateGraphAcademyUser', e)
+            throw handleSandboxError(token, user, 'InstanceCreateGraphAcademyUser', e)
         }
     }
 
@@ -220,7 +224,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             await this.createGraphAcademyUser(token, user)
 
             await this.api().post(
-                `SandboxSaveUserInfo`,
+                `InstanceSaveUserInfo`,
                 data,
                 {
                     headers: {
@@ -230,7 +234,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             )
         }
         catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxSaveUserInfo', e)
+            throw handleSandboxError(token, user, 'InstanceSaveUserInfo', e)
         }
     }
 
@@ -249,7 +253,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     async getUserInfo(token: string, user: User): Promise<Partial<User>> {
         try {
-            const res = await this.api().get(`SandboxGetUserInfo`, {
+            const res = await this.api().get(`InstanceGetUserInfo`, {
                 headers: {
                     authorization: `${token}`
                 },
@@ -260,7 +264,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return profile as Partial<User>
         }
         catch (e) {
-            throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
+            throw handleSandboxError(token, user, 'InstanceGetUserInfo', e)
         }
     }
 }

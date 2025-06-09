@@ -14,7 +14,7 @@ export default function initInstanceListeners(): Promise<void> {
         }
 
         // Try to get a sandbox for the user
-        const provider = await databaseProvider(course.databaseProvider)
+        const provider = databaseProvider(course.databaseProvider)
         const instance = await provider.getInstanceForUseCase(token, user, usecase)
 
         // If it exists, stop it

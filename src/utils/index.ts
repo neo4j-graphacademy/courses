@@ -454,7 +454,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     if (req && user && course.usecase && !course.completed) {
         const token = await getToken(req)
 
-        const provider = await databaseProvider(course.databaseProvider)
+        const provider = databaseProvider(course.databaseProvider)
         const instance = await provider.getInstanceForUseCase(token, user, course.usecase)
 
         attributes['instance-host'] = instance?.host

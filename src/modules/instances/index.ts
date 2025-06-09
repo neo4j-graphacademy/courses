@@ -14,7 +14,7 @@ export const INSTANCE_STATUS_PENDING = 'PENDING'
 export const INSTANCE_STATUS_READY = 'READY'
 export const INSTANCE_STATUS_NOT_FOUND = 'NOTFOUND'
 
-export default async function databaseProvider(provider: DatabaseProvider): Promise<InstanceProvider> {
+export default function databaseProvider(provider: DatabaseProvider): InstanceProvider {
     if (provider === undefined) {
         provider = DATABASE_PROVIDER_DEFAULT
     }
@@ -23,5 +23,5 @@ export default async function databaseProvider(provider: DatabaseProvider): Prom
         return new AuraInstanceProvider()
     }
 
-    return Promise.resolve(new SandboxInstanceProvider())
+    return new SandboxInstanceProvider()
 }

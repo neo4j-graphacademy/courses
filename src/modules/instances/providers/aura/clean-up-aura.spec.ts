@@ -15,7 +15,8 @@ describe('Clean up Instances', () => {
         const instances = await provider.getInstances('', {} as User)
 
         for (const instance of instances) {
-            if (instance.name.startsWith('test-')) {
+            console.log(instance)
+            if (instance.name?.startsWith('test-') || instance.hashKey?.startsWith('t-')) {
                 await provider.stopInstance('', {} as User, instance.id)
             }
         }
