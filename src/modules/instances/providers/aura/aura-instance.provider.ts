@@ -3,8 +3,9 @@ import { Instance } from "../../../../domain/model/instance";
 import { User } from "../../../../domain/model/user";
 import axios, { AxiosInstance } from 'axios';
 import { AURA_API_URL, AURA_CLIENT_ID, AURA_CLIENT_SECRET, AURA_TENANT_ID } from "../../../../constants";
-import { read, write } from "../../../../modules/neo4j";
+import { createDriver, read, write } from "../../../../modules/neo4j";
 import { notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
+import { EagerResult, RoutingControl } from "neo4j-driver";
 
 export class AuraInstanceProvider implements InstanceProvider {
     private api: AxiosInstance;
@@ -428,5 +429,43 @@ export class AuraInstanceProvider implements InstanceProvider {
      */
     private async resumeInstance(instanceId: string): Promise<void> {
         await this.post(`/instances/${instanceId}/resume`, {});
+    }
+
+    async executeCypher<T = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any> = {}, routing: RoutingControl): Promise<EagerResult<T> | undefined> {
+        try {
+            const instance = await this.getInstanceForUseCase(token, user, usecase)
+
+            if (instance !== undefined) {
+                // Connect to instance
+                const driver = await createDriver(
+                    `neo4j+s://${instance.ip}:${instance.boltPort}`,
+                    instance.username,
+                    instance.password,
+                    true
+                )
+
+                let result: EagerResult<T> | undefined;
+
+                const parts = cypher.split(';\n')
+                    .filter(e => e.trim() !== '')
+
+                for (const part of parts) {
+                    result = await driver.executeQuery(part, params, {
+                        database: instance.database || instance.id,
+                        routing,
+                    })
+                }
+
+                await driver.close()
+
+                return result;
+            }
+
+            throw new Error(`Could not connect to sandbox instance for usecase: ${usecase}`)
+        }
+        catch (e) {
+            console.error(`Error resetting database for usecase ${usecase}:`, e)
+            void notifyPossibleRequestError(e, user)
+        }
     }
 }

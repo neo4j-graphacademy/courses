@@ -8,6 +8,8 @@ import { InstanceProvider } from '../../instance-provider.interface'
 import { INSTANCE_STATUS_PENDING } from '../..'
 import { INSTANCE_STATUS_NOT_FOUND } from '../..'
 import { INSTANCE_STATUS_READY } from '../..'
+import { createDriver } from '../../../neo4j'
+import { EagerResult, RoutingControl } from 'neo4j-driver'
 
 export class SandboxInstanceProvider implements InstanceProvider {
     private api() {
@@ -268,6 +270,43 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
         catch (e) {
             throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
+        }
+    }
+
+    async executeCypher<T = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any> = {}, routing: RoutingControl): Promise<EagerResult<T> | undefined> {
+        try {
+            const instance = await this.getInstanceForUseCase(token, user, usecase)
+
+            if (instance !== undefined) {
+                // Connect to instance
+                const driver = await createDriver(
+                    `neo4j+s://${instance.ip}:${instance.boltPort}`,
+                    instance.username,
+                    instance.password,
+                    true
+                )
+
+                let result: EagerResult<T> | undefined;
+
+                const parts = cypher.split(';\n')
+                    .filter(e => e.trim() !== '')
+
+                for (const part of parts) {
+                    result = await driver.executeQuery<EagerResult<T>>(part, params, {
+                        database: instance.database || instance.id,
+                        routing,
+                    })
+                }
+
+                await driver.close()
+
+                return result;
+            }
+
+            throw new Error(`Could not connect to aura instance for usecase: ${usecase}`)
+        }
+        catch (e) {
+            void handleSandboxError(token, user, 'SandboxResetDatabase', e)
         }
     }
 }
