@@ -10,8 +10,9 @@ export const STATUS_ACTIVE = 'active'
 export const STATUS_DRAFT = 'draft'
 export const STATUS_TEST = 'test'
 export const STATUS_DISABLED = 'disabled'
+export const STATUS_REDIRECT = 'redirect'
 
-export type CourseStatus = typeof STATUS_COMPLETED | typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_TEST | typeof STATUS_DISABLED
+export type CourseStatus = typeof STATUS_COMPLETED | typeof STATUS_ACTIVE | typeof STATUS_DRAFT | typeof STATUS_TEST | typeof STATUS_DISABLED | typeof STATUS_REDIRECT
 
 export const NEGATIVE_STATUSES = [
     STATUS_TEST,
