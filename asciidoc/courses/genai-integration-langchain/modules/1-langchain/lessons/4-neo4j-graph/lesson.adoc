@@ -1,0 +1,136 @@
+= Neo4jGraph
+:order: 4
+:type: lesson
+:branch: new-course
+
+You can query Neo4j from a LangChain application using the link:https://python.langchain.com/api_reference/neo4j/graphs/langchain_neo4j.graphs.neo4j_graph.Neo4jGraph.html[`Neo4jGraph`^] class.
+The `Neo4jGraph` class acts as the connection to the database when using other LangChain components, such as retrievers and agents.
+
+In this lesson, you will modify the simple LangChain agent to be able to answer questions about a graph database schema.
+
+== Query Neo4j
+
+To query Neo4j you will need to: 
+
+. Create a `Neo4jGraph` instance and connect to a database
+. Run a Cypher statement to get data from the database
+
+The database contains information about movies, actors, and user ratings.
+
+Open the `genai-integration-langchain/neo4j_query.py` file:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/neo4j_query.py[tag=**]
+----
+
+Update the code to:
+
+. Connect to the Neo4j database using your connection details:
++
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/neo4j_query.py[tag=import_neo4j]
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/neo4j_query.py[tag=neo4jgraph]
+----
+. Run a Cypher query to retrieve data from the database:
++
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/neo4j_query.py[tag=query]
+----
+
+The results are returned as a list of dictionaries, where each dictionary represents a row in the results.
+
+    [
+        {'actor': 'Henry Czerny', 'role': 'Eugene Kittridge'}, 
+        {'actor': 'Emmanuelle Béart', 'role': 'Claire Phelps'}, 
+        {'actor': 'Tom Cruise', 'role': 'Ethan Hunt'}, 
+        {'actor': 'Jon Voight', 'role': 'Jim Phelps'}
+    ]
+
+== Schema
+
+You can use data returned from queries as context for the agent you review in the last lesson.
+
+You can view the database schema using the Cypher query:
+
+[source,cypher]
+----
+CALL db.schema.visualization()
+----
+
+If you include this information in the agent's `context`, the agent will be able to answer questions about the database schema.
+
+Open the `genai-integration-langchain/simple_agent.py` file.
+
+Add the code to create a connection to the Neo4j database using the `Neo4jGraph` class:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=import_neo4jgraph]
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=neo4jgraph]
+----
+
+Modify the `retrieve` function to use the `Neo4jGraph` instance to query the database and retrieve the schema information:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=retrieve]
+----
+
+Update the question to ask about the database schema:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=question]
+----
+
+[%collapsible]
+.Click to see the complete code
+====
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tags=**, !examples]
+====
+
+The agent will add the database schema to the `context` and use it to answer questions about the database.
+
+When asked "How is the graph structured?", the agent will response with a summary of the graph, usually including details about nodes, relationships, and their properties.
+
+[%collapsible]
+.Click to see an example response
+====
+The graph is structured using nodes and relationships. 
+
+Nodes:
+
+* **Movie**: Has indexes on `year`, `imdbRating`, `released`, `imdbId`, `title`, and `tagline`. It has unique constraints on `movieId` and `tmdbId`.
+* **User**: Has an index on `name` and a unique constraint on `userId`.
+* **Actor**, **Director**, and **Genre**: Do not have indexes listed. The **Genre** node has a unique constraint on `name`.
+* **Person**: Has an index on `name` and a unique constraint on `tmdbId`.
+
+Relationships:
+
+* **ACTED_IN**: Connects `Actor`, `Director`, or `Person` nodes with `Movie` nodes.
+* **RATED**: Connects `User` nodes to `Movie` nodes.
+* **IN_GENRE**: Connects `Movie` nodes to `Genre` nodes.
+* **DIRECTED**: Connects `Person`, `Actor`, or `Director` nodes to `Movie` nodes.
+
+In summary, the graph represents a network where movies are connected to various entities like users, genres, actors, directors, and general persons through specific relationships indicating roles like acting, directing, rating, and categorization into genres.
+====
+
+Experiment by asking the agent other questions about the database schema, here are some examples:
+
+    include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=examples]
+
+When you are ready, continue to the next module.
+
+read::Continue[]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to query Neo4j from LangChain and updated the agent to retrieve the database schema.
+
+In the next module, you learn how to use vectors to create RAG and GraphRAG retrievers.
