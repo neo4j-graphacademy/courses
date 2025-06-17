@@ -1,0 +1,130 @@
+= What is MCP?
+
+The Model Context Protocol, commonly referred to as MCP, is an open protocol that enables agents and AI applications to work together in a standardized way.
+
+Before we dive into MCP, let's familiarise ourselves with the concept of an **Agent**.
+
+== What are Agents?
+
+There are many defintions of an Agent, but for the context of this course, an Agent is a system that **acts independently** to **achieve a specific goal**.
+
+A common type of framework for building agents is the **ReAct** framework.
+When a ReAct agent receives an input, it will use a Large Language Model (LLM) to **reason** on the problem at hand, and use the descriptions of tools to select the correct tool(s) to solve the problem, and **act** by calling the tools, either in sequence or in parallel, to perform actions.
+
+The agent will continue to reason and act until the goal is achieved.
+
+An example of a tool may be a function that searches the web, calls an external API or uploads a file to a cloud storage service.
+
+
+== Where does MCP fit in?
+
+While agents may have access to tools within the scope of their application, MCP provides a standardized way for the agent to consume tools from other providers and either hosted remotely or accessed locally through Standard Input/Output (stdio).
+
+
+== Architecture
+
+The MCP protocol consists of the following elements.
+
+=== Servers
+
+The protocol follows a client-server archicture, similar to microservices, where **Servers** provide capabilities through a list of **tools**.
+Each tool that the server hosts has additional metadata assigned to it, including a unique identifier, a description of when that tool can be used, and a list of parameters that the tool can receive.
+
+Along with tools, servers provide access to **Resources**, read-only data that can be consumed by the client.
+Each resource has its own unique URI, similar to an endpoint in a REST API, and can be used to provide quick acess to a record in a database.
+
+MCP tools can also provide **Prompt templates**, allowing the client to use pre-written prompts that follow best practices.
+
+
+which are templates that can be used to generate a prompt for the tool.
+
+=== Clients 
+
+The second piece of the MCP architecture is the **Client**.
+A client is responsible for managing a one-to-one connection to a server.
+
+When a client starts, it will connect to a server, and request a list of tools, resources and prompt templates that the server provides access to.  
+
+// It is the responsibility of the client to decide which tool to use, and provide the appropriate parameters to the tool.
+
+
+=== Hosts 
+
+One or more clients are managed by a **Host**, an application or piece of software that maintains session state and context.
+It is the responsibility of the host to decide which tool to use, and provide the appropriate parameters to the tool.
+The host then delegates the responsibility of executing the tool to the client.
+
+An example of a host may be Claude Desktop, Amazon Q, or Cursor.
+
+
+=== Tools 
+
+Each tool will have a unique identifier, a description of when that tool can be used, and a list of parameters that the tool can receive. 
+
+For example, a tool for searching the web may be defined as:
+
+* **id**: search-web
+* **description**: Search the web for information
+* **parameters**: query, a string
+
+// TODO: verify, add more info when other types become available.
+Tools can output a result as text or JSON.
+
+
+== A real-world scenario 
+
+Neo4j has created a number of MCP servers with tools to help with the entire lifecycle of a project.
+
+For example, the `mcp-neo4j-cypher` *server* provides tools for describing the schema of a graph and executing Cypher queries.
+
+To use these as part of your development workflow, you would need to install the server to your local machine.
+
+For example, you can configure Claude Desktop as a *host* to use the `mcp-neo4j-cypher` server with the following configuration:
+
+
+.claude_desktop_config.json
+[source,json]
+---
+include::includes/claude_desktop_config.json[]
+---
+
+1. Give the server a unique name that you can recognise within the host.
+2. The server is written in Python, so the `uvx` command will install the server and run it on your local machine.
+3. The arguments specify the package to load from PyPI, and to use Standard Input/Output (stdio) to communicate with the server.
+4. The environment variables specify the connection details that the MCP server will use.
+
+The `uvx` command will download the package and execute it locally.  For MCP servers built with JavaScript, you will use the `npx` command instead.
+
+Once configured, you can use the chat interface to query the database.
+
+[source,prompt]
+----
+Who played Neo in The Matrix?
+----
+
+Claude Desktop will use the `get_neo4j_schema` tool to obtain information about the database, use the information to generate a Cypher statement, use the `read_neo4j_cypher` tool to execute the query and then generate a friendly response.
+
+// TODO: screenshot /video 
+
+[WARNING]
+.Warning
+====
+Anyone can build and deploy an MCP server, so ensure that you trust the publisher and understand the capabilities of the servers you install.
+====
+
+[.summary]
+== Lesson summary
+
+In this lesson, you learned:
+
+* **Agents** are systems that act independently to achieve specific goals, often using the ReAct framework (reasoning and acting with tools)
+* **MCP (Model Context Protocol)** provides a standardized way for agents to consume tools from external providers
+* **MCP Architecture** consists of four key components:
+  - **Servers** provide capabilities through tools, resources, and prompt templates
+  - **Clients** manage one-to-one connections to servers
+  - **Hosts** (like Claude Desktop) manage clients and decide which tools to use
+  - **Tools** have unique identifiers, descriptions, and parameters
+* **Real-world usage** involves configuring hosts to connect to MCP servers for enhanced functionality
+
+You can find more information about these terms at link:https://modelcontextprotocol.io/[modelcontextprotocol.io].
+
