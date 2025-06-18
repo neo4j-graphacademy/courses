@@ -19,6 +19,7 @@ The database contains information about movies, actors, and user ratings.
 
 Open the `genai-integration-langchain/neo4j_query.py` file:
 
+.neo4j_query.py
 [source,python]
 ----
 include::{repository-raw}/{branch}/genai-integration-langchain/neo4j_query.py[tag=**]
@@ -50,9 +51,11 @@ The results are returned as a list of dictionaries, where each dictionary repres
         {'actor': 'Jon Voight', 'role': 'Jim Phelps'}
     ]
 
+You can use data returned from queries as context for an agent. 
+
 == Schema
 
-You can use data returned from queries as context for the agent you review in the last lesson.
+You are going to modify the agent to retrieve the database schema and add it to the `context`.
 
 You can view the database schema using the Cypher query:
 
@@ -61,9 +64,13 @@ You can view the database schema using the Cypher query:
 CALL db.schema.visualization()
 ----
 
-If you include this information in the agent's `context`, the agent will be able to answer questions about the database schema.
+Open the `genai-integration-langchain/scheme_agent.py` file.
 
-Open the `genai-integration-langchain/simple_agent.py` file.
+.schema_agent.py
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/schema_agent.py[tag=**]
+----
 
 Add the code to create a connection to the Neo4j database using the `Neo4jGraph` class:
 
@@ -81,7 +88,9 @@ Modify the `retrieve` function to use the `Neo4jGraph` instance to query the dat
 include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=retrieve]
 ----
 
-Update the question to ask about the database schema:
+The agent will add the database schema to the `context` and use it to answer questions about the database.
+
+Update the question:
 
 [source,python]
 ----
@@ -91,38 +100,37 @@ include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_
 [%collapsible]
 .Click to see the complete code
 ====
-include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tags=**, !examples]
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tags="**;!examples"]
+----
 ====
 
-The agent will add the database schema to the `context` and use it to answer questions about the database.
-
-When asked "How is the graph structured?", the agent will response with a summary of the graph, usually including details about nodes, relationships, and their properties.
+When asked "How is the graph structured?", the agent will response with a summary of the graph, typically including details about nodes, relationships, and their properties.
 
 [%collapsible]
 .Click to see an example response
 ====
 The graph is structured using nodes and relationships. 
 
-Nodes:
+* Nodes:
+** **Movie**: Has indexes on `year`, `imdbRating`, `released`, `imdbId`, `title`, and `tagline`. It has unique constraints on `movieId` and `tmdbId`.
+** **User**: Has an index on `name` and a unique constraint on `userId`.
+** **Actor**, **Director**, and **Genre**: Do not have indexes listed. The **Genre** node has a unique constraint on `name`.
+** **Person**: Has an index on `name` and a unique constraint on `tmdbId`.
 
-* **Movie**: Has indexes on `year`, `imdbRating`, `released`, `imdbId`, `title`, and `tagline`. It has unique constraints on `movieId` and `tmdbId`.
-* **User**: Has an index on `name` and a unique constraint on `userId`.
-* **Actor**, **Director**, and **Genre**: Do not have indexes listed. The **Genre** node has a unique constraint on `name`.
-* **Person**: Has an index on `name` and a unique constraint on `tmdbId`.
-
-Relationships:
-
-* **ACTED_IN**: Connects `Actor`, `Director`, or `Person` nodes with `Movie` nodes.
-* **RATED**: Connects `User` nodes to `Movie` nodes.
-* **IN_GENRE**: Connects `Movie` nodes to `Genre` nodes.
-* **DIRECTED**: Connects `Person`, `Actor`, or `Director` nodes to `Movie` nodes.
+* Relationships:
+** **ACTED_IN**: Connects `Actor`, `Director`, or `Person` nodes with `Movie` nodes.
+** **RATED**: Connects `User` nodes to `Movie` nodes.
+** **IN_GENRE**: Connects `Movie` nodes to `Genre` nodes.
+** **DIRECTED**: Connects `Person`, `Actor`, or `Director` nodes to `Movie` nodes.
 
 In summary, the graph represents a network where movies are connected to various entities like users, genres, actors, directors, and general persons through specific relationships indicating roles like acting, directing, rating, and categorization into genres.
 ====
 
-Experiment by asking the agent other questions about the database schema, here are some examples:
+Experiment by asking the agent other questions about the database schema. Here are some examples:
 
-    include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=examples]
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/schema_agent.py[tag=examples]
 
 When you are ready, continue to the next module.
 
