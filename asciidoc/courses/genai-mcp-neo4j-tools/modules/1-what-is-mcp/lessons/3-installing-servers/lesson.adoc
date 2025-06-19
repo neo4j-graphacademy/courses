@@ -1,78 +1,81 @@
 = Installing an MCP server
 :order: 2
-:type: challenge
-
-// TODO: update 
-
-To install an MCP server to a host, you will need to configure your MCP host with configuration details.
-Although the location of the file and configuration details may differ for each host, you will follow the same process. 
-
-You can link:https://claude.ai/download[download the Claude Desktop app from claude.ai^].
-
-For this lesson, we will install the link:https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem[Filesystem MCP server^] and use Claude Desktop as our host.
-The Filesystem MCP server is written by the core maintainers of Model Context Protocol, and allows you to: 
-
-* Read/write files
-* Create/list/delete directories
-* Move files/directories
-* Search files
-* Get file metadata
 
 
-[TIP]
-.Running an MCP server
-====
-While the majority of MCP servers are designed to be run locally using `upx` or `npx` commands, many hosts also support running an MCP server through a docker container.
-MCP servers that access remote tools may require an access token or take you through an authentication flow before they can be used.
+To install an MCP server, you will need to configure your host with details about the server's location, transport method, and environment variables.
+While the configuration file location and specific details may vary between hosts, the overall setup process follows similar steps.
 
-Consult the server's documentation for details on which transport method the server uses and how to install it.
-====
+For example, to add a new MCP server to Claude Desktop, you would add an entry to the `mcpServers` object in the `claude_desktop_config.json` file.
 
-== Installing the server
-
-To install the Filesystem server, open the Claude menu on your computer and select **Settings**.
-Then from the Developer tab on the left hand side, click **Edit Config**.
-
-This will open up the configuration file for Claude Desktop at: 
-
-* macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-* Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-Inside the configuration file, add the following section:
-
+.claude_desktop_config.json
 [source,json]
 include::includes/claude_desktop_config.json[]
 
-This configuration: 
+This configuration:
 
-1. Adds a new server called `filesystem` server to Claude Desktop
-2. Instructs Claude Desktop to use the `npx` command to run the server. 
-3. Binds the local directory `~/Desktop` to the `/projects/Desktop` directory on the server.
-
-// == Configuration 
-
-== Using the tools 
-
-Now, when you ask Claude to create a file, the following sequence will occur:
+1. Gives the server a unique name that you can recognise within the host.
+2. Tells Claude Desktop to install the server and run it on your local machine using the `uvx` command.
+3. Specifies the package to load from PyPI, and to use Standard Input/Output (stdio) to communicate with the server.
+4. Specifies the environment variables that the MCP server will use to connect to your Neo4j database.
 
 
-. Claude analyzes the request and determines that a filesystem tool is needed.
-. Claude requests permission to use the `write_file` tool.
-. Once you have granted permission, Claude invokes the tool with the appropriate parameters.
-. The MCP server executes the operation and returns a result.
+[TIP]
+.Handling spaces in commands 
+=====
+Always split out your command and arguments into multiple strings.  For example, the command:
+
+`npx @my-mcps/cool-server --option1 foo --option2 bar` 
+
+should become
+
+`{"command": "npx", "args": ["@my-mcps/cool-server", "--option1", "foo", "--option2", "bar"]}`.
+=====
+
+== Transport methods
+
+The configuration above specifies that the server should be run with the transport method of **Standard Input/Output** (stdio), where messages are sent and received through the standard input and output streams of the process.
+
+This is common for locally running MCP servers.
+
+Remote servers are communicated with using HTTP requests.
+The messages are either sent through HTTP streaming or HTTP Server Sent Events (SSE).
+
+When you configure a server, you may need to specify the transport method to use.
 
 
-Most hosts will ask your permission before running a tool, providing the options to run the tool once or always run the tool without asking permission.
+== Environment Variables
 
-This step is so important.  
-Anyone can build or deploy an MCP server, so it is crutial that potentially distructive steps are approved by a human.
-Make sure you trust the developer of the server and the capabilities of the tool.
+The configuration above also includes an `env` property, which is used to set environment variables for the server.
+
+When the host starts the server, it will set these environment variables as environment variables for the server process.  This is a common way to pass configuration details to the server.
+
+MCP servers that are run remotely, or access remote APIs may require API keys or an access token or take you through an authentication flow before they can be used.
+
+
+== Running an MCP server
+
+The configuration above uses `uvx` to run the `mcp-neo4j-cypher` server locally.
+When the host starts, it will attempt to run the command to start the MCP server and read the list of tools that the server provides.
+
+As the Neo4j Cypher MCP server is written in Python and hosted on PyPI,  the `uvx` command will install the dependencies required to run the server and then run it.
+
+
+
+
+
+[WARNING]
+.Warning
+====
+Anyone can build and deploy an MCP server, so ensure that you trust the publisher and understand the capabilities of the servers you install.
+====
+
+
 
 
 [.summary]
 == Lesson Summary
 
-In this lesson you learned how to install and configure your first MCP server, installing the Filesystem MCP server included in the MCP SDK examples.  You learned how to configure Claude Desktop and learned about important security considerations - that hosts will request permission before running tools due to potentially destructive capabilities.
+In this lesson you learned how to install and configure the Neo4j Cypher MCP server in VS Code, which allows GitHub Copilot to interact with Neo4j databases.
 
-In the next lesson, you will learn how to invoke the filesystem tool to create your first file.
+In the next lesson, you will install the Neo4j Cypher MCP server in VS Code and configure it to connect to your Neo4j database.
 
