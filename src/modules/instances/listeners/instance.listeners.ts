@@ -1,10 +1,9 @@
 import { UserCompletedCourse } from '../../../domain/events/UserCompletedCourse'
 import { UserUnenrolled } from '../../../domain/events/UserUnenrolled'
 import { emitter } from '../../../events'
-import { getSandboxForUseCase, stopSandbox } from '..'
+import databaseProvider from '../index'
 
-
-export default function initSandboxListeners(): Promise<void> {
+export default function initInstanceListeners(): Promise<void> {
     const stopSandboxHandler = async (event: UserCompletedCourse | UserUnenrolled) => {
         const { course, token, user } = event
         const { usecase } = course
@@ -15,11 +14,12 @@ export default function initSandboxListeners(): Promise<void> {
         }
 
         // Try to get a sandbox for the user
-        const sandbox = await getSandboxForUseCase(token, user, usecase)
+        const provider = databaseProvider(course.databaseProvider)
+        const instance = await provider.getInstanceForUseCase(token, user, usecase)
 
         // If it exists, stop it
-        if (sandbox) {
-            await stopSandbox(token, user, sandbox.sandboxHashKey)
+        if (instance) {
+            await provider.stopInstance(token, user, instance.id)
         }
     }
 

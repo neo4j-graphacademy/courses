@@ -2,7 +2,8 @@ import { Category } from "./category";
 import { Module, ModuleWithProgress } from "./module";
 import { Pagination } from "./pagination";
 import { Integer } from "neo4j-driver";
-import { Sandbox } from "./sandbox";
+import { Instance } from "./instance";
+import { DatabaseProvider } from "../../modules/instances";
 
 // Status
 export const STATUS_COMPLETED = 'completed'
@@ -67,6 +68,9 @@ export interface Course {
     interested?: string[];
     isInterested?: boolean;
     usecase: string | undefined;
+    databaseProvider: DatabaseProvider | undefined;
+    vectorOptimized: boolean;
+    graphAnalyticsPlugin: boolean;
     emails: string[];
     modules: Module[];
     categories: Category<any>[];
@@ -111,7 +115,7 @@ export interface CourseWithProgress extends Course {
     certificateUrl: string | undefined;
     modules: ModuleWithProgress[];
     next?: Pagination;
-    sandbox?: Sandbox;
+    sandbox?: Instance;
     display?: boolean;
 }
 

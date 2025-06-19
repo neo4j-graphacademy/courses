@@ -1,7 +1,7 @@
-import { Neo4jScheme } from "../../modules/sandbox"
-import { Sandbox } from "./sandbox"
+import { Neo4jScheme } from '../../modules/instances/index'
+import { Instance } from './instance'
 
-export function devSandbox(): Sandbox {
+export function devInstance(): Instance {
     const {
         SANDBOX_DEV_INSTANCE_ID,
         SANDBOX_DEV_INSTANCE_HASH_KEY,
@@ -13,8 +13,8 @@ export function devSandbox(): Sandbox {
     } = process.env
 
     return {
-        sandboxId: SANDBOX_DEV_INSTANCE_ID as string,
-        sandboxHashKey: SANDBOX_DEV_INSTANCE_HASH_KEY as string,
+        id: SANDBOX_DEV_INSTANCE_ID as string,
+        hashKey: SANDBOX_DEV_INSTANCE_HASH_KEY as string,
         scheme: (SANDBOX_DEV_INSTANCE_SCHEME || 'neo4j') as Neo4jScheme,
         boltPort: SANDBOX_DEV_INSTANCE_PORT || '7687' as string,
         host: SANDBOX_DEV_INSTANCE_HOST || 'localhost' as string,
@@ -23,6 +23,8 @@ export function devSandbox(): Sandbox {
         username: (SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j'),
         password: (SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein'),
         usecase: 'movies',
+        vectorOptimized: false,
+        graphAnalyticsPlugin: false,
         expires: 0
     }
 }

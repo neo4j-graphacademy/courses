@@ -1,15 +1,15 @@
 // import pug from 'pug'
 import { Request, Response, Router } from 'express'
-import { devSandbox } from '../domain/model/sandbox.mocks'
+import { devInstance } from '../domain/model/instance.mocks'
 import { read, write } from '../modules/neo4j'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { getAuth0UserInfo, getSandboxes, getUserInfo } from '../modules/sandbox'
+import databaseProvider, { DatabaseProvider } from '../modules/instances'
 import { AsciidocEmailFilename, prepareEmail } from '../modules/mailer/mailer'
 import NotFoundError from '../errors/not-found.error'
 import { TokenExpiredError } from '../errors/token-expired.error'
 import { send } from '../modules/mailer/mailer'
 import { User } from '../domain/model/user'
-import { Sandbox } from '../domain/model/sandbox'
+import { Instance } from '../domain/model/instance'
 import { readFileSync } from 'fs'
 import { courseSummaryPdfPath } from '../modules/asciidoc'
 import { CompletionSource, UserCompletedCourse } from '../domain/events/UserCompletedCourse'
@@ -35,7 +35,7 @@ router.get('/reset', async (req, res) => {
     res.redirect('/logout')
 })
 
-const sandboxes: Record<string, Sandbox> = {}
+const instances: Record<string, Instance> = {}
 
 router.post('/sandbox/tokeninfo', (req, res) => {
     const json = {
@@ -47,28 +47,28 @@ router.post('/sandbox/tokeninfo', (req, res) => {
 })
 
 router.get('/sandbox/SandboxGetRunningInstancesForUser', (req, res) => {
-    console.log(`[test sandbox] Sending ${Object.keys(sandboxes)}`)
+    console.log(`[test sandbox] Sending ${Object.keys(instances)}`)
 
-    res.json(Object.values(sandboxes))
+    res.json(Object.values(instances))
 })
 
 const runInstance = (req: Request, res: Response) => {
-    const id = Object.keys(sandboxes).length + 1
-    const sandboxHashKey = `test--${id}`
-    const sandbox: Sandbox = {
-        ...devSandbox(),
+    const id = Object.keys(instances).length + 1
+    const instanceHashKey = `test--${id}`
+    const instance: Instance = {
+        ...devInstance(),
         usecase: req.body.usecase || 'recommendations',
-        sandboxHashKey,
-        sandboxId: id.toString(),
+        instanceHashKey,
+        instanceId: id.toString(),
         createdAt: Date.now(),
         ip: undefined,
     }
 
-    sandboxes[sandboxHashKey] = sandbox
+    instances[instanceHashKey] = instance
 
-    console.log(`[test sandbox] ${sandboxHashKey} created`)
+    console.log(`[test sandbox] ${instanceHashKey} created`)
 
-    res.json(sandbox)
+    res.json(instance)
 }
 
 router.get('/sandbox/SandboxRunInstance', runInstance)
@@ -84,38 +84,39 @@ router.post('/sandbox/SandboxStopInstance', (req, res) => {
  * 1. Sandbox is created, IP address is undefined - sandbox returns a 404 but with error "no ip"
  * 2. After 30 seconds - 3 minutes, the sandbox will be assigned an IP - ready to connect to
  */
-router.get('/sandbox/getSandboxByHashKey', (req, res) => {
-    const { sandboxHashKey } = req.query
+router.get('/sandbox/getInstanceById', (req, res) => {
+    const { instanceHashKey } = req.query
 
-    if (!sandboxHashKey || !sandboxes.hasOwnProperty(sandboxHashKey as string)) {
+    if (!instanceHashKey || !instances.hasOwnProperty(instanceHashKey as string)) {
         // console.log(`[test sandbox] ${sandboxHashKey} not found`);
 
-        return res.status(404).send('Sandbox not found')
+        return res.status(404).send('Instance not found')
     }
 
-    const sandbox = sandboxes[sandboxHashKey as string]
+    const instance = instances[instanceHashKey as string]
 
-    console.log(`[test sandbox] ${sandboxHashKey} found, created at ${sandbox.createdAt}`)
+    console.log(`[test sandbox] ${instanceHashKey} found, created at ${instance.createdAt}`)
 
-    const age = Date.now() - sandbox.createdAt
+    const age = Date.now() - instance.createdAt
 
     if (age > 10000) {
-        console.log(`[test sandbox] ${sandboxHashKey} found, sending IP`)
+        console.log(`[test sandbox] ${instanceHashKey} found, sending IP`)
         return res.send('127.0.0.1')
     }
 
-    console.log(`[test sandbox] ${sandboxHashKey} still too young, wait 10s`)
+    console.log(`[test sandbox] ${instanceHashKey} still too young, wait 10s`)
 
     res.status(404).send('no ip')
 })
 
-router.get('/sandboxes', async (req, res, next) => {
+router.get('/:provider/instances', async (req, res, next) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req)
-        const sandboxes = await getSandboxes(token, user as User)
+        const provider = databaseProvider(req.params.provider as DatabaseProvider)
+        const instances = await provider.getInstances(token, user as User)
 
-        res.json(sandboxes)
+        res.json(instances)
     } catch (e) {
         next(e)
     }
@@ -127,35 +128,12 @@ router.get('/profile', (req, res) => {
     res.json(user)
 })
 
-router.get('/profile/sandbox', async (req, res, next) => {
-    try {
-        const token = await getToken(req)
-        const user = await getUser(req)
-        const profile = await getUserInfo(token, user as User)
-
-        res.json(profile)
-    } catch (e) {
-        next(e)
-    }
-})
 
 router.get('/profile/oidc', async (req, res, next) => {
     try {
         const user = await req.oidc.fetchUserInfo()
 
         res.json(user)
-    } catch (e) {
-        next(e)
-    }
-})
-
-router.get('/profile/auth0', async (req, res, next) => {
-    try {
-        const token = await getToken(req)
-        const user = await getUser(req)
-        const profile = await getAuth0UserInfo(token, user as User)
-
-        res.json(profile)
     } catch (e) {
         next(e)
     }
@@ -186,12 +164,12 @@ router.get('/email/:template', async (req, res) => {
     }
     course.title_encoded = encodeURIComponent(course.title)
 
-    const sandbox = devSandbox()
+    const instance = devInstance()
 
     const data = {
         user,
         course,
-        sandbox,
+        instance,
         suggestion1: { title: 'Building Foo With Bar', link: '/bar', count: 1215 },
         suggestion2: { title: 'Baz Fundamentals', link: '/baz', count: 798 },
         suggestion3: { title: 'Introduction to Foo', link: '/foo', count: 516 },

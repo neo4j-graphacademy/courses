@@ -1,6 +1,6 @@
 import { ManagedTransaction } from "neo4j-driver";
 import { User, ValidLookupProperty } from "../../model/user";
-import { Sandbox } from "../../model/sandbox";
+import { Instance } from "../../model/instance";
 import { EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_FAILED, STATUS_BOOKMARKED } from "../../model/enrolment";
 import { STATUS_AVAILABLE } from "../rewards/get-rewards";
 import { appendParams } from "../cypher";
@@ -26,7 +26,7 @@ export interface IntermediateEnrolment {
     completedPercentage: number | string;
     certificateId: string | undefined;
     certificateUrl: string | undefined;
-    sandbox?: Sandbox;
+    sandbox?: Instance;
     completedModules: string[];
     completedLessons: string[];
 }

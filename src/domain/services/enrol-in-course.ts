@@ -7,8 +7,8 @@ import { UserEnrolled } from "../events/UserEnrolled";
 import { CourseWithProgress, STATUS_DRAFT } from "../model/course";
 import { Enrolment } from "../model/enrolment";
 import { User } from "../model/user";
-import { createAndSaveSandbox } from "./create-and-save-sandbox";
 import { appendParams, courseCypher } from "./cypher";
+import databaseProvider from "../../modules/instances";
 
 export async function mergeEnrolment(tx: ManagedTransaction, slug: string, user: User, ref: string | undefined, team: string | undefined, allowCertification = true, category?: string) {
     const res = await tx.run<Partial<CourseWithProgress>>(`
@@ -82,7 +82,8 @@ export async function enrolInCourse(slug: string, user: User, token: string, ref
         let sandbox
         if (course.usecase) {
             try {
-                sandbox = await createAndSaveSandbox(token, enrolment.user, course, tx)
+                const provider = databaseProvider(course.databaseProvider)
+                sandbox = await provider.getInstanceForUseCase(token, enrolment.user, course.usecase)
             }
             catch (e: any) {
                 // Continue to course, the course will try to

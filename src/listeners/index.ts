@@ -3,7 +3,7 @@ import { emitter } from '../events'
 import initAnalyticsListeners from '../modules/analytics/analytics.listeners'
 import initEmailListeners from './emails'
 import { AddressInfo } from 'net'
-import initSandboxListeners from '../modules/sandbox/listeners/sandbox.listeners'
+import initInstanceListeners from '../modules/instances/listeners/instance.listeners'
 import initSlackListeners from '../modules/slack/slack.listeners'
 import initCourseListeners from './course'
 
@@ -24,8 +24,8 @@ export default async function initListeners(): Promise<void> {
     // Listeners for Segment
     await initAnalyticsListeners()
 
-    // Init sandbox listeners
-    await initSandboxListeners()
+    // Init instance management listeners
+    await initInstanceListeners()
 
     // Init slack listeners
     initSlackListeners()

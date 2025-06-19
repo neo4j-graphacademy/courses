@@ -1,6 +1,6 @@
 import { notify } from "../../middleware/bugsnag.middleware";
 import { createDriver } from "../../modules/neo4j";
-import { getSandboxForUseCase } from "../../modules/sandbox";
+import databaseProvider, { DatabaseProvider } from "../../modules/instances";
 import { getLessonCypherFile } from "../../utils";
 import { LessonWithProgress } from "../model/lesson";
 import { Answer } from "../model/answer";
@@ -18,6 +18,12 @@ function createAnswer(id: string, reason: string | string[], answers: string[] =
     }]
 }
 
+type VerificationResult = {
+    outcome: boolean;
+    task: string | undefined;
+    reason: string | undefined;
+    answers: string[] | undefined;
+}
 
 export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
     const progress = await getCourseWithProgress(course, user)
@@ -30,7 +36,8 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     const questionId = lessonData?.questions[0]?.slug || '_challenge'
 
     // No sandbox? Return false
-    const sandbox = usecase ? await getSandboxForUseCase(token, user, usecase) : undefined
+    const provider = databaseProvider(progress.databaseProvider)
+    const sandbox = usecase ? await provider.getInstanceForUseCase(token, user, usecase) : undefined
 
     // Answer array
     let answers: Answer[] = createAnswer(questionId, 'Internal Server Error: unknown')
@@ -46,19 +53,12 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
         answers = createAnswer(questionId, `Internal Server Error: Could not find sandbox for usecase ${usecase}`)
     }
     else {
-        const host = `bolt://${sandbox.ip}:${sandbox.boltPort}`
-        const { username, password } = sandbox
-
-        const driver = await createDriver(host, username, password, false)
+        const provider = databaseProvider(progress.databaseProvider)
+        const res = await provider.executeCypher<VerificationResult>(token, user, usecase, verify, {}, 'READERS')
 
         try {
-            await driver.verifyConnectivity()
-            const session = driver.session()
-
-            const res = await session.executeRead(tx => tx.run(verify))
-
             // If no records are returned then the test has failed
-            if (res.records.length > 0) {
+            if (res && res.records.length > 0) {
                 const values = res.records.map(row => ({
                     id: row.has('task') ? row.get('task') : 'verify',
                     correct: row.get('outcome'),
@@ -79,9 +79,8 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
         }
         catch (e: any) {
             notify(e, error => {
-                error.addMetadata('sandbox', {
-                    host,
-                    username,
+                error.addMetadata('instance', {
+                    usecase,
                 })
                 error.addMetadata('course', {
                     course,
@@ -90,7 +89,6 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
                     usecase,
                 })
                 error.addMetadata('query', {
-                    instance: (driver as any)['_address'],
                     type: 'verify',
                     query: verify,
                 })
@@ -101,9 +99,6 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
             void saveSandboxError(user, course, module, lesson, sandbox, e)
 
             answers = createAnswer(questionId, `Internal Server Error: ${e.message}`)
-        }
-        finally {
-            await driver.close()
         }
     }
 

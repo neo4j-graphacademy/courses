@@ -16,7 +16,7 @@ import { Module, ModuleWithProgress } from '../domain/model/module'
 import { Category } from '../domain/model/category'
 import { courseSummaryExists, courseSummaryPdfPath, getStatusDetails } from '../modules/asciidoc'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { getSandboxForUseCase } from '../modules/sandbox'
+import databaseProvider from '../modules/instances/index'
 import { isInt } from 'neo4j-driver'
 import { courseOgBadgeImage, courseOgBannerImage } from '../routes/route.utils'
 import { IntermediateEnrolment } from '../domain/services/enrolments/get-enrolment'
@@ -247,7 +247,7 @@ interface SandboxConfig {
     sandboxUrl: string | undefined
 }
 
-export function getSandboxConfig(
+export function getInstanceConfig(
     course: Course | CourseWithProgress,
     lesson?: Lesson | LessonWithProgress
 ): Promise<SandboxConfig> {
@@ -454,16 +454,17 @@ export async function getPageAttributes(req: Request | undefined, course: Course
     if (req && user && course.usecase && !course.completed) {
         const token = await getToken(req)
 
-        const sandboxConfig = await getSandboxForUseCase(token, user, course.usecase)
+        const provider = databaseProvider(course.databaseProvider)
+        const instance = await provider.getInstanceForUseCase(token, user, course.usecase)
 
-        attributes['sandbox-host'] = sandboxConfig?.host
-        attributes['sandbox-ip'] = sandboxConfig?.ip
-        attributes['sandbox-boltPort'] = sandboxConfig?.boltPort
-        attributes['sandbox-scheme'] = sandboxConfig?.scheme
-        attributes['sandbox-uri'] = `${sandboxConfig?.scheme}://${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
-        attributes['sandbox-username'] = sandboxConfig?.username
-        attributes['sandbox-password'] = sandboxConfig?.password
-        attributes['connect-url'] = `${encodeURIComponent(sandboxConfig?.scheme || 'neo4j+s')}://${sandboxConfig?.username}@${sandboxConfig?.host}:${sandboxConfig?.boltPort}`
+        attributes['instance-host'] = instance?.host
+        attributes['instance-ip'] = instance?.ip
+        attributes['instance-boltPort'] = instance?.boltPort
+        attributes['instance-scheme'] = instance?.scheme
+        attributes['instance-uri'] = `${instance?.scheme}://${instance?.host}:${instance?.boltPort}`
+        attributes['instance-username'] = instance?.username
+        attributes['instance-password'] = instance?.password
+        attributes['connect-url'] = `${encodeURIComponent(instance?.scheme || 'neo4j+s')}://${instance?.username}@${instance?.host}:${instance?.boltPort}`
         attributes['graphql-toolbox'] = `${GRAPHQL_TOOLBOX_URL}?connectURL=${attributes['connect-url']}`
     }
 

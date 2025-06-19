@@ -1,7 +1,7 @@
 import { Category } from "./category";
 import { Course, CourseWithProgress } from "./course";
 import { Module } from "./module";
-import { Sandbox } from "./sandbox";
+import { Instance } from "./instance";
 import { User } from "./user";
 
 
@@ -19,7 +19,7 @@ export interface Enrolment {
     course: Partial<CourseWithProgress>;
     nextModule: Partial<Module>;
     createdAt: Date;
-    sandbox?: Sandbox;
+    sandbox?: Instance;
 }
 
 export type EnrolmentsByStatus = {

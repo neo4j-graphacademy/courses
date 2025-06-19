@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import { createSandbox, getSandboxByHashKey, getSandboxForUseCase, SANDBOX_STATUS_NOT_FOUND } from '../modules/sandbox'
+import databaseProvider, { INSTANCE_STATUS_NOT_FOUND } from '../modules/instances'
 import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSlidesExist, courseSlidesPdfPath, courseSummaryExists } from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
@@ -17,14 +17,13 @@ import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { canonical, courseBannerPath, courseJsonLd, getPageAttributes, getSandboxConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
+import { canonical, courseBannerPath, courseJsonLd, getPageAttributes, getInstanceConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
 import { classroomLocals } from '../middleware/classroom-locals.middleware'
-import { createAndSaveSandbox } from '../domain/services/create-and-save-sandbox'
 import { emitter } from '../events'
 import { UserViewedCourse } from '../domain/events/UserViewedCourse'
 import { UserViewedModule } from '../domain/events/UserViewedModule'
@@ -41,7 +40,7 @@ import { saveQuizFeedback } from '../domain/services/feedback/save-quiz-feedback
 import { getSuggestionsForEnrolment } from '../domain/services/get-suggestions-for-enrolment'
 import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-course'
 import indexable from '../middleware/seo/indexable.middleware'
-import { Sandbox } from '../domain/model/sandbox'
+import { Instance } from '../domain/model/instance'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
 import getChatbot from '../modules/chatbot/chatbot.class'
 import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
@@ -334,7 +333,7 @@ router.get('/:course/illustration', (req, res) => {
  *
  * Create an :Enrolment node between the user and the course within the database
  */
-router.get('/:course/enrol', requiresAuth(), /*requiresVerification,*/ requiredCompletedProfile, async (req, res, next) => {
+router.get('/:course/enrol', requiresAuth(), requiredCompletedProfile, async (req, res, next) => {
     try {
         const user = await getUser(req) as User
         const token = await getToken(req)
@@ -514,35 +513,17 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
     }
 })
 
-const checkSandboxExists = async (user: User, token: string, enrolment: CourseWithProgress): Promise<Sandbox | undefined> => {
+const checkInstanceExists = async (user: User, token: string, enrolment: CourseWithProgress): Promise<Instance | undefined> => {
     // No Usecase?  No Problem
     if (!enrolment.usecase) {
         return Promise.resolve(undefined)
     }
 
-    // No hash key? Create sandbox
-    if (!enrolment.sandbox) {
-        return createAndSaveSandbox(token, user, enrolment)
-    }
-
-    try {
-        const { sandbox, status } = await getSandboxByHashKey(token, user, enrolment.sandbox.sandboxHashKey)
-
-        // If sandbox isn't found (ie, terminated after 3 days), create a new one and create the enrolment node
-        if (status === SANDBOX_STATUS_NOT_FOUND) {
-            const recreated = await createAndSaveSandbox(token, user, enrolment)
-
-            return recreated
-        }
-
-        return sandbox
-    }
-    catch (e) {
-        return createSandbox(token, user, enrolment.usecase)
-    }
+    const provider = databaseProvider(enrolment.databaseProvider)
+    return provider.getOrCreateInstanceForUseCase(token, user, enrolment.usecase, enrolment.vectorOptimized, enrolment.graphAnalyticsPlugin)
 }
 
-router.get('/:course/sandbox.json', requiresAuth(), /*requiresVerification,*/ async (req, res) => {
+router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
     try {
         const token = await getToken(req)
         const user = await getUser(req) as User
@@ -558,14 +539,11 @@ router.get('/:course/sandbox.json', requiresAuth(), /*requiresVerification,*/ as
             return res.status(404)
         }
 
-        // Check Sandbox Exists
-        const sandbox = await checkSandboxExists(user, token, enrolment)
-
-        if (!sandbox) {
+        if (!enrolment.sandbox) {
             throw new NotFoundError(`No sandbox for course ${course}, usecase: ${enrolment.usecase}`)
         }
 
-        res.json(sandbox)
+        res.json(enrolment.sandbox)
     }
     catch (e: any) {
         res.json({
@@ -594,7 +572,7 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         }
 
         // Check that the user has created a sandbox
-        await checkSandboxExists(user, token, course)
+        await checkInstanceExists(user, token, course)
 
         const ga = JSON.stringify({
             user: {
@@ -635,9 +613,9 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
  *
  * Display the patched browser
  */
-router.get('/:course/browser', requiresAuth(), /*requiresVerification,*/ browser)
-router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
-router.get('/:course/:module/:lesson/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/browser', requiresAuth(), browser)
+router.get('/:course/:module/browser', requiresAuth(), browser)
+router.get('/:course/:module/:lesson/browser', requiresAuth(), browser)
 
 const chat = async (req: Request, res: Response) => {
     try {
@@ -667,8 +645,8 @@ const chat = async (req: Request, res: Response) => {
     }
 }
 
-router.post('/:course/:module/chat', requiresAuth(), /*requiresVerification,*/ chat)
-router.post('/:course/:module/:lesson/chat', requiresAuth(), /*requiresVerification,*/ chat)
+router.post('/:course/:module/chat', requiresAuth(), chat)
+router.post('/:course/:module/:lesson/chat', requiresAuth(), chat)
 
 
 /**
@@ -812,7 +790,7 @@ router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => 
  * Pre-fill the login credentials into local storage and then redirect to the
  * patched version of browser hosted at /browser/
  */
-router.get('/:course/:module/browser', requiresAuth(), /*requiresVerification,*/ browser)
+router.get('/:course/:module/browser', requiresAuth(), browser)
 
 
 /**
@@ -850,7 +828,7 @@ router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, force
             showSandbox,
             sandboxVisible,
             sandboxUrl,
-        } = await getSandboxConfig(course)
+        } = await getInstanceConfig(course)
 
         // Emit user viewed module
         emitter.emit(new UserViewedModule(user as User, course, module))
@@ -934,7 +912,7 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVerification,*/ classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
+router.get('/:course/:module/:lesson', indexable, requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -966,7 +944,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
         // Find or create the sandbox
         if (course.usecase && user && course.completed === false) {
             try {
-                await createAndSaveSandbox(token, user, course)
+                await checkInstanceExists(user, token, course)
 
             }
             catch (e: any) {
@@ -989,11 +967,11 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
             showSandbox,
             sandboxVisible,
             sandboxUrl,
-        } = await getSandboxConfig(course, lesson)
+        } = await getInstanceConfig(course, lesson)
 
         // Reset Database?
         if (user && course.usecase && !lesson?.completed) {
-            void resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
+            void resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.databaseProvider, course.usecase)
         }
 
         // Next link in pagination?
@@ -1066,7 +1044,7 @@ router.get('/:course/:module/:lesson', indexable, requiresAuth(), /*requiresVeri
  * Allow the user to reset the database themselves
  *
  */
-router.post('/:course/:module/:lesson/reset/', requiresAuth(), /*requiresVerification,*/ async (req, res, nextfn) => {
+router.post('/:course/:module/:lesson/reset/', requiresAuth(), async (req, res, nextfn) => {
     try {
         const user = await getUser(req)
         const token = await getToken(req)
@@ -1103,7 +1081,7 @@ router.post('/:course/:module/:lesson/reset/', requiresAuth(), /*requiresVerific
 
         // Reset Database?
         if (user && course.usecase && !lesson?.completed) {
-            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.usecase)
+            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.databaseProvider, course.usecase)
         }
 
         // Next link in pagination?
@@ -1267,7 +1245,8 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
         const user = await getUser(req) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
-        const sandbox = await getSandboxForUseCase(token, user, course.usecase as string)
+        const provider = databaseProvider(course.databaseProvider)
+        const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase as string)
 
         // If not enrolled, send to course home
         if (course.enrolled !== true) {
@@ -1340,7 +1319,8 @@ router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res
         const user = await getUser(req) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
-        const sandbox = await getSandboxForUseCase(token, user, course.usecase as string)
+        const provider = databaseProvider(course.databaseProvider)
+        const sandbox = await provider.getInstanceForUseCase(token, user, course.usecase as string)
 
         let redirectTo = `https://llm-graph-builder.neo4jlabs.com/`
 

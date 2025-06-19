@@ -1,11 +1,11 @@
-import { notify } from "../../middleware/bugsnag.middleware";
+import { notify } from "../../../../middleware/bugsnag.middleware";
 import { SandboxBadRequestError } from "./sandbox-bad-request.error";
 import { SandboxForbiddenError } from "./sandbox-forbidden.error";
 import { SandboxServerError } from "./sandbox-server.error";
 import { SandboxUnauthorizedError } from "./sandbox-unauthorized.error";
 import { SandboxUnknownError } from "./sandbox-unknown.error";
-import { write } from "../neo4j";
-import { User } from "../../domain/model/user";
+import { write } from "../../../neo4j";
+import { User } from "../../../../domain/model/user";
 
 export async function handleSandboxError(token: string, user: User, endpoint: string, error: any): Promise<Error> {
     let output: Error
