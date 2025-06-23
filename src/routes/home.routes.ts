@@ -62,11 +62,11 @@ router.get('/', async (req, res, next) => {
                     content: 'app-id=1557747094',
                 },
             ],
-            banner: {
-                text: 'Call for Papers now Open for Nodes 2025',
-                link: 'https://sessionize.com/nodes-2025/',
-                cta: 'Submit your talk',
-            },
+            // banner: {
+            //     text: 'Call for Papers now Open for Nodes 2025',
+            //     link: 'https://sessionize.com/nodes-2025/',
+            //     cta: 'Submit your talk',
+            // },
             translate: translateEn,
         })
     } catch (e) {
