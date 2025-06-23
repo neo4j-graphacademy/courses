@@ -1,51 +1,65 @@
 = What is MCP?
 
-The Model Context Protocol, commonly referred to as MCP, is an open protocol that enables agents and AI applications to work together in a standardized way.
+The link:https://modelcontextprotocol.org[Model Context Protocol^], commonly referred to as MCP, is an open protocol developed by link:https://anthropic.com[Anthropic^] that enables AI agents and assistants to access tools and resources in a standardized way.
 
-Before we dive into MCP, let's familiarise ourselves with the concept of an **Agent**.
+Before you learn more about MCP, it is important to understand the concept of an **Agent**.
 
 == What are Agents?
 
-There are many defintions of an Agent, but for the context of this course, an Agent is a system that **acts independently** to **achieve a specific goal**.
+There are many definitions of an Agent, but for the context of this course, an Agent is a system that **acts independently**, using tool calling to access information and take actions to **achieve a specific goal**.
 
-A common type of framework for building agents is the **ReAct** framework.
-When a ReAct agent receives an input, it will use a Large Language Model (LLM) to **reason** on the problem at hand, and use the descriptions of tools to select the correct tool(s) to solve the problem, and **act** by calling the tools, either in sequence or in parallel, to perform actions.
+A common type of framework for building agents is the **ReAct** framework (Reason/Act).
+When a ReAct agent receives an input, it follows a continuous loop of **planning**, **reasoning**, and **acting** until the goal is achieved.
 
-The agent will continue to reason and act until the goal is achieved.
+image::images/react-agent-diagram.png[ReAct loop]
 
-An example of a tool may be a function that searches the web, calls an external API or uploads a file to a cloud storage service.
+The process begins with **planning**, where the LLM analyzes the task, breaks it down into sub-tasks, extracts required information and parameters, and may elicit additional details from the user if needed. During this phase, the agent determines what tools will be needed and in what sequence they should be called.
+
+Next comes **reasoning**, where the LLM uses the descriptions of available tools to select the correct tool(s) for each sub-task. The agent evaluates which tools are most appropriate based on the current context and requirements.
+
+Finally, the agent **acts** by calling the selected tools, either in sequence or in parallel, to gather information and perform the necessary actions. The results from these tool calls are then fed back into the planning phase, creating a continuous loop where the agent refines its approach based on new information.
+
+An example of a tool may be a function that searches the web, calls an external API, or uploads a file to a cloud storage service.
 
 
 == Where does MCP fit in?
 
-While agents may have access to tools within the scope of their application, MCP provides a standardized way for the agent to consume tools from other providers and either hosted remotely or accessed locally through Standard Input/Output (stdio).
+While agents may have access to tools written directly into their codebase, MCP provides a standardized way for the agent to consume tools built by third parties. 
+An agent could be configured to access a weather API service hosted in the cloud, or connect to a local database tool running on the same machine through Standard Input/Output (stdio).
 
 
 == Architecture
 
-The MCP protocol consists of the following elements.
+The MCP protocol consists of the following elements:
+
+* Servers 
+* Clients 
+* Hosts
 
 === Servers
 
-The protocol follows a client-server archicture, similar to microservices, where **Servers** provide capabilities through a list of **tools**.
+The protocol follows a client-server architecture, similar to microservices, where **Servers** provide capabilities through a list of **tools**.
 Each tool that the server hosts has additional metadata assigned to it, including a unique identifier, a description of when that tool can be used, and a list of parameters that the tool can receive.
+Servers describe the parameters that the tool can receive, and the expected output of the tool.
 
 Along with tools, servers provide access to **Resources**, read-only data that can be consumed by the client.
-Each resource has its own unique URI, similar to an endpoint in a REST API, and can be used to provide quick acess to a record in a database.
+Each resource has its own unique URI, similar to an endpoint in a REST API, and can be used to provide direct access to specific objects with a fixed location.
 
 MCP tools can also provide **Prompt templates**, allowing the client to use pre-written prompts that follow best practices.
 
 
-which are templates that can be used to generate a prompt for the tool.
-
 === Clients 
 
-The second piece of the MCP architecture is the **Client**.
-A client is responsible for managing a one-to-one connection to a server.
+A **Client** is responsible for managing a one-to-one connection to a server.
 
-When a client starts, it will connect to a server, and request a list of tools, resources and prompt templates that the server provides access to.  
+When a client starts, it will connect to a server, and request a list of tools, resources, and prompt templates that the server provides access to.
 
-// It is the responsibility of the client to decide which tool to use, and provide the appropriate parameters to the tool.
+This is a **stateful connection**, meaning the client maintains an ongoing connection to the server throughout its lifecycle. The connection can be established using different transport methods:
+
+* **stdio** - The client starts the server locally and communicates through standard input/output streams
+* **HTTP** - The client connects to a remotely hosted server using HTTP Server Sent Events (SSE) or HTTP streaming
+
+You will learn more about transport methods in the next lesson.
 
 
 === Hosts 
@@ -54,7 +68,8 @@ One or more clients are managed by a **Host**, an application or piece of softwa
 It is the responsibility of the host to decide which tool to use, and provide the appropriate parameters to the tool.
 The host then delegates the responsibility of executing the tool to the client.
 
-An example of a host may be Claude Desktop, Amazon Q, VS Code or Cursor.
+An example of a host may be Claude Desktop, Amazon Q, VS Code, or Cursor.
+Your agent applications are also examples of an MCP host.
 
 
 === Tools 
@@ -69,8 +84,6 @@ For example, a tool for searching the web may be defined as:
 
 // TODO: verify, add more info when other types become available.
 Tools can output a result as text or return Base-64 encoded images.
-
-
 
 
 
