@@ -49,6 +49,7 @@ export class AuraInstanceProvider implements InstanceProvider {
         return {
             id: auraInstance.id,
             hashKey: auraInstance.name,
+            database: auraInstance.database,
             usecase,
             scheme: 'neo4j+s',
             ip: `${auraInstance.id}.databases.neo4j.io`,

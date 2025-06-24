@@ -464,6 +464,7 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         attributes['instance-uri'] = `${instance?.scheme}://${instance?.host}:${instance?.boltPort}`
         attributes['instance-username'] = instance?.username
         attributes['instance-password'] = instance?.password
+        attributes['instance-database'] = instance?.database
         attributes['connect-url'] = `${encodeURIComponent(instance?.scheme || 'neo4j+s')}://${instance?.username}@${instance?.host}:${instance?.boltPort}`
         attributes['graphql-toolbox'] = `${GRAPHQL_TOOLBOX_URL}?connectURL=${attributes['connect-url']}`
     }
