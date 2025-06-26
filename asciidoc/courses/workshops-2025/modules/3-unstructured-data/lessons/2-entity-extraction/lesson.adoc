@@ -1,0 +1,452 @@
+= Advanced Entity Extraction and Relationship Discovery
+:type: lesson
+:order: 2
+:duration: 20 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Implement advanced entity extraction using multiple NLP techniques
+* Discover and model complex relationships between entities
+* Handle entity disambiguation and linking
+* Create rich knowledge graphs from extracted information
+
+== Entity Extraction Strategies
+
+=== Rule-Based Extraction
+
+Rule-based extraction uses patterns and regular expressions to identify specific entity types:
+
+```python
+import re
+from typing import List, Dict
+
+class RuleBasedExtractor:
+    def __init__(self):
+        self.patterns = {
+            'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+            'phone': r'\b(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b',
+            'money': r'\$[\d,]+\.?\d*',
+            'percentage': r'\d+\.?\d*%',
+            'date': r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
+            'company': r'[A-Z][a-z]+ (?:Inc|Corp|LLC|Ltd|Company)\.?',
+            'url': r'https?://[^\s<>"{}|\\^`[\]]+',
+            'ssn': r'\b\d{3}-\d{2}-\d{4}\b'
+        }
+    
+    def extract(self, text: str) -> Dict[str, List[str]]:
+        """Extract entities using rule-based patterns"""
+        entities = {}
+        
+        for entity_type, pattern in self.patterns.items():
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            if matches:
+                entities[entity_type] = list(set(matches))
+        
+        return entities
+
+# Example usage
+extractor = RuleBasedExtractor()
+text = """
+Contact John Smith at john.smith@company.com or 555-123-4567.
+The deal is worth $2.5 million with a 15% commission.
+Meeting scheduled for 12/15/2024 at Acme Corp.
+"""
+
+rule_entities = extractor.extract(text)
+print("Rule-based entities:", rule_entities)
+```
+
+=== Machine Learning-Based Extraction
+
+ML models can handle more complex and context-dependent entity recognition:
+
+```python
+import spacy
+from spacy import displacy
+
+class MLEntityExtractor:
+    def __init__(self, model_name="en_core_web_sm"):
+        self.nlp = spacy.load(model_name)
+    
+    def extract_entities(self, text: str) -> List[Dict]:
+        """Extract entities using spaCy's pre-trained models"""
+        doc = self.nlp(text)
+        entities = []
+        
+        for ent in doc.ents:
+            entities.append({
+                'text': ent.text,
+                'label': ent.label_,
+                'start': ent.start_char,
+                'end': ent.end_char,
+                'confidence': 1.0,  # spaCy doesn't provide confidence
+                'description': spacy.explain(ent.label_)
+            })
+        
+        return entities
+    
+    def extract_custom_entities(self, text: str, custom_patterns: Dict) -> List[Dict]:
+        """Extract entities using custom patterns"""
+        doc = self.nlp(text)
+        entities = []
+        
+        # Add custom entity patterns
+        for pattern_name, pattern in custom_patterns.items():
+            matches = pattern.finditer(text)
+            for match in matches:
+                entities.append({
+                    'text': match.group(),
+                    'label': pattern_name.upper(),
+                    'start': match.start(),
+                    'end': match.end(),
+                    'confidence': 0.9,
+                    'description': f'Custom {pattern_name} entity'
+                })
+        
+        return entities
+
+# Financial entity extraction example
+ml_extractor = MLEntityExtractor()
+financial_text = """
+Goldman Sachs CEO David Solomon announced Q3 earnings of $3.2B.
+The investment bank's London office, led by Managing Director Sarah Williams,
+reported 15% growth in trading revenue compared to Q2 2024.
+"""
+
+ml_entities = ml_extractor.extract_entities(financial_text)
+print("ML-based entities:")
+for entity in ml_entities:
+    print(f"  {entity['text']} ({entity['label']}) - {entity['description']}")
+```
+
+=== Hybrid Approach
+
+Combining rule-based and ML approaches provides the best results:
+
+```python
+class HybridEntityExtractor:
+    def __init__(self):
+        self.rule_extractor = RuleBasedExtractor()
+        self.ml_extractor = MLEntityExtractor()
+    
+    def extract_all_entities(self, text: str) -> Dict:
+        """Extract entities using both rule-based and ML approaches"""
+        
+        # Get rule-based entities
+        rule_entities = self.rule_extractor.extract(text)
+        
+        # Get ML entities
+        ml_entities = self.ml_extractor.extract_entities(text)
+        
+        # Combine and deduplicate
+        combined_entities = {
+            'rule_based': rule_entities,
+            'ml_based': ml_entities,
+            'combined': self._merge_entities(rule_entities, ml_entities)
+        }
+        
+        return combined_entities
+    
+    def _merge_entities(self, rule_entities: Dict, ml_entities: List[Dict]) -> List[Dict]:
+        """Merge and deduplicate entities from different extractors"""
+        merged = []
+        
+        # Add ML entities first
+        merged.extend(ml_entities)
+        
+        # Add rule-based entities that don't overlap
+        for entity_type, entities in rule_entities.items():
+            for entity_text in entities:
+                # Check for overlap with existing entities
+                overlaps = False
+                for existing in merged:
+                    if self._entities_overlap(entity_text, existing['text']):
+                        overlaps = True
+                        break
+                
+                if not overlaps:
+                    merged.append({
+                        'text': entity_text,
+                        'label': entity_type.upper(),
+                        'confidence': 0.95,
+                        'source': 'rule_based'
+                    })
+        
+        return merged
+    
+    def _entities_overlap(self, text1: str, text2: str) -> bool:
+        """Check if two entity texts overlap significantly"""
+        text1_lower = text1.lower()
+        text2_lower = text2.lower()
+        
+        # Check for exact match or containment
+        return text1_lower == text2_lower or text1_lower in text2_lower or text2_lower in text1_lower
+
+# Example usage
+hybrid_extractor = HybridEntityExtractor()
+results = hybrid_extractor.extract_all_entities(financial_text)
+
+print("Combined entity extraction results:")
+for entity in results['combined']:
+    source = entity.get('source', 'ml_based')
+    print(f"  {entity['text']} ({entity['label']}) - Source: {source}")
+```
+
+== Relationship Discovery
+
+=== Dependency-Based Relationships
+
+Using syntactic dependencies to discover relationships:
+
+```python
+class RelationshipExtractor:
+    def __init__(self):
+        self.nlp = spacy.load("en_core_web_sm")
+    
+    def extract_dependencies(self, text: str) -> List[Dict]:
+        """Extract relationships using dependency parsing"""
+        doc = self.nlp(text)
+        relationships = []
+        
+        for token in doc:
+            if token.dep_ in ['nsubj', 'nsubjpass'] and token.head.pos_ == 'VERB':
+                # Subject-Verb relationship
+                obj = self._find_object(token.head)
+                if obj:
+                    relationships.append({
+                        'subject': token.text,
+                        'predicate': token.head.lemma_,
+                        'object': obj.text,
+                        'type': 'dependency',
+                        'confidence': 0.8
+                    })
+        
+        return relationships
+    
+    def _find_object(self, verb_token):
+        """Find the object of a verb"""
+        for child in verb_token.children:
+            if child.dep_ in ['dobj', 'pobj', 'attr']:
+                return child
+        return None
+    
+    def extract_semantic_relationships(self, text: str, entities: List[Dict]) -> List[Dict]:
+        """Extract semantic relationships between identified entities"""
+        doc = self.nlp(text)
+        relationships = []
+        
+        # Create entity spans for easier processing
+        entity_spans = []
+        for entity in entities:
+            if 'start' in entity and 'end' in entity:
+                span = doc.char_span(entity['start'], entity['end'], label=entity['label'])
+                if span:
+                    entity_spans.append((span, entity))
+        
+        # Find relationships between entities
+        for i, (span1, entity1) in enumerate(entity_spans):
+            for span2, entity2 in entity_spans[i+1:]:
+                relationship = self._determine_relationship(span1, span2, doc)
+                if relationship:
+                    relationships.append({
+                        'subject': entity1['text'],
+                        'subject_type': entity1['label'],
+                        'predicate': relationship,
+                        'object': entity2['text'],
+                        'object_type': entity2['label'],
+                        'type': 'semantic',
+                        'confidence': 0.7
+                    })
+        
+        return relationships
+    
+    def _determine_relationship(self, span1, span2, doc):
+        """Determine relationship between two entity spans"""
+        # Find verbs between the entities
+        start_idx = min(span1.start, span2.start)
+        end_idx = max(span1.end, span2.end)
+        
+        verbs = []
+        for token in doc[start_idx:end_idx]:
+            if token.pos_ == 'VERB':
+                verbs.append(token.lemma_)
+        
+        if verbs:
+            return '_'.join(verbs).upper()
+        
+        # Default relationship based on entity types
+        return self._default_relationship(span1.label_, span2.label_)
+    
+    def _default_relationship(self, label1: str, label2: str) -> str:
+        """Provide default relationships based on entity types"""
+        relationship_map = {
+            ('PERSON', 'ORG'): 'WORKS_FOR',
+            ('PERSON', 'GPE'): 'LIVES_IN',
+            ('ORG', 'GPE'): 'LOCATED_IN',
+            ('PERSON', 'PERSON'): 'KNOWS',
+            ('ORG', 'MONEY'): 'HAS_VALUE',
+            ('PERSON', 'DATE'): 'ASSOCIATED_WITH'
+        }
+        
+        return relationship_map.get((label1, label2), 'RELATED_TO')
+
+# Example usage
+rel_extractor = RelationshipExtractor()
+dependencies = rel_extractor.extract_dependencies(financial_text)
+semantic_rels = rel_extractor.extract_semantic_relationships(financial_text, ml_entities)
+
+print("Dependency relationships:")
+for rel in dependencies:
+    print(f"  {rel['subject']} --{rel['predicate']}--> {rel['object']}")
+
+print("\nSemantic relationships:")
+for rel in semantic_rels:
+    print(f"  {rel['subject']} ({rel['subject_type']}) --{rel['predicate']}--> {rel['object']} ({rel['object_type']})")
+```
+
+== Entity Disambiguation and Linking
+
+=== Entity Resolution
+
+Handling cases where the same entity appears with different names:
+
+```python
+from difflib import SequenceMatcher
+from collections import defaultdict
+
+class EntityLinker:
+    def __init__(self, similarity_threshold=0.8):
+        self.similarity_threshold = similarity_threshold
+        self.entity_aliases = defaultdict(set)
+    
+    def link_entities(self, entities: List[Dict]) -> Dict:
+        """Link similar entities together"""
+        linked_entities = {}
+        entity_groups = []
+        
+        for entity in entities:
+            entity_text = entity['text']
+            entity_type = entity['label']
+            
+            # Find existing group for this entity
+            found_group = False
+            for group in entity_groups:
+                if self._should_link(entity_text, group['canonical_name'], entity_type, group['type']):
+                    group['aliases'].add(entity_text)
+                    group['entities'].append(entity)
+                    found_group = True
+                    break
+            
+            if not found_group:
+                # Create new group
+                entity_groups.append({
+                    'canonical_name': entity_text,
+                    'type': entity_type,
+                    'aliases': {entity_text},
+                    'entities': [entity]
+                })
+        
+        # Convert to final format
+        for group in entity_groups:
+            canonical = group['canonical_name']
+            linked_entities[canonical] = {
+                'canonical_name': canonical,
+                'type': group['type'],
+                'aliases': list(group['aliases']),
+                'entities': group['entities'],
+                'confidence': self._calculate_group_confidence(group['entities'])
+            }
+        
+        return linked_entities
+    
+    def _should_link(self, entity1: str, entity2: str, type1: str, type2: str) -> bool:
+        """Determine if two entities should be linked"""
+        # Must be same type
+        if type1 != type2:
+            return False
+        
+        # Calculate string similarity
+        similarity = SequenceMatcher(None, entity1.lower(), entity2.lower()).ratio()
+        
+        # Check for acronyms (e.g., "AI" and "Artificial Intelligence")
+        if self._is_acronym_match(entity1, entity2):
+            return True
+        
+        return similarity >= self.similarity_threshold
+    
+    def _is_acronym_match(self, text1: str, text2: str) -> bool:
+        """Check if one text is an acronym of another"""
+        short, long = (text1, text2) if len(text1) < len(text2) else (text2, text1)
+        
+        if len(short) <= 1:
+            return False
+        
+        words = long.split()
+        if len(words) < 2:
+            return False
+        
+        acronym = ''.join(word[0].upper() for word in words)
+        return short.upper() == acronym
+    
+    def _calculate_group_confidence(self, entities: List[Dict]) -> float:
+        """Calculate confidence for entity group"""
+        if not entities:
+            return 0.0
+        
+        confidences = [e.get('confidence', 0.5) for e in entities]
+        return sum(confidences) / len(confidences)
+
+# Example usage
+entity_linker = EntityLinker()
+
+# Sample entities with variations
+sample_entities = [
+    {'text': 'Goldman Sachs', 'label': 'ORG', 'confidence': 0.95},
+    {'text': 'Goldman Sachs Group Inc', 'label': 'ORG', 'confidence': 0.90},
+    {'text': 'GS', 'label': 'ORG', 'confidence': 0.70},
+    {'text': 'David Solomon', 'label': 'PERSON', 'confidence': 0.95},
+    {'text': 'Solomon', 'label': 'PERSON', 'confidence': 0.80},
+    {'text': 'AI', 'label': 'TECH', 'confidence': 0.85},
+    {'text': 'Artificial Intelligence', 'label': 'TECH', 'confidence': 0.90}
+]
+
+linked = entity_linker.link_entities(sample_entities)
+
+print("Linked entities:")
+for canonical, group in linked.items():
+    print(f"  {canonical} ({group['type']})")
+    print(f"    Aliases: {', '.join(group['aliases'])}")
+    print(f"    Confidence: {group['confidence']:.2f}")
+```
+
+== Knowledge Check
+
+Which entity extraction approach would be best for processing legal documents?
+
+( ) Rule-based only
+( ) ML-based only  
+(x) Hybrid approach with domain-specific rules
+( ) Simple regex patterns
+
+[%collapsible]
+.Explanation
+====
+Legal documents require a hybrid approach because:
+- **Domain-specific rules** catch legal terminology and citation patterns
+- **ML models** handle general entities (people, organizations, dates)
+- **Legal precision** demands rule-based validation for critical information
+- **Consistency** across document types is essential for legal applications
+====
+
+== Summary
+
+Advanced entity extraction combines multiple techniques to achieve high accuracy and coverage. Key principles:
+
+- **Use hybrid approaches** combining rule-based and ML methods
+- **Implement entity linking** to resolve variations and aliases
+- **Extract semantic relationships** using dependency parsing and domain knowledge
+- **Validate results** using confidence scores and human review
+
+The next lesson will focus on creating vector embeddings for semantic understanding and similarity matching.

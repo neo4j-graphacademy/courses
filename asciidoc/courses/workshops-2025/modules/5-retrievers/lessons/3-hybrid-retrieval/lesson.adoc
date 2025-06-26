@@ -1,0 +1,760 @@
+= Hybrid Retrieval Systems for Financial Intelligence
+:type: lesson
+:order: 3
+:duration: 30 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Design hybrid retrieval systems combining vector search and graph traversal
+* Implement intelligent routing between different retrieval strategies
+* Build multi-modal retrievers that handle both structured and unstructured financial data
+* Optimize retrieval performance for complex financial queries
+
+== Introduction to Hybrid Retrieval
+
+Hybrid retrieval combines multiple retrieval strategies to leverage the strengths of each approach. In financial analysis, this means combining:
+
+* **Vector Search**: For semantic similarity and concept matching
+* **Graph Traversal**: For relationship-based discovery and network analysis
+* **Keyword Search**: For exact matches and specific terminology
+* **Structured Queries**: For precise data filtering and aggregation
+
+=== Why Hybrid Approaches for Financial Data?
+
+Financial analysis requires different types of information retrieval:
+
+```python
+# Different query types require different retrieval strategies
+financial_query_types = {
+    'semantic_queries': {
+        'examples': [
+            "What are the main competitive advantages of tech companies?",
+            "How do companies describe their AI strategy?",
+            "What regulatory challenges are mentioned in filings?"
+        ],
+        'best_approach': 'Vector search + document chunks',
+        'reasoning': 'Concepts and themes are expressed in various ways'
+    },
+    'relationship_queries': {
+        'examples': [
+            "Which asset managers hold companies with cybersecurity risks?",
+            "How are technology companies connected through shared investors?",
+            "What products are mentioned by companies facing supply chain risks?"
+        ],
+        'best_approach': 'Graph traversal + entity relationships',
+        'reasoning': 'Explicit connections between entities'
+    },
+    'analytical_queries': {
+        'examples': [
+            "Compare revenue growth across technology companies",
+            "Which companies have the highest market cap in our dataset?",
+            "What are the asset allocation patterns by investment firm?"
+        ],
+        'best_approach': 'Structured queries + aggregation',
+        'reasoning': 'Numerical data and calculations'
+    },
+    'hybrid_queries': {
+        'examples': [
+            "Find technology companies with strong AI capabilities that face cybersecurity risks",
+            "Identify undervalued companies in ESG-focused portfolios",
+            "Analyze competitive positioning in cloud computing market"
+        ],
+        'best_approach': 'Combined vector + graph + structured',
+        'reasoning': 'Multiple information dimensions required'
+    }
+}
+
+print("Financial Query Types and Optimal Retrieval Strategies:")
+for query_type, details in financial_query_types.items():
+    print(f"\n{query_type.replace('_', ' ').title()}:")
+    print(f"  Best Approach: {details['best_approach']}")
+    print(f"  Reasoning: {details['reasoning']}")
+    print(f"  Example: {details['examples'][0]}")
+```
+
+== Intelligent Query Router
+
+The first component of a hybrid retrieval system is an intelligent router that determines which retrieval strategy to use based on the query characteristics.
+
+=== Query Classification and Routing
+
+```python
+import re
+from typing import Dict, List, Tuple
+from enum import Enum
+from sentence_transformers import SentenceTransformer
+
+class QueryType(Enum):
+    SEMANTIC = "semantic"
+    RELATIONSHIP = "relationship"
+    ANALYTICAL = "analytical"
+    HYBRID = "hybrid"
+
+class FinancialQueryRouter:
+    def __init__(self):
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # Define query patterns and keywords
+        self.patterns = {
+            QueryType.RELATIONSHIP: [
+                r'\b(connect|relationship|link|associate|hold|own)\b',
+                r'\b(through|via|between|among)\b',
+                r'\b(portfolio|investment|holding|shareholder)\b',
+                r'\b(asset manager|institutional investor)\b'
+            ],
+            QueryType.ANALYTICAL: [
+                r'\b(compare|calculation|ratio|percentage|growth|trend)\b',
+                r'\b(highest|lowest|average|total|sum|count)\b',
+                r'\b(revenue|profit|assets|market cap|valuation)\b',
+                r'\b(financial metric|performance|earnings)\b'
+            ],
+            QueryType.SEMANTIC: [
+                r'\b(strategy|approach|advantage|challenge|opportunity)\b',
+                r'\b(describe|explain|discuss|mention|indicate)\b',
+                r'\b(artificial intelligence|machine learning|AI|ML)\b',
+                r'\b(competitive|innovation|technology|digital)\b'
+            ]
+        }
+        
+        # Example queries for similarity matching
+        self.example_queries = {
+            QueryType.RELATIONSHIP: [
+                "Which asset managers hold NVIDIA stock?",
+                "Find companies connected through shared investors",
+                "How are tech companies linked through partnerships?"
+            ],
+            QueryType.ANALYTICAL: [
+                "Compare revenue growth rates across companies",
+                "Calculate average portfolio value by asset manager", 
+                "What is the total market cap of held companies?"
+            ],
+            QueryType.SEMANTIC: [
+                "What are the main competitive advantages mentioned?",
+                "How do companies describe their AI strategy?",
+                "What regulatory challenges are discussed in filings?"
+            ]
+        }
+    
+    def classify_query(self, query: str) -> Tuple[QueryType, float]:
+        """Classify query type and return confidence score"""
+        
+        # Pattern-based classification
+        pattern_scores = {}
+        query_lower = query.lower()
+        
+        for query_type, patterns in self.patterns.items():
+            score = 0
+            for pattern in patterns:
+                matches = len(re.findall(pattern, query_lower))
+                score += matches
+            pattern_scores[query_type] = score
+        
+        # Semantic similarity classification
+        semantic_scores = {}
+        query_embedding = self.model.encode([query])
+        
+        for query_type, examples in self.example_queries.items():
+            example_embeddings = self.model.encode(examples)
+            similarities = self.model.similarity(query_embedding, example_embeddings)
+            semantic_scores[query_type] = float(similarities.max())
+        
+        # Combine scores (weighted)
+        final_scores = {}
+        for query_type in QueryType:
+            pattern_score = pattern_scores.get(query_type, 0) / 10  # Normalize
+            semantic_score = semantic_scores.get(query_type, 0)
+            final_scores[query_type] = (pattern_score * 0.3) + (semantic_score * 0.7)
+        
+        # Determine if it's a hybrid query (multiple high scores)
+        high_scores = [qt for qt, score in final_scores.items() if score > 0.4]
+        if len(high_scores) > 1:
+            return QueryType.HYBRID, max(final_scores.values())
+        
+        best_type = max(final_scores, key=final_scores.get)
+        confidence = final_scores[best_type]
+        
+        return best_type, confidence
+    
+    def route_query(self, query: str) -> Dict:
+        """Route query to appropriate retrieval strategy"""
+        
+        query_type, confidence = self.classify_query(query)
+        
+        routing_strategy = {
+            QueryType.SEMANTIC: {
+                'primary': 'vector_search',
+                'secondary': ['keyword_search'],
+                'data_sources': ['document_chunks', 'entity_descriptions']
+            },
+            QueryType.RELATIONSHIP: {
+                'primary': 'graph_traversal',
+                'secondary': ['vector_search'],
+                'data_sources': ['entity_relationships', 'network_structure']
+            },
+            QueryType.ANALYTICAL: {
+                'primary': 'structured_query',
+                'secondary': ['aggregation'],
+                'data_sources': ['financial_metrics', 'holdings_data']
+            },
+            QueryType.HYBRID: {
+                'primary': 'multi_modal',
+                'secondary': ['vector_search', 'graph_traversal', 'structured_query'],
+                'data_sources': ['document_chunks', 'entity_relationships', 'financial_metrics']
+            }
+        }
+        
+        return {
+            'query': query,
+            'classified_type': query_type.value,
+            'confidence': confidence,
+            'routing_strategy': routing_strategy[query_type],
+            'recommended_approach': self._get_approach_details(query_type)
+        }
+    
+    def _get_approach_details(self, query_type: QueryType) -> Dict:
+        """Get detailed approach for each query type"""
+        
+        approaches = {
+            QueryType.SEMANTIC: {
+                'description': 'Use vector embeddings to find semantically similar content',
+                'steps': [
+                    'Generate query embedding',
+                    'Search document chunks using vector index',
+                    'Rank by cosine similarity',
+                    'Extract relevant context'
+                ]
+            },
+            QueryType.RELATIONSHIP: {
+                'description': 'Traverse graph relationships to find connected information',
+                'steps': [
+                    'Identify query entities',
+                    'Find relationship paths',
+                    'Expand context through connections',
+                    'Aggregate relationship data'
+                ]
+            },
+            QueryType.ANALYTICAL: {
+                'description': 'Execute structured queries on financial data',
+                'steps': [
+                    'Parse numerical requirements',
+                    'Build aggregation queries',
+                    'Execute calculations',
+                    'Format results with context'
+                ]
+            },
+            QueryType.HYBRID: {
+                'description': 'Combine multiple retrieval strategies for comprehensive results',
+                'steps': [
+                    'Decompose query into sub-queries',
+                    'Route each sub-query appropriately',
+                    'Execute parallel retrieval',
+                    'Merge and rank results'
+                ]
+            }
+        }
+        
+        return approaches[query_type]
+
+# Example usage
+router = FinancialQueryRouter()
+
+# Test different query types
+test_queries = [
+    "What are the main AI strategies mentioned by technology companies?",  # Semantic
+    "Which asset managers hold companies that face cybersecurity risks?",  # Relationship
+    "Compare the total portfolio values of different asset managers",       # Analytical
+    "Find undervalued AI companies with strong growth potential"           # Hybrid
+]
+
+print("Query Routing Analysis:")
+for query in test_queries:
+    routing = router.route_query(query)
+    print(f"\nQuery: {query}")
+    print(f"Type: {routing['classified_type']} (confidence: {routing['confidence']:.3f})")
+    print(f"Primary Strategy: {routing['routing_strategy']['primary']}")
+    print(f"Data Sources: {', '.join(routing['routing_strategy']['data_sources'])}")
+```
+
+== Multi-Modal Hybrid Retriever
+
+Now let's implement a comprehensive hybrid retriever that can handle all query types using the GraphRAG ebook financial dataset.
+
+=== Core Hybrid Retrieval Engine
+
+```python
+from neo4j import GraphDatabase
+from sentence_transformers import SentenceTransformer
+import pandas as pd
+from typing import Dict, List, Optional, Union
+import json
+
+class FinancialHybridRetriever:
+    def __init__(self, uri: str, username: str, password: str):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.router = FinancialQueryRouter()
+    
+    def retrieve(self, query: str, max_results: int = 10) -> Dict:
+        """Main retrieval interface - routes and executes appropriate strategy"""
+        
+        # Route the query
+        routing = self.router.route_query(query)
+        query_type = routing['classified_type']
+        
+        # Execute appropriate retrieval strategy
+        if query_type == 'semantic':
+            results = self._semantic_retrieval(query, max_results)
+        elif query_type == 'relationship':
+            results = self._relationship_retrieval(query, max_results)
+        elif query_type == 'analytical':
+            results = self._analytical_retrieval(query, max_results)
+        else:  # hybrid
+            results = self._hybrid_retrieval(query, max_results)
+        
+        return {
+            'query': query,
+            'routing_info': routing,
+            'results': results,
+            'retrieval_metadata': {
+                'total_results': len(results.get('items', [])),
+                'strategy_used': query_type,
+                'execution_time': None  # Could add timing
+            }
+        }
+    
+    def _semantic_retrieval(self, query: str, max_results: int) -> Dict:
+        """Retrieve using vector similarity on document chunks"""
+        
+        query_embedding = self.model.encode([query])[0].tolist()
+        
+        # Search document chunks
+        chunk_query = """
+        CALL db.index.vector.queryNodes('chunkEmbeddings', $max_results, $query_embedding)
+        YIELD node AS chunk, score
+        
+        // Get document and company context
+        MATCH (doc:Document)-[:HAS_CHUNK]->(chunk)
+        OPTIONAL MATCH (company:Company)-[:FILED]->(doc)
+        
+        RETURN chunk.text AS chunk_text,
+               chunk.position AS chunk_position,
+               doc.id AS document_id,
+               company.name AS company_name,
+               company.ticker AS ticker,
+               score AS similarity_score
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(chunk_query,
+                               query_embedding=query_embedding,
+                               max_results=max_results)
+            chunks = [dict(record) for record in result]
+        
+        # Enhance with entity context
+        enhanced_chunks = self._enhance_with_entity_context(chunks)
+        
+        return {
+            'strategy': 'semantic_vector_search',
+            'items': enhanced_chunks,
+            'summary': f"Found {len(enhanced_chunks)} semantically relevant document chunks"
+        }
+    
+    def _relationship_retrieval(self, query: str, max_results: int) -> Dict:
+        """Retrieve using graph relationship traversal"""
+        
+        # Extract entities from query (simplified - could use NER)
+        entities = self._extract_entities_from_query(query)
+        
+        relationship_results = []
+        
+        # If specific entities found, traverse from them
+        if entities:
+            for entity in entities[:3]:  # Limit to avoid explosion
+                paths = self._find_entity_relationship_paths(entity, max_depth=3)
+                relationship_results.extend(paths)
+        else:
+            # General relationship patterns
+            relationship_results = self._find_general_relationship_patterns(query, max_results)
+        
+        return {
+            'strategy': 'graph_relationship_traversal',
+            'items': relationship_results[:max_results],
+            'summary': f"Found {len(relationship_results)} relationship-based connections",
+            'entities_found': entities
+        }
+    
+    def _analytical_retrieval(self, query: str, max_results: int) -> Dict:
+        """Retrieve using structured data queries and aggregations"""
+        
+        # Determine what kind of analysis is needed
+        analysis_type = self._determine_analysis_type(query)
+        
+        if analysis_type == 'portfolio_analysis':
+            results = self._portfolio_analysis_query(query)
+        elif analysis_type == 'company_comparison':
+            results = self._company_comparison_query(query)
+        elif analysis_type == 'financial_metrics':
+            results = self._financial_metrics_query(query)
+        else:
+            results = self._general_analytical_query(query)
+        
+        return {
+            'strategy': 'structured_analytical_query',
+            'items': results[:max_results],
+            'summary': f"Executed {analysis_type} returning {len(results)} analytical results",
+            'analysis_type': analysis_type
+        }
+    
+    def _hybrid_retrieval(self, query: str, max_results: int) -> Dict:
+        """Combine multiple retrieval strategies for comprehensive results"""
+        
+        # Decompose query into sub-components
+        sub_queries = self._decompose_hybrid_query(query)
+        
+        all_results = []
+        strategy_results = {}
+        
+        # Execute each sub-query with appropriate strategy
+        for sub_query, suggested_strategy in sub_queries:
+            if suggested_strategy == 'semantic':
+                results = self._semantic_retrieval(sub_query, max_results // 3)
+            elif suggested_strategy == 'relationship':
+                results = self._relationship_retrieval(sub_query, max_results // 3)
+            elif suggested_strategy == 'analytical':
+                results = self._analytical_retrieval(sub_query, max_results // 3)
+            
+            strategy_results[suggested_strategy] = results
+            all_results.extend(results['items'])
+        
+        # Merge and re-rank results
+        merged_results = self._merge_and_rank_results(all_results, query)
+        
+        return {
+            'strategy': 'hybrid_multi_modal',
+            'items': merged_results[:max_results],
+            'summary': f"Combined multiple strategies yielding {len(merged_results)} total results",
+            'sub_strategies': strategy_results,
+            'sub_queries': sub_queries
+        }
+    
+    def _enhance_with_entity_context(self, chunks: List[Dict]) -> List[Dict]:
+        """Enhance chunk results with related entity information"""
+        
+        enhanced = []
+        for chunk in chunks:
+            # Get related entities for this chunk's company
+            if chunk.get('company_name'):
+                entity_context = self._get_company_entity_context(chunk['company_name'])
+                chunk['entity_context'] = entity_context
+            enhanced.append(chunk)
+        
+        return enhanced
+    
+    def _get_company_entity_context(self, company_name: str) -> Dict:
+        """Get entity context for a company"""
+        
+        context_query = """
+        MATCH (c:Company {name: $company_name})
+        OPTIONAL MATCH (c)-[:HAS_METRIC]->(metric:FinancialMetric)
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)
+        OPTIONAL MATCH (c)-[:MENTIONS]->(product:Product)
+        OPTIONAL MATCH (c)<-[:HOLDS]-(am:AssetManager)
+        
+        RETURN c.name AS company,
+               c.ticker AS ticker,
+               collect(DISTINCT metric.name) AS financial_metrics,
+               collect(DISTINCT risk.name) AS risk_factors,
+               collect(DISTINCT product.name) AS products,
+               collect(DISTINCT am.name) AS asset_managers
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(context_query, company_name=company_name)
+            record = result.single()
+            return dict(record) if record else {}
+    
+    def _extract_entities_from_query(self, query: str) -> List[str]:
+        """Extract potential entity names from query (simplified implementation)"""
+        
+        # Get known entities from database
+        entity_query = """
+        MATCH (n)
+        WHERE n.name IS NOT NULL
+        RETURN DISTINCT n.name AS entity_name, labels(n)[0] AS entity_type
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(entity_query)
+            known_entities = [record['entity_name'] for record in result]
+        
+        # Find entities mentioned in query
+        query_upper = query.upper()
+        found_entities = []
+        for entity in known_entities:
+            if entity.upper() in query_upper:
+                found_entities.append(entity)
+        
+        return found_entities
+    
+    def _find_entity_relationship_paths(self, entity: str, max_depth: int = 3) -> List[Dict]:
+        """Find relationship paths from a specific entity"""
+        
+        path_query = f"""
+        MATCH (start {{name: $entity}})
+        MATCH path = (start)-[*1..{max_depth}]-(related)
+        WHERE start <> related
+        
+        WITH path, relationships(path) AS rels, nodes(path) AS path_nodes
+        RETURN start.name AS source_entity,
+               related.name AS target_entity,
+               labels(related)[0] AS target_type,
+               [r IN rels | type(r)] AS relationship_types,
+               length(path) AS path_length
+        ORDER BY path_length, target_entity
+        LIMIT 20
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(path_query, entity=entity)
+            return [dict(record) for record in result]
+    
+    def _determine_analysis_type(self, query: str) -> str:
+        """Determine what type of analytical query this is"""
+        
+        query_lower = query.lower()
+        
+        if any(term in query_lower for term in ['portfolio', 'holdings', 'asset manager']):
+            return 'portfolio_analysis'
+        elif any(term in query_lower for term in ['compare', 'comparison', 'versus', 'vs']):
+            return 'company_comparison'
+        elif any(term in query_lower for term in ['revenue', 'profit', 'financial', 'metric']):
+            return 'financial_metrics'
+        else:
+            return 'general_analysis'
+    
+    def _portfolio_analysis_query(self, query: str) -> List[Dict]:
+        """Execute portfolio analysis queries"""
+        
+        portfolio_query = """
+        MATCH (am:AssetManager)-[holds:HOLDS]->(c:Company)
+        
+        WITH am,
+             count(c) AS total_holdings,
+             sum(holds.Value) AS total_portfolio_value,
+             avg(holds.Value) AS avg_holding_value,
+             collect({
+                 company: c.name,
+                 ticker: c.ticker,
+                 value: holds.Value,
+                 shares: holds.shares
+             }) AS holdings_detail
+        
+        RETURN am.name AS asset_manager,
+               total_holdings,
+               total_portfolio_value,
+               avg_holding_value,
+               holdings_detail
+        ORDER BY total_portfolio_value DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(portfolio_query)
+            return [dict(record) for record in result]
+    
+    def _merge_and_rank_results(self, all_results: List[Dict], original_query: str) -> List[Dict]:
+        """Merge results from different strategies and re-rank by relevance"""
+        
+        # Simple scoring based on result type and content relevance
+        scored_results = []
+        
+        for result in all_results:
+            score = 0
+            
+            # Base score by result type
+            if 'similarity_score' in result:
+                score += result['similarity_score']
+            elif 'path_length' in result:
+                score += 1.0 / (result['path_length'] + 1)  # Shorter paths = higher score
+            else:
+                score += 0.5  # Default for analytical results
+            
+            # Content relevance boost
+            content = str(result.get('chunk_text', '') + 
+                         result.get('source_entity', '') + 
+                         result.get('company_name', ''))
+            
+            query_terms = original_query.lower().split()
+            content_lower = content.lower()
+            term_matches = sum(1 for term in query_terms if term in content_lower)
+            score += term_matches * 0.1
+            
+            result['hybrid_score'] = score
+            scored_results.append(result)
+        
+        # Sort by hybrid score
+        scored_results.sort(key=lambda x: x['hybrid_score'], reverse=True)
+        return scored_results
+
+# Example usage with real financial queries
+hybrid_retriever = FinancialHybridRetriever("bolt://localhost:7687", "neo4j", "password")
+
+# Test different types of queries
+test_queries = [
+    "What artificial intelligence strategies are mentioned by technology companies?",
+    "Which asset managers hold companies that face cybersecurity risks?", 
+    "Compare the portfolio values of different asset management firms",
+    "Find technology companies with strong AI capabilities that have high institutional ownership"
+]
+
+print("Hybrid Retrieval Results:")
+print("=" * 60)
+
+for query in test_queries:
+    print(f"\nQuery: {query}")
+    result = hybrid_retriever.retrieve(query, max_results=5)
+    
+    print(f"Strategy Used: {result['retrieval_metadata']['strategy_used']}")
+    print(f"Total Results: {result['retrieval_metadata']['total_results']}")
+    print(f"Summary: {result['results']['summary']}")
+    
+    # Show top result details
+    if result['results']['items']:
+        top_result = result['results']['items'][0]
+        print(f"Top Result: {str(top_result)[:200]}...")
+```
+
+== Performance Optimization Strategies
+
+=== Caching and Result Optimization
+
+```python
+import hashlib
+from functools import lru_cache
+import time
+
+class OptimizedHybridRetriever(FinancialHybridRetriever):
+    def __init__(self, uri: str, username: str, password: str):
+        super().__init__(uri, username, password)
+        self.query_cache = {}
+        self.entity_cache = {}
+        
+    @lru_cache(maxsize=100)
+    def _cached_vector_search(self, query_hash: str, query_embedding_str: str, max_results: int):
+        """Cache vector search results for identical queries"""
+        query_embedding = eval(query_embedding_str)  # Convert string back to list
+        
+        # Execute the actual vector search
+        return self._execute_vector_search(query_embedding, max_results)
+    
+    def _execute_vector_search(self, query_embedding: List[float], max_results: int):
+        """Execute vector search with caching"""
+        
+        chunk_query = """
+        CALL db.index.vector.queryNodes('chunkEmbeddings', $max_results, $query_embedding)
+        YIELD node AS chunk, score
+        
+        MATCH (doc:Document)-[:HAS_CHUNK]->(chunk)
+        OPTIONAL MATCH (company:Company)-[:FILED]->(doc)
+        
+        RETURN chunk.text AS chunk_text,
+               doc.id AS document_id,
+               company.name AS company_name,
+               score AS similarity_score
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(chunk_query,
+                               query_embedding=query_embedding,
+                               max_results=max_results)
+            return [dict(record) for record in result]
+    
+    def retrieve_with_caching(self, query: str, max_results: int = 10) -> Dict:
+        """Retrieve with intelligent caching"""
+        
+        # Create query hash for caching
+        query_hash = hashlib.md5(query.encode()).hexdigest()
+        
+        # Check cache first
+        if query_hash in self.query_cache:
+            cached_result = self.query_cache[query_hash]
+            cached_result['from_cache'] = True
+            return cached_result
+        
+        # Execute retrieval
+        start_time = time.time()
+        result = self.retrieve(query, max_results)
+        execution_time = time.time() - start_time
+        
+        # Add timing and cache
+        result['retrieval_metadata']['execution_time'] = execution_time
+        result['from_cache'] = False
+        self.query_cache[query_hash] = result
+        
+        return result
+    
+    def warm_up_cache(self, common_queries: List[str]):
+        """Pre-warm cache with common queries"""
+        
+        print("Warming up cache with common financial queries...")
+        for query in common_queries:
+            self.retrieve_with_caching(query)
+        
+        print(f"Cache warmed up with {len(common_queries)} queries")
+
+# Performance optimization example
+optimized_retriever = OptimizedHybridRetriever("bolt://localhost:7687", "neo4j", "password")
+
+# Common financial queries for cache warming
+common_queries = [
+    "artificial intelligence strategy",
+    "cybersecurity risks",
+    "portfolio analysis",
+    "competitive advantages",
+    "regulatory challenges"
+]
+
+optimized_retriever.warm_up_cache(common_queries)
+```
+
+== Knowledge Check
+
+In a hybrid retrieval system for financial analysis, what is the primary advantage of combining vector search with graph traversal?
+
+( ) Faster query execution only
+( ) Reduced storage requirements
+(x) Comprehensive context from both semantic similarity and relationship structure
+( ) Simplified system architecture
+
+[%collapsible]
+.Explanation
+====
+Combining vector search with graph traversal provides comprehensive context because vector search finds semantically similar content (e.g., documents discussing similar themes) while graph traversal discovers explicit relationships (e.g., which companies are connected through investors or shared risks). This combination gives both conceptual similarity and structural relationships, which is essential for thorough financial analysis.
+====
+
+== Summary
+
+Hybrid retrieval systems for financial intelligence combine multiple retrieval strategies to provide comprehensive and accurate results:
+
+### **Key Components:**
+* **Intelligent Query Router** - Classifies queries and routes to optimal retrieval strategy
+* **Multi-Modal Retrieval Engine** - Combines vector search, graph traversal, and structured queries
+* **Result Merging and Ranking** - Integrates results from different strategies with unified scoring
+* **Performance Optimization** - Caching and optimization for production use
+
+### **Benefits for Financial Analysis:**
+* **Comprehensive Coverage** - Finds both semantic content and relationship-based information
+* **Adaptive Strategy** - Uses optimal approach based on query characteristics
+* **Rich Context** - Provides multiple perspectives on financial entities and relationships
+* **Scalable Performance** - Optimized for real-time financial intelligence applications
+
+### **Use Cases:**
+- Investment research combining quantitative data with qualitative insights
+- Risk analysis tracing connections between entities and risk factors
+- Competitive intelligence using both public documents and network analysis
+- Regulatory compliance through comprehensive entity relationship mapping
+
+Next, we'll put all these concepts together in a hands-on exercise building a complete financial intelligence retrieval system.

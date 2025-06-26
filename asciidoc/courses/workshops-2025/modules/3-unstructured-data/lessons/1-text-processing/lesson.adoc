@@ -1,0 +1,243 @@
+= Text Processing Fundamentals
+:type: lesson
+:order: 1
+:duration: 20 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+* Understand different approaches to processing unstructured text
+* Extract entities and relationships from documents
+* Prepare text data for knowledge graph creation
+* Choose appropriate NLP tools and techniques
+
+== What is a Knowledge Graph?
+
+[quote]
+A knowledge graph is an organized representation of real-world entities and their relationships.
+
+Knowledge graphs provide a structured way to represent entities, their attributes, and their relationships, allowing for a comprehensive and interconnected understanding of information.
+
+Knowledge graphs can break down sources of information and integrate them, allowing you to see the relationships between the data. This integration from diverse sources gives knowledge graphs a more holistic view and facilitates complex queries, analytics, and insights.
+
+Neo4j is well-suited for representing and querying complex, interconnected data in Knowledge Graphs. Unlike traditional relational databases, which use tables and rows, Neo4j uses a graph-based model with nodes and relationships.
+
+== From Text to Knowledge Graphs
+
+Creating knowledge graphs from unstructured data involves multiple steps of data query, cleanse, and transform. You can use the text analysis capabilities of Large Language Models (LLMs) to help automate knowledge graph creation.
+
+The typical process for constructing a knowledge graph from unstructured text using an LLM:
+
+1. **Gather the data sources** - Text documents, PDFs, publicly available data
+2. **Chunk the data** - Break down into right-sized parts for processing
+3. **Vectorize the data** - Create vector embeddings for semantic search
+4. **Extract nodes and relationships** - Use LLM to identify entities and connections
+5. **Generate the graph** - Create nodes and relationships in Neo4j
+
+=== Processing Pipeline
+
+```
+Raw Text → Chunking → Vectorization → LLM Extraction → Graph Creation
+```
+
+== Text Preprocessing
+
+=== Cleaning and Normalization
+```python
+import re
+import nltk
+from nltk.corpus import stopwords
+
+def preprocess_text(text):
+    # Remove special characters and normalize
+    text = re.sub(r'[^\w\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Convert to lowercase
+    text = text.lower().strip()
+    
+    # Remove stopwords (optional)
+    stop_words = set(stopwords.words('english'))
+    words = [word for word in text.split() if word not in stop_words]
+    
+    return ' '.join(words)
+```
+
+=== Document Chunking
+```python
+def chunk_document(text, chunk_size=500, overlap=50):
+    """Split document into overlapping chunks for processing"""
+    words = text.split()
+    chunks = []
+    
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk = ' '.join(words[i:i + chunk_size])
+        chunks.append({
+            'text': chunk,
+            'start_pos': i,
+            'chunk_id': len(chunks)
+        })
+    
+    return chunks
+```
+
+== Entity Extraction Methods
+
+=== Rule-Based Extraction
+```python
+import re
+
+def extract_financial_entities(text):
+    patterns = {
+        'money': r'\$[\d,]+\.?\d*',
+        'percentage': r'\d+\.?\d*%',
+        'company': r'[A-Z][a-z]+ (?:Inc|Corp|LLC|Ltd)\.?',
+        'date': r'\d{1,2}/\d{1,2}/\d{4}'
+    }
+    
+    entities = {}
+    for entity_type, pattern in patterns.items():
+        matches = re.findall(pattern, text)
+        entities[entity_type] = list(set(matches))
+    
+    return entities
+```
+
+=== ML-Based Extraction with spaCy
+```python
+import spacy
+
+nlp = spacy.load("en_core_web_sm")
+
+def extract_entities_spacy(text):
+    doc = nlp(text)
+    entities = []
+    
+    for ent in doc.ents:
+        entities.append({
+            'text': ent.text,
+            'label': ent.label_,
+            'start': ent.start_char,
+            'end': ent.end_char,
+            'confidence': 0.9  # spaCy doesn't provide confidence
+        })
+    
+    return entities
+```
+
+=== LLM-Based Entity and Relationship Extraction
+
+Large Language Models can extract both entities and relationships in a single pass, making them powerful for knowledge graph construction:
+
+```python
+import openai
+import json
+
+def extract_entities_relationships_llm(text, entity_types=None):
+    """
+    Use LLM to extract entities and relationships from text
+    """
+    prompt = f"""
+    Your task is to identify entities and relationships from the given text.
+    Extract them in JSON format with the following structure:
+    
+    [
+        {{
+            "head": "entity1",
+            "head_type": "EntityType",
+            "relation": "RELATIONSHIP_TYPE",
+            "tail": "entity2", 
+            "tail_type": "EntityType",
+            "context": "relevant sentence from text"
+        }}
+    ]
+    
+    Focus on these entity types: {entity_types or "Person, Organization, Location, Product, Event, Concept"}
+    
+    Text: {text}
+    
+    JSON output:
+    """
+    
+    response = openai.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1
+    )
+    
+    try:
+        return json.loads(response.choices[0].message.content)
+    except json.JSONDecodeError:
+        return []
+
+# Example usage
+financial_text = """
+Goldman Sachs reported quarterly earnings of $3.2 billion. 
+CEO David Solomon announced plans to expand operations in Asia.
+The investment bank acquired fintech startup TechFlow for $250 million.
+"""
+
+extracted_data = extract_entities_relationships_llm(
+    financial_text,
+    entity_types=["Company", "Person", "Location", "Money", "Product"]
+)
+```
+
+=== Vector Embeddings for Semantic Understanding
+
+Create embeddings to enable semantic search and similarity analysis:
+
+```python
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+def create_embeddings(texts, model_name="all-MiniLM-L6-v2"):
+    """
+    Create vector embeddings for text chunks
+    """
+    model = SentenceTransformer(model_name)
+    embeddings = model.encode(texts)
+    
+    return [
+        {
+            'text': text,
+            'embedding': embedding.tolist(),
+            'dimension': len(embedding)
+        }
+        for text, embedding in zip(texts, embeddings)
+    ]
+
+# Example: Create embeddings for document chunks
+chunks = [
+    "Goldman Sachs reported strong quarterly earnings",
+    "CEO David Solomon leads strategic initiatives", 
+    "Investment banking sector shows growth trends"
+]
+
+chunk_embeddings = create_embeddings(chunks)
+```
+
+== Knowledge Check
+
+Which approach is best for extracting financial data from documents?
+
+( ) Rule-based extraction only
+( ) ML-based extraction only  
+(x) Hybrid approach combining both
+( ) Manual extraction
+
+[%collapsible]
+.Explanation
+====
+A hybrid approach works best because:
+- Rule-based patterns catch domain-specific formats (currency, percentages)
+- ML models handle general entities (people, organizations)
+- Manual validation ensures quality for critical applications
+- Different methods complement each other's strengths
+====
+
+== Summary
+
+Text processing is the foundation for creating knowledge graphs from unstructured data. The key is choosing the right combination of preprocessing, entity extraction, and relationship discovery techniques for your specific domain and use case.
+
+Next, we'll dive deeper into advanced entity extraction and relationship discovery techniques.
