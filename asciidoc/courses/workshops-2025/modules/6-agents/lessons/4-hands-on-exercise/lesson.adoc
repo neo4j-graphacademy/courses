@@ -1,0 +1,1101 @@
+= Hands-On Exercise: Building a Financial Intelligence Agent
+:type: lesson
+:order: 4
+:duration: 45 minutes
+
+== Learning Objectives
+
+By the end of this exercise, you will be able to:
+
+* Build a complete financial intelligence agent from scratch
+* Integrate multiple tools and data sources in a real workflow
+* Implement agent reasoning patterns for financial analysis
+* Deploy and test an agent system with actual financial data
+
+== Exercise Overview
+
+In this hands-on exercise, you'll build a comprehensive financial intelligence agent that can analyze investment opportunities by combining SEC filings, market data, competitive intelligence, and risk assessment. The agent will use the patterns and architectures learned in previous lessons.
+
+=== What You'll Build
+
+```python
+# Final agent system architecture
+class InvestmentIntelligenceAgent:
+    """Complete financial intelligence agent for investment analysis"""
+    
+    def __init__(self):
+        self.tools = ToolRegistry()
+        self.reasoning_engine = GraphReasoningEngine()
+        self.orchestrator = ToolOrchestrator()
+        self.memory = ConversationMemory()
+    
+    async def analyze_investment_opportunity(self, company_name: str) -> Dict[str, Any]:
+        """Complete investment analysis workflow"""
+        pass
+```
+
+== Exercise Setup
+
+=== Step 1: Environment Preparation
+
+First, let's set up the development environment with all necessary dependencies:
+
+```python
+# requirements.txt
+"""
+neo4j==5.15.0
+langchain==0.1.0
+langchain-openai==0.0.5
+aiohttp==3.9.1
+pandas==2.1.4
+numpy==1.24.3
+python-dotenv==1.0.0
+pydantic==2.5.2
+asyncio==3.4.3
+"""
+
+# .env file template
+"""
+OPENAI_API_KEY=your_openai_api_key_here
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your_password
+SEC_API_USER_AGENT=Financial-Intelligence-Agent/1.0
+ALPHAVANTAGE_API_KEY=your_alphavantage_key
+NEWS_API_KEY=your_newsapi_key
+"""
+
+import os
+import asyncio
+import json
+from datetime import datetime
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+import aiohttp
+from neo4j import GraphDatabase
+import pandas as pd
+import numpy as np
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+print("Environment Setup Complete!")
+print("Required API Keys:")
+print(f"  OpenAI: {'✓' if os.getenv('OPENAI_API_KEY') else '✗'}")
+print(f"  Neo4j: {'✓' if os.getenv('NEO4J_URI') else '✗'}")
+print(f"  Alpha Vantage: {'✓' if os.getenv('ALPHAVANTAGE_API_KEY') else '✗'}")
+print(f"  News API: {'✓' if os.getenv('NEWS_API_KEY') else '✗'}")
+```
+
+=== Step 2: Core Agent Implementation
+
+Now let's implement the core financial intelligence agent:
+
+```python
+class FinancialDataTool:
+    """Tool for retrieving financial data from multiple sources"""
+    
+    def __init__(self):
+        self.sec_api_base = "https://data.sec.gov/api"
+        self.alphavantage_base = "https://www.alphavantage.co/query"
+        self.news_api_base = "https://newsapi.org/v2"
+        
+    async def get_company_filings(self, company_cik: str, filing_type: str = "10-K") -> Dict[str, Any]:
+        """Retrieve SEC filings for a company"""
+        
+        headers = {
+            'User-Agent': os.getenv('SEC_API_USER_AGENT', 'Financial-Agent/1.0')
+        }
+        
+        # Format CIK with leading zeros
+        formatted_cik = f"{int(company_cik):010d}"
+        url = f"{self.sec_api_base}/submissions/CIK{formatted_cik}.json"
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        # Extract recent filings
+                        filings = data.get('filings', {}).get('recent', {})
+                        recent_filings = []
+                        
+                        forms = filings.get('form', [])
+                        dates = filings.get('filingDate', [])
+                        accession_numbers = filings.get('accessionNumber', [])
+                        
+                        for i, form in enumerate(forms):
+                            if form == filing_type and i < 5:  # Get 5 most recent
+                                recent_filings.append({
+                                    'form': form,
+                                    'filing_date': dates[i] if i < len(dates) else None,
+                                    'accession_number': accession_numbers[i] if i < len(accession_numbers) else None
+                                })
+                        
+                        return {
+                            'company_name': data.get('name'),
+                            'cik': company_cik,
+                            'filings': recent_filings,
+                            'total_filings': len(forms)
+                        }
+                    else:
+                        return {'error': f'SEC API returned status {response.status}'}
+                        
+            except Exception as e:
+                return {'error': f'Failed to retrieve SEC data: {str(e)}'}
+    
+    async def get_financial_overview(self, symbol: str) -> Dict[str, Any]:
+        """Get company financial overview from Alpha Vantage"""
+        
+        params = {
+            'function': 'OVERVIEW',
+            'symbol': symbol,
+            'apikey': os.getenv('ALPHAVANTAGE_API_KEY')
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(self.alphavantage_base, params=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        if 'Error Message' in data:
+                            return {'error': data['Error Message']}
+                        
+                        # Extract key metrics
+                        return {
+                            'symbol': symbol,
+                            'company_name': data.get('Name'),
+                            'market_cap': data.get('MarketCapitalization'),
+                            'pe_ratio': data.get('PERatio'),
+                            'dividend_yield': data.get('DividendYield'),
+                            'sector': data.get('Sector'),
+                            'industry': data.get('Industry'),
+                            'description': data.get('Description'),
+                            'revenue_ttm': data.get('RevenueTTM'),
+                            'profit_margin': data.get('ProfitMargin')
+                        }
+                    else:
+                        return {'error': f'Financial API returned status {response.status}'}
+                        
+            except Exception as e:
+                return {'error': f'Failed to retrieve financial data: {str(e)}'}
+    
+    async def get_news_sentiment(self, company_name: str) -> Dict[str, Any]:
+        """Get recent news and sentiment for company"""
+        
+        headers = {
+            'X-API-Key': os.getenv('NEWS_API_KEY')
+        }
+        
+        params = {
+            'q': f'"{company_name}" AND (earnings OR financial OR stock)',
+            'language': 'en',
+            'sortBy': 'publishedAt',
+            'pageSize': 20
+        }
+        
+        url = f"{self.news_api_base}/everything"
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url, params=params, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        articles = data.get('articles', [])
+                        
+                        # Process articles for sentiment analysis
+                        processed_articles = []
+                        for article in articles[:10]:  # Top 10 articles
+                            processed_articles.append({
+                                'title': article.get('title'),
+                                'description': article.get('description'),
+                                'published_at': article.get('publishedAt'),
+                                'source': article.get('source', {}).get('name'),
+                                'url': article.get('url')
+                            })
+                        
+                        return {
+                            'company_name': company_name,
+                            'articles_count': len(processed_articles),
+                            'articles': processed_articles
+                        }
+                    else:
+                        return {'error': f'News API returned status {response.status}'}
+                        
+            except Exception as e:
+                return {'error': f'Failed to retrieve news data: {str(e)}'}
+
+class GraphAnalysisTool:
+    """Tool for graph-based analysis using Neo4j"""
+    
+    def __init__(self):
+        self.driver = GraphDatabase.driver(
+            os.getenv('NEO4J_URI', 'bolt://localhost:7687'),
+            auth=(os.getenv('NEO4J_USERNAME', 'neo4j'), 
+                  os.getenv('NEO4J_PASSWORD', 'password'))
+        )
+    
+    def get_competitive_landscape(self, company_name: str) -> Dict[str, Any]:
+        """Analyze competitive landscape through graph relationships"""
+        
+        query = """
+        MATCH (c:Company {name: $company_name})
+        
+        // Find competitors through shared products
+        OPTIONAL MATCH (c)-[:MENTIONS]->(product:Product)<-[:MENTIONS]-(competitor:Company)
+        WHERE competitor <> c
+        
+        // Find competitors through shared risk factors
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)<-[:FACES_RISK]-(risk_peer:Company)
+        WHERE risk_peer <> c
+        
+        // Find companies held by same asset managers
+        OPTIONAL MATCH (c)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(portfolio_peer:Company)
+        WHERE portfolio_peer <> c
+        
+        WITH c,
+             collect(DISTINCT competitor.name) AS product_competitors,
+             collect(DISTINCT risk_peer.name) AS risk_competitors,
+             collect(DISTINCT portfolio_peer.name) AS portfolio_peers
+        
+        RETURN c.name AS company,
+               product_competitors,
+               risk_competitors,
+               portfolio_peers,
+               size(product_competitors) + size(risk_competitors) + size(portfolio_peers) AS total_competitive_connections
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, company_name=company_name)
+            record = result.single()
+            
+            if record:
+                return {
+                    'company': record['company'],
+                    'product_competitors': record['product_competitors'],
+                    'risk_competitors': record['risk_competitors'],
+                    'portfolio_peers': record['portfolio_peers'],
+                    'total_connections': record['total_competitive_connections'],
+                    'competitive_intensity': self._classify_competitive_intensity(
+                        record['total_competitive_connections']
+                    )
+                }
+            else:
+                return {'error': f'Company {company_name} not found in graph database'}
+    
+    def analyze_risk_exposure(self, company_name: str) -> Dict[str, Any]:
+        """Analyze risk factors and their network effects"""
+        
+        query = """
+        MATCH (c:Company {name: $company_name})
+        
+        // Direct risk factors
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)
+        
+        // Risk contagion through asset manager holdings
+        OPTIONAL MATCH (c)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(peer:Company)-[:FACES_RISK]->(peer_risk:RiskFactor)
+        WHERE peer <> c
+        
+        WITH c,
+             collect(DISTINCT risk.name) AS direct_risks,
+             collect(DISTINCT {peer: peer.name, risk: peer_risk.name, asset_manager: am.name}) AS contagion_risks
+        
+        RETURN c.name AS company,
+               direct_risks,
+               contagion_risks,
+               size(direct_risks) AS direct_risk_count,
+               size(contagion_risks) AS contagion_risk_count
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, company_name=company_name)
+            record = result.single()
+            
+            if record:
+                risk_score = self._calculate_risk_score(
+                    record['direct_risk_count'],
+                    record['contagion_risk_count']
+                )
+                
+                return {
+                    'company': record['company'],
+                    'direct_risks': record['direct_risks'],
+                    'contagion_risks': record['contagion_risks'],
+                    'risk_score': risk_score,
+                    'risk_level': self._classify_risk_level(risk_score)
+                }
+            else:
+                return {'error': f'Company {company_name} not found for risk analysis'}
+    
+    def _classify_competitive_intensity(self, connection_count: int) -> str:
+        """Classify competitive intensity based on network connections"""
+        if connection_count >= 15:
+            return 'VERY HIGH'
+        elif connection_count >= 10:
+            return 'HIGH'
+        elif connection_count >= 5:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _calculate_risk_score(self, direct_risks: int, contagion_risks: int) -> float:
+        """Calculate overall risk score"""
+        return min((direct_risks * 10) + (contagion_risks * 5), 100)
+    
+    def _classify_risk_level(self, risk_score: float) -> str:
+        """Classify risk level based on score"""
+        if risk_score >= 75:
+            return 'HIGH'
+        elif risk_score >= 50:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+
+class InvestmentIntelligenceAgent:
+    """Complete financial intelligence agent for investment analysis"""
+    
+    def __init__(self):
+        self.financial_tool = FinancialDataTool()
+        self.graph_tool = GraphAnalysisTool()
+        self.analysis_history = []
+        
+    async def analyze_investment_opportunity(self, company_ticker: str, company_cik: str = None) -> Dict[str, Any]:
+        """Complete investment opportunity analysis"""
+        
+        analysis_id = f"analysis_{company_ticker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        print(f"🔍 Starting investment analysis for {company_ticker}...")
+        
+        # Step 1: Get financial overview
+        print("📊 Retrieving financial data...")
+        financial_data = await self.financial_tool.get_financial_overview(company_ticker)
+        
+        # Step 2: Get SEC filings (if CIK provided)
+        sec_data = {}
+        if company_cik:
+            print("📋 Retrieving SEC filings...")
+            sec_data = await self.financial_tool.get_company_filings(company_cik)
+        
+        # Step 3: Get news sentiment
+        company_name = financial_data.get('company_name', company_ticker)
+        print("📰 Analyzing news sentiment...")
+        news_data = await self.financial_tool.get_news_sentiment(company_name)
+        
+        # Step 4: Graph-based competitive analysis
+        print("🕸️ Analyzing competitive landscape...")
+        competitive_data = self.graph_tool.get_competitive_landscape(company_name)
+        
+        # Step 5: Risk analysis
+        print("⚠️ Assessing risk factors...")
+        risk_data = self.graph_tool.analyze_risk_exposure(company_name)
+        
+        # Step 6: Generate investment thesis
+        print("🎯 Generating investment thesis...")
+        investment_thesis = self._generate_investment_thesis(
+            financial_data, sec_data, news_data, competitive_data, risk_data
+        )
+        
+        # Compile complete analysis
+        complete_analysis = {
+            'analysis_id': analysis_id,
+            'company_ticker': company_ticker,
+            'company_name': company_name,
+            'analysis_timestamp': datetime.now().isoformat(),
+            'financial_metrics': financial_data,
+            'sec_filings': sec_data,
+            'news_sentiment': news_data,
+            'competitive_landscape': competitive_data,
+            'risk_assessment': risk_data,
+            'investment_thesis': investment_thesis,
+            'data_sources_used': self._get_data_sources_summary()
+        }
+        
+        # Store in analysis history
+        self.analysis_history.append(complete_analysis)
+        
+        print("✅ Investment analysis complete!")
+        return complete_analysis
+    
+    def _generate_investment_thesis(self, financial_data: Dict, sec_data: Dict, 
+                                  news_data: Dict, competitive_data: Dict, 
+                                  risk_data: Dict) -> Dict[str, Any]:
+        """Generate investment thesis from collected data"""
+        
+        # Analyze financial strength
+        financial_score = self._score_financial_metrics(financial_data)
+        
+        # Analyze competitive position
+        competitive_score = self._score_competitive_position(competitive_data)
+        
+        # Analyze risk profile
+        risk_score = self._score_risk_profile(risk_data)
+        
+        # Analyze news sentiment
+        sentiment_score = self._score_news_sentiment(news_data)
+        
+        # Calculate overall investment score
+        overall_score = (financial_score * 0.4 + competitive_score * 0.3 + 
+                        (100 - risk_score) * 0.2 + sentiment_score * 0.1)
+        
+        # Generate recommendation
+        if overall_score >= 75:
+            recommendation = "STRONG BUY"
+            confidence = "HIGH"
+        elif overall_score >= 60:
+            recommendation = "BUY"
+            confidence = "MEDIUM"
+        elif overall_score >= 40:
+            recommendation = "HOLD"
+            confidence = "MEDIUM"
+        else:
+            recommendation = "SELL"
+            confidence = "LOW"
+        
+        return {
+            'recommendation': recommendation,
+            'confidence_level': confidence,
+            'overall_score': round(overall_score, 1),
+            'component_scores': {
+                'financial_strength': financial_score,
+                'competitive_position': competitive_score,
+                'risk_profile': risk_score,
+                'market_sentiment': sentiment_score
+            },
+            'key_insights': self._generate_key_insights(financial_data, competitive_data, risk_data),
+            'investment_rationale': self._generate_investment_rationale(
+                recommendation, financial_data, competitive_data, risk_data
+            )
+        }
+    
+    def _score_financial_metrics(self, financial_data: Dict) -> float:
+        """Score company based on financial metrics"""
+        
+        if 'error' in financial_data:
+            return 50  # Neutral score if no data
+        
+        score = 50  # Base score
+        
+        # PE Ratio analysis
+        pe_ratio = financial_data.get('pe_ratio')
+        if pe_ratio and pe_ratio != 'None':
+            try:
+                pe = float(pe_ratio)
+                if 10 <= pe <= 20:
+                    score += 15
+                elif 20 < pe <= 30:
+                    score += 10
+                elif pe > 30:
+                    score -= 10
+            except:
+                pass
+        
+        # Profit margin analysis
+        profit_margin = financial_data.get('profit_margin')
+        if profit_margin and profit_margin != 'None':
+            try:
+                margin = float(profit_margin)
+                if margin > 0.2:
+                    score += 20
+                elif margin > 0.1:
+                    score += 10
+                elif margin < 0:
+                    score -= 20
+            except:
+                pass
+        
+        # Dividend yield analysis
+        dividend_yield = financial_data.get('dividend_yield')
+        if dividend_yield and dividend_yield != 'None':
+            try:
+                dividend = float(dividend_yield)
+                if dividend > 0.02:
+                    score += 10
+            except:
+                pass
+        
+        return min(max(score, 0), 100)
+    
+    def _score_competitive_position(self, competitive_data: Dict) -> float:
+        """Score company based on competitive landscape"""
+        
+        if 'error' in competitive_data:
+            return 50  # Neutral score if no data
+        
+        intensity = competitive_data.get('competitive_intensity', 'MEDIUM')
+        
+        if intensity == 'LOW':
+            return 80  # Less competition is better
+        elif intensity == 'MEDIUM':
+            return 60
+        elif intensity == 'HIGH':
+            return 40
+        else:  # VERY HIGH
+            return 20
+    
+    def _score_risk_profile(self, risk_data: Dict) -> float:
+        """Score company based on risk factors (higher risk = higher score)"""
+        
+        if 'error' in risk_data:
+            return 50  # Neutral score if no data
+        
+        risk_level = risk_data.get('risk_level', 'MEDIUM')
+        
+        if risk_level == 'LOW':
+            return 20
+        elif risk_level == 'MEDIUM':
+            return 50
+        else:  # HIGH
+            return 80
+    
+    def _score_news_sentiment(self, news_data: Dict) -> float:
+        """Score company based on news sentiment"""
+        
+        if 'error' in news_data:
+            return 50  # Neutral score if no data
+        
+        articles_count = news_data.get('articles_count', 0)
+        
+        # Simple heuristic: more recent news coverage suggests higher interest
+        if articles_count >= 15:
+            return 70
+        elif articles_count >= 10:
+            return 60
+        elif articles_count >= 5:
+            return 50
+        else:
+            return 40
+    
+    def _generate_key_insights(self, financial_data: Dict, competitive_data: Dict, 
+                             risk_data: Dict) -> List[str]:
+        """Generate key insights from analysis"""
+        
+        insights = []
+        
+        # Financial insights
+        if 'error' not in financial_data:
+            sector = financial_data.get('sector')
+            if sector:
+                insights.append(f"Operates in {sector} sector")
+            
+            market_cap = financial_data.get('market_cap')
+            if market_cap:
+                insights.append(f"Market capitalization: ${market_cap}")
+        
+        # Competitive insights
+        if 'error' not in competitive_data:
+            intensity = competitive_data.get('competitive_intensity')
+            if intensity:
+                insights.append(f"Competitive intensity: {intensity}")
+        
+        # Risk insights
+        if 'error' not in risk_data:
+            risk_level = risk_data.get('risk_level')
+            if risk_level:
+                insights.append(f"Risk level: {risk_level}")
+        
+        return insights
+    
+    def _generate_investment_rationale(self, recommendation: str, financial_data: Dict,
+                                     competitive_data: Dict, risk_data: Dict) -> str:
+        """Generate investment rationale based on recommendation"""
+        
+        if recommendation in ['STRONG BUY', 'BUY']:
+            return ("Strong fundamentals, favorable competitive position, and manageable risk profile "
+                   "support a positive investment outlook.")
+        elif recommendation == 'HOLD':
+            return ("Mixed signals from fundamental analysis suggest maintaining current position "
+                   "while monitoring for changes in competitive dynamics or risk factors.")
+        else:
+            return ("Weak fundamentals, challenging competitive environment, or elevated risk factors "
+                   "suggest reducing exposure to this investment.")
+    
+    def _get_data_sources_summary(self) -> Dict[str, str]:
+        """Get summary of data sources used"""
+        
+        return {
+            'financial_data': 'Alpha Vantage API',
+            'sec_filings': 'SEC EDGAR API',
+            'news_sentiment': 'News API',
+            'competitive_analysis': 'Neo4j Graph Database',
+            'risk_assessment': 'Neo4j Graph Database'
+        }
+    
+    def get_analysis_summary(self, analysis_id: str) -> Optional[Dict[str, Any]]:
+        """Get summary of previous analysis"""
+        
+        for analysis in self.analysis_history:
+            if analysis['analysis_id'] == analysis_id:
+                return {
+                    'analysis_id': analysis_id,
+                    'company': analysis['company_name'],
+                    'recommendation': analysis['investment_thesis']['recommendation'],
+                    'confidence': analysis['investment_thesis']['confidence_level'],
+                    'overall_score': analysis['investment_thesis']['overall_score'],
+                    'timestamp': analysis['analysis_timestamp']
+                }
+        
+        return None
+    
+    def compare_analyses(self, ticker1: str, ticker2: str) -> Dict[str, Any]:
+        """Compare two investment analyses"""
+        
+        analysis1 = next((a for a in self.analysis_history if a['company_ticker'] == ticker1), None)
+        analysis2 = next((a for a in self.analysis_history if a['company_ticker'] == ticker2), None)
+        
+        if not analysis1 or not analysis2:
+            return {'error': 'One or both analyses not found'}
+        
+        return {
+            'comparison_id': f"compare_{ticker1}_vs_{ticker2}",
+            'company1': {
+                'ticker': ticker1,
+                'recommendation': analysis1['investment_thesis']['recommendation'],
+                'score': analysis1['investment_thesis']['overall_score']
+            },
+            'company2': {
+                'ticker': ticker2,
+                'recommendation': analysis2['investment_thesis']['recommendation'],
+                'score': analysis2['investment_thesis']['overall_score']
+            },
+            'preferred_investment': ticker1 if analysis1['investment_thesis']['overall_score'] > 
+                                  analysis2['investment_thesis']['overall_score'] else ticker2
+        }
+
+# Initialize the agent
+agent = InvestmentIntelligenceAgent()
+
+print("🤖 Financial Intelligence Agent initialized!")
+print("Available methods:")
+print("  - analyze_investment_opportunity(ticker, cik=None)")
+print("  - get_analysis_summary(analysis_id)")
+print("  - compare_analyses(ticker1, ticker2)")
+```
+
+== Exercise Tasks
+
+=== Task 1: Analyze a Technology Company
+
+Let's analyze Apple Inc. as our first investment opportunity:
+
+```python
+async def task1_analyze_apple():
+    """Task 1: Analyze Apple Inc. investment opportunity"""
+    
+    print("=" * 60)
+    print("TASK 1: ANALYZING APPLE INC. (AAPL)")
+    print("=" * 60)
+    
+    # Apple's CIK number from SEC database
+    apple_cik = "0000320193"
+    
+    # Run complete analysis
+    analysis_result = await agent.analyze_investment_opportunity("AAPL", apple_cik)
+    
+    # Display results
+    if 'error' not in analysis_result:
+        thesis = analysis_result['investment_thesis']
+        
+        print(f"\n📊 INVESTMENT ANALYSIS RESULTS")
+        print(f"Company: {analysis_result['company_name']}")
+        print(f"Ticker: {analysis_result['company_ticker']}")
+        print(f"Analysis ID: {analysis_result['analysis_id']}")
+        print(f"\n🎯 INVESTMENT RECOMMENDATION")
+        print(f"Recommendation: {thesis['recommendation']}")
+        print(f"Confidence Level: {thesis['confidence_level']}")
+        print(f"Overall Score: {thesis['overall_score']}/100")
+        
+        print(f"\n📈 COMPONENT SCORES")
+        for component, score in thesis['component_scores'].items():
+            print(f"  {component.replace('_', ' ').title()}: {score}/100")
+        
+        print(f"\n💡 KEY INSIGHTS")
+        for insight in thesis['key_insights']:
+            print(f"  • {insight}")
+        
+        print(f"\n📝 INVESTMENT RATIONALE")
+        print(f"  {thesis['investment_rationale']}")
+        
+        # Save analysis for later comparison
+        return analysis_result['analysis_id']
+    else:
+        print(f"❌ Analysis failed: {analysis_result.get('error', 'Unknown error')}")
+        return None
+
+# Run Task 1
+# apple_analysis_id = await task1_analyze_apple()
+```
+
+=== Task 2: Analyze a Financial Services Company
+
+Now let's analyze a financial services company for comparison:
+
+```python
+async def task2_analyze_financial_company():
+    """Task 2: Analyze a financial services company"""
+    
+    print("\n" + "=" * 60)
+    print("TASK 2: ANALYZING JPMORGAN CHASE & CO. (JPM)")
+    print("=" * 60)
+    
+    # JPMorgan's CIK number
+    jpm_cik = "0000019617"
+    
+    # Run analysis
+    analysis_result = await agent.analyze_investment_opportunity("JPM", jpm_cik)
+    
+    # Display focused results
+    if 'error' not in analysis_result:
+        thesis = analysis_result['investment_thesis']
+        
+        print(f"\n📊 ANALYSIS SUMMARY")
+        print(f"Company: {analysis_result['company_name']}")
+        print(f"Recommendation: {thesis['recommendation']}")
+        print(f"Overall Score: {thesis['overall_score']}/100")
+        
+        # Compare financial metrics if available
+        financial_data = analysis_result['financial_metrics']
+        if 'error' not in financial_data:
+            print(f"\n📈 KEY FINANCIAL METRICS")
+            print(f"  Sector: {financial_data.get('sector', 'N/A')}")
+            print(f"  P/E Ratio: {financial_data.get('pe_ratio', 'N/A')}")
+            print(f"  Profit Margin: {financial_data.get('profit_margin', 'N/A')}")
+            print(f"  Dividend Yield: {financial_data.get('dividend_yield', 'N/A')}")
+        
+        # Analyze competitive landscape
+        competitive_data = analysis_result['competitive_landscape']
+        if 'error' not in competitive_data:
+            print(f"\n🏆 COMPETITIVE POSITION")
+            print(f"  Competitive Intensity: {competitive_data.get('competitive_intensity', 'N/A')}")
+            print(f"  Total Competitive Connections: {competitive_data.get('total_connections', 0)}")
+        
+        return analysis_result['analysis_id']
+    else:
+        print(f"❌ Analysis failed: {analysis_result.get('error', 'Unknown error')}")
+        return None
+
+# Run Task 2
+# jpm_analysis_id = await task2_analyze_financial_company()
+```
+
+=== Task 3: Compare Investment Opportunities
+
+Finally, let's compare the two analyses:
+
+```python
+def task3_compare_investments(apple_id: str, jpm_id: str):
+    """Task 3: Compare Apple and JPMorgan investment opportunities"""
+    
+    print("\n" + "=" * 60)
+    print("TASK 3: COMPARING INVESTMENT OPPORTUNITIES")
+    print("=" * 60)
+    
+    # Get analysis summaries
+    apple_summary = agent.get_analysis_summary(apple_id)
+    jpm_summary = agent.get_analysis_summary(jpm_id)
+    
+    if apple_summary and jpm_summary:
+        print(f"\n📊 COMPARISON RESULTS")
+        print(f"\n🍎 APPLE INC. (AAPL)")
+        print(f"  Recommendation: {apple_summary['recommendation']}")
+        print(f"  Overall Score: {apple_summary['overall_score']}/100")
+        print(f"  Confidence: {apple_summary['confidence']}")
+        
+        print(f"\n🏦 JPMORGAN CHASE (JPM)")
+        print(f"  Recommendation: {jpm_summary['recommendation']}")
+        print(f"  Overall Score: {jpm_summary['overall_score']}/100")
+        print(f"  Confidence: {jpm_summary['confidence']}")
+        
+        # Determine preferred investment
+        if apple_summary['overall_score'] > jpm_summary['overall_score']:
+            preferred = "APPLE INC."
+            score_diff = apple_summary['overall_score'] - jpm_summary['overall_score']
+        else:
+            preferred = "JPMORGAN CHASE"
+            score_diff = jpm_summary['overall_score'] - apple_summary['overall_score']
+        
+        print(f"\n🎯 INVESTMENT RECOMMENDATION")
+        print(f"  Preferred Investment: {preferred}")
+        print(f"  Score Difference: {score_diff:.1f} points")
+        
+        # Generate comparison insights
+        print(f"\n💡 COMPARISON INSIGHTS")
+        if apple_summary['overall_score'] > 70 and jpm_summary['overall_score'] > 70:
+            print("  • Both companies show strong investment potential")
+        elif apple_summary['overall_score'] > 50 and jpm_summary['overall_score'] > 50:
+            print("  • Both companies present moderate investment opportunities")
+        else:
+            print("  • Consider alternative investment opportunities")
+        
+        if abs(apple_summary['overall_score'] - jpm_summary['overall_score']) < 10:
+            print("  • Scores are very close - consider portfolio diversification")
+        
+        return {
+            'preferred': preferred,
+            'apple_score': apple_summary['overall_score'],
+            'jpm_score': jpm_summary['overall_score']
+        }
+    else:
+        print("❌ Could not retrieve analysis summaries for comparison")
+        return None
+
+# Run comparison
+# comparison_result = task3_compare_investments(apple_analysis_id, jpm_analysis_id)
+```
+
+=== Task 4: Advanced Analysis Features
+
+Let's add some advanced features to our agent:
+
+```python
+class AdvancedAnalysisFeatures:
+    """Advanced analysis features for the financial intelligence agent"""
+    
+    def __init__(self, base_agent: InvestmentIntelligenceAgent):
+        self.agent = base_agent
+    
+    def generate_portfolio_recommendation(self, target_allocation: float = 100000) -> Dict[str, Any]:
+        """Generate portfolio recommendation based on completed analyses"""
+        
+        if len(self.agent.analysis_history) < 2:
+            return {'error': 'Need at least 2 analyses for portfolio recommendation'}
+        
+        # Get recent analyses
+        recent_analyses = sorted(
+            self.agent.analysis_history, 
+            key=lambda x: x['analysis_timestamp'], 
+            reverse=True
+        )[:5]  # Last 5 analyses
+        
+        # Filter by recommendation
+        strong_buys = [a for a in recent_analyses if a['investment_thesis']['recommendation'] == 'STRONG BUY']
+        buys = [a for a in recent_analyses if a['investment_thesis']['recommendation'] == 'BUY']
+        holds = [a for a in recent_analyses if a['investment_thesis']['recommendation'] == 'HOLD']
+        
+        # Calculate allocations
+        portfolio_allocations = []
+        remaining_allocation = target_allocation
+        
+        # Allocate to strong buys first (40% each, max 3)
+        for analysis in strong_buys[:3]:
+            allocation = min(target_allocation * 0.4, remaining_allocation)
+            portfolio_allocations.append({
+                'ticker': analysis['company_ticker'],
+                'company': analysis['company_name'],
+                'recommendation': analysis['investment_thesis']['recommendation'],
+                'allocation': allocation,
+                'percentage': (allocation / target_allocation) * 100
+            })
+            remaining_allocation -= allocation
+        
+        # Allocate to buys (25% each, max 2)
+        for analysis in buys[:2]:
+            if remaining_allocation > 0:
+                allocation = min(target_allocation * 0.25, remaining_allocation)
+                portfolio_allocations.append({
+                    'ticker': analysis['company_ticker'],
+                    'company': analysis['company_name'],
+                    'recommendation': analysis['investment_thesis']['recommendation'],
+                    'allocation': allocation,
+                    'percentage': (allocation / target_allocation) * 100
+                })
+                remaining_allocation -= allocation
+        
+        # Calculate portfolio metrics
+        total_allocated = sum(p['allocation'] for p in portfolio_allocations)
+        cash_position = target_allocation - total_allocated
+        
+        return {
+            'portfolio_value': target_allocation,
+            'total_allocated': total_allocated,
+            'cash_position': cash_position,
+            'cash_percentage': (cash_position / target_allocation) * 100,
+            'holdings': portfolio_allocations,
+            'diversification_score': self._calculate_diversification_score(portfolio_allocations),
+            'portfolio_risk_level': self._assess_portfolio_risk(recent_analyses)
+        }
+    
+    def _calculate_diversification_score(self, allocations: List[Dict]) -> str:
+        """Calculate portfolio diversification score"""
+        
+        if len(allocations) >= 4:
+            return 'HIGH'
+        elif len(allocations) >= 2:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _assess_portfolio_risk(self, analyses: List[Dict]) -> str:
+        """Assess overall portfolio risk level"""
+        
+        risk_scores = []
+        for analysis in analyses:
+            risk_data = analysis.get('risk_assessment', {})
+            if 'risk_score' in risk_data:
+                risk_scores.append(risk_data['risk_score'])
+        
+        if not risk_scores:
+            return 'UNKNOWN'
+        
+        avg_risk = sum(risk_scores) / len(risk_scores)
+        
+        if avg_risk >= 70:
+            return 'HIGH'
+        elif avg_risk >= 40:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def export_analysis_report(self, analysis_id: str, format: str = 'json') -> str:
+        """Export analysis report in specified format"""
+        
+        analysis = next((a for a in self.agent.analysis_history if a['analysis_id'] == analysis_id), None)
+        
+        if not analysis:
+            return f"Analysis {analysis_id} not found"
+        
+        if format == 'json':
+            return json.dumps(analysis, indent=2, default=str)
+        elif format == 'summary':
+            return self._generate_text_summary(analysis)
+        else:
+            return "Unsupported format. Use 'json' or 'summary'"
+    
+    def _generate_text_summary(self, analysis: Dict) -> str:
+        """Generate text summary of analysis"""
+        
+        thesis = analysis['investment_thesis']
+        
+        summary = f"""
+INVESTMENT ANALYSIS REPORT
+==========================
+
+Company: {analysis['company_name']} ({analysis['company_ticker']})
+Analysis Date: {analysis['analysis_timestamp'][:10]}
+Analysis ID: {analysis['analysis_id']}
+
+INVESTMENT RECOMMENDATION
+-------------------------
+Recommendation: {thesis['recommendation']}
+Confidence Level: {thesis['confidence_level']}
+Overall Score: {thesis['overall_score']}/100
+
+COMPONENT ANALYSIS
+------------------
+Financial Strength: {thesis['component_scores']['financial_strength']}/100
+Competitive Position: {thesis['component_scores']['competitive_position']}/100
+Risk Profile: {thesis['component_scores']['risk_profile']}/100
+Market Sentiment: {thesis['component_scores']['market_sentiment']}/100
+
+KEY INSIGHTS
+------------
+{chr(10).join('• ' + insight for insight in thesis['key_insights'])}
+
+INVESTMENT RATIONALE
+--------------------
+{thesis['investment_rationale']}
+
+DATA SOURCES
+------------
+{chr(10).join(f'• {source}: {system}' for source, system in analysis['data_sources_used'].items())}
+"""
+        return summary
+
+# Initialize advanced features
+advanced_features = AdvancedAnalysisFeatures(agent)
+
+def task4_advanced_features():
+    """Task 4: Demonstrate advanced analysis features"""
+    
+    print("\n" + "=" * 60)
+    print("TASK 4: ADVANCED ANALYSIS FEATURES")
+    print("=" * 60)
+    
+    # Generate portfolio recommendation
+    print("\n📊 PORTFOLIO RECOMMENDATION")
+    portfolio = advanced_features.generate_portfolio_recommendation(100000)
+    
+    if 'error' not in portfolio:
+        print(f"Target Portfolio Value: ${portfolio['portfolio_value']:,.2f}")
+        print(f"Total Allocated: ${portfolio['total_allocated']:,.2f}")
+        print(f"Cash Position: ${portfolio['cash_position']:,.2f} ({portfolio['cash_percentage']:.1f}%)")
+        print(f"Diversification Score: {portfolio['diversification_score']}")
+        print(f"Portfolio Risk Level: {portfolio['portfolio_risk_level']}")
+        
+        print(f"\n🎯 RECOMMENDED HOLDINGS")
+        for holding in portfolio['holdings']:
+            print(f"  {holding['ticker']}: ${holding['allocation']:,.2f} ({holding['percentage']:.1f}%)")
+    else:
+        print(f"❌ Portfolio generation failed: {portfolio['error']}")
+    
+    # Export analysis report
+    if agent.analysis_history:
+        latest_analysis_id = agent.analysis_history[-1]['analysis_id']
+        print(f"\n📄 ANALYSIS REPORT EXPORT")
+        summary_report = advanced_features.export_analysis_report(latest_analysis_id, 'summary')
+        print(summary_report)
+
+# Run Task 4
+# task4_advanced_features()
+```
+
+== Knowledge Check
+
+What is the most important consideration when building a production-ready financial intelligence agent?
+
+( ) Using the fastest available APIs
+( ) Minimizing the number of data sources
+(x) Implementing proper error handling, rate limiting, and fallback strategies
+( ) Maximizing the complexity of analysis algorithms
+
+[%collapsible]
+.Explanation
+====
+Production-ready financial intelligence agents must be robust and reliable, especially when handling financial data that impacts investment decisions. Proper error handling ensures the system gracefully handles API failures, rate limiting prevents service disruptions, and fallback strategies maintain functionality when primary data sources are unavailable. These reliability features are more critical than speed or complexity for systems making financial recommendations.
+====
+
+== Summary and Next Steps
+
+Congratulations! You've built a complete financial intelligence agent with:
+
+### **Agent Capabilities:**
+* **Multi-source Data Integration** - SEC filings, financial metrics, news sentiment, graph relationships
+* **Intelligent Analysis** - Scoring algorithms for financial strength, competitive position, and risk assessment  
+* **Investment Recommendations** - Automated thesis generation with confidence levels
+* **Portfolio Management** - Allocation recommendations and diversification analysis
+* **Comparison Tools** - Side-by-side investment opportunity evaluation
+
+### **Technical Implementation:**
+* **Async Tool Orchestration** - Efficient concurrent data retrieval
+* **Error Handling** - Graceful degradation when data sources fail
+* **Analysis History** - Persistent storage of analysis results
+* **Export Capabilities** - Report generation in multiple formats
+
+### **Production Considerations:**
+- **API Rate Limiting**: Implement proper rate limiting for external APIs
+- **Data Caching**: Cache frequently accessed data to reduce API calls
+- **Security**: Secure API key management and data encryption
+- **Monitoring**: Track agent performance and data quality metrics
+- **Compliance**: Ensure analysis methods meet regulatory requirements
+
+### **Extension Opportunities:**
+* **Real-time Monitoring**: Continuous portfolio risk assessment
+* **Machine Learning**: Enhance scoring algorithms with ML models
+* **Multi-asset Support**: Extend beyond equities to bonds, options, etc.
+* **Regulatory Compliance**: Add compliance checking and reporting
+* **Collaborative Agents**: Multiple specialized agents working together
+
+Your financial intelligence agent demonstrates the power of combining structured graph data with external APIs, sophisticated reasoning patterns, and practical investment analysis workflows. This foundation can be extended to build enterprise-grade financial intelligence systems for investment management, risk assessment, and market analysis.
+
+## Complete Exercise Code
+
+The complete working code for this exercise is available in the workshop repository. To run the full system:
+
+1. Set up your environment variables in `.env`
+2. Ensure Neo4j is running with financial data loaded
+3. Run the analysis tasks in sequence
+4. Experiment with different companies and analysis parameters
+
+Remember: This is an educational example. Real investment decisions should always involve professional financial advice and thorough due diligence beyond automated analysis systems.

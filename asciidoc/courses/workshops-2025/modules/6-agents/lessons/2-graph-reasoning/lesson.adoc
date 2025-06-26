@@ -1,0 +1,878 @@
+= Graph Reasoning for Financial Intelligence
+:type: lesson
+:order: 2
+:duration: 25 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Implement graph-based reasoning for complex financial analysis
+* Build agents that can traverse and analyze financial network relationships
+* Create reasoning patterns for investment research and risk assessment
+* Design multi-hop reasoning workflows using Neo4j and LangChain
+
+== Introduction to Graph Reasoning
+
+Graph reasoning enables agents to discover insights by exploring relationships and patterns in connected data. In financial networks, this means understanding how companies, investors, risks, and market forces interconnect to create systemic effects and opportunities.
+
+=== Financial Graph Reasoning Patterns
+
+```python
+from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+
+class ReasoningPattern(Enum):
+    DIRECT_RELATIONSHIP = "direct"
+    MULTI_HOP_TRAVERSAL = "multi_hop"
+    PATTERN_MATCHING = "pattern"
+    NETWORK_ANALYSIS = "network"
+    CAUSAL_INFERENCE = "causal"
+
+@dataclass
+class GraphReasoningQuery:
+    pattern: ReasoningPattern
+    start_entities: List[str]
+    target_entities: Optional[List[str]]
+    relationship_types: List[str]
+    max_depth: int
+    constraints: Dict[str, Any]
+    expected_insights: List[str]
+
+class FinancialGraphReasoning:
+    """Graph reasoning patterns for financial intelligence"""
+    
+    def __init__(self):
+        self.reasoning_patterns = self._define_reasoning_patterns()
+    
+    def _define_reasoning_patterns(self) -> Dict[str, GraphReasoningQuery]:
+        """Define common financial graph reasoning patterns"""
+        
+        return {
+            'investment_concentration_risk': GraphReasoningQuery(
+                pattern=ReasoningPattern.MULTI_HOP_TRAVERSAL,
+                start_entities=['AssetManager'],
+                target_entities=['Company', 'RiskFactor'],
+                relationship_types=['HOLDS', 'FACES_RISK'],
+                max_depth=2,
+                constraints={'min_position_value': 1000000},
+                expected_insights=['concentration_risks', 'shared_exposures', 'systemic_risks']
+            ),
+            'competitive_network_analysis': GraphReasoningQuery(
+                pattern=ReasoningPattern.PATTERN_MATCHING,
+                start_entities=['Company'],
+                target_entities=['Company', 'Product', 'Market'],
+                relationship_types=['MENTIONS', 'COMPETES_WITH', 'OPERATES_IN'],
+                max_depth=3,
+                constraints={'same_industry': True},
+                expected_insights=['competitive_clusters', 'market_dominance', 'strategic_positioning']
+            ),
+            'risk_contagion_analysis': GraphReasoningQuery(
+                pattern=ReasoningPattern.NETWORK_ANALYSIS,
+                start_entities=['RiskFactor'],
+                target_entities=['Company', 'AssetManager'],
+                relationship_types=['FACES_RISK', 'HOLDS'],
+                max_depth=4,
+                constraints={'risk_severity': 'high'},
+                expected_insights=['contagion_paths', 'vulnerability_assessment', 'impact_radius']
+            ),
+            'supply_chain_vulnerability': GraphReasoningQuery(
+                pattern=ReasoningPattern.CAUSAL_INFERENCE,
+                start_entities=['Company', 'GeographicRegion'],
+                target_entities=['Supplier', 'RiskFactor'],
+                relationship_types=['SOURCES_FROM', 'LOCATED_IN', 'FACES_RISK'],
+                max_depth=3,
+                constraints={'supply_chain_critical': True},
+                expected_insights=['supply_disruption_risks', 'geographic_concentrations', 'alternative_sources']
+            ),
+            'merger_acquisition_impact': GraphReasoningQuery(
+                pattern=ReasoningPattern.MULTI_HOP_TRAVERSAL,
+                start_entities=['Company'],
+                target_entities=['AssetManager', 'Competitor', 'Market'],
+                relationship_types=['HELD_BY', 'COMPETES_WITH', 'OPERATES_IN'],
+                max_depth=2,
+                constraints={'transaction_type': 'merger_acquisition'},
+                expected_insights=['stakeholder_impact', 'competitive_effects', 'market_concentration']
+            )
+        }
+    
+    def get_reasoning_pattern(self, pattern_name: str) -> Optional[GraphReasoningQuery]:
+        """Get a specific reasoning pattern"""
+        return self.reasoning_patterns.get(pattern_name)
+    
+    def list_available_patterns(self) -> List[str]:
+        """List all available reasoning patterns"""
+        return list(self.reasoning_patterns.keys())
+    
+    def suggest_reasoning_pattern(self, query_intent: str, entities: List[str]) -> str:
+        """Suggest appropriate reasoning pattern based on query intent"""
+        
+        intent_lower = query_intent.lower()
+        
+        if 'concentration' in intent_lower or 'portfolio risk' in intent_lower:
+            return 'investment_concentration_risk'
+        elif 'competitive' in intent_lower or 'competitor' in intent_lower:
+            return 'competitive_network_analysis'
+        elif 'risk' in intent_lower and 'spread' in intent_lower:
+            return 'risk_contagion_analysis'
+        elif 'supply chain' in intent_lower or 'supplier' in intent_lower:
+            return 'supply_chain_vulnerability'
+        elif 'merger' in intent_lower or 'acquisition' in intent_lower:
+            return 'merger_acquisition_impact'
+        else:
+            return 'competitive_network_analysis'  # Default pattern
+
+# Example usage
+reasoning_engine = FinancialGraphReasoning()
+
+print("Available Financial Graph Reasoning Patterns:")
+for pattern_name in reasoning_engine.list_available_patterns():
+    pattern = reasoning_engine.get_reasoning_pattern(pattern_name)
+    print(f"  {pattern_name}:")
+    print(f"    Type: {pattern.pattern.value}")
+    print(f"    Max Depth: {pattern.max_depth}")
+    print(f"    Expected Insights: {', '.join(pattern.expected_insights)}")
+    print()
+
+# Suggest pattern for different queries
+test_queries = [
+    "What are the concentration risks in AllianceBernstein's portfolio?",
+    "How do Apple and Microsoft compete in the AI market?",
+    "How might cybersecurity risks spread through the technology sector?"
+]
+
+print("Pattern Suggestions:")
+for query in test_queries:
+    suggested = reasoning_engine.suggest_reasoning_pattern(query, [])
+    print(f"  Query: {query}")
+    print(f"  Suggested Pattern: {suggested}")
+    print()
+```
+
+== Graph Traversal Reasoning Engine
+
+=== Multi-Hop Reasoning Implementation
+
+```python
+from neo4j import GraphDatabase
+from typing import Dict, List, Any, Optional, Set
+import json
+
+class GraphReasoningEngine:
+    """Engine for executing graph-based reasoning queries"""
+    
+    def __init__(self, neo4j_driver):
+        self.driver = neo4j_driver
+        self.reasoning_patterns = FinancialGraphReasoning()
+    
+    def execute_reasoning_query(self, pattern_name: str, start_entities: Dict[str, str], 
+                              constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute a graph reasoning query using specified pattern"""
+        
+        pattern = self.reasoning_patterns.get_reasoning_pattern(pattern_name)
+        if not pattern:
+            return {'error': f'Unknown reasoning pattern: {pattern_name}'}
+        
+        # Route to appropriate reasoning method
+        if pattern.pattern == ReasoningPattern.MULTI_HOP_TRAVERSAL:
+            return self._execute_multi_hop_reasoning(pattern, start_entities, constraints)
+        elif pattern.pattern == ReasoningPattern.NETWORK_ANALYSIS:
+            return self._execute_network_analysis(pattern, start_entities, constraints)
+        elif pattern.pattern == ReasoningPattern.PATTERN_MATCHING:
+            return self._execute_pattern_matching(pattern, start_entities, constraints)
+        elif pattern.pattern == ReasoningPattern.CAUSAL_INFERENCE:
+            return self._execute_causal_reasoning(pattern, start_entities, constraints)
+        else:
+            return {'error': f'Reasoning pattern {pattern.pattern.value} not implemented'}
+    
+    def _execute_multi_hop_reasoning(self, pattern: GraphReasoningQuery, 
+                                   start_entities: Dict[str, str], 
+                                   constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute multi-hop traversal reasoning"""
+        
+        # Build dynamic Cypher query based on pattern
+        entity_label = list(start_entities.keys())[0]
+        entity_name = start_entities[entity_label]
+        
+        if pattern_name == 'investment_concentration_risk':
+            return self._analyze_investment_concentration_risk(entity_name, constraints)
+        elif pattern_name == 'merger_acquisition_impact':
+            return self._analyze_merger_acquisition_impact(entity_name, constraints)
+        else:
+            return self._generic_multi_hop_traversal(pattern, start_entities, constraints)
+    
+    def _analyze_investment_concentration_risk(self, asset_manager: str, 
+                                             constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Analyze concentration risks in an asset manager's portfolio"""
+        
+        concentration_query = """
+        MATCH (am:AssetManager {name: $asset_manager})-[holds:HOLDS]->(company:Company)
+        
+        // Get portfolio composition
+        WITH am, 
+             collect({
+                 company: company.name,
+                 ticker: company.ticker,
+                 position_value: holds.Value,
+                 shares: holds.shares
+             }) AS holdings,
+             sum(holds.Value) AS total_portfolio_value
+        
+        // Unwind holdings to analyze individual positions
+        UNWIND holdings AS holding
+        WITH am, holdings, total_portfolio_value, holding,
+             holding.position_value * 100.0 / total_portfolio_value AS position_percentage
+        
+        // Find companies with > 5% positions (concentration risk)
+        WHERE position_percentage > 5.0
+        
+        // Get risk factors for concentrated positions
+        MATCH (concentrated_company:Company {name: holding.company})-[:FACES_RISK]->(risk:RiskFactor)
+        
+        // Find other companies in portfolio facing same risks
+        MATCH (risk)<-[:FACES_RISK]-(other_company:Company)<-[other_holds:HOLDS]-(am)
+        WHERE other_company <> concentrated_company
+        
+        WITH am, holding, position_percentage, risk,
+             collect(DISTINCT other_company.name) AS other_companies_with_risk,
+             sum(other_holds.Value) AS total_exposure_to_risk
+        
+        RETURN am.name AS asset_manager,
+               holding.company AS concentrated_position,
+               holding.ticker AS ticker,
+               position_percentage,
+               risk.name AS shared_risk_factor,
+               other_companies_with_risk,
+               total_exposure_to_risk
+        ORDER BY position_percentage DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(concentration_query, asset_manager=asset_manager)
+            concentration_risks = [dict(record) for record in result]
+        
+        # Analyze concentration patterns
+        analysis = self._analyze_concentration_patterns(concentration_risks)
+        
+        return {
+            'reasoning_type': 'investment_concentration_risk',
+            'asset_manager': asset_manager,
+            'concentration_risks': concentration_risks,
+            'risk_analysis': analysis,
+            'insights': self._generate_concentration_insights(concentration_risks, analysis)
+        }
+    
+    def _analyze_concentration_patterns(self, concentration_data: List[Dict]) -> Dict[str, Any]:
+        """Analyze patterns in concentration risk data"""
+        
+        if not concentration_data:
+            return {'total_concentrated_positions': 0}
+        
+        # Calculate concentration metrics
+        total_positions = len(set(item['concentrated_position'] for item in concentration_data))
+        avg_concentration = sum(item['position_percentage'] for item in concentration_data) / len(concentration_data)
+        max_concentration = max(item['position_percentage'] for item in concentration_data)
+        
+        # Risk factor analysis
+        risk_factors = {}
+        for item in concentration_data:
+            risk = item['shared_risk_factor']
+            if risk not in risk_factors:
+                risk_factors[risk] = {
+                    'affected_positions': set(),
+                    'total_exposure': 0
+                }
+            risk_factors[risk]['affected_positions'].add(item['concentrated_position'])
+            risk_factors[risk]['total_exposure'] += item['total_exposure_to_risk']
+        
+        # Convert sets to counts for JSON serialization
+        for risk in risk_factors:
+            risk_factors[risk]['affected_positions'] = len(risk_factors[risk]['affected_positions'])
+        
+        return {
+            'total_concentrated_positions': total_positions,
+            'average_concentration_percentage': round(avg_concentration, 2),
+            'maximum_concentration_percentage': round(max_concentration, 2),
+            'shared_risk_factors': risk_factors,
+            'concentration_risk_level': self._classify_concentration_risk(max_concentration, total_positions)
+        }
+    
+    def _classify_concentration_risk(self, max_concentration: float, total_positions: int) -> str:
+        """Classify overall concentration risk level"""
+        
+        if max_concentration > 15 or total_positions > 10:
+            return 'HIGH'
+        elif max_concentration > 10 or total_positions > 5:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _generate_concentration_insights(self, concentration_data: List[Dict], 
+                                       analysis: Dict[str, Any]) -> List[str]:
+        """Generate actionable insights from concentration analysis"""
+        
+        insights = []
+        
+        if analysis['concentration_risk_level'] == 'HIGH':
+            insights.append(f"HIGH concentration risk detected with {analysis['total_concentrated_positions']} positions >5%")
+        
+        if analysis['maximum_concentration_percentage'] > 20:
+            max_position = max(concentration_data, key=lambda x: x['position_percentage'])
+            insights.append(f"Extreme concentration in {max_position['concentrated_position']} at {max_position['position_percentage']:.1f}%")
+        
+        # Risk factor insights
+        risk_factors = analysis.get('shared_risk_factors', {})
+        high_impact_risks = [risk for risk, data in risk_factors.items() if data['affected_positions'] > 2]
+        
+        if high_impact_risks:
+            insights.append(f"Systemic risk exposure to: {', '.join(high_impact_risks[:3])}")
+        
+        if len(insights) == 0:
+            insights.append("Concentration risk appears manageable within portfolio guidelines")
+        
+        return insights
+    
+    def _execute_network_analysis(self, pattern: GraphReasoningQuery, 
+                                start_entities: Dict[str, str], 
+                                constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute network-based reasoning analysis"""
+        
+        if 'risk_contagion_analysis' in str(pattern):
+            return self._analyze_risk_contagion_network(start_entities, constraints)
+        else:
+            return self._generic_network_analysis(pattern, start_entities, constraints)
+    
+    def _analyze_risk_contagion_network(self, start_entities: Dict[str, str], 
+                                      constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Analyze how risks might spread through financial networks"""
+        
+        risk_factor = list(start_entities.values())[0]
+        
+        contagion_query = """
+        // Start with companies facing the specific risk
+        MATCH (source_risk:RiskFactor {name: $risk_factor})<-[:FACES_RISK]-(source_company:Company)
+        
+        // Find contagion paths through asset managers
+        MATCH (source_company)<-[source_hold:HOLDS]-(am:AssetManager)-[target_hold:HOLDS]->(target_company:Company)
+        WHERE target_company <> source_company
+        
+        // Get risk profile of target companies
+        OPTIONAL MATCH (target_company)-[:FACES_RISK]->(target_risk:RiskFactor)
+        
+        // Calculate contagion potential
+        WITH source_company, am, target_company, source_risk,
+             source_hold.Value AS source_exposure,
+             target_hold.Value AS target_exposure,
+             collect(target_risk.name) AS target_risks,
+             count(target_risk) AS target_risk_count
+        
+        // Find if target already faces the same risk
+        WITH source_company, am, target_company, source_risk, source_exposure, target_exposure, target_risks, target_risk_count,
+             CASE WHEN source_risk.name IN target_risks THEN true ELSE false END AS already_exposed
+        
+        RETURN source_company.name AS source_company,
+               source_risk.name AS source_risk,
+               am.name AS connecting_asset_manager,
+               target_company.name AS target_company,
+               source_exposure,
+               target_exposure,
+               target_risks,
+               target_risk_count,
+               already_exposed,
+               // Calculate contagion score
+               CASE 
+                 WHEN already_exposed THEN target_risk_count * 2
+                 ELSE target_risk_count
+               END AS contagion_vulnerability_score
+        ORDER BY contagion_vulnerability_score DESC, target_exposure DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(contagion_query, risk_factor=risk_factor)
+            contagion_paths = [dict(record) for record in result]
+        
+        # Analyze contagion network
+        network_analysis = self._analyze_contagion_network(contagion_paths, risk_factor)
+        
+        return {
+            'reasoning_type': 'risk_contagion_analysis',
+            'source_risk_factor': risk_factor,
+            'contagion_paths': contagion_paths,
+            'network_analysis': network_analysis,
+            'insights': self._generate_contagion_insights(contagion_paths, network_analysis)
+        }
+    
+    def _analyze_contagion_network(self, contagion_data: List[Dict], risk_factor: str) -> Dict[str, Any]:
+        """Analyze the structure and characteristics of risk contagion network"""
+        
+        if not contagion_data:
+            return {'total_contagion_paths': 0}
+        
+        # Network metrics
+        unique_asset_managers = set(item['connecting_asset_manager'] for item in contagion_data)
+        unique_target_companies = set(item['target_company'] for item in contagion_data)
+        unique_source_companies = set(item['source_company'] for item in contagion_data)
+        
+        # Vulnerability analysis
+        high_vulnerability_targets = [
+            item for item in contagion_data 
+            if item['contagion_vulnerability_score'] > 5
+        ]
+        
+        already_exposed_count = sum(1 for item in contagion_data if item['already_exposed'])
+        total_exposure = sum(item['target_exposure'] for item in contagion_data)
+        
+        return {
+            'total_contagion_paths': len(contagion_data),
+            'unique_asset_managers': len(unique_asset_managers),
+            'unique_target_companies': len(unique_target_companies),
+            'unique_source_companies': len(unique_source_companies),
+            'high_vulnerability_targets': len(high_vulnerability_targets),
+            'already_exposed_companies': already_exposed_count,
+            'total_financial_exposure': total_exposure,
+            'network_density': len(contagion_data) / (len(unique_source_companies) * len(unique_target_companies)) if unique_source_companies and unique_target_companies else 0,
+            'systemic_risk_level': self._classify_systemic_risk(len(contagion_data), len(high_vulnerability_targets))
+        }
+    
+    def _classify_systemic_risk(self, total_paths: int, high_vulnerability_count: int) -> str:
+        """Classify systemic risk level based on contagion analysis"""
+        
+        if total_paths > 20 or high_vulnerability_count > 5:
+            return 'HIGH'
+        elif total_paths > 10 or high_vulnerability_count > 2:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _generate_contagion_insights(self, contagion_data: List[Dict], 
+                                   network_analysis: Dict[str, Any]) -> List[str]:
+        """Generate insights from risk contagion analysis"""
+        
+        insights = []
+        
+        if network_analysis['systemic_risk_level'] == 'HIGH':
+            insights.append(f"HIGH systemic risk: {network_analysis['total_contagion_paths']} potential contagion paths identified")
+        
+        if network_analysis['already_exposed_companies'] > 0:
+            insights.append(f"{network_analysis['already_exposed_companies']} companies already exposed to this risk factor")
+        
+        # Identify key asset managers in contagion network
+        am_exposure = {}
+        for path in contagion_data:
+            am = path['connecting_asset_manager']
+            if am not in am_exposure:
+                am_exposure[am] = 0
+            am_exposure[am] += path['target_exposure']
+        
+        if am_exposure:
+            top_am = max(am_exposure, key=am_exposure.get)
+            insights.append(f"Highest contagion exposure through {top_am} (${am_exposure[top_am]:,.0f})")
+        
+        return insights
+    
+    def _execute_pattern_matching(self, pattern: GraphReasoningQuery, 
+                                start_entities: Dict[str, str], 
+                                constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Execute pattern matching reasoning"""
+        
+        # Implement competitive network analysis
+        return self._analyze_competitive_network(start_entities, constraints)
+    
+    def _analyze_competitive_network(self, start_entities: Dict[str, str], 
+                                   constraints: Optional[Dict] = None) -> Dict[str, Any]:
+        """Analyze competitive relationships and market positioning"""
+        
+        company_name = list(start_entities.values())[0]
+        
+        competitive_query = """
+        MATCH (company:Company {name: $company_name})
+        
+        // Find direct competitive relationships
+        OPTIONAL MATCH (company)-[:COMPETES_WITH]->(direct_competitor:Company)
+        
+        // Find competitors through shared products/markets
+        OPTIONAL MATCH (company)-[:MENTIONS]->(shared_product:Product)<-[:MENTIONS]-(product_competitor:Company)
+        WHERE product_competitor <> company
+        
+        // Find competitors through shared risk factors (similar business models)
+        OPTIONAL MATCH (company)-[:FACES_RISK]->(shared_risk:RiskFactor)<-[:FACES_RISK]-(risk_competitor:Company)
+        WHERE risk_competitor <> company
+        
+        // Find competitors held by same asset managers
+        OPTIONAL MATCH (company)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(portfolio_peer:Company)
+        WHERE portfolio_peer <> company
+        
+        // Get market positioning data
+        OPTIONAL MATCH (company)-[:HAS_METRIC]->(metric:FinancialMetric)
+        
+        WITH company,
+             collect(DISTINCT direct_competitor.name) AS direct_competitors,
+             collect(DISTINCT {competitor: product_competitor.name, shared_product: shared_product.name}) AS product_competitors,
+             collect(DISTINCT {competitor: risk_competitor.name, shared_risk: shared_risk.name}) AS risk_competitors,
+             collect(DISTINCT {competitor: portfolio_peer.name, asset_manager: am.name}) AS portfolio_peers,
+             collect(DISTINCT metric.name) AS financial_metrics
+        
+        RETURN company.name AS company,
+               company.ticker AS ticker,
+               direct_competitors,
+               product_competitors,
+               risk_competitors,
+               portfolio_peers,
+               financial_metrics
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(competitive_query, company_name=company_name)
+            record = result.single()
+            
+            if record:
+                competitive_data = dict(record)
+                competitive_analysis = self._analyze_competitive_positioning(competitive_data)
+                
+                return {
+                    'reasoning_type': 'competitive_network_analysis',
+                    'company': company_name,
+                    'competitive_data': competitive_data,
+                    'competitive_analysis': competitive_analysis,
+                    'insights': self._generate_competitive_insights(competitive_data, competitive_analysis)
+                }
+            else:
+                return {'error': f'Company {company_name} not found for competitive analysis'}
+    
+    def _analyze_competitive_positioning(self, competitive_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze competitive positioning from network data"""
+        
+        # Aggregate all competitors
+        all_competitors = set()
+        
+        # Add competitors from different sources
+        all_competitors.update(competitive_data.get('direct_competitors', []))
+        all_competitors.update([comp['competitor'] for comp in competitive_data.get('product_competitors', [])])
+        all_competitors.update([comp['competitor'] for comp in competitive_data.get('risk_competitors', [])])
+        all_competitors.update([comp['competitor'] for comp in competitive_data.get('portfolio_peers', [])])
+        
+        # Remove None values
+        all_competitors = {comp for comp in all_competitors if comp}
+        
+        # Analyze competitive relationships
+        product_overlap = len(competitive_data.get('product_competitors', []))
+        risk_similarity = len(competitive_data.get('risk_competitors', []))
+        investor_overlap = len(competitive_data.get('portfolio_peers', []))
+        
+        return {
+            'total_competitors_identified': len(all_competitors),
+            'competitors_list': list(all_competitors),
+            'product_competition_level': self._classify_competition_level(product_overlap),
+            'risk_profile_similarity': self._classify_competition_level(risk_similarity),
+            'investor_overlap_level': self._classify_competition_level(investor_overlap),
+            'competitive_intensity': self._calculate_competitive_intensity(product_overlap, risk_similarity, investor_overlap)
+        }
+    
+    def _classify_competition_level(self, overlap_count: int) -> str:
+        """Classify level of competition based on overlap count"""
+        if overlap_count >= 5:
+            return 'HIGH'
+        elif overlap_count >= 2:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _calculate_competitive_intensity(self, product_overlap: int, risk_similarity: int, investor_overlap: int) -> str:
+        """Calculate overall competitive intensity"""
+        total_score = product_overlap * 3 + risk_similarity * 2 + investor_overlap * 1
+        
+        if total_score >= 15:
+            return 'VERY HIGH'
+        elif total_score >= 10:
+            return 'HIGH'
+        elif total_score >= 5:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+    
+    def _generate_competitive_insights(self, competitive_data: Dict[str, Any], 
+                                     analysis: Dict[str, Any]) -> List[str]:
+        """Generate competitive intelligence insights"""
+        
+        insights = []
+        
+        total_competitors = analysis['total_competitors_identified']
+        if total_competitors > 10:
+            insights.append(f"Highly competitive market with {total_competitors} identified competitors")
+        elif total_competitors > 5:
+            insights.append(f"Moderately competitive market with {total_competitors} competitors")
+        
+        if analysis['competitive_intensity'] in ['HIGH', 'VERY HIGH']:
+            insights.append(f"Intense competition across multiple dimensions: products, risks, and investor base")
+        
+        # Product competition insights
+        product_competitors = competitive_data.get('product_competitors', [])
+        if len(product_competitors) > 3:
+            top_shared_products = [comp['shared_product'] for comp in product_competitors[:3]]
+            insights.append(f"Direct product competition in: {', '.join(top_shared_products)}")
+        
+        return insights
+
+# Example usage of graph reasoning engine
+reasoning_engine = GraphReasoningEngine(GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "password")))
+
+# Test concentration risk analysis
+# concentration_result = reasoning_engine.execute_reasoning_query(
+#     'investment_concentration_risk',
+#     {'AssetManager': 'ALLIANCEBERNSTEIN L.P.'}
+# )
+# 
+# print("Concentration Risk Analysis:")
+# print(f"  Asset Manager: {concentration_result['asset_manager']}")
+# print(f"  Risk Level: {concentration_result['risk_analysis']['concentration_risk_level']}")
+# print(f"  Insights: {concentration_result['insights']}")
+
+# Test competitive analysis
+# competitive_result = reasoning_engine.execute_reasoning_query(
+#     'competitive_network_analysis',
+#     {'Company': 'APPLE INC'}
+# )
+# 
+# print("\nCompetitive Network Analysis:")
+# print(f"  Company: {competitive_result['company']}")
+# print(f"  Total Competitors: {competitive_result['competitive_analysis']['total_competitors_identified']}")
+# print(f"  Competitive Intensity: {competitive_result['competitive_analysis']['competitive_intensity']}")
+```
+
+== Advanced Reasoning Workflows
+
+=== Chain-of-Thought Financial Reasoning
+
+```python
+class ChainOfThoughtReasoner:
+    """Implements chain-of-thought reasoning for complex financial analysis"""
+    
+    def __init__(self, graph_reasoning_engine: GraphReasoningEngine):
+        self.reasoning_engine = graph_reasoning_engine
+        self.reasoning_steps = []
+    
+    def execute_chain_of_thought(self, analysis_goal: str, initial_entities: Dict[str, str]) -> Dict[str, Any]:
+        """Execute multi-step chain-of-thought reasoning"""
+        
+        self.reasoning_steps = []
+        
+        # Step 1: Analyze the goal and decompose into sub-questions
+        sub_questions = self._decompose_analysis_goal(analysis_goal, initial_entities)
+        
+        # Step 2: Execute reasoning for each sub-question
+        sub_results = {}
+        for question_id, question_data in sub_questions.items():
+            result = self._execute_reasoning_step(question_data)
+            sub_results[question_id] = result
+            
+            # Add to reasoning chain
+            self.reasoning_steps.append({
+                'step': len(self.reasoning_steps) + 1,
+                'question': question_data['question'],
+                'reasoning_pattern': question_data['pattern'],
+                'result': result,
+                'insights': result.get('insights', [])
+            })
+        
+        # Step 3: Synthesize results
+        synthesis = self._synthesize_reasoning_results(analysis_goal, sub_results)
+        
+        return {
+            'analysis_goal': analysis_goal,
+            'reasoning_steps': self.reasoning_steps,
+            'sub_results': sub_results,
+            'synthesis': synthesis,
+            'final_conclusion': synthesis['conclusion']
+        }
+    
+    def _decompose_analysis_goal(self, goal: str, entities: Dict[str, str]) -> Dict[str, Dict]:
+        """Decompose complex analysis goal into manageable sub-questions"""
+        
+        goal_lower = goal.lower()
+        
+        if 'investment opportunity' in goal_lower:
+            return self._decompose_investment_analysis(entities)
+        elif 'portfolio risk' in goal_lower:
+            return self._decompose_portfolio_risk_analysis(entities)
+        elif 'competitive position' in goal_lower:
+            return self._decompose_competitive_analysis(entities)
+        else:
+            return self._decompose_general_analysis(goal, entities)
+    
+    def _decompose_investment_analysis(self, entities: Dict[str, str]) -> Dict[str, Dict]:
+        """Decompose investment opportunity analysis"""
+        
+        company_name = entities.get('Company', list(entities.values())[0])
+        
+        return {
+            'competitive_position': {
+                'question': f'What is {company_name}\'s competitive position in the market?',
+                'pattern': 'competitive_network_analysis',
+                'entities': {'Company': company_name}
+            },
+            'risk_assessment': {
+                'question': f'What are the key risk factors facing {company_name}?',
+                'pattern': 'risk_contagion_analysis',
+                'entities': {'Company': company_name}
+            },
+            'institutional_interest': {
+                'question': f'Which institutional investors hold {company_name} and what does this indicate?',
+                'pattern': 'investment_concentration_risk',
+                'entities': {'Company': company_name}
+            }
+        }
+    
+    def _decompose_portfolio_risk_analysis(self, entities: Dict[str, str]) -> Dict[str, Dict]:
+        """Decompose portfolio risk analysis"""
+        
+        asset_manager = entities.get('AssetManager', list(entities.values())[0])
+        
+        return {
+            'concentration_risk': {
+                'question': f'What are the concentration risks in {asset_manager}\'s portfolio?',
+                'pattern': 'investment_concentration_risk',
+                'entities': {'AssetManager': asset_manager}
+            },
+            'systemic_risk': {
+                'question': f'How might systemic risks affect {asset_manager}\'s holdings?',
+                'pattern': 'risk_contagion_analysis',
+                'entities': {'AssetManager': asset_manager}
+            }
+        }
+    
+    def _execute_reasoning_step(self, question_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a single reasoning step"""
+        
+        pattern = question_data['pattern']
+        entities = question_data['entities']
+        
+        try:
+            result = self.reasoning_engine.execute_reasoning_query(pattern, entities)
+            return result
+        except Exception as e:
+            return {'error': f'Failed to execute reasoning step: {str(e)}'}
+    
+    def _synthesize_reasoning_results(self, goal: str, sub_results: Dict[str, Any]) -> Dict[str, Any]:
+        """Synthesize results from multiple reasoning steps"""
+        
+        synthesis_insights = []
+        risk_factors = []
+        opportunities = []
+        
+        # Extract insights from each sub-result
+        for step_id, result in sub_results.items():
+            if 'insights' in result:
+                synthesis_insights.extend(result['insights'])
+            
+            # Extract risk-related insights
+            if 'risk' in result.get('reasoning_type', '').lower():
+                risk_factors.extend(result.get('insights', []))
+            
+            # Extract opportunity-related insights
+            if 'competitive' in result.get('reasoning_type', '').lower():
+                opportunities.extend(result.get('insights', []))
+        
+        # Generate overall conclusion
+        conclusion = self._generate_overall_conclusion(goal, synthesis_insights, risk_factors, opportunities)
+        
+        return {
+            'total_insights': len(synthesis_insights),
+            'key_insights': synthesis_insights[:5],  # Top 5 insights
+            'risk_factors': list(set(risk_factors)),
+            'opportunities': list(set(opportunities)),
+            'conclusion': conclusion,
+            'confidence_level': self._calculate_confidence_level(sub_results)
+        }
+    
+    def _generate_overall_conclusion(self, goal: str, insights: List[str], 
+                                   risk_factors: List[str], opportunities: List[str]) -> str:
+        """Generate overall conclusion from synthesized results"""
+        
+        if 'investment' in goal.lower():
+            if len(opportunities) > len(risk_factors):
+                return f"POSITIVE investment outlook based on {len(opportunities)} opportunities vs {len(risk_factors)} risk factors"
+            elif len(risk_factors) > len(opportunities) * 1.5:
+                return f"CAUTIOUS investment outlook due to {len(risk_factors)} identified risk factors"
+            else:
+                return f"NEUTRAL investment outlook with balanced risk-reward profile"
+        
+        elif 'risk' in goal.lower():
+            if len(risk_factors) > 5:
+                return f"HIGH risk profile identified with {len(risk_factors)} significant risk factors"
+            elif len(risk_factors) > 2:
+                return f"MODERATE risk profile with {len(risk_factors)} manageable risk factors"
+            else:
+                return f"LOW risk profile with minimal identified risk factors"
+        
+        else:
+            return f"Analysis complete with {len(insights)} key insights identified"
+    
+    def _calculate_confidence_level(self, sub_results: Dict[str, Any]) -> str:
+        """Calculate confidence level based on sub-result quality"""
+        
+        successful_steps = sum(1 for result in sub_results.values() if 'error' not in result)
+        total_steps = len(sub_results)
+        
+        confidence_ratio = successful_steps / total_steps
+        
+        if confidence_ratio >= 0.9:
+            return 'HIGH'
+        elif confidence_ratio >= 0.7:
+            return 'MEDIUM'
+        else:
+            return 'LOW'
+
+# Example chain-of-thought reasoning
+chain_reasoner = ChainOfThoughtReasoner(reasoning_engine)
+
+# investment_analysis = chain_reasoner.execute_chain_of_thought(
+#     "Analyze the investment opportunity in Apple Inc",
+#     {'Company': 'APPLE INC'}
+# )
+# 
+# print("Chain-of-Thought Investment Analysis:")
+# print(f"  Goal: {investment_analysis['analysis_goal']}")
+# print(f"  Reasoning Steps: {len(investment_analysis['reasoning_steps'])}")
+# print(f"  Final Conclusion: {investment_analysis['final_conclusion']}")
+# print(f"  Confidence: {investment_analysis['synthesis']['confidence_level']}")
+```
+
+== Knowledge Check
+
+What is the primary benefit of using chain-of-thought reasoning in financial graph analysis?
+
+( ) Faster query execution
+( ) Reduced computational complexity
+(x) Breaking complex analysis into logical steps that can be traced and verified
+( ) Simplified graph structure requirements
+
+[%collapsible]
+.Explanation
+====
+Chain-of-thought reasoning breaks complex financial analysis into logical, sequential steps that can be individually executed, traced, and verified. This approach allows for better understanding of how conclusions are reached, enables debugging of reasoning processes, and provides transparency in investment decisions. Each step builds on previous results, creating a comprehensive analysis that stakeholders can follow and validate.
+====
+
+== Summary
+
+Graph reasoning enables sophisticated financial intelligence by leveraging relationship structures in connected data:
+
+### **Key Reasoning Patterns:**
+* **Multi-hop Traversal** - Following relationship paths for concentration risk and impact analysis
+* **Network Analysis** - Understanding systemic effects and contagion patterns
+* **Pattern Matching** - Identifying competitive clusters and market structures
+* **Chain-of-Thought** - Breaking complex analysis into logical, verifiable steps
+
+### **Financial Applications:**
+- **Investment Analysis**: Multi-dimensional company evaluation through competitive, risk, and ownership perspectives
+- **Portfolio Risk Management**: Concentration analysis and systemic risk assessment
+- **Competitive Intelligence**: Market positioning and competitive dynamics analysis
+- **Systemic Risk Assessment**: Understanding how risks propagate through financial networks
+
+### **Implementation Benefits:**
+* **Explainable Results**: Each reasoning step can be traced and validated
+* **Modular Analysis**: Complex questions broken into manageable components
+* **Relationship Insights**: Discoveries only possible through graph connectivity
+* **Scalable Reasoning**: Patterns can be applied to different entities and scenarios
+
+Next, we'll explore how to integrate these reasoning capabilities with external tools and APIs to create comprehensive financial intelligence agents.

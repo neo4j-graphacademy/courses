@@ -1,0 +1,388 @@
+= Hands-on Exercise: Financial Data Import
+:type: challenge
+:order: 4
+:duration: 10 minutes
+
+== Learning Objectives
+
+By the end of this exercise, you will be able to:
+
+* Import a complete financial dataset using LOAD CSV
+* Apply data modeling principles to real data
+* Create optimized graph structures for AI applications
+* Validate data quality during import
+
+== Exercise Overview
+
+You'll import a comprehensive financial dataset from the GraphRAG ebook repository, creating a graph suitable for AI applications like fraud detection, risk assessment, and customer analytics.
+
+=== Dataset Description
+
+The financial dataset includes:
+* **customers.csv**: Customer demographic and profile data
+* **accounts.csv**: Bank account information
+* **transactions.csv**: Financial transactions between accounts
+* **merchants.csv**: Business entities receiving payments
+* **locations.csv**: Geographic reference data
+
+== Step 1: Schema Preparation (2 minutes)
+
+=== Create Constraints and Indexes
+
+```cypher
+// Create unique constraints for data integrity
+CREATE CONSTRAINT customer_id FOR (c:Customer) REQUIRE c.id IS UNIQUE;
+CREATE CONSTRAINT account_number FOR (a:Account) REQUIRE a.number IS UNIQUE;
+CREATE CONSTRAINT merchant_id FOR (m:Merchant) REQUIRE m.id IS UNIQUE;
+CREATE CONSTRAINT location_id FOR (l:Location) REQUIRE l.id IS UNIQUE;
+```
+
+```cypher
+// Create indexes for import performance
+CREATE INDEX customer_email FOR (c:Customer) ON (c.email);
+CREATE INDEX transaction_date FOR ()-[t:TRANSACTION]-() ON (t.date);
+CREATE INDEX account_type FOR (a:Account) ON (a.type);
+CREATE INDEX merchant_category FOR (m:Merchant) ON (m.category);
+```
+
+**Verify Schema Setup**:
+```cypher
+SHOW CONSTRAINTS;
+SHOW INDEXES;
+```
+
+== Step 2: Import Reference Data (2 minutes)
+
+=== Import Locations
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///financial/locations.csv' AS row
+CREATE (l:Location {
+  id: toInteger(row.location_id),
+  city: trim(row.city),
+  state: trim(row.state),
+  country: trim(row.country),
+  zip_code: row.zip_code,
+  latitude: toFloat(row.latitude),
+  longitude: toFloat(row.longitude)
+})
+```
+
+=== Import Merchants
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///financial/merchants.csv' AS row
+CREATE (m:Merchant {
+  id: toInteger(row.merchant_id),
+  name: trim(row.merchant_name),
+  category: row.category,
+  subcategory: row.subcategory,
+  established_year: toInteger(row.established_year)
+})
+// Connect to location
+WITH m, row
+MATCH (l:Location {id: toInteger(row.location_id)})
+CREATE (m)-[:LOCATED_IN]->(l)
+```
+
+**Validation Check**:
+```cypher
+MATCH (m:Merchant)-[:LOCATED_IN]->(l:Location)
+RETURN count(m) AS merchants_with_location,
+       count(DISTINCT l) AS unique_locations
+```
+
+== Step 3: Import Customers (2 minutes)
+
+=== Customer Data with Validation
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///financial/customers.csv' AS row
+// Validate data quality
+WITH row,
+     row.email =~ '^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' AS valid_email,
+     toInteger(row.age) BETWEEN 18 AND 120 AS valid_age,
+     row.full_name IS NOT NULL AND trim(row.full_name) <> '' AS has_name
+
+// Only import valid customers
+WHERE valid_email AND valid_age AND has_name
+
+CREATE (c:Customer {
+  id: toInteger(row.customer_id),
+  name: trim(row.full_name),
+  email: toLower(trim(row.email)),
+  phone: row.phone,
+  age: toInteger(row.age),
+  income_bracket: row.income_bracket,
+  credit_score: toInteger(row.credit_score),
+  registration_date: date(row.registration_date),
+  
+  // Computed risk category
+  risk_category: CASE 
+    WHEN toInteger(row.credit_score) >= 750 THEN 'low'
+    WHEN toInteger(row.credit_score) >= 650 THEN 'medium'
+    ELSE 'high'
+  END
+})
+
+// Connect to location
+WITH c, row
+WHERE row.location_id IS NOT NULL
+MATCH (l:Location {id: toInteger(row.location_id)})
+CREATE (c)-[:LIVES_IN]->(l)
+```
+
+**Validation Check**:
+```cypher
+MATCH (c:Customer)
+RETURN count(c) AS total_customers,
+       avg(c.credit_score) AS avg_credit_score,
+       collect(DISTINCT c.risk_category) AS risk_categories
+```
+
+== Step 4: Import Accounts (2 minutes)
+
+=== Account Data with Customer Relationships
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///financial/accounts.csv' AS row
+// Find the customer
+MATCH (c:Customer {id: toInteger(row.customer_id)})
+
+// Create account with validation
+WITH c, row,
+     toFloat(row.current_balance) >= 0 AS valid_balance
+WHERE valid_balance
+
+CREATE (a:Account {
+  number: row.account_number,
+  type: row.account_type,
+  balance: toFloat(row.current_balance),
+  opened_date: date(row.opened_date),
+  status: row.status,
+  
+  // Computed properties for analytics
+  balance_category: CASE 
+    WHEN toFloat(row.current_balance) < 1000 THEN 'low'
+    WHEN toFloat(row.current_balance) < 10000 THEN 'medium'
+    WHEN toFloat(row.current_balance) < 100000 THEN 'high'
+    ELSE 'very_high'
+  END,
+  
+  account_age_days: duration.between(date(row.opened_date), date()).days
+})
+
+// Create ownership relationship
+CREATE (c)-[:HAS_ACCOUNT {
+  opened: date(row.opened_date),
+  primary_account: row.is_primary = 'true'
+}]->(a)
+```
+
+**Validation Check**:
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+RETURN c.name, 
+       count(a) AS account_count,
+       sum(a.balance) AS total_balance,
+       collect(a.type) AS account_types
+ORDER BY total_balance DESC
+LIMIT 5
+```
+
+== Step 5: Import Transactions (2 minutes)
+
+=== Transaction Data with Relationships
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///financial/transactions.csv' AS row
+// Find source and destination accounts
+MATCH (from:Account {number: row.from_account})
+MATCH (to:Account {number: row.to_account})
+
+// Validate transaction data
+WITH from, to, row,
+     toFloat(row.amount) > 0 AS valid_amount,
+     row.from_account <> row.to_account AS different_accounts
+WHERE valid_amount AND different_accounts
+
+// Create transaction relationship
+CREATE (from)-[:TRANSACTION {
+  id: row.transaction_id,
+  amount: toFloat(row.amount),
+  date: datetime(row.transaction_timestamp),
+  type: row.transaction_type,
+  description: row.description,
+  channel: row.channel,
+  
+  // Computed properties
+  amount_category: CASE 
+    WHEN toFloat(row.amount) < 50 THEN 'micro'
+    WHEN toFloat(row.amount) < 500 THEN 'small'
+    WHEN toFloat(row.amount) < 5000 THEN 'medium'
+    ELSE 'large'
+  END,
+  
+  is_weekend: datetime(row.transaction_timestamp).dayOfWeek IN [6, 7],
+  hour_of_day: datetime(row.transaction_timestamp).hour
+}]->(to)
+
+// Connect to merchant if applicable
+WITH from, to, row
+WHERE row.merchant_id IS NOT NULL
+MATCH (m:Merchant {id: toInteger(row.merchant_id)})
+MATCH (from)-[t:TRANSACTION {id: row.transaction_id}]->(to)
+CREATE (t)-[:AT_MERCHANT]->(m)
+```
+
+**Validation Check**:
+```cypher
+MATCH ()-[t:TRANSACTION]-()
+RETURN count(t) AS total_transactions,
+       avg(t.amount) AS avg_amount,
+       min(t.date) AS earliest_transaction,
+       max(t.date) AS latest_transaction
+```
+
+== Step 6: Data Quality Validation (1 minute)
+
+=== Comprehensive Data Checks
+
+```cypher
+// Check data completeness
+MATCH (c:Customer)
+OPTIONAL MATCH (c)-[:HAS_ACCOUNT]->(a:Account)
+OPTIONAL MATCH (a)-[t:TRANSACTION]-()
+RETURN 'Customer Coverage' AS metric,
+       count(DISTINCT c) AS customers,
+       count(DISTINCT a) AS accounts,
+       count(t) AS transactions
+
+UNION
+
+// Check orphaned data
+MATCH (a:Account)
+WHERE NOT (a)<-[:HAS_ACCOUNT]-()
+RETURN 'Orphaned Accounts' AS metric,
+       count(a) AS count,
+       null AS accounts,
+       null AS transactions
+
+UNION
+
+// Check merchant connections
+MATCH (m:Merchant)
+OPTIONAL MATCH ()-[:AT_MERCHANT]->(m)
+RETURN 'Merchant Usage' AS metric,
+       count(DISTINCT m) AS merchants,
+       null AS accounts,
+       count(*) AS merchant_transactions
+```
+
+=== Data Distribution Analysis
+
+```cypher
+// Analyze customer risk distribution
+MATCH (c:Customer)
+RETURN c.risk_category AS risk_level,
+       count(c) AS customer_count,
+       avg(c.credit_score) AS avg_credit_score,
+       avg(c.age) AS avg_age
+ORDER BY risk_level
+```
+
+```cypher
+// Analyze transaction patterns
+MATCH ()-[t:TRANSACTION]-()
+RETURN t.amount_category AS amount_range,
+       count(t) AS transaction_count,
+       avg(t.amount) AS avg_amount,
+       sum(t.amount) AS total_amount
+ORDER BY avg_amount DESC
+```
+
+== Step 7: AI-Ready Queries (1 minute)
+
+=== Test Graph for AI Applications
+
+**Customer Similarity (for recommendations)**:
+```cypher
+MATCH (c1:Customer)-[:HAS_ACCOUNT]->()-[:TRANSACTION]->()-[:AT_MERCHANT]->(m:Merchant)
+      <-[:AT_MERCHANT]-()-[:TRANSACTION]->()-[:HAS_ACCOUNT]-(c2:Customer)
+WHERE c1 <> c2
+WITH c1, c2, count(DISTINCT m) AS shared_merchants
+WHERE shared_merchants >= 3
+RETURN c1.name, c2.name, shared_merchants,
+       c1.risk_category, c2.risk_category
+ORDER BY shared_merchants DESC
+LIMIT 10
+```
+
+**Fraud Detection Patterns**:
+```cypher
+MATCH (a:Account)-[t:TRANSACTION]->()
+WHERE t.amount > 10000 AND t.is_weekend = true
+MATCH (a)<-[:HAS_ACCOUNT]-(c:Customer)
+RETURN c.name, c.risk_category, t.amount, t.date, t.description
+ORDER BY t.amount DESC
+LIMIT 10
+```
+
+**Geographic Analysis**:
+```cypher
+MATCH (c:Customer)-[:LIVES_IN]->(l:Location)
+MATCH (c)-[:HAS_ACCOUNT]->(a:Account)
+WITH l, count(c) AS customer_count, sum(a.balance) AS total_deposits
+WHERE customer_count > 5
+RETURN l.city, l.state, customer_count, total_deposits
+ORDER BY total_deposits DESC
+LIMIT 10
+```
+
+== Challenge Questions
+
+1. **Data Quality**: How would you identify customers with unusual account behavior?
+
+2. **Performance**: Which indexes would you add for fraud detection queries?
+
+3. **Modeling**: Should transaction amounts be nodes or properties? Why?
+
+4. **AI Applications**: What additional relationships would enhance this graph for machine learning?
+
+[%collapsible]
+.Sample Solutions
+====
+1. **Unusual Behavior**:
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)-[t:TRANSACTION]-()
+WITH c, count(t) AS tx_count, avg(t.amount) AS avg_amount, stdev(t.amount) AS amount_stdev
+WHERE amount_stdev > avg_amount * 2
+RETURN c.name, tx_count, avg_amount, amount_stdev
+ORDER BY amount_stdev DESC
+```
+
+2. **Fraud Detection Indexes**:
+```cypher
+CREATE INDEX transaction_amount FOR ()-[t:TRANSACTION]-() ON (t.amount);
+CREATE INDEX transaction_weekend FOR ()-[t:TRANSACTION]-() ON (t.is_weekend);
+CREATE INDEX customer_risk FOR (c:Customer) ON (c.risk_category);
+```
+
+3. **Amounts as Properties**: Transaction amounts should be properties because they're attributes of the transaction event, not entities that connect to other things.
+
+4. **ML Enhancements**: Add temporal patterns (month, quarter), customer segments, product categories, and behavioral clusters.
+====
+
+== Summary
+
+You've successfully imported a comprehensive financial dataset optimized for AI applications. The graph now includes:
+
+* **Clean, validated data** with proper type conversions
+* **Performance-optimized structure** with indexes and constraints
+* **AI-ready relationships** for machine learning and analytics
+* **Computed properties** for immediate business insights
+* **Quality validation** to ensure data integrity
+
+This foundation enables advanced analytics including fraud detection, customer segmentation, risk assessment, and recommendation systems.
+
+Next, we'll explore how to work with unstructured data and create knowledge graphs from text documents.
