@@ -1,0 +1,207 @@
+# Developing with Neo4j MCP Tools
+
+Learn how to use the Model Context Protocol to create intelligent AI applications
+
+[Learn more about this course](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools)
+
+## Concepts
+
+* **Model Context Protocol (MCP)** - An open standard designed to connect AI applications with tools and data sources, enabling AI agents to access and interact with external resources
+* **MCP Server** - Provides capabilities through tools, resources, and prompt templates that clients can discover and use
+* **MCP Client** - Manages one-to-one connections to servers and executes tools on behalf of the host
+* **MCP Host** - An application (like Claude Desktop, VS Code, or custom agents) that manages clients and determines which tools to use
+* **MCP Tools** - Discrete functions with unique identifiers, descriptions, and parameters that can be invoked by AI agents
+* **ReAct Framework** - A continuous loop of planning, reasoning, and acting that agents use to achieve specific goals
+* **Agent** - A system that acts independently using tool calling to access information and take actions to achieve specific goals
+* **Neo4j Cypher MCP Server** - A specialized MCP server that provides AI agents with the ability to read and write data to Neo4j databases
+* **Schema Discovery** - The process of understanding database structure before generating queries to prevent AI hallucinations
+* **stdio Transport** - Communication method where client starts server locally and communicates through standard input/output streams
+
+## Installation and Configuration
+
+### VS Code MCP Configuration
+
+```json
+// .vscode/mcp.json
+{
+  "mcpServers": {
+    "neo4j-cypher": {
+      "command": "uvx",
+      "args": [
+        "mcp-neo4j-cypher@0.2.3",
+        "--transport",
+        "stdio"
+      ],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "<your-password>",
+        "NEO4J_DATABASE": "neo4j"
+      }
+    }
+  }
+}
+```
+[Reference: Building applications with MCP tools](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/4c-build-application)
+
+## Neo4j MCP Tools
+
+### get-neo4j-schema Tool
+
+```text
+// Tool invocation examples:
+// "Describe the data model"
+// "What node labels and relationship types are available in the database?"
+// "How are User and Movie nodes related?"
+
+// Example schema output:
+[
+  {
+    "label": "Movie",
+    "attributes": {
+      "budget": "INTEGER",
+      "movieId": "STRING unique indexed",
+      "imdbRating": "FLOAT indexed",
+      "title": "STRING indexed",
+      "year": "INTEGER indexed",
+      "revenue": "INTEGER"
+    },
+    "relationships": {
+      "IN_GENRE": "Genre"
+    }
+  },
+  {
+    "label": "User", 
+    "attributes": {
+      "name": "STRING indexed",
+      "userId": "STRING unique indexed"
+    },
+    "relationships": {
+      "RATED": "Movie"
+    }
+  }
+]
+```
+
+[Reference: Using the Neo4j Cypher MCP Server](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
+
+### read-neo4j-cypher Tool
+
+```text
+// Safe read-only queries that don't modify data
+// Example invocations:
+// "What are the top 10 movies by revenue?"
+// "Who directed the movie 'The Matrix'?"
+
+// Example query for top movies by revenue:
+MATCH (m:Movie) 
+WHERE m.revenue IS NOT NULL 
+RETURN m.title AS title, m.revenue AS revenue 
+ORDER BY m.revenue DESC 
+LIMIT 10
+
+// Example query for finding directors:
+MATCH (d:Director)-[:DIRECTED]->(m:Movie {title: 'The Matrix'})
+RETURN d.name AS director
+```
+
+### write-neo4j-cypher Tool
+
+```text
+// Write operations that modify data (requires approval)
+// Example invocations:
+// "Create a new user named Sarah"
+// "Add a 5-star rating from John to The Godfather"
+
+// Example create user query:
+CREATE (u:User {name: 'Sarah', userId: 'sarah123'})
+RETURN u
+
+// Example create rating query:
+MATCH (u:User {name: 'John'}), (m:Movie {title: 'The Godfather'})
+CREATE (u)-[:RATED {rating: 5}]->(m)
+RETURN u, m
+```
+
+[Reference: Using the Neo4j Cypher MCP Server](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
+
+## Building Applications with MCP
+
+* Use VSCode, Cursor, etc. to build an application with MCP tools.
+* The `mcp-neo4j-cypher` tool can inspect the database, generate Cypher queries and run them.
+* Agents can use MCP tools to generate a Cypher statement and validate it using real data before using it in an application.
+
+
+[Reference: Building applications with MCP tools](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/4c-build-application)
+
+
+## MCP Architecture Patterns
+
+### Client-Server Communication
+
+* MCP follows client-server architecture
+* Server provides tools, client executes them
+
+### Transport Methods 
+
+#### stdio - 
+
+Standard input/output - for local server communication 
+
+Example stdio configuration:
+
+```json
+{
+  "command": "uvx",
+  "args": ["mcp-neo4j-cypher@0.2.3", "--transport", "stdio"]
+}
+```
+
+#### HTTP 
+
+Remote server via Server-Sent Events (SSE) or Streaming HTTP
+
+
+
+### Example tool definition structure
+```json
+{
+  "id": "write-neo4j-cypher",
+  "description": "Write data to the Neo4j database",
+  "parameters": {
+    "cypher": {"type": "string", "description": "The Cypher statement to execute"},
+    "params": {"type": "dict", "description": "The parameters to replace in the code"}
+  }  # No parameters required
+}
+```
+
+### ReAct Agent Framework
+
+```python
+# ReAct loop implementation concept:
+def react_agent_loop(user_input, available_tools):
+    """
+    Continuous loop of planning, reasoning, and acting
+    """
+    goal_achieved = False
+    
+    while not goal_achieved:
+        # PLANNING: Analyze task and break into sub-tasks
+        plan = analyze_task(user_input)
+        
+        # REASONING: Select appropriate tools for each sub-task
+        selected_tools = select_tools(plan, available_tools)
+        
+        # ACTING: Execute tools and gather results
+        results = execute_tools(selected_tools)
+        
+        # EVALUATION: Check if goal is achieved
+        goal_achieved = evaluate_progress(results, user_input)
+        
+        # FEEDBACK: Use results to refine next iteration
+        user_input = incorporate_feedback(results, user_input)
+    
+    return results
+```
+
+[Reference: What is MCP?](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)

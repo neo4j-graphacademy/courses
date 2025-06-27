@@ -2,7 +2,7 @@ import express from 'express'
 import initNeo4j, { read } from './modules/neo4j'
 import { loadFile } from './modules/asciidoc'
 import { courseBadgePath, courseIllustrationPath, courseOverviewPath, courseSummaryPath } from './utils'
-import { readFileSync, readdirSync } from 'fs'
+import { readFileSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 
 const app = express()
@@ -99,27 +99,33 @@ app.get('/:course/slides', async (req, res, next) => {
         const modules: Module[] = []
 
         for (const module of readdirSync(moduleFolder)) {
-            const moduleFile = loadFile(join(moduleFolder, module, 'module.adoc'))
 
-            const lessons: Slide[] = []
+            if (statSync(join(moduleFolder, module)).isDirectory()) {
 
-            for (const lesson of readdirSync(join(moduleFolder, module, 'lessons'))) {
-                const lessonFile = loadFile(join(moduleFolder, module, 'lessons', lesson, 'lesson.adoc'), { attributes })
-                const doc = lessonFile.getContent()
+                const moduleFile = loadFile(join(moduleFolder, module, 'module.adoc'))
 
-                if (doc.match(/class=".*slide.*"/)) {
-                    lessons.push({
-                        title: lessonFile.getTitle(),
-                        doc,
-                    })
+                const lessons: Slide[] = []
+
+                for (const lesson of readdirSync(join(moduleFolder, module, 'lessons'))) {
+                    if (statSync(join(moduleFolder, module, 'lessons', lesson)).isDirectory()) {
+                        const lessonFile = loadFile(join(moduleFolder, module, 'lessons', lesson, 'lesson.adoc'), { attributes })
+                        const doc = lessonFile.getContent()
+
+                        if (doc.match(/class=".*slide.*"/)) {
+                            lessons.push({
+                                title: lessonFile.getTitle(),
+                                doc,
+                            })
+                        }
+                    }
                 }
-            }
 
-            modules.push({
-                title: moduleFile.getTitle(),
-                doc: moduleFile.getContent(),
-                lessons,
-            })
+                modules.push({
+                    title: moduleFile.getTitle(),
+                    doc: moduleFile.getContent(),
+                    lessons,
+                })
+            }
         }
 
         res.render('slides', {
