@@ -280,7 +280,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             if (instance !== undefined) {
                 // Connect to instance
                 const driver = await createDriver(
-                    `neo4j+s://${instance.ip}:${instance.boltPort}`,
+                    `bolt://${instance.ip}:${instance.boltPort}`,
                     instance.username,
                     instance.password,
                     true
@@ -293,7 +293,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
                 for (const part of parts) {
                     result = await driver.executeQuery<EagerResult<T>>(part, params, {
-                        database: instance.database || instance.id,
+                        database: instance.database || 'neo4j',
                         routing,
                     })
                 }
