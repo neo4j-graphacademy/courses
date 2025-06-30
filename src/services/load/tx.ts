@@ -127,6 +127,7 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
     l.order = toInteger(lesson.order),
     l.duration = lesson.duration,
     l.sandbox = lesson.sandbox,
+    l.chatbot = lesson.chatbot,
     l.cypher = lesson.cypher,
     l.verify = lesson.verify,
     l.slides = lesson.slides,
