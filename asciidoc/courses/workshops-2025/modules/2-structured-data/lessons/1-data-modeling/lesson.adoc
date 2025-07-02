@@ -1,0 +1,263 @@
+= Graph Data Modeling
+:type: lesson
+:order: 1
+:duration: 15 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Design effective graph data models from relational schemas
+* Identify what should be nodes vs. relationships vs. properties
+* Apply graph modeling best practices
+* Understand performance implications of modeling decisions
+
+== From Relational to Graph Thinking
+
+Transforming financial data into graphs requires understanding how SEC filings and asset manager holdings connect. We'll use the GraphRAG ebook dataset with real SEC 10-K filings and institutional investment data.
+
+=== Core Modeling Principles for Financial Data
+
+**Entities become Nodes**:
+* Primary entities: Company, Person (executives), AssetManager, Fund
+* Financial entities: Filing, FinancialMetric, RiskFactor, Product
+* Document entities: Document, Section, Entity
+
+**Foreign Keys become Relationships**:
+* `filer_cik` in filings → `(Company)-[:FILED]->(Filing)`
+* `fund_id` in holdings → `(Fund)-[:HOLDS]->(Company)`
+* `executive_id` in companies → `(Person)-[:EXECUTIVE_OF]->(Company)`
+
+**Junction Tables become Relationships with Properties**:
+* Holdings data → `[:HOLDS {shares: 1000000, market_value: 50000000, quarter: "Q1-2024"}]`
+* Document mentions → `[:MENTIONS {confidence: 0.95, section: "Risk Factors"}]`
+
+=== Modeling Decision Framework
+
+==== When to Use Nodes
+
+Create a node when:
+* ✅ You need to query by this entity
+* ✅ It has its own properties
+* ✅ It connects to multiple other entities
+* ✅ It represents a real-world object or concept
+
+**Examples**:
+* `Company`, `Person`, `AssetManager`, `Filing`
+* `Fund` (institutional investment funds)
+* `FinancialMetric` (if metrics are shared across filings)
+
+==== When to Use Properties
+
+Use properties when:
+* ✅ It's a simple attribute
+* ✅ You filter or sort by this value
+* ✅ It doesn't connect to other entities
+* ✅ It's atomic (can't be broken down further)
+
+**Examples**:
+* `company_name`, `cik`, `ticker`, `filing_date`
+* `sector` (if limited industry categories)
+* `market_value`, `shares`, `revenue`, `net_income`
+
+==== When to Use Relationships
+
+Create relationships for:
+* ✅ Connections between entities
+* ✅ Actions or events
+* ✅ Hierarchical structures
+* ✅ Temporal or causal links
+
+**Examples**:
+* `[:FILED]`, `[:HOLDS]`, `[:EXECUTIVE_OF]`
+* `[:MENTIONS]`, `[:COMPETES_WITH]`, `[:INVESTS_IN]`
+* `[:SUBSIDIARY_OF]`, `[:PARTNERED_WITH]`
+
+== Common Modeling Patterns
+
+=== Pattern 1: Company-Filing-Holdings
+
+**Relational Model**:
+```sql
+CREATE TABLE companies (cik, company_name, ticker, sector, sic_code);
+CREATE TABLE filings (accession_number, filer_cik, form_type, filing_date, document_count);
+CREATE TABLE holdings (fund_cik, company_cik, shares, market_value, report_date);
+```
+
+**Graph Model**:
+```cypher
+// Nodes
+(:Company {cik, name, ticker, sector, sic_code})
+(:Filing {accession_number, form_type, filing_date, document_count})
+(:AssetManager {cik, name, assets_under_management})
+
+// Relationships
+(Company)-[:FILED {date, form_type}]->(Filing)
+(AssetManager)-[:HOLDS {shares, market_value, report_date}]->(Company)
+```
+
+=== Pattern 2: SEC Filing Document Structure
+
+**For Financial Document Knowledge Graphs**:
+```cypher
+// Nodes
+(:Document {url, title, filing_date, form_type})
+(:Section {title, content, section_type})
+(:Entity {name, type, description}) // Companies, people, products mentioned
+(:FinancialMetric {metric_name, value, period, unit})
+
+// Relationships
+(Filing)-[:CONTAINS]->(Document)
+(Document)-[:HAS_SECTION]->(Section)
+(Section)-[:MENTIONS {confidence, frequency, context}]->(Entity)
+(Section)-[:REPORTS {period, context}]->(FinancialMetric)
+```
+
+=== Pattern 3: Corporate Hierarchical Structure
+
+**Financial Entity Hierarchies**:
+```cypher
+// Corporate structure from SEC filings
+(Person)-[:EXECUTIVE_OF {title, start_date}]->(Company)
+(Company)-[:SUBSIDIARY_OF {ownership_percentage}]->(ParentCompany)
+(Fund)-[:MANAGED_BY]->(AssetManager)
+(Product)-[:MANUFACTURED_BY]->(Company)
+(RiskFactor)-[:APPLIES_TO]->(Company)
+```
+
+== Performance Considerations
+
+=== Relationship Direction
+
+**Choose direction based on financial query patterns**:
+```cypher
+// If you query "what companies does BlackRock hold?"
+(AssetManager)-[:HOLDS]->(Company)
+
+// If you query "who holds Apple stock?"
+(Company)<-[:HOLDS]-(AssetManager)
+
+// If you query both directions frequently
+(AssetManager)-[:HOLDS]-(Company)
+```
+
+=== Node Density
+
+**Avoid super-nodes** (nodes with millions of relationships):
+* Bad: `(Company)<-[:MENTIONS]-(Document)` where Apple is mentioned in millions of documents
+* Better: `(Document {mentions_apple: true})` as property for filtering
+* Best: Use time-based or sector-based intermediate nodes to distribute connections
+
+=== Label Strategy
+
+**Use specific labels for performance**:
+```cypher
+// Good - specific labels
+(:Company), (:AssetManager), (:ExecutivePerson)
+
+// Avoid - generic labels only
+(:Entity {type: 'company'})
+```
+
+=== Property vs. Relationship Trade-offs
+
+**Filing Status as Property** (if few states, query by status):
+```cypher
+(:Filing {status: 'accepted', filing_date: '2024-01-15'})
+MATCH (f:Filing) WHERE f.status = 'accepted'
+```
+
+**Company Status as Relationship** (if complex changes, need history):
+```cypher
+(:Company)-[:HAS_STATUS {since: '2024-01-15', reason: 'merger'}]->(:Status {name: 'acquired'})
+```
+
+== Modeling Exercise
+
+Given this GraphRAG ebook relational schema, design a graph model:
+
+```sql
+CREATE TABLE company_filings (
+  cik, company_name, ticker, exchange, sic_code, 
+  accession_number, filing_date, form_type, document_count
+);
+CREATE TABLE asset_manager_holdings (
+  fund_cik, fund_name, company_cik, company_name, 
+  shares, market_value, report_date, quarter
+);
+CREATE TABLE extracted_entities (
+  filing_id, entity_name, entity_type, confidence, 
+  context, section_type
+);
+```
+
+[%collapsible]
+.Solution
+====
+```cypher
+// Nodes
+(:Company {cik, name, ticker, exchange, sic_code})
+(:Filing {accession_number, filing_date, form_type, document_count})
+(:AssetManager {cik, name})
+(:Fund {cik, name})
+(:Entity {name, type})
+
+// Relationships
+(Company)-[:FILED {date: filing_date, form_type}]->(Filing)
+(AssetManager)-[:MANAGES]->(Fund)
+(Fund)-[:HOLDS {shares, market_value, report_date, quarter}]->(Company)
+(Filing)-[:MENTIONS {confidence, context, section_type}]->(Entity)
+```
+
+**Reasoning**:
+* Companies and filings are separate nodes to enable complex queries
+* Asset managers and funds are separate to model fund families
+* Holdings become weighted relationships with temporal properties
+* Entity extraction becomes relationships with confidence scoring
+* Time-based properties enable temporal analysis
+====
+
+== Best Practices Summary
+
+=== Do's
+* ✅ Model the real world, not your current database
+* ✅ Think about query patterns first
+* ✅ Use specific, meaningful labels
+* ✅ Start simple, evolve the model
+* ✅ Consider relationship direction carefully
+
+=== Don'ts
+* ❌ Don't copy relational structure exactly
+* ❌ Don't create nodes for simple attributes
+* ❌ Don't ignore relationship direction
+* ❌ Don't create super-nodes
+* ❌ Don't over-normalize
+
+== Knowledge Check
+
+In a graph model for SEC filings, should "filing date" be:
+
+( ) A separate Date node
+(x) A property on the Filing node
+( ) A relationship between Company and Filing
+( ) A property on the Company node
+
+[%collapsible]
+.Explanation
+====
+Filing date should typically be a property on the Filing node because:
+1. It's specific to that filing
+2. You often filter and sort by filing date
+3. It doesn't connect to other entities independently
+4. It's simpler and more performant for time-range queries
+
+However, if you need complex temporal analysis across all filings, then separate Date nodes with hierarchical structure (Year-Quarter-Month) might be justified.
+====
+
+== Summary
+
+Effective graph modeling requires thinking about entities, relationships, and query patterns rather than tables and foreign keys. The key is to model your domain naturally while considering performance implications.
+
+Good models make queries intuitive and fast, while poor models can make simple questions complex and slow.
+
+Next, we'll learn how to import structured data into Neo4j using these modeling principles.

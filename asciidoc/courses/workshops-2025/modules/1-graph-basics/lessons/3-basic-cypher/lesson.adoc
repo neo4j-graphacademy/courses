@@ -1,0 +1,203 @@
+= Matching Data
+:type: lesson
+:order: 3
+:sandbox: true
+:slides: true
+
+[.slide]
+== Patterns
+You find data in Neo4j by matching patterns using Cypher. 
+
+This pattern represents customers with _checking_ accounts:
+
+    (c:Customer)-[:HAS_ACCOUNT]->(a:Account {type: "checking"})
+
+The pattern consists of:
+
+. All nodes with a label of `Customer`, 
+. that have an _outgoing_ `HAS_ACCOUNT` relationship
+. to a node with a label of `:Account`
+. that has property of `type` with a value of "checking".
+
+[.slide]
+== MATCH
+
+You can use a pattern to find data using the `MATCH` clause:
+
+[source, cypher]
+----
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account {type: "checking"})
+RETURN c.name, a.number
+----
+
+[.slide]
+== MATCH
+Patterns can contain multiple nodes and relationships.
+For example, finding all customers who made transactions to savings accounts:
+
+[source, cypher]
+----
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(from:Account)-[:TRANSACTION]->(to:Account {type: "savings"})
+RETURN c.name, from.number, to.number
+----
+
+[.slide]
+== Multiple patterns
+
+You can use multiple MATCH clauses to find data distributed across the graph.
+
+Finding customers who have both checking and savings accounts:
+
+[source, cypher]
+----
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(checking:Account {type: "checking"})
+MATCH (c)-[:HAS_ACCOUNT]->(savings:Account {type: "savings"})
+RETURN c.name, checking.number, savings.number
+----
+
+[.slide]
+== Optional MATCH
+
+You may need to find data that may or may not exist in the graph.
+
+For example, you want to find all customers and their credit scores, but some customers don't have a credit score:
+
+This query uses `OPTIONAL` to find customers and their credit evaluations.
+Any customer that does not have a credit evaluation will return `null` for the score.
+
+[source, cypher]
+----
+MATCH (c:Customer)
+OPTIONAL MATCH (c)-[r:HAS_CREDIT_SCORE]->(cs:CreditScore)
+RETURN c.name, cs.score
+----
+
+[.slide]
+== Distinct Rows
+
+Cypher will return all the rows that match the pattern.
+If you want to return only unique rows, you can use the `DISTINCT` keyword.
+
+This query returns the names of all customers who have accounts at the same bank as "Alice Johnson".
+
+[source, cypher]
+----
+MATCH (c1:Customer {name: "Alice Johnson"})-[:HAS_ACCOUNT]->(:Account)-[:HELD_AT]->(b:Bank)<-[:HELD_AT]-(:Account)<-[:HAS_ACCOUNT]-(c2:Customer)
+RETURN DISTINCT c1.name, c2.name
+----
+
+The `DISTINCT` keyword ensures that each customer is only returned once, even if they have multiple accounts at the same bank as Alice.
+
+[.slide]
+== Alias
+
+You can use the `AS` keyword to give a name to the data you are returning.
+
+[source, cypher]
+----
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+RETURN c.name AS customerName, a.number AS accountNumber
+----
+
+[.slide]
+== Challenges
+
+Complete the queries to find the following data in the graph:
+
+. A customer you want to analyze.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+MATCH (c:??????) RETURN c.name AS customerName
+----
+====
+. Use the `HAS_ACCOUNT` relationship to find their accounts.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+MATCH (c:Customer {name: "???"})-[:??????]->(a:Account)
+RETURN a.number AS accountNumber
+----
+====
+. Use the TRANSACTION relationship to find who they transacted with.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+MATCH (c:Customer {name: "???"})-[:HAS_ACCOUNT]->(a:Account)-[:??????]->(other:Account)
+RETURN other.number AS recipientAccount
+----
+====
+
+[.transcript-only]
+====
+[%collapsible]
+.Click to reveal the answers
+=====
+. A customer you want to analyze:
++
+[source, cypher]
+----
+MATCH (c:Customer) RETURN c.name AS customerName
+----
+
+. Use the `HAS_ACCOUNT` relationship to find their accounts.
++
+[source, cypher]
+----
+MATCH (c:Customer {name: "Alice Johnson"})-[:HAS_ACCOUNT]->(a:Account)
+RETURN a.number AS accountNumber
+----
+
+. Use the TRANSACTION relationship to find who they transacted with.
++
+[source, cypher]
+----
+MATCH (c:Customer {name: "Alice Johnson"})-[:HAS_ACCOUNT]->(a:Account)-[:TRANSACTION]->(other:Account)
+RETURN other.number AS recipientAccount
+----
+=====
+====
+
+== Questions
+
+Answer the following questions about pattern matching:
+
+1. **Question**: What does the following pattern represent?
+   ```
+   (c:Customer)-[:LIVES_IN]->(l:Location {state: "NY"})
+   ```
+   
+   **Answer**: Customers who live in locations where the state is "NY" (New York).
+
+2. **Question**: How would you find customers who have made transactions greater than $10,000?
+   
+   **Answer**: 
+   ```cypher
+   MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)-[t:TRANSACTION]->()
+   WHERE t.amount > 10000
+   RETURN c.name, t.amount
+   ```
+
+3. **Question**: What's the difference between MATCH and OPTIONAL MATCH?
+   
+   **Answer**: MATCH requires the pattern to exist, while OPTIONAL MATCH returns null values when the pattern doesn't exist, similar to a LEFT JOIN in SQL.
+
+4. **Question**: Why would you use DISTINCT in a query?
+   
+   **Answer**: To eliminate duplicate rows when a pattern might match multiple times for the same entity.
+
+[.next.discrete]
+== Next
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to match data in the graph using patterns with Cypher queries that find customers, accounts, and transactions in financial data.

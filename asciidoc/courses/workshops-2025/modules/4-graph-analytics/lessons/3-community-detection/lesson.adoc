@@ -1,0 +1,581 @@
+= Community Detection and Network Clustering
+:type: lesson
+:order: 3
+:duration: 25 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Understand different community detection algorithms and their strengths
+* Implement Louvain, Label Propagation, and Weakly Connected Components
+* Evaluate community quality using modularity and other metrics
+* Apply community detection to real-world clustering problems
+
+== Understanding Communities in Networks
+
+Communities (also called clusters or modules) are groups of nodes that are more densely connected to each other than to nodes outside the group. Community detection helps reveal the hidden structure in complex networks.
+
+=== What Makes a Good Community?
+
+```python
+def community_quality_metrics():
+    """Explain different metrics for evaluating community quality"""
+    
+    quality_metrics = {
+        'modularity': {
+            'description': 'Measures the density of connections within communities vs between communities',
+            'range': '(-1, 1) - higher is better',
+            'interpretation': 'Positive values indicate good community structure',
+            'limitations': 'Resolution limit - may miss small communities in large networks'
+        },
+        'conductance': {
+            'description': 'Ratio of edges leaving a community to edges within the community',
+            'range': '(0, 1) - lower is better',
+            'interpretation': 'Lower values indicate well-separated communities',
+            'limitations': 'Biased toward balanced community sizes'
+        },
+        'internal_density': {
+            'description': 'Proportion of possible internal edges that actually exist',
+            'range': '(0, 1) - higher is better',
+            'interpretation': 'How tightly connected nodes within community are',
+            'limitations': 'Ignores connections to other communities'
+        },
+        'coverage': {
+            'description': 'Fraction of total edges that are within communities',
+            'range': '(0, 1) - higher is better',
+            'interpretation': 'How much of the network structure is captured',
+            'limitations': 'Can be high even with poor community structure'
+        }
+    }
+    
+    print("Community Quality Metrics:")
+    print("=" * 50)
+    
+    for metric, details in quality_metrics.items():
+        print(f"\n{metric.title()}:")
+        print(f"  Description: {details['description']}")
+        print(f"  Range: {details['range']}")
+        print(f"  Interpretation: {details['interpretation']}")
+        print(f"  Limitations: {details['limitations']}")
+
+community_quality_metrics()
+```
+
+=== Types of Community Detection Algorithms
+
+```python
+algorithm_comparison = {
+    'louvain': {
+        'type': 'Modularity optimization',
+        'approach': 'Greedy optimization of modularity score',
+        'strengths': ['Fast', 'Hierarchical', 'Good quality results'],
+        'weaknesses': ['Resolution limit', 'Non-deterministic'],
+        'best_for': ['Large networks', 'Social networks', 'General purpose']
+    },
+    'label_propagation': {
+        'type': 'Label spreading',
+        'approach': 'Nodes adopt most common label among neighbors',
+        'strengths': ['Very fast', 'No parameters', 'Linear time'],
+        'weaknesses': ['Non-deterministic', 'May not converge', 'Quality varies'],
+        'best_for': ['Very large networks', 'Quick approximation', 'Real-time analysis']
+    },
+    'leiden': {
+        'type': 'Modularity optimization',
+        'approach': 'Improved version of Louvain with quality guarantees',
+        'strengths': ['Higher quality', 'Well-connected communities', 'Deterministic option'],
+        'weaknesses': ['Slower than Louvain', 'More complex'],
+        'best_for': ['High-quality communities', 'Research', 'Critical applications']
+    },
+    'connected_components': {
+        'type': 'Connectivity-based',
+        'approach': 'Find groups of nodes connected by any path',
+        'strengths': ['Exact results', 'Fast', 'Clear interpretation'],
+        'weaknesses': ['Only finds disconnected components', 'Binary threshold'],
+        'best_for': ['Network components', 'Disconnected analysis', 'Graph basics']
+    }
+}
+
+print("Community Detection Algorithms Comparison:")
+print("=" * 60)
+
+for algorithm, details in algorithm_comparison.items():
+    print(f"\n{algorithm.title()}:")
+    print(f"  Type: {details['type']}")
+    print(f"  Approach: {details['approach']}")
+    print(f"  Strengths: {', '.join(details['strengths'])}")
+    print(f"  Weaknesses: {', '.join(details['weaknesses'])}")
+    print(f"  Best For: {', '.join(details['best_for'])}")
+```
+
+== Louvain Algorithm
+
+The Louvain algorithm is one of the most popular community detection methods. It optimizes modularity through a two-phase iterative process.
+
+=== How Louvain Works
+
+```python
+def explain_louvain_algorithm():
+    """Explain the Louvain algorithm process"""
+    
+    louvain_process = {
+        'phase_1': {
+            'name': 'Local Optimization',
+            'steps': [
+                '1. Start with each node in its own community',
+                '2. For each node, calculate modularity gain of moving to neighbor communities',
+                '3. Move node to community that gives maximum positive modularity gain',
+                '4. Repeat until no more improvements possible'
+            ]
+        },
+        'phase_2': {
+            'name': 'Community Aggregation',
+            'steps': [
+                '1. Create new graph where each community becomes a single node',
+                '2. Edge weights between new nodes = sum of edges between original communities',
+                '3. Self-loops = sum of edges within original communities'
+            ]
+        },
+        'iteration': {
+            'process': 'Repeat phases 1 and 2 until modularity stops improving',
+            'result': 'Hierarchical community structure',
+            'levels': 'Each iteration creates a new level in the hierarchy'
+        }
+    }
+    
+    print("Louvain Algorithm Process:")
+    print("=" * 40)
+    
+    for phase_key, phase_info in louvain_process.items():
+        if phase_key in ['phase_1', 'phase_2']:
+            print(f"\n{phase_info['name']}:")
+            for step in phase_info['steps']:
+                print(f"  {step}")
+        else:
+            print(f"\nIteration Process:")
+            print(f"  Process: {phase_info['process']}")
+            print(f"  Result: {phase_info['result']}")
+            print(f"  Levels: {phase_info['levels']}")
+
+explain_louvain_algorithm()
+```
+
+=== Implementing Louvain with Neo4j GDS
+
+```cypher
+// Create graph projection for community detection
+CALL gds.graph.project(
+    'social-communities',
+    'Person', 
+    'KNOWS',
+    {
+        relationshipProperties: 'weight'
+    }
+)
+
+// Run Louvain algorithm
+CALL gds.louvain.stream('social-communities', {
+    relationshipWeightProperty: 'weight',
+    includeIntermediateCommunities: true
+})
+YIELD nodeId, communityId, intermediateCommunityIds
+RETURN gds.util.asNode(nodeId).name AS person,
+       communityId AS final_community,
+       intermediateCommunityIds AS hierarchy
+ORDER BY communityId, person
+```
+
+=== Louvain Analysis with Python
+
+```python
+from neo4j import GraphDatabase
+import pandas as pd
+import matplotlib.pyplot as plt
+import networkx as nx
+from collections import Counter
+
+class LouvainAnalyzer:
+    def __init__(self, uri, username, password):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def run_louvain(self, graph_name, include_hierarchy=True):
+        """Run Louvain algorithm and return results with hierarchy"""
+        
+        query = f"""
+        CALL gds.louvain.stream('{graph_name}', {{
+            includeIntermediateCommunities: {str(include_hierarchy).lower()}
+        }})
+        YIELD nodeId, communityId, intermediateCommunityIds
+        RETURN gds.util.asNode(nodeId).name AS name,
+               gds.util.asNode(nodeId).id AS nodeId,
+               communityId AS final_community,
+               intermediateCommunityIds AS hierarchy
+        ORDER BY communityId
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query)
+            return pd.DataFrame([dict(record) for record in result])
+    
+    def analyze_community_structure(self, graph_name):
+        """Analyze the community structure found by Louvain"""
+        
+        df = self.run_louvain(graph_name)
+        
+        # Community size distribution
+        community_sizes = df['final_community'].value_counts().sort_index()
+        
+        # Hierarchy analysis
+        hierarchy_info = {}
+        if 'hierarchy' in df.columns and not df['hierarchy'].isna().all():
+            max_levels = max(len(h) for h in df['hierarchy'] if h is not None)
+            for level in range(max_levels):
+                level_communities = []
+                for hierarchy in df['hierarchy']:
+                    if hierarchy and len(hierarchy) > level:
+                        level_communities.append(hierarchy[level])
+                if level_communities:
+                    hierarchy_info[f'level_{level}'] = len(set(level_communities))
+        
+        analysis = {
+            'total_nodes': len(df),
+            'total_communities': df['final_community'].nunique(),
+            'largest_community': community_sizes.max(),
+            'smallest_community': community_sizes.min(),
+            'average_community_size': community_sizes.mean(),
+            'community_size_distribution': community_sizes.to_dict(),
+            'hierarchy_levels': len(hierarchy_info),
+            'hierarchy_info': hierarchy_info
+        }
+        
+        return analysis, df
+    
+    def get_community_details(self, graph_name, community_id=None):
+        """Get detailed information about specific communities"""
+        
+        df = self.run_louvain(graph_name)
+        
+        if community_id is not None:
+            community_members = df[df['final_community'] == community_id]
+            return {
+                'community_id': community_id,
+                'size': len(community_members),
+                'members': community_members['name'].tolist(),
+                'member_details': community_members.to_dict('records')
+            }
+        else:
+            # Return details for all communities
+            communities = {}
+            for cid in df['final_community'].unique():
+                community_members = df[df['final_community'] == cid]
+                communities[cid] = {
+                    'size': len(community_members),
+                    'members': community_members['name'].tolist()
+                }
+            return communities
+    
+    def calculate_modularity(self, graph_name):
+        """Calculate modularity score for the community structure"""
+        
+        query = f"""
+        CALL gds.louvain.stats('{graph_name}')
+        YIELD modularity, modularities, ranLevels, communityCount
+        RETURN modularity, modularities, ranLevels, communityCount
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query)
+            record = result.single()
+            return dict(record) if record else None
+    
+    def visualize_communities(self, graph_name, max_communities=10):
+        """Create visualization of community structure"""
+        
+        df = self.run_louvain(graph_name)
+        analysis, _ = self.analyze_community_structure(graph_name)
+        
+        # Community size distribution
+        plt.figure(figsize=(15, 5))
+        
+        # Plot 1: Community size distribution
+        plt.subplot(1, 3, 1)
+        community_sizes = df['final_community'].value_counts().sort_values(ascending=False)
+        top_communities = community_sizes.head(max_communities)
+        
+        plt.bar(range(len(top_communities)), top_communities.values, color='skyblue')
+        plt.xlabel('Community Rank')
+        plt.ylabel('Community Size')
+        plt.title('Top Community Sizes')
+        plt.xticks(range(len(top_communities)), [f'C{i+1}' for i in range(len(top_communities))])
+        
+        # Plot 2: Community size histogram
+        plt.subplot(1, 3, 2)
+        plt.hist(community_sizes.values, bins=20, color='lightcoral', alpha=0.7)
+        plt.xlabel('Community Size')
+        plt.ylabel('Frequency')
+        plt.title('Community Size Distribution')
+        
+        # Plot 3: Hierarchy levels (if available)
+        plt.subplot(1, 3, 3)
+        if analysis['hierarchy_info']:
+            levels = list(analysis['hierarchy_info'].keys())
+            counts = list(analysis['hierarchy_info'].values())
+            plt.bar(levels, counts, color='lightgreen')
+            plt.xlabel('Hierarchy Level')
+            plt.ylabel('Number of Communities')
+            plt.title('Hierarchical Structure')
+            plt.xticks(rotation=45)
+        else:
+            plt.text(0.5, 0.5, 'No Hierarchy\nInformation\nAvailable', 
+                    horizontalalignment='center', verticalalignment='center', 
+                    transform=plt.gca().transAxes)
+            plt.title('Hierarchy Information')
+        
+        plt.tight_layout()
+        plt.show()
+        
+        return analysis
+
+# Example usage
+# analyzer = LouvainAnalyzer("bolt://localhost:7687", "neo4j", "password")
+# analysis, df = analyzer.analyze_community_structure('social-communities')
+# print(f"Found {analysis['total_communities']} communities")
+# print(f"Modularity: {analyzer.calculate_modularity('social-communities')}")
+```
+
+== Label Propagation Algorithm
+
+Label Propagation is a fast community detection algorithm that works by having nodes adopt the most common label among their neighbors.
+
+=== Label Propagation Implementation
+
+```cypher
+// Run Label Propagation algorithm
+CALL gds.labelPropagation.stream('social-communities', {
+    relationshipWeightProperty: 'weight',
+    maxIterations: 10
+})
+YIELD nodeId, communityId
+RETURN gds.util.asNode(nodeId).name AS person,
+       communityId
+ORDER BY communityId, person
+```
+
+=== Comparing Community Detection Algorithms
+
+```python
+class CommunityDetectionComparison:
+    def __init__(self, uri, username, password):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def run_all_algorithms(self, graph_name):
+        """Run multiple community detection algorithms for comparison"""
+        
+        algorithms = {
+            'louvain': f"""
+            CALL gds.louvain.stream('{graph_name}')
+            YIELD nodeId, communityId
+            RETURN gds.util.asNode(nodeId).name AS name, communityId
+            """,
+            'label_propagation': f"""
+            CALL gds.labelPropagation.stream('{graph_name}', {{maxIterations: 10}})
+            YIELD nodeId, communityId  
+            RETURN gds.util.asNode(nodeId).name AS name, communityId
+            """,
+            'weakly_connected_components': f"""
+            CALL gds.wcc.stream('{graph_name}')
+            YIELD nodeId, componentId
+            RETURN gds.util.asNode(nodeId).name AS name, componentId AS communityId
+            """
+        }
+        
+        results = {}
+        with self.driver.session() as session:
+            for algorithm, query in algorithms.items():
+                try:
+                    result = session.run(query)
+                    df = pd.DataFrame([dict(record) for record in result])
+                    results[algorithm] = df
+                except Exception as e:
+                    print(f"Error running {algorithm}: {e}")
+                    results[algorithm] = pd.DataFrame()
+        
+        return results
+    
+    def compare_algorithm_results(self, graph_name):
+        """Compare results from different community detection algorithms"""
+        
+        results = self.run_all_algorithms(graph_name)
+        
+        comparison = {}
+        for algorithm, df in results.items():
+            if not df.empty:
+                community_counts = df['communityId'].value_counts()
+                comparison[algorithm] = {
+                    'total_communities': df['communityId'].nunique(),
+                    'largest_community': community_counts.max(),
+                    'smallest_community': community_counts.min(),
+                    'average_community_size': community_counts.mean(),
+                    'nodes_processed': len(df)
+                }
+        
+        return comparison, results
+    
+    def calculate_algorithm_agreement(self, graph_name):
+        """Calculate how much different algorithms agree on community assignments"""
+        
+        results = self.run_all_algorithms(graph_name)
+        
+        # Get common nodes across all algorithms
+        common_nodes = None
+        for algorithm, df in results.items():
+            if not df.empty:
+                if common_nodes is None:
+                    common_nodes = set(df['name'])
+                else:
+                    common_nodes = common_nodes.intersection(set(df['name']))
+        
+        if not common_nodes or len(results) < 2:
+            return {}
+        
+        # Calculate pairwise agreement
+        algorithms = list(results.keys())
+        agreement_matrix = {}
+        
+        for i, alg1 in enumerate(algorithms):
+            for j, alg2 in enumerate(algorithms[i+1:], i+1):
+                if not results[alg1].empty and not results[alg2].empty:
+                    # Calculate Adjusted Rand Index or simple agreement
+                    agreement = self._calculate_community_agreement(
+                        results[alg1], results[alg2], list(common_nodes)
+                    )
+                    agreement_matrix[f'{alg1}_vs_{alg2}'] = agreement
+        
+        return agreement_matrix
+    
+    def _calculate_community_agreement(self, df1, df2, common_nodes):
+        """Calculate simple agreement between two community assignments"""
+        
+        # Simple agreement: percentage of nodes assigned to same relative community
+        df1_filtered = df1[df1['name'].isin(common_nodes)].set_index('name')
+        df2_filtered = df2[df2['name'].isin(common_nodes)].set_index('name')
+        
+        # Create a mapping of community assignments
+        agreements = 0
+        total_pairs = 0
+        
+        for node1 in common_nodes:
+            for node2 in common_nodes:
+                if node1 < node2:  # Avoid double counting
+                    total_pairs += 1
+                    # Check if both algorithms put these nodes in same community
+                    same_community_alg1 = (df1_filtered.loc[node1, 'communityId'] == 
+                                          df1_filtered.loc[node2, 'communityId'])
+                    same_community_alg2 = (df2_filtered.loc[node1, 'communityId'] == 
+                                          df2_filtered.loc[node2, 'communityId'])
+                    
+                    if same_community_alg1 == same_community_alg2:
+                        agreements += 1
+        
+        return agreements / total_pairs if total_pairs > 0 else 0
+
+# Example usage
+# comparison = CommunityDetectionComparison("bolt://localhost:7687", "neo4j", "password")
+# comp_results, all_results = comparison.compare_algorithm_results('social-communities')
+# agreement = comparison.calculate_algorithm_agreement('social-communities')
+# print("Algorithm Comparison:", comp_results)
+# print("Algorithm Agreement:", agreement)
+```
+
+== Weakly Connected Components
+
+For graphs with disconnected parts, Weakly Connected Components finds groups of nodes that are connected by any path (ignoring edge direction).
+
+=== Connected Components Implementation
+
+```cypher
+// Find Weakly Connected Components
+CALL gds.wcc.stream('social-communities')
+YIELD nodeId, componentId
+RETURN componentId, 
+       collect(gds.util.asNode(nodeId).name) AS component_members,
+       count(*) AS component_size
+ORDER BY component_size DESC
+```
+
+== Practical Applications
+
+=== Customer Segmentation
+
+```python
+def analyze_customer_communities(graph_name):
+    """Analyze customer communities for marketing segmentation"""
+    
+    customer_analysis = {
+        'community_profiles': {
+            'high_value': 'Large communities with frequent interactions',
+            'niche_groups': 'Small, tightly connected communities',
+            'bridge_customers': 'Customers connecting multiple communities',
+            'isolated_customers': 'Single-node communities or very small groups'
+        },
+        'marketing_strategies': {
+            'community_based_campaigns': 'Target entire communities with related products',
+            'influencer_identification': 'Find high-centrality nodes within communities',
+            'cross_community_promotion': 'Use bridge customers to spread across communities',
+            'personalized_recommendations': 'Recommend based on community preferences'
+        }
+    }
+    
+    return customer_analysis
+```
+
+=== Fraud Detection
+
+```cypher
+// Identify suspicious communities that might indicate fraud rings
+CALL gds.louvain.stream('transaction-network')
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId)) AS members
+WHERE size(members) >= 3 AND size(members) <= 20
+UNWIND members AS member
+MATCH (member)-[t:TRANSACTED]-()
+WITH communityId, members, 
+     avg(t.amount) AS avg_transaction,
+     sum(t.amount) AS total_volume,
+     count(t) AS transaction_count
+WHERE avg_transaction > 10000 OR transaction_count > 100
+RETURN communityId,
+       size(members) AS community_size,
+       avg_transaction,
+       total_volume,
+       transaction_count
+ORDER BY avg_transaction DESC
+```
+
+== Knowledge Check
+
+Which community detection algorithm would be best for a very large network (millions of nodes) where you need results quickly?
+
+( ) Louvain
+(x) Label Propagation  
+( ) Leiden
+( ) Modularity Optimization
+
+[%collapsible]
+.Explanation
+====
+Label Propagation is the fastest community detection algorithm with linear time complexity O(n), making it ideal for very large networks. While it may sacrifice some quality for speed and can be non-deterministic, it's perfect when you need quick results on massive graphs.
+====
+
+== Summary
+
+Community detection reveals the hidden structure in networks by identifying groups of densely connected nodes. Different algorithms offer trade-offs between speed, quality, and determinism:
+
+* **Louvain** - Good balance of speed and quality, hierarchical results
+* **Label Propagation** - Fastest algorithm, ideal for very large networks  
+* **Leiden** - Highest quality communities with better guarantees
+* **Connected Components** - Finds disconnected parts of networks
+
+Choose the algorithm based on your network size, quality requirements, and computational constraints. Often, running multiple algorithms and comparing results provides the most robust insights.
+
+Next, we'll put everything together in a hands-on exercise applying graph analytics to real-world scenarios.
