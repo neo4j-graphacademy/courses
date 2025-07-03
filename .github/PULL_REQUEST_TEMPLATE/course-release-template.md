@@ -19,10 +19,6 @@
 - [ ] Check includes display correctly in production environment
 - [ ] Ensure course can be completed in production
 
-#### Content & Media
-
-
-
 #### Blog & Documentation
 
 - [ ] Write promotional blog post for Developer Blog
