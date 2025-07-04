@@ -626,12 +626,12 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
             url: 'https://neo4j.com',
         },
         thumbnailUrl: courseOgBannerImage(course.slug),
-        video: course.video ? {
-            '@type': 'VideoObject',
-            name: course.title,
-            description: course.caption,
-            contentUrl: course.video,
-        } : undefined,
+        // video: course.video ? {
+        //     '@type': 'VideoObject',
+        //     name: course.title,
+        //     description: course.caption,
+        //     contentUrl: course.video,
+        // } : undefined,
         prerequisites: course.prerequisites?.map(prerequisite => ({
             '@type': 'Course',
             name: prerequisite.title,
@@ -641,6 +641,7 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
             {
                 '@type': 'CourseInstance',
                 courseMode: 'online',
+                courseWorkload: course.duration,
             }
         ],
         offers: [
