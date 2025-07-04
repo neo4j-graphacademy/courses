@@ -1,4 +1,9 @@
-## Course Release
+---
+name: Course Release
+about: Use this template for releasing courses to production
+title: "[Course Release] "
+labels: course-release
+---
 
 ### Pre-Release Checklist
 
@@ -15,7 +20,7 @@
 #### Testing & Quality Assurance
 
 - [ ] Verify all links work
-- [ ] Check Cypher queries and code samples are valid (if applicable) 
+- [ ] Check Cypher queries and code samples are valid (if applicable)
 - [ ] Check includes display correctly in production environment
 - [ ] Ensure course can be completed in production
 
@@ -33,4 +38,3 @@
 - [ ] Define success metrics for the course
 - [ ] Set up tracking for course completion rates
 - [ ] Plan follow-up review schedule (30/60/90 days)
-

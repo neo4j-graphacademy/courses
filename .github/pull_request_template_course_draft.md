@@ -1,7 +1,12 @@
-## Course Draft Creation
+---
+name: Course Draft
+about: Use this template for submitting new course drafts
+title: "[Course Draft] "
+labels: course-draft
+---
 
 **Course Name:** [Course Name]  
-**Caption:** [Caption]  
+**Caption:** [Caption]
 
 ### Pre-Submission Checklist
 
@@ -18,7 +23,7 @@
 #### Assets & Media
 
 - [ ] Create course illustration/badge (discuss with Adam if needed)
-- [ ] Create banner image 
+- [ ] Create banner image
 - [ ] Ensure all media assets are optimized
 
 #### Testing & Quality Assurance
@@ -26,7 +31,7 @@
 - [ ] Run unit tests (`npm run test`)
 - [ ] Test course locally in development environment
 - [ ] Verify all links work
-- [ ] Check Cypher queries and code samples are valid (if applicable) 
+- [ ] Check Cypher queries and code samples are valid (if applicable)
 - [ ] Ensure the course can be deployed without errors
 - [ ] Check display includes correctly in the development environment
 - [ ] Ensured course follows GraphAcademy content standards (Cursor rules)
@@ -40,5 +45,5 @@
 Please add appropriate reviewers for this course content:
 
 - Content reviewer
-- Technical reviewer  
-- Marketing stakeholder (if applicable) 
+- Technical reviewer
+- Marketing stakeholder (if applicable)
