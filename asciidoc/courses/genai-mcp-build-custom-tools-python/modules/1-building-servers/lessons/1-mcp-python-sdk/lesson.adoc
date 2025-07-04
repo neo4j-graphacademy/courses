@@ -1,0 +1,168 @@
+= Building MCP servers
+:type: lesson
+:order: 1
+
+In the link:/courses/genai-mcp-neo4j-tools/[Developing with Neo4j MCP Tools course], you learned the basics of the Model Context Protocol (MCP) and how to use the Neo4j Cypher MCP Server to enable AI agents to interact with Neo4j databases.
+
+In this course, you will learn how to build your own MCP servers with graph-backed tools and resources, creating a complete GraphRAG application.
+
+You will  learn to build these tools with the MCP Python SDK, and you will use the MCP Inspector to test your servers.
+
+
+== Understanding the MCP Python SDK
+
+The MCP Python SDK is a comprehensive library that implements the full Model Context Protocol specification for Python applications.
+It provides both client and server implementations, making it easy to create MCP servers that expose custom functionality to AI agents.
+
+
+The SDK includes two main approaches for building servers:
+
+* **FastMCP**: A high-level, decorator-based approach that makes it simple to create servers quickly
+* **Low-level server**: A more flexible approach that gives you full control over the MCP protocol
+
+In this course, we will focus on the FastMCP approach.
+
+== Introducing FastMCP
+
+FastMCP is the high-level interface in the MCP Python SDK designed to make server development as simple as possible.
+It uses Python decorators to automatically handle the protocol details, letting you focus on the business logic of your tools and resources.
+
+FastMCP is a high-level server implementation built on top of FastAPI, which takes a decorator approach to building an MCP server.
+The `FastMCP` class provides decorators that can be used to register functions as MCP features, for example a tool or a resource.
+
+Let's take a look at a simple example of how we can protect against a commonly known weakness of LLMs, **counting**.
+LLMs are probabilistic systems that struggle with deterministic tasks like counting occurrences of letters in words.
+
+We can solve this problem by using MCP to provide the LLM with access to a deterministic function that counts the occurrences of a letter in a word.
+
+
+[source,python]
+.server.py
+----
+from mcp.server.fastmcp import FastMCP 
+
+# Create an MCP server
+mcp = FastMCP("Stawrbrerry")  # <1>
+
+# Add a tool that counts letters (LLMs famously struggle with this!)
+@mcp.tool()  # <2>
+def count_letters(text: str, search: str) -> int:
+    """
+    Count occurrences of a letter in the text.
+    Use this tool when you need to find how many times a substring appears in a text.
+    """
+    return text.lower().count(search.lower()) 
+
+# Add a resource with a decorator
+@mcp.resource("greeting://{name}")  # <3>
+def get_greeting(name: str) -> str:
+    """Get a personalized greeting"""
+    return f"Hello, {name}!"
+
+# Add a prompt
+@mcp.prompt(title="Count Letters")
+def count_letters_prompt(text: str, search: str) -> str:
+    return f"Count the occurrences of the letter '{search}' in the text:\n\n{text}"
+
+----
+
+This code: 
+
+1. The `FastMCP` class creates an instance of an MCP server called `Stawrbrerry`.
+2. The `@mcp.tool()` decorator registers a function as an MCP tool that counts the occurrences of a letter in a word.
+3. The `@mcp.resource()` decorator registers a function as an MCP resource that returns a personalized greeting.
+4. The `@mcp.prompt()` decorator registers a function as an MCP prompt that provides the end-user with a pre-written prompt template to solve a common problem.
+
+== Using Decorators 
+
+The code sample uses decorators to register functions as MCP features. 
+Let's take a closer look at the tool example: 
+
+[source,python]
+.server.py
+----
+@mcp.tool()
+def count_letters(text: str, search: str) -> int:
+    """
+    Count occurrences of a letter in the text.
+    Use this tool when you need to find how many times a substring appears in a text.
+    """
+    return text.lower().count(search.lower()) 
+----
+
+The `@mcp.tool()` decorator tells the server that the `count_letters` function should be used as an MCP tool.
+Reflection is then used to infer metadata about the tool. 
+
+1. The tool has two inputs: `text` and `search`, both of which are typed as strings.
+2. The output of the tool is an `int`
+3. The string in the opening line is used to  describe what the tool does and and when it should be used.
+
+The `@mcp.tool()` decorator accepts a number of optional arguments, which we will cover later in the course.
+
+
+== Running the server 
+
+To run the server, you can call the `run` method on your `FastMCP` instance. 
+
+[source,python]
+.server.py
+----
+# ...
+
+if __name__ == "__main__":
+    mcp.run()
+----
+
+This method starts the MCP server using the `stdio` transport method by default and begins listening for incoming connections from MCP clients.
+
+
+[TIP]
+.Using the `fastmcp` command
+====
+
+You can also run the server from the command line using the `fastmcp` command.
+
+[source,bash]
+----
+fastmcp run server.py
+----
+
+link:https://github.com/jlowin/fastmcp[Learn more about `fastmcp`].
+====
+
+
+=== Transport methods 
+
+In the previous course, we also covered the different transport methods that can be used to connect to an MCP server; Standard Input/Output (`stdio`), and Streamable HTTP (`http`).
+As we will develop a local MCP server in this course, we will focus on the `stdio` transport method.  You can change the transport method by passing the `transport` parameter to the `run` method.
+
+[source,python]
+----
+mcp.run(
+    transport="http", 
+    host="127.0.0.1", 
+    port=8000, 
+    path="/mcp"
+)
+----
+
+Streaming HTTP is recommended for web deployments.  
+
+[TIP]
+.The `fastmcp` command line tool
+====
+You can also provide the `--transport`, `--host`, `--port`, and `--path` flags to the `fastmcp` command.
+====
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned the foundational concepts for building MCP servers with Python:
+
+* **MCP Python SDK** - A comprehensive library that implements the full MCP specification, providing both client and server implementations
+* **FastMCP** - A high-level, decorator-based approach that simplifies server development by automatically handling protocol details
+* **Decorators** - Use `@mcp.tool()`, `@mcp.resource()`, and `@mcp.prompt()` to register functions as MCP features
+* **Transport methods** - Run servers using `stdio` (default) for local development or `http` for web deployments
+
+In the next lesson, you will create your first MCP server using FastMCP and test it with the MCP Inspector.
