@@ -633,22 +633,21 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Find Country
         const { country, state } = await getCountryAndState(body.country, body.state)
 
-        // Exclude CN for now
 
-        const disallow = ['CN']
-        const needAdditionalEnrolments = ['LK', 'IN']
+        // const disallow = ['CN']
+        // const needAdditionalEnrolments = ['LK', 'IN']
 
-        if (disallow.includes(country.code.toUpperCase())) {
-            throw new Error('Redemption is not available in your region at this time.')
+        // if (disallow.includes(country.code.toUpperCase())) {
+        //     throw new Error('Redemption is not available in your region at this time.')
+        // }
+        // else if (needAdditionalEnrolments.includes(country.code.toUpperCase())) {
+        // Check for at least one completed enrolment
+        const { enrolments } = await getUserEnrolments(user.sub, 'sub', undefined, false)
+
+        if (!enrolments[STATUS_COMPLETED] || enrolments[STATUS_COMPLETED].length < 2) {
+            throw new Error('Due to detected irregularities in some regions, users are now required to complete at least one course prior to redeeming this reward.');
         }
-        else if (needAdditionalEnrolments.includes(country.code.toUpperCase())) {
-            // Check for at least one completed enrolment
-            const { enrolments } = await getUserEnrolments(user.sub, 'sub', undefined, false)
-
-            if (!enrolments[STATUS_COMPLETED] || enrolments[STATUS_COMPLETED].length < 2) {
-                throw new Error('Due to detected irregularities in some regions, users are now required to complete at least one course prior to redeeming this reward.');
-            }
-        }
+        // }
 
         // Build & Validate Recipient
         const recipient = formatRecipient(
