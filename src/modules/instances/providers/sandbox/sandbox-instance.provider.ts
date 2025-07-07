@@ -171,6 +171,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             const response = await fetch(url, createFetchOptions('POST', token, { usecase, cease_emails: true }))
             const data = await handleFetchResponse<Instance>(response)
 
+
             // Bug in Sandbox API, on creation the password is hashed.
             // Calling the API again will return the unencrypted password
             if (data.password?.startsWith('AQ')) {
@@ -180,6 +181,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return data
         } catch (e: any) {
             if (e.response) {
+                console.log(e.response)
                 if (e.response.status === 400) {
                     await this.sleep()
 
