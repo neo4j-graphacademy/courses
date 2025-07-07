@@ -105,10 +105,20 @@ describe('SandboxInstanceProvider', () => {
             expect(get!.id).toEqual(second.id)
 
             // Execute cypher 
-            const result = await provider.executeCypher(SANDBOX_TOKEN, user, usecase, 'CREATE (n:Test) RETURN n', {}, "WRITE")
+            const result = await provider.executeCypher(SANDBOX_TOKEN, user, usecase, 'CREATE (n:__Test {createdAt: datetime()}) RETURN toString(n.createdAt) AS createdAt', {}, "WRITE")
 
             expect(result).toBeDefined()
             expect(result!.records.length).toBeGreaterThan(0)
+            expect(result!.records[0].get('createdAt')).toBeDefined()
+
+            const createdAt = result!.records[0].get('createdAt')
+
+            // Read it back 
+            const read = await provider.executeCypher(SANDBOX_TOKEN, user, usecase, 'MATCH (n:__Test) RETURN toString(n.createdAt) AS createdAt ORDER BY n.createdAt DESC LIMIT 1', {}, "READ")
+
+            expect(read).toBeDefined()
+            expect(read!.records.length).toBeGreaterThan(0)
+            expect(read!.records[0].get('createdAt')).toEqual(createdAt)
         }, 60000)
     })
 })
