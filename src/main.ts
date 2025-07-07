@@ -13,11 +13,16 @@ import {
     PORT,
     CHATBOT_NEO4J_HOST,
     CHATBOT_NEO4J_DATABASE,
+    SANDBOX_URL,
 } from './constants'
 import { cacheHTML } from './modules/asciidoc/services/cache-html';
 import initChatbot from './modules/chatbot/chatbot.agent';
 
 console.log(`Connecting to ${NEO4J_HOST} as ${NEO4J_USERNAME}`);
+
+if (SANDBOX_URL) {
+    console.log(`[sandbox] using URL: ${SANDBOX_URL}`);
+}
 
 initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD)
     .then((driver: Driver) => initApp(driver))
