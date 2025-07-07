@@ -8,7 +8,7 @@ import { INSTANCE_STATUS_PENDING } from '../..'
 import { INSTANCE_STATUS_NOT_FOUND } from '../..'
 import { INSTANCE_STATUS_READY } from '../..'
 import { createDriver } from '../../../neo4j'
-import { EagerResult, RoutingControl } from 'neo4j-driver'
+import { Driver, EagerResult, RoutingControl } from 'neo4j-driver'
 import { notify } from '../../../../middleware/bugsnag.middleware'
 
 // Helper function to create fetch options
@@ -313,11 +313,23 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return
         }
 
-        const driver = await createDriver(
-            `${instance.scheme}://${instance.host}:${instance.boltPort}`,
+        console.log(`bolt+s://${instance.ip}:${instance.boltPort}`,
             instance.username,
-            instance.password
-        )
+            instance.password)
+
+        let driver: Driver
+
+        try {
+            driver = await createDriver(
+                `bolt://${instance.ip}:${instance.boltPort}`,
+                instance.username,
+                instance.password
+            )
+        }
+        catch (e: any) {
+            console.log(e)
+            return
+        }
 
         try {
             const result = await driver.executeQuery(cypher, params, {
@@ -326,9 +338,12 @@ export class SandboxInstanceProvider implements InstanceProvider {
             })
             return result as EagerResult<T>
         } catch (e: any) {
+            console.log(e)
             notify(e)
         } finally {
-            await driver.close()
+            if (driver) {
+                await driver.close()
+            }
         }
     }
 }

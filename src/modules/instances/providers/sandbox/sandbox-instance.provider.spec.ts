@@ -103,6 +103,12 @@ describe('SandboxInstanceProvider', () => {
             expect(get!.sandboxHashKey).toEqual(second.sandboxHashKey)
             expect(get!.id).toEqual(first.id)
             expect(get!.id).toEqual(second.id)
+
+            // Execute cypher 
+            const result = await provider.executeCypher(SANDBOX_TOKEN, user, usecase, 'CREATE (n:Test) RETURN n', {}, "WRITE")
+
+            expect(result).toBeDefined()
+            expect(result!.records.length).toBeGreaterThan(0)
         }, 60000)
     })
 })
