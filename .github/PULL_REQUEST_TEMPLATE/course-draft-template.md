@@ -27,10 +27,9 @@
 - [ ] Test course locally in development environment
 - [ ] Verify all links work
 - [ ] Check Cypher queries and code samples are valid (if applicable) 
-- [ ] Ensure course can be deployed without errors
-- [ ] Check includes display correctly in the development environment
+- [ ] Ensure the course can be deployed without errors
+- [ ] Check display includes correctly in the development environment
 - [ ] Ensured course follows GraphAcademy content standards (Cursor rules)
-
 
 ### Additional Notes
 
