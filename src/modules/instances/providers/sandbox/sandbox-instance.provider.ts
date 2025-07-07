@@ -48,9 +48,16 @@ async function handleFetchResponse<T>(response: Response): Promise<T> {
 }
 
 export class SandboxInstanceProvider implements InstanceProvider {
-    private getBaseUrl(): string {
-        const { SANDBOX_URL } = process.env
-        return SANDBOX_URL || ''
+    // Helper to build the full Sandbox API URL
+    private getUrl(path: string): string {
+        let base = process.env.SANDBOX_URL || ''
+        if (base.endsWith('/')) {
+            base = base.slice(0, -1)
+        }
+        if (!path.startsWith('/')) {
+            path = '/' + path
+        }
+        return base + path
     }
 
     async getInstances(token: string, user: User, isRetry = false): Promise<Instance[]> {
@@ -59,7 +66,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
 
         try {
-            const url = `${this.getBaseUrl()}/SandboxGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`
+            const url = this.getUrl(`SandboxGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`)
             const response = await fetch(url, createFetchOptions('GET', token))
             const data = await handleFetchResponse<Instance[]>(response)
 
@@ -87,8 +94,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 throw new Error(`Instance with ID ${id} not found`)
             }
 
-            const url = `${this.getBaseUrl()}/SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey
-                }&verifyConnect=true`
+            const url = this.getUrl(`SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey}&verifyConnect=true`)
             const response = await fetch(url, createFetchOptions('GET', token))
             const data = await handleFetchResponse<string>(response)
 
@@ -139,7 +145,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     async stopInstance(token: string, user: User, sandboxHashKey: string): Promise<void> {
         try {
-            const url = `${this.getBaseUrl()}/SandboxStopInstance`
+            const url = this.getUrl('SandboxStopInstance')
             const response = await fetch(url, createFetchOptions('POST', token, { sandboxHashKey }))
             await handleFetchResponse(response)
         } catch (e: any) {
@@ -167,7 +173,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
 
         try {
-            const url = `${this.getBaseUrl()}/SandboxRunInstance`
+            const url = this.getUrl('SandboxRunInstance')
             const response = await fetch(url, createFetchOptions('POST', token, { usecase, cease_emails: true }))
             const data = await handleFetchResponse<Instance>(response)
 
@@ -181,11 +187,6 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return data
         } catch (e: any) {
             if (e.response) {
-                console.log(
-                    `${this.getBaseUrl()}/SandboxRunInstance`,
-                    createFetchOptions('POST', token, { usecase, cease_emails: true }),
-                    e.response,
-                )
                 if (e.response.status === 400) {
                     await this.sleep()
 
@@ -238,7 +239,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     private async createGraphAcademyUser(token: string, user: User) {
         try {
-            const url = `${this.getBaseUrl()}/SandboxCreateGraphAcademyUser`
+            const url = this.getUrl('SandboxCreateGraphAcademyUser')
             const response = await fetch(
                 url,
                 createFetchOptions('POST', token, {
@@ -256,7 +257,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     async saveUserInfo(token: string, user: User, data: UserMetaData): Promise<void> {
         try {
-            const url = `${this.getBaseUrl()}/SandboxUpdateGraphAcademyUser`
+            const url = this.getUrl('SandboxUpdateGraphAcademyUser')
             const response = await fetch(url, createFetchOptions('POST', token, data))
             await handleFetchResponse(response)
         } catch (e: any) {
@@ -266,7 +267,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     async getUserInfo(token: string, user: User): Promise<Partial<User>> {
         try {
-            const url = `${this.getBaseUrl()}/SandboxGetGraphAcademyUser`
+            const url = this.getUrl('SandboxGetGraphAcademyUser')
             const response = await fetch(
                 url,
                 createFetchOptions('POST', token, {
