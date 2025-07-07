@@ -47,7 +47,7 @@ async function handleFetchResponse<T>(response: Response): Promise<T> {
         const message = `HTTP ${response.status} ${response.statusText}`;
         throw new AuraAPIError(message, response.status, response.statusText, responseBody);
     }
-    
+
     return await response.json();
 }
 
@@ -262,15 +262,15 @@ export class AuraInstanceProvider implements InstanceProvider {
     async getInstances(token: string, user: User): Promise<Instance[]> {
         try {
             const response = await this.get('/instances');
-            
+
             // Handle different possible response formats
             let instances = response.data;
-            
+
             // If the response has a nested data property (common API pattern)
             if (instances && typeof instances === 'object' && instances.data) {
                 instances = instances.data;
             }
-    
+
             return instances
                 .filter((instance: any) => instance.name && instance.name.includes(user.sub))
                 .map((instance: any) => this.mapAuraInstanceToInstance(instance));
@@ -360,7 +360,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             if (error instanceof AuraAPIError && (error.status === 401 || error.status === 403)) {
                 // Refresh the token
                 await this.refreshToken();
-                
+
                 try {
                     // Retry the request with the new token
                     const retryResponse = await this.executeRequest(method, endpoint, payload);
@@ -371,7 +371,7 @@ export class AuraInstanceProvider implements InstanceProvider {
                     throw retryError;
                 }
             }
-            
+
             // Re-throw all other errors (including non-authentication AuraAPIErrors)
             throw error;
         }
@@ -401,7 +401,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             };
             requestOptions.body = JSON.stringify(payload);
         }
-        
+
         const response = await fetch(`${AURA_API_URL}${endpoint}`, requestOptions);
 
         // Use our existing error handler which will throw errors with response info
@@ -467,7 +467,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             if (instance !== undefined) {
                 // Connect to instance
                 const driver = await createDriver(
-                    `bolt://${instance.ip}:${instance.boltPort}`,
+                    `${instance.scheme}://${instance.host}:${instance.boltPort}`,
                     instance.username,
                     instance.password,
                     true

@@ -328,10 +328,18 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
 
         try {
-            const result = await driver.executeQuery(cypher, params, {
-                database: instance.database,
-                routing,
-            })
+            const queries = cypher.split(';\n')
+                .filter(e => e.trim() !== '')
+
+            let result: EagerResult<T> | undefined
+
+            for (const query of queries) {
+                result = await driver.executeQuery(query, params, {
+                    database: instance.database,
+                    routing,
+                })
+            }
+
             return result as EagerResult<T>
         } catch (e: any) {
             console.log(e)
