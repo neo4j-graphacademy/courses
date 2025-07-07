@@ -43,10 +43,11 @@ export const getConversationHistory = async (sessionId: string, limit: number = 
         WITH p ORDER BY length(p) DESC LIMIT 1
         UNWIND nodes(p) AS node
 
-        WITH nodes(p) AS nodes, node 
+        WITH nodes(p) AS nodes, node
         WHERE node.content IS NOT NULL AND node.type in ['human', 'ai', 'tool']
 
-        ORDER BY node.created_at DESC LIMIT $limit 
+        WITH *
+        ORDER BY node.created_at DESC LIMIT $limit
 
         WITH node ORDER BY node.created_at ASC
 

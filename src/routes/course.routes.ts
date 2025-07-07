@@ -6,7 +6,7 @@ import { enrolInCourse } from '../domain/services/enrol-in-course'
 import { getCourseWithProgress } from '../domain/services/get-course-with-progress'
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
-import databaseProvider, { INSTANCE_STATUS_NOT_FOUND } from '../modules/instances'
+import databaseProvider from '../modules/instances'
 import {
     convertCourseOverview,
     convertCourseSummary,
@@ -36,7 +36,7 @@ import {
     repositoryRawUrl,
 } from '../utils'
 import { Pagination } from '../domain/model/pagination'
-import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
+import { notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
 import { saveModuleFeedback } from '../domain/services/feedback/save-module-feedback'
 import { unenrolFromCourse } from '../domain/services/unenrol-from-course'
@@ -59,8 +59,6 @@ import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-
 import indexable from '../middleware/seo/indexable.middleware'
 import { Instance } from '../domain/model/instance'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
-import { BaseMessage, HumanMessage } from '@langchain/core/messages'
-import { randomUUID } from 'crypto'
 import { invoke } from '../modules/chatbot/chatbot.agent'
 import { usesChatHistory } from '../modules/chatbot/middleware/chatbot-locals.middleware'
 import { generateConversationId } from '../modules/chatbot/chatbot.utils'
@@ -164,9 +162,8 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         })
 
         res.render('course/overview', {
-            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${
-                course.completed ? 'course--completed' : ''
-            }  ${course.enrolled ? 'course--enrolled' : ''}`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${course.completed ? 'course--completed' : ''
+                }  ${course.enrolled ? 'course--enrolled' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -517,8 +514,7 @@ router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => 
         return res.redirect(
             `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(
                 course.title
-            )}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${
-                course.certificateId
+            )}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId
             }&certUrl=${encodeURIComponent(course.certificateUrl ? `${BASE_URL}${course.certificateUrl}` : '')}`
         )
     } catch (e) {
@@ -875,9 +871,8 @@ router.get(
             const slides = /class=".*slide.*"/.test(doc)
 
             res.render('course/module', {
-                classes: `module ${req.params.course}-${req.params.module}  ${
-                    course.completed ? 'course--completed' : ''
-                } ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
+                classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''
+                    } ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
                 analytics: {
                     course: {
                         slug: course.slug,
@@ -1046,11 +1041,9 @@ router.get(
             const slides = /class=".*slide.*"/.test(doc)
 
             res.render('course/lesson', {
-                classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${
-                    course.completed ? 'course--completed' : ''
-                } lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${
-                    lesson.optional ? 'lesson--optional' : 'lesson--mandatory'
-                } ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
+                classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''
+                    } lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'
+                    } ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
                 analytics: {
                     course: {
                         slug: course.slug,

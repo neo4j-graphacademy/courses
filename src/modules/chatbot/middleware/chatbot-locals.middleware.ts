@@ -4,7 +4,6 @@ import { getUser } from "../../../middleware/auth.middleware";
 import { generateConversationId } from "../chatbot.utils";
 import { CHATBOT_SEED_MESSAGE } from "../../../constants";
 import showdown from "showdown";
-import { getCheckpointer } from "../chatbot.agent";
 
 export async function usesChatHistory(req: Request, res: Response, next: NextFunction) {
     const user = await getUser(req)
@@ -19,4 +18,4 @@ export async function usesChatHistory(req: Request, res: Response, next: NextFun
     }
 
     next()
-} 
+}

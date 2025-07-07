@@ -32,18 +32,18 @@ function createFetchOptions(method: string, token: string, body?: any): RequestI
 async function handleFetchResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const error = new Error(`HTTP error: ${response.status}`)
-        ;(error as any).response = {
-            status: response.status,
-            statusText: response.statusText,
-        }
+            ; (error as any).response = {
+                status: response.status,
+                statusText: response.statusText,
+            }
         throw error
     }
 
     const contentType = response.headers.get('content-type')
     if (contentType && contentType.includes('application/json')) {
-        return await response.json()
+        return await response.json() as T
     } else {
-        return (await response.text()) as T
+        return (await response.text()) as unknown as T
     }
 }
 
@@ -87,9 +87,8 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 throw new Error(`Instance with ID ${id} not found`)
             }
 
-            const url = `${this.getBaseUrl()}/SandboxGetInstanceByHashKey?sandboxHashKey=${
-                instance?.hashKey
-            }&verifyConnect=true`
+            const url = `${this.getBaseUrl()}/SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey
+                }&verifyConnect=true`
             const response = await fetch(url, createFetchOptions('GET', token))
             const data = await handleFetchResponse<string>(response)
 
