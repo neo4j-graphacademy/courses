@@ -10,10 +10,12 @@ import { User } from "../../../../domain/model/user";
 export async function handleSandboxError(token: string, user: User, endpoint: string, error: any): Promise<Error> {
     let output: Error
 
-    const code = error.response?.status
+    const code = error.response?.status || error.status
 
     switch (code) {
         case 400:
+        case 404:
+        case 405:
             output = new SandboxBadRequestError(endpoint, error)
             break
         case 401:
@@ -22,8 +24,11 @@ export async function handleSandboxError(token: string, user: User, endpoint: st
         case 403:
             output = new SandboxForbiddenError(endpoint, error)
             break
+        case 408:
         case 500:
         case 502:
+        case 503:
+        case 504:
             output = new SandboxServerError(endpoint, error)
             break
 

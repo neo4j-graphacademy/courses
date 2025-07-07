@@ -181,7 +181,11 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return data
         } catch (e: any) {
             if (e.response) {
-                console.log(e.response)
+                console.log(
+                    `${this.getBaseUrl()}/SandboxRunInstance`,
+                    createFetchOptions('POST', token, { usecase, cease_emails: true }),
+                    e.response,
+                )
                 if (e.response.status === 400) {
                     await this.sleep()
 
