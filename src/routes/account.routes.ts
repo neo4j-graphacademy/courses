@@ -634,10 +634,14 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         const { country, state } = await getCountryAndState(body.country, body.state)
 
         // Exclude CN for now
-        if (country.code.toUpperCase() == 'CN') {
+
+        const disallow = ['CN']
+        const needAdditionalEnrolments = ['LK', 'IN']
+
+        if (disallow.includes(country.code.toUpperCase())) {
             throw new Error('Redemption is not available in your region at this time.')
         }
-        else if (country.code.toUpperCase() === 'IN') {
+        else if (needAdditionalEnrolments.includes(country.code.toUpperCase())) {
             // Check for at least one completed enrolment
             const { enrolments } = await getUserEnrolments(user.sub, 'sub', undefined, false)
 

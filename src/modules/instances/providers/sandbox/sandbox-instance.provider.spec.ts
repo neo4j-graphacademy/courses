@@ -85,7 +85,7 @@ describe('SandboxInstanceProvider', () => {
 
     describe('createInstance', () => {
         it('should create a sandbox', async () => {
-            const usecase = 'yelp'
+            const usecase = 'pole'
 
             const first = await provider.createInstance(SANDBOX_TOKEN, user, usecase)
             const second = await provider.createInstance(SANDBOX_TOKEN, user, usecase)
