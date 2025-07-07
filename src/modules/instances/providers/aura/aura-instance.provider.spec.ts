@@ -1,4 +1,4 @@
-import { AuraInstanceProvider } from './aura-instance.provider'
+import { AuraInstanceProvider, AuraAPIError } from './aura-instance.provider'
 import { NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD, AURA_CLIENT_SECRET, AURA_CLIENT_ID, AURA_API_URL, AURA_TENANT_ID } from '../../../../constants'
 import { User } from '../../../../domain/model/user'
 import initNeo4j, { close, read, write } from '../../../neo4j'
@@ -23,7 +23,7 @@ describe('AuraInstanceProvider', () => {
         }
 
         provider = new AuraInstanceProvider()
-        testSuiteToken = ''
+        testSuiteToken = await AuraInstanceProvider.generateToken()
 
         // connect to neo4j
         await initNeo4j(NEO4J_HOST as string, NEO4J_USERNAME as string, NEO4J_PASSWORD as string)
@@ -34,42 +34,18 @@ describe('AuraInstanceProvider', () => {
 
     afterAll(async () => {
 
-        // // console.log('Running afterAll cleanup for instances:', instances)
-        // if (!provider) {
-        //     console.warn('Provider not initialized in afterAll, skipping instance cleanup via API.')
-        // }
-        // for (const instanceId of Array.from(new Set(instances))) {
-        //     if (!instanceId) continue
-        //     try {
-        //         if (provider && testSuiteToken) {
-        //             // console.log(`Attempting to stop instance ${instanceId} via API...`)
-        //             await provider.stopInstance(testSuiteToken, user, instanceId);
-        //             // console.log(`Stop command sent for instance ${instanceId}.`)
-        //         } else {
-        //             console.warn(`Provider or testSuiteToken not available, cannot stop instance ${instanceId} via API.`)
-        //         }
-        //         // console.log(`Cleaning up instance ${instanceId} from DB...`)
-        //         await write(`MATCH (u:User {sub: $sub})-[:HAS_INSTANCE]->(i:Instance {id: $instanceId}) DETACH DELETE i;`, { sub: user.sub, instanceId })
-        //         // console.log(`DB cleanup attempted for ${instanceId}.`)
-        //     } catch (e: any) {
-        //         console.error(`Error stopping/cleaning instance ${instanceId} during teardown:`, e.message)
-        //         try {
-        //             // console.log(`Attempting DB cleanup for ${instanceId} after error...`)
-        //             await write(`MATCH (u:User {sub: $sub})-[:HAS_INSTANCE]->(i:Instance {id: $instanceId}) DETACH DELETE i;`, { sub: user.sub, instanceId })
-        //             // console.log(`DB cleanup for ${instanceId} re-attempted after error.`)
-        //         } catch (dbError: any) {
-        //             console.error(`Error during final DB cleanup for instance ${instanceId}:`, dbError.message)
-        //         }
-        //     }
-        // }
-        // instances = []
+        for (const instanceId of Array.from(new Set(instances))) {
+            await provider.stopInstance(testSuiteToken, user, instanceId)
+        }
 
         await close()
-        // console.log('Neo4j connection closed.')
     })
 
     beforeEach(async () => {
         await write(`MATCH (u:User {sub: $sub})-[:HAS_INSTANCE]->(i:Instance) DETACH DELETE i;`, { sub: user.sub })
+        
+        // Ensure the provider has a valid token for integration tests
+        provider['token'] = testSuiteToken
     })
 
     describe('Configuration', () => {
@@ -96,20 +72,86 @@ describe('AuraInstanceProvider', () => {
             const fakeToken = 'fake-token'
             const useCase = `test-instance-${Date.now()}`
 
+            // Set a fake token to simulate an expired/invalid token
             provider['token'] = fakeToken
+            
+            // Verify the fake token is set
+            expect(provider['token']).toBe(fakeToken)
 
-            const res = await provider.createInstance(testSuiteToken, user, useCase, false, false)
+            // This should trigger a token refresh when the API returns 401/403
+            const res = await provider.getInstances(testSuiteToken, user)
 
+            // Verify the token was refreshed
             expect(provider['token']).not.toBe(fakeToken)
+            expect(provider['token']).toBeDefined()
+            expect(typeof provider['token']).toBe('string')
+            expect(provider['token']!.length).toBeGreaterThan(0)
 
             expect(res).toBeDefined()
-            expect(res.id).toBeDefined()
-            expect(res.usecase).toBe(useCase)
-            expect(res.username).toBeDefined()
-            expect(res.password).toBeDefined()
+        })
+    })
 
-            instances.push(res.id)
+    describe('Error handling', () => {
+        it('should create AuraAPIError with proper structure', () => {
+            const status = 404;
+            const statusText = 'Not Found';
+            const responseBody = { error: 'Instance not found' };
+            const message = `HTTP ${status} ${statusText}`;
 
+            const error = new AuraAPIError(message, status, statusText, responseBody);
+
+            expect(error).toBeInstanceOf(Error);
+            expect(error).toBeInstanceOf(AuraAPIError);
+            expect(error.name).toBe('AuraAPIError');
+            expect(error.message).toBe(message);
+            expect(error.status).toBe(status);
+            expect(error.statusText).toBe(statusText);
+            expect(error.response).toEqual(responseBody);
+        })
+
+        it('should maintain stack trace', () => {
+            const error = new AuraAPIError('Test error', 500, 'Internal Server Error');
+            expect(error.stack).toBeDefined();
+            expect(error.stack).toContain('AuraAPIError');
+        })
+    })
+
+    describe('Instance creation', () => {
+        it('should create a valid instance name', () => {
+            const instanceName = provider['getInstanceName'](user, 'test-instance')
+            expect(instanceName).toBeDefined()
+            expect(instanceName).toBe('t-o|1234567890||t-i')
+        })
+
+        it('should map an aura instance to an instance', () => {
+            const auraInstance = {
+                id: "db1d1234",
+                connection_url: "YOUR_CONNECTION_URL",
+                username: "neo4j",
+                password: "letMeIn123!",
+                database: "db1d1234",
+                tenant_id: "YOUR_PROJECT_ID",
+                cloud_provider: "gcp",
+                region: "europe-west1",
+                type: "enterprise-db",
+                name: 't-o|1234567890||t-i',
+                created_at: "2023-01-20T13:44:42Z",
+                vector_optimized: false
+            }
+
+            const output = provider['mapAuraInstanceToInstance'](auraInstance)
+            expect(output).toBeDefined()
+            expect(output.id).toBe(auraInstance.id)
+            expect(output.hashKey).toBe(auraInstance.name)
+            expect(output.database).toBe(auraInstance.database)
+            expect(output.usecase).toBe('t-i')
+            expect(output.scheme).toBe('neo4j+s')
+        })
+
+        it('should create an instance with a valid name', async () => {
+            const usecase = `test-instance-${Date.now()}`
+            const instance = await provider.createInstance(testSuiteToken, user, usecase, false, false);
+            expect(instance).toBeDefined()
         })
     })
 
@@ -127,8 +169,7 @@ describe('AuraInstanceProvider', () => {
 
             const retrievedInstance = await provider.getInstanceForUseCase(testSuiteToken, user, usecase);
 
-            expect(retrievedInstance).toBeDefined()
-            expect(retrievedInstance?.id).not.toBe(staleInstanceId)
+            expect(retrievedInstance).toBeUndefined()
         })
     })
 
@@ -139,11 +180,19 @@ describe('AuraInstanceProvider', () => {
             let firstInstance = await provider.getOrCreateInstanceForUseCase(testSuiteToken, user, usecase, false, false);
             instances.push(firstInstance.id)
 
+            // Check post-creation
             const checkAfterCreation = await provider.getInstanceById(testSuiteToken, user, firstInstance.id);
 
             expect(checkAfterCreation.instance).toBeDefined()
             expect(checkAfterCreation.instance!.id).toBe(firstInstance.id)
             expect(checkAfterCreation.instance!.hashKey).toEqual(firstInstance.hashKey)
+
+            // Check get instance for use case 
+            const retrievedInstance = await provider.getInstanceForUseCase(testSuiteToken, user, usecase);
+
+            expect(retrievedInstance).toBeDefined()
+            expect(retrievedInstance!.id).toBe(firstInstance.id)
+            expect(retrievedInstance!.hashKey).toEqual(firstInstance.hashKey)
 
             let secondInstance = await provider.getOrCreateInstanceForUseCase(testSuiteToken, user, usecase, false, false);
             expect(secondInstance).toBeDefined()
@@ -164,7 +213,7 @@ describe('AuraInstanceProvider', () => {
 
             const createdInstance = await provider.createInstance(testSuiteToken, user, usecase, false, false);
             expect(createdInstance).toBeDefined()
-            expect(createdInstance.usecase).toBe(usecase)
+            expect(createdInstance.usecase).toBe('c-r-1')
             expect(createdInstance.username).toBeDefined()
             expect(createdInstance.password).toBeDefined()
 

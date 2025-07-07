@@ -125,7 +125,7 @@ export const COHERE_API_URL = 'https://api.cohere.ai/v1/'
 export const COHERE_API_KEY = process.env.COHERE_API_KEY
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY
-export const OPENAI_CHAT_MODEL = 'gpt-3.5-turbo'
+export const OPENAI_CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || 'gpt-4o'
 
 export const CHATBOT_NEO4J_HOST = process.env.CHATBOT_NEO4J_HOST
 export const CHATBOT_NEO4J_USERNAME = process.env.CHATBOT_NEO4J_USERNAME
@@ -139,10 +139,11 @@ export const AUTH0_ISSUER_BASE_URL =
 // Proxied OpenAI Keys
 export const OPENAI_PROXY_API_KEY = process.env.OPENAI_PROXY_API_KEY
 
-
 // Aura
 export const DEFAULT_DATABASE_PROVIDER = 'sandbox'
 export const AURA_CLIENT_ID = process.env.AURA_CLIENT_ID
 export const AURA_CLIENT_SECRET = process.env.AURA_CLIENT_SECRET
 export const AURA_API_URL = process.env.AURA_API_URL || 'https://api.neo4j.io/v1'
 export const AURA_TENANT_ID = process.env.AURA_TENANT_ID
+
+export const CHATBOT_SEED_MESSAGE = process.env.CHATBOT_SEED_MESSAGE

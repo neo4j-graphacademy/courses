@@ -28,8 +28,8 @@ import { initLocalisation } from './modules/localisation'
 import './constants'
 import { initPrintful } from './modules/printful'
 import hardenExpress from './middleware/harden.middleware'
-import initChatbot from './modules/chatbot'
 import { registerTranslationMiddleware } from './middleware/translation.middleware'
+import chatbotRoutes from './modules/chatbot/chatbot.routes'
 
 export default function initApp(driver: Driver) {
     const app = express()
@@ -106,6 +106,7 @@ export default function initApp(driver: Driver) {
     app.use('/', pageRoutes)
     app.get('/certification', (req, res) => res.redirect('/certifications/'))
     app.use('/certifications', certificationRoutes)
+    app.use('/api/v1/chatbot', chatbotRoutes)
 
     if (process.env.NODE_ENV === 'dev') {
         app.use('/test', testRoutes)
@@ -113,9 +114,6 @@ export default function initApp(driver: Driver) {
 
     // Printful
     initPrintful(app)
-
-    // Chatbot Routes
-    void initChatbot(app)
 
     // Generic Error Handlers
     applyErrorHandlers(app)

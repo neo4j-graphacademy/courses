@@ -1,9 +1,15 @@
-import { AxiosError } from 'axios'
 import { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
 import UnauthorizedError from '../errors/unauthorized.error';
 import { getUser } from './auth.middleware';
+
+// Helper function to check if error is a fetch error with status
+function isFetchErrorWithStatus(error: any, status: number): boolean {
+    return error.status === status || 
+           (error.response && error.response.status === status) ||
+           (error.cause && error.cause.status === status)
+}
 
 export function applyErrorHandlers(app: Express) {
     const notFoundError = (req: Request, res: Response, err?: Error) => {
@@ -69,7 +75,6 @@ export function applyErrorHandlers(app: Express) {
     app.use(async (error: Error, req: Request, res: Response, next: NextFunction) => {
         const user = await getUser(req)
 
-
         if (error instanceof NotFoundError || (error as any).status === 404) {
             return notFoundError(req, res, error)
         }
@@ -78,7 +83,7 @@ export function applyErrorHandlers(app: Express) {
         //     return unauthorized(error, req, res)
         // }
 
-        if ((error as AxiosError).response?.status === 401 || (error as any).status === 401) {
+        if (isFetchErrorWithStatus(error, 401)) {
             let redirectTo = '/login'
 
             if (req.method === 'GET') {
@@ -94,7 +99,6 @@ export function applyErrorHandlers(app: Express) {
                 message: error.message
             })
         }
-
 
         if (process.env.NODE_ENV === 'production') {
             console.log('resorting to to 500');

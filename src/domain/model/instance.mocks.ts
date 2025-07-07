@@ -10,6 +10,7 @@ export function devInstance(): Instance {
         SANDBOX_DEV_INSTANCE_PORT,
         SANDBOX_DEV_INSTANCE_USERNAME,
         SANDBOX_DEV_INSTANCE_PASSWORD,
+        SANDBOX_DEV_INSTANCE_DATABASE,
     } = process.env
 
     return {
@@ -20,6 +21,7 @@ export function devInstance(): Instance {
         host: SANDBOX_DEV_INSTANCE_HOST || 'localhost' as string,
         port: SANDBOX_DEV_INSTANCE_PORT || '7474' as string,
         ip: SANDBOX_DEV_INSTANCE_HOST || '127.0.0.1' as string,
+        database: SANDBOX_DEV_INSTANCE_DATABASE,
         username: (SANDBOX_DEV_INSTANCE_USERNAME || 'neo4j'),
         password: (SANDBOX_DEV_INSTANCE_PASSWORD || 'letmein'),
         usecase: 'movies',

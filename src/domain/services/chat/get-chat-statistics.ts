@@ -1,4 +1,4 @@
-import axios from "axios";
+// import axios from "axios";
 
 interface ChatStatistics {
     online: number;
@@ -18,10 +18,11 @@ export async function getChatStatistics(): Promise<ChatStatistics> {
         const now = new Date()
 
         if ( updatedAt === undefined || now.getTime() - updatedAt.getTime() > parseInt(THIRD_PARTY_UPDATE_INTERAL as string) ) {
-            const res = await axios.get(`https://discord.com/api/guilds/${DISCORD_ID}/widget.json`)
+            const response = await fetch(`https://discord.com/api/guilds/${DISCORD_ID}/widget.json`)
+            const data = await response.json()
 
             cache = {
-                online: res.data.presence_count || 0
+                online: data.presence_count || 0
             }
             updatedAt = now
         }

@@ -1,4 +1,4 @@
-import axios from "axios"
+// import axios from "axios"
 import { PRINTFUL_API_KEY } from "../../constants"
 import { ValidationError } from "../../errors/validation.error"
 import Recipient from "./recipient.class"
@@ -6,57 +6,65 @@ import { Order, OrderProvider, OrderResponse, Variant } from "./types"
 
 const API_BASE_URL = 'https://api.printful.com'
 
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        authorization: `Bearer ${PRINTFUL_API_KEY}`
+// Helper function to create fetch options with auth
+function createFetchOptions(method: string = 'GET', body?: any, additionalHeaders: Record<string, string> = {}): RequestInit {
+    const headers: Record<string, string> = {
+        'Authorization': `Bearer ${PRINTFUL_API_KEY}`,
+        ...additionalHeaders
     }
-})
 
+    if (body) {
+        headers['Content-Type'] = 'application/json'
+    }
+
+    return {
+        method,
+        headers,
+        ...(body && { body: JSON.stringify(body) })
+    }
+}
+
+// Helper function to make API calls
+async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, options)
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    return await response.json()
+}
 
 export function getWebhooks<T>(storeId: string) {
-    return api.get('/webhooks', {
-        headers: {
-            'X-PF-Store-Id': storeId
-        }
-    })
-        .then(res => res.data as T)
+    return apiCall<T>('/webhooks', createFetchOptions('GET', undefined, {
+        'X-PF-Store-Id': storeId
+    }))
 }
 
 export function addWebhook(storeId: string, url: string, types: string[]) {
-
-    return api.post(
-        '/webhooks',
-        { url, types },
-        {
-            headers: {
-                'Content-type': 'application/json',
-                'X-PF-Store-Id': storeId
-            }
-        }
-    )
+    return apiCall('/webhooks', createFetchOptions('POST', { url, types }, {
+        'X-PF-Store-Id': storeId
+    }))
 }
 
-export function getStores<T>() {
-    return api.get('/stores')
-        .then(res => res.data as T)
+export function getStores<T = Record<string, any>>() {
+    return apiCall<T>('/stores', createFetchOptions())
 }
 
 const productCache = new Map<string, any>()
 const variantCache = new Map<string, Variant>()
 
-export function getProduct<T>(storeId: string, id: string): Promise<T> {
+export async function getProduct<T = Record<string, any>>(storeId: string, id: string): Promise<T> {
     const key = storeId + '|' + id
     if (productCache.has(key)) {
         return Promise.resolve(productCache.get(key) as T)
     }
 
-    return api.get(`/store/products/${id}`, {
-        headers: {
-            'X-PF-Store-Id': storeId,
-        }
-    })
-        .then(res => res.data.result as T)
+    const data = await apiCall<{ result: T }>(`/store/products/${id}`, createFetchOptions('GET', undefined, {
+        'X-PF-Store-Id': storeId,
+    }))
+    
+    return data.result
 }
 
 export function getVariant(storeId: string, id: string): Promise<Variant> {
@@ -65,12 +73,9 @@ export function getVariant(storeId: string, id: string): Promise<Variant> {
         return Promise.resolve(variantCache.get(key) as Variant)
     }
 
-    return api.get(`/store/variants/${id}`, {
-        headers: {
-            'X-PF-Store-Id': storeId,
-        }
-    })
-        .then(res => res.data.result as Variant)
+    return apiCall<{ result: Variant }>(`/store/variants/${id}`, createFetchOptions('GET', undefined, {
+        'X-PF-Store-Id': storeId,
+    })).then(data => data.result)
 }
 
 interface State {
@@ -85,15 +90,15 @@ export interface Country {
 }
 
 export async function getCountries(): Promise<Country[]> {
-    const countries = await api.get<{ result: Country[] }>('/countries')
-        .then(res => res.data.result)
+    const data = await apiCall<{ result: Country[] }>('/countries', createFetchOptions())
+    const countries = data.result
 
     return countries.sort((a, b) => a.name < b.name ? -1 : 1)
 }
 
 export async function getCountryAndState(countryCode: string, stateCode: string | undefined): Promise<{ country: Country, state: State | undefined }> {
-    const countries = await api.get<{ result: Country[] }>('/countries')
-        .then(res => res.data.result)
+    const data = await apiCall<{ result: Country[] }>('/countries', createFetchOptions())
+    const countries = data.result
 
     const country = countries.find(row => row.code === countryCode)
 
@@ -156,27 +161,21 @@ export function formatRecipient(
     return recipient
 }
 
-
 type OrderItem = Partial<Variant> & { quantity: number }
 
-
 export async function createOrder(storeId: string, recipient: Recipient, items: OrderItem[]): Promise<Order> {
-    const res = await api.post<OrderResponse>('/orders?confirm=true', {
+    const data = await apiCall<OrderResponse>('/orders?confirm=true', createFetchOptions('POST', {
         recipient: recipient.toObject(),
         items,
-    },
-        {
-            headers: {
-                'Content-type': 'application/json',
-                'X-PF-Store-Id': storeId
-            }
-        })
+    }, {
+        'X-PF-Store-Id': storeId
+    }))
 
-    if (res.data.code === 400 || res.data.code === 401) {
-        throw new ValidationError(res.data.error.message)
+    if (data.code === 400 || data.code === 401) {
+        throw new ValidationError(data.error.message)
     }
 
-    return Object.assign({}, res.data.result, {
+    return Object.assign({}, data.result, {
         provider: OrderProvider.Printful,
     }) as Order
 }

@@ -25,7 +25,7 @@ type VerificationResult = {
     answers: string[] | undefined;
 }
 
-export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress | false> {
+export async function verifyCodeChallenge(user: User, token: string, course: string, module: string, lesson: string): Promise<LessonWithProgress & { answers: Answer[] } | false> {
     const progress = await getCourseWithProgress(course, user)
     const { usecase } = progress
     const verify = await getLessonCypherFile(course, module, lesson, 'verify')
@@ -54,7 +54,7 @@ export async function verifyCodeChallenge(user: User, token: string, course: str
     }
     else {
         const provider = databaseProvider(progress.databaseProvider)
-        const res = await provider.executeCypher<VerificationResult>(token, user, usecase, verify, {}, 'READERS')
+        const res = await provider.executeCypher<VerificationResult>(token, user, usecase, verify, {}, 'READ')
 
         try {
             // If no records are returned then the test has failed

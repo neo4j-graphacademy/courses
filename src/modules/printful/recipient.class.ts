@@ -19,6 +19,10 @@ export default class Recipient {
         let valid = true
         const errors = {}
 
+        if (this.name.length === 0 || this.name.length > 50) {
+            valid = false
+            errors['address1'] = `Invalid name, required and less than 50 characters`
+        }
         if (this.address1.length === 0 || this.address1.length > 50) {
             valid = false
             errors['address1'] = `Invalid address1, required and less than 50 characters`

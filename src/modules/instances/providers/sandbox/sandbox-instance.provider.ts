@@ -1,4 +1,3 @@
-import axios, { AxiosResponse } from 'axios'
 import { AUTH0_ISSUER_BASE_URL, IS_PRODUCTION } from '../../../../constants'
 import { devInstance } from '../../../../domain/model/instance.mocks'
 import { User } from '../../../../domain/model/user'
@@ -10,14 +9,48 @@ import { INSTANCE_STATUS_NOT_FOUND } from '../..'
 import { INSTANCE_STATUS_READY } from '../..'
 import { createDriver } from '../../../neo4j'
 import { EagerResult, RoutingControl } from 'neo4j-driver'
+import { notify } from '../../../../middleware/bugsnag.middleware'
+
+// Helper function to create fetch options
+function createFetchOptions(method: string, token: string, body?: any): RequestInit {
+    const options: RequestInit = {
+        method,
+        headers: {
+            authorization: token,
+            'Content-Type': 'application/json',
+        },
+    }
+
+    if (body) {
+        options.body = JSON.stringify(body)
+    }
+
+    return options
+}
+
+// Helper function to handle fetch responses
+async function handleFetchResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+        const error = new Error(`HTTP error: ${response.status}`)
+        ;(error as any).response = {
+            status: response.status,
+            statusText: response.statusText,
+        }
+        throw error
+    }
+
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('application/json')) {
+        return await response.json()
+    } else {
+        return (await response.text()) as T
+    }
+}
 
 export class SandboxInstanceProvider implements InstanceProvider {
-    private api() {
+    private getBaseUrl(): string {
         const { SANDBOX_URL } = process.env
-
-        return axios.create({
-            baseURL: SANDBOX_URL,
-        })
+        return SANDBOX_URL || ''
     }
 
     async getInstances(token: string, user: User, isRetry = false): Promise<Instance[]> {
@@ -26,23 +59,17 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
 
         try {
-            const res = await this.api().get(
-                `SandboxGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`,
-                {
-                    headers: {
-                        authorization: `${token}`
-                    },
-                }
-            )
+            const url = `${this.getBaseUrl()}/SandboxGetRunningInstancesForUser${isRetry ? '?is_retry=true' : ''}`
+            const response = await fetch(url, createFetchOptions('GET', token))
+            const data = await handleFetchResponse<Instance[]>(response)
 
-            return res.data.map((row: Instance) => ({
+            return data.map((row: Instance) => ({
                 ...row,
                 scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
                 username: 'neo4j',
                 host: `${row.sandboxHashKey}.neo4jsandbox.com`,
             })) as Instance[]
-        }
-        catch (e: any) {
+        } catch (e: any) {
             // Report Error
             await handleSandboxError(token, user, 'SandboxGetRunningInstancesForUser', e)
 
@@ -53,84 +80,86 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
     async getInstanceById(token: string, user: User, id: string): Promise<{ instance: Instance; status: string }> {
         const instances = await this.getInstances(token, user)
-        const instance = instances.find(row => row.id === id)
+        const instance = instances.find((row) => row.sandboxHashKey === id)
 
         try {
             if (!instance) {
                 throw new Error(`Instance with ID ${id} not found`)
             }
 
-            const res: AxiosResponse<string> = await this.api().get(`SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey}&verifyConnect=true`, {
-                headers: {
-                    authorization: `${token}`
-                },
-            })
+            const url = `${this.getBaseUrl()}/SandboxGetInstanceByHashKey?sandboxHashKey=${
+                instance?.hashKey
+            }&verifyConnect=true`
+            const response = await fetch(url, createFetchOptions('GET', token))
+            const data = await handleFetchResponse<string>(response)
 
             // Has an IP address
             return {
                 instance: {
                     ...instance,
-                    ip: res.data.toString(),
+                    ip: data.toString(),
                 } as Instance,
                 status: INSTANCE_STATUS_READY,
             }
-        }
-        catch (e: any) {
+        } catch (e: any) {
             if (e.response) {
                 // Not found, either pending or doesn't have an IP
-                const response = e.response as AxiosResponse<string>
-
-                if (response.status === 404) {
+                if (e.response.status === 404) {
                     return {
                         instance: instance as Instance,
                         status: INSTANCE_STATUS_NOT_FOUND,
                     }
-                } else if (response.status === 417) {
+                } else if (e.response.status === 417) {
                     return {
                         instance: instance as Instance,
                         status: INSTANCE_STATUS_PENDING,
                     }
                 }
 
-                throw handleSandboxError(token, user, 'SandboxGetInstanceByHashKey', e)
+                throw await handleSandboxError(token, user, 'SandboxGetInstanceByHashKey', e)
             }
 
             throw e
         }
     }
 
-    async getInstanceForUseCase(token: string, user: User, usecase: string, isRetry = false): Promise<Instance | undefined> {
+    async getInstanceForUseCase(
+        token: string,
+        user: User,
+        usecase: string,
+        isRetry = false
+    ): Promise<Instance | undefined> {
         if (process.env.SANDBOX_DEV_INSTANCE_HOST) {
             return devInstance()
         }
 
         const instances = await this.getInstances(token, user, isRetry)
 
-        return instances.find(instance => instance.usecase === usecase)
+        return instances.find((instance) => instance.usecase === usecase)
     }
 
     async stopInstance(token: string, user: User, sandboxHashKey: string): Promise<void> {
         try {
-            await this.api().post(
-                `SandboxStopInstance`,
-                { sandboxHashKey, },
-                {
-                    headers: {
-                        authorization: `${token}`
-                    },
-                }
-            )
-        }
-        catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxStopInstance', e)
+            const url = `${this.getBaseUrl()}/SandboxStopInstance`
+            const response = await fetch(url, createFetchOptions('POST', token, { sandboxHashKey }))
+            await handleFetchResponse(response)
+        } catch (e: any) {
+            throw await handleSandboxError(token, user, 'SandboxStopInstance', e)
         }
     }
 
     private async sleep(timeout = 500): Promise<void> {
-        return new Promise(resolve => setTimeout(() => resolve(), timeout))
+        return new Promise((resolve) => setTimeout(() => resolve(), timeout))
     }
 
-    async createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean = false, graphAnalyticsPlugin: boolean = false, isRetry = false): Promise<Instance> {
+    async createInstance(
+        token: string,
+        user: User,
+        usecase: string,
+        vectorOptimized: boolean = false,
+        graphAnalyticsPlugin: boolean = false,
+        isRetry = false
+    ): Promise<Instance> {
         // Prefer existing to avoid 400 errors
         const existing = await this.getInstanceForUseCase(token, user, usecase)
 
@@ -139,31 +168,20 @@ export class SandboxInstanceProvider implements InstanceProvider {
         }
 
         try {
-            const res = await this.api().post(
-                `SandboxRunInstance`,
-                { usecase, cease_emails: true },
-                {
-                    headers: {
-                        authorization: `${token}`
-                    },
-                }
-            )
+            const url = `${this.getBaseUrl()}/SandboxRunInstance`
+            const response = await fetch(url, createFetchOptions('POST', token, { usecase, cease_emails: true }))
+            const data = await handleFetchResponse<Instance>(response)
 
             // Bug in Sandbox API, on creation the password is hashed.
             // Calling the API again will return the unencrypted password
-            const data = res.data as Instance
-
             if (data.password?.startsWith('AQ')) {
-                return await this.getInstanceForUseCase(token, user, usecase) as Instance
+                return (await this.getInstanceForUseCase(token, user, usecase)) as Instance
             }
 
             return data
-        }
-        catch (e: any) {
+        } catch (e: any) {
             if (e.response) {
-                const response = e.response as AxiosResponse<{ errorString: string }>
-
-                if (response.status === 400) {
+                if (e.response.status === 400) {
                     await this.sleep()
 
                     // Retry after a second
@@ -174,7 +192,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
                     return existing as Instance
                 }
                 // Sandbox Unauthorized (401) on SandboxRunInstance: Request failed with status code 401 ({"message":"Unauthorized"})
-                else if (response.status === 401 && isRetry === false) {
+                else if (e.response.status === 401 && isRetry === false) {
                     // Retry after a second
                     await this.sleep(2000)
 
@@ -183,7 +201,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
                     return this.createInstance(token, user, usecase, true)
                 }
                 // Sandbox Uncategorised Error (503) on SandboxRunInstance: Request failed with status code 503 ({"message":"Service Unavailable"})
-                else if (response.status === 503 && isRetry === false) {
+                else if (e.response.status === 503 && isRetry === false) {
                     await handleSandboxError(token, user, 'SandboxRunInstance', e)
 
                     // Retry after a second
@@ -193,129 +211,127 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 }
             }
 
-            throw handleSandboxError(token, user, 'SandboxRunInstance', e)
+            throw await handleSandboxError(token, user, 'SandboxRunInstance', e)
         }
     }
 
-    async getOrCreateInstanceForUseCase(token: string, user: User, usecase: string, vectorOptimized: boolean = false, graphAnalyticsPlugin: boolean = false): Promise<Instance> {
-        let instance = await this.getInstanceForUseCase(token, user, usecase)
+    async getOrCreateInstanceForUseCase(
+        token: string,
+        user: User,
+        usecase: string,
+        vectorOptimized: boolean = false,
+        graphAnalyticsPlugin: boolean = false
+    ): Promise<Instance> {
+        const existing = await this.getInstanceForUseCase(token, user, usecase)
 
-        if (!instance) {
-            instance = await this.createInstance(token, user, usecase, vectorOptimized, graphAnalyticsPlugin)
+        if (existing) {
+            return existing
         }
 
-        return instance
+        return this.createInstance(token, user, usecase, vectorOptimized, graphAnalyticsPlugin)
     }
 
     private async createGraphAcademyUser(token: string, user: User) {
         try {
-            await this.api().post(
-                `SandboxCreateGraphAcademyUser`,
-                {},
-                {
-                    headers: {
-                        authorization: `${token}`
-                    },
-                }
+            const url = `${this.getBaseUrl()}/SandboxCreateGraphAcademyUser`
+            const response = await fetch(
+                url,
+                createFetchOptions('POST', token, {
+                    user_id: user.sub,
+                    first_name: user.givenName,
+                    last_name: user.name, // Use name since familyName doesn't exist
+                    company: user.company,
+                })
             )
-        }
-        catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxCreateGraphAcademyUser', e)
+            await handleFetchResponse(response)
+        } catch (e: any) {
+            throw await handleSandboxError(token, user, 'SandboxCreateGraphAcademyUser', e)
         }
     }
 
     async saveUserInfo(token: string, user: User, data: UserMetaData): Promise<void> {
         try {
-            await this.createGraphAcademyUser(token, user)
-
-            await this.api().post(
-                `SandboxSaveUserInfo`,
-                data,
-                {
-                    headers: {
-                        authorization: `${token}`
-                    },
-                }
-            )
-        }
-        catch (e: any) {
-            throw handleSandboxError(token, user, 'SandboxSaveUserInfo', e)
-        }
-    }
-
-    async getAuth0UserInfo(token: string, user: User): Promise<Partial<User>> {
-        try {
-            const res = await axios.post(`${AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
-                id_token: token
-            })
-
-            return res.data as Partial<User>
-        }
-        catch (e) {
-            throw handleSandboxError(token, user, 'tokeninfo', e)
+            const url = `${this.getBaseUrl()}/SandboxUpdateGraphAcademyUser`
+            const response = await fetch(url, createFetchOptions('POST', token, data))
+            await handleFetchResponse(response)
+        } catch (e: any) {
+            throw await handleSandboxError(token, user, 'SandboxUpdateGraphAcademyUser', e)
         }
     }
 
     async getUserInfo(token: string, user: User): Promise<Partial<User>> {
         try {
-            const res = await this.api().get(`SandboxGetUserInfo`, {
-                headers: {
-                    authorization: `${token}`
-                },
-            })
-
-            const [profile] = res.data
-
-            return profile as Partial<User>
-        }
-        catch (e) {
-            throw handleSandboxError(token, user, 'SandboxGetUserInfo', e)
+            const url = `${this.getBaseUrl()}/SandboxGetGraphAcademyUser`
+            const response = await fetch(
+                url,
+                createFetchOptions('POST', token, {
+                    user_id: user.sub,
+                })
+            )
+            const data = await handleFetchResponse<Partial<User>>(response)
+            return data
+        } catch (e: any) {
+            throw await handleSandboxError(token, user, 'SandboxGetGraphAcademyUser', e)
         }
     }
 
-    async executeCypher<T = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any> = {}, routing: RoutingControl): Promise<EagerResult<T> | undefined> {
+    async getAuth0UserInfo(token: string, user: User): Promise<Partial<User>> {
         try {
-            const instance = await this.getInstanceForUseCase(token, user, usecase)
-
-            if (instance !== undefined) {
-                // Connect to instance
-                const driver = await createDriver(
-                    `bolt://${instance.ip}:${instance.boltPort}`,
-                    instance.username,
-                    instance.password,
-                    true
-                )
-
-                let result: EagerResult<T> | undefined;
-
-                const parts = cypher.split(';\n')
-                    .filter(e => e.trim() !== '')
-
-                for (const part of parts) {
-                    result = await driver.executeQuery<EagerResult<T>>(part, params, {
-                        database: instance.database || 'neo4j',
-                        routing,
-                    })
-                }
-
-                await driver.close()
-
-                return result;
-            }
-
-            throw new Error(`Could not connect to aura instance for usecase: ${usecase}`)
+            const response = await fetch(`${AUTH0_ISSUER_BASE_URL}/tokeninfo`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id_token: token,
+                }),
+            })
+            const data = await handleFetchResponse<Partial<User>>(response)
+            return data
+        } catch (e: any) {
+            throw await handleSandboxError(token, user, 'Auth0 /tokeninfo', e)
         }
-        catch (e) {
-            void handleSandboxError(token, user, 'SandboxResetDatabase', e)
+    }
+
+    async executeCypher<T extends Record<string, any> = Record<string, any>>(
+        token: string,
+        user: User,
+        usecase: string,
+        cypher: string,
+        params: Record<string, any> = {},
+        routing: RoutingControl
+    ): Promise<EagerResult<T> | undefined> {
+        const instance = await this.getInstanceForUseCase(token, user, usecase)
+
+        if (!instance) {
+            return
+        }
+
+        const driver = await createDriver(
+            `${instance.scheme}://${instance.host}:${instance.boltPort}`,
+            instance.username,
+            instance.password
+        )
+
+        try {
+            const result = await driver.executeQuery(cypher, params, {
+                database: instance.database,
+                routing,
+            })
+            return result as EagerResult<T>
+        } catch (e: any) {
+            notify(e)
+        } finally {
+            await driver.close()
         }
     }
 }
 
 interface UserInfo {
-    user_id: string;
-    company: string | undefined;
-    first_name: string | undefined;
-    last_name: string | undefined;
+    user_id: string
+    company: string | undefined
+    first_name: string | undefined
+    last_name: string | undefined
 }
 
 interface UserMetaData extends UserInfo {

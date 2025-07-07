@@ -1,36 +1,99 @@
-.classroom-panel.classroom-chatbot
+.classroom-panel.classroom-chatbot(class=chatbotVisible ? 'classroom-panel--visible' : '')
   .classroom-panel-header
-    h2 !{translate('chatbot', 'Chatbot')}
-    //- h2 !{translate('chatbot', 'Ask E.L.A.I.N.E.')}
+    if type === 'conversation'
+      h2 !{title}
+    else
+      h2 !{translate('chatbot', 'Chatbot')}
     .classroom-panel-close
       | !{svg.close}
 
   .classroom-panel-body.conversation
     .classroom-panel-container.classroom-panel-container--grow
         .conversation-messages
-          .conversation-message.conversation-message--bot.conversation-message--cold-start
-            p Hi, I am an !{''}
-              strong Educational Learning Assistant for Intelligent Network Exploration. !{''}
-              |  You can call me !{''}
-              strong E.L.A.I.N.E.
-            p
-              | How can I help you today?
-            //- time(datetime='2022-01-01T01:01:01') 01:01
-          //- .conversation-message.conversation-message--user
-          //-   p I'm stuck with something...
-          //-   time(datetime='2022-01-01T01:01:01') 01:02
+          if !chatHistory || chatHistory.length === 0
+            if type === 'conversation'
+              .conversation-message.conversation-message--ai.conversation-message--cold-start !{doc}
+            else
+              .conversation-message.conversation-message--ai.conversation-message--cold-start
+                p
+                  | How can I help you today?
+          else
+            each msg in chatHistory 
+              .conversation-message(class=`conversation-message--${msg.role}`)
+                if msg.role === 'tool'             
+                  details.conversation-message-tool
+                    summary
+                      | Using tool: 
+                      strong= msg.name
+                    details
+                      summary Input:
+                      pre= msg.args
+                    details
+                      summary Output:
+                      pre= msg.content
+                else 
+                  .conversation-message-content(data-id=msg.id)
+                    if msg.role === 'ai'
+                      != converter.makeHtml(msg.content)
+                    else
+                      p= msg.content
+                  .conversation-message-meta
+                    time(datetime=msg.created_at) !{relativeTime(new Date(msg.created_at))}
+                    if msg.role === 'ai' && msg.id
+                      .conversation-message-feedback
+                        button.btn--feedback.btn--positive(title="This was helpful") 👍
+                        button.btn--feedback.btn--negative(title="This was not helpful") 👎
 
-          //- .conversation-message.conversation-message--error
-          //-   p Something went wrong
-          //-   time(datetime='2022-01-01T01:01:01') 01:02
+            //- // First, create a map of tool messages for easy lookup
+            //- - const toolMessageMap = new Map();
+            //- each msg in chatHistory
+            //-   if msg._getType() === 'tool' && msg.tool_call_id
+            //-     - toolMessageMap.set(msg.tool_call_id, msg)
 
-          //- .conversation-thinking
-          //-   span .
-          //-   span .
-          //-   span .
+            //- // Now, iterate and render the messages
+            //- each message in chatHistory
+            //-   - const messageType = message._getType()
+
+            //-   if messageType === 'ai' && message.tool_calls && message.tool_calls.length > 0
+            //-     // AIMessage with tool calls
+            //-     .conversation-message.conversation-message--tool
+            //-       .conversation-message-content
+            //-         each toolCall in message.tool_calls
+            //-           if toolCall.id
+            //-             - const toolOutputMessage = toolMessageMap.get(toolCall.id)
+            //-             - const output = toolOutputMessage ? toolOutputMessage.content : 'No output found'
+
+            //-             details.conversation-message-tool
+            //-               summary
+            //-                 | Using tool: 
+            //-                 strong= toolCall.name
+            //-               div
+            //-                 strong Input:
+            //-                 pre= JSON.stringify(toolCall.args, null, 2)
+            //-               div
+            //-                 strong Output:
+            //-                 pre= output
+            //-       .conversation-message-meta
+            //-         time(datetime='2022-01-01T01:01:01') 01:01
+
+            //-   else if messageType === 'human'
+            //-     // HumanMessage
+            //-     .conversation-message.conversation-message--user
+            //-       .conversation-message-content
+            //-         p= message.content
+            //-       .conversation-message-meta
+            //-         time(datetime='2022-01-01T01:01:01') 01:01
+
+            //-   else if messageType === 'ai'
+            //-     // Standard AIMessage
+            //-     .conversation-message.conversation-message--bot
+            //-       .conversation-message-content
+            //-         != converter.makeHtml(message.content)
+            //-       .conversation-message-meta
+            //-         time(datetime='2022-01-01T01:01:01') 01:01
 
     .classroom-panel-container.classroom-panel-container--chat
       .classroom-panel-container-content
-        form.conversation-form
-          textarea#conversation-text(name='message')
+        form.conversation-form(data-session-id=chatSessionId)
+          textarea#conversation-text(name='message')= chatSeedMessage
           button.btn(type='submit')#conversation-submit Send

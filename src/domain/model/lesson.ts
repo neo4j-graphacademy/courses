@@ -9,6 +9,7 @@ export const ATTRIBUTE_REPOSITORY = 'repository'
 export const ATTRIBUTE_OPTIONAL = 'optional'
 export const ATTRIBUTE_DISABLE_CACHE = 'disable-cache'
 export const ATTRIBUTE_UPDATED_AT = 'updated-at'
+export const ATTRIBUTE_CHATBOT = 'chatbot'
 
 export const LESSON_TYPE_VIDEO = 'video'
 export const LESSON_TYPE_DEFAULT = 'lesson'
@@ -39,6 +40,7 @@ export interface Lesson {
     verify: string | undefined;
     optional: boolean;
     slides: boolean;
+    chatbot: boolean;
     sequential: boolean;
     disableCache: boolean;
     questions: Question[];

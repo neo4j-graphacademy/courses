@@ -1,14 +1,13 @@
-import { AxiosError } from "axios"
+// import { AxiosError } from "axios"
 
-export class SandboxError extends Error {
-    public isSandboxError: boolean;
+export default class SandboxError extends Error {
+    endpoint: string
+    error: any
 
-    constructor(type: string, endpoint: string, error: AxiosError) {
-        const status = error.response?.status || 500
-        const body = error.response?.data ? JSON.stringify(error.response?.data) : '[NO DATA]'
+    constructor(type: string, endpoint: string, error: any) {
+        super(`Sandbox ${type} on ${endpoint}: ${error.message} (${JSON.stringify(error.response?.data || error.message)})`)
 
-        super(`Sandbox ${type} (${status}) on ${endpoint}: ${error.message} (${body})`)
-
-        this.isSandboxError = true
+        this.endpoint = endpoint
+        this.error = error
     }
 }

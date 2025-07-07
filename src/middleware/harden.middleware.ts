@@ -12,6 +12,7 @@ export default function hardenExpress(app: Express) {
             helmet.contentSecurityPolicy({
                 useDefaults: true,
                 directives: {
+                    // @ts-ignore
                     scriptSrc: [
                         "'self'",
                         DOMAIN,
@@ -27,7 +28,8 @@ export default function hardenExpress(app: Express) {
                         'consent.cookebot.com',
                         'consentcdn.cookebot.com',
                         'translate-pa.googleapis.com',
-                        (req, res) => `'nonce-${res.locals.nonce}'`,
+                        // @ts-ignore
+                        (req: Request, res: Response) => `'nonce-${res.locals.nonce}'`,
                     ],
                     imgSrc: ['*', 'data:'],
                     frameSrc: [

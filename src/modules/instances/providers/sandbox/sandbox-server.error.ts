@@ -1,8 +1,8 @@
-import { AxiosError } from "axios";
-import { SandboxError } from "./sandbox.error";
+// import { AxiosError } from "axios";
+import SandboxError from "./sandbox.error";
 
-export class SandboxServerError extends SandboxError {
-    constructor(endpoint: string, error: AxiosError) {
-        super('Server Request', endpoint, error)
+export default class SandboxServerError extends SandboxError {
+    constructor(endpoint: string, error: any) {
+        super('Server Error', endpoint, error)
     }
 }

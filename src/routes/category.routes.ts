@@ -1,7 +1,7 @@
 import path from 'path'
-import fs from 'fs'
+import fs, { existsSync } from 'fs'
 import { Request, Response, NextFunction, Router } from 'express'
-import { CDN_URL, PUBLIC_DIRECTORY } from '../constants'
+import { ASCIIDOC_DIRECTORY, CDN_URL, PUBLIC_DIRECTORY } from '../constants'
 import { Category } from '../domain/model/category'
 import { CourseWithProgress } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
@@ -174,6 +174,43 @@ router.get('/:slug/banner', (req: Request, res: Response, next: NextFunction) =>
         next(e)
     }
 
+})
+
+/**
+ * @GET /:slug/llms.txt
+ *
+ * Send an llms.txt file with the category title, description and a list of courses that have an llms.txt file
+ */
+router.get('/:slug/llms.txt', async (req, res, next) => { 
+    try {
+        const { slug } = req.params
+        const term: string | undefined = req.query.search as string | undefined
+        const user = await getUser(req)
+        const categories = await getCoursesByCategory(user, term)
+
+        // Flatten Category list
+        const flattened: Category<any>[] = flattenCategories(categories)
+
+        // Find Category by slug
+        const category = flattened.find(item => item.slug === slug)
+
+        if (!category) {
+            return next(new NotFoundError(`Category with slug ${slug} could not be found`))
+        }
+
+        const output = [`# ${category.title}`, '', category.caption || '', '', '## Courses', '']
+
+        for (const course of category.courses || []) {
+            if (existsSync(path.join(ASCIIDOC_DIRECTORY, 'courses', course.slug, 'llms.txt'))) {
+                output.push(`- [${course.title}](${canonical(`/courses/${course.slug}/llms.txt`)})`)
+            }
+        }
+
+        res.header('Content-Type', 'text/plain').send(output.join('\n'))
+
+    } catch (e) {
+        next(e)
+    }
 })
 
 export default router

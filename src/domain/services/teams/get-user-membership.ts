@@ -15,5 +15,5 @@ export default async function getUserMembership(tx, userSub: string, teamId: str
         r.role AS role
       `, { id: teamId, sub: userSub, admin: MembershipRole.ADMIN });
 
-  return userRes.records.length ? userRes.records[0].toObject() : { isMember: false, isAdmin: false, role: null };
+  return userRes.records.length ? userRes.records[0].toObject() : { isMember: false, isAdmin: false, role: undefined };
 }

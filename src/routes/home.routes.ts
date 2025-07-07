@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { BASE_URL } from '../constants'
+import { ASCIIDOC_DIRECTORY, BASE_URL } from '../constants'
 import { Course, LANGUAGE_EN, NEGATIVE_STATUSES } from '../domain/model/course'
 import { getCoursesByCategory } from '../domain/services/get-courses-by-category'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
@@ -7,7 +7,8 @@ import { getUser } from '../middleware/auth.middleware'
 import { translate } from '../modules/localisation'
 import { read } from '../modules/neo4j'
 import { canonical } from '../utils'
-
+import path from 'path'
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
 
 const router = Router()
 
@@ -74,7 +75,6 @@ router.get('/', async (req, res, next) => {
     }
 })
 
-
 /**
  * Landing page for Knowledge Graphs & Graph RAG
  */
@@ -98,15 +98,17 @@ router.get('/knowledge-graph-rag', async (req, res) => {
 
     res.render('pages/knowledge-graph-rag', {
         title: 'Knowledge Graph and GraphRAG courses on GraphAcademy',
-        description: 'Learn everything you need to know to combine Generative AI and knowledge graphs to produce highly accurate responses, with rich context and deep explainability.',
+        description:
+            'Learn everything you need to know to combine Generative AI and knowledge graphs to produce highly accurate responses, with rich context and deep explainability.',
         classes: 'graphrag transparent-nav preload',
         courses: allCourses,
         link: '/knowledge-graph-rag/',
-        links: [{
-            href: "https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap",
-            rel: "stylesheet",
-
-        }]
+        links: [
+            {
+                href: 'https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap',
+                rel: 'stylesheet',
+            },
+        ],
     })
 })
 
@@ -138,6 +140,74 @@ router.get('/sitemap.txt', async (req, res, next) => {
     } catch (e) {
         next(e)
     }
+})
+
+/**
+ * @GET /llms.txt
+ *
+ * Send the llms.txt file
+ */
+router.get('/llms.txt', async (req, res) => {
+    const coursesDirectory = path.join(ASCIIDOC_DIRECTORY, 'courses')
+
+    // Courses
+    let output = ['# Neo4j GraphAcademy', '', '## Courses', '']
+
+    for (const folder of readdirSync(coursesDirectory)) {
+        if (
+            statSync(path.join(coursesDirectory, folder)).isDirectory() &&
+            existsSync(path.join(coursesDirectory, folder, 'llms.txt'))
+        ) {
+            // open file and read first line
+            const file = readFileSync(path.join(coursesDirectory, folder, 'llms.txt'), 'utf8')
+            const firstLine = file.split('\n')[0].replace('# ', '')
+
+            const link = canonical(`/courses/${folder}/llms.txt`)
+
+            output.push(`- [${firstLine}](${link})`)
+        }
+    }
+
+    output.push('')
+    output.push('')
+    output.push('## Categories')
+    output.push('')
+
+    const ca = canonical('/')
+
+    // Categories
+    const result = await read<{
+        title: string
+        slug: string
+        caption: string
+        children: { title: string; slug: string; caption: string }[]
+    }>(`
+        MATCH (c:Category)-[:HAS_CHILD]->(child:Category)
+        WHERE COUNT { (child)<-[:IN_CATEGORY]-({status: 'active'}) } > 0
+        WITH c, child 
+        ORDER BY c.title, child.title
+        RETURN c.title AS title, 
+            c.slug AS slug, 
+            c.caption AS caption, 
+            collect(child { .title, .slug, .caption }) AS children
+    `)
+
+    for (const row of result.records) {
+        output.push(`### ${row.get('title')}`)
+        output.push('')
+
+        for (const child of row.get('children')) {
+            const link = canonical(`/categories/${child.slug}/llms.txt`)
+            const caption = child.caption ? `- ${child.caption.replace(/<[^>]*>?/g, '')}` : ''
+            output.push(`- [${child.title}](${link}) ${caption}`)
+        }
+        output.push('')
+        output.push('')
+    }
+
+    output.push('')
+
+    res.header('Content-Type', 'text/plain').send(output.join('\n'))
 })
 
 export default router

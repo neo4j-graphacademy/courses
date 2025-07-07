@@ -1,4 +1,4 @@
-FROM node:16-alpine
+FROM node:24-alpine3.21
 
 WORKDIR /app
 COPY . /app/
@@ -6,7 +6,7 @@ COPY . /app/
 RUN apk add aws-cli curl jq
 
 # Build site including dev dependencies
-ENV NODE_ENV production
+ENV NODE_ENV=production
 RUN npm install --include=dev
 
 RUN npm run build

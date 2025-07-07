@@ -1,8 +1,8 @@
-import axios from 'axios'
+// import axios from 'axios'
 import { SandboxInstanceProvider } from './sandbox-instance.provider'
 import { SANDBOX_URL, NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD } from '../../../../constants'
 import { User } from '../../../../domain/model/user'
-import initNeo4j from '../../../neo4j'
+import initNeo4j, { close } from '../../../neo4j'
 import { config } from 'dotenv'
 
 config()
@@ -11,7 +11,9 @@ const {
     SANDBOX_TOKEN = ''
 } = process.env
 
-const user = {} as User
+const user = {
+    sub: 'test-sandbox|1234567890'
+} as User
 
 describe('SandboxInstanceProvider', () => {
     let provider: SandboxInstanceProvider
@@ -24,11 +26,15 @@ describe('SandboxInstanceProvider', () => {
         provider = new SandboxInstanceProvider()
     })
 
+    afterAll(async () => {
+        await close()
+    })
+
     describe('getInstancees', () => {
         it('should get sandboxes for a user', async () => {
             const sandboxes = await provider.getInstances(SANDBOX_TOKEN, {} as User)
 
-            expect(sandboxes).toBeInstanceOf(Array)
+            expect(Array.isArray(sandboxes)).toBe(true)
         })
     })
     describe('getOrcreateInstanceForUseCase', () => {

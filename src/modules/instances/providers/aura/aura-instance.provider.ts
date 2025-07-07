@@ -1,21 +1,59 @@
 import { InstanceProvider } from "../../instance-provider.interface";
 import { Instance } from "../../../../domain/model/instance";
 import { User } from "../../../../domain/model/user";
-import axios, { AxiosInstance } from 'axios';
 import { AURA_API_URL, AURA_CLIENT_ID, AURA_CLIENT_SECRET, AURA_TENANT_ID } from "../../../../constants";
 import { createDriver, read, write } from "../../../../modules/neo4j";
 import { notifyPossibleRequestError } from "../../../../middleware/bugsnag.middleware";
 import { EagerResult, RoutingControl } from "neo4j-driver";
 
+/**
+ * Custom error class for Aura API errors
+ */
+export class AuraAPIError extends Error {
+    public readonly status: number;
+    public readonly statusText: string;
+    public readonly response?: any;
+
+    constructor(message: string, status: number, statusText: string, response?: any) {
+        super(message);
+        this.name = 'AuraAPIError';
+        this.status = status;
+        this.statusText = statusText;
+        this.response = response;
+
+        // Maintains proper stack trace for where our error was thrown (only available on V8)
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, AuraAPIError);
+        }
+    }
+}
+
+// Helper function to handle fetch responses
+async function handleFetchResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+        let responseBody: any;
+        try {
+            // Try to parse the response body for additional error details
+            responseBody = await response.json();
+        } catch {
+            // If parsing fails, use response text or fallback to status text
+            try {
+                responseBody = await response.text();
+            } catch {
+                responseBody = response.statusText;
+            }
+        }
+
+        const message = `HTTP ${response.status} ${response.statusText}`;
+        throw new AuraAPIError(message, response.status, response.statusText, responseBody);
+    }
+    
+    return await response.json();
+}
+
 export class AuraInstanceProvider implements InstanceProvider {
-    private api: AxiosInstance;
     private token: string | undefined;
 
-    constructor() {
-        this.api = axios.create({
-            baseURL: AURA_API_URL,
-        });
-    }
 
     /**
      * Generates a new token for the Aura API
@@ -23,18 +61,17 @@ export class AuraInstanceProvider implements InstanceProvider {
      * @returns {string}
      */
     static async generateToken(): Promise<string> {
-        const response = await axios.post('https://api.neo4j.io/oauth/token',
-            'grant_type=client_credentials',
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Basic ${Buffer.from(`${AURA_CLIENT_ID}:${AURA_CLIENT_SECRET}`).toString('base64')}`
-                }
-            }
-        );
+        const response = await fetch('https://api.neo4j.io/oauth/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': `Basic ${Buffer.from(`${AURA_CLIENT_ID}:${AURA_CLIENT_SECRET}`).toString('base64')}`
+            },
+            body: 'grant_type=client_credentials'
+        })
 
-        return response.data.access_token as string;
-
+        const data = await handleFetchResponse<{ access_token: string }>(response)
+        return data.access_token
     }
 
     /**
@@ -154,7 +191,6 @@ export class AuraInstanceProvider implements InstanceProvider {
         this.token = await AuraInstanceProvider.generateToken();
     }
 
-
     /**
      * Gets an instance for a given usecase
      *
@@ -171,7 +207,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             const { instance, status } = await this.getInstanceById(token, user, dbInstance.id);
 
             // if running, return the instance
-            if (status === 'RUNNING' || status === 'CREATING') {
+            if (status === 'running' || status === 'creating') {
                 return {
                     ...dbInstance,
                     status,
@@ -180,7 +216,7 @@ export class AuraInstanceProvider implements InstanceProvider {
             }
 
             // if aura instance is not running, delete from database
-            if (status === 'NOT_FOUND') {
+            if (status === 'not_found') {
                 await this.cleanupInstanceFromDatabase(dbInstance.id);
             }
 
@@ -199,64 +235,56 @@ export class AuraInstanceProvider implements InstanceProvider {
      * @param token - The token to use for the API call
      * @param user - The user to get the instance for
      * @param hash - The hash of the instance to get
-     * @returns {Instance | undefined}
+     * @returns {Promise<{ instance: Instance | undefined; status: string }>}
      */
     async getInstanceById(token: string, user: User, hash: string): Promise<{ instance: Instance | undefined; status: string }> {
         try {
             const response = await this.get(`/instances/${hash}`);
-            const auraInstance = response.data.data;
+            const auraInstance = response.data;
 
             return {
                 instance: this.mapAuraInstanceToInstance(auraInstance),
-                status: auraInstance.status.toUpperCase()
+                status: auraInstance.status || 'UNKNOWN'
             };
-        }
-        catch (e: any) {
-            return {
-                instance: undefined,
-                status: 'NOT_FOUND'
+        } catch (e: any) {
+            if (e.response?.status === 404) {
+                return {
+                    instance: undefined,
+                    status: 'NOT_FOUND'
+                };
             }
+
+            notifyPossibleRequestError(e, user);
+            throw e;
         }
     }
 
-    /**
-     * Gets all instances
-     *
-     * @param token - The token to use for the API call
-     * @param user - The user to get the instances for
-     * @returns {Instance[]}
-     */
     async getInstances(token: string, user: User): Promise<Instance[]> {
         try {
             const response = await this.get('/instances');
-            const instances = response.data.data || [];
-
+            
+            // Handle different possible response formats
+            let instances = response.data;
+            
+            // If the response has a nested data property (common API pattern)
+            if (instances && typeof instances === 'object' && instances.data) {
+                instances = instances.data;
+            }
+    
             return instances
-                // .filter(instance => instance.name.startsWith(user.sub))
+                .filter((instance: any) => instance.name && instance.name.includes(user.sub))
                 .map((instance: any) => this.mapAuraInstanceToInstance(instance));
-        }
-        catch (e: any) {
-            notifyPossibleRequestError(e, user)
-            return [];
+        } catch (e: any) {
+            notifyPossibleRequestError(e, user);
+            throw e;
         }
     }
 
-    /**
-     * Stops an instance
-     *
-     * @param token - The token to use for the API call
-     * @param user - The user to stop the instance for
-     * @param id - The ID of the instance to stop
-     */
     async stopInstance(token: string, user: User, id: string): Promise<void> {
         try {
             await this.delete(`/instances/${id}`);
-        }
-        catch (e: any) {
-            if (e.response?.status === 404 || e.response?.status === 403) {
-                return;
-            }
-
+        } catch (e: any) {
+            notifyPossibleRequestError(e, user);
             throw e;
         }
     }
@@ -275,171 +303,171 @@ export class AuraInstanceProvider implements InstanceProvider {
         const provider = providerName.split('-').map(word => word.slice(0, 1)).join('-') // 2 chars
         const sanitizedUsecase = usecase.split('-').map(word => word.slice(0, 1)).join('-') // 5 chars
 
-        return `${provider}-${id}|${sanitizedUsecase}`;
+        return `${provider}|${id}||${sanitizedUsecase}`;
     }
-
     /**
-     * Makes a POST request to the Aura API
+     * Makes a POST request to the Aura API with automatic token refresh on auth errors
      *
      * @param endpoint - The endpoint to make the request to
-     * @param payload - The payload to send with the request
-     * @returns {Promise<AxiosResponse>}
+     * @param payload - The payload to send
+     * @returns {Promise<any>}
      */
-    private async post(endpoint: string, payload: Record<string, any>) {
-        if (!this.token) {
-            await this.refreshToken();
-        }
-
-        try {
-            const res = await this.api.post(endpoint, payload, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            })
-
-            return res
-        } catch (e: any) {
-            if (e.response?.status === 401 || e.response?.status === 403) {
-                await this.refreshToken();
-                return this.post(endpoint, payload);
-            }
-
-            throw e;
-        }
+    private async post(endpoint: string, payload: Record<string, any>): Promise<{ data: any }> {
+        return this.makeAuthenticatedRequest('POST', endpoint, payload);
     }
 
-    private async get(endpoint: string) {
-        if (!this.token) {
-            await this.refreshToken();
-        }
-
-        try {
-            const res = await this.api.get(endpoint, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            })
-
-            return res
-        } catch (e: any) {
-            if (e.response?.status === 401 || e.response?.status === 403) {
-                await this.refreshToken();
-                return this.get(endpoint);
-            }
-
-            throw e;
-        }
+    /**
+     * Makes a GET request to the Aura API with automatic token refresh on auth errors
+     *
+     * @param endpoint - The endpoint to make the request to
+     * @returns {Promise<any>}
+     */
+    private async get(endpoint: string): Promise<{ data: any }> {
+        return this.makeAuthenticatedRequest('GET', endpoint);
     }
 
-    private async delete(endpoint: string) {
+    /**
+     * Makes a DELETE request to the Aura API with automatic token refresh on auth errors
+     *
+     * @param endpoint - The endpoint to make the request to
+     * @returns {Promise<any>}
+     */
+    private async delete(endpoint: string): Promise<{ data: any }> {
+        return this.makeAuthenticatedRequest('DELETE', endpoint);
+    }
+
+    /**
+     * Makes an authenticated HTTP request to the Aura API with automatic token refresh on auth errors
+     * This method handles 401/403 responses by refreshing the token and retrying once
+     *
+     * @param method - The HTTP method
+     * @param endpoint - The endpoint to make the request to
+     * @param payload - The payload to send (for POST requests)
+     * @returns {Promise<any>}
+     */
+    private async makeAuthenticatedRequest(method: 'GET' | 'POST' | 'DELETE', endpoint: string, payload?: Record<string, any>): Promise<{ data: any }> {
+        // Ensure we have a token before making the request
         if (!this.token) {
             await this.refreshToken();
         }
+
         try {
-            const res = await this.api.delete(endpoint, {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            })
-
-            return res
-        } catch (e: any) {
-            if (e.response?.status === 401 || e.response?.status === 403) {
+            // Make the initial request
+            const response = await this.executeRequest(method, endpoint, payload);
+            return response;
+        } catch (error: any) {
+            // Check if it's an AuraAPIError with authentication error status (401 or 403)
+            if (error instanceof AuraAPIError && (error.status === 401 || error.status === 403)) {
+                // Refresh the token
                 await this.refreshToken();
-                return this.delete(endpoint);
+                
+                try {
+                    // Retry the request with the new token
+                    const retryResponse = await this.executeRequest(method, endpoint, payload);
+                    return { data: retryResponse };
+                } catch (retryError: any) {
+                    if (retryError instanceof AuraAPIError) {
+                    }
+                    throw retryError;
+                }
             }
-
-            throw e;
+            
+            // Re-throw all other errors (including non-authentication AuraAPIErrors)
+            throw error;
         }
     }
 
     /**
-     * Creates a new instance and saves a reference to it in the database
+     * Executes an HTTP request to the Aura API
      *
-     * @param token - The token to use for the API call
-     * @param user - The user to create the instance for
-     * @param usecase - The usecase to create the instance for
-     * @returns {Instance}
+     * @param method - The HTTP method
+     * @param endpoint - The endpoint to make the request to
+     * @param payload - The payload to send (for POST requests)
+     * @returns {Promise<any>}
      */
-    async createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
-        const name = this.getInstanceName(user, usecase)
-
-        const payload = {
-            name,
-            type: 'free-db',
-            cloud_provider: 'gcp',
-            region: 'europe-west1',
-            version: '5',
-            memory: '1GB',
-            tenant_id: AURA_TENANT_ID,
-            // TODO: enable this when supported
-            // vector_optimized: vectorOptimized,
-            // graph_analytics_plugin: graphAnalyticsPlugin,
+    private async executeRequest(method: 'GET' | 'POST' | 'DELETE', endpoint: string, payload?: Record<string, any>): Promise<any> {
+        const requestOptions: RequestInit = {
+            method,
+            headers: {
+                'Authorization': `Bearer ${this.token}`
+            }
         };
 
-        const response = await this.post('/instances', payload)
+        // Add content-type and body for POST requests
+        if (method === 'POST' && payload) {
+            requestOptions.headers = {
+                ...requestOptions.headers,
+                'Content-Type': 'application/json'
+            };
+            requestOptions.body = JSON.stringify(payload);
+        }
+        
+        const response = await fetch(`${AURA_API_URL}${endpoint}`, requestOptions);
 
-        const auraInstance = response.data.data;
+        // Use our existing error handler which will throw errors with response info
+        return await handleFetchResponse(response);
+    }
 
-        const instance = this.mapAuraInstanceToInstance(auraInstance);
+    async createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
+        const instanceName = this.getInstanceName(user, usecase);
 
-        const res = await write<{ id: string }>(`
+        const payload = {
+            version: "5",
+            region: "europe-west1",
+            memory: "1GB",
+            name: instanceName,
+            type: "free-db",
+            tenant_id: AURA_TENANT_ID,
+            cloud_provider: "gcp"
+        };
+
+        try {
+            const response = await this.post('/instances', payload);
+            const auraInstance = response.data;
+
+            const instance = this.mapAuraInstanceToInstance(auraInstance);
+
+            // Save the instance to the database
+            await write(`
                 MATCH (u:User {sub: $sub})
-                CREATE (i:Instance {id: $instanceId})
-                SET i += $instance,
-                    i.createdAt = datetime(),
-                    i.usecase = $usecase
-                CREATE (u)-[:HAS_INSTANCE]->(i)
-                RETURN elementId(i) as id
+                MERGE (u)-[:HAS_INSTANCE]->(i:Instance {id: $id})
+                SET i += $instance, i.usecase = $usecase
             `, {
-            sub: user.sub,
-            usecase,
-            instanceId: instance.id,
-            instance
-        })
+                sub: user.sub,
+                id: instance.id,
+                instance,
+                usecase,
+            });
 
-        return {
-            ...instance,
-            usecase,
+            return instance;
+        } catch (e: any) {
+            notifyPossibleRequestError(e, user);
+            throw e;
         }
-
     }
 
-    /**
-     * Gets an instance for a given usecase or creates a new one if it doesn't exist
-     *
-     * @param token - The token to use for the API call
-     * @param user - The user to get or create the instance for
-     * @param usecase - The usecase to get or create the instance for
-     * @returns {Instance}
-     */
     async getOrCreateInstanceForUseCase(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance> {
-        let instance = await this.getInstanceForUseCase(token, user, usecase);
+        const existing = await this.getInstanceForUseCase(token, user, usecase);
 
-        if (!instance) {
-            instance = await this.createInstance(token, user, usecase, vectorOptimized, graphAnalyticsPlugin);
+        if (existing) {
+            return existing;
         }
 
-        return instance;
+        return await this.createInstance(token, user, usecase, vectorOptimized, graphAnalyticsPlugin);
     }
 
-    /**
-     * Resumes an instance
-     *
-     * @param instanceId - The ID of the instance to resume
-     */
     private async resumeInstance(instanceId: string): Promise<void> {
         await this.post(`/instances/${instanceId}/resume`, {});
     }
 
-    async executeCypher<T = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any> = {}, routing: RoutingControl): Promise<EagerResult<T> | undefined> {
+    async executeCypher<T extends Record<string, any> = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any> = {}, routing: RoutingControl): Promise<EagerResult<T> | undefined> {
         try {
             const instance = await this.getInstanceForUseCase(token, user, usecase)
 
             if (instance !== undefined) {
                 // Connect to instance
                 const driver = await createDriver(
-                    `neo4j+s://${instance.ip}:${instance.boltPort}`,
+                    `bolt://${instance.ip}:${instance.boltPort}`,
                     instance.username,
                     instance.password,
                     true
@@ -451,8 +479,8 @@ export class AuraInstanceProvider implements InstanceProvider {
                     .filter(e => e.trim() !== '')
 
                 for (const part of parts) {
-                    result = await driver.executeQuery(part, params, {
-                        database: instance.database || instance.id,
+                    result = await driver.executeQuery<EagerResult<T>>(part, params, {
+                        database: instance.database || 'neo4j',
                         routing,
                     })
                 }
@@ -462,11 +490,11 @@ export class AuraInstanceProvider implements InstanceProvider {
                 return result;
             }
 
-            throw new Error(`Could not connect to sandbox instance for usecase: ${usecase}`)
+            throw new Error(`Could not connect to aura instance for usecase: ${usecase}`)
         }
         catch (e) {
-            console.error(`Error resetting database for usecase ${usecase}:`, e)
-            void notifyPossibleRequestError(e, user)
+            notifyPossibleRequestError(e, user);
+            throw e;
         }
     }
 }

@@ -21,7 +21,6 @@ export async function classroomLocals(req: Request, res: Response, next: NextFun
         title: CHAT_TITLE,
         link: CHAT_LINK,
         json: CHAT_JSON,
-
         ...chatStats,
     }
 

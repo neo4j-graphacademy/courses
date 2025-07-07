@@ -9,5 +9,5 @@ export interface InstanceProvider {
   stopInstance(token: string, user: User, instanceHashKey: string): Promise<void>;
   createInstance(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance>;
   getOrCreateInstanceForUseCase(token: string, user: User, usecase: string, vectorOptimized: boolean, graphAnalyticsPlugin: boolean): Promise<Instance>;
-  executeCypher<T = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any>, routing: RoutingControl): Promise<EagerResult<T> | undefined>;
+  executeCypher<T extends Record<string, any> = Record<string, any>>(token: string, user: User, usecase: string, cypher: string, params: Record<string, any>, routing: RoutingControl): Promise<EagerResult<T> | undefined>;
 }

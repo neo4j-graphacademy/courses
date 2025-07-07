@@ -7,7 +7,15 @@ import { getCourseWithProgress } from '../domain/services/get-course-with-progre
 import { verifyCodeChallenge } from '../domain/services/verify-code-challenge'
 import { getToken, getUser } from '../middleware/auth.middleware'
 import databaseProvider, { INSTANCE_STATUS_NOT_FOUND } from '../modules/instances'
-import { convertCourseOverview, convertCourseSummary, convertLessonOverview, convertModuleOverview, courseSlidesExist, courseSlidesPdfPath, courseSummaryExists } from '../modules/asciidoc'
+import {
+    convertCourseOverview,
+    convertCourseSummary,
+    convertLessonOverview,
+    convertModuleOverview,
+    courseSlidesExist,
+    courseSlidesPdfPath,
+    courseSummaryExists,
+} from '../modules/asciidoc'
 import NotFoundError from '../errors/not-found.error'
 import { saveLessonProgress } from '../domain/services/save-lesson-progress'
 import { Answer } from '../domain/model/answer'
@@ -17,7 +25,16 @@ import { Course, CourseWithProgress, LANGUAGE_CN, LANGUAGE_JP } from '../domain/
 import { resetDatabase } from '../domain/services/reset-database'
 import { bookmarkCourse } from '../domain/services/bookmark-course'
 import { removeBookmark } from '../domain/services/remove-bookmark'
-import { canonical, courseBannerPath, courseJsonLd, getPageAttributes, getInstanceConfig, repositoryBlobUrl, repositoryLink, repositoryRawUrl } from '../utils'
+import {
+    canonical,
+    courseBannerPath,
+    courseJsonLd,
+    getPageAttributes,
+    getInstanceConfig,
+    repositoryBlobUrl,
+    repositoryLink,
+    repositoryRawUrl,
+} from '../utils'
 import { Pagination } from '../domain/model/pagination'
 import { notify, notifyPossibleRequestError } from '../middleware/bugsnag.middleware'
 import { saveLessonFeedback } from '../domain/services/feedback/save-lesson-feedback'
@@ -42,15 +59,17 @@ import { getSuggestionsForCourse } from '../domain/services/get-suggestions-for-
 import indexable from '../middleware/seo/indexable.middleware'
 import { Instance } from '../domain/model/instance'
 import { UserResetDatabase } from '../domain/events/UserResetDatabase'
-import getChatbot from '../modules/chatbot/chatbot.class'
-import { generateBearerToken } from '../modules/openai-proxy/openai-proxy.utils'
-import { UserSharedCertificate } from '../domain/events/UserSharedCertificate'
+import { BaseMessage, HumanMessage } from '@langchain/core/messages'
+import { randomUUID } from 'crypto'
+import { invoke } from '../modules/chatbot/chatbot.agent'
+import { usesChatHistory } from '../modules/chatbot/middleware/chatbot-locals.middleware'
+import { generateConversationId } from '../modules/chatbot/chatbot.utils'
 
 const router = Router()
 
 /**
  * Redirects
-*/
+ */
 const redirects = {
     '/courses/gds-certification/': '/certifications/gds-certification/',
     '/courses/neo4j-certification/': '/certifications/neo4j-certification/',
@@ -66,7 +85,6 @@ router.use((req, res, next) => {
 
     next()
 })
-
 
 /**
  * Course Breadcrumbs
@@ -94,8 +112,7 @@ router.use((req, res, next) => {
 router.get('/', (req, res, next) => {
     try {
         res.redirect(301, '/categories/')
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -116,8 +133,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
     // NotFoundError: Course neo4j-â¦ could not be found -   "user-agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
     if (decodeURIComponent(req.params.course).length === 9 && req.params.course.startsWith('neo4j-')) {
         return res.redirect('/courses/neo4j-fundamentals/')
-    }
-    else if (req.params.course === 'neo4j-certification') {
+    } else if (req.params.course === 'neo4j-certification') {
         return res.redirect('/certifications/neo4j-certification/')
     }
 
@@ -148,7 +164,9 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         })
 
         res.render('course/overview', {
-            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${course.completed ? 'course--completed' : ''}  ${course.enrolled ? 'course--enrolled' : ''}`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${
+                course.completed ? 'course--completed' : ''
+            }  ${course.enrolled ? 'course--enrolled' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -158,8 +176,8 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
                     link: course.link,
                 },
                 user: {
-                    id: user?.id
-                }
+                    id: user?.id,
+                },
             },
 
             course,
@@ -179,8 +197,7 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
             summary: course.completed && courseSummaryExists(req.params.course),
             feedback: true,
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -205,8 +222,7 @@ router.post('/:course/interested', async (req, res, next) => {
         }
 
         return res.redirect(`/courses/${req.params.course}/`)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -232,8 +248,7 @@ router.get('/:course/banner', (req, res, next) => {
         res.header('Content-Type', 'image/png')
 
         res.sendFile(filePath)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -254,8 +269,7 @@ router.get('/:course/bookmark', requiresAuth(), async (req, res, next) => {
         req.flash('success', 'This course has been saved for later!')
 
         return res.redirect(`/courses/${req.params.course}/`)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -274,11 +288,11 @@ router.get('/:course/bookmark/remove', requiresAuth(), async (req, res, next) =>
 
         req.flash('success', 'Your bookmark has been removed')
 
-        const redirectTo = typeof req.query.returnTo === 'string' ? req.query.returnTo : `/courses/${req.params.course}/`
+        const redirectTo =
+            typeof req.query.returnTo === 'string' ? req.query.returnTo : `/courses/${req.params.course}/`
 
         return res.redirect(redirectTo)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -299,8 +313,7 @@ router.get('/:course/badge', (req, res, next) => {
         res.header('Content-Type', 'image/svg+xml')
 
         res.sendFile(filePath)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -321,9 +334,30 @@ router.get('/:course/illustration', (req, res) => {
         res.header('Content-Type', 'image/svg+xml')
 
         res.sendFile(filePath)
-    }
-    catch (e) {
+    } catch (e) {
         return '<svg></svg>'
+        // next(e)
+    }
+})
+
+/**
+ * @GET /:course/llms.txt
+ *
+ * Find and send the llms.txt file in the course root
+ */
+router.get('/:course/llms.txt', (req, res, next) => {
+    try {
+        let filePath = path.join(ASCIIDOC_DIRECTORY, 'courses', req.params.course, 'llms.txt')
+
+        if (!existsSync(filePath)) {
+            filePath = path.join(__dirname, '..', '..', 'resources', 'svg', 'llms.txt')
+        }
+
+        res.header('Content-Type', 'text/plain')
+
+        res.sendFile(filePath)
+    } catch (e) {
+        next(new NotFoundError(`No llms.txt for course ${req.params.course}`))
         // next(e)
     }
 })
@@ -335,7 +369,7 @@ router.get('/:course/illustration', (req, res) => {
  */
 router.get('/:course/enrol', requiresAuth(), requiredCompletedProfile, async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const token = await getToken(req)
         const ref = getRef(req)
         const team = getTeam(req)
@@ -350,8 +384,7 @@ router.get('/:course/enrol', requiresAuth(), requiredCompletedProfile, async (re
         }
 
         res.redirect(goTo)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -363,7 +396,7 @@ router.get('/:course/enrol', requiresAuth(), requiredCompletedProfile, async (re
  */
 router.get('/:course/unenrol', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const token = await getToken(req)
 
         await unenrolFromCourse(req.params.course, user, token)
@@ -373,8 +406,7 @@ router.get('/:course/unenrol', requiresAuth(), async (req, res, next) => {
         const goTo = `/courses/${req.params.course}/`
 
         res.redirect(goTo)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -390,8 +422,7 @@ router.get('/:course/continue', requiresAuth(), async (req, res, next) => {
         const course = await getCourseWithProgress(req.params.course, user)
 
         res.redirect(course.next?.link || course.link)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -426,8 +457,7 @@ router.get('/:course/summary', indexable, requiresAuth(), async (req, res, next)
             slides: await courseSlidesExist(course.slug),
             translate: translate(course.language),
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -458,8 +488,7 @@ router.get('/:course/slides.pdf', indexable, requiresAuth(), async (req, res, ne
         return res.redirect(cdnLink)
 
         // res.sendFile(cdnLink)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -479,15 +508,20 @@ router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => 
             return res.redirect(course.redirect || '/courses/')
         }
 
-        emitter.emit(new UserSharedCertificate(user, course))
+        emitter.emit(new UserViewedCourse(user, course))
 
         // Year and month for LinkedIn
         const year = course.completedAt ? course.completedAt.getFullYear() : null
         const month = course.completedAt ? course.completedAt.getMonth() + 1 : null
 
-        return res.redirect(`https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(course.title)}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId}&certUrl=${encodeURIComponent(course.certificateUrl ? `${BASE_URL}${course.certificateUrl}` : '')}`)
-    }
-    catch (e) {
+        return res.redirect(
+            `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(
+                course.title
+            )}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${
+                course.certificateId
+            }&certUrl=${encodeURIComponent(course.certificateUrl ? `${BASE_URL}${course.certificateUrl}` : '')}`
+        )
+    } catch (e) {
         next(e)
     }
 })
@@ -507,26 +541,42 @@ router.get('/:course/certificate', requiresAuth(), async (req, res, next) => {
         }
 
         return res.redirect(`/u/${(user as User).id}/${course.slug}/`)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
 
-const checkInstanceExists = async (user: User, token: string, enrolment: CourseWithProgress): Promise<Instance | undefined> => {
+const checkInstanceExists = async (
+    user: User,
+    token: string,
+    enrolment: CourseWithProgress
+): Promise<Instance | undefined> => {
     // No Usecase?  No Problem
     if (!enrolment.usecase) {
-        return Promise.resolve(undefined)
+        return undefined
     }
 
-    const provider = databaseProvider(enrolment.databaseProvider)
-    return provider.getOrCreateInstanceForUseCase(token, user, enrolment.usecase, enrolment.vectorOptimized, enrolment.graphAnalyticsPlugin)
+    try {
+        const provider = databaseProvider(enrolment.databaseProvider)
+        const instance = await provider.getOrCreateInstanceForUseCase(
+            token,
+            user,
+            enrolment.usecase,
+            enrolment.vectorOptimized,
+            enrolment.graphAnalyticsPlugin
+        )
+
+        return instance
+    } catch (e: any) {
+        notifyPossibleRequestError(e, user)
+        return undefined
+    }
 }
 
 router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
     try {
         const token = await getToken(req)
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const { course } = req.params
 
         // Check Enrolment
@@ -534,8 +584,7 @@ router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
 
         if (!enrolment) {
             return res.status(404)
-        }
-        else if (!enrolment.usecase) {
+        } else if (!enrolment.usecase) {
             return res.status(404)
         }
 
@@ -544,8 +593,7 @@ router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
         }
 
         res.json(enrolment.sandbox)
-    }
-    catch (e: any) {
+    } catch (e: any) {
         res.json({
             message: e.message,
         })
@@ -555,7 +603,7 @@ router.get('/:course/sandbox.json', requiresAuth(), async (req, res) => {
 
 const browser = async (req: Request, res: Response, next: NextFunction) => {
     const token = await getToken(req)
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
 
     try {
         // Check that user is enrolled
@@ -588,14 +636,13 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
 
         const browserDist = path.join(__dirname, '..', '..', 'browser', 'dist')
 
-        const html = readFileSync(path.join(browserDist, 'index.html')).toString()
+        const html = readFileSync(path.join(browserDist, 'index.html'))
+            .toString()
             .replace('</body>', `\n<script nonce="${res.locals.nonce}">\nwindow.ga = ${ga}\n</script>\n</body>`)
             .replace('</head>', `\n<base href="/browser/"></head>`)
 
-
         res.send(html)
-    }
-    catch (e: any) {
+    } catch (e: any) {
         if (!e.isSandboxError) {
             notifyPossibleRequestError(e, user)
         }
@@ -604,7 +651,6 @@ const browser = async (req: Request, res: Response, next: NextFunction) => {
         return res.redirect(`/login?returnTo=${req.originalUrl}`)
     }
 }
-
 
 /**
  * @GET /:course/browser
@@ -619,35 +665,31 @@ router.get('/:course/:module/:lesson/browser', requiresAuth(), browser)
 
 const chat = async (req: Request, res: Response) => {
     try {
-        const user = await getUser(req) as User
-        const chat = getChatbot()
+        const user = (await getUser(req)) as User
+        const token = await getToken(req)
 
-        const { message } = req.body
+        const sessionId = generateConversationId(user, req.path)
+        const enrolment = await getCourseWithProgress(req.params.course, user)
+        const instance = await checkInstanceExists(user, token, enrolment)
 
-        if (chat && typeof message === 'string' && message !== '') {
-            const response = await chat.askQuestion(user, message, req.originalUrl.replace(/chat$/, ''))
-
-            return res.json(response)
-        }
-
-        return res.status(500).json({
-            status: 'error',
-            message: 'Something went wrong.'
+        void invoke(res, user, sessionId, req.body.message, {
+            user,
+            enrolment,
+            instance,
+            token,
+            path: req.originalUrl,
+            requestParams: req.params,
         })
-    }
-    catch (e: any) {
-        notify(e)
-
+    } catch (e: any) {
         return res.status(500).json({
             status: 'error',
-            message: 'Something went wrong.'
+            message: e.message,
         })
     }
 }
 
 router.post('/:course/:module/chat', requiresAuth(), chat)
 router.post('/:course/:module/:lesson/chat', requiresAuth(), chat)
-
 
 /**
  * @GET /:course/quiz
@@ -657,7 +699,7 @@ router.post('/:course/:module/:lesson/chat', requiresAuth(), chat)
  */
 router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const course = await getCourseWithProgress(req.params.course, user)
 
         // If not enrolled, send to course home
@@ -693,7 +735,7 @@ router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res,
                 },
                 user: {
                     id: user.id,
-                }
+                },
             },
             feedback: true,
             ...module,
@@ -704,12 +746,10 @@ router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res,
             quiz,
             translate: translate(course.language),
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
-
 
 /**
  * @POST /:course/quiz
@@ -719,7 +759,7 @@ router.get('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res,
  */
 router.post('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
         const quiz = await getQuiz(course)
@@ -727,22 +767,22 @@ router.post('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res
         // If not enrolled, send to course home
         if (course.enrolled !== true) {
             return res.status(400).json({
-                message: 'You must be enrolled to take the quiz'
+                message: 'You must be enrolled to take the quiz',
             })
         }
         // If already completed, don't show again
         else if (course.completed) {
             return res.status(400).json({
-                message: 'You have already completed this course!'
+                message: 'You have already completed this course!',
             })
         }
 
         const answers = req.body.answers
 
         // TODO: More robust check
-        if (!answers.length || quiz.length !== answers.length || !answers.every(el => el.correct === true)) {
+        if (!answers.length || quiz.length !== answers.length || !answers.every((el) => el.correct === true)) {
             return res.status(400).json({
-                message: 'Incorrect answers.  Please try again.'
+                message: 'Incorrect answers.  Please try again.',
             })
         }
 
@@ -750,12 +790,10 @@ router.post('/:course/quiz', forceTrailingSlash, requiresAuth(), async (req, res
         const output = await saveQuizResults(user, token, course.slug, answers)
 
         return res.json(output)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
-
 
 /**
  * @POST /:course/quiz/feedback
@@ -772,14 +810,12 @@ router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => 
 
         if (output.status === 'ok') {
             res.status(201)
-        }
-        else {
+        } else {
             res.status(404)
         }
 
         res.json(output)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -792,86 +828,90 @@ router.post('/:course/quiz/feedback', requiresAuth(), async (req, res, next) => 
  */
 router.get('/:course/:module/browser', requiresAuth(), browser)
 
-
 /**
  * @GET /:course/:module
  *
  * If none of the routes matched above, this URL must be a module page.
  * Render courseindex.adoc in the course root
  */
-router.get('/:course/:module', indexable, requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, next) => {
-    try {
-        const user = await getUser(req)
-        const course = await getCourseWithProgress(req.params.course, user)
+router.get(
+    '/:course/:module',
+    indexable,
+    requiresAuth(),
+    classroomLocals,
+    usesChatHistory,
+    forceTrailingSlash,
+    async (req, res, next) => {
+        try {
+            const user = await getUser(req)
+            const course = await getCourseWithProgress(req.params.course, user)
 
-        // If not enrolled, send to course home
-        if (course.enrolled !== true) {
-            req.flash('info', 'You must be enrolled to view this content')
+            // If not enrolled, send to course home
+            if (course.enrolled !== true) {
+                req.flash('info', 'You must be enrolled to view this content')
 
-            return res.redirect(`/courses/${req.params.course}/`)
-        }
+                return res.redirect(`/courses/${req.params.course}/`)
+            }
 
-        const module = course.modules.find(row => row.slug === req.params.module)
+            const module = course.modules.find((row) => row.slug === req.params.module)
 
-        if (!module) {
-            return next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
-        }
+            if (!module) {
+                return next(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            }
 
-        const attributes = {
-            ...await getPageAttributes(req, course, module),
-        }
+            const attributes = {
+                ...(await getPageAttributes(req, course, module)),
+            }
 
-        const doc = await convertModuleOverview(req.params.course, req.params.module, attributes)
+            const doc = await convertModuleOverview(req.params.course, req.params.module, attributes)
 
-        // Configure Sandbox
-        const {
-            showSandbox,
-            sandboxVisible,
-            sandboxUrl,
-        } = await getInstanceConfig(course)
+            // Configure Sandbox
+            const { showSandbox, sandboxVisible, sandboxUrl } = await getInstanceConfig(course)
 
-        // Emit user viewed module
-        emitter.emit(new UserViewedModule(user as User, course, module))
+            // Emit user viewed module
+            emitter.emit(new UserViewedModule(user as User, course, module))
 
-        // Has slides
-        const slides = /class=".*slide.*"/.test(doc)
+            // Has slides
+            const slides = /class=".*slide.*"/.test(doc)
 
-        res.render('course/module', {
-            classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''} ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
-            analytics: {
-                course: {
-                    slug: course.slug,
-                    title: course.title,
-                    summary: course.summary,
-                    link: course.link,
+            res.render('course/module', {
+                classes: `module ${req.params.course}-${req.params.module}  ${
+                    course.completed ? 'course--completed' : ''
+                } ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
+                analytics: {
+                    course: {
+                        slug: course.slug,
+                        title: course.title,
+                        summary: course.summary,
+                        link: course.link,
+                    },
+                    module: {
+                        slug: module.slug,
+                        title: module.title,
+                    },
+                    user: {
+                        id: (user as User).id,
+                    },
                 },
-                module: {
-                    slug: module.slug,
-                    title: module.title,
-                },
-                user: {
-                    id: (user as User).id,
-                }
-            },
-            user,
-            feedback: false,
-            ...module,
-            type: 'module',
-            path: req.originalUrl,
-            enrolled: course.enrolled,
-            course,
-            doc,
-            slides,
-            showSandbox,
-            sandboxVisible,
-            sandboxUrl,
-            translate: translate(course.language),
-        })
+                user,
+                feedback: false,
+                ...module,
+                type: 'module',
+                path: req.originalUrl,
+                enrolled: course.enrolled,
+                course,
+                doc,
+                slides,
+                showSandbox,
+                sandboxVisible,
+                sandboxUrl,
+                translate: translate(course.language),
+            })
+        } catch (e) {
+            next(e)
+        }
     }
-    catch (e) {
-        next(e)
-    }
-})
+)
 
 /**
  * Store feedback for a module
@@ -885,15 +925,12 @@ router.post('/:course/:module/feedback', requiresAuth(), async (req, res, next) 
 
         if (json.status === 'ok') {
             res.status(201)
-        }
-        else {
+        } else {
             res.status(404)
         }
 
         res.json(json)
-
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -912,131 +949,149 @@ router.use('/:course/:module/images', (req, res, next) => {
  *
  * Render a lesson, plus any quiz or challenges and the sandbox if necessary
  */
-router.get('/:course/:module/:lesson', indexable, requiresAuth(), classroomLocals, forceTrailingSlash, async (req, res, nextfn) => {
-    try {
-        const user = await getUser(req)
-        const token = await getToken(req)
-        const course = await getCourseWithProgress(req.params.course, user)
+router.get(
+    '/:course/:module/:lesson',
+    indexable,
+    requiresAuth(),
+    /*requiresVerification,*/ classroomLocals,
+    usesChatHistory,
+    forceTrailingSlash,
+    async (req, res, nextfn) => {
+        try {
+            const user = await getUser(req)
+            const token = await getToken(req)
+            const course = await getCourseWithProgress(req.params.course, user)
 
-        // If not enrolled, send to course home
-        if (course.enrolled !== true) {
-            req.flash('info', 'You must be enrolled to view this content')
+            // If not enrolled, send to course home
+            if (course.enrolled !== true) {
+                req.flash('info', 'You must be enrolled to view this content')
 
-            return res.redirect(`/courses/${req.params.course}/`)
-        }
-
-        const module = course.modules.find(row => row.slug === req.params.module)
-
-        if (!module) {
-            return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
-        }
-
-        else if (!module.lessons) {
-            return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
-        }
-
-        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
-
-        if (!lesson) {
-            return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
-        }
-
-        // Find or create the sandbox
-        if (course.usecase && user && course.completed === false) {
-            try {
-                await checkInstanceExists(user, token, course)
-
+                return res.redirect(`/courses/${req.params.course}/`)
             }
-            catch (e: any) {
-                // Silent error, already reported in sandbox module
-                if (!e.isSandboxError) {
-                    notifyPossibleRequestError(e, user)
+
+            const module = course.modules.find((row) => row.slug === req.params.module)
+
+            if (!module) {
+                return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+            } else if (!module.lessons) {
+                return nextfn(
+                    new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`)
+                )
+            }
+
+            const lesson = module.lessons.find((row) => row.slug === req.params.lesson)
+
+            if (!lesson) {
+                return nextfn(
+                    new NotFoundError(
+                        `Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+                    )
+                )
+            }
+
+            // Find or create the sandbox
+            if (course.usecase && user && course.completed === false) {
+                try {
+                    await checkInstanceExists(user, token, course)
+                } catch (e: any) {
+                    // Silent error, already reported in sandbox module
+                    if (!e.isSandboxError) {
+                        notifyPossibleRequestError(e, user)
+                    }
                 }
             }
-        }
 
-        // Build Attributes for adoc
-        const attributes = {
-            ...await getPageAttributes(req, course, module, lesson),
-        }
-
-        const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
-
-        // Configure Sandbox
-        const {
-            showSandbox,
-            sandboxVisible,
-            sandboxUrl,
-        } = await getInstanceConfig(course, lesson)
-
-        // Reset Database?
-        if (user && course.usecase && !lesson?.completed) {
-            void resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.databaseProvider, course.usecase)
-        }
-
-        // Next link in pagination?
-        let next: Pagination | undefined = lesson.next
-
-        if (!next && course.completed) {
-            next = {
-                title: 'Course Summary',
-                link: `${course.link}summary/`
+            // Build Attributes for adoc
+            const attributes = {
+                ...(await getPageAttributes(req, course, module, lesson)),
             }
-        }
 
-        // Emit user viewed lesson
-        emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
+            const doc = await convertLessonOverview(req.params.course, req.params.module, req.params.lesson, attributes)
 
-        // Mark as read if there are no questions
-        if (lesson.questions.length === 0 && lesson.completed === false) {
-            await saveLessonProgress(user as User, course.slug, module.slug, lesson.slug, [], token)
-        }
+            // Configure Sandbox
+            const { showSandbox, sandboxVisible, sandboxUrl } = await getInstanceConfig(course, lesson)
 
-        // Has slides
-        const slides = /class=".*slide.*"/.test(doc)
+            // Reset Database?
+            if (user && course.usecase && !lesson?.completed) {
+                void resetDatabase(
+                    token,
+                    user,
+                    course.slug,
+                    module.slug,
+                    lesson.slug,
+                    course.databaseProvider,
+                    course.usecase
+                )
+            }
 
-        res.render('course/lesson', {
-            classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''} lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'} ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
-            analytics: {
-                course: {
-                    slug: course.slug,
-                    title: course.title,
-                    summary: course.summary,
-                    link: course.link,
-                },
-                module: {
-                    slug: module.slug,
-                    title: module.title,
-                },
-                lesson: {
-                    slug: lesson.slug,
-                    title: lesson.title,
-                },
-                user: {
-                    id: (user as User).id,
+            // Next link in pagination?
+            let next: Pagination | undefined = lesson.next
+
+            if (!next && course.completed) {
+                next = {
+                    title: 'Course Summary',
+                    link: `${course.link}summary/`,
                 }
-            },
-            feedback: true,
-            ...lesson,
-            path: req.originalUrl,
-            course,
-            enrolled: course.enrolled,
-            user,
-            module,
-            doc,
-            next,
-            showSandbox,
-            sandboxUrl,
-            sandboxVisible,
-            summary: await courseSummaryExists(req.params.course),
-            translate: translate(course.language),
-            slides,
-        })
+            }
+
+            // Emit user viewed lesson
+            emitter.emit(new UserViewedLesson(user as User, course, module, lesson))
+
+            // Mark as read if there are no questions
+            if (lesson.questions.length === 0 && lesson.completed === false) {
+                await saveLessonProgress(user as User, course.slug, module.slug, lesson.slug, [], token)
+            }
+
+            // Has slides
+            const slides = /class=".*slide.*"/.test(doc)
+
+            res.render('course/lesson', {
+                classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${
+                    course.completed ? 'course--completed' : ''
+                } lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${
+                    lesson.optional ? 'lesson--optional' : 'lesson--mandatory'
+                } ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
+                analytics: {
+                    course: {
+                        slug: course.slug,
+                        title: course.title,
+                        summary: course.summary,
+                        link: course.link,
+                    },
+                    module: {
+                        slug: module.slug,
+                        title: module.title,
+                    },
+                    lesson: {
+                        slug: lesson.slug,
+                        title: lesson.title,
+                    },
+                    user: {
+                        id: (user as User).id,
+                    },
+                },
+                feedback: true,
+                ...lesson,
+                path: req.originalUrl,
+                course,
+                enrolled: course.enrolled,
+                user,
+                module,
+                doc,
+                next,
+                showSandbox,
+                sandboxUrl,
+                sandboxVisible,
+                summary: await courseSummaryExists(req.params.course),
+                translate: translate(course.language),
+                slides,
+                chatbotVisible: lesson.chatbot,
+            })
+        } catch (e) {
+            nextfn(e)
+        }
     }
-    catch (e) {
-        nextfn(e)
-    }
-})
+)
 
 /**
  * @POST /:course/:module/:lesson/reset/
@@ -1053,35 +1108,41 @@ router.post('/:course/:module/:lesson/reset/', requiresAuth(), async (req, res, 
         // If not enrolled, send to course home
         if (course.enrolled !== true) {
             return res.status(400).json({
-                message: 'You are not enrolled to this course'
+                message: 'You are not enrolled to this course',
             })
         }
 
-        const module = course.modules.find(row => row.slug === req.params.module)
+        const module = course.modules.find((row) => row.slug === req.params.module)
 
         if (!module) {
             return res.status(404).json({
-                message: `Could not find module ${req.params.module} of ${req.params.course}`
+                message: `Could not find module ${req.params.module} of ${req.params.course}`,
             })
-        }
-
-        else if (!module.lessons) {
+        } else if (!module.lessons) {
             return res.status(404).json({
-                message: `Could not find lessons for module ${req.params.module} of ${req.params.course}`
+                message: `Could not find lessons for module ${req.params.module} of ${req.params.course}`,
             })
         }
 
-        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
+        const lesson = module.lessons.find((row) => row.slug === req.params.lesson)
 
         if (!lesson) {
             return res.status(404).json({
-                message: `Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+                message: `Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`,
             })
         }
 
         // Reset Database?
         if (user && course.usecase && !lesson?.completed) {
-            await resetDatabase(token, user, req.params.course, req.params.module, req.params.lesson, course.databaseProvider, course.usecase)
+            await resetDatabase(
+                token,
+                user,
+                course.slug,
+                module.slug,
+                lesson.slug,
+                course.databaseProvider,
+                course.usecase
+            )
         }
 
         // Next link in pagination?
@@ -1090,7 +1151,7 @@ router.post('/:course/:module/:lesson/reset/', requiresAuth(), async (req, res, 
         if (!next && course.completed) {
             next = {
                 title: 'Course Summary',
-                link: `${course.link}summary/`
+                link: `${course.link}summary/`,
             }
         }
 
@@ -1098,10 +1159,9 @@ router.post('/:course/:module/:lesson/reset/', requiresAuth(), async (req, res, 
         emitter.emit(new UserResetDatabase(user as User, course, module, lesson))
 
         res.status(202).json({
-            message: `Database reset`
+            message: `Database reset`,
         })
-    }
-    catch (e) {
+    } catch (e) {
         nextfn(e)
     }
 })
@@ -1124,8 +1184,7 @@ router.post('/:course/:module/:lesson', requiresAuth(), async (req, res, next) =
         const output = await saveLessonProgress(user as User, course, module, lesson, answers, token, ref)
 
         res.json(output)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -1142,15 +1201,12 @@ router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res
 
         if (json.status === 'ok') {
             res.status(201)
-        }
-        else {
+        } else {
             res.status(404)
         }
 
         res.json(json)
-
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -1161,28 +1217,40 @@ router.post('/:course/:module/:lesson/feedback', requiresAuth(), async (req, res
 router.use('/:course/:module/:lesson/images', (req, res, next) => {
     const { course, module, lesson } = req.params
 
-    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(req, res, next)
+    express.static(path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, 'images'))(
+        req,
+        res,
+        next
+    )
 })
-
 
 /**
  * Static routing for module images
  */
 router.use('/:course/:module/:lesson/:filename.cypher', (req, res, next) => {
     const { course, module, lesson, filename } = req.params
-    const filepath = path.join(ASCIIDOC_DIRECTORY, 'courses', course, 'modules', module, 'lessons', lesson, `${filename}.cypher`)
+    const filepath = path.join(
+        ASCIIDOC_DIRECTORY,
+        'courses',
+        course,
+        'modules',
+        module,
+        'lessons',
+        lesson,
+        `${filename}.cypher`
+    )
 
     if (existsSync(filepath)) {
         const contents = readFileSync(filepath)
 
-        const output = contents.toString()
-            .split("\n")
-            .filter(line => !line.startsWith("//"))
-            .join("\n")
+        const output = contents
+            .toString()
+            .split('\n')
+            .filter((line) => !line.startsWith('//'))
+            .join('\n')
 
         return res.send(output)
-    }
-    else {
+    } else {
         next(new NotFoundError(`The file ${filename}.cypher doesn't exist for this lesson`))
     }
 })
@@ -1204,8 +1272,7 @@ router.post('/:course/:module/:lesson/verify', requiresAuth(), async (req, res, 
         const outcome = await verifyCodeChallenge(user as User, token, course, module, lesson)
 
         res.json(outcome)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -1227,8 +1294,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
         const outcome = await saveLessonProgress(user as User, course, module, lesson, [], token, undefined, true)
 
         res.json(outcome)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -1242,7 +1308,7 @@ router.post('/:course/:module/:lesson/read', requiresAuth(), async (req, res, ne
  */
 router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, nextfn) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
         const provider = databaseProvider(course.databaseProvider)
@@ -1259,25 +1325,35 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
             return nextfn(new NotFoundError(`Could not find usecase for course ${req.params.course}`))
         }
 
-        const module = course.modules.find(row => row.slug === req.params.module)
+        const module = course.modules.find((row) => row.slug === req.params.module)
 
         if (!module) {
             return nextfn(new NotFoundError(`Could not find module ${req.params.module} of ${req.params.course}`))
+        } else if (!module.lessons) {
+            return nextfn(
+                new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`)
+            )
         }
-
-        else if (!module.lessons) {
-            return nextfn(new NotFoundError(`Could not find lessons for module ${req.params.module} of ${req.params.course}`))
-        }
-        const lesson = module.lessons.find(row => row.slug === req.params.lesson)
+        const lesson = module.lessons.find((row) => row.slug === req.params.lesson)
 
         if (!lesson) {
-            return nextfn(new NotFoundError(`Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
-        }
-        else if (!lesson.lab || !course.repository) {
-            return nextfn(new NotFoundError(`Could not find lab for lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
-        }
-        else if (!sandbox) {
-            return nextfn(new NotFoundError(`Could not find sandbox for usecase ${course.usecase} : lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`))
+            return nextfn(
+                new NotFoundError(
+                    `Could not find lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+                )
+            )
+        } else if (!lesson.lab || !course.repository) {
+            return nextfn(
+                new NotFoundError(
+                    `Could not find lab for lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+                )
+            )
+        } else if (!sandbox) {
+            return nextfn(
+                new NotFoundError(
+                    `Could not find sandbox for usecase ${course.usecase} : lesson ${req.params.lesson} in module ${req.params.module} of ${req.params.course}`
+                )
+            )
         }
 
         // Build Repository URL
@@ -1293,16 +1369,15 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
             `NEO4J_PASSWORD=${encodeURIComponent(sandbox.password)}`,
         ]
 
-        if (course.allowsLLMCalls) {
-            env.push(`OPENAI_API_KEY=${generateBearerToken(user, course.slug)}`)
-        }
+        // if (course.allowsLLMCalls) {
+        //     env.push(`OPENAI_API_KEY=${generateBearerToken(user, course.slug)}`)
+        // }
 
         // Redirect to gitpod
         const redirectTo = `https://gitpod.io/new#${env.join(',')}/${repositoryUrl}`
 
         res.redirect(redirectTo)
-    }
-    catch (e) {
+    } catch (e) {
         nextfn(e)
     }
 })
@@ -1316,7 +1391,7 @@ router.get('/:course/:module/:lesson/lab', requiresAuth(), async (req, res, next
  */
 router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res, nextfn) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const token = await getToken(req)
         const course = await getCourseWithProgress(req.params.course, user)
         const provider = databaseProvider(course.databaseProvider)
@@ -1329,8 +1404,7 @@ router.get('/:course/:module/:lesson/kgbuilder', requiresAuth(), async (req, res
         }
 
         return res.redirect(redirectTo)
-    }
-    catch (e) {
+    } catch (e) {
         nextfn(e)
     }
 })

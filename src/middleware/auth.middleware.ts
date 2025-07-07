@@ -1,5 +1,5 @@
 /* eslint-disable */
-import axios from 'axios';
+// import axios from 'axios';
 import { Request, Response, Express, NextFunction } from 'express';
 import { auth, Session } from 'express-openid-connect'
 import jwt, { JwtPayload } from 'jsonwebtoken'
@@ -75,15 +75,18 @@ export async function getUserById(id: string): Promise<User | undefined> {
 }
 
 export async function requestEmailVerification(user: User): Promise<string> {
-    const api = axios.create({
-        baseURL: 'https://internal-api.neo4jsandbox.com',
+    const response = await fetch('https://internal-api.neo4jsandbox.com/v1/user/verification', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_id: user.sub
+        })
     })
 
-    const res = await api.post('/v1/user/verification', {
-        user_id: user.sub
-    })
-
-    return res.data.status
+    const data = await response.json()
+    return data.status
 }
 
 export default function applyAuth(app: Express) {
