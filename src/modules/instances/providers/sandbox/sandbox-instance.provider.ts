@@ -313,10 +313,6 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return
         }
 
-        console.log(`bolt+s://${instance.ip}:${instance.boltPort}`,
-            instance.username,
-            instance.password)
-
         let driver: Driver
 
         try {
