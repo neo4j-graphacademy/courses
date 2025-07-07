@@ -6,12 +6,16 @@ import { Course } from "../../model/course";
 import { appendParams } from "../cypher";
 
 export default async function getUserActivePaths(tx: ManagedTransaction, user: Partial<User>, property: ValidLookupProperty = 'sub'): Promise<Category<Course>[]> {
+    if (!user || !user[property]) {
+        return []
+    }
+
     const res = await tx.run<{ category: Category<Course> }>(`
         MATCH (u:User {\`${property}\`: $sub})-[:HAS_ENROLMENT]->(e)-[:THROUGH_CATEGORY]->(c:Category)
         WHERE not e:CompletedEnrolment
 
         MATCH (c)<-[r:IN_CATEGORY]->(course)
-        WITH c, r, course ORDER BY r.order ASC 
+        WITH c, r, course ORDER BY r.order ASC
 
         WITH c, collect(course) AS courses
 

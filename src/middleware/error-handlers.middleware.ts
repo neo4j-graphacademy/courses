@@ -1,14 +1,15 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Express, NextFunction, Request, Response } from 'express';
 import { IS_PRODUCTION } from '../constants';
 import NotFoundError from '../errors/not-found.error';
-import UnauthorizedError from '../errors/unauthorized.error';
 import { getUser } from './auth.middleware';
+import UnauthorizedError from '../errors/unauthorized.error';
 
 // Helper function to check if error is a fetch error with status
 function isFetchErrorWithStatus(error: any, status: number): boolean {
-    return error.status === status || 
-           (error.response && error.response.status === status) ||
-           (error.cause && error.cause.status === status)
+    return error.status === status ||
+        (error.response && error.response.status === status) ||
+        (error.cause && error.cause.status === status)
 }
 
 export function applyErrorHandlers(app: Express) {
@@ -79,9 +80,9 @@ export function applyErrorHandlers(app: Express) {
             return notFoundError(req, res, error)
         }
 
-        // if (error instanceof UnauthorizedError || (error as any).status === 401) {
-        //     return unauthorized(error, req, res)
-        // }
+        if (error instanceof UnauthorizedError || (error as any).status === 401) {
+            return unauthorized(error, req, res)
+        }
 
         if (isFetchErrorWithStatus(error, 401)) {
             let redirectTo = '/login'

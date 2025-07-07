@@ -35,12 +35,10 @@ describe('SandboxInstanceProvider', () => {
             const sandboxes = await provider.getInstances(SANDBOX_TOKEN, {} as User)
 
             expect(Array.isArray(sandboxes)).toBe(true)
-        })
+        }, 30000)
     })
     describe('getOrcreateInstanceForUseCase', () => {
         it('should create a sandbox', async () => {
-            jest.setTimeout(30000)
-
             const first = await provider.getOrCreateInstanceForUseCase(SANDBOX_TOKEN, user, 'recommendations')
             const second = await provider.getOrCreateInstanceForUseCase(SANDBOX_TOKEN, user, 'recommendations')
 
@@ -56,13 +54,11 @@ describe('SandboxInstanceProvider', () => {
             expect(get).toBeDefined()
             expect(get!.sandboxHashKey).toEqual(first.sandboxHashKey)
             expect(get!.sandboxHashKey).toEqual(second.sandboxHashKey)
-        })
+        }, 60000)
     })
 
     describe('createInstanceForUseCase', () => {
         it('should create a sandbox', async () => {
-            jest.setTimeout(30000)
-
             const first = await provider.getOrCreateInstanceForUseCase(SANDBOX_TOKEN, user, 'recommendations')
             const second = await provider.getOrCreateInstanceForUseCase(SANDBOX_TOKEN, user, 'recommendations')
 
@@ -84,15 +80,12 @@ describe('SandboxInstanceProvider', () => {
 
             expect(getByHashKey).toBeDefined()
             expect(getByHashKey!.instance.sandboxHashKey).toEqual(first.sandboxHashKey)
-        })
-
+        }, 50000)
     })
 
     describe('createInstance', () => {
         it('should create a sandbox', async () => {
-            jest.setTimeout(30000)
-
-            const usecase = 'blank-sandbox'
+            const usecase = 'yelp'
 
             const first = await provider.createInstance(SANDBOX_TOKEN, user, usecase)
             const second = await provider.createInstance(SANDBOX_TOKEN, user, usecase)
@@ -110,6 +103,6 @@ describe('SandboxInstanceProvider', () => {
             expect(get!.sandboxHashKey).toEqual(second.sandboxHashKey)
             expect(get!.id).toEqual(first.id)
             expect(get!.id).toEqual(second.id)
-        })
+        }, 60000)
     })
 })
