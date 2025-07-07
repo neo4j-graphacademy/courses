@@ -644,8 +644,8 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         // Check for at least one completed enrolment
         const { enrolments } = await getUserEnrolments(user.sub, 'sub', undefined, false)
 
-        if (!enrolments[STATUS_COMPLETED] || enrolments[STATUS_COMPLETED].length < 2) {
-            throw new Error('Due to detected irregularities in some regions, users are now required to complete at least one course prior to redeeming this reward.');
+        if (!enrolments[STATUS_COMPLETED] || enrolments[STATUS_COMPLETED].length < 4) {
+            throw new Error('Due to detected irregularities in some regions, users are now required to complete at least three course prior to redeeming this reward.');
         }
         // }
 
