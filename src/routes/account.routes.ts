@@ -124,7 +124,7 @@ const processAccountForm = async (req, res, next) => {
         const team = getTeam(req)
         const user = await getUser(req) as User
 
-        const { nickname, givenName, position, company, country, unsubscribe, bio } = req.body
+        const { nickname, givenName, position, company, country, unsubscribe, bio, linkedin, twitter } = req.body
 
         // Validation
         const required = ['nickname', 'givenName', 'country', 'position', 'company']
@@ -149,6 +149,8 @@ const processAccountForm = async (req, res, next) => {
             country,
             unsubscribed,
             bio,
+            linkedin,
+            twitter,
             method: AccountUpdateMethod.UPDATE,
         }
 
@@ -632,7 +634,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
 
         // Find Country
         const { country, state } = await getCountryAndState(body.country, body.state)
-
 
         // Disallow certain countries
         const disallow = ['CN', 'RU']

@@ -28,6 +28,8 @@ export default async function getRewards(user: User): Promise<Reward[]> {
 
         OPTIONAL MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c)
 
+        WITH u, c, e, [ (u)-[:HAS_ENROLMENT]->(xe:CompletedEnrolment)-[:FOR_COURSE]->(cx) WHERE xe.completedAt <= e.completedAt - duration('P1D') | cx.slug ] AS completedCoursesInPast
+
         RETURN {
             id: e.id,
             provider: c.rewardProvider,
@@ -42,7 +44,8 @@ export default async function getRewards(user: User): Promise<Reward[]> {
             description: 'Claim your free t-shirt for completing the '+ c.title +' '+ CASE WHEN c:Certification THEN 'Certification' ELSE 'Course' END  +'.',
             status: CASE
                 WHEN e.rewardOrderId IS NOT NULL THEN 'claimed'
-                WHEN e:CompletedEnrolment THEN 'available'
+                WHEN e:CompletedEnrolment AND size(completedCoursesInPast) <= 2 THEN 'suspicious'
+                WHEN e:CompletedEnrolment AND size(completedCoursesInPast) > 2 THEN 'available'
             ELSE 'pending' END,
             productId: c.rewardProductId,
             redeemedAt: e.rewardOrderCreatedAt,
