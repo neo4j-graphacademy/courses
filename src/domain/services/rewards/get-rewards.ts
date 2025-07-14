@@ -34,6 +34,7 @@ export default async function getRewards(user: User): Promise<Reward[]> {
             id: e.id,
             provider: c.rewardProvider,
             slug: c.slug,
+            certificateId: e.certificateId,
             type: coalesce(c.rewardType, 'tshirt'),
             link: CASE
                 WHEN e.rewardOrderId IS NOT NULL THEN null
