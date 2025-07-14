@@ -24,6 +24,7 @@ import { Neo4jCheckpointSaver } from './history/checkpointer'
 import { getChatbotDriver } from './chatbot.driver'
 import { clearConversationHistory } from './history/memory'
 import { getModuleContentTool } from './tools/get-module-content.tool'
+import { getTshirtRewardAdviceTool } from './tools/get-tshirt-reward-advice.tool'
 
 const llm = new ChatOpenAI({
     apiKey: OPENAI_API_KEY,
@@ -51,6 +52,7 @@ const tools = [
     getLessonContentTool,
     getModuleContentTool,
     provideFeedbackTool,
+    getTshirtRewardAdviceTool,
 ]
 
 let agent
