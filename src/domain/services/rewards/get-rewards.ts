@@ -4,6 +4,7 @@ import { User } from "../../model/user";
 export const STATUS_AVAILABLE = 'available'
 export const STATUS_CLAIMED = 'claimed'
 export const STATUS_PENDING = 'pending'
+export const STATUS_SUSPICIOUS = 'suspicious'
 
 export interface Reward {
     id: string;
@@ -14,14 +15,14 @@ export interface Reward {
     title: string;
     description: string;
     image: string;
-    status: typeof STATUS_AVAILABLE | typeof STATUS_CLAIMED | typeof STATUS_PENDING;
+    status: typeof STATUS_AVAILABLE | typeof STATUS_CLAIMED | typeof STATUS_PENDING | typeof STATUS_SUSPICIOUS;
     trackingUrl?: string;
     redeemedAt: Date;
     productId: string;
+    override: boolean | undefined;
 }
 
 export default async function getRewards(user: User): Promise<Reward[]> {
-    // Certified Professional T-shirts
     const res = await read(`
         MATCH (c:Course)
         WHERE c.rewardProductId IS NOT NULL
@@ -45,12 +46,13 @@ export default async function getRewards(user: User): Promise<Reward[]> {
             description: 'Claim your free t-shirt for completing the '+ c.title +' '+ CASE WHEN c:Certification THEN 'Certification' ELSE 'Course' END  +'.',
             status: CASE
                 WHEN e.rewardOrderId IS NOT NULL THEN 'claimed'
-                WHEN e:CompletedEnrolment AND size(completedCoursesInPast) <= 2 THEN 'suspicious'
-                WHEN e:CompletedEnrolment AND size(completedCoursesInPast) > 2 THEN 'available'
+                WHEN e:CompletedEnrolment AND (size(completedCoursesInPast) > 2 OR e.rewardOverride = true) THEN 'available'
+                WHEN e:CompletedEnrolment AND size(completedCoursesInPast) <= 2 AND coalesce(e.rewardOverride, false) = false THEN 'suspicious'
             ELSE 'pending' END,
             productId: c.rewardProductId,
             redeemedAt: e.rewardOrderCreatedAt,
-            trackingUrl: e.rewardOrderTrackingUrl
+            trackingUrl: e.rewardOrderTrackingUrl,
+            override: e.rewardOverride
         } AS reward
     `, { sub: user.sub })
 

@@ -8,7 +8,7 @@ import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
 import { getUserEnrolments } from '../domain/services/get-user-enrolments'
-import getRewards, { Reward } from '../domain/services/rewards/get-rewards'
+import getRewards, { Reward, STATUS_CLAIMED, STATUS_SUSPICIOUS } from '../domain/services/rewards/get-rewards'
 import { AccountUpdateMethod, updateUser, UserUpdates } from '../domain/services/update-user'
 import NotFoundError from '../errors/not-found.error'
 import { emitter } from '../events'
@@ -509,6 +509,12 @@ const redeemForm = async (req, res, next) => {
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
         }
+        else if (reward.status === STATUS_CLAIMED) {
+            throw new NotFoundError('You have already redeemed this reward.')
+        }
+        else if (reward.status === STATUS_SUSPICIOUS) {
+            throw new NotFoundError('You are not eligible to redeem this reward.')
+        }
 
         // Get Product Variants
         const productIds = reward.productId.split(',')
@@ -630,6 +636,12 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
+        }
+        else if (reward.status === STATUS_CLAIMED) {
+            throw new NotFoundError('You have already redeemed this reward.')
+        }
+        else if (reward.status === STATUS_SUSPICIOUS) {
+            throw new NotFoundError('You are not eligible to redeem this reward.')
         }
 
         // Find Country
