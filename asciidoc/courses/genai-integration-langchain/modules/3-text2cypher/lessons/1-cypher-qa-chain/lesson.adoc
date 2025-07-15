@@ -1,0 +1,150 @@
+= Cypher QA Chain
+:order: 1
+:type: lesson
+:branch: main
+
+
+In this lesson, you will use the Cypher QA (question-answering) chain to query the graph using natural language queries.
+
+== Cypher QA Chain
+
+The LangChain link:https://python.langchain.com/api_reference/neo4j/chains/langchain_neo4j.chains.graph_qa.cypher.GraphCypherQAChain.html[`GraphCypherQAChain`^]:
+
+. Accepts a question.
+. Converts the question into a Cypher query using the graph schema. 
+. Executes the query
+. Uses the result to generate an answer.
+
+If asked the question "What year was the movie Babe released?", the chain will generate messages like:
+
+    [human]
+    What year was the movie Babe released?
+    [system]
+    Generate a Cypher query based on this question and this graph schema.
+    [assistant]
+    MATCH (m:Movie) 
+    WHERE m.title = 'Babe' 
+    RETURN m.released
+
+    The Cypher query is the executed and the result returned.
+
+    [system]
+    Generate an answer based on these results [{m.released_year: 1995}].
+    [assistant]
+    The movie Babe was released in 1995.
+
+Open the `genai_integration_langchain/cypher_qa.py` file and review the code:
+
+.cypher_qa.py
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/cypher_qa.py[tag=**]
+----
+
+You will need to:
+
+. Create a `GraphCypherQAChain` instance.
+. Invoke the chain with a question.
+. Parse the results
+
+Update the code to create a `GraphCypherQAChain` instance:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa.py[tag=import_cypher_qa]
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa.py[tag=cypher_qa]
+----
+
+The `GraphCypherQAChain` requires the `graph` connection and an LLM `model` to generate the Cypher query and response.
+
+include::../../../../../../shared/courses/llm/dangerous-requests.adoc[]
+
+Invoke the chain with a question and print the result:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa.py[tag=invoke]
+----
+
+[%collapsible]
+.Click to view the complete code
+====
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa.py[tags="**;!examples"]
+----
+====
+
+Run the code and review the results. 
+You should see an output similar to:
+
+    > Entering new GraphCypherQAChain chain...
+    Generated Cypher:
+    cypher
+    MATCH (m:Movie {title: "Babe"})
+    RETURN m.year AS releaseYear
+
+    Full Context:
+    [{'releaseYear': 1995}]
+
+    > Finished chain.
+    The movie Babe was released in 1995.
+
+[TIP]
+.Verbose
+====
+Setting the `GraphCypherQAChain` `verbose` parameter to `True` will print the generated Cypher query and the full context used to generate the answer.
+====
+
+Experiment with different questions to see how the Cypher QA chain generates different Cypher queries and answers, for example:
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa.py[tag=examples]
+
+[IMPORTANT]
+.Generated Cypher 
+====
+The LLM may not always understand the graph schema or the question correctly. 
+This can lead to the generated Cypher queries being incorrect or inefficient.
+
+You will explore different ways to improve the quality of the generated Cypher queries in the next lesson.
+====
+
+== Cypher LLM
+ 
+You can use different LLMs to generate the Cypher query and the answer.
+
+This is useful as the requirements for generating a Cypher query maybe different from generating answer.
+
+Modify the program to include a different LLM for the Cypher query generation:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa_models.py[tag=cypher_model]
+----
+
+[TIP]
+.Temperature
+The `temperature` is set to `0`. 
+When generating Cypher queries, you want the output to be deterministic and precise.
+
+Update the `GraphCypherQAChain` to use the new LLM:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/cypher_qa_models.py[tag=cypher_qa]
+----
+
+Choosing the right LLM for Cypher generation and answer generation can improve the quality of the results.
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-different-models.adoc[leveloffset=+2]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you used the Cypher QA chain to query the graph using natural language queries.
+
+In the next lesson, you will learn how to enhance the Cypher generation prompt to improve the quality of the generated Cypher queries.

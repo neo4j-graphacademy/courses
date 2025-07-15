@@ -33,6 +33,16 @@ describe('QA Tests', () => {
                     expect(getAttribute(courseAdoc, 'caption')).toBeDefined()
                 })
 
+                it('should have a level', () => {
+                    expect(getAttribute(courseAdoc, 'categories')).toBeDefined()
+
+                    const categories = getAttribute(courseAdoc, 'categories').split(',').map(e => e.trim())
+                    expect(categories.length).toBeGreaterThan(0)
+
+                    const levels = ['beginner', 'intermediate', 'advanced', 'workshop']
+                    expect(levels.some(level => categories.includes(level))).toBe(true)
+                })
+
                 it('should have one or more modules', () => {
                     expect(modulePaths.length).toBeGreaterThan(0)
                 })

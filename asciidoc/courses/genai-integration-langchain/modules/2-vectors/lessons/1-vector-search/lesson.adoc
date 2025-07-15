@@ -1,0 +1,149 @@
+= Vector Search
+:order: 1
+:type: lesson
+:branch: main
+
+In this lesson, you will learn how to use vectors indexes with LangChain to perform vector search.
+
+== Movie Plots
+
+Each `Movie` node in the database has a `.plot` property.
+
+.Movie Plot Example
+[source,cypher]
+MATCH (m:Movie {title: "Toy Story"})
+RETURN m.title AS title, m.plot AS plot
+
+    "A cowboy doll is profoundly threatened and jealous when a new spaceman figure supplants him as top toy in a boy's room."
+
+Embeddings have been created for 1000 movie plots. 
+The embedding is stored in the `.plotEmbedding` property of the `Movie` nodes.
+
+.View the plot embedding
+[source,cypher]
+MATCH (m:Movie {title: "Toy Story"})
+RETURN m.title AS title, m.plot AS plot, m.plotEmbedding
+
+A vector index, `moviePlots`, has been created for the `.plotEmbedding` property of the `Movie` nodes.
+
+You can use the `moviePlots` vector index to find the most similar movies by comparing embeddings of movie plots.
+
+[TIP]
+You can learn more about creating embeddings and vector indexes in the link:https://graphacademy.neo4j.com/courses/llm-vectors-unstructured[GraphAcademy Introduction to Vector Indexes and Unstructured Data course^].
+
+== Similarity Search
+
+The link:https://python.langchain.com/api_reference/neo4j/vectorstores/langchain_neo4j.vectorstores.neo4j_vector.Neo4jVector.html[`Neo4jVector`^] class provides an interface to use vector indexes in Neo4j.
+You can use `Neo4jVector` to create a vector store that can modify data and perform similarity search.
+
+Open the `genai-integration-langchain/vector_search.py` file.
+
+.vector_search.py
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/vector_search.py[tag=**]
+----
+
+To perform a similarity search, you need to:
+
+. Connect to a Neo4j database
+. Create an embedding model to convert a query into a vector
+. Create a `Neo4jVector` instance and connect to the database
+. Use the `similarity_search` method to find similar nodes based on the query
+
+== Embedding model
+
+The movie plot embeddings were created using the OpenAI `text-embedding-ada-002` model.
+You need to use the same model to convert the query into vectors.
+
+Use the `OpenAIEmbeddings` class to create the embedding model:
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=import_embedding_model]
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=embedding_model]
+----
+
+== Vector Store
+
+Use the `Neo4jVector` class to create a vector store that connects to the Neo4j database, uses the embedding model, and the `moviePlots` index.
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=import_neo4jvector]
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=plot_vector]
+----
+
+When specifying the vector index you must also state the properties that contain the text (`text_node_property`) and the embedding (`embedding_node_property`).
+
+== Search
+
+The `similarity_search` method of the `Neo4jVector` class allows you to perform a similarity search based on a query.
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=search]
+----
+
+The query is converted into a vector using the embedding model, and then the vector index is used to find the most similar nodes.
+
+The `k` parameter specifies the number of similar nodes to return.
+
+[%collapsible]
+.Click to see the complete code
+====
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tags="**;!examples;!results"]
+----
+====
+
+Running the code will return the most similar movies to the query.
+
+The method returns a list of LangChain link:https://python.langchain.com/api_reference/core/documents/langchain_core.documents.base.Document.html[`Document`^] objects, each containing the plot as the `content` and the node properties as `metadata`.
+
+You can parse the results to extract the movie titles and plots.
+
+[source,python]
+----
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=results]
+----
+
+Experiment with different plots, such as:
+
+include::{repository-raw}/{branch}/genai-integration-langchain/solutions/vector_search.py[tag=examples]
+
+[TIP]
+.Filtering results
+====
+You can filter the results of the `similarity_search` method by using the `filter` parameter.
+
+The `filter` parameter allows you to specify a condition to filter the results, for example, only return movies with a `revenue` gretaer than 200 million:
+
+[source,python]
+----
+result = plot_vector.similarity_search(
+    plot, 
+    k=3,
+    filter={"revenue": {"$gte": 200000000}}
+)
+----
+
+You can learn more about link:https://python.langchain.com/docs/integrations/vectorstores/neo4jvector/#metadata-filtering[Neo4jVector metadata filtering in the LangChain documentation^].
+====
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-embedding-model.adoc[leveloffset=+2]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to use the `Neo4jVector` class to perform vector search.
+
+In the next lesson, you will add a RAG vector retriever to the agent to retrieve relevant movie plots based on user queries.

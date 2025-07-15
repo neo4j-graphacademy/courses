@@ -8,19 +8,25 @@ export default async function buildHtml(): Promise<void> {
 
   console.log(`↔️  Building HTML`)
 
-  // Build HTML
-  for (const course of courses) {
-    void buildCourseHtml(course)
-  }
+  // Build all HTML in parallel for maximum speed
+  const [courseResults, moduleResults, lessonResults] = await Promise.all([
+    // Build all courses in parallel
+    Promise.all(courses.map(course => buildCourseHtml(course))),
+    
+    // Build all modules in parallel
+    Promise.all(modules.map(module => {
+      console.log(`   -- ${module.course.slug}/${module.slug}`)
+      return buildModuleHtml(module)
+    })),
+    
+    // Build all lessons in parallel
+    Promise.all(lessons.map(lesson => {
+      console.log(`   -- ${lesson.course.slug}/${lesson.module.slug}/${lesson.slug}`)
+      return buildLessonHtml(lesson)
+    }))
+  ])
+
   console.log(`   -- ${courses.length} courses`)
-
-  for (const module of modules) {
-    void buildModuleHtml(module)
-  }
   console.log(`   -- ${modules.length} modules`)
-
-  for (const lesson of lessons) {
-    void buildLessonHtml(lesson)
-  }
   console.log(`   -- ${lessons.length} lessons`)
 }

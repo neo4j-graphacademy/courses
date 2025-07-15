@@ -23,6 +23,9 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
         c.caption = course.caption,
         c.status = course.status,
         c.usecase = course.usecase,
+        c.databaseProvider = course.databaseProvider,
+        c.vectorOptimized = course.vectorOptimized,
+        c.graphAnalyticsPlugin = course.graphAnalyticsPlugin,
         c.redirect = course.redirect,
         c.duration = course.duration,
         c.repository = course.repository,
@@ -61,8 +64,6 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
       MERGE (c)-[r:IN_CATEGORY]->(cat)
       SET r.order = toInteger(row.order)
-
-      
   `, { courses })
 
   // Translations
@@ -126,6 +127,7 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
     l.order = toInteger(lesson.order),
     l.duration = lesson.duration,
     l.sandbox = lesson.sandbox,
+    l.chatbot = lesson.chatbot,
     l.cypher = lesson.cypher,
     l.verify = lesson.verify,
     l.slides = lesson.slides,

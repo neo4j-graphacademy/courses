@@ -1,5 +1,5 @@
 import { readdir } from "fs/promises"
-import { ATTRIBUTE_BRANCH, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DURATION, ATTRIBUTE_KEY_POINTS, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREREQUISITES, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, Language } from "../../constants"
+import { ATTRIBUTE_BRANCH, ATTRIBUTE_CAPTION, ATTRIBUTE_CATEGORIES, ATTRIBUTE_CERTIFICATION, ATTRIBUTE_CLASSMARKER_ID, ATTRIBUTE_CLASSMARKER_REFERENCE, ATTRIBUTE_DURATION, ATTRIBUTE_KEY_POINTS, ATTRIBUTE_LANGUAGE, ATTRIBUTE_NEXT, ATTRIBUTE_PREREQUISITES, ATTRIBUTE_REDIRECT, ATTRIBUTE_REPOSITORY, ATTRIBUTE_REWARD_FORM, ATTRIBUTE_REWARD_IMAGE, ATTRIBUTE_REWARD_PRODUCT_ID, ATTRIBUTE_REWARD_PROVIDER, ATTRIBUTE_REWARD_TYPE, ATTRIBUTE_STATUS, ATTRIBUTE_THUMBNAIL, ATTRIBUTE_TRANSLATIONS, ATTRIBUTE_USECASE, ATTRIBUTE_DATABSE_PROVIDER, ATTRIBUTE_VIDEO, COURSE_DIRECTORY, DEFAULT_COURSE_STATUS, DEFAULT_COURSE_THUMBNAIL, DEFAULT_LANGUAGE, Language, ATTRIBUTE_GRAPH_ANALYTICS_PLUGIN, ATTRIBUTE_VECTOR_OPTIMIZED } from "../../constants"
 import { existsSync } from "fs";
 import { courseOverviewPath } from "../../utils";
 import { join, sep } from "path";
@@ -25,13 +25,14 @@ export type CourseToImport = {
   interested?: string[];
   isInterested?: boolean;
   usecase: string | undefined;
+  vectorOptimized?: boolean;
+  graphAnalyticsPlugin?: boolean;
   badge?: string;
   prerequisiteSlugs: string[];
   progressToSlugs: string[];
   translationSlugs: string[];
   attributes: Record<string, any>;
   repositories: Record<string, string>;
-
 }
 
 const loadCourse = (slug: string): Promise<CourseToImport> => {
@@ -95,6 +96,9 @@ const loadCourse = (slug: string): Promise<CourseToImport> => {
     caption: file.getAttribute(ATTRIBUTE_CAPTION, null),
     video: file.getAttribute(ATTRIBUTE_VIDEO, null),
     usecase: file.getAttribute(ATTRIBUTE_USECASE, null),
+    databaseProvider: file.getAttribute(ATTRIBUTE_DATABSE_PROVIDER, null),
+    vectorOptimized: file.getAttribute(ATTRIBUTE_VECTOR_OPTIMIZED, null) === 'true',
+    graphAnalyticsPlugin: file.getAttribute(ATTRIBUTE_GRAPH_ANALYTICS_PLUGIN, null) === 'true',
     redirect: file.getAttribute(ATTRIBUTE_REDIRECT, null),
     duration: file.getAttribute(ATTRIBUTE_DURATION, null),
     repository,
