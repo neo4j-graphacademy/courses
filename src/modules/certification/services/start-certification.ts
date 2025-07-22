@@ -56,6 +56,7 @@ export async function createAttempt(tx: ManagedTransaction, slug: string, user: 
 
         // Get total number for category/level
         WITH a, c, weights, category, level, questions, weights[category][level] AS take
+        WHERE take IS NOT NULL
 
         // Get first n from question
         WITH a, c, weights, category, [ idx in range(0, take-1) | questions[level][idx] ] AS selected
