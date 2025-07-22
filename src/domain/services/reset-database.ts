@@ -6,14 +6,19 @@ export async function resetDatabase(token: string, user: User, course: string, m
     // Check that a reset.cypher file exists
     const cypher = await getLessonCypherFile(course, module, lesson, 'reset')
 
+    console.log(cypher)
     if (!cypher) {
         return false
     }
 
+
     // Check that a sandbox exists
     const provider = databaseProvider(sourceDatabaseProvider)
+    console.log(cypher, provider)
 
     const res = await provider.executeCypher(token, user, usecase, cypher, {}, 'WRITE')
+
+    console.log(res)
 
     return res ? true : false;
 }
