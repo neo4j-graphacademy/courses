@@ -701,7 +701,6 @@ export function relativeTime(date: Date) {
 
 export function cleanAnswerInput(answer: string): string {
     // Trim
-    console.log('answer', answer)
     let trimmed = answer?.trim() || ''
 
     // Remove quotes

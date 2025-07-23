@@ -64,8 +64,6 @@ export function convertCertificationOverview(slug: string, attributes?: Record<s
     const folder = path.join('certifications', slug)
     const file = path.join(folder, 'course.adoc')
 
-    console.log(folder, file)
-
     if (!fileExists(file)) {
         throw new NotFoundError(`Course ${slug} could not be found`)
     }

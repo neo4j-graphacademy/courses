@@ -101,20 +101,29 @@ export default async function getCertificationResults(
         { slug, sub: user.sub }
     )
 
-    const output: CategoryWithQuestions[] = []
-
-    for (const category of res.records[0]?.toObject().questions) {
-        const questions = category.questions.map(question => {
-            return {
-                ...question,
-                question: question.question.replace('{cdn-url}', CDN_URL),
-                provided: question.provided.filter(e => !!e),
-            }
-        })
-
+    // No exam?
+    if (res.records.length === 0) {
+        return undefined
     }
 
+    // Get the outpuit
+    const output: CertificationResults = res.records[0]?.toObject()
 
+    // Clean question HTML
+    const questions = output.questions?.map(category => {
+        return {
+            ...category,
+            questions: category.questions.map(row => {
+                return {
+                    ...row,
+                    question: cleanQuestionHTML(row.question),
+                }
+            }),
+        }
+    })
 
-    return res.records[0]?.toObject()
+    return {
+        ...output,
+        questions,
+    }
 }
