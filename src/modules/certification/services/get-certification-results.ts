@@ -1,43 +1,54 @@
-import { Course } from "../../../domain/model/course"
-import { User } from "../../../domain/model/user";
-import { read } from "../../neo4j";
+import { CDN_URL } from '../../../constants'
+import { Course } from '../../../domain/model/course'
+import { User } from '../../../domain/model/user'
+import { read } from '../../neo4j'
 
 type QuestionWithAnswer = {
-  id: string;
-  category: { title: string, slug: string };
-  title: string;
-  question: string;
-  options: string[];
-  answers: string[];
-  provided: string[];
-  correct: boolean;
-  feedback: string | undefined;
+    id: string
+    category: { title: string; slug: string }
+    title: string
+    question: string
+    options: string[]
+    answers: string[]
+    provided: string[]
+    correct: boolean
+    feedback: string | undefined
 }
 
 type CategoryWithQuestions = {
-  slug: string;
-  title: string;
-  questions: QuestionWithAnswer[];
-  status: 'success' | 'warning' | 'danger';
-  total: number;
-  correct: number;
-  percentage: number;
+    slug: string
+    title: string
+    questions: QuestionWithAnswer[]
+    status: 'success' | 'warning' | 'danger'
+    total: number
+    correct: number
+    percentage: number
 }
 
 type CertificationResults = {
-  course: Pick<Course, 'slug' | 'title' | 'link' | 'caption'>;
-  passed: boolean;
-  certificateId: string | undefined;
-  certificateUrl: string | undefined;
-  updatedAt: string; // DateTime
-  assigned: number;
-  correct: number;
-  percentage: number;
-  questions: CategoryWithQuestions[]
+    course: Pick<Course, 'slug' | 'title' | 'link' | 'caption'>
+    passed: boolean
+    certificateId: string | undefined
+    certificateUrl: string | undefined
+    updatedAt: string // DateTime
+    assigned: number
+    correct: number
+    percentage: number
+    questions: CategoryWithQuestions[]
 }
 
-export default async function getCertificationResults(slug: string, user: User): Promise<CertificationResults | undefined> {
-  const res = await read<CertificationResults>(`
+const SCHEMA_ADOC = `<a href="../includes/schema.adoc" class="bare include">../includes/schema.adoc</a>`
+
+function cleanQuestionHTML(html: string): string {
+    return html.replace(SCHEMA_ADOC, '').replace('{cdn-url}', CDN_URL)
+}
+
+export default async function getCertificationResults(
+    slug: string,
+    user: User
+): Promise<CertificationResults | undefined> {
+    const res = await read<CertificationResults>(
+        `
     MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $slug})
     MATCH (e)-[:HAS_ATTEMPT]->(a)
     WITH u, e, c, a ORDER BY a.createdAt DESC LIMIT 1
@@ -86,7 +97,24 @@ export default async function getCertificationResults(slug: string, user: User):
       100.0 * correct / assigned >= c.passPercentage AS passed,
       questions
 
-  `, { slug, sub: user.sub })
+  `,
+        { slug, sub: user.sub }
+    )
 
-  return res.records[0]?.toObject()
+    const output: CategoryWithQuestions[] = []
+
+    for (const category of res.records[0]?.toObject().questions) {
+        const questions = category.questions.map(question => {
+            return {
+                ...question,
+                question: question.question.replace('{cdn-url}', CDN_URL),
+                provided: question.provided.filter(e => !!e),
+            }
+        })
+
+    }
+
+
+
+    return res.records[0]?.toObject()
 }

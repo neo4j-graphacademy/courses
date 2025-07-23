@@ -49,7 +49,9 @@ export function fileExists(filepath: string): boolean {
 
 export function loadFile(filepath: string, options: Asciidoctor.ProcessorOptions = {}): Asciidoctor.Document {
     const mergedOptions = mergeDeep(baseOptions, options)
-    const file = doc.loadFile(path.join(ASCIIDOC_DIRECTORY, filepath), mergedOptions)
+    const finalPath = path.join(ASCIIDOC_DIRECTORY, filepath)
+
+    const file = doc.loadFile(finalPath, mergedOptions)
 
     return file
 }
@@ -61,6 +63,8 @@ export function convert(document: Asciidoctor.Document, options: Asciidoctor.Pro
 export function convertCertificationOverview(slug: string, attributes?: Record<string, any>): Promise<string> {
     const folder = path.join('certifications', slug)
     const file = path.join(folder, 'course.adoc')
+
+    console.log(folder, file)
 
     if (!fileExists(file)) {
         throw new NotFoundError(`Course ${slug} could not be found`)
@@ -145,7 +149,11 @@ export function courseSlidesPdfPath(slug: string): Promise<string | undefined> {
     return Promise.resolve(output)
 }
 
-export function convertModuleOverview(course: string, module: string, attributes: Record<string, any> = {}): Promise<string> {
+export function convertModuleOverview(
+    course: string,
+    module: string,
+    attributes: Record<string, any> = {}
+): Promise<string> {
     // Check Cache
     const cacheKey = generateModuleCacheKey(course, module)
     const cached = getAndReplace(cacheKey, attributes)
@@ -178,7 +186,12 @@ export function getLessonDirectory(course: string, module: string, lesson: strin
     return path.join('courses', course, 'modules', module, 'lessons', lesson)
 }
 
-export function getLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<Asciidoctor.Document> {
+export function getLessonOverview(
+    course: string,
+    module: string,
+    lesson: string,
+    attributes: Record<string, any> = {}
+): Promise<Asciidoctor.Document> {
     const file = path.join(getLessonDirectory(course, module, lesson), 'lesson.adoc')
 
     if (!fileExists(file)) {
@@ -188,7 +201,12 @@ export function getLessonOverview(course: string, module: string, lesson: string
     return Promise.resolve(loadFile(file, { attributes }))
 }
 
-export async function convertLessonOverview(course: string, module: string, lesson: string, attributes: Record<string, any> = {}): Promise<string> {
+export async function convertLessonOverview(
+    course: string,
+    module: string,
+    lesson: string,
+    attributes: Record<string, any> = {}
+): Promise<string> {
     // Check Cache
     const cacheKey = generateLessonCacheKey(course, module, lesson)
     const cached = getAndReplace(cacheKey, attributes)
@@ -206,7 +224,6 @@ export async function convertLessonOverview(course: string, module: string, less
 
     return html
 }
-
 
 export function checkAddToCache(key: string, html: string) {
     if (ASCIIDOC_CACHING_ENABLED) {
@@ -252,7 +269,6 @@ export function generateModuleCacheKey(course: string, module: string): string {
 export function generateLessonCacheKey(course: string, module: string, lesson: string): string {
     return `${course}/${module}/${lesson}/index.html`
 }
-
 
 const statusCache: Map<CourseStatus, CourseStatusInformation> = new Map()
 

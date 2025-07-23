@@ -102,6 +102,21 @@ router.use((req, res, next) => {
     next()
 })
 
+router.get('/neo4j-certification/sandbox.json', async (req, res) => {
+    res.json({
+        id: 'recommendations',
+        hashKey: 'recommendations',
+        usecase: 'recommendations',
+        scheme: 'neo4j+s',
+        ip: 'demo.neo4jlabs.com',
+        host: 'demo.neo4jlabs.com',
+        boltPort: '7687',
+        username: 'recommendations',
+        password: 'recommendations',
+        database: 'recommendations',
+    })
+})
+
 /**
  * @GET /
  *
@@ -162,8 +177,9 @@ router.get('/:course', forceTrailingSlash, async (req, res, next) => {
         })
 
         res.render('course/overview', {
-            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${course.completed ? 'course--completed' : ''
-                }  ${course.enrolled ? 'course--enrolled' : ''}`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${
+                course.completed ? 'course--completed' : ''
+            }  ${course.enrolled ? 'course--enrolled' : ''}`,
 
             // For analytics.pug
             analytics: {
@@ -514,7 +530,8 @@ router.get('/:course/share/linkedin', requiresAuth(), async (req, res, next) => 
         return res.redirect(
             `https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME&name=${encodeURIComponent(
                 course.title
-            )}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${course.certificateId
+            )}&organizationId=828370&organizationName=Neo4j&issueYear=${year}&issueMonth=${month}&certId=${
+                course.certificateId
             }&certUrl=${encodeURIComponent(course.certificateUrl ? `${BASE_URL}${course.certificateUrl}` : '')}`
         )
     } catch (e) {
@@ -871,8 +888,9 @@ router.get(
             const slides = /class=".*slide.*"/.test(doc)
 
             res.render('course/module', {
-                classes: `module ${req.params.course}-${req.params.module}  ${course.completed ? 'course--completed' : ''
-                    } ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
+                classes: `module ${req.params.course}-${req.params.module}  ${
+                    course.completed ? 'course--completed' : ''
+                } ${module.completed ? 'module--completed' : ''} ${slides ? 'lesson--slides' : ''}`,
                 analytics: {
                     course: {
                         slug: course.slug,
@@ -1041,9 +1059,11 @@ router.get(
             const slides = /class=".*slide.*"/.test(doc)
 
             res.render('course/lesson', {
-                classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${course.completed ? 'course--completed' : ''
-                    } lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${lesson.optional ? 'lesson--optional' : 'lesson--mandatory'
-                    } ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
+                classes: `lesson ${req.params.course}-${req.params.module}-${req.params.lesson} ${
+                    course.completed ? 'course--completed' : ''
+                } lesson--${lesson.type} ${lesson.completed ? 'lesson--completed' : ''} ${
+                    lesson.optional ? 'lesson--optional' : 'lesson--mandatory'
+                } ${slides ? 'lesson--slides' : ''}  ${lesson.sequential ? 'lesson--sequential' : ''}`,
                 analytics: {
                     course: {
                         slug: course.slug,

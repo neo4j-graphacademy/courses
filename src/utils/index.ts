@@ -1,7 +1,14 @@
 import path, { basename } from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ASCIIDOC_DIRECTORY, BASE_URL, CDN_URL, COURSE_QUIZ_AVAILABLE_AFTER, GRAPHQL_TOOLBOX_URL, PUBLIC_DIRECTORY } from '../constants'
+import {
+    ASCIIDOC_DIRECTORY,
+    BASE_URL,
+    CDN_URL,
+    COURSE_QUIZ_AVAILABLE_AFTER,
+    GRAPHQL_TOOLBOX_URL,
+    PUBLIC_DIRECTORY,
+} from '../constants'
 import {
     Course,
     CoursesByStatus,
@@ -138,18 +145,22 @@ function getNextLesson(course: Course, completedModules: string[], completedLess
     }
 }
 
-export async function mergeCourseAndEnrolment(course: Course, enrolment: IntermediateEnrolment): Promise<CourseWithProgress> {
+export async function mergeCourseAndEnrolment(
+    course: Course,
+    enrolment: IntermediateEnrolment
+): Promise<CourseWithProgress> {
     const mandatoryLessons = course.modules.reduce((acc, module) => {
-        const mandatory = module.lessons.filter(lesson => !lesson.optional).length
+        const mandatory = module.lessons.filter((lesson) => !lesson.optional).length
 
         return acc + mandatory
     }, 0)
 
     const completedCount = enrolment.completedLessons?.length || 0
-    const completedPercentage = enrolment.percentage || enrolment.completedPercentage || Math.round(completedCount / mandatoryLessons * 100)
+    const completedPercentage =
+        enrolment.percentage || enrolment.completedPercentage || Math.round((completedCount / mandatoryLessons) * 100)
 
     const output: CourseWithProgress = {
-        ...await formatCourse(course),
+        ...(await formatCourse(course)),
         enrolled: !enrolment.isInterested,
         enrolmentId: enrolment.id,
         enrolledAt: enrolment.createdAt,
@@ -158,20 +169,20 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
         completedAt: enrolment.completedAt,
         failed: enrolment.failed,
         failedAt: enrolment.failedAt,
-        availableAfter: enrolment.failedAt ? new Date(enrolment.failedAt?.getTime() + + 60 * 60 * 24 * 1000) : undefined,
+        availableAfter: enrolment.failedAt ? new Date(enrolment.failedAt?.getTime() + +60 * 60 * 24 * 1000) : undefined,
         lastSeenAt: enrolment.lastSeenAt,
         completedCount,
         completedPercentage,
         certificateId: enrolment.certificateId,
         certificateUrl: enrolment.certificateUrl,
         isInterested: enrolment.isInterested,
-        modules: course.modules.map(module => ({
+        modules: course.modules.map((module) => ({
             ...module,
             completed: enrolment.completedModules.includes(module.link),
-            lessons: module.lessons.map(lesson => ({
+            lessons: module.lessons.map((lesson) => ({
                 ...lesson,
                 completed: enrolment.completedLessons.includes(lesson.link),
-            }))
+            })),
         })),
         next: getNextLesson(course, enrolment.completedModules, enrolment.completedLessons),
     }
@@ -181,7 +192,9 @@ export async function mergeCourseAndEnrolment(course: Course, enrolment: Interme
 
 export async function formatCourse<T extends Course>(course: T): Promise<T> {
     const modules = await Promise.all(
-        course.modules ? course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module)) : []
+        course.modules
+            ? course.modules.map((module: Module | ModuleWithProgress) => formatModule(course.slug, module))
+            : []
     )
     const badge = await getBadge(course)
     const illustration = await getIllustration(course)
@@ -194,11 +207,15 @@ export async function formatCourse<T extends Course>(course: T): Promise<T> {
         : course.certificateNumber
 
     const emailDirectory = `${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`
-    const emails = fs.existsSync(emailDirectory) ? fs.readdirSync(`${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`).map(file => basename(file, '.adoc')) : []
+    const emails = fs.existsSync(emailDirectory)
+        ? fs.readdirSync(`${ASCIIDOC_DIRECTORY}/courses/${course.slug}/emails`).map((file) => basename(file, '.adoc'))
+        : []
 
     // If less than 7 days old, they are not allowed to take the quick quiz
     const enrolledAt = course.enrolledAt ? new Date((course.enrolledAt as string).toString()) : undefined
-    const quizAvailable = enrolledAt ? Date.now() - (enrolledAt).getTime() > (1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER) : false
+    const quizAvailable = enrolledAt
+        ? Date.now() - enrolledAt.getTime() > 1000 * 60 * 60 * 24 * COURSE_QUIZ_AVAILABLE_AFTER
+        : false
     const availableAfter = course.availableAfter ? new Date(course.availableAfter) : undefined
 
     return {
@@ -311,7 +328,6 @@ export function flattenAttributes(elements: Record<string, any>, rootKey?: strin
     let output: Record<string, any> = {}
 
     for (const key in elements) {
-
         const outputKey = rootKey ? `${rootKey}_${key}` : key
 
         if (typeof elements[key] === 'object') {
@@ -358,7 +374,7 @@ export function groupCoursesByStatus(courses: CourseWithProgress[]): CoursesBySt
 
     // Return as { [key: CourseStatus] : value }
     const output: CoursesByStatus = Object.fromEntries(
-        statuses.map(status => [status.slug, status])
+        statuses.map((status) => [status.slug, status])
     ) as CoursesByStatus
 
     return output
@@ -410,8 +426,8 @@ export function toCamelCase(input: string): string {
     const parts = input.match(/[A-Z]{2,}(?=[A-Z][a-z]+[0-9]*|\b)|[A-Z]?[a-z]+[0-9]*|[A-Z]|[0-9]+/g) || []
 
     return parts
-        .map(x => x.toLowerCase())
-        .map((x, index) => index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1))
+        .map((x) => x.toLowerCase())
+        .map((x, index) => (index === 0 ? x.toLowerCase() : x.substring(0, 1).toUpperCase() + x.substring(1)))
         .join('')
 }
 
@@ -442,7 +458,12 @@ export function sortCourses(courses: Course[]) {
  */
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function getPageAttributes(req: Request | undefined, course: Course, module?: Module, lesson?: Lesson): Promise<Record<string, any>> {
+export async function getPageAttributes(
+    req: Request | undefined,
+    course: Course,
+    module?: Module,
+    lesson?: Lesson
+): Promise<Record<string, any>> {
     const user = req ? await getUser(req) : undefined
 
     const attributes: Record<string, any> = {
@@ -465,7 +486,8 @@ export async function getPageAttributes(req: Request | undefined, course: Course
         attributes['instance-username'] = instance?.username
         attributes['instance-password'] = instance?.password
         attributes['instance-database'] = instance?.database
-        attributes['connect-url'] = `${encodeURIComponent(instance?.scheme || 'neo4j+s')}://${instance?.username}@${instance?.host}:${instance?.boltPort}`
+        attributes['connect-url'] = `${encodeURIComponent(instance?.scheme || 'neo4j+s')}://${instance?.username}@${instance?.host
+            }:${instance?.boltPort}`
         attributes['graphql-toolbox'] = `${GRAPHQL_TOOLBOX_URL}?connectURL=${attributes['connect-url']}`
     }
 
@@ -521,17 +543,16 @@ export function repositoryBlobUrl(value: string) {
     return `https://github.com/${value}/blob`
 }
 
-
 export enum OptInStatus {
-    ASSUMED = "assumed",
-    SOFT = "soft",
-    REQUIRED = "required"
+    ASSUMED = 'assumed',
+    SOFT = 'soft',
+    REQUIRED = 'required',
 }
 
 type Country = {
-    code: string;
-    name: string;
-    optin: OptInStatus;
+    code: string
+    name: string
+    optin: OptInStatus
 }
 
 let countries: Country[]
@@ -556,7 +577,7 @@ export function getCountries(): Promise<Country[]> {
 export async function getCountry(code: string): Promise<Country | undefined> {
     const countries = await getCountries()
 
-    return countries.find(row => row.code === code)
+    return countries.find((row) => row.code === code)
 }
 
 /**
@@ -577,7 +598,7 @@ export function isTruthy(value: any): boolean {
 }
 
 const formatter = new Intl.RelativeTimeFormat(undefined, {
-    numeric: "auto",
+    numeric: 'auto',
 })
 
 export function canonical(relative: string): string {
@@ -632,7 +653,7 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
         //     description: course.caption,
         //     contentUrl: course.video,
         // } : undefined,
-        prerequisites: course.prerequisites?.map(prerequisite => ({
+        prerequisites: course.prerequisites?.map((prerequisite) => ({
             '@type': 'Course',
             name: prerequisite.title,
             url: prerequisite.link,
@@ -642,28 +663,27 @@ export const courseJsonLd = (course: Course): Record<string, any> => {
                 '@type': 'CourseInstance',
                 courseMode: 'online',
                 courseWorkload: course.duration,
-            }
+            },
         ],
         offers: [
             {
                 '@type': 'Offer',
                 category: 'Free',
                 price: '0',
-                priceCurrency: 'USD'
-            }
+                priceCurrency: 'USD',
+            },
         ],
     }
 }
 
-
-const DIVISIONS: { amount: number, name: Intl.RelativeTimeFormatUnit }[] = [
-    { amount: 60, name: "seconds" },
-    { amount: 60, name: "minutes" },
-    { amount: 24, name: "hours" },
-    { amount: 7, name: "days" },
-    { amount: 4.34524, name: "weeks" },
-    { amount: 12, name: "months" },
-    { amount: Number.POSITIVE_INFINITY, name: "years" },
+const DIVISIONS: { amount: number; name: Intl.RelativeTimeFormatUnit }[] = [
+    { amount: 60, name: 'seconds' },
+    { amount: 60, name: 'minutes' },
+    { amount: 24, name: 'hours' },
+    { amount: 7, name: 'days' },
+    { amount: 4.34524, name: 'weeks' },
+    { amount: 12, name: 'months' },
+    { amount: Number.POSITIVE_INFINITY, name: 'years' },
 ]
 
 export function relativeTime(date: Date) {
@@ -677,4 +697,19 @@ export function relativeTime(date: Date) {
         }
         duration /= division.amount
     }
+}
+
+export function cleanAnswerInput(answer: string): string {
+    // Trim
+    console.log('answer', answer)
+    let trimmed = answer?.trim() || ''
+
+    // Remove quotes
+    if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
+        trimmed = trimmed.substring(1).trim()
+    }
+    if (trimmed.endsWith('"') || trimmed.endsWith("'")) {
+        trimmed = trimmed.substring(0, trimmed.length - 1).trim()
+    }
+    return trimmed.toLowerCase()
 }

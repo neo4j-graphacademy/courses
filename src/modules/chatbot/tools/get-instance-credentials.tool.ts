@@ -1,8 +1,9 @@
-import { z } from "zod";
-import databaseProvider from "../../instances";
-import { RunnableConfig } from "@langchain/core/runnables";
-import { routing } from "neo4j-driver";
-import { tool } from "@langchain/core/tools";
+import { z } from 'zod'
+import databaseProvider from '../../instances'
+import { RunnableConfig } from '@langchain/core/runnables'
+import { routing } from 'neo4j-driver'
+import { tool } from '@langchain/core/tools'
+import { Instance } from '../../../domain/model/instance'
 
 async function getInstanceCredentials(input_: unknown, config?: RunnableConfig) {
     if (!config?.configurable?.enrolment) {
@@ -11,19 +12,18 @@ async function getInstanceCredentials(input_: unknown, config?: RunnableConfig) 
 
     if (!config?.configurable?.instance) {
         return `There is no instance for this user associated with this course.`
-        
     }
 
-    const { ip, port, scheme, username, password, database } = config.configurable.instance   
+    const { ip, boltPort, scheme, username, password, database }: Instance = config.configurable.instance
 
     return JSON.stringify({
         scheme,
         ip,
-        port,
+        port: boltPort,
         username,
         password,
         database,
-    })   
+    })
 }
 
 export const getInstanceCredentialsTool = tool(getInstanceCredentials, {
