@@ -654,20 +654,6 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             throw new Error('Redemption is not available in your region at this time.')
         }
 
-        // const needAdditionalEnrolments = ['LK', 'IN']
-
-        // if (disallow.includes(country.code.toUpperCase())) {
-        //     throw new Error('Redemption is not available in your region at this time.')
-        // }
-        // else if (needAdditionalEnrolments.includes(country.code.toUpperCase())) {
-        // Check for at least one completed enrolment
-        const { enrolments } = await getUserEnrolments(user.sub, 'sub', undefined, false)
-
-        if (!enrolments[STATUS_COMPLETED] || enrolments[STATUS_COMPLETED].length < 4) {
-            throw new Error('Due to detected irregularities in some regions, users are now required to complete at least three course prior to redeeming this reward.');
-        }
-        // }
-
         // Build & Validate Recipient
         const recipient = formatRecipient(
             [body.first_name, body.last_name].join(' '),
