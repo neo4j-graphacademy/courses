@@ -21,6 +21,7 @@ import getCertification from "./services/get-certification";
 import { existsSync } from "fs";
 import path from "path";
 import NotFoundError from "../../errors/not-found.error";
+import express from "express";
 
 const router = Router({
     caseSensitive: true,
@@ -252,5 +253,14 @@ router.get('/:slug/results', requiresAuth(), async (req, res) => {
         updatedAt: results?.updatedAt ? new Date(results.updatedAt) : undefined,
     })
 })
+
+// Serve images statically for each certification
+router.use('/:slug/images', (req, res, next) => {
+    const { slug } = req.params;
+    const imagesPath = path.join(ASCIIDOC_DIRECTORY, 'certifications', slug, 'images');
+    express.static(imagesPath, {
+        fallthrough: true,
+    })(req, res, next);
+});
 
 export default router
