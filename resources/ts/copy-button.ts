@@ -2,6 +2,7 @@ import { copyToClipboard } from './modules/clipboard'
 import { createElement } from './modules/dom'
 
 export function handleCopyClick(e) {
+    e.preventDefault()
     const button = e.target.parentNode as HTMLElement
     const label = button.querySelector('.btn-label') as HTMLElement
 
