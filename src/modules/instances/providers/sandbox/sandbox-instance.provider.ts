@@ -32,16 +32,16 @@ function createFetchOptions(method: string, token: string, body?: any): RequestI
 async function handleFetchResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const error = new Error(`HTTP error: ${response.status}`)
-            ; (error as any).response = {
-                status: response.status,
-                statusText: response.statusText,
-            }
+        ;(error as any).response = {
+            status: response.status,
+            statusText: response.statusText,
+        }
         throw error
     }
 
     const contentType = response.headers.get('content-type')
     if (contentType && contentType.includes('application/json')) {
-        return await response.json() as T
+        return (await response.json()) as T
     } else {
         return (await response.text()) as unknown as T
     }
@@ -72,7 +72,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
 
             return data.map((row: Instance) => ({
                 ...row,
-                scheme: `neo4j${IS_PRODUCTION ? '+s' : ''}`,
+                scheme: 'bolt',
                 username: 'neo4j',
                 host: `${row.sandboxHashKey}.neo4jsandbox.com`,
             })) as Instance[]
@@ -94,7 +94,9 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 throw new Error(`Instance with ID ${id} not found`)
             }
 
-            const url = this.getUrl(`SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey}&verifyConnect=true`)
+            const url = this.getUrl(
+                `SandboxGetInstanceByHashKey?sandboxHashKey=${instance?.hashKey}&verifyConnect=true`
+            )
             const response = await fetch(url, createFetchOptions('GET', token))
             const data = await handleFetchResponse<string>(response)
 
@@ -102,6 +104,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             return {
                 instance: {
                     ...instance,
+                    scheme: 'bolt',
                     ip: data.toString(),
                 } as Instance,
                 status: INSTANCE_STATUS_READY,
@@ -176,7 +179,6 @@ export class SandboxInstanceProvider implements InstanceProvider {
             const url = this.getUrl('SandboxRunInstance')
             const response = await fetch(url, createFetchOptions('POST', token, { usecase, cease_emails: true }))
             const data = await handleFetchResponse<Instance>(response)
-
 
             // Bug in Sandbox API, on creation the password is hashed.
             // Calling the API again will return the unencrypted password
@@ -321,15 +323,13 @@ export class SandboxInstanceProvider implements InstanceProvider {
                 instance.username,
                 instance.password
             )
-        }
-        catch (e: any) {
+        } catch (e: any) {
             console.log(e)
             return
         }
 
         try {
-            const queries = cypher.split(';\n')
-                .filter(e => e.trim() !== '')
+            const queries = cypher.split(';\n').filter((e) => e.trim() !== '')
 
             let result: EagerResult<T> | undefined
 
