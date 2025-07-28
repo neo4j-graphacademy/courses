@@ -32,10 +32,10 @@ function createFetchOptions(method: string, token: string, body?: any): RequestI
 async function handleFetchResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const error = new Error(`HTTP error: ${response.status}`)
-        ;(error as any).response = {
-            status: response.status,
-            statusText: response.statusText,
-        }
+            ; (error as any).response = {
+                status: response.status,
+                statusText: response.statusText,
+            }
         throw error
     }
 
@@ -152,7 +152,7 @@ export class SandboxInstanceProvider implements InstanceProvider {
             const response = await fetch(url, createFetchOptions('POST', token, { sandboxHashKey }))
             await handleFetchResponse(response)
         } catch (e: any) {
-            throw await handleSandboxError(token, user, 'SandboxStopInstance', e)
+            notify(e)
         }
     }
 
