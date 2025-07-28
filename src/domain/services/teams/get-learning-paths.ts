@@ -11,7 +11,7 @@ export default async function getLearningPaths(user: User): Promise<{ teamPaths:
 
         OPTIONAL MATCH (u:User {sub: $sub})
 
-        CALL {
+        CALL (u) {
             MATCH (u)-[:MEMBER_OF]->(t)<-[r:ON_LEARNING_PATH_FOR]-(c)
             WITH t, c ORDER BY r.order ASC 
             WITH t, collect(c.slug) as courses
