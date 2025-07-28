@@ -5,15 +5,15 @@ import Team from "../../model/team";
 import { User } from "../../model/user";
 
 
-enum Outcome {
+export enum JoinTeamOutcome {
   NOT_FOUND,
   INCORRECT_PIN,
   ALREADY_MEMBER,
   JOINED,
 }
 
-export default async function joinTeam(user: User, id: string, pin?: string): Promise<{ team?: Team, error?: string | undefined }> {
-  const { outcome, team }: { outcome: Outcome, team: Team | undefined } = await writeTransaction(async tx => {
+export default async function joinTeam(user: User, id: string, pin?: string): Promise<{ team?: Team, outcome?: JoinTeamOutcome, error?: string }> {
+  const { outcome, team }: { outcome: JoinTeamOutcome, team: Team | undefined } = await writeTransaction(async tx => {
     const res = await tx.run(`
       MATCH (t:Team {id: $id})
       RETURN t { .* } as team
@@ -21,7 +21,7 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
 
     if (res.records.length === 0) {
       return {
-        outcome: Outcome.NOT_FOUND
+        outcome: JoinTeamOutcome.NOT_FOUND
       }
     }
 
@@ -30,7 +30,7 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
     // handle incorrect pin
     if (team && team.pin !== undefined && team.pin !== pin) {
       return {
-        outcome: Outcome.INCORRECT_PIN,
+        outcome: JoinTeamOutcome.INCORRECT_PIN,
       }
     }
 
@@ -43,7 +43,7 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
     if (memberCheck.records.length > 0) {
       return {
         team,
-        outcome: Outcome.ALREADY_MEMBER,
+        outcome: JoinTeamOutcome.ALREADY_MEMBER,
       }
     }
 
@@ -64,24 +64,25 @@ export default async function joinTeam(user: User, id: string, pin?: string): Pr
 
     return {
       team,
-      outcome: Outcome.JOINED
+      outcome: JoinTeamOutcome.JOINED
     }
   })
 
   if (team === undefined) {
     return {
-      error: `Team ${id} could not be found`
+      error: `Team ${id} could not be found`,
+      outcome: JoinTeamOutcome.NOT_FOUND
     }
   }
 
-  else if (outcome === Outcome.INCORRECT_PIN) {
-    return { team, error: `Incorrect PIN for team ${id}` }
+  else if (outcome === JoinTeamOutcome.INCORRECT_PIN) {
+    return { team, error: `Incorrect PIN for team ${id}`, outcome: JoinTeamOutcome.INCORRECT_PIN }
   }
 
   emitter.emit(new UserJoinedTeam(user, team))
 
   return {
     team,
-    error: undefined,
+    outcome: JoinTeamOutcome.JOINED,
   }
 }

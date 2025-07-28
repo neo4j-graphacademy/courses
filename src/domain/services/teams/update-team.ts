@@ -1,9 +1,7 @@
-import { write, writeTransaction } from '../../../modules/neo4j';
+import { writeTransaction } from '../../../modules/neo4j';
 import NotFoundError from '../../../errors/not-found.error';
-import UnauthorizedError from '../../../errors/unauthorized.error';
 import { TeamWithMembership } from '../../model/team';
 import { User } from '../../model/user';
-import getUserMembership from './get-user-membership';
 import { MembershipRole } from '../../model/team';
 
 interface TeamUpdateInput {
@@ -37,6 +35,7 @@ export default async function updateTeam(
                 t.updatedAt = datetime()
             RETURN t {
               .*,
+              link: '/teams/' + t.id + '/',
               isAdmin: true,
               isMember: true,
               role: r.role

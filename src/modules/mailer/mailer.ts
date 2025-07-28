@@ -53,6 +53,7 @@ export type AsciidocEmailFilename =
     | 'user-failed-exam'
     | 'user-created-team'
     | 'user-joined-team'
+    | 'user-invited-to-team'
 
 interface PreparedEmail {
     subject: string
@@ -92,9 +93,7 @@ export async function prepareAndSend(
     tag?: string,
     attachments?: AttachmentJSON[]
 ): Promise<void> {
-    const { MAILGUN_API_KEY, MAILGUN_DOMAIN } = process.env
-
-    if (MAILGUN_DOMAIN && MAILGUN_API_KEY) {
+    if (SENDGRID_API_KEY) {
         const { subject, html } = prepareEmail(filename, data, directory)
 
         await send(email, decode(subject), html, tag, attachments)

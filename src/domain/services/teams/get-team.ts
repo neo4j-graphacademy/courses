@@ -22,6 +22,7 @@ export async function getTeamWork(tx: ManagedTransaction, id: string, user: User
       WITH t, c, r ORDER BY r.order ASC
       RETURN t { 
           .*,
+          link: '/teams/' + t.id + '/',
           memberCount: COUNT { (t)<-[:MEMBER_OF]-() }
         } AS team, 
         collect(${courseCypher()}) AS courses
@@ -42,7 +43,6 @@ export async function getTeamWork(tx: ManagedTransaction, id: string, user: User
   const membership = user ? await getUserMembership(tx, user.sub, id) : undefined
 
   if (user && courses) {
-
     // Check enrolments on learning path
     const enrolments = await getEnrolments(tx, user, 'sub')
 

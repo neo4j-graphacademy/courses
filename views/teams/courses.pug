@@ -3,28 +3,57 @@ extends ../layouts/default
 block main
   include partials/header
 
-  .course-description.course-container
+  .course-description.teams-container.secondary
     .container
       .major
-        include partials/tabs
-        
         form(method='POST' action=`/teams/${team.id}/courses`).form.form-team-courses
-          if allCourses && allCourses.length
-            each course in allCourses
-              if course.status == statuses.STATUS_ACTIVE
-                .course-row.form-group
-                  a.course(href=course.link)
-                    img(src=`${course.link}illustration` alt=course.title)
-                    .course-information
-                      div.course-title !{course.title}
-                      div.course-caption.body-small !{course.caption}
+          .course-container-split
+            .course-container-current
+              h2 Current Learning Path
+              .course-list#currentCourses
+                if courses && courses.length
+                  each course in courses
+                    .course-row(draggable="true" data-course-slug=course.slug id=`course-${course.slug}`)
+                      .course-drag-handle
+                        != svg.iconDragHandle
+                      a.course(href=course.link target='_blank')
+                        img(src=`${course.link}illustration` alt=course.title)
+                        .course-information
+                          div.course-title !{course.title}
+                          div.course-caption.body-small !{course.caption}
+                      button.course-remove(type="button" aria-label="Remove course") Remove
 
-                  .course-selection
-                    select(name=`courses[${course.slug}]`)
-                      option(value='') 
-                      - for (let i = 1; i <= allCourses.length; i++)
-                        option(value=i selected=orders[course.slug] === i) !{i}
+            .course-container-available
+              h2 Available Courses
+              .course-list#availableCourses
+                if allCourses && allCourses.length
+                  each course in allCourses
+                    if course.status == statuses.STATUS_ACTIVE && !orders[course.slug]
+                      .course-row(draggable="true" data-course-slug=course.slug id=`course-${course.slug}`)
+                        .course-drag-handle
+                          != svg.iconDragHandle
+                        a.course(href=course.link target='_blank')
+                          img(src=`${course.link}illustration` alt=course.title)
+                          .course-information
+                            div.course-title !{course.title}
+                            div.course-caption.body-small !{course.caption}
+                        button.course-add(type="button" aria-label="Add course") Add
 
-              
+          input(type="hidden" name="courses" id="courseOrder")
+
           .form-buttons.form-buttons--bottom
+
+            .form-group
+              select#pathSelect.form-select
+                option(value='') Choose from an existing learning path...
+                if categoryPaths.length > 0
+                  optgroup(label='Neo4j Learning Paths')
+                    each path in categoryPaths
+                      option(value=`${path.courses}`) #{path.name}
+
+                if teamPaths.length > 0
+                  optgroup(label='Your Team Learning Paths')
+                    each team in teamPaths
+                      option(value=`${team.courses}`) #{team.name}
+
             button.btn.btn--primary(type='submit') Save Course Preferences
