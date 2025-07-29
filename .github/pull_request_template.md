@@ -1,12 +1,14 @@
-## PR Type
+## Choose a Pull Request Template
 
-Please select the type of PR and use the appropriate template:
+Please choose the appropriate template for your PR:
 
-- [ ] **Course Draft** - Use [course-draft-template.md](.github/PULL_REQUEST_TEMPLATE/course-draft-template.md)
-- [ ] **Course Release** - Use [course-release-template.md](.github/PULL_REQUEST_TEMPLATE/course-release-template.md)
-- [ ] **Course Update** - General updates to existing courses
-- [ ] **Bug Fix** - Fixing issues in existing content
-- [ ] **Documentation** - Updates to documentation
+- [Course Draft Template](?template=pull_request_template_course_draft.md)
+- [Course Release Template](?template=pull_request_template_course_release.md)
+- [General Update Template] (continue with this template)
+
+---
+
+## General Update PR
 
 ## Description
 
@@ -19,4 +21,4 @@ Brief description of changes made.
 ## Testing
 
 - [ ] Tested locally
-- [ ] All existing tests pass 
+- [ ] All existing tests pass
