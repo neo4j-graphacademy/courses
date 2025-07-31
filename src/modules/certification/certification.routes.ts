@@ -144,8 +144,7 @@ router.get('/:slug/introduction', requiresAuth(), async (req, res, next) => {
         // If introduction doesn't exist, take them straight to the exam
         const introPath = path.join('certifications', slug, 'introduction.adoc');
         if (!existsSync(path.join(ASCIIDOC_DIRECTORY, introPath))) {
-            return res.send('no intro ' + introPath)
-            // return res.redirect(`/certifications/${slug}/enrol/`)
+            return res.redirect(`/certifications/${slug}/enrol/`)
         }
         const file = loadFile(introPath);
         const doc = convert(file);
