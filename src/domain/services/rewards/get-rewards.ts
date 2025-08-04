@@ -5,6 +5,7 @@ export const STATUS_AVAILABLE = 'available'
 export const STATUS_CLAIMED = 'claimed'
 export const STATUS_PENDING = 'pending'
 export const STATUS_SUSPICIOUS = 'suspicious'
+export const STATUS_UNAVAILABLE = 'unavailable'
 
 export interface Reward {
     id: string;
@@ -15,7 +16,7 @@ export interface Reward {
     title: string;
     description: string;
     image: string;
-    status: typeof STATUS_AVAILABLE | typeof STATUS_CLAIMED | typeof STATUS_PENDING | typeof STATUS_SUSPICIOUS;
+    status: typeof STATUS_AVAILABLE | typeof STATUS_CLAIMED | typeof STATUS_PENDING | typeof STATUS_SUSPICIOUS | typeof STATUS_UNAVAILABLE;
     trackingUrl?: string;
     redeemedAt: Date;
     productId: string;
@@ -46,9 +47,10 @@ export default async function getRewards(user: User): Promise<Reward[]> {
             description: 'Claim your free t-shirt for completing the '+ c.title +' '+ CASE WHEN c:Certification THEN 'Certification' ELSE 'Course' END  +'.',
             status: CASE
                 WHEN e.rewardOrderId IS NOT NULL THEN 'claimed'
-                WHEN e:CompletedEnrolment AND (size(completedCoursesInPast) > 2 OR e.rewardOverride = true) THEN 'available'
+                // WHEN e:CompletedEnrolment AND (size(completedCoursesInPast) > 2 OR e.rewardOverride = true) THEN 'available'
+                WHEN e:CompletedEnrolment AND e.rewardOverride = true THEN 'available'
                 WHEN e:CompletedEnrolment AND size(completedCoursesInPast) <= 2 AND coalesce(e.rewardOverride, false) = false THEN 'suspicious'
-            ELSE 'pending' END,
+            ELSE 'unavailable' END,
             productId: c.rewardProductId,
             redeemedAt: e.rewardOrderCreatedAt,
             trackingUrl: e.rewardOrderTrackingUrl,
