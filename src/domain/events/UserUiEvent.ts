@@ -1,4 +1,4 @@
-import { User } from "../model/user";
+import { User } from '../model/user'
 
 export const UI_EVENT_SANDBOX_TOGGLE = 'sandbox-toggle'
 export const UI_EVENT_SUPPORT_TOGGLE = 'support-toggle'
@@ -13,8 +13,13 @@ export const UI_EVENT_SHOW_VIDEO = 'show-video'
 export const UI_EVENT_SHOW_SIDEBAR = 'show-sidebar'
 export const UI_EVENT_HIDE_SIDEBAR = 'hide-sidebar'
 export const UI_EVENT_SHARED_CERTIFICATE = 'shared-certificate'
+export const UI_EVENT_CONTENT_COPIED = 'content-copied'
+export const UI_EVENT_CONTENT_PASTED = 'content-pasted'
+export const UI_EVENT_WINDOW_BLUR = 'window-blur'
+export const UI_EVENT_WINDOW_FOCUS = 'window-focus'
 
-export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
+export type UiEventType =
+    | typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_CHATBOT_TOGGLE
     | typeof UI_EVENT_SUPPORT_TOGGLE
     | typeof UI_EVENT_SHOW_HINT
@@ -27,6 +32,10 @@ export type UiEventType = typeof UI_EVENT_SANDBOX_TOGGLE
     | typeof UI_EVENT_SHOW_SIDEBAR
     | typeof UI_EVENT_HIDE_SIDEBAR
     | typeof UI_EVENT_SHARED_CERTIFICATE
+    | typeof UI_EVENT_CONTENT_COPIED
+    | typeof UI_EVENT_CONTENT_PASTED
+    | typeof UI_EVENT_WINDOW_BLUR
+    | typeof UI_EVENT_WINDOW_FOCUS
 
 export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_SANDBOX_TOGGLE,
@@ -42,6 +51,10 @@ export const UI_EVENTS: UiEventType[] = [
     UI_EVENT_HIDE_SIDEBAR,
     UI_EVENT_SHOW_SIDEBAR,
     UI_EVENT_SHARED_CERTIFICATE,
+    UI_EVENT_CONTENT_COPIED,
+    UI_EVENT_CONTENT_PASTED,
+    UI_EVENT_WINDOW_BLUR,
+    UI_EVENT_WINDOW_FOCUS,
 ]
 
 export class UserUiEvent {
@@ -49,5 +62,5 @@ export class UserUiEvent {
         public readonly user: User,
         public readonly type: UiEventType,
         public readonly meta: Record<string, any>
-    ) { }
+    ) {}
 }

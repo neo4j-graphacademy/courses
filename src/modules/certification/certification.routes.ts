@@ -75,8 +75,9 @@ router.get(`/:slug`, forceTrailingSlash, async (req, res, next) => {
         const doc = await convertCertificationOverview(course.slug)
 
         res.render('certification/overview', {
-            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${status.passed ? 'course--completed' : ''
-                }`,
+            classes: `course ${course.certification ? 'certification' : ''} ${course.slug} ${
+                status.passed ? 'course--completed' : ''
+            }`,
 
             // For analytics.pug
             analytics: {
@@ -131,7 +132,6 @@ router.get('/:slug/illustration', (req, res) => {
     }
 })
 
-
 /**
  * @GET /:slug/introduction
  *
@@ -139,15 +139,15 @@ router.get('/:slug/illustration', (req, res) => {
  */
 router.get('/:slug/introduction', requiresAuth(), async (req, res, next) => {
     try {
-        const { slug } = req.params;
+        const { slug } = req.params
 
         // If introduction doesn't exist, take them straight to the exam
-        const introPath = path.join('certifications', slug, 'introduction.adoc');
+        const introPath = path.join('certifications', slug, 'introduction.adoc')
         if (!existsSync(path.join(ASCIIDOC_DIRECTORY, introPath))) {
             return res.redirect(`/certifications/${slug}/enrol/`)
         }
-        const file = loadFile(introPath);
-        const doc = convert(file);
+        const file = loadFile(introPath)
+        const doc = convert(file)
 
         res.render('certification/introduction', {
             classes: 'exam--introduction',
@@ -156,11 +156,11 @@ router.get('/:slug/introduction', requiresAuth(), async (req, res, next) => {
             doc,
             showSandbox: true,
             sandboxUrl: '../browser/',
-        });
+        })
     } catch (e) {
-        next(e);
+        next(e)
     }
-});
+})
 
 // router.post('/:slug/enrol', (req, res) => {
 router.get('/:slug/enrol', requiresAuth(), async (req, res) => {
@@ -222,6 +222,18 @@ const displayQuestion = async (req, res, user: User, status: CertificationStatus
                 html,
             },
             title: title,
+            // For analytics.pug
+            analytics: {
+                course: {
+                    slug,
+                },
+                lesson: {
+                    slug: status.question?.id,
+                },
+                user: {
+                    id: user?.id,
+                },
+            },
         })
     }
     // If there isn't an active certification attempt, return to home page
@@ -274,7 +286,7 @@ router.post('/:slug/exam', requiresAuth(), async (req, res, next) => {
             answers = [answer]
         }
 
-        answers = answers.filter(e => !!e).map((answer) => cleanAnswerInput(answer))
+        answers = answers.filter((e) => !!e).map((answer) => cleanAnswerInput(answer))
 
         // Save the question answer
         const output = await saveAnswer(slug, user, id, answers)
@@ -298,17 +310,24 @@ router.get('/:slug/results', requiresAuth(), async (req, res) => {
     res.render('certification/results', {
         ...results,
         updatedAt: results?.updatedAt ? new Date(results.updatedAt) : undefined,
+        analytics: {
+            course: {
+                slug,
+            },
+            user: {
+                id: user?.id,
+            },
+        },
     })
 })
 
-
 // Serve images statically for each certification
 router.use('/:slug/images', (req, res, next) => {
-    const { slug } = req.params;
-    const imagesPath = path.join(ASCIIDOC_DIRECTORY, 'certifications', slug, 'images');
+    const { slug } = req.params
+    const imagesPath = path.join(ASCIIDOC_DIRECTORY, 'certifications', slug, 'images')
     express.static(imagesPath, {
         fallthrough: true,
-    })(req, res, next);
-});
+    })(req, res, next)
+})
 
 export default router

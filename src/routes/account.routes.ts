@@ -2,8 +2,27 @@ import { Request, Response, NextFunction, Router } from 'express'
 import { requiresAuth } from 'express-openid-connect'
 import { PRINTFUL_STORE_ID } from '../constants'
 import { UserExecutedQuery } from '../domain/events/UserExecutedQuery'
-import { UiEventType, UI_EVENTS, UserUiEvent, UI_EVENT_HIDE_SIDEBAR, UI_EVENT_SHOW_SIDEBAR, UI_EVENT_SHOW_TRANSCRIPT, UI_EVENT_SHOW_VIDEO } from '../domain/events/UserUiEvent'
-import { EnrolmentsByStatus, EnrolmentStatus, STATUS_COMPLETED, STATUS_ENROLLED, STATUS_BOOKMARKED, STATUS_RECENTLY_COMPLETED } from '../domain/model/enrolment'
+import {
+    UiEventType,
+    UI_EVENTS,
+    UserUiEvent,
+    UI_EVENT_HIDE_SIDEBAR,
+    UI_EVENT_SHOW_SIDEBAR,
+    UI_EVENT_SHOW_TRANSCRIPT,
+    UI_EVENT_SHOW_VIDEO,
+    UI_EVENT_CONTENT_COPIED,
+    UI_EVENT_CONTENT_PASTED,
+    UI_EVENT_WINDOW_BLUR,
+    UI_EVENT_WINDOW_FOCUS,
+} from '../domain/events/UserUiEvent'
+import {
+    EnrolmentsByStatus,
+    EnrolmentStatus,
+    STATUS_COMPLETED,
+    STATUS_ENROLLED,
+    STATUS_BOOKMARKED,
+    STATUS_RECENTLY_COMPLETED,
+} from '../domain/model/enrolment'
 import { Pagination } from '../domain/model/pagination'
 import { User } from '../domain/model/user'
 import { deleteUser } from '../domain/services/delete-user'
@@ -29,6 +48,8 @@ import { Module } from '../domain/model/module'
 import { Category } from '../domain/model/category'
 import { getDashboardData } from '../domain/services/get-dashboard-data'
 import { getIllustration } from '../utils'
+import { ANALYTICS_EVENT_USER_ANSWERED_QUESTION, trackEvent } from '../modules/analytics/analytics.module'
+import logCertificationEvent from '../modules/certification/services/log-certification-event'
 
 const router = Router()
 
@@ -58,7 +79,7 @@ router.use((req, res, next) => {
  */
 router.get('/', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const dashboardData = await getDashboardData(user)
 
         if (dashboardData.enrolments.length === 0) {
@@ -68,27 +89,23 @@ router.get('/', requiresAuth(), async (req, res, next) => {
         // Get illustrations for all courses
         const illustrations: Record<string, string> = Object.fromEntries(
             await Promise.all(
-                dashboardData.enrolments.map(
-                    async e => {
-                        const illustration = await getIllustration(e)
-                        return [e.slug, illustration]
-                    }
-                )
+                dashboardData.enrolments.map(async (e) => {
+                    const illustration = await getIllustration(e)
+                    return [e.slug, illustration]
+                })
             )
         )
 
         const rewards = await getRewards(user)
-
 
         res.render('account/dashboard', {
             title: 'Welcome back!',
             classes: 'account',
             ...dashboardData,
             rewards,
-            illustrations
+            illustrations,
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -112,8 +129,7 @@ const accountForm = async (req, res, next, vars = {}) => {
             buttonText: req.originalUrl.includes('complete') ? 'Complete Account' : 'Save Changed',
             optin: req.originalUrl.includes('complete'),
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 }
@@ -122,7 +138,7 @@ const processAccountForm = async (req, res, next) => {
     try {
         const token = await getToken(req)
         const team = getTeam(req)
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
 
         const { nickname, givenName, position, company, country, unsubscribe, bio, linkedin, twitter } = req.body
 
@@ -161,12 +177,10 @@ const processAccountForm = async (req, res, next) => {
             if (countryInformation?.optin === 'soft') {
                 // Soft opt-in, opt in unless they tick the box
                 data.optin = req.body.soft === undefined
-            }
-            else if (countryInformation?.optin === 'required') {
+            } else if (countryInformation?.optin === 'required') {
                 // Required opt-in, opt in if they tick the box
                 data.optin = req.body.required !== undefined
-            }
-            else if (countryInformation?.optin === 'assumed') {
+            } else if (countryInformation?.optin === 'assumed') {
                 // assumed opt-in, regardless
                 data.optin = true
             }
@@ -180,8 +194,7 @@ const processAccountForm = async (req, res, next) => {
             req.flash('success', 'Your personal information has been updated')
 
             res.redirect(req.body.returnTo || '/account/settings/')
-        }
-        else {
+        } else {
             // Set error message and display form
             res.locals.error = 'Please try again'
 
@@ -192,9 +205,7 @@ const processAccountForm = async (req, res, next) => {
                 input: req.body,
             })
         }
-
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 }
@@ -225,15 +236,14 @@ router.get('/skip', requiresAuth(), async (req, res, next) => {
     try {
         const token = await getToken(req)
         const team = getTeam(req)
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
 
         await updateUser(AccountUpdateMethod.COMPLETE, token, user, {} as UserUpdates, team)
 
         req.flash('success', 'Your personal information has been updated')
 
         res.redirect((req.query.returnTo || '/account/') as string)
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -251,7 +261,7 @@ router.post('/complete/', requiresAuth(), async (req, res, next) => processAccou
  */
 router.get('/verify', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         await requestEmailVerification(user)
 
         res.render('simple', {
@@ -263,12 +273,11 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
             content: `<p>We have sent you a new verification email.  If you don't receive it shortly, please check your junk or spam folder before requesting a new verification email.</p>`,
             action: {
                 link: '/account/verify/',
-                text: 'Resend Verification Email'
+                text: 'Resend Verification Email',
             },
             classes: 'account',
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -276,7 +285,7 @@ router.get('/verify', requiresAuth(), async (req, res, next) => {
 router.post('/profile', async (req, res) => {
     const hide = req.body.hide === 'true'
 
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
 
     await setUserProfileVisibility(user.sub, hide)
 
@@ -292,15 +301,14 @@ router.post('/profile', async (req, res) => {
  */
 router.post('/delete', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
 
         await deleteUser(user)
 
         // await res.oidc.logout({ returnTo: '/account/deleted/' })
 
         res.redirect('https://preferences.neo4j.com/privacy')
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -331,41 +339,44 @@ router.post('/delete', requiresAuth(), async (req, res, next) => {
  */
 const courseHandler = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
 
         const status: EnrolmentStatus = (req.params.status || STATUS_ENROLLED) as EnrolmentStatus
 
         const links: Pagination[] = [
             { title: 'In Progress', link: `/account/courses/`, current: status === STATUS_ENROLLED },
             { title: 'Completed', link: `/account/courses/${STATUS_COMPLETED}`, current: status === STATUS_COMPLETED },
-            { title: 'Favorites', link: `/account/courses/${STATUS_BOOKMARKED}`, current: status === STATUS_BOOKMARKED },
+            {
+                title: 'Favorites',
+                link: `/account/courses/${STATUS_BOOKMARKED}`,
+                current: status === STATUS_BOOKMARKED,
+            },
         ]
 
         let result: EnrolmentsByStatus
         try {
             result = await getUserEnrolments(user.sub, 'sub', undefined, false)
-        }
-        catch (e: any) {
-            notify(e, event => {
+        } catch (e: any) {
+            notify(e, (event) => {
                 event.setUser(user?.sub, user?.email, user?.name)
             })
 
             result = { enrolments: {} } as EnrolmentsByStatus
         }
 
-        const courses = (result.enrolments[status] || [])
+        const courses = result.enrolments[status] || []
 
         let title = 'My Courses'
         switch (status) {
             case STATUS_ENROLLED:
                 title = 'My Enrolled Courses'
-                break;
+                break
             case STATUS_BOOKMARKED:
                 title = 'My Bookmarked Courses'
-                break;
+                break
             case STATUS_COMPLETED:
                 title = 'Completed Courses'
-                break;
+                break
         }
 
         res.locals.breadcrumbs.push({
@@ -385,8 +396,7 @@ const courseHandler = async (req: Request, res: Response, next: NextFunction) =>
             links,
             courses,
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 }
@@ -408,23 +418,17 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
     }
 
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const meta = req.body
 
-        emitter.emit(
-            new UserUiEvent(
-                user,
-                type,
-                meta
-            )
-        )
+        emitter.emit(new UserUiEvent(user, type, meta))
 
         // Show or hide the sidebar
         if (type === UI_EVENT_HIDE_SIDEBAR || type === UI_EVENT_SHOW_SIDEBAR) {
             req.session['classroomHideSidebar'] = type === UI_EVENT_HIDE_SIDEBAR
 
             await updateUser(AccountUpdateMethod.UPDATE, '', user, {
-                sidebarHidden: type === UI_EVENT_HIDE_SIDEBAR
+                sidebarHidden: type === UI_EVENT_HIDE_SIDEBAR,
             })
         }
 
@@ -433,13 +437,24 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
             req.session['prefersTranscript'] = type === UI_EVENT_SHOW_TRANSCRIPT
 
             await updateUser(AccountUpdateMethod.UPDATE, '', user, {
-                prefersTranscript: type === UI_EVENT_SHOW_TRANSCRIPT
+                prefersTranscript: type === UI_EVENT_SHOW_TRANSCRIPT,
             })
         }
 
+        // Copy and pastes
+        const exam_events = [
+            UI_EVENT_CONTENT_COPIED,
+            UI_EVENT_CONTENT_PASTED,
+            UI_EVENT_WINDOW_BLUR,
+            UI_EVENT_WINDOW_FOCUS,
+        ]
+
+        if (exam_events.includes(type) && meta.courseSlug && meta.lessonSlug) {
+            await logCertificationEvent(user, type, meta)
+        }
+
         res.status(201).send({ status: 'created' })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -452,19 +467,13 @@ router.post('/event/:type', requiresAuth(), async (req, res, next) => {
  */
 router.post('/cypher', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const { meta } = req.body
 
-        emitter.emit(
-            new UserExecutedQuery(
-                user,
-                meta,
-            )
-        )
+        emitter.emit(new UserExecutedQuery(user, meta))
 
         res.status(201).send({ status: 'created' })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -476,7 +485,7 @@ router.post('/cypher', requiresAuth(), async (req, res, next) => {
  */
 router.get('/rewards', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
         const rewards = await getRewards(user)
 
         res.locals.breadcrumbs.push({
@@ -489,8 +498,7 @@ router.get('/rewards', requiresAuth(), async (req, res, next) => {
             rewards,
             classes: 'account',
         })
-    }
-    catch (e) {
+    } catch (e) {
         next(e)
     }
 })
@@ -502,17 +510,15 @@ const redeemForm = async (req, res, next) => {
             throw new NotFoundError('Store not found')
         }
 
-        user = await getUser(req) as User
+        user = (await getUser(req)) as User
         const rewards = await getRewards(user)
-        reward = rewards.find(reward => reward.slug === req.params.slug)
+        reward = rewards.find((reward) => reward.slug === req.params.slug)
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
-        }
-        else if (reward.status === STATUS_CLAIMED) {
+        } else if (reward.status === STATUS_CLAIMED) {
             throw new NotFoundError('You have already redeemed this reward.')
-        }
-        else if (reward.status === STATUS_SUSPICIOUS) {
+        } else if (reward.status === STATUS_SUSPICIOUS) {
             throw new NotFoundError('You are not eligible to redeem this reward.')
         }
 
@@ -521,38 +527,39 @@ const redeemForm = async (req, res, next) => {
         let products
 
         try {
-            products = await Promise.all(productIds.map(async (id: string) => {
-                const product: any = await getProduct(PRINTFUL_STORE_ID as string, id)
-                const variants = product.sync_variants.reduce((acc: any[], value) => {
-                    const name = value.name.split('/', 1)[0]
+            products = await Promise.all(
+                productIds.map(async (id: string) => {
+                    const product: any = await getProduct(PRINTFUL_STORE_ID as string, id)
+                    const variants = product.sync_variants.reduce((acc: any[], value) => {
+                        const name = value.name.split('/', 1)[0]
 
-                    let index = acc.findIndex((row) => row.name === name)
+                        let index = acc.findIndex((row) => row.name === name)
 
-                    if (index === -1) {
-                        acc.push({
-                            name,
-                            variants: []
-                        })
+                        if (index === -1) {
+                            acc.push({
+                                name,
+                                variants: [],
+                            })
 
-                        index = acc.findIndex((row) => row.name === name)
+                            index = acc.findIndex((row) => row.name === name)
+                        }
+
+                        value.preview = value.files.find((file) => file.type === 'preview')?.preview_url
+
+                        acc[index].variants.push(value)
+
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                        return acc as any
+                    }, [])
+
+                    return {
+                        product,
+                        variants,
                     }
-
-                    value.preview = value.files.find(file => file.type === 'preview')?.preview_url
-
-                    acc[index].variants.push(value)
-
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                    return acc as any
-                }, [])
-
-                return {
-                    product,
-                    variants
-                }
-            }))
-        }
-        catch (e: any) {
-            notify(e, err => {
+                })
+            )
+        } catch (e: any) {
+            notify(e, (err) => {
                 err.setUser(user.id, user.email, user.name)
                 err.addMetadata('reward', reward)
                 err.addMetadata('printful', {
@@ -598,9 +605,8 @@ const redeemForm = async (req, res, next) => {
             errorMessage: req.errorMessage,
             errors: req.errors || {},
         })
-    }
-    catch (e: any) {
-        notify(e, event => {
+    } catch (e: any) {
+        notify(e, (event) => {
             event.setUser(user?.id, user.email, user.name)
             event.addMetadata('reward', reward || {})
             event.addMetadata('order', {
@@ -618,13 +624,13 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         next(new NotFoundError('Store not found'))
     }
 
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
     let reward: Reward | undefined
 
     // Format request body
     const { body } = req
 
-    Object.keys(body).map(key => {
+    Object.keys(body).map((key) => {
         if (body[key] === '') {
             delete body[key]
         }
@@ -632,15 +638,13 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
 
     try {
         const rewards = await getRewards(user)
-        reward = rewards.find(reward => reward.slug === req.params.slug)
+        reward = rewards.find((reward) => reward.slug === req.params.slug)
 
         if (!reward) {
             throw new NotFoundError('Reward Not Found')
-        }
-        else if (reward.status === STATUS_CLAIMED) {
+        } else if (reward.status === STATUS_CLAIMED) {
             throw new NotFoundError('You have already redeemed this reward.')
-        }
-        else if (reward.status === STATUS_SUSPICIOUS) {
+        } else if (reward.status === STATUS_SUSPICIOUS) {
             throw new NotFoundError('You are not eligible to redeem this reward.')
         }
 
@@ -678,16 +682,15 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
         req.flash('success', `Your order has been placed.  You should receive a confirmation email shortly.`)
 
         res.redirect('/account/rewards')
-    }
-    catch (e: any) {
-        notify(e, event => {
+    } catch (e: any) {
+        notify(e, (event) => {
             event.setUser(user.id, user.email, user.name)
             event.addMetadata('request', e.request)
             event.addMetadata('response', e.response)
             event.addMetadata('reward', reward || {})
             event.addMetadata('order', {
                 store: PRINTFUL_STORE_ID,
-                variant_id: body.variant_id
+                variant_id: body.variant_id,
             })
         })
 
@@ -695,8 +698,7 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             req.errors = e.response?.data?.errors
-        }
-        else if (e.errors) {
+        } else if (e.errors) {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
             req.errors = e.errors
@@ -717,7 +719,7 @@ router.post('/rewards/:slug', requiresAuth(), async (req, res, next) => {
  * List all teams for the user
  */
 const renderTeamsPage = async (req, res, tab = 'join', error?: string, errors = {}) => {
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
     const teams = await getUserTeams(user)
 
     res.render('account/teams', {
@@ -727,7 +729,7 @@ const renderTeamsPage = async (req, res, tab = 'join', error?: string, errors = 
         tab,
         errors,
         body: req.body || {},
-        messages: error ? [[error]] : []
+        messages: error ? [[error]] : [],
     })
 }
 
@@ -744,22 +746,21 @@ router.get('/teams', requiresAuth(), async (req, res) => {
  */
 router.post('/teams/', requiresAuth(), async (req, res, next) => {
     try {
-        const user = await getUser(req) as User
+        const user = (await getUser(req)) as User
 
-        const { name, description, isPublic, open, } = req.body;
+        const { name, description, isPublic, open } = req.body
 
         const { errors, team } = await createTeam(user, name, description, isPublic === 'true', open === 'true')
 
         if (team !== undefined) {
             req.flash('success', 'Your team has been created')
 
-            return res.redirect(`/teams/${team.id}/`);
+            return res.redirect(`/teams/${team.id}/`)
         }
 
         return renderTeamsPage(req, res, 'create', 'Unable to create team', errors)
-    }
-    catch (e) {
-        next(e);
+    } catch (e) {
+        next(e)
     }
 })
 
@@ -771,7 +772,7 @@ router.post('/teams/', requiresAuth(), async (req, res, next) => {
  * {"id": "neo4j-devrel", "pin": "1234"}
  */
 router.post('/teams/join/', requiresAuth(), async (req, res) => {
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
     const { id, pin } = req.body
 
     if (typeof id === 'string' && typeof pin === 'string') {
@@ -779,8 +780,7 @@ router.post('/teams/join/', requiresAuth(), async (req, res) => {
 
         if (error) {
             req.flash('danger', error)
-        }
-        else if (team) {
+        } else if (team) {
             req.flash('success', `You are now a member of ${team.name}!`)
         }
     }
@@ -794,7 +794,7 @@ router.post('/teams/join/', requiresAuth(), async (req, res) => {
  * Leave a group
  */
 router.post('/teams/:id/leave', requiresAuth(), async (req, res) => {
-    const user = await getUser(req) as User
+    const user = (await getUser(req)) as User
     const team = await leaveTeam(user, req.params.id)
 
     if (team !== undefined) {

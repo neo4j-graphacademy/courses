@@ -32,6 +32,11 @@ export const ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT = 'GA_USER_COMPLETED_ACCOUNT
 export const ANALYTICS_EVENT_USER_RESET_DATABASE = 'GA_USER_RESET_DATABASE'
 export const ANALYTICS_EVENT_USER_ORDERED_REWARD = 'GA_USER_ORDERED_REWARD'
 export const ANALYTICS_EVENT_USER_SHARED_CERTIFICATE = 'GA_USER_SHARED_CERTIFICATE'
+export const ANALYTICS_EVENT_USER_ANSWERED_QUESTION = 'GA_USER_ANSWERED_QUESTION'
+export const ANALYTICS_EVENT_CONTENT_COPIED = 'GA_CONTENT_COPIED'
+export const ANALYTICS_EVENT_CONTENT_PASTED = 'GA_CONTENT_PASTED'
+export const ANALYTICS_EVENT_WINDOW_BLUR = 'GA_WINDOW_BLUR'
+export const ANALYTICS_EVENT_WINDOW_FOCUS = 'GA_WINDOW_FOCUS'
 
 export function initAnalytics() {
     const key = analyticsApiKey()
@@ -44,8 +49,7 @@ export function initAnalytics() {
         analytics.track({ event: ANALYTICS_EVENT_STARTED, anonymousId: 'server' })
 
         return analytics
-    }
-    else {
+    } else {
         return {
             track: console.log,
         }
@@ -54,15 +58,13 @@ export function initAnalytics() {
 
 export function trackEvent(event: string, userId: string, properties: Record<string, any> = {}) {
     if (analytics) {
-        return analytics.track(
-            { event, userId, properties },
-            err => {
-                if (err) {
-                    notify(err, e => {
-                        e.addMetadata('event', { event, properties })
-                    })
-                }
-            })
+        return analytics.track({ event, userId, properties }, (err) => {
+            if (err) {
+                notify(err, (e) => {
+                    e.addMetadata('event', { event, properties })
+                })
+            }
+        })
     }
 }
 
@@ -73,7 +75,7 @@ export function trackPageview(user: User, req: Request) {
             properties: {
                 url: `${BASE_URL}${req.originalUrl}`,
                 referrer: req.get('Referrer'),
-            }
+            },
         })
     }
 }

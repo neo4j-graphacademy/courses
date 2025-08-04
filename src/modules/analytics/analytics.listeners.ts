@@ -17,6 +17,10 @@ import {
     UI_EVENT_VIDEO_ENDED,
     UI_EVENT_VIDEO_PAUSED,
     UI_EVENT_VIDEO_PLAYING,
+    UI_EVENT_CONTENT_COPIED,
+    UI_EVENT_CONTENT_PASTED,
+    UI_EVENT_WINDOW_BLUR,
+    UI_EVENT_WINDOW_FOCUS,
     UserUiEvent,
 } from '../../domain/events/UserUiEvent'
 import { UserUnenrolled } from '../../domain/events/UserUnenrolled'
@@ -51,6 +55,10 @@ import {
     ANALYTICS_EVENT_USER_COMPLETED_ACCOUNT,
     ANALYTICS_EVENT_USER_ORDERED_REWARD,
     ANALYTICS_EVENT_USER_SHARED_CERTIFICATE,
+    ANALYTICS_EVENT_CONTENT_PASTED,
+    ANALYTICS_EVENT_CONTENT_COPIED,
+    ANALYTICS_EVENT_WINDOW_BLUR,
+    ANALYTICS_EVENT_WINDOW_FOCUS,
 } from './analytics.module'
 
 export default function initAnalyticsListeners(): Promise<void> {
@@ -195,6 +203,22 @@ export default function initAnalyticsListeners(): Promise<void> {
                 case UI_EVENT_SHOW_TRANSCRIPT:
                     trackEvent(ANALYTICS_EVENT_SHOW_TRANSCRIPT, event.user.sub, event.meta)
                     break
+
+                case UI_EVENT_CONTENT_COPIED:
+                    trackEvent(ANALYTICS_EVENT_CONTENT_COPIED, event.user.sub, event.meta)
+                    break
+
+                case UI_EVENT_CONTENT_PASTED:
+                    trackEvent(ANALYTICS_EVENT_CONTENT_PASTED, event.user.sub, event.meta)
+                    break
+
+                case UI_EVENT_WINDOW_BLUR:
+                    trackEvent(ANALYTICS_EVENT_WINDOW_BLUR, event.user.sub, event.meta)
+                    break
+
+                case UI_EVENT_WINDOW_FOCUS:
+                    trackEvent(ANALYTICS_EVENT_WINDOW_FOCUS, event.user.sub, event.meta)
+                    break
             }
         })
 
@@ -240,7 +264,6 @@ export default function initAnalyticsListeners(): Promise<void> {
                 order: event.order,
                 reward: event.reward,
             })
-
         })
     }
 

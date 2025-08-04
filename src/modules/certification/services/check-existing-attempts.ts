@@ -1,50 +1,57 @@
-import { DateTime, ManagedTransaction, } from "neo4j-driver"
-import { User } from "../../../domain/model/user"
-import getCertificationInformation, { AbridgedCertification } from "./get-certification-information";
-import { CertificationQuestion } from "./get-next-question";
+import { DateTime, ManagedTransaction } from 'neo4j-driver'
+import { User } from '../../../domain/model/user'
+import getCertificationInformation, { AbridgedCertification } from './get-certification-information'
+import { CertificationQuestion } from './get-next-question'
 
 export enum NextCertificationAction {
-  CREATE = "create",
-  CONTINUE = "continue",
-  ATTEMPTS_EXCEDED = "exceded",
-  COMPLETE = "complete",
-  SUCCEEDED = "succeeded",
+    CREATE = 'create',
+    CONTINUE = 'continue',
+    ATTEMPTS_EXCEDED = 'exceded',
+    COMPLETE = 'complete',
+    SUCCEEDED = 'succeeded',
 }
 
 export type CertificationStatus = {
-  course: AbridgedCertification;
-  action: NextCertificationAction;
-  passed: boolean;
-  failed: boolean;
-  inProgress: boolean;
-  finished: boolean;
-  expiresAt: string | undefined; // DateTime
-  available: boolean;
-  availableAfter: string | undefined; // DateTime
-  hasResults: boolean;
-  days: number | undefined;
-  hours: number | undefined;
-  minutes: number | undefined;
+    course: AbridgedCertification
+    action: NextCertificationAction
+    passed: boolean
+    failed: boolean
+    inProgress: boolean
+    finished: boolean
+    expiresAt: string | undefined // DateTime
+    available: boolean
+    availableAfter: string | undefined // DateTime
+    hasResults: boolean
+    days: number | undefined
+    hours: number | undefined
+    minutes: number | undefined
 
-  enrolmentId: string | undefined;
-  attemptId: string | undefined;
-  certificateId: string | undefined;
-  certificateLink: string | undefined;
-  progress: number;
-  percentage: number;
-  currentPassPercentage: number;
-  question?: CertificationQuestion;
+    enrolmentId: string | undefined
+    attemptId: string | undefined
+    certificateId: string | undefined
+    certificateLink: string | undefined
+    progress: number
+    percentage: number
+    currentPassPercentage: number
+    question?: CertificationQuestion
 }
 
-export default async function checkExistingAttempts(tx: ManagedTransaction, slug: string, user: User): Promise<Partial<CertificationStatus>> {
-  const course = await getCertificationInformation(tx, slug)
+export default async function checkExistingAttempts(
+    tx: ManagedTransaction,
+    slug: string,
+    user: User
+): Promise<Partial<CertificationStatus>> {
+    const course = await getCertificationInformation(tx, slug)
 
-  const res = await tx.run<Omit<CertificationStatus, 'course' | 'action'> & {
-    days: number;
-    hours: number;
-    minutes: number;
-    expiresAt: DateTime
-  }>(`
+    const res = await tx.run<
+        Omit<CertificationStatus, 'course' | 'action'> & {
+            days: number
+            hours: number
+            minutes: number
+            expiresAt: DateTime
+        }
+    >(
+        `
     MATCH (u:User {sub: $sub})-[:HAS_ENROLMENT]->(e)-[:FOR_COURSE]->(c:Course {slug: $slug})
 
     OPTIONAL MATCH  (e)-[:HAS_ATTEMPT]->(a)
@@ -75,9 +82,14 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
       CASE WHEN answered > 0 THEN round(100.0 * correct / answered, 2) ELSE 0 END AS currentPassPercentage,
       CASE WHEN answered > 0 THEN round(100.0 * answered / assigned, 2) ELSE 0 END AS progress,
 
-
       // Finished?
-      a.expiresAt < datetime() OR answered = assigned AS finished,
+      CASE
+        WHEN a.expiresAt < datetime() THEN true
+        WHEN answered = assigned THEN true
+        WHEN e:CompletedEnrolment AND answered > 0 THEN true
+        WHEN assigned > 0 AND 100.0 * correct / assigned >= coalesce(c.passPercentage, 80) AND answered > 0 THEN true
+        ELSE false
+      END AS finished,
 
       answered > 0 AS hasResults,
       durationSinceLastAttempt.minutesOfHour AS minutes,
@@ -89,54 +101,59 @@ export default async function checkExistingAttempts(tx: ManagedTransaction, slug
       a IS NULL OR a.expiresAt + duration('P1D') <= datetime() as available,
 
       assigned, answered, correct, toString(datetime()) AS now
-  `, { sub: user.sub, slug })
+  `,
+        { sub: user.sub, slug }
+    )
 
-  if (res.records.length > 0) {
-    const output = res.records[0].toObject()
+    if (res.records.length > 0) {
+        const output = res.records[0].toObject()
 
-    let action = NextCertificationAction.CREATE
+        let action = NextCertificationAction.CREATE
 
-    // No previous action
-    if (!output.attemptId) {
-      action = NextCertificationAction.CREATE
-    }
-    // Hasn't expired, questions left
-    else if (output.inProgress) {
-      action = NextCertificationAction.CONTINUE
-    }
-    // More than a day
-    else if (output.days > 0) {
-      action = output.passed ? NextCertificationAction.SUCCEEDED : NextCertificationAction.CREATE
-    }
-    // Less than a day, more than an hour
-    else if (output.days === 0 && output.hours > 0) {
-      action = output.passed ? NextCertificationAction.COMPLETE : NextCertificationAction.ATTEMPTS_EXCEDED
-    }
-    // Less than a day, less than an hour
-    else if (output.days === 0 && output.hours === 0) {
-      if (output.finished === false) {
-        action = NextCertificationAction.CONTINUE
-      }
-      else {
-        action = output.passed ? NextCertificationAction.COMPLETE : NextCertificationAction.ATTEMPTS_EXCEDED
-      }
+        // No previous action
+        if (!output.attemptId) {
+            action = NextCertificationAction.CREATE
+        }
+        // If finished and passed, mark as complete
+        else if (output.finished && output.passed) {
+            action = NextCertificationAction.COMPLETE
+        }
+        // If finished and failed, allow new attempt
+        else if (output.finished && !output.passed) {
+            action = NextCertificationAction.CREATE
+        }
+        // Hasn't expired, questions left
+        else if (!output.finished && output.inProgress) {
+            action = NextCertificationAction.CONTINUE
+        }
+        // More than a day
+        else if (output.days > 0) {
+            action = output.passed ? NextCertificationAction.SUCCEEDED : NextCertificationAction.CREATE
+        }
+        // Less than a day, more than an hour
+        else if (output.days === 0 && output.hours > 0) {
+            action = output.passed ? NextCertificationAction.COMPLETE : NextCertificationAction.ATTEMPTS_EXCEDED
+        }
+        // Less than a day, less than an hour
+        else if (output.days === 0 && output.hours === 0) {
+            action = output.passed ? NextCertificationAction.COMPLETE : NextCertificationAction.ATTEMPTS_EXCEDED
+        }
+
+        return {
+            course,
+            ...output,
+            expiresAt: output.expiresAt?.toString(),
+            availableAfter: output.availableAfter?.toString(),
+            action,
+        }
     }
 
+    // Create a new attempt
     return {
-      course,
-      ...output,
-      expiresAt: output.expiresAt?.toString(),
-      availableAfter: output.availableAfter?.toString(),
-      action,
+        available: true,
+        failed: false,
+        passed: false,
+        inProgress: false,
+        action: NextCertificationAction.CREATE,
     }
-  }
-
-  // Create a new attempt
-  return {
-    available: true,
-    failed: false,
-    passed: false,
-    inProgress: false,
-    action: NextCertificationAction.CREATE,
-  }
 }
