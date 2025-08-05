@@ -34,7 +34,7 @@ export default async function logCertificationEvent(
             r[$event] = coalesce(r[$event], 0) + 1
 
         CREATE (a)-[aer:EVENT_ON_QUESTION]->(q)
-        SET aer.type = $event, aer += $props
+        SET aer.type = $event, aer.createdAt = datetime(), aer += $props
 
         RETURN count(*) AS count
     `,
