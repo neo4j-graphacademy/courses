@@ -1,15 +1,223 @@
-= What is a Retriever
+= Working with Retrievers
 :type: lesson
 :order: 2
+:slides: true
 
-In this lesson, you will open the notebook and ...
+Now that you understand how we built the knowledge graph from PDFs, let's explore how to retrieve information from it using different types of retrievers.
 
+== What is a Retriever?
+
+A **retriever** is a component that searches and returns relevant information from your knowledge graph to answer questions or provide context to language models.
+
+== Types of Retrievers
+
+There are several types of retrievers, each with different strengths:
+
+[.slide]
+=== Vector Retriever
+
+**How it works:**
+
+- Converts your question into a vector embedding using OpenAI
+- Searches the `chunkEmbeddings` vector index for similar content
+- Returns semantically related text chunks based on cosine similarity
+- Pure semantic search - no graph traversal
+
+**Best for:**
+
+- Finding conceptually similar information across all documents
+- Semantic search when exact keywords don't match
+- Broad exploratory questions about topics
+- When you don't know specific entity names
+
+**Example Query:** _"What are cybersecurity threats in financial services?"_
+
+**Limitations:**
+
+- Returns only text chunks, no entity relationships
+- May miss entity-specific context
+- Cannot aggregate information across multiple entities
+
+[.slide]
+=== Vector + Cypher Retriever
+
+**How it works:**
+
+- **Step 1:** Vector search finds semantically relevant text chunks
+- **Step 2:** Custom Cypher query traverses from each chunk to related entities
+- **Step 3:** Returns enriched context including entities, relationships, and metadata
+- Combines semantic relevance with graph intelligence
+
+**Best for:**
+
+- Getting both content and rich contextual information
+- Understanding relationships between entities mentioned in chunks
+- Questions requiring entity-specific aggregations
+- Comprehensive answers that need multiple connected data points
+
+**Example Query:** _"Which asset managers are most affected by banking regulations?"_
+
+**Key Insight:**
+
+The **chunk is the anchor** - if your query is about a specific entity (like "Apple") but the retrieved chunks aren't about that entity, you won't get entity-specific results. The retriever can only traverse from the chunks it finds.
+
+**Custom Cypher Example:**
+```cypher
+WITH node
+MATCH (node)-[:FROM_DOCUMENT]-(doc:Document)-[:FILED]-(company:Company)
+RETURN company.name AS company, node.text AS context
+```
+
+[.slide]
+=== Text2Cypher Retriever
+
+**How it works:**
+
+- Uses an LLM to convert natural language questions into Cypher queries
+- Leverages the graph schema to understand available entities and relationships
+- Executes the generated Cypher query directly against Neo4j
+- Returns structured, precise results from the graph
+
+**Best for:**
+
+- Precise, entity-centric questions
+- When you need exact data (numbers, dates, counts, names)
+- Aggregations and analytical questions
+- Direct graph queries without semantic search
+
+**Example Query:** _"How many companies does Apple mention in their filings?"_
+
+**Generated Cypher:**
+```cypher
+MATCH (c:Company {name: 'APPLE INC'})-[:MENTIONS]->(p:Product)
+RETURN count(p) AS product_count
+```
+
+**Advantages:**
+
+- Direct access to structured graph data
+- No reliance on text similarity
+- Precise, deterministic results
+- Handles complex aggregations and calculations
+
+**Limitations:**
+
+- Requires good graph schema understanding
+- May struggle with ambiguous natural language
+- Less effective for open-ended or exploratory questions
+
+[.slide]
+== Choosing the Right Retriever
+
+**Vector Retriever** → Semantic exploration and broad topic search
+
+**Vector + Cypher** → Contextual answers with entity relationships
+
+**Text2Cypher** → Precise data queries and aggregations
+
+[.slide]
+== Common Pitfalls
+
+**Vector + Cypher Limitation:**
+- If your query asks about "Apple" but retrieved chunks are about other companies, you won't get Apple-specific results
+- **Solution:** Ensure chunks are entity-tagged or use Text2Cypher for entity-specific queries
+
+**Text2Cypher Challenges:**
+- Complex natural language may generate incorrect Cypher
+- **Solution:** Use clear, specific questions and validate generated queries
+
+**Vector Search Issues:**
+- May return semantically similar but contextually irrelevant chunks
+- **Solution:** Combine with graph traversal or use domain-specific embeddings
+
+== Hands-On: Retriever Notebook
+
+Open the notebook: `03_Retrievers_notebook.ipynb`
+
+This notebook demonstrates:
+
+1. **Setting up retrievers** with the knowledge graph we built
+2. **Vector retrieval** for semantic search
+3. **Hybrid retrieval** combining vectors and graph traversal  
+4. **Text2Cypher** for structured queries
+5. **Comparing results** from different retrieval methods
+
+=== Key Components
+
+**Initialize Models:**
+```python
+from neo4j_graphrag.retrievers import VectorRetriever, VectorCypherRetriever, Text2CypherRetriever
+
+llm = OpenAILLM(model_name="gpt-4o", api_key=OPENAI_API_KEY)
+embedder = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
+```
+
+**Vector Retriever:**
+```python
+vector_retriever = VectorRetriever(
+    driver=driver,
+    index_name="chunkEmbeddings", 
+    embedder=embedder
+)
+```
+
+**Vector + Cypher Retriever:**
+```python
+vector_cypher_retriever = VectorCypherRetriever(
+    driver=driver,
+    index_name="chunkEmbeddings",
+    retrieval_query=cypher_query,
+    embedder=embedder
+)
+```
+
+**Text2Cypher Retriever:**
+```python
+text2cypher_retriever = Text2CypherRetriever(
+    driver=driver,
+    llm=llm,
+    neo4j_schema=neo4j_schema
+)
+```
+
+== Choosing the Right Retriever
+
+**Use Vector Retriever when:**
+- You want semantic similarity search
+- Question is conceptual or broad
+- You need to find related topics
+
+**Use Vector + Cypher when:**
+- You want both content and relationships
+- Need comprehensive context
+- Question involves multiple entities
+
+**Use Text2Cypher when:**
+- You need precise, structured data
+- Question asks for specific facts or numbers
+- You want to leverage graph relationships directly
+
+== Workshop Approach
+
+**For this workshop:**
+- We'll use the pre-built knowledge graph from the PDF processing
+- Walk through each retriever type with examples
+- Compare their strengths and use cases
+- See how they provide different perspectives on the same data
+
+This foundation prepares you for building agents that can intelligently choose and combine these retrieval methods.
 
 read::Continue[]
 
 [.summary]
 == Summary
 
-In this lesson, you ...
+In this lesson, you learned about the three main types of retrievers:
 
-In the next lesson, you will ...
+- **Vector Retriever** for semantic similarity search
+- **Vector + Cypher Retriever** for hybrid content and relationship search  
+- **Text2Cypher Retriever** for structured graph queries
+
+Each retriever has specific strengths and use cases, and understanding when to use each one is key to building effective RAG applications.
+
+In the next lesson, you will work with these retrievers hands-on and see how they can be combined into intelligent agents.
