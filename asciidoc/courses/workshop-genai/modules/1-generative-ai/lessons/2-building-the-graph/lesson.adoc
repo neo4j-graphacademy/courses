@@ -1,9 +1,10 @@
-= Extracting Structured Data from PDFs
+= Building a Graph
 :type: lesson
 :order: 2
 :slides: true
 
 [.slide.discrete]
+== Introduction
 In this lesson, you will explore the knowledge graph we've prepared for this workshop and learn how it was built.
 
 You'll start with a completed knowledge graph containing structured entities and relationships extracted from PDF documents. Then we'll show you the transformation process: how raw text became the structured data model you'll be working with.
@@ -38,10 +39,13 @@ It's like giving someone index cards with code snippets vs. an architectural dia
 image::images/unstructured-structured.svg["a graph data model showing the separation of structured and unstructured data.", width=95%]
 
 [.transcript-only]
+====
 The knowledge graph you'll be exploring was built from unstructured PDF documents transformed into a structured, queryable format.
 
 Let's walk through how this transformation happened - from the original data sources to the final knowledge graph you'll work with in this workshop.
+====
 
+[.slide.col-2]
 == The Source: EDGAR SEC Filings
 
 [.col]
@@ -56,20 +60,30 @@ These documents contain valuable company information, but it was originally lock
 [.col]
 image::images/apple-edgar-pdf.png["a screenshot of an Apple SEC filing PDF document."]
 
-[.slide]
+[.slide.col-2]
 == Step 1: Documents and Chunks
 
+[.col]
+====
 **Documents** in your knowledge graph are the original PDF files that were processed.
 
 **Chunks** are smaller, semantically meaningful segments of text extracted from each document.
 
+[.transcript-only]
+=====
 **Why This Chunking Strategy?**
+
 - Improves retrieval and search accuracy
 - Enables LLMs to process long documents effectively  
 - Each chunk becomes a searchable unit linked to its source
 - Supports both granular search and traceability
 
 This chunking strategy was crucial for creating a knowledge graph that works at multiple levels of granularity - from specific facts to document-level context. Unlike traditional RAG chunks, these chunks are connected to business entities and relationships.
+=====
+====
+
+[.col]
+====
 
 **Verify Documents and Chunks:**
 
@@ -81,21 +95,26 @@ RETURN d.fileName, count(c) as totalChunks
 ORDER BY totalChunks DESC
 ----
 
+[.transcript-only]
+=====
 Now we have a way to access the unstructured data through chunks, but what about the structure that exists within the unstructured data?
 
 PDF documents aren't truly "unstructured" - they contain rich business entities and relationships hidden in the text. Companies mention products, face risks, report financial metrics, and connect to executives. This structure just isn't explicit or queryable.
+=====
 
 The solution: define exactly what structure to extract.
 
-[.slide]
+====
+
+[.slide.col-2]
 == Step 2: Schema-Driven Extraction
 
 The knowledge graph was built using a defined schema combined with carefully crafted prompts to guide the AI extraction process.
 
 **Schema Definition:**
 
-[col-2]
 [.col]
+====
 **Entities:**
 
 - Company
@@ -106,14 +125,19 @@ The knowledge graph was built using a defined schema combined with carefully cra
 - StockType
 - Transaction
 - TimePeriod    
+====
 [.col]
+====
 **Relationships:**
 
-Company **HAS_METRIC** FinancialMetric 
-Company **FACES_RISK** RiskFactor 
-Company **ISSUED_STOCK** StockType
+Company **HAS_METRIC** FinancialMetric +
+Company **FACES_RISK** RiskFactor +
+Company **ISSUED_STOCK** StockType +
 Company **MENTIONS** Product 
-[col-1]
+====
+
+[.slide.discrete]
+== Step 2: Guided Extraction Prompts
 
 **Guided Extraction Prompts:**
 
@@ -126,8 +150,6 @@ The extraction process used carefully crafted prompts to ensure quality:
 
 This schema + prompt combination acted as the blueprint - telling the AI exactly what to look for and how to connect entities in the knowledge graph you'll explore. It's the difference between isolated chunks and a connected web of business knowledge.
 
-
-
 [.slide]
 == Step 3: The GraphRAG Pipeline
 
@@ -137,41 +159,49 @@ The complete pipeline orchestrated the transformation from PDF to knowledge grap
 
 image::images/8.png[Diagram showing the Neo4j GraphRAG pipeline process from PDF documents to knowledge graph]
 
+[.slide.col-2.discrete]
+== Step 3: SimpleKGPipeline Example
+
+[.col]
+====
 ```python
 pipeline = SimpleKGPipeline(
-    driver=driver,
-    llm=llm,  # OpenAI GPT-4
-    embedder=embedder,  # OpenAI embeddings
-    entities=entities,  # Our schema
-    relations=relations,
+    driver=driver, # Neo4j connection driver
+    llm=llm, embedder=embedder,  # OpenAI llm and embeddings
+    entities=entities, relations=relations,  # Define schema
+    enforce_schema="STRICT",
     prompt_template=prompt_template,
-    enforce_schema="STRICT"
 )
-
 # Process the SEC filing documents
 pdf_documents = [
-    "apple-10K-2023.pdf",
-    "microsoft-10K-2023.pdf", 
-    "nvidia-10K-2023.pdf"
+    "apple-10K-2023.pdf", "microsoft-10K-2023.pdf",
     # ... more company filings
 ]
-
 # Run the pipeline to transform PDFs into knowledge graph
 for pdf_file in pdf_documents:
-    result = pipeline.run(file_path=pdf_file)
-    print(f"Processed {pdf_file}: {result.status}")
+    pipeline.run(file_path=pdf_file)
 ```
+====
 
+[.col]
+====
 **What happened during `pipeline.run()`:**
 
-1. **PDF Text Extraction:** Extracted raw text from PDF documents
-2. **Document Chunking:** Broke text into semantically meaningful chunks  
-3. **Entity Extraction:** Used LLM to identify companies, metrics, risks, etc.
-4. **Relationship Extraction:** Found connections between entities
-5. **Graph Storage:** Saved structured entities and relationships to Neo4j
+1. **PDF Text Extraction:** Extracted raw text from PDF documents +
+2. **Document Chunking:** Broke text into semantically meaningful chunks +
+3. **Entity Extraction:** Used LLM to identify companies, metrics, risks, etc. +
+4. **Relationship Extraction:** Found connections between entities +
+5. **Graph Storage:** Saved structured entities and relationships to Neo4j +
 6. **Vector Embeddings:** Generated embeddings for chunks and stored them
 
+[.transcript-only]
+=====
 This transformed hundreds of pages of unstructured PDF text into the queryable knowledge graph with thousands of connected entities.
+=====
+====
+
+[.slide.discrete]
+== Step 3: Verify Entity Extraction
 
 **Verify Entity Extraction:**
 
@@ -195,12 +225,14 @@ But PDF extraction was only part of the story. The knowledge graph also includes
 - **Company Filing Information:** Metadata linking companies to their PDF documents
 
 **Why Both Data Types?**
+
 - **Unstructured (PDFs):** Rich content about companies, risks, metrics
 - **Structured (CSVs):** Precise ownership data and document relationships
 
 This created a complete picture: detailed company information from PDFs **plus** structured ownership and filing relationships. The bridge between structured and unstructured data enables the powerful GraphRAG queries you'll explore.
 
 [.transcript-only]
+====
 **Sample Structured Data:**
 
 **Asset Manager Holdings (Sample Data):**
@@ -226,51 +258,12 @@ This created a complete picture: detailed company information from PDFs **plus**
 | PAYPAL | PYPL | 1633917 | 1633917 | 0001633917-23-000033.pdf
 | MICROSOFT CORP | MSFT | 594918954 | 789019 | 0000950170-23-035122.pdf
 |===
+====
 
+[.slide.discrete]
+== Step 4: How the Data Was Loaded
 **How The Data Was Loaded:**
-1. **Neo4j Data Importer** processed the CSV files
-2. **AssetManager nodes** were created from holdings data  
-3. **OWNS relationships** connected asset managers to companies with holding values
-4. **FILED relationships** linked companies to their PDF documents
 
-**Verify the Complete Integration:**
-
-[source, cypher]
-----
-// See the complete data model - all node types
-MATCH (n)
-RETURN labels(n)[0] as nodeType, count(n) as count
-ORDER BY count DESC
-----
-
-[.transcript-only]
-**Sample Structured Data:**
-
-**Asset Manager Holdings (Sample Data):**
-[%autowidth]
-|===
-| managerName | companyName | ticker | Value | shares
-
-| ALLIANCEBERNSTEIN L.P. | AMAZON COM INC | AMZN | $6,360,000,000 | 50,065,439
-| ALLIANCEBERNSTEIN L.P. | APPLE INC | AAPL | $4,820,000,000 | 28,143,032  
-| AMERIPRISE FINANCIAL INC | ALPHABET INC | GOOG | $4,780,000,000 | 36,603,757
-| BlackRock Inc. | AMAZON COM INC | AMZN | $78,000,000,000 | 613,380,364
-| FMR LLC | MICROSOFT CORP | MSFT | $68,200,000,000 | 215,874,152
-|===
-
-**Company Filing Information (Sample Data):**
-[%autowidth]  
-|===
-| name | ticker | cusip | cik | form10KUrls
-
-| AMAZON | AMZN | 23135106 | 1018724 | 0001018724-23-000004.pdf
-| NVIDIA Corporation | NVDA | 067066G104 | 1045810 | 0001045810-23-000017.pdf
-| APPLE INC | AAPL | 3783310 | 1490054 | 0001096906-23-001489.pdf
-| PAYPAL | PYPL | 1633917 | 1633917 | 0001633917-23-000033.pdf
-| MICROSOFT CORP | MSFT | 594918954 | 789019 | 0000950170-23-035122.pdf
-|===
-
-**How The Data Was Loaded:**
 1. **Neo4j Data Importer** processed the CSV files
 2. **AssetManager nodes** were created from holdings data  
 3. **OWNS relationships** connected asset managers to companies with holding values
@@ -286,18 +279,24 @@ RETURN labels(n)[0] as nodeType, count(n) as count
 ORDER BY count DESC
 ----
 
-[.slide]
+[.slide.col-2]
 == Step 5: Exploring What Was Created
 
 Now that we've seen how the knowledge graph was built, let's explore what was created. Your complete knowledge graph contains:
 
+[.col]
+====
 **The Complete Data Model:**
+
 - **500+ Company entities** extracted from SEC filings
 - **Asset Manager entities** with ownership information
 - **2,000+ Financial metrics and risk factors** as structured nodes  
 - **Clear entity relationships** connecting business concepts
 - **Document links** bridging structured and unstructured data
+====
 
+[.col]
+====
 **Visualize the Complete Schema:**
 
 [source, cypher]
@@ -305,7 +304,14 @@ Now that we've seen how the knowledge graph was built, let's explore what was cr
 CALL db.schema.visualization()
 ----
 
+[.transcript-only]
+=====
 This shows the complete knowledge graph schema including both extracted entities (Company, Product, FinancialMetric, etc.) and loaded structured data (AssetManager, ownership relationships) that you'll work with.
+=====
+====
+
+[.slide.discrete]
+== Step 5: Explore a Complete Company Profile
 
 **Explore a Complete Company Profile:**
 
@@ -323,8 +329,8 @@ RETURN c.name,
        count(DISTINCT chunk) as textChunks
 ----
 
-[.slide.transcript-only]
-
+[.transcript-only]
+====
 **Additional Exploration Queries:**
 
 [source, cypher]
@@ -374,28 +380,7 @@ MATCH (c:Company)-[:FACES_RISK]->(r:RiskFactor)
 RETURN c.name, r.name
 LIMIT 15
 ----
-
-[.slide]
-== The Complete Transformation
-
-image::images/unstructured-structured.svg["a graph data model showing the separation of structured and unstructured data.", width=95%]
-
-**The Result:** Your knowledge graph contains a complete data model with:
-
-- **500+ Company entities** extracted from SEC filings
-- **Asset Manager entities** with ownership information
-- **2,000+ Financial metrics and risk factors** as structured nodes  
-- **Clear entity relationships** connecting business concepts
-- **Document links** bridging structured and unstructured data
-- **Clean, structured data** ready for graph queries
-
-**The Complete Transformation:**
-- Unstructured PDF text → Structured business entities
-- CSV ownership data → Asset manager relationships
-- Hidden connections → Explicit entity relationships
-- Document silos → Connected knowledge graph
-
-From scattered data sources to a unified understanding of business entities, ownership, and relationships - the foundation for the GraphRAG system you'll explore.
+====
 
 [.slide]
 == Key Takeaways
