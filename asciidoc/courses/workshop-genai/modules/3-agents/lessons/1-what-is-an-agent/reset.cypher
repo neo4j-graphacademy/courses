@@ -6,9 +6,6 @@
 CREATE INDEX import__ID IF NOT EXISTS
 FOR (n:__KGBuilder__) ON (n.`:ID`);
 
-CREATE INDEX __entity__id IF NOT EXISTS
-FOR (n:__KGBuilder__) ON (n.id);
-
 CREATE VECTOR INDEX chunkEmbeddings IF NOT EXISTS
 FOR (n:Chunk) ON (n.embedding)
 OPTIONS { indexConfig : {
