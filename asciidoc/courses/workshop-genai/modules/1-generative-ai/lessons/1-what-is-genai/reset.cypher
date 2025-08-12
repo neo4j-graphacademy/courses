@@ -3,8 +3,10 @@
 // The CSV files were exported from Neo4j using `apoc.export.csv.all`.
 // CALL apoc.export.csv.all("genai-data.csv", {bulkImport: true})
 
+MATCH (n) SET n:__index__;
+
 CREATE INDEX import__ID IF NOT EXISTS
-FOR (n:__KGBuilder__) ON (n.`:ID`);
+FOR (n:__index__) ON (n.`:ID`);
 
 CREATE VECTOR INDEX chunkEmbeddings IF NOT EXISTS
 FOR (n:Chunk) ON (n.embedding)
@@ -24,148 +26,145 @@ CREATE CONSTRAINT path_Document_uniq IF NOT EXISTS
 FOR (n:Document) REQUIRE n.path IS UNIQUE;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.Executive.csv" AS row
-MERGE (n:Executive {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:Executive;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.FinancialMetric.csv" AS row
-MERGE (n:FinancialMetric {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:FinancialMetric;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.Product.csv" AS row
-MERGE (n:Product {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:Product;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.RiskFactor.csv" AS row
-MERGE (n:RiskFactor {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:RiskFactor;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.StockType.csv" AS row
-MERGE (n:StockType {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:StockType;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.TimePeriod.csv" AS row
-MERGE (n:TimePeriod {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:TimePeriod;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.__Entity__.Transaction.csv" AS row
-MERGE (n:Transaction {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:Transaction;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.Chunk.csv" AS row
-MERGE (n:Chunk {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.index),
   n.text = row.text,
-  n:__KGBuilder__
+  n:Chunk
 WITH n, row.embedding AS embedding
 CALL db.create.setNodeVectorProperty(n, 'embedding', apoc.convert.fromJsonList(embedding));
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.Company.__Entity__.csv" AS row
-MERGE (n:Company {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.chunk_index = toInteger(row.chunk_index),
   n.name = row.name,
   n.ticker = row.ticker,
-  n:__KGBuilder__,
-  n:__Entity__;
+  n:Company;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.__KGBuilder__.Document.csv" AS row
-MERGE (n:Document {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.path = row.path,
   n.datetime = datetime(row.datetime),
-  n:__KGBuilder__;
+  n:Document;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.AssetManager.csv" AS row
-MERGE (n:AssetManager {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.managerName = row.managerName,
-  n.managerCik = toInteger(row.managerCik);
+  n.managerCik = toInteger(row.managerCik),
+  n:AssetManager;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.Company.csv" AS row
-MERGE (n:Company {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
   n.name = row.name,
-  n.ticker = row.ticker;
+  n.ticker = row.ticker,
+  n:Company;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.nodes.Document.csv" AS row
-MERGE (n:Document {`:ID`: row.`:ID`})
+MERGE (n:__index__ {`:ID`: row.`:ID`})
 SET 
-  n.path = row.path;
+  n.path = row.path,
+  n:Document;
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.FACES_RISK.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:__KGBuilder__ {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:FACES_RISK]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.FILED.csv" AS row
-MATCH (a:Company {`:ID`: row.`:START_ID`})
-MATCH (b:Document {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:FILED]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.FROM_CHUNK.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:Chunk {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:FROM_CHUNK]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.FROM_DOCUMENT.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:__KGBuilder__ {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:FROM_DOCUMENT]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.HAS_METRIC.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:__KGBuilder__ {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:HAS_METRIC]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.ISSUED_STOCK.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:__KGBuilder__ {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:ISSUED_STOCK]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.MENTIONS.csv" AS row
-MATCH (a:__KGBuilder__ {`:ID`: row.`:START_ID`})
-MATCH (b:__KGBuilder__ {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:MENTIONS]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.NEXT_CHUNK.csv" AS row
-MATCH (a:Chunk {`:ID`: row.`:START_ID`})
-MATCH (b:Chunk {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[:NEXT_CHUNK]->(b);
 
 LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/neo4j-graphacademy/workshop-genai/refs/heads/main/workshop-genai/financial-documents/csv-load/data/genai-data.relationships.OWNS.csv" AS row
-MATCH (a:AssetManager {`:ID`: row.`:START_ID`})
-MATCH (b:Company {`:ID`: row.`:END_ID`})
+MATCH (a:__index__ {`:ID`: row.`:START_ID`})
+MATCH (b:__index__ {`:ID`: row.`:END_ID`})
 MERGE (a)-[r:OWNS]->(b)
 SET r.position_status = row.position_status,
     r.`Value` = toFloat(row.Value),
     r.shares = toInteger(row.shares),
     r.share_value = toFloat(row.share_value);
+
+MATCH (n:__index__) REMOVE n:__index__;
