@@ -3,7 +3,10 @@
 :order: 1
 :slides: true
 
-Now that you understand how we built the knowledge graph from PDFs, let's explore how to retrieve information from it using different types of retrievers.
+[.slide.discrete]
+== Introduction
+
+You are going to explore how to retrieve information from the knowledge graph using _retrievers_.
 
 This lesson covers the three main retriever types you'll work with in the hands-on notebook.
 
@@ -29,14 +32,19 @@ A **retriever** is a component that searches and returns relevant information fr
 - Pure semantic search - no graph traversal
 
 **Example from the notebook:**
-```python
+
+[source, python, role="nocopy"]
+----
 vector_retriever = VectorRetriever(
     driver=driver,
     index_name='chunkEmbeddings',
     embedder=embedder,
     return_properties=['text']
 )
-```
+----
+
+[.slide.discrete]
+== Vector Retriever
 
 **Best for:**
 
@@ -64,14 +72,19 @@ vector_retriever = VectorRetriever(
 - Combines semantic relevance with graph intelligence
 
 **Example from the notebook:**
-```python
+
+[source, python, role="nocopy"]
+----
 vector_cypher_retriever = VectorCypherRetriever(
     driver=driver,
     index_name='chunkEmbeddings',
     embedder=embedder,
     retrieval_query=custom_cypher_query
 )
-```
+----
+
+[.slide.discrete]
+== Vector + Cypher Retriever
 
 **Best for:**
 
@@ -89,6 +102,7 @@ vector_cypher_retriever = VectorCypherRetriever(
 When you ask _"What are the risks that Apple faces?"_ using Vector + Cypher, you may not get Apple-specific results.
 
 **Why this happens:**
+
 - Vector search finds chunks semantically similar to your query
 - If those chunks aren't about Apple, the Cypher query won't reach Apple entities
 - **The chunk is the anchor** - you can only traverse from what you retrieve
@@ -102,16 +116,19 @@ Vector-Cypher works best when your question naturally surfaces relevant chunks a
 **Query:** _"Which asset managers are most affected by banking regulations?"_
 
 **Why this works well:**
+
 - Vector search finds chunks about "banking regulations"
 - Cypher query traverses to asset managers connected to those companies
 - Returns both the regulatory context AND the asset manager entities
 
 **Cypher pattern:**
-```cypher
+
+[source, cypher, role="noplay nocopy"]
+----
 WITH node
 MATCH (node)-[:FROM_DOCUMENT]-(doc:Document)-[:FILED]-(company:Company)-[:OWNS]-(manager:AssetManager)
 RETURN company.name AS company, manager.managerName AS AssetManager, node.text AS context
-```
+----
 
 [.slide]
 == Text2Cypher Retriever
@@ -124,13 +141,30 @@ RETURN company.name AS company, manager.managerName AS AssetManager, node.text A
 - Returns structured, precise results from the graph
 
 **Example from the notebook:**
-```python
+
+[source, python, role="nocopy"]
+----
 text2cypher_retriever = Text2CypherRetriever(
     driver=driver,
     llm=llm,
     neo4j_schema=schema
 )
+----
+
+[.slide.discrete]
+== Text2Cypher Retriever
+
+**Example Query:** _"What are the company names of companies owned by BlackRock Inc?"_
+
+**Generated Cypher:**
+
+```cypher
+MATCH (am:AssetManager {managerName: 'BlackRock Inc.'})-[:OWNS]->(c:Company)
+RETURN c.name AS company_name
 ```
+
+[.slide.discrete]
+== Text2Cypher Retriever
 
 **Best for:**
 
@@ -139,21 +173,6 @@ text2cypher_retriever = Text2CypherRetriever(
 - Aggregations and analytical questions
 - Direct graph queries without semantic search
 
-**Example Query:** _"What are the company names of companies owned by BlackRock Inc?"_
-
-**Generated Cypher:**
-```cypher
-MATCH (am:AssetManager {managerName: 'BlackRock Inc'})-[:OWNS]->(c:Company)
-RETURN c.name AS company_name
-```
-
-**Advantages:**
-
-- Direct access to structured graph data
-- No reliance on text similarity
-- Precise, deterministic results
-- Handles complex aggregations and calculations
-
 **Limitations:**
 
 - Requires good graph schema understanding
@@ -161,63 +180,22 @@ RETURN c.name AS company_name
 - Less effective for open-ended or exploratory questions
 
 [.slide]
-== Choosing the Right Retriever
-
-**Vector Retriever** → Semantic exploration and broad topic search
-
-**Vector + Cypher** → Contextual answers with entity relationships (when chunks match entities)
-
-**Text2Cypher** → Precise data queries and aggregations
-
-**In the notebook, you'll see:**
-- Diagnostic searches to understand retriever behavior
-- Side-by-side comparisons of different approaches
-- Examples of when each retriever excels or struggles
-- Handles complex aggregations and calculations
-
-**Limitations:**
-
-- Requires good graph schema understanding
-- May struggle with ambiguous natural language
-- Less effective for open-ended or exploratory questions
-
-[.slide]
-== Choosing the Right Retriever
-
-**Vector Retriever** → Semantic exploration and broad topic search
-
-**Vector + Cypher** → Contextual answers with entity relationships
-
-**Text2Cypher** → Precise data queries and aggregations
-
-[.slide]
-== Common Pitfalls
-
-**Vector + Cypher Limitation:**
-- If your query asks about "Apple" but retrieved chunks are about other companies, you won't get Apple-specific results
-- **Solution:** Ensure chunks are entity-tagged or use Text2Cypher for entity-specific queries
-
-**Text2Cypher Challenges:**
-- Complex natural language may generate incorrect Cypher
-- **Solution:** Use clear, specific questions and validate generated queries
-
-**Vector Search Issues:**
-- May return semantically similar but contextually irrelevant chunks
-- **Solution:** Combine with graph traversal or use domain-specific embeddings
-
 == Choosing the Right Retriever
 
 **Use Vector Retriever when:**
+
 - You want semantic similarity search
 - Question is conceptual or broad
 - You need to find related topics
 
 **Use Vector + Cypher when:**
+
 - You want both content and relationships
 - Need comprehensive context
 - Question involves multiple entities
 
 **Use Text2Cypher when:**
+
 - You need precise, structured data
 - Question asks for specific facts or numbers
 - You want to leverage graph relationships directly

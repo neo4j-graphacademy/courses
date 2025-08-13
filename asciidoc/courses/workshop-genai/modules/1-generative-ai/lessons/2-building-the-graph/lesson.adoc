@@ -90,8 +90,8 @@ This chunking strategy was crucial for creating a knowledge graph that works at 
 [source, cypher]
 ----
 // See what documents were processed and how many chunks each has
-MATCH (d:Document)-[:HAS_CHUNK]->(c:Chunk)
-RETURN d.fileName, count(c) as totalChunks
+MATCH (d:Document)<-[:FROM_DOCUMENT]-(c:Chunk)
+RETURN d.path, count(c) as totalChunks
 ORDER BY totalChunks DESC
 ----
 
@@ -126,6 +126,7 @@ The knowledge graph was built using a defined schema combined with carefully cra
 - Transaction
 - TimePeriod    
 ====
+
 [.col]
 ====
 **Relationships:**
@@ -210,7 +211,7 @@ This transformed hundreds of pages of unstructured PDF text into the queryable k
 // Count what entities were extracted by type
 MATCH (e)
 WHERE NOT e:Document AND NOT e:Chunk
-RETURN labels(e)[0] as entityType, count(e) as count
+RETURN labels(e) as entityType, count(e) as count
 ORDER BY count DESC
 ----
 
@@ -275,7 +276,7 @@ This created a complete picture: detailed company information from PDFs **plus**
 ----
 // See the complete data model - all node types
 MATCH (n)
-RETURN labels(n)[0] as nodeType, count(n) as count
+RETURN labels(n) as nodeType, count(n) as count
 ORDER BY count DESC
 ----
 
@@ -322,7 +323,7 @@ MATCH (c:Company {name: 'APPLE INC'})
 OPTIONAL MATCH (c)-[r1]->(extracted)
 WHERE NOT extracted:Chunk AND NOT extracted:Document
 OPTIONAL MATCH (am:AssetManager)-[r2:OWNS]->(c)
-OPTIONAL MATCH (c)-[:APPEARS_IN]->(chunk:Chunk)
+OPTIONAL MATCH (c)<-[:MENTIONS]->(chunk:Chunk)
 RETURN c.name,
        count(DISTINCT extracted) as extractedEntities,
        count(DISTINCT am) as assetManagers, 
@@ -337,9 +338,9 @@ RETURN c.name,
 ----
 // Count what the pipeline created
 MATCH (d:Document)
-OPTIONAL MATCH (d)-[:HAS_CHUNK]->(c:Chunk)
-OPTIONAL MATCH (c)-[:HAS_ENTITY]->(e)
-RETURN d.fileName, 
+OPTIONAL MATCH (d)<-[:FROM_DOCUMENT]->(c:Chunk)
+OPTIONAL MATCH (c)<-[:FROM_CHUNK]-(e)
+RETURN d.path, 
        count(DISTINCT c) as chunks, 
        count(DISTINCT e) as entities
 ORDER BY entities DESC
@@ -349,7 +350,7 @@ ORDER BY entities DESC
 ----
 // See all asset managers that were loaded
 MATCH (am:AssetManager)
-RETURN am.name, count{(am)-[:OWNS]->()} as companiesOwned
+RETURN am.managerName, count{(am)-[:OWNS]->()} as companiesOwned
 ORDER BY companiesOwned DESC
 LIMIT 10
 ----
@@ -369,7 +370,7 @@ LIMIT 5
 ----
 // Find all financial metrics for a specific company
 MATCH (c:Company {name: 'MICROSOFT CORP'})-[:HAS_METRIC]->(m:FinancialMetric)
-RETURN c.name, m.name, m.value
+RETURN c.name, m.name
 LIMIT 10
 ----
 
@@ -378,7 +379,7 @@ LIMIT 10
 // Discover risk factors across all companies
 MATCH (c:Company)-[:FACES_RISK]->(r:RiskFactor)
 RETURN c.name, r.name
-LIMIT 15
+LIMIT 50
 ----
 ====
 
