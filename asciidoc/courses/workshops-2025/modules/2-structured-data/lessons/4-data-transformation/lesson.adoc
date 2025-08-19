@@ -1,0 +1,346 @@
+= Data Transformation and Optimization
+:type: lesson
+:order: 4
+:duration: 15 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Transform and clean data during import
+* Optimize import performance with proper indexing
+* Handle complex data transformations
+* Implement data quality validation
+
+== Data Cleaning During Import
+
+=== String Transformations
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///Company_Filings.csv' AS row
+CREATE (c:Company {
+  // Clean and standardize company names
+  name: trim(replace(replace(row.company_name, ' Inc.', ' Inc'), ' Corp.', ' Corp')),
+  
+  // Standardize ticker symbols
+  ticker: toUpper(trim(row.ticker)),
+  
+  // Clean CIK numbers (remove leading zeros for display)
+  cik: toInteger(row.cik),
+  display_cik: lpad(toString(toInteger(row.cik)), 10, '0'),
+  
+  // Handle empty strings as null
+  exchange: CASE WHEN trim(row.exchange) = '' THEN null ELSE trim(row.exchange) END,
+  sic_code: CASE WHEN row.sic_code = '' THEN null ELSE toInteger(row.sic_code) END
+})
+```
+
+=== Date and Time Handling
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///Company_Filings.csv' AS row
+CREATE (f:Filing {
+  accession_number: row.accession_number,
+  
+  // Handle different date formats from SEC
+  filing_date: date(row.filing_date), // ISO format from SEC
+  period_of_report: CASE 
+    WHEN row.period_of_report IS NOT NULL 
+    THEN date(row.period_of_report)
+    ELSE null
+  END,
+  
+  // Extract fiscal year and quarter from dates
+  fiscal_year: date(row.filing_date).year,
+  fiscal_quarter: CASE 
+    WHEN date(row.filing_date).month IN [1,2,3] THEN 'Q1'
+    WHEN date(row.filing_date).month IN [4,5,6] THEN 'Q2'
+    WHEN date(row.filing_date).month IN [7,8,9] THEN 'Q3'
+    ELSE 'Q4'
+  END,
+  
+  // Generate computed filing period
+  filing_period: toString(date(row.filing_date).year) + '-' + 
+    CASE 
+      WHEN date(row.filing_date).month IN [1,2,3] THEN 'Q1'
+      WHEN date(row.filing_date).month IN [4,5,6] THEN 'Q2'
+      WHEN date(row.filing_date).month IN [7,8,9] THEN 'Q3'
+      ELSE 'Q4'
+    END
+})
+```
+
+=== Numerical Data Validation
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///Asset_Manager_Holdings.csv' AS row
+// Validate and clean financial data
+WITH row,
+     CASE WHEN row.market_value =~ '^[0-9]+\.?[0-9]*$' 
+          THEN toFloat(row.market_value) 
+          ELSE null END AS clean_market_value,
+     CASE WHEN toInteger(row.shares) > 0 
+          THEN toInteger(row.shares) 
+          ELSE null END AS valid_shares,
+     CASE WHEN row.percentage_of_fund =~ '^[0-9]+\.?[0-9]*$' AND toFloat(row.percentage_of_fund) BETWEEN 0 AND 100
+          THEN toFloat(row.percentage_of_fund) 
+          ELSE null END AS valid_percentage
+WHERE clean_market_value IS NOT NULL AND valid_shares IS NOT NULL
+CREATE (h:Holding {
+  market_value: clean_market_value,
+  shares: valid_shares,
+  percentage_of_fund: valid_percentage,
+  report_date: date(row.report_date)
+})
+```
+
+== Complex Data Transformations
+
+=== Splitting Concatenated Data
+
+```cypher
+// Handle comma-separated business segments
+LOAD CSV WITH HEADERS FROM 'file:///Company_Filings.csv' AS row
+CREATE (c:Company {
+  cik: toInteger(row.cik),
+  name: row.company_name,
+  ticker: row.ticker
+})
+// Create business segment relationships from comma-separated list
+WITH c, row
+WHERE row.business_segments IS NOT NULL
+UNWIND split(row.business_segments, ',') AS segment_name
+MERGE (s:BusinessSegment {name: trim(segment_name)})
+CREATE (c)-[:OPERATES_IN]->(s)
+```
+
+=== Conditional Node Creation
+
+```cypher
+LOAD CSV WITH HEADERS FROM 'file:///mixed_entities.csv' AS row
+// Create different node types based on data
+CALL {
+  WITH row
+  CALL apoc.case([
+    row.entity_type = 'person', 
+    "CREATE (n:Person {name: $name, email: $email}) RETURN n",
+    
+    row.entity_type = 'company',
+    "CREATE (n:Company {name: $name, industry: $industry}) RETURN n"
+  ], 
+  "CREATE (n:Unknown {name: $name}) RETURN n",
+  {name: row.name, email: row.email, industry: row.industry})
+  YIELD value
+  RETURN value.n AS entity
+}
+RETURN entity
+```
+
+=== Hierarchical Data Import
+
+```cypher
+// Import organizational hierarchy from flat CSV
+LOAD CSV WITH HEADERS FROM 'file:///org_structure.csv' AS row
+// Create employee
+MERGE (emp:Employee {id: toInteger(row.employee_id)})
+SET emp.name = row.employee_name,
+    emp.title = row.title,
+    emp.salary = toFloat(row.salary)
+
+// Create manager relationship if manager exists
+WITH emp, row
+WHERE row.manager_id IS NOT NULL AND row.manager_id <> ''
+MATCH (mgr:Employee {id: toInteger(row.manager_id)})
+MERGE (emp)-[:REPORTS_TO]->(mgr)
+```
+
+== Performance Optimization Strategies
+
+=== Index Strategy
+
+```cypher
+// Create indexes BEFORE import for lookup performance
+CREATE INDEX company_cik_lookup FOR (c:Company) ON (c.cik);
+CREATE INDEX filing_accession_lookup FOR (f:Filing) ON (f.accession_number);
+CREATE INDEX ticker_lookup FOR (c:Company) ON (c.ticker);
+
+// Composite indexes for financial queries
+CREATE INDEX company_ticker_exchange FOR (c:Company) ON (c.ticker, c.exchange);
+CREATE INDEX filing_date_type FOR (f:Filing) ON (f.filing_date, f.form_type);
+```
+
+=== Constraint Strategy
+
+```cypher
+// Use constraints for uniqueness and data integrity
+CREATE CONSTRAINT company_cik_unique FOR (c:Company) REQUIRE c.cik IS UNIQUE;
+CREATE CONSTRAINT filing_accession_unique FOR (f:Filing) REQUIRE f.accession_number IS UNIQUE;
+CREATE CONSTRAINT asset_manager_cik_unique FOR (am:AssetManager) REQUIRE am.cik IS UNIQUE;
+
+// Node key constraints for composite uniqueness
+CREATE CONSTRAINT holding_unique FOR ()-[h:HOLDS]-() REQUIRE (h.fund_cik, h.company_cik, h.report_date) IS KEY;
+```
+
+=== Batching for Large Datasets
+
+```cypher
+// Modern batching approach (Neo4j 4.4+)
+CALL {
+  LOAD CSV WITH HEADERS FROM 'file:///large_customer_file.csv' AS row
+  WITH row LIMIT 10000  // Process in chunks
+  MERGE (c:Customer {id: toInteger(row.id)})
+  SET c.name = row.name,
+      c.email = row.email,
+      c.registration_date = date(row.registration_date)
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+=== Memory Management
+
+```cypher
+// Use DISTINCT to reduce memory usage
+LOAD CSV WITH HEADERS FROM 'file:///transactions.csv' AS row
+WITH DISTINCT row.customer_id AS customer_id, row.merchant_name AS merchant_name
+MERGE (c:Customer {id: toInteger(customer_id)})
+MERGE (m:Merchant {name: merchant_name})
+```
+
+== Data Quality Validation
+
+=== Import with Validation
+
+```cypher
+// Comprehensive validation during import
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+WITH row,
+     // Validation flags
+     row.email =~ '^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' AS valid_email,
+     row.phone =~ '^[0-9\-\(\)\+\s]+$' AS valid_phone,
+     toInteger(row.age) BETWEEN 18 AND 120 AS valid_age,
+     row.name IS NOT NULL AND trim(row.name) <> '' AS has_name
+
+// Only import valid records
+WHERE valid_email AND valid_phone AND valid_age AND has_name
+
+CREATE (c:Customer {
+  id: toInteger(row.id),
+  name: trim(row.name),
+  email: toLower(trim(row.email)),
+  phone: row.phone,
+  age: toInteger(row.age),
+  import_timestamp: datetime()
+})
+```
+
+=== Error Logging
+
+```cypher
+// Log validation errors for review
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+WITH row,
+     row.email =~ '^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' AS valid_email,
+     toInteger(row.age) BETWEEN 18 AND 120 AS valid_age
+
+// Log invalid records
+WITH row, valid_email, valid_age
+WHERE NOT (valid_email AND valid_age)
+CREATE (e:ImportError {
+  file: 'customers.csv',
+  row_data: row,
+  errors: [
+    CASE WHEN NOT valid_email THEN 'invalid_email' ELSE null END,
+    CASE WHEN NOT valid_age THEN 'invalid_age' ELSE null END
+  ],
+  timestamp: datetime()
+})
+```
+
+== Advanced Transformation Patterns
+
+=== Denormalization for Performance
+
+```cypher
+// Sometimes denormalize for query performance
+LOAD CSV WITH HEADERS FROM 'file:///order_details.csv' AS row
+MATCH (customer:Customer {id: toInteger(row.customer_id)})
+MATCH (product:Product {id: toInteger(row.product_id)})
+
+CREATE (order:Order {
+  id: toInteger(row.order_id),
+  date: date(row.order_date),
+  total: toFloat(row.total),
+  
+  // Denormalized customer info for fast access
+  customer_name: customer.name,
+  customer_tier: customer.tier,
+  
+  // Denormalized product info
+  product_name: product.name,
+  product_category: product.category
+})
+
+CREATE (customer)-[:PLACED]->(order)
+CREATE (order)-[:CONTAINS {quantity: toInteger(row.quantity)}]->(product)
+```
+
+=== Creating Computed Properties
+
+```cypher
+// Add computed properties during import
+LOAD CSV WITH HEADERS FROM 'file:///financial_transactions.csv' AS row
+CREATE (t:Transaction {
+  id: row.transaction_id,
+  amount: toFloat(row.amount),
+  date: date(row.transaction_date),
+  
+  // Computed properties
+  amount_category: CASE 
+    WHEN toFloat(row.amount) < 100 THEN 'small'
+    WHEN toFloat(row.amount) < 1000 THEN 'medium'
+    WHEN toFloat(row.amount) < 10000 THEN 'large'
+    ELSE 'very_large'
+  END,
+  
+  is_weekend: date(row.transaction_date).dayOfWeek IN [6, 7],
+  
+  quarter: 'Q' + toString((date(row.transaction_date).month - 1) / 3 + 1) + 
+           '-' + toString(date(row.transaction_date).year)
+})
+```
+
+== Knowledge Check
+
+When should you create indexes during the import process?
+
+(x) Before importing data
+( ) During the import
+( ) After importing data
+( ) It doesn't matter
+
+[%collapsible]
+.Explanation
+====
+Indexes should be created BEFORE importing data because:
+
+1. MERGE and MATCH operations during import will be faster
+2. Relationship creation with lookups will be optimized
+3. Creating indexes after import on large datasets can be very slow
+4. The import process itself benefits from the performance boost
+
+Constraints should also be created before import for data integrity.
+====
+
+== Summary
+
+Data transformation during import is crucial for creating clean, well-structured graphs:
+
+* **Clean data** during import rather than after
+* **Validate** input and handle errors explicitly
+* **Create indexes and constraints** before large imports
+* **Use batching** for large datasets
+* **Transform** data to fit your graph model
+* **Log errors** for data quality monitoring
+
+Proper data transformation ensures your graph database is performant, accurate, and ready for advanced analytics.
+
+Next, we'll put these concepts into practice with a comprehensive hands-on exercise.

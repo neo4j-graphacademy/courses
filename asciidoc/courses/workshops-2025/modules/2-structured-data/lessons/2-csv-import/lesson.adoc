@@ -1,0 +1,201 @@
+= CSV Import with LOAD CSV
+:type: lesson
+:order: 2
+:sandbox: true
+:slides: true
+
+[.slide]
+== LOAD CSV
+
+You can import data from CSV files using the `LOAD CSV` clause.
+
+This loads data from a file and creates customer nodes:
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+CREATE (c:Customer {
+  id: toInteger(row.id),
+  name: row.name,
+  email: row.email
+})
+----
+
+[.slide]
+== CSV Structure
+
+Here's the structure of our financial data CSV files:
+
+**customers.csv**:
+```
+id,name,email,city,registration_date
+1,Alice Johnson,alice@email.com,New York,2023-01-15
+2,Bob Smith,bob@email.com,Los Angeles,2023-02-20
+3,Carol Davis,carol@email.com,Chicago,2023-03-10
+```
+
+[.slide]
+== Data Type Conversion
+
+CSV data is imported as strings, use conversion functions for other types:
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///accounts.csv' AS row
+CREATE (a:Account {
+  number: row.number,
+  type: row.type,
+  balance: toFloat(row.balance),
+  opened_date: date(row.opened_date),
+  is_active: toBoolean(row.is_active)
+})
+----
+
+[.slide]
+== Creating Relationships
+
+You can use MERGE to find or create nodes when importing relationships.
+
+This creates customers, accounts, and their relationships:
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customer_accounts.csv' AS row
+MERGE (c:Customer {id: toInteger(row.customer_id)})
+ON CREATE SET c.name = row.customer_name
+MERGE (a:Account {number: row.account_number})
+ON CREATE SET a.type = row.account_type, a.balance = toFloat(row.balance)
+CREATE (c)-[:HAS_ACCOUNT {opened: date(row.opened_date)}]->(a)
+----
+
+[.slide]
+== Validation
+
+You can filter rows during import to ensure data quality:
+
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///transactions.csv' AS row
+WITH row WHERE row.amount IS NOT NULL AND toFloat(row.amount) > 0
+CREATE (t:Transaction {
+  id: row.id,
+  amount: toFloat(row.amount),
+  date: date(row.date),
+  description: row.description
+})
+----
+
+[.slide]
+== Challenges
+
+Complete the queries to import the following data:
+
+. Import customers with data type conversion.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+CREATE (c:Customer {
+  id: ???????(row.id),
+  name: row.name,
+  registration_date: ?????(row.registration_date)
+})
+----
+====
+. Import transactions with validation to skip invalid amounts.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///transactions.csv' AS row
+WITH row WHERE row.amount ????? AND ????????(row.amount) > 0
+CREATE (t:Transaction {
+  amount: toFloat(row.amount)
+})
+----
+====
+. Import customer-account relationships using MERGE.
++
+[.transcript-only]
+====
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customer_accounts.csv' AS row
+MERGE (c:Customer {id: toInteger(row.customer_id)})
+MERGE (a:Account {number: row.account_number})
+CREATE (c)-[:???????]->(a)
+----
+====
+
+[.transcript-only]
+====
+[%collapsible]
+.Click to reveal the answers
+=====
+. Import customers with data type conversion:
++
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+CREATE (c:Customer {
+  id: toInteger(row.id),
+  name: row.name,
+  registration_date: date(row.registration_date)
+})
+----
+
+. Import transactions with validation:
++
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///transactions.csv' AS row
+WITH row WHERE row.amount IS NOT NULL AND toFloat(row.amount) > 0
+CREATE (t:Transaction {
+  amount: toFloat(row.amount)
+})
+----
+
+. Import customer-account relationships:
++
+[source, cypher]
+----
+LOAD CSV WITH HEADERS FROM 'file:///customer_accounts.csv' AS row
+MERGE (c:Customer {id: toInteger(row.customer_id)})
+MERGE (a:Account {number: row.account_number})
+CREATE (c)-[:HAS_ACCOUNT]->(a)
+----
+=====
+====
+
+== Questions
+
+Answer the following questions about CSV import:
+
+1. **Question**: What's the difference between `LOAD CSV` and `LOAD CSV WITH HEADERS`?
+   
+   **Answer**: `WITH HEADERS` treats the first row as column names, allowing you to access columns by name (`row.name`) instead of index (`row[0]`).
+
+2. **Question**: Why should you convert data types when importing from CSV?
+   
+   **Answer**: CSV data is imported as strings by default. Converting to appropriate types (integers, dates, booleans) ensures proper storage and enables type-specific operations.
+
+3. **Question**: When would you use MERGE instead of CREATE during import?
+   
+   **Answer**: Use MERGE when you want to avoid creating duplicate nodes or when the same entity might appear in multiple rows of your CSV.
+
+4. **Question**: How do you handle missing or null values during CSV import?
+   
+   **Answer**: Use WHERE clauses to filter out invalid rows, or use CASE statements to explicitly handle null values.
+
+[.next.discrete]
+== Next
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to import CSV data into Neo4j using LOAD CSV with proper data type conversion, validation, and relationship creation.

@@ -1,0 +1,226 @@
+= Neo4j Retriever Tool
+:type: challenge
+:order: 3
+:slides: true
+
+In the previous modules, you learned that unstructured content is often converted to vector embeddings to make them easy to compare and contrast, in an approach called Semantic Search.
+
+You also learned how to create an instance of the `Neo4jVector` Store.
+
+In this challenge, you will use that knowledge to create and register a tool that will use a Vector Search Index created on embeddings of financial document content to find similar financial reports.
+
+You will need to:
+
+1. Create an instance of a Neo4j Vector Store
+2. Use the Neo4j Vector Store to create a retriever  
+3. Create a retriever chain that will handle the user input, create an embedding, and use that to find similar documents in the Neo4j Vector Store
+4. Register the retriever chain as a tool in `agent.py`.
+
+== Creating a Neo4j Vector Store
+
+In Langchain, a Vector Store handles the interaction between the application and a Vector database.
+
+To interact with link:https://neo4j.com/docs/cypher-manual/current/indexes-for-vector-search/[Neo4j Vector Search Indexes^], you must create an instance of the `Neo4jVector` store.
+
+Open the `tools/vector.py` file in the `tools` directory.
+The `tools` directory is where you will store the code for new tools you create.
+
+.tools/vector.py
+[source,python]
+----
+from langchain_neo4j import Neo4jVector
+from langchain_openai import OpenAIEmbeddings
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.tools import tool
+
+# Import existing objects
+from llm import llm
+from graph import graph
+
+# Create embeddings provider
+embeddings = OpenAIEmbeddings()
+----
+
+The `streamlit` library and the `llm`, `embeddings`, and `graph` objects you created are already imported.
+
+A `content_embedding` property, containing the vector embeddings of the financial document content, has been added to the `Document` nodes in the database, and a vector index, `financial_documents`, has been created.
+
+[%collapsible]
+.View the content embedding
+====
+
+Run the following Cypher to view the `content_embedding` property of a financial document.
+
+[source,cypher]
+----
+MATCH (d:Document)
+RETURN d.title, d.content[..200] + "..." as content_preview, d.content_embedding[..10] as embedding_preview
+LIMIT 1
+----
+
+====
+
+As the index already exists in the database, you can use the `Neo4jVector.from_existing_index` static method.
+
+.Creating a Neo4jVector
+[source,python]
+----
+# Create Neo4j Vector Store from existing index
+vector = Neo4jVector.from_existing_index(
+    embeddings,
+    graph=graph,
+    index_name="financial_documents",
+    node_label="Document", 
+    text_node_property="content",
+    embedding_node_property="content_embedding",
+    retrieval_query="""
+    RETURN
+        node.content AS text,
+        score,
+        {
+            title: node.title,
+            document_type: node.document_type,
+            publish_date: node.publish_date,
+            source: 'Financial Database'
+        } AS metadata
+    """
+)
+----
+
+In the above call, the method is passed the following parameters:
+
+. The `embeddings` object to embed the user input.
+. The `graph` object to interact with the database.
+. The name of the index, in this case `financial_documents`
+. The label of node used to populate the index, in this case, `Document`.
+. The name of the property that holds the original plain-text value, in this case, `content`.
+. The name of the property that holds the embedding of the original text, in this case, `content_embedding`.
+
+=== Modifying the Retrieval Query
+
+The last parameter passed, `retrieval_query`, is an optional parameter that allows you to define which information is returned by the Cypher statement, loaded into each `Document` and subsequently passed to the LLM.
+This value is appended to the end of the query after searching the index, and should always contain a `RETURN` clause.
+
+The final statement should return a `text` value and a map of `metadata`, although what you specify in the `metadata` is up to you.
+
+By default, this generates a list of properties, in this example, the parameter returns specific information about the Document node, including metadata about the financial document type and publication date.
+
+== Creating a Retriever
+
+In Langchain applications, you can use **Retrievers** classes to retrieve documents from a **Store**.
+Vector Retrievers are a specific type of retriever that retrieve documents from a **Vector Store** based on similarity.
+
+All store instances have an `as_retriever()` method, which returns a retriever configured to get documents from the store.
+
+To create an instance of the `Neo4jVectorRetriever`, call the `as_retriever()` method.
+
+.Creating a Neo4jVector Retriever
+[source,python]
+----
+retriever = vector.as_retriever()
+----
+
+== Retrieval Chain
+
+The retrieval chain creates an embedding from the user's input, calls the retriever to identify similar documents, and passes them to an LLM to generate a response.
+
+The chain will need a prompt that accepts the documents as `{context}` and the user input as `{input}`:
+
+.Create the prompt
+[source,python]
+----
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Use the following pieces of retrieved context about financial documents to answer the question. If you don't know the answer, just say that you don't know.\\n\\n{context}"),
+    ("human", "{input}"),
+])
+----
+
+Create a retrieval chain that uses the `llm`, `prompt`, and `retriever` objects:
+
+.Create the chain
+[source,python]
+----
+document_chain = create_stuff_documents_chain(llm, prompt)
+chain = create_retrieval_chain(retriever, document_chain)
+----
+
+The code first creates a QA (question/answer) chain using `create_stuff_documents_chain`.
+A *Stuff* chain is a relatively straightforward chain that _stuffs_, or inserts, documents into a prompt and passes that prompt to an LLM.
+
+The retrieval chain is then created from the retriever and QA chain using `create_retrieval_chain`.
+
+Finally, you must add a function that can be used as a tool and invokes the chain when called.
+
+[source,python]
+----
+@tool
+def get_financial_document(query: str) -> str:
+    """
+    Search for financial documents based on their content.
+    Use this tool to find relevant financial reports, earnings statements, or other financial documents.
+    """
+    result = chain.invoke({"input": query})
+    return result["answer"]
+----
+
+== Registering the Retriever as a Tool
+
+You can now use the retrieval chain as a tool in your agent.
+
+This tool will be in addition to the "General Chat" tool you created in the previous module.
+
+Open the `agent.py` file and import the `get_financial_document` function from the `tools.vector` module:
+
+.agent.py
+[source,python]
+----
+from tools.vector import get_financial_document
+----
+
+Add the `get_financial_document` function to the `tools` array:
+
+[source,python]
+----
+tools = [
+    general_chat,
+    get_financial_document,
+]
+----
+
+The agent will use the tool's `name` and `description` to identify what tool to use.
+
+== Testing the Tool
+
+To test the tool, ask the bot to find financial documents with particular **content**.
+The bot should respond with a message based on relevant financial documents from the database.
+
+In your console, you should see that the Agent has executed the **Financial Document Search** action with the query.
+
+== Questions
+
+Answer the following questions about agent tools:
+
+1. **Question**: What does the `@tool` decorator do in LangChain?
+   
+   **Answer**: It converts a regular Python function into a tool that can be used by agents, automatically generating the tool schema from the function signature and docstring.
+
+2. **Question**: What are the two main components needed to create a retrieval chain?
+   
+   **Answer**: A retriever (to find relevant documents) and a document chain (to process the documents and generate responses).
+
+3. **Question**: What should the retrieval_query parameter always contain?
+   
+   **Answer**: A RETURN clause that returns a `text` value and a map of `metadata`.
+
+4. **Question**: How does an agent decide which tool to use?
+   
+   **Answer**: The agent uses the tool's `name` and `description` to determine the most appropriate tool for the user's request.
+
+[.summary]
+== Summary
+
+In this lesson, you added a new tool that uses the Vector Search Index to identify financial documents with similar content to the user's input.
+
+In the next lesson, you will create a tool that uses the LLM to generate a Cypher statement and execute it against the database.
