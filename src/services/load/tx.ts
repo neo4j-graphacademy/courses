@@ -168,7 +168,7 @@ export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) => 
 `, { questions })
 
 // Integrity Checks
-export const checkSchema = (session: Session) => session.readTransaction(async tx => {
+export const checkSchema = (session: Session) => session.executeRead(async tx => {
   // Next Links?
   const next = await tx.run(`
       MATCH (a)-[:NEXT]->(b)
