@@ -1,0 +1,150 @@
+# Module 2: Retrievers
+
+## Learning Objectives:
+
+- Setup your development environment.
+- Learn about the different types of retrievers.
+- Create a vector + cypher retriever.
+- Create a text to Cypher retriever.
+
+## Key Concepts Covered:
+
+### Retrievers
+
+This lesson introduces three types of retrievers used to extract information from a Neo4j knowledge graph:
+
+1. **Vector Retriever**:
+   - Performs semantic search across text chunks using vector embeddings.
+   - Best for broad exploratory questions and conceptual searches.
+   - Limitations: Does not retrieve entity relationships or aggregate information.
+
+2. **Vector + Cypher Retriever**:
+   - Combines semantic search with graph traversal.
+   - Retrieves enriched context, including entities and relationships.
+   - Best for questions requiring entity-specific aggregations and comprehensive answers.
+   - Limitations: Requires relevant chunks to anchor graph traversal.
+
+3. **Text2Cypher Retriever**:
+   - Converts natural language questions into Cypher queries using an LLM.
+   - Executes precise graph queries for structured data.
+   - Best for analytical and entity-centric questions.
+   - Limitations: Requires understanding of the graph schema and struggles with ambiguous queries.
+
+**Key Insights**:
+- Each retriever has specific strengths and use cases.
+- Choosing the right retriever depends on the type of question and required output (semantic similarity, entity relationships, or precise data).
+
+## Example Code for Retrievers
+
+Vector retriever for semantic search across text chunks:
+
+```python
+vector_retriever = VectorRetriever(
+    driver=driver,
+    index_name='chunkEmbeddings',  # Name of the vector index
+    embedder=embedder,             # OpenAI embeddings model
+    return_properties=['text']     # Properties to return from matched nodes
+)
+
+# Perform semantic search
+query = "What are the risks that Apple faces?"
+results = vector_retriever.search(query_text=query, top_k=10)
+
+# Process results
+for item in results.items:
+    print(f"Score: {item.metadata['score']:.4f}")
+    print(f"Content: {item.content[:100]}...")
+    print(f"ID: {item.metadata['id']}")
+    print("---")
+
+# Use vector retriever with GraphRAG for complete answers
+rag = GraphRAG(llm=llm, retriever=vector_retriever)
+answer = rag.search(query)
+print(f"Answer: {answer.answer}")
+```
+
+Vector + Cypher Retriever for Contextual Search:
+
+```python
+# Custom Cypher query to traverse from chunks to related entities
+contextual_query = """
+WITH node
+MATCH (node)-[:FROM_DOCUMENT]-(doc:Document)-[:FILED]-(company:Company)
+OPTIONAL MATCH (company)-[:FACES_RISK]->(risk:RiskFactor)
+OPTIONAL MATCH (company)<-[:OWNS]-(manager:AssetManager)
+RETURN 
+    company.name AS company,
+    node.text AS context, 
+    collect(DISTINCT risk.name) AS risks,
+    collect(DISTINCT manager.managerName) AS asset_managers
+"""
+
+# Vector + Cypher retriever for hybrid search
+vector_cypher_retriever = VectorCypherRetriever(
+    driver=driver,
+    index_name='chunkEmbeddings',
+    embedder=embedder,
+    retrieval_query=contextual_query  # Custom Cypher for graph traversal
+)
+
+# Query that leverages both semantic search and graph relationships
+query = "Which asset managers are most affected by cryptocurrency policies?"
+
+# Retrieve contextually enriched results
+results = vector_cypher_retriever.search(query_text=query, top_k=10)
+for item in results.items:
+    print(f"Company: {item.content.get('company', 'N/A')}")
+    print(f"Context: {item.content.get('context', '')[:150]}...")
+    print(f"Asset Managers: {item.content.get('asset_managers', [])}")
+    print("---")
+
+# Use with GraphRAG for comprehensive answers
+rag = GraphRAG(llm=llm, retriever=vector_cypher_retriever)
+answer = rag.search(query)
+print(f"Answer: {answer.answer}")
+```
+
+Text2Cypher Retriever for Structured Queries:
+
+```python
+# Get graph schema for Text2Cypher generation
+schema = get_schema(driver)
+print("Graph Schema:")
+print(schema)
+
+# Text2Cypher retriever for natural language to Cypher conversion
+text2cypher_retriever = Text2CypherRetriever(
+    driver=driver,
+    llm=llm,              # LLM for query generation
+    neo4j_schema=schema   # Graph schema for context
+)
+
+# Natural language query converted to Cypher
+query = "What are the company names of companies owned by BlackRock Inc?"
+cypher_result = text2cypher_retriever.get_search_results(query)
+
+print(f"Original Query: {query}")
+print(f"Generated Cypher: {cypher_result.metadata['cypher']}")
+
+# Execute the generated Cypher query
+result = driver.execute_query(cypher_result.metadata["cypher"])
+print("Results:")
+for record in result.records:
+    print(record)
+
+# Example queries that work well with Text2Cypher
+structured_queries = [
+    "How many companies mention cloud computing?",
+    "Count the risk factors for Microsoft",
+    "What financial metrics does Apple report?",
+    "Which asset managers own the most companies?",
+    "List all products mentioned by technology companies"
+]
+
+# Process multiple structured queries
+for question in structured_queries:
+    result = text2cypher_retriever.get_search_results(question)
+    print(f"Q: {question}")
+    print(f"Cypher: {result.metadata['cypher']}")
+    print("---")
+```
