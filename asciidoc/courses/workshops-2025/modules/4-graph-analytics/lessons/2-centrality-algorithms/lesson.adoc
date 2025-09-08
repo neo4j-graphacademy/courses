@@ -1,0 +1,554 @@
+= Centrality Algorithms and Influence Analysis
+:type: lesson
+:order: 2
+:duration: 25 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Understand different types of centrality measures and their applications
+* Implement PageRank, Betweenness, and Closeness centrality algorithms
+* Interpret centrality scores and identify influential nodes
+* Apply centrality analysis to real-world network problems
+
+== Understanding Centrality
+
+Centrality measures help us identify the most important nodes in a network. Different centrality algorithms capture different aspects of "importance":
+
+* **Degree Centrality**: Nodes with many direct connections
+* **Betweenness Centrality**: Nodes that lie on many shortest paths between other nodes
+* **Closeness Centrality**: Nodes that can reach all other nodes quickly
+* **PageRank**: Nodes that are connected to other important nodes
+* **Eigenvector Centrality**: Similar to PageRank but considers the centrality of neighbors
+
+=== When to Use Each Centrality Measure
+
+```python
+centrality_applications = {
+    'degree_centrality': {
+        'best_for': ['Social networks', 'Communication networks', 'Transportation hubs'],
+        'interpretation': 'Nodes with most direct influence or activity',
+        'limitations': 'Only considers local connections, not global position',
+        'examples': ['Most connected person', 'Busiest airport', 'Popular hashtag']
+    },
+    'betweenness_centrality': {
+        'best_for': ['Information flow', 'Critical infrastructure', 'Bridge identification'],
+        'interpretation': 'Nodes that control information flow between others',
+        'limitations': 'Computationally expensive for large graphs',
+        'examples': ['Key bridges in network', 'Information brokers', 'Critical servers']
+    },
+    'closeness_centrality': {
+        'best_for': ['Efficiency analysis', 'Optimal placement', 'Accessibility'],
+        'interpretation': 'Nodes that can reach others most efficiently',
+        'limitations': 'May not work well with disconnected components',
+        'examples': ['Optimal warehouse location', 'Efficient broadcasters', 'Central offices']
+    },
+    'pagerank': {
+        'best_for': ['Web search', 'Influence networks', 'Recommendation systems'],
+        'interpretation': 'Nodes with high-quality connections and influence',
+        'limitations': 'Can be manipulated, requires tuning damping factor',
+        'examples': ['Important web pages', 'Influential people', 'Quality products']
+    }
+}
+
+print("Centrality Algorithm Guide:")
+print("=" * 60)
+
+for algorithm, details in centrality_applications.items():
+    print(f"\n{algorithm.replace('_', ' ').title()}:")
+    print(f"  Best For: {', '.join(details['best_for'])}")
+    print(f"  Interpretation: {details['interpretation']}")
+    print(f"  Limitations: {details['limitations']}")
+    print(f"  Examples: {', '.join(details['examples'])}")
+```
+
+== PageRank Algorithm
+
+PageRank is perhaps the most famous centrality algorithm, originally used by Google to rank web pages. It works on the principle that important nodes are connected to other important nodes.
+
+=== How PageRank Works
+
+```python
+def explain_pagerank():
+    """Explain PageRank algorithm conceptually"""
+    
+    pagerank_concept = {
+        'basic_idea': 'A node is important if it is connected to other important nodes',
+        'iterative_process': [
+            '1. Start with equal importance for all nodes',
+            '2. Each node distributes its importance to its neighbors',
+            '3. Nodes receive importance from all their incoming connections',
+            '4. Repeat until importance scores stabilize'
+        ],
+        'damping_factor': {
+            'purpose': 'Models random surfer behavior - probability of continuing vs jumping randomly',
+            'typical_value': 0.85,
+            'effect': 'Higher damping = more emphasis on graph structure'
+        },
+        'applications': [
+            'Web page ranking', 
+            'Social influence measurement',
+            'Protein importance in biological networks',
+            'Citation analysis'
+        ]
+    }
+    
+    print("PageRank Algorithm:")
+    print(f"  Basic Idea: {pagerank_concept['basic_idea']}")
+    print(f"  Iterative Process:")
+    for step in pagerank_concept['iterative_process']:
+        print(f"    {step}")
+    print(f"  Damping Factor: {pagerank_concept['damping_factor']['purpose']}")
+    print(f"  Applications: {', '.join(pagerank_concept['applications'])}")
+
+explain_pagerank()
+```
+
+=== Implementing PageRank with Neo4j GDS
+
+```cypher
+// First, create a graph projection
+CALL gds.graph.project(
+    'social-network',
+    'Person',
+    'KNOWS',
+    {
+        relationshipProperties: 'weight'
+    }
+)
+
+// Run PageRank algorithm
+CALL gds.pageRank.stream('social-network', {
+    maxIterations: 20,
+    dampingFactor: 0.85,
+    relationshipWeightProperty: 'weight'
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS person, score
+ORDER BY score DESC
+LIMIT 10
+```
+
+=== PageRank with Python Integration
+
+```python
+from neo4j import GraphDatabase
+import pandas as pd
+import matplotlib.pyplot as plt
+
+class PageRankAnalyzer:
+    def __init__(self, uri, username, password):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def run_pagerank(self, graph_name, damping_factor=0.85, max_iterations=20):
+        """Run PageRank algorithm and return results"""
+        
+        query = f"""
+        CALL gds.pageRank.stream('{graph_name}', {{
+            maxIterations: {max_iterations},
+            dampingFactor: {damping_factor}
+        }})
+        YIELD nodeId, score
+        RETURN gds.util.asNode(nodeId).name AS name,
+               labels(gds.util.asNode(nodeId))[0] AS node_type,
+               score
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query)
+            return pd.DataFrame([dict(record) for record in result])
+    
+    def compare_damping_factors(self, graph_name, damping_factors=[0.5, 0.85, 0.95]):
+        """Compare PageRank results with different damping factors"""
+        
+        results = {}
+        for damping in damping_factors:
+            df = self.run_pagerank(graph_name, damping_factor=damping)
+            results[f'damping_{damping}'] = df[['name', 'score']].head(10)
+        
+        return results
+    
+    def analyze_score_distribution(self, graph_name):
+        """Analyze the distribution of PageRank scores"""
+        
+        df = self.run_pagerank(graph_name)
+        
+        analysis = {
+            'total_nodes': len(df),
+            'mean_score': df['score'].mean(),
+            'median_score': df['score'].median(),
+            'std_score': df['score'].std(),
+            'top_1_percent': df['score'].quantile(0.99),
+            'top_5_percent': df['score'].quantile(0.95),
+            'score_range': (df['score'].min(), df['score'].max())
+        }
+        
+        return analysis, df
+    
+    def visualize_top_nodes(self, graph_name, top_k=15):
+        """Create visualization of top PageRank nodes"""
+        
+        df = self.run_pagerank(graph_name)
+        top_nodes = df.head(top_k)
+        
+        plt.figure(figsize=(12, 8))
+        plt.barh(range(len(top_nodes)), top_nodes['score'], color='skyblue')
+        plt.yticks(range(len(top_nodes)), top_nodes['name'])
+        plt.xlabel('PageRank Score')
+        plt.title(f'Top {top_k} Nodes by PageRank Score')
+        plt.gca().invert_yaxis()
+        plt.tight_layout()
+        plt.show()
+        
+        return top_nodes
+
+# Usage example
+# analyzer = PageRankAnalyzer("bolt://localhost:7687", "neo4j", "password")
+# analysis, df = analyzer.analyze_score_distribution('social-network')
+# print(f"PageRank Analysis: {analysis}")
+```
+
+== Betweenness Centrality
+
+Betweenness centrality identifies nodes that act as bridges or bottlenecks in the network. These nodes are crucial for information flow and connectivity.
+
+=== Understanding Betweenness
+
+```python
+def explain_betweenness():
+    """Explain betweenness centrality concepts"""
+    
+    betweenness_concepts = {
+        'definition': 'Measures how often a node lies on shortest paths between other nodes',
+        'calculation_steps': [
+            '1. Find all shortest paths between every pair of nodes',
+            '2. Count how many of these paths pass through each node',
+            '3. Normalize by the total number of possible paths'
+        ],
+        'high_betweenness_indicates': [
+            'Bridge between communities',
+            'Bottleneck in information flow',
+            'Critical connector node',
+            'Potential single point of failure'
+        ],
+        'applications': [
+            'Identifying key employees in organizations',
+            'Finding critical infrastructure nodes',
+            'Detecting information brokers',
+            'Network vulnerability analysis'
+        ]
+    }
+    
+    print("Betweenness Centrality:")
+    print(f"  Definition: {betweenness_concepts['definition']}")
+    print("  Calculation Steps:")
+    for step in betweenness_concepts['calculation_steps']:
+        print(f"    {step}")
+    print("  High Betweenness Indicates:")
+    for indicator in betweenness_concepts['high_betweenness_indicates']:
+        print(f"    • {indicator}")
+
+explain_betweenness()
+```
+
+=== Implementing Betweenness Centrality
+
+```cypher
+// Run Betweenness Centrality
+CALL gds.betweenness.stream('social-network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS person, 
+       score,
+       score * 2 / ((gds.graph.nodeCount('social-network') - 1) * (gds.graph.nodeCount('social-network') - 2)) AS normalized_score
+ORDER BY score DESC
+LIMIT 10
+```
+
+=== Betweenness Analysis with Python
+
+```python
+class BetweennessAnalyzer:
+    def __init__(self, uri, username, password):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def run_betweenness(self, graph_name):
+        """Run betweenness centrality analysis"""
+        
+        query = f"""
+        CALL gds.betweenness.stream('{graph_name}')
+        YIELD nodeId, score
+        WITH gds.util.asNode(nodeId) AS node, score,
+             gds.graph.nodeCount('{graph_name}') AS totalNodes
+        RETURN node.name AS name,
+               labels(node)[0] AS node_type,
+               score,
+               score * 2 / ((totalNodes - 1) * (totalNodes - 2)) AS normalized_score
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query)
+            return pd.DataFrame([dict(record) for record in result])
+    
+    def identify_bridges(self, graph_name, threshold_percentile=90):
+        """Identify bridge nodes with high betweenness"""
+        
+        df = self.run_betweenness(graph_name)
+        threshold = df['score'].quantile(threshold_percentile / 100)
+        
+        bridges = df[df['score'] >= threshold]
+        
+        bridge_analysis = {
+            'total_nodes': len(df),
+            'bridge_nodes': len(bridges),
+            'bridge_percentage': (len(bridges) / len(df)) * 100,
+            'threshold_score': threshold,
+            'bridges': bridges[['name', 'score', 'normalized_score']].to_dict('records')
+        }
+        
+        return bridge_analysis
+    
+    def analyze_network_robustness(self, graph_name, top_k=5):
+        """Analyze network robustness by simulating node removal"""
+        
+        df = self.run_betweenness(graph_name)
+        top_bridges = df.head(top_k)
+        
+        robustness_analysis = {
+            'critical_nodes': top_bridges['name'].tolist(),
+            'impact_scores': top_bridges['score'].tolist(),
+            'vulnerability_assessment': 'High' if top_bridges['score'].max() > df['score'].quantile(0.95) else 'Medium'
+        }
+        
+        return robustness_analysis
+
+# Example usage
+# betweenness_analyzer = BetweennessAnalyzer("bolt://localhost:7687", "neo4j", "password")
+# bridge_analysis = betweenness_analyzer.identify_bridges('social-network')
+# print(f"Network has {bridge_analysis['bridge_nodes']} bridge nodes ({bridge_analysis['bridge_percentage']:.1f}%)")
+```
+
+== Closeness Centrality
+
+Closeness centrality measures how close a node is to all other nodes in the network. Nodes with high closeness centrality can reach others most efficiently.
+
+=== Closeness Centrality Implementation
+
+```cypher
+// Run Closeness Centrality
+CALL gds.closeness.stream('social-network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS person, 
+       score,
+       1.0 / score AS average_distance
+ORDER BY score DESC
+LIMIT 10
+```
+
+=== Comprehensive Centrality Analysis
+
+```python
+class CentralityComparison:
+    def __init__(self, uri, username, password):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def run_all_centralities(self, graph_name):
+        """Run multiple centrality algorithms for comparison"""
+        
+        centrality_queries = {
+            'pagerank': f"""
+            CALL gds.pageRank.stream('{graph_name}')
+            YIELD nodeId, score
+            RETURN gds.util.asNode(nodeId).name AS name, score
+            """,
+            'betweenness': f"""
+            CALL gds.betweenness.stream('{graph_name}')
+            YIELD nodeId, score
+            RETURN gds.util.asNode(nodeId).name AS name, score
+            """,
+            'closeness': f"""
+            CALL gds.closeness.stream('{graph_name}')
+            YIELD nodeId, score
+            RETURN gds.util.asNode(nodeId).name AS name, score
+            """,
+            'degree': f"""
+            CALL gds.degree.stream('{graph_name}')
+            YIELD nodeId, score
+            RETURN gds.util.asNode(nodeId).name AS name, score
+            """
+        }
+        
+        results = {}
+        with self.driver.session() as session:
+            for centrality, query in centrality_queries.items():
+                result = session.run(query)
+                df = pd.DataFrame([dict(record) for record in result])
+                df = df.sort_values('score', ascending=False).reset_index(drop=True)
+                df['rank'] = df.index + 1
+                results[centrality] = df
+        
+        return results
+    
+    def create_centrality_comparison(self, graph_name, top_k=10):
+        """Create comparison table of top nodes across centrality measures"""
+        
+        results = self.run_all_centralities(graph_name)
+        
+        # Create comparison dataframe
+        comparison_data = []
+        for i in range(top_k):
+            row = {'rank': i + 1}
+            for centrality, df in results.items():
+                if i < len(df):
+                    row[f'{centrality}_node'] = df.iloc[i]['name']
+                    row[f'{centrality}_score'] = df.iloc[i]['score']
+                else:
+                    row[f'{centrality}_node'] = ''
+                    row[f'{centrality}_score'] = 0
+            comparison_data.append(row)
+        
+        return pd.DataFrame(comparison_data)
+    
+    def find_consensus_leaders(self, graph_name, top_k=10):
+        """Find nodes that rank highly across multiple centrality measures"""
+        
+        results = self.run_all_centralities(graph_name)
+        
+        # Calculate average rank across all centrality measures
+        all_nodes = set()
+        for df in results.values():
+            all_nodes.update(df['name'].tolist())
+        
+        consensus_scores = []
+        for node in all_nodes:
+            ranks = []
+            for centrality, df in results.items():
+                node_rank = df[df['name'] == node]['rank'].iloc[0] if node in df['name'].values else len(df) + 1
+                ranks.append(node_rank)
+            
+            consensus_scores.append({
+                'name': node,
+                'average_rank': sum(ranks) / len(ranks),
+                'rank_std': pd.Series(ranks).std(),
+                'top_10_appearances': sum(1 for rank in ranks if rank <= 10)
+            })
+        
+        consensus_df = pd.DataFrame(consensus_scores)
+        consensus_df = consensus_df.sort_values('average_rank').head(top_k)
+        
+        return consensus_df
+    
+    def visualize_centrality_comparison(self, graph_name, top_k=10):
+        """Create visualization comparing different centrality measures"""
+        
+        results = self.run_all_centralities(graph_name)
+        
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Centrality Measures Comparison', fontsize=16)
+        
+        centralities = ['pagerank', 'betweenness', 'closeness', 'degree']
+        colors = ['skyblue', 'lightcoral', 'lightgreen', 'gold']
+        
+        for i, (centrality, color) in enumerate(zip(centralities, colors)):
+            ax = axes[i // 2, i % 2]
+            df = results[centrality].head(top_k)
+            
+            ax.barh(range(len(df)), df['score'], color=color)
+            ax.set_yticks(range(len(df)))
+            ax.set_yticklabels(df['name'])
+            ax.set_title(f'{centrality.title()} Centrality')
+            ax.set_xlabel('Score')
+            ax.invert_yaxis()
+        
+        plt.tight_layout()
+        plt.show()
+        
+        return results
+
+# Example usage
+# centrality_comparison = CentralityComparison("bolt://localhost:7687", "neo4j", "password")
+# consensus_leaders = centrality_comparison.find_consensus_leaders('social-network')
+# print("Consensus Leaders (high across multiple centrality measures):")
+# print(consensus_leaders)
+```
+
+== Practical Applications
+
+=== Social Network Analysis
+
+```python
+def social_network_insights(centrality_results):
+    """Generate insights from social network centrality analysis"""
+    
+    insights = {
+        'influencers': {
+            'description': 'High PageRank nodes - people with influence',
+            'nodes': centrality_results['pagerank'].head(5)['name'].tolist(),
+            'strategy': 'Target for marketing campaigns and opinion leadership'
+        },
+        'connectors': {
+            'description': 'High Betweenness nodes - people who bridge communities',
+            'nodes': centrality_results['betweenness'].head(5)['name'].tolist(),
+            'strategy': 'Key for information spread and community building'
+        },
+        'accessible': {
+            'description': 'High Closeness nodes - people who can reach others quickly',
+            'nodes': centrality_results['closeness'].head(5)['name'].tolist(),
+            'strategy': 'Ideal for rapid information dissemination'
+        },
+        'popular': {
+            'description': 'High Degree nodes - people with many connections',
+            'nodes': centrality_results['degree'].head(5)['name'].tolist(),
+            'strategy': 'Good for broad reach and awareness campaigns'
+        }
+    }
+    
+    return insights
+```
+
+=== Infrastructure Analysis
+
+```cypher
+// Identify critical infrastructure nodes
+CALL gds.pageRank.stream('infrastructure-network', {
+    relationshipWeightProperty: 'capacity'
+})
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS node, score
+WHERE node.type = 'Server' OR node.type = 'Router'
+RETURN node.name AS infrastructure, 
+       node.type AS component_type,
+       score AS importance_score
+ORDER BY score DESC
+LIMIT 20
+```
+
+== Knowledge Check
+
+In a social network, which centrality measure would best identify people who serve as bridges between different groups?
+
+( ) Degree Centrality
+( ) PageRank
+(x) Betweenness Centrality
+( ) Closeness Centrality
+
+[%collapsible]
+.Explanation
+====
+Betweenness centrality measures how often a node lies on shortest paths between other nodes, making it ideal for identifying bridge nodes that connect different communities or groups. These nodes are crucial for information flow between disconnected parts of the network.
+====
+
+== Summary
+
+Centrality algorithms help identify important nodes in networks from different perspectives:
+
+* **PageRank** - Nodes with high-quality connections and recursive importance
+* **Betweenness** - Bridge nodes that control information flow
+* **Closeness** - Nodes that can efficiently reach all others
+* **Degree** - Nodes with many direct connections
+
+The choice of centrality measure depends on your specific use case and what type of "importance" you want to measure. Often, comparing multiple centrality measures provides the most comprehensive understanding of your network.
+
+Next, we'll explore community detection algorithms to identify groups and clusters within your graph.

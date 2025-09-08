@@ -1,0 +1,1399 @@
+= Technical Environment Setup Guide
+:status: draft
+:type: technical-documentation
+:toc: left
+:toclevels: 4
+
+== Overview
+
+This comprehensive technical guide covers all aspects of setting up and maintaining the environments required for the Modular GenAI Workshops 2025. It includes detailed setup instructions, troubleshooting procedures, and maintenance protocols.
+
+== Environment Architecture
+
+=== Component Overview
+
+[ditaa]
+.....
++-------------------+     +-------------------+     +-------------------+
+|   Graph Academy   |     |  GitHub Codespaces|     |    Neo4j Cloud    |
+|   Learning Platform|<--->|  Development Env   |<--->|   Database Layer  |
+|                   |     |                   |     |                   |
+| - Course Content  |     | - Jupyter Notebooks|     | - Neo4j Aura     |
+| - Assessments     |     | - Python Libraries |     | - Sandbox         |
+| - Progress Track  |     | - Code Templates   |     | - Enterprise     |
++-------------------+     +-------------------+     +-------------------+
+           ^                         ^                         ^
+           |                         |                         |
+           v                         v                         v
++-------------------+     +-------------------+     +-------------------+
+|   External APIs   |     |   GraphRAG Data   |     |   Monitoring      |
+|                   |     |                   |     |                   |
+| - OpenAI API      |     | - Financial Data  |     | - Performance     |
+| - Google Cloud    |     | - Text Documents  |     | - Usage Metrics   |
+| - Vector Services |     | - Embeddings      |     | - Error Tracking  |
++-------------------+     +-------------------+     +-------------------+
+.....
+
+=== Infrastructure Requirements
+
+==== Minimum System Requirements
+* **CPU**: 2 cores minimum, 4 cores recommended
+* **Memory**: 8GB minimum, 16GB recommended
+* **Storage**: 10GB available space
+* **Network**: Stable internet connection (10+ Mbps)
+* **Browser**: Chrome, Firefox, Safari, or Edge (latest versions)
+
+==== Recommended System Requirements
+* **CPU**: 8 cores for optimal performance
+* **Memory**: 32GB for large dataset operations
+* **Storage**: 50GB SSD for local development
+* **Network**: High-speed connection (50+ Mbps) for video workshops
+* **GPU**: Optional, for local ML model inference
+
+== Neo4j Environment Setup
+
+=== Neo4j Aura Configuration
+
+==== Creating Aura Instances
+
+```bash
+# Using Neo4j CLI (if available)
+neo4j-admin aura create \
+  --name "workshop-2025-instance" \
+  --region "us-east-1" \
+  --tier "free" \
+  --database-name "graphrag" \
+  --initial-password "WorkshopPass2025!"
+```
+
+==== Manual Aura Setup
+1. **Navigate to Neo4j Aura Console**
+   - Go to https://console.neo4j.io
+   - Sign in with Neo4j account
+   - Click "Create New Instance"
+
+2. **Configure Instance**
+   - **Name**: `workshop-2025-{participant-id}`
+   - **Region**: Select closest to participants
+   - **Version**: Latest stable (5.x)
+   - **Size**: AuraDB Free for basic workshops
+
+3. **Security Configuration**
+   - **Username**: `neo4j`
+   - **Password**: Generate strong password
+   - **IP Whitelist**: `0.0.0.0/0` for workshops (restrict for production)
+
+4. **Connection Details**
+   ```properties
+   # Save these details for participants
+   URI=neo4j+s://xxxxxxxx.databases.neo4j.io
+   USERNAME=neo4j
+   PASSWORD=generated-password
+   DATABASE=neo4j
+   ```
+
+=== Neo4j Sandbox Setup
+
+==== Automated Sandbox Creation
+
+```python
+# Python script for bulk sandbox creation
+import requests
+import json
+
+def create_sandbox(participant_email, workshop_type):
+    """
+    Create Neo4j Sandbox instance for workshop participant
+    """
+    url = "https://sandbox.neo4j.com/api/v1/sandboxes"
+    
+    payload = {
+        "usecase": "blank-sandbox",
+        "email": participant_email,
+        "name": f"Workshop 2025 - {workshop_type}",
+        "description": "Modular GenAI Workshop Environment"
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {SANDBOX_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    
+    if response.status_code == 201:
+        sandbox_data = response.json()
+        return {
+            "sandbox_id": sandbox_data["id"],
+            "connection_url": sandbox_data["connection"]["bolt"],
+            "username": sandbox_data["connection"]["username"],
+            "password": sandbox_data["connection"]["password"]
+        }
+    else:
+        raise Exception(f"Failed to create sandbox: {response.text}")
+
+# Bulk creation for workshop
+participants = [
+    "participant1@company.com",
+    "participant2@company.com",
+    # ... more participants
+]
+
+sandbox_details = []
+for email in participants:
+    try:
+        details = create_sandbox(email, "GenAI")
+        sandbox_details.append({"email": email, **details})
+        print(f"Created sandbox for {email}")
+    except Exception as e:
+        print(f"Failed to create sandbox for {email}: {e}")
+
+# Save details for distribution
+with open("sandbox_credentials.json", "w") as f:
+    json.dump(sandbox_details, f, indent=2)
+```
+
+==== Manual Sandbox Setup
+1. **Access Sandbox Console**
+   - Go to https://sandbox.neo4j.com
+   - Click "Launch a Free Sandbox"
+   - Select "Blank Sandbox"
+
+2. **Configuration**
+   - **Project Name**: "Workshop 2025 - [Module Name]"
+   - **Description**: Brief workshop description
+   - **Duration**: 3 days (extendable)
+
+3. **Access Details**
+   ```
+   Bolt URL: bolt://44.xxx.xxx.xxx:7687
+   Browser URL: http://44.xxx.xxx.xxx:7474
+   Username: neo4j
+   Password: (auto-generated)
+   ```
+
+=== Database Initialization
+
+==== Schema and Constraints Setup
+
+```cypher
+-- Create constraints for data integrity
+CREATE CONSTRAINT customer_id FOR (c:Customer) REQUIRE c.id IS UNIQUE;
+CREATE CONSTRAINT account_number FOR (a:Account) REQUIRE a.number IS UNIQUE;
+CREATE CONSTRAINT document_id FOR (d:Document) REQUIRE d.id IS UNIQUE;
+CREATE CONSTRAINT entity_name FOR (e:Entity) REQUIRE (e.name, e.type) IS UNIQUE;
+CREATE CONSTRAINT company_name FOR (c:Company) REQUIRE c.name IS UNIQUE;
+
+-- Create indexes for performance
+CREATE INDEX transaction_date FOR ()-[t:TRANSACTION]-() ON (t.date);
+CREATE INDEX document_embedding FOR (d:Document) ON (d.embedding);
+CREATE INDEX entity_type FOR (e:Entity) ON (e.type);
+CREATE INDEX customer_name FOR (c:Customer) ON (c.name);
+
+-- Create vector indexes for semantic search
+CREATE VECTOR INDEX document_embeddings FOR (d:Document) ON (d.embedding)
+OPTIONS {
+  indexConfig: {
+    `vector.dimensions`: 1536,
+    `vector.similarity_function`: 'cosine'
+  }
+};
+
+CREATE VECTOR INDEX chunk_embeddings FOR (c:Chunk) ON (c.embedding)
+OPTIONS {
+  indexConfig: {
+    `vector.dimensions`: 1536,
+    `vector.similarity_function`: 'cosine'
+  }
+};
+```
+
+==== Data Validation Queries
+
+```cypher
+-- Verify schema setup
+SHOW CONSTRAINTS;
+SHOW INDEXES;
+
+-- Check data loading progress
+MATCH (n) RETURN labels(n) AS nodeType, count(n) AS count ORDER BY count DESC;
+
+-- Verify relationships
+MATCH ()-[r]->() RETURN type(r) AS relationshipType, count(r) AS count ORDER BY count DESC;
+
+-- Test vector index functionality
+MATCH (d:Document) WHERE d.embedding IS NOT NULL RETURN count(d) AS documentsWithEmbeddings;
+
+-- Performance check
+PROFILE MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account) RETURN count(*) AS customerAccounts;
+```
+
+== GitHub Codespaces Configuration
+
+=== Repository Setup
+
+==== Creating Template Repository
+
+```json
+// .devcontainer/devcontainer.json
+{
+  "name": "Workshop 2025 - GenAI Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "postCreateCommand": "pip install -r requirements.txt && npm install -g @neo4j/cypher-shell",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter",
+        "neo4j.cypher",
+        "redhat.vscode-yaml",
+        "ms-vscode.vscode-json"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.terminal.activateEnvironment": false
+      }
+    }
+  },
+  "forwardPorts": [8888, 7474, 7687],
+  "portsAttributes": {
+    "8888": {
+      "label": "Jupyter Lab",
+      "onAutoForward": "notify"
+    }
+  }
+}
+```
+
+```txt
+# requirements.txt
+neo4j==5.14.1
+jupyterlab==4.0.7
+langchain==0.0.350
+langchain-openai==0.0.2
+openai==1.3.5
+pandas==2.1.3
+numpy==1.25.2
+matplotlib==3.8.1
+seaborn==0.13.0
+scipy==1.11.4
+scikit-learn==1.3.2
+nltk==3.8.1
+spacy==3.7.2
+transformers==4.35.2
+faiss-cpu==1.7.4
+pyarrow==14.0.1
+requests==2.31.0
+python-dotenv==1.0.0
+tqdm==4.66.1
+```
+
+==== Environment Variables Setup
+
+```bash
+# .env.template
+# Copy to .env and fill in actual values
+
+# Neo4j Connection
+NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-password
+NEO4J_DATABASE=neo4j
+
+# OpenAI Configuration
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4
+OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
+
+# Optional APIs
+GOOGLE_CLOUD_API_KEY=your-google-api-key
+HUGGINGFACE_API_TOKEN=your-huggingface-token
+
+# Workshop Configuration
+WORKSHOP_MODE=development
+LOG_LEVEL=INFO
+DATA_SOURCE=graphrag-ebook
+```
+
+=== Notebook Templates
+
+==== Module 1: Graph Basics Notebook
+
+```python
+# notebooks/01-graph-basics.ipynb
+"""
+Module 1: Graph Basics - Interactive Notebook
+Modular GenAI Workshops 2025
+"""
+
+import os
+from neo4j import GraphDatabase
+import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Neo4j connection setup
+class Neo4jConnection:
+    def __init__(self):
+        self.uri = os.getenv('NEO4J_URI')
+        self.username = os.getenv('NEO4J_USERNAME')
+        self.password = os.getenv('NEO4J_PASSWORD')
+        self.database = os.getenv('NEO4J_DATABASE', 'neo4j')
+        self.driver = GraphDatabase.driver(self.uri, auth=(self.username, self.password))
+    
+    def query(self, cypher_query, parameters=None):
+        with self.driver.session(database=self.database) as session:
+            result = session.run(cypher_query, parameters)
+            return [record.data() for record in result]
+    
+    def close(self):
+        self.driver.close()
+
+# Initialize connection
+neo4j = Neo4jConnection()
+
+# Test connection
+try:
+    result = neo4j.query("RETURN 'Hello, Neo4j!' AS message")
+    print(f"✅ Connected successfully: {result[0]['message']}")
+except Exception as e:
+    print(f"❌ Connection failed: {e}")
+
+# Exercise 1: Explore the database
+print("\n=== Database Overview ===")
+node_counts = neo4j.query("""
+    MATCH (n) 
+    RETURN labels(n) AS nodeType, count(n) AS count 
+    ORDER BY count DESC
+""")
+
+for record in node_counts:
+    print(f"{record['nodeType']}: {record['count']} nodes")
+
+# Exercise 2: Basic graph patterns
+print("\n=== Sample Customer Data ===")
+customers = neo4j.query("""
+    MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+    RETURN c.name AS customer, a.type AS accountType, a.balance AS balance
+    LIMIT 5
+""")
+
+df = pd.DataFrame(customers)
+print(df.to_string(index=False))
+
+# Visualization helper
+def visualize_graph_sample():
+    """
+    Create a simple graph visualization
+    """
+    sample_data = neo4j.query("""
+        MATCH (c:Customer)-[r:HAS_ACCOUNT]->(a:Account)
+        RETURN c.name AS customer, type(r) AS relationship, a.type AS account
+        LIMIT 10
+    """)
+    
+    # Simple text-based visualization
+    print("\n=== Graph Structure Sample ===")
+    for record in sample_data:
+        print(f"{record['customer']} -[{record['relationship']}]-> {record['account']}")
+
+visualize_graph_sample()
+```
+
+==== Module 5: Retrievers Notebook
+
+```python
+# notebooks/05-retrievers.ipynb
+"""
+Module 5: Retrievers - GraphRAG Implementation
+Modular GenAI Workshops 2025
+"""
+
+import os
+import openai
+import numpy as np
+from neo4j import GraphDatabase
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import Neo4jVector
+from typing import List, Dict, Any
+
+# Configuration
+openai.api_key = os.getenv('OPENAI_API_KEY')
+embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+
+class GraphRAGRetriever:
+    def __init__(self, neo4j_connection):
+        self.neo4j = neo4j_connection
+        self.embeddings = embeddings
+    
+    def vector_similarity_search(self, query: str, top_k: int = 5) -> List[Dict]:
+        """
+        Perform vector similarity search
+        """
+        # Generate query embedding
+        query_embedding = self.embeddings.embed_query(query)
+        
+        # Search for similar documents
+        search_query = """
+        CALL db.index.vector.queryNodes('document-embeddings', $k, $embedding)
+        YIELD node AS doc, score
+        RETURN doc.title AS title, 
+               doc.content AS content, 
+               doc.source AS source,
+               score
+        ORDER BY score DESC
+        """
+        
+        results = self.neo4j.query(search_query, {
+            'k': top_k,
+            'embedding': query_embedding
+        })
+        
+        return results
+    
+    def graph_traversal_search(self, entities: List[str], depth: int = 2) -> List[Dict]:
+        """
+        Find documents through entity relationships
+        """
+        traversal_query = """
+        UNWIND $entities AS entityName
+        MATCH (e:Entity {name: entityName})
+        MATCH (e)-[:RELATED_TO*1..$depth]-(related:Entity)
+        MATCH (related)<-[:MENTIONS]-(doc:Document)
+        WITH doc, count(related) AS relevanceScore
+        RETURN DISTINCT doc.title AS title,
+                       doc.content AS content,
+                       doc.source AS source,
+                       relevanceScore
+        ORDER BY relevanceScore DESC
+        LIMIT 10
+        """
+        
+        results = self.neo4j.query(traversal_query, {
+            'entities': entities,
+            'depth': depth
+        })
+        
+        return results
+    
+    def hybrid_retrieval(self, query: str, top_k: int = 5) -> Dict[str, Any]:
+        """
+        Combine vector and graph-based retrieval
+        """
+        # Step 1: Vector similarity search
+        vector_results = self.vector_similarity_search(query, top_k)
+        
+        # Step 2: Extract entities from top results
+        entities = self._extract_entities_from_results(vector_results)
+        
+        # Step 3: Graph traversal for additional context
+        graph_results = self.graph_traversal_search(entities, depth=2)
+        
+        # Step 4: Combine and rank results
+        combined_results = self._combine_and_rank(
+            vector_results, graph_results, query
+        )
+        
+        return {
+            'query': query,
+            'vector_results': vector_results,
+            'graph_results': graph_results,
+            'combined_results': combined_results
+        }
+    
+    def _extract_entities_from_results(self, results: List[Dict]) -> List[str]:
+        """
+        Extract mentioned entities from search results
+        """
+        extraction_query = """
+        UNWIND $titles AS title
+        MATCH (doc:Document {title: title})-[:MENTIONS]->(entity:Entity)
+        RETURN DISTINCT entity.name AS entityName
+        LIMIT 20
+        """
+        
+        titles = [result['title'] for result in results]
+        entity_results = self.neo4j.query(extraction_query, {'titles': titles})
+        
+        return [result['entityName'] for result in entity_results]
+    
+    def _combine_and_rank(self, vector_results: List[Dict], 
+                         graph_results: List[Dict], query: str) -> List[Dict]:
+        """
+        Combine and rank results from different retrieval methods
+        """
+        # Simple scoring combination
+        all_results = {}
+        
+        # Add vector results with high weight
+        for result in vector_results:
+            title = result['title']
+            all_results[title] = {
+                **result,
+                'vector_score': result.get('score', 0),
+                'graph_score': 0,
+                'combined_score': result.get('score', 0) * 0.7
+            }
+        
+        # Add graph results
+        for result in graph_results:
+            title = result['title']
+            if title in all_results:
+                all_results[title]['graph_score'] = result.get('relevanceScore', 0)
+                all_results[title]['combined_score'] += result.get('relevanceScore', 0) * 0.3
+            else:
+                all_results[title] = {
+                    **result,
+                    'vector_score': 0,
+                    'graph_score': result.get('relevanceScore', 0),
+                    'combined_score': result.get('relevanceScore', 0) * 0.3
+                }
+        
+        # Sort by combined score
+        ranked_results = sorted(
+            all_results.values(),
+            key=lambda x: x['combined_score'],
+            reverse=True
+        )
+        
+        return ranked_results[:10]
+
+# Initialize retriever
+retriever = GraphRAGRetriever(neo4j)
+
+# Example usage
+query = "financial risk assessment methodologies"
+print(f"Query: {query}\n")
+
+# Test different retrieval methods
+print("=== Vector Similarity Results ===")
+vector_results = retriever.vector_similarity_search(query)
+for i, result in enumerate(vector_results[:3]):
+    print(f"{i+1}. {result['title']} (Score: {result['score']:.3f})")
+    print(f"   {result['content'][:100]}...\n")
+
+print("=== Hybrid Retrieval Results ===")
+hybrid_results = retriever.hybrid_retrieval(query)
+for i, result in enumerate(hybrid_results['combined_results'][:3]):
+    print(f"{i+1}. {result['title']} (Combined Score: {result['combined_score']:.3f})")
+    print(f"   Vector: {result['vector_score']:.3f}, Graph: {result['graph_score']:.3f}")
+    print(f"   {result['content'][:100]}...\n")
+```
+
+== Graph Academy Integration
+
+=== Course Configuration
+
+==== Creating Workshop Courses
+
+```yaml
+# config/workshop-course.yaml
+course:
+  id: "modular-genai-workshops-2025"
+  title: "Modular GenAI Workshops 2025"
+  description: "Hands-on GenAI development with Neo4j"
+  duration: "6 hours"
+  difficulty: "intermediate"
+  
+  modules:
+    - id: "graph-basics"
+      title: "Graph Basics"
+      duration: "45 minutes"
+      order: 1
+      
+    - id: "structured-data"
+      title: "Structured Data"
+      duration: "60 minutes"
+      order: 2
+      
+    - id: "unstructured-data"
+      title: "Unstructured Data"
+      duration: "75 minutes"
+      order: 3
+      
+    - id: "graph-analytics"
+      title: "Graph Analytics"
+      duration: "90 minutes"
+      order: 4
+      
+    - id: "retrievers"
+      title: "Retrievers"
+      duration: "75 minutes"
+      order: 5
+      
+    - id: "agents"
+      title: "Agents"
+      duration: "90 minutes"
+      order: 6
+
+  environments:
+    neo4j:
+      type: "aura"
+      version: "5.x"
+      
+    codespaces:
+      template: "workshop-2025-template"
+      
+  assessments:
+    - type: "hands-on"
+      weight: 70
+    - type: "quiz"
+      weight: 30
+
+  certification:
+    passing_score: 80
+    certificate_name: "Neo4j GenAI Workshop Completion"
+```
+
+=== Progress Tracking
+
+==== Analytics Implementation
+
+```python
+# scripts/progress_tracking.py
+
+class WorkshopAnalytics:
+    def __init__(self, analytics_db):
+        self.db = analytics_db
+    
+    def track_module_completion(self, user_id: str, module_id: str, 
+                              completion_time: int, score: float):
+        """
+        Track when a user completes a module
+        """
+        query = """
+        MERGE (u:User {id: $user_id})
+        MERGE (m:Module {id: $module_id})
+        CREATE (u)-[:COMPLETED {
+            timestamp: datetime(),
+            completion_time: $completion_time,
+            score: $score
+        }]->(m)
+        """
+        
+        self.db.query(query, {
+            'user_id': user_id,
+            'module_id': module_id,
+            'completion_time': completion_time,
+            'score': score
+        })
+    
+    def get_workshop_progress(self, workshop_id: str) -> Dict:
+        """
+        Get overall workshop progress statistics
+        """
+        query = """
+        MATCH (w:Workshop {id: $workshop_id})<-[:PART_OF]-(m:Module)
+        OPTIONAL MATCH (m)<-[c:COMPLETED]-(u:User)
+        WITH m, count(c) AS completions, count(DISTINCT u) AS unique_users
+        RETURN m.id AS module_id,
+               m.title AS module_title,
+               completions,
+               unique_users,
+               avg(c.score) AS avg_score,
+               avg(c.completion_time) AS avg_time
+        ORDER BY m.order
+        """
+        
+        return self.db.query(query, {'workshop_id': workshop_id})
+```
+
+== DataSet Management
+
+=== GraphRAG Ebook Dataset Integration
+
+==== Data Loading Scripts
+
+```python
+# scripts/load_graphrag_data.py
+
+import os
+import json
+import pandas as pd
+from neo4j import GraphDatabase
+from pathlib import Path
+
+class GraphRAGDataLoader:
+    def __init__(self, neo4j_connection, data_path: str):
+        self.neo4j = neo4j_connection
+        self.data_path = Path(data_path)
+    
+    def load_financial_documents(self):
+        """
+        Load financial documents from GraphRAG ebook dataset
+        """
+        docs_path = self.data_path / "financial_documents"
+        
+        # Load document metadata
+        with open(docs_path / "documents.json", 'r') as f:
+            documents = json.load(f)
+        
+        # Create documents in Neo4j
+        for doc in documents:
+            self._create_document(doc)
+    
+    def _create_document(self, doc_data: Dict):
+        """
+        Create a document node with content and metadata
+        """
+        query = """
+        CREATE (d:Document {
+            id: $id,
+            title: $title,
+            content: $content,
+            source: $source,
+            publish_date: date($publish_date),
+            word_count: $word_count,
+            category: $category
+        })
+        """
+        
+        self.neo4j.query(query, doc_data)
+    
+    def load_entities_and_relationships(self):
+        """
+        Load extracted entities and relationships
+        """
+        entities_path = self.data_path / "entities.json"
+        relationships_path = self.data_path / "relationships.json"
+        
+        # Load entities
+        with open(entities_path, 'r') as f:
+            entities = json.load(f)
+        
+        for entity in entities:
+            self._create_entity(entity)
+        
+        # Load relationships
+        with open(relationships_path, 'r') as f:
+            relationships = json.load(f)
+        
+        for rel in relationships:
+            self._create_relationship(rel)
+    
+    def _create_entity(self, entity_data: Dict):
+        """
+        Create entity nodes
+        """
+        query = """
+        MERGE (e:Entity {name: $name, type: $type})
+        SET e.description = $description,
+            e.confidence = $confidence
+        """
+        
+        self.neo4j.query(query, entity_data)
+    
+    def _create_relationship(self, rel_data: Dict):
+        """
+        Create relationships between entities
+        """
+        query = """
+        MATCH (e1:Entity {name: $source})
+        MATCH (e2:Entity {name: $target})
+        MERGE (e1)-[:RELATED_TO {
+            type: $relationship_type,
+            confidence: $confidence,
+            source_document: $source_document
+        }]->(e2)
+        """
+        
+        self.neo4j.query(query, rel_data)
+    
+    def load_embeddings(self):
+        """
+        Load pre-computed embeddings for documents
+        """
+        embeddings_path = self.data_path / "embeddings.json"
+        
+        with open(embeddings_path, 'r') as f:
+            embeddings = json.load(f)
+        
+        for doc_id, embedding in embeddings.items():
+            query = """
+            MATCH (d:Document {id: $doc_id})
+            SET d.embedding = $embedding
+            """
+            
+            self.neo4j.query(query, {
+                'doc_id': doc_id,
+                'embedding': embedding
+            })
+
+# Usage example
+loader = GraphRAGDataLoader(neo4j, "/path/to/graphrag-ebook-data")
+loader.load_financial_documents()
+loader.load_entities_and_relationships()
+loader.load_embeddings()
+```
+
+==== Data Validation and Quality Checks
+
+```cypher
+-- Data quality validation queries
+
+-- 1. Check for orphaned entities (not connected to documents)
+MATCH (e:Entity)
+WHERE NOT (e)<-[:MENTIONS]-(:Document)
+RETURN count(e) AS orphaned_entities;
+
+-- 2. Verify embedding coverage
+MATCH (d:Document)
+WITH count(d) AS total_docs
+MATCH (d:Document) WHERE d.embedding IS NOT NULL
+WITH total_docs, count(d) AS docs_with_embeddings
+RETURN total_docs, docs_with_embeddings, 
+       round(100.0 * docs_with_embeddings / total_docs, 2) AS coverage_percentage;
+
+-- 3. Check relationship distribution
+MATCH ()-[r:RELATED_TO]-()
+RETURN r.type AS relationship_type, count(r) AS count
+ORDER BY count DESC;
+
+-- 4. Validate vector index functionality
+MATCH (d:Document) WHERE d.embedding IS NOT NULL
+WITH d LIMIT 1
+CALL db.index.vector.queryNodes('document-embeddings', 5, d.embedding)
+YIELD node, score
+RETURN node.title, score;
+
+-- 5. Content quality checks
+MATCH (d:Document)
+WHERE d.content IS NULL OR size(d.content) < 100
+RETURN count(d) AS documents_with_insufficient_content;
+```
+
+== API Configuration
+
+=== OpenAI API Setup
+
+==== Rate Limiting and Management
+
+```python
+# utils/api_management.py
+
+import time
+import openai
+from typing import List, Dict, Optional
+from functools import wraps
+
+class APIRateLimiter:
+    def __init__(self, calls_per_minute: int = 60):
+        self.calls_per_minute = calls_per_minute
+        self.call_times = []
+    
+    def wait_if_needed(self):
+        now = time.time()
+        # Remove calls older than 1 minute
+        self.call_times = [t for t in self.call_times if now - t < 60]
+        
+        if len(self.call_times) >= self.calls_per_minute:
+            sleep_time = 60 - (now - self.call_times[0])
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+        
+        self.call_times.append(now)
+
+def rate_limited(limiter: APIRateLimiter):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            limiter.wait_if_needed()
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+class WorkshopOpenAIClient:
+    def __init__(self, api_key: str, organization: Optional[str] = None):
+        openai.api_key = api_key
+        if organization:
+            openai.organization = organization
+        
+        self.embedding_limiter = APIRateLimiter(calls_per_minute=60)
+        self.completion_limiter = APIRateLimiter(calls_per_minute=20)
+    
+    @rate_limited
+    def get_embedding(self, text: str, model: str = "text-embedding-ada-002") -> List[float]:
+        """
+        Get embedding for text with rate limiting
+        """
+        try:
+            response = openai.embeddings.create(
+                model=model,
+                input=text
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"Error getting embedding: {e}")
+            return None
+    
+    @rate_limited
+    def get_completion(self, messages: List[Dict], model: str = "gpt-4") -> str:
+        """
+        Get chat completion with rate limiting
+        """
+        try:
+            response = openai.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0.1
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"Error getting completion: {e}")
+            return None
+    
+    def batch_embeddings(self, texts: List[str], batch_size: int = 10) -> Dict[str, List[float]]:
+        """
+        Process multiple texts in batches
+        """
+        results = {}
+        
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            
+            try:
+                response = openai.embeddings.create(
+                    model="text-embedding-ada-002",
+                    input=batch
+                )
+                
+                for j, embedding_data in enumerate(response.data):
+                    text_index = i + j
+                    results[texts[text_index]] = embedding_data.embedding
+                    
+            except Exception as e:
+                print(f"Error processing batch {i//batch_size + 1}: {e}")
+                # Process individually as fallback
+                for text in batch:
+                    embedding = self.get_embedding(text)
+                    if embedding:
+                        results[text] = embedding
+            
+            # Rate limiting between batches
+            time.sleep(1)
+        
+        return results
+```
+
+=== Monitoring and Logging
+
+==== Performance Monitoring
+
+```python
+# monitoring/performance_monitor.py
+
+import time
+import psutil
+import logging
+from typing import Dict, Any
+from dataclasses import dataclass
+from datetime import datetime
+
+@dataclass
+class PerformanceMetrics:
+    timestamp: datetime
+    cpu_percent: float
+    memory_percent: float
+    disk_usage: float
+    network_io: Dict[str, int]
+    neo4j_response_time: float
+    api_call_count: int
+    error_count: int
+
+class WorkshopMonitor:
+    def __init__(self, neo4j_connection):
+        self.neo4j = neo4j_connection
+        self.metrics_history = []
+        self.api_calls = 0
+        self.errors = 0
+        
+        # Setup logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler('workshop_monitor.log'),
+                logging.StreamHandler()
+            ]
+        )
+        self.logger = logging.getLogger('WorkshopMonitor')
+    
+    def collect_metrics(self) -> PerformanceMetrics:
+        """
+        Collect current system and application metrics
+        """
+        # System metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        network = psutil.net_io_counters()
+        
+        # Neo4j response time test
+        start_time = time.time()
+        try:
+            self.neo4j.query("RETURN 1")
+            neo4j_response_time = time.time() - start_time
+        except Exception as e:
+            self.logger.error(f"Neo4j health check failed: {e}")
+            neo4j_response_time = -1
+            self.errors += 1
+        
+        metrics = PerformanceMetrics(
+            timestamp=datetime.now(),
+            cpu_percent=cpu_percent,
+            memory_percent=memory.percent,
+            disk_usage=disk.percent,
+            network_io={
+                'bytes_sent': network.bytes_sent,
+                'bytes_recv': network.bytes_recv
+            },
+            neo4j_response_time=neo4j_response_time,
+            api_call_count=self.api_calls,
+            error_count=self.errors
+        )
+        
+        self.metrics_history.append(metrics)
+        return metrics
+    
+    def log_api_call(self, api_name: str, duration: float, success: bool):
+        """
+        Log API call metrics
+        """
+        self.api_calls += 1
+        if not success:
+            self.errors += 1
+        
+        self.logger.info(f"API Call: {api_name}, Duration: {duration:.3f}s, Success: {success}")
+    
+    def get_performance_report(self) -> Dict[str, Any]:
+        """
+        Generate performance report
+        """
+        if not self.metrics_history:
+            return {"error": "No metrics collected"}
+        
+        recent_metrics = self.metrics_history[-10:]  # Last 10 measurements
+        
+        avg_cpu = sum(m.cpu_percent for m in recent_metrics) / len(recent_metrics)
+        avg_memory = sum(m.memory_percent for m in recent_metrics) / len(recent_metrics)
+        avg_neo4j_time = sum(m.neo4j_response_time for m in recent_metrics if m.neo4j_response_time > 0) / len(recent_metrics)
+        
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "system_health": {
+                "avg_cpu_percent": round(avg_cpu, 2),
+                "avg_memory_percent": round(avg_memory, 2),
+                "avg_neo4j_response_time": round(avg_neo4j_time, 3)
+            },
+            "api_metrics": {
+                "total_calls": self.api_calls,
+                "total_errors": self.errors,
+                "error_rate": round(self.errors / max(self.api_calls, 1) * 100, 2)
+            },
+            "recommendations": self._generate_recommendations(avg_cpu, avg_memory, avg_neo4j_time)
+        }
+    
+    def _generate_recommendations(self, cpu: float, memory: float, neo4j_time: float) -> List[str]:
+        """
+        Generate performance recommendations
+        """
+        recommendations = []
+        
+        if cpu > 80:
+            recommendations.append("High CPU usage detected. Consider reducing concurrent operations.")
+        
+        if memory > 85:
+            recommendations.append("High memory usage. Consider clearing unused data or increasing instance size.")
+        
+        if neo4j_time > 2.0:
+            recommendations.append("Slow Neo4j response times. Check database performance and indexing.")
+        
+        if not recommendations:
+            recommendations.append("System performance is within normal parameters.")
+        
+        return recommendations
+
+# Usage in workshop environment
+monitor = WorkshopMonitor(neo4j)
+
+# Collect metrics every 5 minutes
+import threading
+
+def monitoring_loop():
+    while True:
+        metrics = monitor.collect_metrics()
+        time.sleep(300)  # 5 minutes
+
+monitoring_thread = threading.Thread(target=monitoring_loop, daemon=True)
+monitoring_thread.start()
+```
+
+== Troubleshooting Guide
+
+=== Common Issues and Solutions
+
+==== Connection Problems
+
+**Issue**: Cannot connect to Neo4j instance
+
+*Symptoms*:
+- Connection timeout errors
+- Authentication failures
+- SSL certificate errors
+
+*Solutions*:
+1. **Check credentials**
+   ```bash
+   # Test connection with cypher-shell
+   cypher-shell -a neo4j+s://your-instance.databases.neo4j.io \
+                -u neo4j \
+                -p your-password \
+                -d neo4j
+   ```
+
+2. **Verify network connectivity**
+   ```bash
+   # Test basic connectivity
+   ping your-instance.databases.neo4j.io
+   
+   # Check port accessibility
+   telnet your-instance.databases.neo4j.io 7687
+   ```
+
+3. **Update connection string**
+   ```python
+   # Correct format for Aura
+   uri = "neo4j+s://your-instance.databases.neo4j.io"
+   
+   # For local development
+   uri = "bolt://localhost:7687"
+   ```
+
+**Issue**: Codespaces environment not starting
+
+*Solutions*:
+1. **Check repository permissions**
+   - Ensure repository is accessible
+   - Verify Codespaces is enabled for the organization
+
+2. **Review devcontainer.json**
+   ```json
+   {
+     "image": "mcr.microsoft.com/devcontainers/python:3.11",
+     "postCreateCommand": "pip install -r requirements.txt"
+   }
+   ```
+
+3. **Rebuild container**
+   - Command Palette → "Codespaces: Rebuild Container"
+
+==== Performance Issues
+
+**Issue**: Slow query performance
+
+*Solutions*:
+1. **Check indexes**
+   ```cypher
+   SHOW INDEXES;
+   
+   // Create missing indexes
+   CREATE INDEX customer_name FOR (c:Customer) ON (c.name);
+   ```
+
+2. **Analyze query plans**
+   ```cypher
+   PROFILE MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+   WHERE c.name = 'John Doe'
+   RETURN c, a;
+   ```
+
+3. **Optimize data model**
+   - Reduce relationship cardinality
+   - Use appropriate node labels
+   - Consider data denormalization
+
+**Issue**: Memory errors in notebooks
+
+*Solutions*:
+1. **Clear variables**
+   ```python
+   # Clear large variables
+   del large_dataframe
+   import gc
+   gc.collect()
+   ```
+
+2. **Restart kernel**
+   - Jupyter: Kernel → Restart
+   - Codespaces: Reload window
+
+3. **Increase instance size**
+   - Upgrade Codespaces machine type
+   - Use local development environment
+
+==== API Issues
+
+**Issue**: OpenAI rate limiting
+
+*Solutions*:
+1. **Implement backoff**
+   ```python
+   import time
+   import random
+   
+   def api_call_with_backoff(func, max_retries=3):
+       for attempt in range(max_retries):
+           try:
+               return func()
+           except openai.RateLimitError:
+               wait_time = (2 ** attempt) + random.uniform(0, 1)
+               time.sleep(wait_time)
+       raise Exception("Max retries exceeded")
+   ```
+
+2. **Use batch processing**
+   ```python
+   # Process in smaller batches
+   batch_size = 10
+   for i in range(0, len(texts), batch_size):
+       batch = texts[i:i + batch_size]
+       # Process batch
+       time.sleep(1)  # Rate limiting
+   ```
+
+**Issue**: Vector index not working
+
+*Solutions*:
+1. **Verify index creation**
+   ```cypher
+   SHOW INDEXES YIELD name, type, entityType, labelsOrTypes, properties
+   WHERE type = "VECTOR";
+   ```
+
+2. **Check embedding dimensions**
+   ```cypher
+   MATCH (d:Document) WHERE d.embedding IS NOT NULL
+   RETURN size(d.embedding) AS dimensions LIMIT 1;
+   ```
+
+3. **Recreate index if needed**
+   ```cypher
+   DROP INDEX document_embeddings;
+   
+   CREATE VECTOR INDEX document_embeddings FOR (d:Document) ON (d.embedding)
+   OPTIONS {
+     indexConfig: {
+       `vector.dimensions`: 1536,
+       `vector.similarity_function`: 'cosine'
+     }
+   };
+   ```
+
+=== Emergency Procedures
+
+==== Workshop Day Issues
+
+**Complete Environment Failure**
+1. **Activate backup plan**
+   - Switch to local demo environment
+   - Use pre-recorded demonstrations
+   - Provide offline exercises
+
+2. **Communication protocol**
+   - Inform participants immediately
+   - Provide estimated resolution time
+   - Offer alternative activities
+
+3. **Recovery steps**
+   ```bash
+   # Quick environment recreation script
+   ./scripts/emergency_setup.sh workshop_id participant_count
+   ```
+
+**Data Corruption or Loss**
+1. **Restore from backup**
+   ```bash
+   # Neo4j Aura backup restoration
+   neo4j-admin restore --from=backup-file.dump
+   ```
+
+2. **Reload from source**
+   ```python
+   # Re-run data loading scripts
+   python scripts/load_graphrag_data.py --force-reload
+   ```
+
+==== Contact Information
+
+**Technical Support Escalation**
+- **Level 1**: Workshop instructor
+- **Level 2**: Technical lead (#workshops-support Slack)
+- **Level 3**: DevRel engineering team
+- **Emergency**: On-call engineer (production issues only)
+
+**Key Contacts**
+- Workshop Coordinator: [coordinator@company.com]
+- Technical Lead: [tech-lead@company.com]
+- Infrastructure Team: [infrastructure@company.com]
+- Emergency Hotline: [emergency-number]
+
+== Maintenance Procedures
+
+=== Regular Maintenance
+
+==== Weekly Tasks
+- [ ] Review performance metrics
+- [ ] Check error logs and resolve issues
+- [ ] Verify API key functionality
+- [ ] Test environment setup scripts
+- [ ] Update documentation as needed
+
+==== Monthly Tasks
+- [ ] Performance optimization review
+- [ ] Security audit and updates
+- [ ] Cost analysis and optimization
+- [ ] Backup verification and testing
+- [ ] Capacity planning review
+
+==== Quarterly Tasks
+- [ ] Major version updates
+- [ ] Architecture review and improvements
+- [ ] Disaster recovery testing
+- [ ] Vendor evaluation and contract review
+- [ ] Training material updates
+
+=== Version Control and Updates
+
+==== Content Updates
+```bash
+# Standard update process
+git checkout main
+git pull origin main
+git checkout -b update/q2-2025-content
+
+# Make changes
+# Test changes
+# Create pull request
+# Deploy after approval
+```
+
+==== Environment Updates
+```bash
+# Infrastructure as Code updates
+terraform plan -var-file="workshop.tfvars"
+terraform apply
+
+# Validate deployment
+python scripts/validate_environment.py
+```
+
+This technical documentation provides comprehensive guidance for setting up, maintaining, and troubleshooting the workshop environments. Regular updates and maintenance are essential for ensuring reliable workshop delivery.

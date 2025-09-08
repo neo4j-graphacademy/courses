@@ -1,0 +1,375 @@
+= Hands-on Exercise: Exploring Financial Data
+:type: challenge
+:order: 4
+:duration: 10 minutes
+:sandbox: true
+
+== Learning Objectives
+
+By the end of this exercise, you will be able to:
+
+* Apply basic Cypher queries to real financial data
+* Explore graph patterns relevant to AI applications
+* Identify potential use cases for graph analysis
+* Navigate and visualize results in Neo4j Browser
+
+== Exercise Setup
+
+You'll be working with a financial dataset that contains:
+
+* **Customers**: Individual account holders
+* **Accounts**: Bank accounts of different types
+* **Transactions**: Financial transactions between accounts
+* **Merchants**: Businesses that receive payments
+* **Locations**: Geographic information
+
+=== Data Model Overview
+
+```
+(Customer)-[:HAS_ACCOUNT]->(Account)
+(Account)-[:TRANSACTION]->(Account)
+(Customer)-[:LIVES_IN]->(Location)
+(Transaction)-[:AT_MERCHANT]->(Merchant)
+(Merchant)-[:LOCATED_IN]->(Location)
+```
+
+== Exercise 1: Data Exploration (3 minutes)
+
+=== Step 1: Connect to the Database
+
+Open Neo4j Browser and connect using the provided credentials.
+
+=== Step 2: Explore the Schema
+
+Use the `CALL db.schema.visualization()` command to see the data model with node labels and relationship types. This is a helpful first step to understand the shape of the data.
+
+=== Step 3: Get Basic Counts
+
+Your first task is to count all the nodes in the database and group them by their type.
+
+**Challenge**: Complete the following query. You need to use the `labels()` function to get the node labels and `count()` to count them.
+
+[source,cypher]
+----
+// Count nodes by type
+MATCH (n)
+RETURN ____(n) AS nodeType, ____(n) AS count
+ORDER BY count DESC
+----
+
+.Solution
+[%collapsible]
+====
+[source,cypher]
+----
+// Count nodes by type
+MATCH (n)
+RETURN labels(n) AS nodeType, count(n) AS count
+ORDER BY count DESC
+----
+====
+
+Next, count all the relationships in the database, grouped by their type.
+
+**Challenge**: Complete the following query using the `type()` and `count()` functions.
+
+[source,cypher]
+----
+// Count relationships by type
+MATCH ()-[r]-()
+RETURN ____(r) AS relationshipType, ____(r) AS count
+ORDER BY count DESC
+----
+
+.Solution
+[%collapsible]
+====
+[source,cypher]
+----
+// Count relationships by type
+MATCH ()-[r]-()
+RETURN type(r) AS relationshipType, count(r) AS count
+ORDER BY count DESC
+----
+====
+
+**Question**: Based on the output, how many customers and accounts are in the dataset?
+
+== Exercise 2: Customer Analysis (3 minutes)
+
+=== Find High-Value Customers
+
+Now, let's identify customers with a total balance across all their accounts greater than 50,000.
+
+**Challenge**: Complete the query below. You'll need to `sum()` the account balances and then use a `WHERE` clause to filter the results.
+
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+WITH c, ____(a.balance) AS total_balance
+____ total_balance > 50000
+RETURN c.name, c.email, total_balance
+ORDER BY total_balance DESC
+LIMIT 10
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+WITH c, sum(a.balance) AS total_balance
+WHERE total_balance > 50000
+RETURN c.name, c.email, total_balance
+ORDER BY total_balance DESC
+LIMIT 10
+```
+====
+
+=== Explore Customer Relationships
+
+This query finds customers who have multiple accounts and lists the types of accounts they hold.
+
+**Challenge**: Complete the query to `count` the number of accounts and `collect` the account types for each customer.
+
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+RETURN c.name, 
+       ____(a) AS number_of_accounts,
+       ____(a.type) AS account_types
+ORDER BY number_of_accounts DESC
+LIMIT 5
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+RETURN c.name, 
+       count(a) AS number_of_accounts,
+       collect(a.type) AS account_types
+ORDER BY number_of_accounts DESC
+LIMIT 5
+```
+====
+
+**Question**: Which customer has the most accounts? What types are they?
+
+== Exercise 3: Transaction Patterns (2 minutes)
+
+=== Large Transactions
+
+Find all transactions with an amount greater than 5,000.
+
+**Challenge**: Fill in the `WHERE` clause to filter for transactions where the `amount` property is greater than 5000.
+
+```cypher
+MATCH (from:Account)-[t:TRANSACTION]->(to:Account)
+____ t.amount > 5000
+RETURN from.number AS from_account,
+       to.number AS to_account,
+       t.amount,
+       t.date
+ORDER BY t.amount DESC
+LIMIT 10
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+MATCH (from:Account)-[t:TRANSACTION]->(to:Account)
+WHERE t.amount > 5000
+RETURN from.number AS from_account,
+       to.number AS to_account,
+       t.amount,
+       t.date
+ORDER BY t.amount DESC
+LIMIT 10
+```
+====
+
+=== Customer Transaction Activity
+
+This query calculates the total number of transactions and the total transaction volume for each customer.
+
+**Challenge**: Use `count()` to get the number of transactions and `sum()` to get the total volume. Remember to use `abs()` for the amount to include both incoming and outgoing value.
+
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)-[t:TRANSACTION]-()
+WITH c, ____(t) AS transaction_count, ____(____(t.amount)) AS total_volume
+WHERE transaction_count > 10
+RETURN c.name, transaction_count, total_volume
+ORDER BY total_volume DESC
+LIMIT 10
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)-[t:TRANSACTION]-()
+WITH c, count(t) AS transaction_count, sum(abs(t.amount)) AS total_volume
+WHERE transaction_count > 10
+RETURN c.name, transaction_count, total_volume
+ORDER BY total_volume DESC
+LIMIT 10
+```
+====
+
+**Question**: Who are the most active customers by transaction volume?
+
+== Exercise 4: AI Use Case Identification (2 minutes)
+
+=== Potential Fraud Detection
+
+This query looks for accounts with highly variable transaction amounts, which can indicate unusual activity.
+
+**Challenge**: Fill in the statistical functions `avg()` and `stdev()` to calculate the average and standard deviation of the transaction amounts.
+
+```cypher
+// Find accounts with unusual transaction patterns
+MATCH (a:Account)-[t:TRANSACTION]-()
+WITH a, 
+     count(t) AS transaction_count,
+     ____(t.amount) AS avg_amount,
+     ____(t.amount) AS amount_stdev
+WHERE transaction_count > 5 AND amount_stdev > avg_amount * 2
+RETURN a.number, transaction_count, avg_amount, amount_stdev
+ORDER BY amount_stdev DESC
+LIMIT 5
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+// Find accounts with unusual transaction patterns
+MATCH (a:Account)-[t:TRANSACTION]-()
+WITH a, 
+     count(t) AS transaction_count,
+     avg(t.amount) AS avg_amount,
+     stdev(t.amount) AS amount_stdev
+WHERE transaction_count > 5 AND amount_stdev > avg_amount * 2
+RETURN a.number, transaction_count, avg_amount, amount_stdev
+ORDER BY amount_stdev DESC
+LIMIT 5
+```
+====
+
+=== Customer Similarity for Recommendations
+
+This query finds pairs of customers who shop at the same merchants.
+
+**Challenge**: Complete the `MATCH` pattern to find two customers (`c1`, `c2`) who have both made a transaction at the same `Merchant`.
+
+```cypher
+// Find customers with similar transaction patterns
+MATCH (c1:Customer)-[:HAS_ACCOUNT]->()-[:TRANSACTION]->(m:Merchant)<-[:TRANSACTION]-()-[:HAS_ACCOUNT]-(____)
+WHERE c1 <> c2
+WITH c1, c2, count(m) AS shared_merchants
+WHERE shared_merchants >= 3
+RETURN c1.name, c2.name, shared_merchants
+ORDER BY shared_merchants DESC
+LIMIT 10
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+// Find customers with similar transaction patterns
+MATCH (c1:Customer)-[:HAS_ACCOUNT]->()-[:TRANSACTION]->(m:Merchant)<-[:TRANSACTION]-()-[:HAS_ACCOUNT]-(c2:Customer)
+WHERE c1 <> c2
+WITH c1, c2, count(m) AS shared_merchants
+WHERE shared_merchants >= 3
+RETURN c1.name, c2.name, shared_merchants
+ORDER BY shared_merchants DESC
+LIMIT 10
+```
+====
+
+**Question**: What patterns do you see that could be useful for AI applications?
+
+== Bonus Challenge
+
+If you finish early, try these advanced queries:
+
+=== Geographic Analysis
+
+Let's analyze the geographic distribution of customers.
+
+**Challenge**: Write a query to find the top 10 locations with the most customers. You'll need to `MATCH` customers and their locations, `count` the customers for each location, and then `ORDER BY` the count.
+
+```cypher
+MATCH (c:Customer)-[:LIVES_IN]->(loc:Location)
+WITH loc, ____(c) AS customer_count
+RETURN loc.city, loc.state, customer_count
+ORDER BY customer_count ____
+LIMIT 10
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+MATCH (c:Customer)-[:LIVES_IN]->(loc:Location)
+WITH loc, count(c) AS customer_count
+RETURN loc.city, loc.state, customer_count
+ORDER BY customer_count DESC
+LIMIT 10
+```
+====
+
+=== Network Effects
+
+This query explores how customers might be indirectly connected through shared transaction partners.
+
+**Challenge**: Find indirect connections between customers that are 2 to 3 hops away through accounts and transactions. The key is to use a variable-length path `[:TRANSACTION*____]`.
+
+```cypher
+// Find indirect connections between customers
+MATCH path = (c1:Customer)-[:HAS_ACCOUNT]->()-[:TRANSACTION*____]-()-[:HAS_ACCOUNT]-(c2:Customer)
+WHERE c1 <> c2
+RETURN c1.name, c2.name, length(path) AS connection_distance
+LIMIT 20
+```
+
+.Solution
+[%collapsible]
+====
+```cypher
+// Find indirect connections between customers
+MATCH path = (c1:Customer)-[:HAS_ACCOUNT]->()-[:TRANSACTION*2..3]-()-[:HAS_ACCOUNT]-(c2:Customer)
+WHERE c1 <> c2
+RETURN c1.name, c2.name, length(path) AS connection_distance
+LIMIT 20
+```
+====
+
+== Discussion Questions
+
+After completing the exercises, consider:
+
+1. **Fraud Detection**: What patterns might indicate fraudulent activity?
+2. **Customer Segmentation**: How could you group customers with similar behaviors?
+3. **Risk Assessment**: What relationship patterns might indicate financial risk?
+4. **Recommendations**: How could transaction patterns inform product recommendations?
+5. **Knowledge Graphs**: What additional data would enhance this graph for AI applications?
+
+== Key Insights
+
+From this exercise, you should have discovered:
+
+* **Graph Traversal Power**: Following relationships reveals insights impossible with traditional queries
+* **Pattern Recognition**: Graph patterns naturally map to business concepts
+* **AI Application Potential**: Connected data provides rich context for AI models
+* **Flexible Exploration**: Cypher makes it easy to explore data from different angles
+
+== Summary
+
+This hands-on exercise demonstrated how graph databases naturally represent and query connected financial data. The patterns you explored - customer relationships, transaction flows, and behavioral similarities - form the foundation for many AI applications including fraud detection, risk assessment, and recommendation systems.
+
+The ability to easily traverse relationships and identify patterns makes graphs particularly powerful for AI use cases that require understanding context and connections in data.
+
+Next, we'll move on to working with structured data and learn how to import and model different types of data sources in Neo4j.

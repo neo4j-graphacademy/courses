@@ -1,0 +1,579 @@
+= Graph Traversal Retrievers for Financial Analysis
+:type: lesson
+:order: 2
+:duration: 25 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Build graph traversal retrievers that explore relationships in financial networks
+* Implement path-based retrieval for complex financial queries
+* Combine graph structure with semantic search for enhanced context
+* Create specialized retrievers for financial risk analysis and investment research
+
+== Introduction to Graph Traversal Retrieval
+
+Graph traversal retrievers leverage the relationship structure in knowledge graphs to find relevant information through connected paths. Unlike vector search which finds semantically similar content, graph traversal discovers information through explicit relationships.
+
+=== Why Graph Traversal for Financial Data?
+
+Financial information is inherently interconnected. Understanding these connections is crucial for:
+
+* **Risk Assessment**: How financial risks propagate through connected entities
+* **Investment Analysis**: Relationships between companies, asset managers, and holdings
+* **Regulatory Compliance**: Tracing ownership structures and reporting relationships
+* **Market Intelligence**: Understanding competitive relationships and business networks
+
+=== Financial Domain Example: SEC Filings Network
+
+Using the GraphRAG ebook dataset with real SEC Form 10-K filings:
+
+```python
+# Financial entities in our knowledge graph
+financial_entities = {
+    'Company': ['APPLE INC', 'MICROSOFT CORP', 'AMAZON', 'NVIDIA CORPORATION'],
+    'AssetManager': ['ALLIANCEBERNSTEIN L.P.', 'AMERIPRISE FINANCIAL INC'],
+    'FinancialMetric': ['Revenue', 'Operating Income', 'Total Assets'],
+    'RiskFactor': ['Market Competition', 'Regulatory Changes', 'Cybersecurity'],
+    'Executive': ['Tim Cook', 'Satya Nadella', 'Andy Jassy'],
+    'Product': ['iPhone', 'Azure', 'AWS', 'RTX Graphics']
+}
+
+# Key relationships for traversal
+financial_relationships = [
+    'FILED',        # Company -> Document (10-K filing)
+    'HOLDS',        # AssetManager -> Company
+    'HAS_METRIC',   # Company -> FinancialMetric
+    'FACES_RISK',   # Company -> RiskFactor
+    'MENTIONS',     # Company -> Product
+    'EMPLOYED_BY'   # Executive -> Company
+]
+```
+
+== Basic Graph Traversal Patterns
+
+=== 1. Direct Relationship Retrieval
+
+Find information directly connected to a query entity:
+
+```cypher
+// Find all risk factors mentioned by Apple
+MATCH (c:Company {name: 'APPLE INC'})-[:FACES_RISK]->(risk:RiskFactor)
+RETURN risk.name AS risk_factor,
+       risk.description AS description
+ORDER BY risk.name
+```
+
+=== 2. Multi-Hop Traversal
+
+Explore relationships across multiple hops:
+
+```cypher
+// Find products mentioned by companies that face cybersecurity risks
+MATCH (c:Company)-[:FACES_RISK]->(risk:RiskFactor {name: 'Cybersecurity'})
+MATCH (c)-[:MENTIONS]->(product:Product)
+RETURN c.name AS company,
+       collect(product.name) AS products_at_risk
+ORDER BY c.name
+```
+
+=== 3. Path-based Context Retrieval
+
+Find information along specific paths:
+
+```cypher
+// Find asset managers that hold companies facing specific risks
+MATCH path = (am:AssetManager)-[:HOLDS]->(c:Company)-[:FACES_RISK]->(risk:RiskFactor)
+WHERE risk.name CONTAINS 'Market'
+RETURN am.name AS asset_manager,
+       c.name AS company,
+       risk.name AS risk_factor,
+       length(path) AS path_length
+ORDER BY am.name, c.name
+```
+
+== Implementing Graph Traversal Retrievers
+
+=== Financial Context Retriever
+
+```python
+from neo4j import GraphDatabase
+from typing import List, Dict, Optional
+import json
+
+class FinancialGraphTraverser:
+    def __init__(self, uri: str, username: str, password: str):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+    
+    def get_company_context(self, company_name: str, max_depth: int = 2) -> Dict:
+        """Retrieve comprehensive context about a company through graph traversal"""
+        
+        query = """
+        MATCH (c:Company {name: $company_name})
+        
+        // Get direct relationships
+        OPTIONAL MATCH (c)-[:HAS_METRIC]->(metric:FinancialMetric)
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)
+        OPTIONAL MATCH (c)-[:MENTIONS]->(product:Product)
+        OPTIONAL MATCH (c)<-[:HOLDS]-(am:AssetManager)
+        OPTIONAL MATCH (c)-[:FILED]->(doc:Document)
+        
+        // Get chunks from documents for detailed content
+        OPTIONAL MATCH (doc)-[:HAS_CHUNK]->(chunk:Chunk)
+        
+        RETURN c.name AS company,
+               collect(DISTINCT metric.name) AS financial_metrics,
+               collect(DISTINCT risk.name) AS risk_factors,
+               collect(DISTINCT product.name) AS products,
+               collect(DISTINCT am.name) AS asset_managers,
+               collect(DISTINCT {
+                   document_id: doc.id,
+                   chunk_text: chunk.text,
+                   chunk_position: chunk.position
+               }) AS document_chunks
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, company_name=company_name)
+            record = result.single()
+            
+            if record:
+                return dict(record)
+            else:
+                return {}
+    
+    def find_risk_propagation_paths(self, risk_factor: str, max_hops: int = 3) -> List[Dict]:
+        """Find how risks propagate through the financial network"""
+        
+        query = f"""
+        MATCH path = (start:Company)-[:FACES_RISK]->(risk:RiskFactor {{name: $risk_factor}})
+        
+        // Find connected companies through asset managers
+        OPTIONAL MATCH connected_path = (start)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(connected:Company)
+        WHERE connected <> start
+        
+        // Also find companies in similar risk categories
+        OPTIONAL MATCH similar_risk_path = (start)-[:FACES_RISK]->(risk)-[:FACES_RISK]<-(similar:Company)
+        WHERE similar <> start
+        
+        RETURN start.name AS source_company,
+               risk.name AS risk_factor,
+               collect(DISTINCT connected.name) AS connected_via_asset_managers,
+               collect(DISTINCT similar.name) AS companies_with_same_risk,
+               length(path) AS base_path_length
+        ORDER BY source_company
+        LIMIT {max_hops * 10}
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, risk_factor=risk_factor)
+            return [dict(record) for record in result]
+    
+    def get_investment_network_context(self, asset_manager: str) -> Dict:
+        """Get investment network context for an asset manager"""
+        
+        query = """
+        MATCH (am:AssetManager {name: $asset_manager})-[holds:HOLDS]->(c:Company)
+        
+        // Get additional context about held companies
+        OPTIONAL MATCH (c)-[:HAS_METRIC]->(metric:FinancialMetric)
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)
+        OPTIONAL MATCH (c)-[:MENTIONS]->(product:Product)
+        
+        // Calculate portfolio characteristics
+        WITH am, c, holds,
+             collect(DISTINCT metric.name) AS company_metrics,
+             collect(DISTINCT risk.name) AS company_risks,
+             collect(DISTINCT product.name) AS company_products
+        
+        RETURN am.name AS asset_manager,
+               collect({
+                   company: c.name,
+                   ticker: c.ticker,
+                   position_value: holds.Value,
+                   shares: holds.shares,
+                   share_value: holds.share_value,
+                   metrics: company_metrics,
+                   risks: company_risks,
+                   products: company_products
+               }) AS holdings_with_context,
+               count(c) AS total_holdings,
+               sum(holds.Value) AS total_portfolio_value
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, asset_manager=asset_manager)
+            record = result.single()
+            
+            if record:
+                return dict(record)
+            else:
+                return {}
+    
+    def find_competitive_landscape(self, company_name: str) -> Dict:
+        """Find competitive landscape through shared products, risks, and metrics"""
+        
+        query = """
+        MATCH (c:Company {name: $company_name})
+        
+        // Find competitors through shared products
+        OPTIONAL MATCH (c)-[:MENTIONS]->(product:Product)<-[:MENTIONS]-(competitor1:Company)
+        WHERE competitor1 <> c
+        
+        // Find competitors through shared risk factors
+        OPTIONAL MATCH (c)-[:FACES_RISK]->(risk:RiskFactor)<-[:FACES_RISK]-(competitor2:Company)
+        WHERE competitor2 <> c
+        
+        // Find competitors held by same asset managers
+        OPTIONAL MATCH (c)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(competitor3:Company)
+        WHERE competitor3 <> c
+        
+        WITH c,
+             collect(DISTINCT {competitor: competitor1.name, shared_products: product.name}) AS product_competitors,
+             collect(DISTINCT {competitor: competitor2.name, shared_risks: risk.name}) AS risk_competitors,
+             collect(DISTINCT {competitor: competitor3.name, shared_investors: am.name}) AS investor_competitors
+        
+        RETURN c.name AS company,
+               product_competitors,
+               risk_competitors,
+               investor_competitors
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, company_name=company_name)
+            record = result.single()
+            
+            if record:
+                return dict(record)
+            else:
+                return {}
+
+# Example usage
+traverser = FinancialGraphTraverser("bolt://localhost:7687", "neo4j", "password")
+
+# Get comprehensive context about Apple
+apple_context = traverser.get_company_context("APPLE INC")
+print("Apple Context:")
+print(f"  Financial Metrics: {', '.join(apple_context.get('financial_metrics', []))}")
+print(f"  Risk Factors: {', '.join(apple_context.get('risk_factors', []))}")
+print(f"  Products: {', '.join(apple_context.get('products', []))}")
+print(f"  Asset Managers: {', '.join(apple_context.get('asset_managers', []))}")
+
+# Find cybersecurity risk propagation
+cyber_risks = traverser.find_risk_propagation_paths("Cybersecurity")
+print(f"\nCybersecurity Risk Network:")
+for risk_info in cyber_risks[:3]:
+    print(f"  {risk_info['source_company']}: Connected to {len(risk_info['connected_via_asset_managers'])} companies via investors")
+```
+
+== Advanced Graph Retrieval Patterns
+
+=== Contextual Path Expansion
+
+```python
+class ContextualPathRetriever:
+    def __init__(self, driver):
+        self.driver = driver
+    
+    def expand_context_paths(self, query_entity: str, entity_type: str, 
+                           context_types: List[str], max_depth: int = 3) -> Dict:
+        """Expand context along specified relationship types"""
+        
+        # Build dynamic query based on context types
+        path_patterns = {
+            'financial': '(entity)-[:HAS_METRIC|:FACES_RISK*1..{depth}]-(context)',
+            'operational': '(entity)-[:MENTIONS|:EMPLOYED_BY*1..{depth}]-(context)',
+            'investment': '(entity)-[:HOLDS|:FILED*1..{depth}]-(context)',
+            'competitive': '(entity)-[:MENTIONS]->(:Product)<-[:MENTIONS]-(context)'
+        }
+        
+        query_parts = []
+        for context_type in context_types:
+            if context_type in path_patterns:
+                pattern = path_patterns[context_type].format(depth=max_depth)
+                query_parts.append(f"OPTIONAL MATCH path_{context_type} = {pattern}")
+        
+        query = f"""
+        MATCH (entity:{entity_type} {{name: $query_entity}})
+        {chr(10).join(query_parts)}
+        
+        RETURN entity.name AS source_entity,
+        {', '.join([f'collect(DISTINCT nodes(path_{ct})[-1]) AS {ct}_context' 
+                   for ct in context_types if ct in path_patterns])}
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, query_entity=query_entity)
+            return dict(result.single()) if result.single() else {}
+    
+    def find_shortest_context_paths(self, start_entity: str, target_entities: List[str], 
+                                  max_length: int = 4) -> List[Dict]:
+        """Find shortest paths between entities for context retrieval"""
+        
+        query = """
+        MATCH (start {name: $start_entity})
+        UNWIND $target_entities AS target_name
+        MATCH (target {name: target_name})
+        
+        CALL apoc.path.findShortestPath(start, target, 
+            'HAS_METRIC|FACES_RISK|MENTIONS|HOLDS|FILED', 
+            '',
+            {maxLength: $max_length}
+        ) YIELD path
+        
+        RETURN start.name AS start_entity,
+               target.name AS target_entity,
+               [node IN nodes(path) | {
+                   label: labels(node)[0],
+                   name: node.name,
+                   properties: properties(node)
+               }] AS path_nodes,
+               [rel IN relationships(path) | type(rel)] AS relationship_types,
+               length(path) AS path_length
+        ORDER BY path_length
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, 
+                               start_entity=start_entity,
+                               target_entities=target_entities,
+                               max_length=max_length)
+            return [dict(record) for record in result]
+
+# Example: Find contextual paths for financial analysis
+path_retriever = ContextualPathRetriever(traverser.driver)
+
+# Expand financial and competitive context for Microsoft
+msft_context = path_retriever.expand_context_paths(
+    "MICROSOFT CORP", 
+    "Company", 
+    ["financial", "competitive", "investment"],
+    max_depth=2
+)
+
+# Find shortest paths between tech companies for competitive analysis
+tech_companies = ["APPLE INC", "MICROSOFT CORP", "NVIDIA CORPORATION"]
+context_paths = path_retriever.find_shortest_context_paths(
+    "MICROSOFT CORP", 
+    tech_companies,
+    max_length=3
+)
+```
+
+== Combining Graph Traversal with Vector Search
+
+=== Hybrid Context Retrieval
+
+```python
+from sentence_transformers import SentenceTransformer
+
+class HybridFinancialRetriever:
+    def __init__(self, driver, embedding_model="all-MiniLM-L6-v2"):
+        self.driver = driver
+        self.model = SentenceTransformer(embedding_model)
+        self.traverser = FinancialGraphTraverser(
+            driver.uri, driver._auth[0], driver._auth[1]
+        )
+    
+    def hybrid_company_retrieval(self, query: str, company_name: str, 
+                                top_k_chunks: int = 5) -> Dict:
+        """Combine graph traversal context with semantic search"""
+        
+        # 1. Get graph traversal context
+        graph_context = self.traverser.get_company_context(company_name)
+        
+        # 2. Perform semantic search on document chunks
+        query_embedding = self.model.encode([query])[0].tolist()
+        
+        semantic_query = """
+        MATCH (c:Company {name: $company_name})-[:FILED]->(doc:Document)-[:HAS_CHUNK]->(chunk:Chunk)
+        WHERE chunk.embedding IS NOT NULL
+        
+        CALL db.index.vector.queryNodes('chunkEmbeddings', $top_k, $query_embedding)
+        YIELD node AS similar_chunk, score
+        WHERE (doc)-[:HAS_CHUNK]->(similar_chunk)
+        
+        RETURN similar_chunk.text AS chunk_text,
+               similar_chunk.position AS chunk_position,
+               doc.id AS document_id,
+               score AS similarity_score
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(semantic_query,
+                               company_name=company_name,
+                               query_embedding=query_embedding,
+                               top_k=top_k_chunks)
+            semantic_chunks = [dict(record) for record in result]
+        
+        # 3. Combine contexts
+        return {
+            'company': company_name,
+            'query': query,
+            'graph_context': graph_context,
+            'semantic_chunks': semantic_chunks,
+            'hybrid_score': self._calculate_hybrid_score(graph_context, semantic_chunks)
+        }
+    
+    def _calculate_hybrid_score(self, graph_context: Dict, semantic_chunks: List[Dict]) -> float:
+        """Calculate a hybrid relevance score"""
+        graph_score = len(graph_context.get('financial_metrics', [])) * 0.2
+        graph_score += len(graph_context.get('risk_factors', [])) * 0.3
+        graph_score += len(graph_context.get('products', [])) * 0.1
+        
+        semantic_score = sum(chunk['similarity_score'] for chunk in semantic_chunks) / len(semantic_chunks) if semantic_chunks else 0
+        
+        return (graph_score * 0.4) + (semantic_score * 0.6)
+    
+    def multi_company_analysis(self, query: str, companies: List[str]) -> List[Dict]:
+        """Perform hybrid retrieval across multiple companies"""
+        
+        results = []
+        for company in companies:
+            try:
+                result = self.hybrid_company_retrieval(query, company)
+                results.append(result)
+            except Exception as e:
+                print(f"Error processing {company}: {e}")
+                continue
+        
+        # Sort by hybrid score
+        results.sort(key=lambda x: x['hybrid_score'], reverse=True)
+        return results
+
+# Example usage
+hybrid_retriever = HybridFinancialRetriever(traverser.driver)
+
+# Analyze AI/ML strategy across tech companies
+query = "artificial intelligence machine learning strategy competitive advantage"
+companies = ["APPLE INC", "MICROSOFT CORP", "NVIDIA CORPORATION"]
+
+ai_analysis = hybrid_retriever.multi_company_analysis(query, companies)
+
+print("AI/ML Strategy Analysis:")
+for i, analysis in enumerate(ai_analysis, 1):
+    print(f"\n{i}. {analysis['company']} (Hybrid Score: {analysis['hybrid_score']:.3f})")
+    print(f"   Risk Factors: {len(analysis['graph_context'].get('risk_factors', []))}")
+    print(f"   Products: {len(analysis['graph_context'].get('products', []))}")
+    print(f"   Relevant Chunks: {len(analysis['semantic_chunks'])}")
+    
+    if analysis['semantic_chunks']:
+        top_chunk = analysis['semantic_chunks'][0]
+        print(f"   Top Chunk: {top_chunk['chunk_text'][:100]}...")
+```
+
+== Specialized Financial Retrievers
+
+=== Risk Contagion Analyzer
+
+```python
+class RiskContagionRetriever:
+    def __init__(self, driver):
+        self.driver = driver
+    
+    def analyze_risk_contagion(self, risk_factor: str, depth: int = 3) -> Dict:
+        """Analyze how risks might spread through the financial network"""
+        
+        query = """
+        // Start with companies facing the specific risk
+        MATCH (source:Company)-[:FACES_RISK]->(risk:RiskFactor {name: $risk_factor})
+        
+        // Find potential contagion paths through asset managers
+        MATCH contagion_path = (source)<-[:HOLDS]-(am:AssetManager)-[:HOLDS]->(target:Company)
+        WHERE target <> source
+        
+        // Get risk context for target companies
+        OPTIONAL MATCH (target)-[:FACES_RISK]->(target_risk:RiskFactor)
+        
+        WITH source, am, target, risk,
+             collect(target_risk.name) AS target_risks,
+             count(target_risk) AS target_risk_count
+        
+        RETURN source.name AS source_company,
+               risk.name AS original_risk,
+               am.name AS connecting_asset_manager,
+               target.name AS potential_target,
+               target_risks,
+               target_risk_count,
+               CASE 
+                 WHEN target_risk_count > 3 THEN 'HIGH'
+                 WHEN target_risk_count > 1 THEN 'MEDIUM'
+                 ELSE 'LOW'
+               END AS contagion_risk_level
+        ORDER BY target_risk_count DESC, source.name
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, risk_factor=risk_factor)
+            contagion_paths = [dict(record) for record in result]
+        
+        # Analyze network statistics
+        stats = self._calculate_contagion_stats(contagion_paths)
+        
+        return {
+            'risk_factor': risk_factor,
+            'contagion_paths': contagion_paths,
+            'network_stats': stats
+        }
+    
+    def _calculate_contagion_stats(self, paths: List[Dict]) -> Dict:
+        """Calculate network statistics for risk contagion"""
+        if not paths:
+            return {}
+        
+        total_paths = len(paths)
+        high_risk_targets = len([p for p in paths if p['contagion_risk_level'] == 'HIGH'])
+        unique_asset_managers = len(set(p['connecting_asset_manager'] for p in paths))
+        unique_targets = len(set(p['potential_target'] for p in paths))
+        
+        return {
+            'total_contagion_paths': total_paths,
+            'high_risk_exposures': high_risk_targets,
+            'systemic_risk_ratio': high_risk_targets / total_paths if total_paths > 0 else 0,
+            'connecting_asset_managers': unique_asset_managers,
+            'potentially_affected_companies': unique_targets
+        }
+
+# Example: Analyze cybersecurity risk contagion
+risk_analyzer = RiskContagionRetriever(traverser.driver)
+cyber_contagion = risk_analyzer.analyze_risk_contagion("Cybersecurity")
+
+print("Cybersecurity Risk Contagion Analysis:")
+print(f"  Total potential contagion paths: {cyber_contagion['network_stats']['total_contagion_paths']}")
+print(f"  High-risk exposures: {cyber_contagion['network_stats']['high_risk_exposures']}")
+print(f"  Systemic risk ratio: {cyber_contagion['network_stats']['systemic_risk_ratio']:.2%}")
+```
+
+== Knowledge Check
+
+Which graph traversal pattern would be most effective for finding potential conflicts of interest in investment portfolios?
+
+( ) Direct relationship traversal
+( ) Single-hop neighbor search
+(x) Multi-hop path analysis through shared entities
+( ) Vector similarity search only
+
+[%collapsible]
+.Explanation
+====
+Multi-hop path analysis is most effective for conflict detection because conflicts often involve indirect relationships through shared entities (e.g., Asset Manager A holds Company X, which faces Risk Y, which also affects Company Z held by Asset Manager B). This requires traversing multiple relationship types and analyzing the complete path context.
+====
+
+== Summary
+
+Graph traversal retrievers provide powerful capabilities for financial analysis by:
+
+* **Exploring Relationships**: Leveraging explicit connections in financial networks
+* **Context Expansion**: Finding relevant information through relationship paths
+* **Risk Analysis**: Tracing how risks propagate through connected entities
+* **Competitive Intelligence**: Discovering competitive relationships through shared attributes
+
+Key patterns for financial applications:
+- **Direct traversal** for immediate context
+- **Multi-hop paths** for network effects
+- **Hybrid approaches** combining graph structure with semantic search
+- **Specialized analyzers** for domain-specific insights
+
+Next, we'll combine graph traversal with vector search to create powerful hybrid retrieval systems.

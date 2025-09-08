@@ -1,0 +1,1217 @@
+= Hands-on Exercise: Financial Intelligence Retrieval System
+:type: lesson
+:order: 4
+:duration: 40 minutes
+
+== Learning Objectives
+
+By the end of this lesson, you will be able to:
+
+* Build a complete financial intelligence retrieval system using the GraphRAG ebook dataset
+* Implement and optimize hybrid retrievers for complex financial queries
+* Create specialized retrievers for investment analysis, risk assessment, and competitive intelligence
+* Develop performance monitoring and evaluation metrics for retrieval systems
+
+== Exercise Overview
+
+In this comprehensive exercise, you'll build a production-ready financial intelligence retrieval system using real SEC Form 10-K filings and asset manager holdings data. The system will handle complex financial queries by intelligently combining vector search, graph traversal, and structured data analysis.
+
+### **Dataset**: GraphRAG Ebook Financial Network
+- **Companies**: Apple, Microsoft, Amazon, NVIDIA, PayPal, Intel, McDonald's, PG&E, AIG
+- **Asset Managers**: AllianceBernstein, Ameriprise Financial, and others
+- **Documents**: Real SEC Form 10-K filings processed into chunks with embeddings
+- **Relationships**: Holdings, risk factors, financial metrics, products, executives
+
+== Setting Up the Financial Intelligence System
+
+=== Data Verification and Schema Review
+
+```python
+from neo4j import GraphDatabase
+import pandas as pd
+from sentence_transformers import SentenceTransformer
+import json
+import time
+from typing import Dict, List, Optional, Tuple
+
+class FinancialIntelligenceSystem:
+    def __init__(self, uri: str, username: str, password: str):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # Verify the graph structure
+        self.schema_info = self._analyze_graph_schema()
+        print("Financial Intelligence System initialized")
+        print(f"Graph contains: {self.schema_info}")
+    
+    def _analyze_graph_schema(self) -> Dict:
+        """Analyze the current graph schema and data availability"""
+        
+        schema_query = """
+        // Get node counts by label
+        MATCH (n)
+        WITH labels(n)[0] AS nodeType, count(n) AS nodeCount
+        WHERE nodeType IS NOT NULL
+        
+        CALL {
+            // Get relationship counts by type
+            MATCH ()-[r]-()
+            RETURN type(r) AS relType, count(r) AS relCount
+        }
+        
+        RETURN collect({nodeType: nodeType, nodeCount: nodeCount}) AS nodeCounts,
+               collect({relType: relType, relCount: relCount}) AS relationshipCounts
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(schema_query)
+            record = result.single()
+            
+            if record:
+                return {
+                    'nodes': record['nodeCounts'],
+                    'relationships': record['relationshipCounts']
+                }
+            else:
+                return {'nodes': [], 'relationships': []}
+    
+    def verify_vector_index(self) -> bool:
+        """Verify that vector index exists and is populated"""
+        
+        index_query = """
+        SHOW INDEXES YIELD name, type, labelsOrTypes, properties
+        WHERE type = 'VECTOR'
+        RETURN name, labelsOrTypes, properties
+        """
+        
+        try:
+            with self.driver.session() as session:
+                result = session.run(index_query)
+                indexes = [dict(record) for record in result]
+                
+                if indexes:
+                    print(f"Found {len(indexes)} vector indexes:")
+                    for idx in indexes:
+                        print(f"  - {idx['name']}: {idx['labelsOrTypes']} on {idx['properties']}")
+                    return True
+                else:
+                    print("No vector indexes found")
+                    return False
+        except Exception as e:
+            print(f"Error checking vector indexes: {e}")
+            return False
+    
+    def load_sample_queries(self) -> Dict[str, List[str]]:
+        """Load sample financial intelligence queries by category"""
+        
+        return {
+            'investment_research': [
+                "What are the main competitive advantages of technology companies?",
+                "Which companies have the strongest artificial intelligence capabilities?",
+                "What growth strategies are mentioned by large-cap technology firms?",
+                "How do companies describe their cloud computing offerings?",
+                "What are the key revenue drivers for major technology companies?"
+            ],
+            'risk_analysis': [
+                "Which companies face the highest cybersecurity risks?",
+                "What regulatory challenges are mentioned in recent filings?",
+                "How do companies describe supply chain vulnerabilities?",
+                "Which risk factors are shared across multiple technology companies?",
+                "What geopolitical risks are highlighted in 10-K filings?"
+            ],
+            'portfolio_analysis': [
+                "Which asset managers have the largest technology holdings?",
+                "What is the concentration of institutional ownership in FAANG stocks?",
+                "How diversified are the portfolios of major asset managers?",
+                "Which companies are held by multiple institutional investors?",
+                "What are the total assets under management by firm?"
+            ],
+            'competitive_intelligence': [
+                "Which companies compete in artificial intelligence markets?",
+                "How do companies position themselves against competitors?",
+                "What partnerships and strategic alliances are mentioned?",
+                "Which companies face similar competitive pressures?",
+                "What market differentiation strategies are described?"
+            ],
+            'financial_analysis': [
+                "Compare revenue growth patterns across technology companies",
+                "Which companies report the highest R&D investments?",
+                "What are the key financial metrics emphasized by management?",
+                "How do companies describe their capital allocation strategies?",
+                "Which firms have the strongest balance sheet positions?"
+            ]
+        }
+
+# Initialize the system and verify setup
+fi_system = FinancialIntelligenceSystem("bolt://localhost:7687", "neo4j", "password")
+has_vector_index = fi_system.verify_vector_index()
+sample_queries = fi_system.load_sample_queries()
+
+print("\nSample Query Categories:")
+for category, queries in sample_queries.items():
+    print(f"  {category.replace('_', ' ').title()}: {len(queries)} queries")
+    print(f"    Example: {queries[0]}")
+```
+
+=== Advanced Query Router with Financial Domain Intelligence
+
+```python
+import re
+from enum import Enum
+from dataclasses import dataclass
+from typing import Dict, List, Tuple, Optional
+
+@dataclass
+class QueryIntent:
+    primary_intent: str
+    entities: List[str]
+    financial_concepts: List[str]
+    temporal_scope: Optional[str]
+    confidence: float
+
+class FinancialQueryAnalyzer:
+    def __init__(self):
+        # Financial domain-specific patterns
+        self.entity_patterns = {
+            'companies': r'\b(APPLE|MICROSOFT|AMAZON|NVIDIA|INTEL|PAYPAL|MCDONALDS?)\b',
+            'asset_managers': r'\b(ALLIANCEBERNSTEIN|AMERIPRISE|VANGUARD|BLACKROCK)\b',
+            'financial_metrics': r'\b(revenue|profit|earnings|assets|liabilities|cash flow|EBITDA)\b',
+            'risk_factors': r'\b(cybersecurity|regulatory|competitive|market|operational|credit)\b',
+            'products': r'\b(iPhone|Azure|AWS|RTX|graphics|cloud|platform)\b'
+        }
+        
+        self.intent_patterns = {
+            'investment_research': [
+                r'\b(invest|growth|opportunity|potential|valuation|returns?)\b',
+                r'\b(competitive advantage|market position|strategy)\b',
+                r'\b(revenue|profit|financial performance)\b'
+            ],
+            'risk_analysis': [
+                r'\b(risk|threat|vulnerability|challenge|exposure)\b',
+                r'\b(regulatory|compliance|legal|litigation)\b',
+                r'\b(cybersecurity|data breach|security)\b'
+            ],
+            'portfolio_analysis': [
+                r'\b(portfolio|holdings|asset manager|institutional)\b',
+                r'\b(diversification|allocation|concentration)\b',
+                r'\b(ownership|shareholder|investor)\b'
+            ],
+            'competitive_intelligence': [
+                r'\b(competitor|competitive|competition|rival)\b',
+                r'\b(market share|positioning|differentiation)\b',
+                r'\b(partnership|alliance|collaboration)\b'
+            ],
+            'financial_analysis': [
+                r'\b(financial|metric|ratio|comparison|analysis)\b',
+                r'\b(balance sheet|income statement|cash flow)\b',
+                r'\b(debt|equity|capital|margin)\b'
+            ]
+        }
+        
+        self.temporal_patterns = {
+            'current': r'\b(current|recent|latest|now|today)\b',
+            'historical': r'\b(historical|past|previous|last year|annually)\b',
+            'future': r'\b(future|forecast|projected|expected|outlook)\b',
+            'quarterly': r'\b(quarter|quarterly|Q[1-4]|fiscal)\b'
+        }
+    
+    def analyze_query(self, query: str) -> QueryIntent:
+        """Perform deep analysis of financial query intent"""
+        
+        query_lower = query.lower()
+        
+        # Extract entities
+        entities = self._extract_entities(query)
+        
+        # Extract financial concepts
+        financial_concepts = self._extract_financial_concepts(query_lower)
+        
+        # Determine primary intent
+        intent_scores = self._calculate_intent_scores(query_lower)
+        primary_intent = max(intent_scores, key=intent_scores.get)
+        
+        # Extract temporal scope
+        temporal_scope = self._extract_temporal_scope(query_lower)
+        
+        # Calculate overall confidence
+        confidence = self._calculate_confidence(intent_scores, entities, financial_concepts)
+        
+        return QueryIntent(
+            primary_intent=primary_intent,
+            entities=entities,
+            financial_concepts=financial_concepts,
+            temporal_scope=temporal_scope,
+            confidence=confidence
+        )
+    
+    def _extract_entities(self, query: str) -> List[str]:
+        """Extract financial entities from query"""
+        entities = []
+        query_upper = query.upper()
+        
+        for entity_type, pattern in self.entity_patterns.items():
+            matches = re.findall(pattern, query_upper)
+            entities.extend(matches)
+        
+        return list(set(entities))
+    
+    def _extract_financial_concepts(self, query: str) -> List[str]:
+        """Extract financial concepts and terminology"""
+        concepts = []
+        
+        # Financial ratios and metrics
+        ratio_patterns = [
+            r'\b(PE ratio|price.to.earnings|debt.to.equity|ROE|ROA|ROIC)\b',
+            r'\b(gross margin|operating margin|profit margin|EBITDA margin)\b',
+            r'\b(current ratio|quick ratio|debt ratio|equity ratio)\b'
+        ]
+        
+        for pattern in ratio_patterns:
+            matches = re.findall(pattern, query)
+            concepts.extend(matches)
+        
+        return concepts
+    
+    def _calculate_intent_scores(self, query: str) -> Dict[str, float]:
+        """Calculate intent scores for each category"""
+        scores = {}
+        
+        for intent, patterns in self.intent_patterns.items():
+            score = 0
+            for pattern in patterns:
+                matches = len(re.findall(pattern, query))
+                score += matches
+            scores[intent] = score / len(patterns)  # Normalize by number of patterns
+        
+        return scores
+    
+    def _extract_temporal_scope(self, query: str) -> Optional[str]:
+        """Extract temporal scope indicators"""
+        for scope, pattern in self.temporal_patterns.items():
+            if re.search(pattern, query):
+                return scope
+        return None
+    
+    def _calculate_confidence(self, intent_scores: Dict, entities: List, concepts: List) -> float:
+        """Calculate overall confidence in query analysis"""
+        
+        # Base confidence from intent clarity
+        max_intent_score = max(intent_scores.values()) if intent_scores else 0
+        intent_confidence = min(max_intent_score, 1.0)
+        
+        # Boost confidence if entities found
+        entity_boost = min(len(entities) * 0.1, 0.3)
+        
+        # Boost confidence if financial concepts found
+        concept_boost = min(len(concepts) * 0.05, 0.2)
+        
+        total_confidence = intent_confidence + entity_boost + concept_boost
+        return min(total_confidence, 1.0)
+
+# Enhanced retrieval router
+class AdvancedFinancialRouter:
+    def __init__(self):
+        self.analyzer = FinancialQueryAnalyzer()
+    
+    def route_query(self, query: str) -> Dict:
+        """Route query with advanced financial domain analysis"""
+        
+        # Analyze query intent
+        intent = self.analyzer.analyze_query(query)
+        
+        # Determine retrieval strategy
+        strategy = self._determine_strategy(intent)
+        
+        # Create execution plan
+        execution_plan = self._create_execution_plan(intent, strategy)
+        
+        return {
+            'query': query,
+            'analysis': {
+                'primary_intent': intent.primary_intent,
+                'entities': intent.entities,
+                'financial_concepts': intent.financial_concepts,
+                'temporal_scope': intent.temporal_scope,
+                'confidence': intent.confidence
+            },
+            'strategy': strategy,
+            'execution_plan': execution_plan
+        }
+    
+    def _determine_strategy(self, intent: QueryIntent) -> str:
+        """Determine optimal retrieval strategy based on intent analysis"""
+        
+        if intent.confidence < 0.3:
+            return 'fallback_semantic'
+        
+        # Strategy decision tree
+        if intent.primary_intent == 'portfolio_analysis' and intent.entities:
+            return 'structured_with_graph'
+        elif intent.primary_intent == 'risk_analysis' and len(intent.entities) > 1:
+            return 'graph_traversal_with_semantic'
+        elif intent.primary_intent in ['investment_research', 'competitive_intelligence']:
+            return 'semantic_with_entity_expansion'
+        elif intent.primary_intent == 'financial_analysis':
+            return 'structured_analytical'
+        else:
+            return 'hybrid_comprehensive'
+    
+    def _create_execution_plan(self, intent: QueryIntent, strategy: str) -> Dict:
+        """Create detailed execution plan for the query"""
+        
+        plans = {
+            'structured_with_graph': {
+                'steps': [
+                    'Query structured holdings data',
+                    'Expand context through graph relationships',
+                    'Aggregate and rank results'
+                ],
+                'data_sources': ['holdings', 'company_relationships'],
+                'expected_result_types': ['portfolio_metrics', 'relationship_context']
+            },
+            'graph_traversal_with_semantic': {
+                'steps': [
+                    'Identify entity nodes in graph',
+                    'Traverse risk and relationship connections',
+                    'Enhance with semantic document search',
+                    'Merge and rank by relevance'
+                ],
+                'data_sources': ['entity_graph', 'document_chunks'],
+                'expected_result_types': ['relationship_paths', 'document_evidence']
+            },
+            'semantic_with_entity_expansion': {
+                'steps': [
+                    'Perform vector search on document chunks',
+                    'Extract entities from top results',
+                    'Expand context through entity relationships',
+                    'Re-rank with entity context'
+                ],
+                'data_sources': ['document_chunks', 'entity_relationships'],
+                'expected_result_types': ['semantic_matches', 'entity_context']
+            },
+            'hybrid_comprehensive': {
+                'steps': [
+                    'Decompose query into sub-intents',
+                    'Execute parallel retrieval strategies',
+                    'Merge results with confidence weighting',
+                    'Provide comprehensive response'
+                ],
+                'data_sources': ['all_available'],
+                'expected_result_types': ['multi_modal_results']
+            }
+        }
+        
+        return plans.get(strategy, plans['hybrid_comprehensive'])
+
+# Test the advanced router
+router = AdvancedFinancialRouter()
+
+test_queries = [
+    "What are Apple's main competitive advantages in artificial intelligence?",
+    "Which asset managers hold companies facing cybersecurity risks?",
+    "Compare the revenue growth of Microsoft and Amazon over recent quarters",
+    "How do technology companies describe regulatory challenges in their filings?"
+]
+
+print("Advanced Query Routing Analysis:")
+print("=" * 60)
+
+for query in test_queries:
+    routing = router.route_query(query)
+    print(f"\nQuery: {query}")
+    print(f"Primary Intent: {routing['analysis']['primary_intent']}")
+    print(f"Entities Found: {routing['analysis']['entities']}")
+    print(f"Strategy: {routing['strategy']}")
+    print(f"Confidence: {routing['analysis']['confidence']:.3f}")
+```
+
+== Complete Financial Intelligence Retriever
+
+=== Production-Ready Implementation
+
+```python
+class ProductionFinancialRetriever:
+    def __init__(self, uri: str, username: str, password: str):
+        self.driver = GraphDatabase.driver(uri, auth=(username, password))
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        self.router = AdvancedFinancialRouter()
+        
+        # Performance tracking
+        self.query_stats = {
+            'total_queries': 0,
+            'avg_response_time': 0,
+            'strategy_usage': {},
+            'error_rate': 0
+        }
+    
+    def retrieve(self, query: str, max_results: int = 10, include_metadata: bool = True) -> Dict:
+        """Main retrieval interface with comprehensive response"""
+        
+        start_time = time.time()
+        self.query_stats['total_queries'] += 1
+        
+        try:
+            # Route the query
+            routing_info = self.router.route_query(query)
+            strategy = routing_info['strategy']
+            
+            # Execute retrieval based on strategy
+            if strategy == 'structured_with_graph':
+                results = self._structured_with_graph_retrieval(query, routing_info, max_results)
+            elif strategy == 'graph_traversal_with_semantic':
+                results = self._graph_traversal_with_semantic_retrieval(query, routing_info, max_results)
+            elif strategy == 'semantic_with_entity_expansion':
+                results = self._semantic_with_entity_expansion_retrieval(query, routing_info, max_results)
+            else:  # hybrid_comprehensive
+                results = self._hybrid_comprehensive_retrieval(query, routing_info, max_results)
+            
+            # Calculate response time
+            response_time = time.time() - start_time
+            self._update_performance_stats(strategy, response_time, success=True)
+            
+            # Build comprehensive response
+            response = {
+                'query': query,
+                'results': results,
+                'routing_info': routing_info if include_metadata else None,
+                'metadata': {
+                    'strategy_used': strategy,
+                    'response_time_ms': round(response_time * 1000, 2),
+                    'total_results': len(results.get('items', [])),
+                    'data_sources_used': results.get('data_sources', []),
+                    'confidence_score': routing_info['analysis']['confidence']
+                } if include_metadata else None
+            }
+            
+            return response
+            
+        except Exception as e:
+            self._update_performance_stats('error', time.time() - start_time, success=False)
+            return {
+                'query': query,
+                'error': str(e),
+                'results': {'items': []},
+                'metadata': {'strategy_used': 'error', 'response_time_ms': 0}
+            }
+    
+    def _structured_with_graph_retrieval(self, query: str, routing_info: Dict, max_results: int) -> Dict:
+        """Retrieval focused on structured data with graph context"""
+        
+        entities = routing_info['analysis']['entities']
+        
+        # Portfolio analysis query
+        portfolio_query = """
+        MATCH (am:AssetManager)-[holds:HOLDS]->(c:Company)
+        WHERE ($entities IS NULL OR c.name IN $entities OR am.name IN $entities)
+        
+        WITH am, c, holds,
+             // Get company context
+             [(c)-[:HAS_METRIC]->(m:FinancialMetric) | m.name] AS company_metrics,
+             [(c)-[:FACES_RISK]->(r:RiskFactor) | r.name] AS company_risks
+        
+        RETURN am.name AS asset_manager,
+               c.name AS company_name,
+               c.ticker AS ticker,
+               holds.Value AS position_value,
+               holds.shares AS shares,
+               company_metrics,
+               company_risks,
+               // Calculate portfolio statistics
+               collect({
+                   company: c.name,
+                   value: holds.Value,
+                   percentage: holds.Value * 100.0 / sum(holds.Value) OVER (PARTITION BY am)
+               }) AS portfolio_breakdown
+        ORDER BY holds.Value DESC
+        LIMIT $max_results
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(portfolio_query, 
+                               entities=entities if entities else None,
+                               max_results=max_results)
+            portfolio_data = [dict(record) for record in result]
+        
+        return {
+            'strategy': 'structured_with_graph',
+            'items': portfolio_data,
+            'data_sources': ['holdings_data', 'company_metrics', 'risk_factors'],
+            'summary': f"Found {len(portfolio_data)} portfolio positions with graph context"
+        }
+    
+    def _graph_traversal_with_semantic_retrieval(self, query: str, routing_info: Dict, max_results: int) -> Dict:
+        """Graph traversal enhanced with semantic search"""
+        
+        entities = routing_info['analysis']['entities']
+        
+        # Find relationship paths
+        relationship_results = []
+        if entities:
+            for entity in entities[:3]:  # Limit to prevent explosion
+                paths = self._find_entity_context_paths(entity)
+                relationship_results.extend(paths)
+        
+        # Enhance with semantic search
+        query_embedding = self.model.encode([query])[0].tolist()
+        semantic_results = self._semantic_search_with_context(query_embedding, max_results // 2)
+        
+        # Merge results
+        all_results = []
+        
+        # Add relationship results with context scores
+        for rel_result in relationship_results[:max_results//2]:
+            rel_result['result_type'] = 'relationship'
+            rel_result['relevance_score'] = self._calculate_relationship_relevance(rel_result, query)
+            all_results.append(rel_result)
+        
+        # Add semantic results
+        for sem_result in semantic_results:
+            sem_result['result_type'] = 'semantic'
+            all_results.append(sem_result)
+        
+        # Sort by combined relevance
+        all_results.sort(key=lambda x: x.get('relevance_score', x.get('similarity_score', 0)), reverse=True)
+        
+        return {
+            'strategy': 'graph_traversal_with_semantic',
+            'items': all_results[:max_results],
+            'data_sources': ['entity_relationships', 'document_chunks'],
+            'summary': f"Combined {len(relationship_results)} relationship paths with {len(semantic_results)} semantic matches"
+        }
+    
+    def _semantic_with_entity_expansion_retrieval(self, query: str, routing_info: Dict, max_results: int) -> Dict:
+        """Semantic search with entity context expansion"""
+        
+        # Primary semantic search
+        query_embedding = self.model.encode([query])[0].tolist()
+        semantic_results = self._semantic_search_with_context(query_embedding, max_results)
+        
+        # Extract entities from top results and expand context
+        entities_from_results = set()
+        for result in semantic_results[:5]:  # Top 5 results
+            if result.get('company_name'):
+                entities_from_results.add(result['company_name'])
+        
+        # Expand entity context
+        entity_context = {}
+        for entity in entities_from_results:
+            context = self._get_comprehensive_entity_context(entity)
+            entity_context[entity] = context
+        
+        # Enhance results with expanded context
+        enhanced_results = []
+        for result in semantic_results:
+            if result.get('company_name') in entity_context:
+                result['expanded_context'] = entity_context[result['company_name']]
+            enhanced_results.append(result)
+        
+        return {
+            'strategy': 'semantic_with_entity_expansion',
+            'items': enhanced_results,
+            'data_sources': ['document_chunks', 'entity_context', 'relationships'],
+            'summary': f"Enhanced {len(semantic_results)} semantic results with context for {len(entity_context)} entities"
+        }
+    
+    def _hybrid_comprehensive_retrieval(self, query: str, routing_info: Dict, max_results: int) -> Dict:
+        """Comprehensive hybrid retrieval using all available strategies"""
+        
+        # Execute multiple strategies in parallel (simulated)
+        strategies = ['structured_with_graph', 'graph_traversal_with_semantic', 'semantic_with_entity_expansion']
+        
+        all_results = []
+        strategy_results = {}
+        
+        for strategy in strategies:
+            if strategy == 'structured_with_graph':
+                results = self._structured_with_graph_retrieval(query, routing_info, max_results // 3)
+            elif strategy == 'graph_traversal_with_semantic':
+                results = self._graph_traversal_with_semantic_retrieval(query, routing_info, max_results // 3)
+            else:
+                results = self._semantic_with_entity_expansion_retrieval(query, routing_info, max_results // 3)
+            
+            strategy_results[strategy] = results
+            all_results.extend(results['items'])
+        
+        # Re-rank combined results
+        final_results = self._rerank_hybrid_results(all_results, query, routing_info)
+        
+        return {
+            'strategy': 'hybrid_comprehensive',
+            'items': final_results[:max_results],
+            'data_sources': ['all_available'],
+            'summary': f"Comprehensive analysis using {len(strategies)} strategies yielding {len(final_results)} results",
+            'strategy_breakdown': {k: len(v['items']) for k, v in strategy_results.items()}
+        }
+    
+    def _find_entity_context_paths(self, entity: str, max_depth: int = 2) -> List[Dict]:
+        """Find contextual paths for an entity"""
+        
+        context_query = """
+        MATCH (start {name: $entity})
+        
+        // Find direct relationships
+        OPTIONAL MATCH (start)-[r1]->(direct)
+        WHERE direct.name IS NOT NULL
+        
+        // Find 2-hop relationships for richer context
+        OPTIONAL MATCH (start)-[r1]->(intermediate)-[r2]->(target)
+        WHERE target.name IS NOT NULL AND target <> start
+        
+        RETURN start.name AS source_entity,
+               collect(DISTINCT {
+                   target: direct.name,
+                   target_type: labels(direct)[0],
+                   relationship: type(r1),
+                   path_length: 1
+               }) AS direct_connections,
+               collect(DISTINCT {
+                   target: target.name,
+                   target_type: labels(target)[0],
+                   intermediate: intermediate.name,
+                   relationships: [type(r1), type(r2)],
+                   path_length: 2
+               })[..10] AS extended_connections
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(context_query, entity=entity)
+            record = result.single()
+            
+            if record:
+                return [{
+                    'source_entity': record['source_entity'],
+                    'direct_connections': record['direct_connections'],
+                    'extended_connections': record['extended_connections'],
+                    'context_type': 'entity_relationships'
+                }]
+            else:
+                return []
+    
+    def _semantic_search_with_context(self, query_embedding: List[float], max_results: int) -> List[Dict]:
+        """Perform semantic search with company and document context"""
+        
+        semantic_query = """
+        CALL db.index.vector.queryNodes('chunkEmbeddings', $max_results, $query_embedding)
+        YIELD node AS chunk, score
+        
+        // Get document and company context
+        MATCH (doc:Document)-[:HAS_CHUNK]->(chunk)
+        OPTIONAL MATCH (company:Company)-[:FILED]->(doc)
+        
+        // Get additional company context
+        OPTIONAL MATCH (company)-[:HAS_METRIC]->(metric:FinancialMetric)
+        OPTIONAL MATCH (company)-[:FACES_RISK]->(risk:RiskFactor)
+        OPTIONAL MATCH (company)<-[:HOLDS]-(am:AssetManager)
+        
+        RETURN chunk.text AS chunk_text,
+               chunk.position AS chunk_position,
+               doc.id AS document_id,
+               company.name AS company_name,
+               company.ticker AS ticker,
+               score AS similarity_score,
+               collect(DISTINCT metric.name) AS financial_metrics,
+               collect(DISTINCT risk.name) AS risk_factors,
+               collect(DISTINCT am.name) AS asset_managers
+        ORDER BY score DESC
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(semantic_query,
+                               query_embedding=query_embedding,
+                               max_results=max_results)
+            return [dict(record) for record in result]
+    
+    def _get_comprehensive_entity_context(self, entity_name: str) -> Dict:
+        """Get comprehensive context for an entity"""
+        
+        context_query = """
+        MATCH (entity {name: $entity_name})
+        
+        // Get all direct relationships
+        OPTIONAL MATCH (entity)-[r]->(related)
+        WHERE related.name IS NOT NULL
+        
+        WITH entity, 
+             collect(DISTINCT {
+                 target: related.name,
+                 target_type: labels(related)[0],
+                 relationship: type(r)
+             }) AS all_relationships
+        
+        // Get entity-specific context based on type
+        OPTIONAL MATCH (entity:Company)-[:HAS_METRIC]->(metric:FinancialMetric)
+        OPTIONAL MATCH (entity:Company)-[:FACES_RISK]->(risk:RiskFactor)
+        OPTIONAL MATCH (entity:Company)-[:MENTIONS]->(product:Product)
+        OPTIONAL MATCH (entity:AssetManager)-[holds:HOLDS]->(company:Company)
+        
+        RETURN entity.name AS entity_name,
+               labels(entity)[0] AS entity_type,
+               all_relationships,
+               collect(DISTINCT metric.name) AS financial_metrics,
+               collect(DISTINCT risk.name) AS risk_factors,
+               collect(DISTINCT product.name) AS products,
+               collect(DISTINCT {
+                   company: company.name,
+                   value: holds.Value,
+                   shares: holds.shares
+               }) AS holdings
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(context_query, entity_name=entity_name)
+            record = result.single()
+            return dict(record) if record else {}
+    
+    def _calculate_relationship_relevance(self, rel_result: Dict, query: str) -> float:
+        """Calculate relevance score for relationship results"""
+        
+        score = 0.5  # Base score
+        
+        # Boost if source entity mentioned in query
+        source_entity = rel_result.get('source_entity', '')
+        if source_entity.upper() in query.upper():
+            score += 0.3
+        
+        # Boost for shorter paths (more direct relationships)
+        direct_connections = len(rel_result.get('direct_connections', []))
+        if direct_connections > 0:
+            score += 0.2
+        
+        # Boost for relevant relationship types
+        relevant_rels = ['HOLDS', 'FACES_RISK', 'HAS_METRIC', 'MENTIONS']
+        for conn in rel_result.get('direct_connections', []):
+            if conn.get('relationship') in relevant_rels:
+                score += 0.1
+        
+        return min(score, 1.0)
+    
+    def _rerank_hybrid_results(self, results: List[Dict], query: str, routing_info: Dict) -> List[Dict]:
+        """Re-rank results from hybrid retrieval"""
+        
+        query_lower = query.lower()
+        entities = routing_info['analysis']['entities']
+        
+        for result in results:
+            score = result.get('similarity_score', result.get('relevance_score', 0.5))
+            
+            # Boost for entity matches
+            if entities:
+                for entity in entities:
+                    if entity.upper() in str(result).upper():
+                        score += 0.1
+            
+            # Boost for result type diversity
+            result_type = result.get('result_type', 'unknown')
+            if result_type == 'semantic':
+                score += 0.05  # Slight boost for semantic results
+            elif result_type == 'relationship':
+                score += 0.1   # Boost for relationship results
+            
+            result['final_score'] = score
+        
+        # Sort by final score
+        results.sort(key=lambda x: x['final_score'], reverse=True)
+        return results
+    
+    def _update_performance_stats(self, strategy: str, response_time: float, success: bool):
+        """Update performance statistics"""
+        
+        if strategy not in self.query_stats['strategy_usage']:
+            self.query_stats['strategy_usage'][strategy] = 0
+        self.query_stats['strategy_usage'][strategy] += 1
+        
+        # Update average response time
+        total_queries = self.query_stats['total_queries']
+        current_avg = self.query_stats['avg_response_time']
+        self.query_stats['avg_response_time'] = ((current_avg * (total_queries - 1)) + response_time) / total_queries
+        
+        # Update error rate
+        if not success:
+            error_count = self.query_stats.get('errors', 0) + 1
+            self.query_stats['errors'] = error_count
+            self.query_stats['error_rate'] = error_count / total_queries
+    
+    def get_performance_stats(self) -> Dict:
+        """Get current performance statistics"""
+        return self.query_stats.copy()
+
+# Initialize the production system
+production_retriever = ProductionFinancialRetriever("bolt://localhost:7687", "neo4j", "password")
+```
+
+== Specialized Financial Intelligence Use Cases
+
+=== Investment Research Assistant
+
+```python
+class InvestmentResearchAssistant:
+    def __init__(self, retriever: ProductionFinancialRetriever):
+        self.retriever = retriever
+    
+    def analyze_investment_opportunity(self, company: str) -> Dict:
+        """Comprehensive investment analysis for a company"""
+        
+        queries = [
+            f"What are {company}'s main competitive advantages and growth strategies?",
+            f"What are the key risk factors facing {company}?",
+            f"Which institutional investors hold {company} stock?",
+            f"How does {company} describe its financial performance and outlook?"
+        ]
+        
+        analysis_results = {}
+        for i, query in enumerate(queries):
+            result = self.retriever.retrieve(query, max_results=5, include_metadata=False)
+            analysis_results[f'analysis_{i+1}'] = {
+                'query': query,
+                'findings': result['results']['items']
+            }
+        
+        # Compile comprehensive report
+        report = self._compile_investment_report(company, analysis_results)
+        return report
+    
+    def _compile_investment_report(self, company: str, analysis_results: Dict) -> Dict:
+        """Compile comprehensive investment report"""
+        
+        return {
+            'company': company,
+            'analysis_date': time.strftime('%Y-%m-%d'),
+            'executive_summary': f"Comprehensive investment analysis for {company}",
+            'competitive_advantages': self._extract_key_points(analysis_results['analysis_1']['findings']),
+            'risk_factors': self._extract_key_points(analysis_results['analysis_2']['findings']),
+            'institutional_ownership': self._extract_key_points(analysis_results['analysis_3']['findings']),
+            'financial_outlook': self._extract_key_points(analysis_results['analysis_4']['findings']),
+            'recommendation': self._generate_recommendation(analysis_results)
+        }
+    
+    def _extract_key_points(self, findings: List[Dict]) -> List[str]:
+        """Extract key points from findings"""
+        key_points = []
+        for finding in findings[:3]:  # Top 3 findings
+            if finding.get('chunk_text'):
+                # Extract first sentence as key point
+                text = finding['chunk_text']
+                first_sentence = text.split('.')[0] + '.'
+                key_points.append(first_sentence)
+        return key_points
+    
+    def _generate_recommendation(self, analysis_results: Dict) -> str:
+        """Generate investment recommendation based on analysis"""
+        
+        # Simplified recommendation logic
+        risk_count = len(analysis_results['analysis_2']['findings'])
+        advantage_count = len(analysis_results['analysis_1']['findings'])
+        
+        if advantage_count > risk_count:
+            return "POSITIVE - Strong competitive position with manageable risks"
+        elif risk_count > advantage_count * 1.5:
+            return "CAUTIOUS - Significant risks identified requiring careful evaluation"
+        else:
+            return "NEUTRAL - Balanced risk-reward profile"
+
+# Risk Assessment Specialist
+class RiskAssessmentSpecialist:
+    def __init__(self, retriever: ProductionFinancialRetriever):
+        self.retriever = retriever
+    
+    def assess_portfolio_risk(self, asset_manager: str) -> Dict:
+        """Assess risk exposure across a portfolio"""
+        
+        queries = [
+            f"What companies does {asset_manager} hold that face cybersecurity risks?",
+            f"Which {asset_manager} holdings mention regulatory challenges?",
+            f"What supply chain risks affect {asset_manager}'s portfolio companies?",
+            f"How concentrated is {asset_manager}'s portfolio across sectors?"
+        ]
+        
+        risk_analysis = {}
+        for query in queries:
+            result = self.retriever.retrieve(query, max_results=10, include_metadata=False)
+            risk_analysis[query] = result['results']['items']
+        
+        return {
+            'asset_manager': asset_manager,
+            'risk_assessment': risk_analysis,
+            'risk_score': self._calculate_portfolio_risk_score(risk_analysis),
+            'recommendations': self._generate_risk_recommendations(risk_analysis)
+        }
+    
+    def _calculate_portfolio_risk_score(self, risk_analysis: Dict) -> float:
+        """Calculate overall portfolio risk score"""
+        
+        total_risk_mentions = sum(len(findings) for findings in risk_analysis.values())
+        max_possible_mentions = len(risk_analysis) * 10  # 10 max results per query
+        
+        risk_score = (total_risk_mentions / max_possible_mentions) * 100
+        return round(risk_score, 2)
+    
+    def _generate_risk_recommendations(self, risk_analysis: Dict) -> List[str]:
+        """Generate risk mitigation recommendations"""
+        
+        recommendations = []
+        
+        for query, findings in risk_analysis.items():
+            if 'cybersecurity' in query.lower() and len(findings) > 5:
+                recommendations.append("High cybersecurity risk exposure - consider diversification")
+            elif 'regulatory' in query.lower() and len(findings) > 3:
+                recommendations.append("Significant regulatory risk - monitor compliance closely")
+            elif 'supply chain' in query.lower() and len(findings) > 4:
+                recommendations.append("Supply chain vulnerabilities detected - assess resilience")
+        
+        if not recommendations:
+            recommendations.append("Risk exposure appears manageable across portfolio")
+        
+        return recommendations
+
+# Example usage of specialized assistants
+investment_assistant = InvestmentResearchAssistant(production_retriever)
+risk_specialist = RiskAssessmentSpecialist(production_retriever)
+
+# Test investment analysis
+apple_analysis = investment_assistant.analyze_investment_opportunity("APPLE INC")
+print("Investment Analysis for Apple:")
+print(f"  Recommendation: {apple_analysis['recommendation']}")
+print(f"  Key Advantages: {len(apple_analysis['competitive_advantages'])} identified")
+print(f"  Risk Factors: {len(apple_analysis['risk_factors'])} identified")
+
+# Test risk assessment
+alliancebernstein_risk = risk_specialist.assess_portfolio_risk("ALLIANCEBERNSTEIN L.P.")
+print(f"\nRisk Assessment for AllianceBernstein:")
+print(f"  Risk Score: {alliancebernstein_risk['risk_score']}/100")
+print(f"  Recommendations: {len(alliancebernstein_risk['recommendations'])}")
+```
+
+== Performance Evaluation and Monitoring
+
+=== Retrieval Quality Metrics
+
+```python
+class RetrievalEvaluator:
+    def __init__(self, retriever: ProductionFinancialRetriever):
+        self.retriever = retriever
+        
+    def evaluate_retrieval_quality(self, test_queries: List[str]) -> Dict:
+        """Evaluate retrieval quality across test queries"""
+        
+        evaluation_results = []
+        
+        for query in test_queries:
+            result = self.retriever.retrieve(query, max_results=10)
+            
+            # Calculate quality metrics
+            quality_metrics = {
+                'query': query,
+                'response_time_ms': result['metadata']['response_time_ms'],
+                'total_results': result['metadata']['total_results'],
+                'strategy_used': result['metadata']['strategy_used'],
+                'confidence_score': result['metadata']['confidence_score'],
+                'result_diversity': self._calculate_result_diversity(result['results']['items']),
+                'entity_coverage': self._calculate_entity_coverage(query, result['results']['items'])
+            }
+            
+            evaluation_results.append(quality_metrics)
+        
+        # Aggregate metrics
+        aggregated_metrics = self._aggregate_evaluation_metrics(evaluation_results)
+        
+        return {
+            'individual_results': evaluation_results,
+            'aggregated_metrics': aggregated_metrics,
+            'performance_summary': self._generate_performance_summary(aggregated_metrics)
+        }
+    
+    def _calculate_result_diversity(self, results: List[Dict]) -> float:
+        """Calculate diversity of result types and sources"""
+        
+        if not results:
+            return 0.0
+        
+        # Count unique result types and data sources
+        result_types = set()
+        companies = set()
+        data_sources = set()
+        
+        for result in results:
+            if 'result_type' in result:
+                result_types.add(result['result_type'])
+            if 'company_name' in result:
+                companies.add(result['company_name'])
+            if 'data_sources' in result:
+                data_sources.update(result.get('data_sources', []))
+        
+        # Diversity score based on variety
+        type_diversity = len(result_types) / 3  # Max 3 types
+        company_diversity = min(len(companies) / 5, 1.0)  # Cap at 5 companies
+        source_diversity = min(len(data_sources) / 4, 1.0)  # Cap at 4 sources
+        
+        return (type_diversity + company_diversity + source_diversity) / 3
+    
+    def _calculate_entity_coverage(self, query: str, results: List[Dict]) -> float:
+        """Calculate how well results cover entities mentioned in query"""
+        
+        # Extract entities from query (simplified)
+        companies = ['APPLE', 'MICROSOFT', 'AMAZON', 'NVIDIA', 'INTEL', 'PAYPAL']
+        query_upper = query.upper()
+        query_entities = [comp for comp in companies if comp in query_upper]
+        
+        if not query_entities:
+            return 1.0  # No specific entities to cover
+        
+        # Count entities covered in results
+        covered_entities = set()
+        for result in results:
+            company_name = result.get('company_name', '')
+            if company_name:
+                for entity in query_entities:
+                    if entity in company_name.upper():
+                        covered_entities.add(entity)
+        
+        return len(covered_entities) / len(query_entities)
+    
+    def _aggregate_evaluation_metrics(self, results: List[Dict]) -> Dict:
+        """Aggregate metrics across all test queries"""
+        
+        if not results:
+            return {}
+        
+        return {
+            'avg_response_time_ms': sum(r['response_time_ms'] for r in results) / len(results),
+            'avg_results_per_query': sum(r['total_results'] for r in results) / len(results),
+            'avg_confidence_score': sum(r['confidence_score'] for r in results) / len(results),
+            'avg_result_diversity': sum(r['result_diversity'] for r in results) / len(results),
+            'avg_entity_coverage': sum(r['entity_coverage'] for r in results) / len(results),
+            'strategy_distribution': self._calculate_strategy_distribution(results)
+        }
+    
+    def _calculate_strategy_distribution(self, results: List[Dict]) -> Dict:
+        """Calculate distribution of strategies used"""
+        
+        strategy_counts = {}
+        for result in results:
+            strategy = result['strategy_used']
+            strategy_counts[strategy] = strategy_counts.get(strategy, 0) + 1
+        
+        total = len(results)
+        return {strategy: count/total for strategy, count in strategy_counts.items()}
+    
+    def _generate_performance_summary(self, metrics: Dict) -> str:
+        """Generate human-readable performance summary"""
+        
+        avg_time = metrics['avg_response_time_ms']
+        avg_confidence = metrics['avg_confidence_score']
+        avg_diversity = metrics['avg_result_diversity']
+        
+        summary_parts = []
+        
+        # Response time assessment
+        if avg_time < 1000:
+            summary_parts.append("Excellent response times")
+        elif avg_time < 3000:
+            summary_parts.append("Good response times")
+        else:
+            summary_parts.append("Response times need optimization")
+        
+        # Confidence assessment
+        if avg_confidence > 0.7:
+            summary_parts.append("high query understanding")
+        elif avg_confidence > 0.5:
+            summary_parts.append("moderate query understanding")
+        else:
+            summary_parts.append("query understanding needs improvement")
+        
+        # Diversity assessment
+        if avg_diversity > 0.6:
+            summary_parts.append("good result diversity")
+        else:
+            summary_parts.append("limited result diversity")
+        
+        return ", ".join(summary_parts)
+
+# Run comprehensive evaluation
+evaluator = RetrievalEvaluator(production_retriever)
+
+# Comprehensive test queries covering different scenarios
+comprehensive_test_queries = [
+    # Investment research queries
+    "What are Apple's competitive advantages in artificial intelligence?",
+    "How does Microsoft describe its cloud computing strategy?",
+    "What growth opportunities does Amazon highlight in its filings?",
+    
+    # Risk analysis queries
+    "Which technology companies face the highest cybersecurity risks?",
+    "What regulatory challenges are mentioned by financial services firms?",
+    "How do companies describe supply chain vulnerabilities?",
+    
+    # Portfolio analysis queries
+    "Which asset managers have the largest technology holdings?",
+    "What is the concentration of institutional ownership in NVIDIA?",
+    "How diversified are AllianceBernstein's portfolio holdings?",
+    
+    # Competitive intelligence queries
+    "Which companies compete directly with Apple in consumer electronics?",
+    "How do cloud providers position themselves against competitors?",
+    "What partnerships and alliances are mentioned in technology filings?"
+]
+
+print("Running Comprehensive Retrieval Evaluation...")
+evaluation_results = evaluator.evaluate_retrieval_quality(comprehensive_test_queries)
+
+print("\nEvaluation Results Summary:")
+print("=" * 50)
+print(f"Average Response Time: {evaluation_results['aggregated_metrics']['avg_response_time_ms']:.2f}ms")
+print(f"Average Results per Query: {evaluation_results['aggregated_metrics']['avg_results_per_query']:.1f}")
+print(f"Average Confidence Score: {evaluation_results['aggregated_metrics']['avg_confidence_score']:.3f}")
+print(f"Average Result Diversity: {evaluation_results['aggregated_metrics']['avg_result_diversity']:.3f}")
+print(f"Average Entity Coverage: {evaluation_results['aggregated_metrics']['avg_entity_coverage']:.3f}")
+
+print(f"\nStrategy Distribution:")
+for strategy, percentage in evaluation_results['aggregated_metrics']['strategy_distribution'].items():
+    print(f"  {strategy}: {percentage:.1%}")
+
+print(f"\nPerformance Summary: {evaluation_results['performance_summary']}")
+
+# Performance statistics
+perf_stats = production_retriever.get_performance_stats()
+print(f"\nSystem Performance Statistics:")
+print(f"  Total Queries Processed: {perf_stats['total_queries']}")
+print(f"  Average Response Time: {perf_stats['avg_response_time']:.3f}s")
+print(f"  Error Rate: {perf_stats.get('error_rate', 0):.1%}")
+```
+
+== Knowledge Check Questions
+
+1. **Query Routing**: Why is intelligent query routing crucial for financial intelligence systems?
+
+2. **Hybrid Strategies**: In what scenarios would a hybrid retrieval approach outperform single-strategy retrieval for financial analysis?
+
+3. **Performance Optimization**: What are the key performance metrics to monitor in a production financial retrieval system?
+
+=== Practical Assessment Tasks
+
+Complete these exercises using the financial intelligence system you've built:
+
+1. **Investment Analysis**: Create a comprehensive investment analysis for a technology company using all retrieval strategies
+
+2. **Risk Assessment**: Build a portfolio risk assessment system that identifies concentration risks and regulatory exposures
+
+3. **Competitive Intelligence**: Design a competitive landscape analyzer that maps competitive relationships through multiple data dimensions
+
+== Summary and Production Deployment
+
+### ✅ **System Capabilities Achieved**
+- **Intelligent Query Routing** with financial domain expertise
+- **Multi-Strategy Retrieval** combining vector search, graph traversal, and structured queries
+- **Specialized Financial Intelligence** tools for investment research, risk assessment, and competitive analysis
+- **Performance Monitoring** and quality evaluation metrics
+- **Production-Ready Architecture** with error handling and caching
+
+### 🎯 **Financial Intelligence Use Cases**
+- **Investment Research**: Comprehensive company analysis combining quantitative and qualitative data
+- **Risk Assessment**: Portfolio risk analysis with network effects and contagion modeling
+- **Competitive Intelligence**: Market positioning analysis through multi-dimensional data exploration
+- **Regulatory Compliance**: Entity relationship mapping and ownership analysis
+
+### 🚀 **Next Module Preview**
+Module 6: Agents will teach you to build intelligent agents that can plan and execute complex financial analysis workflows using the retrieval systems you've built.
+
+You now have a sophisticated financial intelligence retrieval system that can handle complex queries across multiple data modalities and provide comprehensive, contextual results for real-world financial analysis applications!
