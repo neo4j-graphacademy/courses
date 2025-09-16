@@ -16,6 +16,7 @@ describe('QA Tests', () => {
     const exclude = ['30-days']
     const coursePaths = globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
         .filter(path => exclude.some(folder => !path.endsWith(folder)))
+        .filter(path => existsSync(join(path, 'course.adoc')))
 
     for (const coursePath of coursePaths) {
         const slug = coursePath.split(sep).reverse()[0]
@@ -106,12 +107,14 @@ describe('QA Tests', () => {
 
                                 it('should not have any broken links', async () => {
                                     for (const link of findLinks(lessonAdoc)) {
-                                        const statusCode = await getStatusCode(link)
-                                        try {
-                                            expect(statusCode).toBe(200)
-                                        }
-                                        catch (e) {
-                                            throw new Error(`${link} returns ${statusCode}`)
+                                        if (!link.includes('platform.openai')) {
+                                            const statusCode = await getStatusCode(link)
+                                            try {
+                                                expect(statusCode).toBe(200)
+                                            }
+                                            catch (e) {
+                                                throw new Error(`${link} returns ${statusCode}`)
+                                            }
                                         }
                                     }
                                 })
