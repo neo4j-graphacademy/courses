@@ -2,8 +2,8 @@
 
 Please choose the appropriate template for your PR:
 
-- [Course Draft Template](?template=pull_request_template_course_draft.md)
-- [Course Release Template](?template=pull_request_template_course_release.md)
+- [Course Draft Template](?template=course_draft.md)
+- [Course Release Template](?template=course_release.md)
 - [General Update Template] (continue with this template)
 
 ---
