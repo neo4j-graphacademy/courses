@@ -1,10 +1,3 @@
----
-name: Course Release
-about: Use this template for releasing courses to production
-title: "[Course Release] "
-labels: course-release
----
-
 ### Pre-Release Checklist
 
 #### Content Finalization
