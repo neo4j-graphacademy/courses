@@ -1,10 +1,3 @@
----
-name: Course Draft
-about: Use this template for submitting new course drafts
-title: "[Course Draft] "
-labels: course-draft
----
-
 **Course Name:** [Course Name]  
 **Caption:** [Caption]
 
