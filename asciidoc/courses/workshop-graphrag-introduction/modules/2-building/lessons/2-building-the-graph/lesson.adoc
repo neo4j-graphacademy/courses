@@ -15,7 +15,7 @@ The library allows you to build pipelines to:
 
 * Chunk text documents and PDFs and create vector embeddings
 * Extract entities and relationships from the chunks and store them in a knowledge graph
-* Query the resulting knowledge graph 
+* Query vector embeddings and return the surrounding nodes and relationships
 
 &nbsp;
 
@@ -28,18 +28,25 @@ pip install "neo4j_graphrag[openai]"
 
 [.col]
 ====
-EDGAR (Electronic Data Gathering, Analysis, and Retrieval) SEC filings are official documents that public companies must submit to the U.S. Securities and Exchange Commission (SEC). These include annual reports (10-K), quarterly reports (10-Q), and other critical disclosures.
+EDGAR (Electronic Data Gathering, Analysis, and Retrieval) SEC filings are official documents that public companies must submit to the U.S. Securities and Exchange Commission (SEC).
+// These include annual reports (10-K), quarterly reports (10-Q), and other critical disclosures.
 
 These documents are the authoritative source for company information, containing details about:
 
 - Financial performance and metrics
-- Business operations and strategy  
+- Business operations and strategy
 - Risk factors and challenges
 - Executive leadership and compensation
 - Corporate governance
 
-// **The Original Challenge:** +
-// How do you extract structured insights from these comprehensive but text-heavy regulatory documents that contain crucial business intelligence?
+**The Challenge:** +
+How do you extract structured insights from these comprehensive but text-heavy regulatory documents that contain crucial business intelligence?
+
+
+[TIP,role="transcript-only"]
+.Spoiler Alert
+You can link:https://github.com/neo4j-graphacademy/workshop-genai/blob/main/workshop-genai/financial-documents/pdf-build/01_PDF_Loader_for_Neo4j_GraphRAG.ipynb[View the entire process on Github^].
+
 ====
 
 [.col]
@@ -62,7 +69,7 @@ This is known in GraphRAG as a **Lexical graph**.
 **Why This Chunking Strategy?**
 
 - Improves retrieval and search accuracy
-- Enables LLMs to process long documents effectively  
+- Enables LLMs to process long documents effectively
 - Each chunk becomes a searchable unit linked to its source
 - Supports both granular search and traceability
 
@@ -84,7 +91,7 @@ Documents are also inherently **hierarchical**.
 
 A book will contain chapters, which are in turn a collection of sections, which are in turn a collection of paragraphs.
 
-If the given documents have pre-defined structures, it is useful to persist them into the chunk structure. 
+If the given documents have pre-defined structures, it is useful to persist them into the chunk structure.
 
 // For example, a book is a collection of chapters, which are in turn a collection of sections, which are in turn a collection of paragraphs.
 
@@ -120,30 +127,49 @@ image::https://graphrag.com/_astro/knowledge-graph-lexical-graph-hierarchical-st
 [.slide.discrete]
 == Step 2: Guided Extraction Prompts
 
-**Guided Extraction Prompts:**
+The extraction process uses **carefully crafted prompts** to ensure quality and accuracy.
+The following principles are crucial for achieving high-quality results:
 
-The extraction process uses carefully crafted prompts to ensure quality:
+- **Company Validation:** Only extract approved companies from predefined lists
+- **Context Resolution:** Resolve generic references like "the Company" to actual names
+- **Schema Enforcement:** Strict adherence to defined entity types and properties
+- **Quality Control:** Validate all extracted relationships against schema
 
-- **Company Validation:** Only extract approved companies from our list
-- **Context Resolution:** Resolve "the Company" to actual company names
-- **Schema Enforcement:** Strict adherence to defined entity types
-- **Quality Control:** Validate all extracted relationships
+This schema + prompt combination acts as the blueprint - telling the LLM exactly what to look for and how to connect entities in the knowledge graph you'll explore.
 
-This schema + prompt combination acts as the blueprint - telling the LLM exactly what to look for and how to connect entities in the knowledge graph you'll explore. It's the difference between isolated chunks and a connected web of business knowledge.
+
+
+[.slide]
+== An example prompt
+
+Here's how to create effective extraction prompts:
+
+[source, python]
+----
+from neo4j_graphrag.experimental.pipeline.kg_builder import ERExtractionTemplate
+
+company_instruction = (
+    "You are an expert in extracting company information from SEC filings. "
+    "When extracting, the company name must match exactly as shown below. "
+    "ONLY USE THE COMPANY NAME EXACTLY AS SHOWN IN THE LIST. "
+    "If the text refers to 'the Company', 'the Registrant', or uses a pronoun, "
+    "you MUST look up and use the exact company name from the allowed list. "
+    "UNDER NO CIRCUMSTANCES should you output 'the Company' or generic phrases. "
+)
+# Combine with default template
+custom_template = company_instruction + ERExtractionTemplate.DEFAULT_TEMPLATE
+prompt_template = ERExtractionTemplate(template=custom_template)
+----
+
+
 
 [.slide.col-2]
 == Step 2: Schema-Driven Extraction
 
-[.transcript-only]
-====
-The knowledge graph was built using a defined schema combined with carefully crafted prompts to guide the AI extraction process.
-====
-
-// **Schema Definition:**
 
 [.col]
 ====
-**Entities:**
+**Entity Types:**
 
 - Company
 - Executive
@@ -152,7 +178,14 @@ The knowledge graph was built using a defined schema combined with carefully cra
 - RiskFactor
 - StockType
 - Transaction
-- TimePeriod    
+- TimePeriod
+
+// **Example Enhanced Entities:**
+
+// - Company (id, name)
+// - Location (name)
+// - Country (name)
+// - FundingRound (id, series, amount)
 ====
 
 [.col]
@@ -161,17 +194,18 @@ The knowledge graph was built using a defined schema combined with carefully cra
 ----
 entities = [
   {
-    "label": "Company", 
+    "label": "Company",
     "properties": [
       {"name": "name", "type": "STRING"}
     ]
   },
   {
-    "label": "Executive", 
+    "label": "Executive",
     "properties": [
       {"name": "name", "type": "STRING"}
     ]
   },
+  # ... more entities
 ]
 ----
 
@@ -194,7 +228,7 @@ entities = [
 - Company **HAS_METRIC** FinancialMetric
 - Company **FACES_RISK** RiskFactor
 - Company **ISSUED_STOCK** StockType
-- Company **MENTIONS** Product 
+- Company **MENTIONS** Product
 ====
 
 
@@ -203,21 +237,19 @@ entities = [
 [source, python]
 ----
 relations = [
-    {
-      "label": "HAS_METRIC", 
-      "source": "Company", 
-      "target": "FinancialMetric"
-    },
-    {
-      "label": "FACES_RISK", 
-      "source": "Company", 
-      "target": "RiskFactor"
-    },
+  {
+    "label": "HAS_METRIC",
+    "source": "Company",
+    "target": "FinancialMetric"
+  },
+  {
+    "label": "FACES_RISK",
+    "source": "Company",
+    "target": "RiskFactor"
+  },
+  # ... more relationships
 ]
 ----
-// {"label": "FACES_RISK", "source": "Company", "target": "RiskFactor"},
-// {"label": "ISSUED_STOCK", "source": "Company", "target": "StockType"},
-// {"label": "MENTIONS", "source": "Company", "target": "Product"}  # Adjust as needed
 ====
 
 
@@ -230,30 +262,127 @@ The complete pipeline defines the transformation from PDF to knowledge graph usi
 
 image::images/8.png[Diagram showing the Neo4j GraphRAG pipeline process from PDF documents to knowledge graph]
 
+[.transcript-only]
+====
+To build a pipeline, you will need to perform the following steps.
+====
+
 [.slide.col-2.discrete]
 == Step 3: SimpleKGPipeline Example
 
 [.col]
 ====
-[source, python]
+.Connect to the Neo4j database
+[source, python, subs="attributes+"]
 ----
-pipeline = SimpleKGPipeline(
-    driver=driver, # Neo4j connection driver
-    llm=llm, embedder=embedder,  # OpenAI llm and embeddings
-    entities=entities, relations=relations,  # Define schema
-    enforce_schema="STRICT",
-    prompt_template=prompt_template,
+from neo4j import GraphDatabase
+
+NEO4J_URI = "{instance-scheme}://{instance-host}:{instance-boltPort}"
+NEO4J_USERNAME = "{instance-username}"
+NEO4J_PASSWORD = "{instance-password}"
+
+driver = GraphDatabase.driver(
+  NEO4J_URI,
+  auth=(NEO4J_USERNAME, NEO4J_PASSWORD)
 )
-# Process the SEC filing documents
-pdf_documents = [
-    "apple-10K-2023.pdf", "microsoft-10K-2023.pdf",
-    # ... more company filings
-]
-# Run the pipeline to transform PDFs into knowledge graph
-for pdf_file in pdf_documents:
-    pipeline.run(file_path=pdf_file)
 ----
 ====
+
+[.col]
+====
+* Use the Neo4j Python Driver to connect to a Neo4j database
+====
+
+[.slide.col-2.discrete]
+== Step 3: SimpleKGPipeline Example
+
+[.col]
+====
+// * Create an embedder and LLM
+
+[source, python]
+----
+from neo4j_graphrag.embeddings import OpenAIEmbeddings
+from neo4j_graphrag.llm import OpenAILLM
+
+# Create embedder and LLM
+embedder = OpenAIEmbeddings(
+  model="text-embedding-3-large"
+)
+
+llm = OpenAILLM(
+    model_name="gpt-4o",
+    model_params={
+        "max_tokens": 2000,
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+    },
+)
+----
+====
+
+[.col]
+====
+* Choose an embedding service to create embeddings from the text
+* Choose an LLM to use for the entity and relationship extraction
+====
+
+
+[.slide.discrete]
+== Step 3: SimpleKGPipeline Example
+
+Create an extraction pipeline with `SimpleKGPipeline`.
+
+[source, python]
+.Create the pipeline
+----
+from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
+
+# Instantiate the SimpleKGPipeline with full configuration
+kg_builder = SimpleKGPipeline(
+  driver=driver,
+  llm=llm, embedder=embedder,       # LLM and embedding service
+  prompt_template=prompt_template,  # Custom prompt from previous step
+  entities=entities,                # Entity schema
+  relations=relations,              # Relationship schema
+  from_pdf=False,                   # Set to True for PDF processing
+)
+----
+
+[.slide.discrete]
+== Step 3: SimpleKGPipeline Example
+
+[source, python]
+----
+text = """
+Neo4j is developed by Neo4j, Inc., based in San Mateo, California, United States.
+In November 2016, Neo4j secured $36M in Series D Funding led by Greenbridge Partners.
+In November 2018, Neo4j secured $80M in Series E Funding led by One Peak Partners.
+"""
+
+result = await kg_builder.run_async(text=text)
+----
+
+The function returns a summary of nodes to extract and the number of nodes created.
+
+[source]
+----
+{
+  'resolver': {'number_of_nodes_to_resolve': 42, 'number_of_created_nodes': 18}
+}
+----
+
+// **Pipeline Configuration Options:**
+
+// - `on_error="IGNORE"` - Skip errors and continue processing
+// - `from_pdf=True` - Enable PDF text extraction
+// - `enforce_schema="STRICT"` - Enforce strict schema validation
+// - `chunk_size=1000` - Set text chunk size for processing
+// - `chunk_overlap=200` - Set overlap between chunks
+
+
+[.slide.discrete]
+== Step 3: SimpleKGPipeline Example
 
 [.col]
 ====
@@ -272,7 +401,53 @@ This transformed hundreds of pages of unstructured PDF text into the queryable k
 =====
 ====
 
-[.slide.discrete]
+// [.slide.discrete]
+// == Step 3: Automatic Schema Construction
+
+// **Bonus: SchemaFromTextExtractor**
+
+// Instead of manually defining entities and relationships, you can use AI to automatically extract schema from sample text:
+
+// [source, python]
+// ----
+// from neo4j_graphrag.experimental.components.schema import SchemaFromTextExtractor
+// from neo4j_graphrag.llm import OpenAILLM
+
+// # Instantiate the automatic schema extractor
+// schema_extractor = SchemaFromTextExtractor(
+//     llm=OpenAILLM(
+//         model_name="gpt-4o",
+//         model_params={
+//             "max_tokens": 2000,
+//             "response_format": {"type": "json_object"},
+//         },
+//     )
+// )
+
+// # Extract schema from sample text
+// sample_text = """
+// Neo4j is developed by Neo4j, Inc., based in San Mateo, California.
+// In November 2016, Neo4j secured $36M in Series D Funding led by Greenbridge Partners.
+// """
+
+// extracted_schema = await schema_extractor.run(text=sample_text)
+
+// # View extracted node types
+// print(extracted_schema.node_types)
+// # Output: Company, FundingRound, Event entities with properties
+
+// # View extracted relationship types
+// print(extracted_schema.relationship_types)
+// # Output: RECEIVED, LED_BY, PARTICIPATED_IN relationships
+
+// # View extracted patterns
+// print(extracted_schema.patterns)
+// # Output: (Company, RECEIVED, FundingRound), (FundingRound, LED_BY, Company)
+// ----
+
+// This automatically generates a schema that can be refined and used in your pipeline.
+
+[.slide.discrete.transcript-only]
 == Step 3: Verify Entity Extraction
 
 **Verify Entity Extraction:**
@@ -287,9 +462,10 @@ ORDER BY count DESC
 ----
 
 [.slide]
-== Step 4: Adding Structured Data
+== Step 4: Enriching the Graph with Structured Data
 
-But PDF extraction was only part of the story. The knowledge graph also includes structured data loaded from CSV files to complement the extracted PDF entities.
+PDF extraction is only part of the story.
+The knowledge graph built by entity extraction can be enhanced with structured data loaded from CSV files.
 
 **Structured Data Sources:**
 
@@ -301,26 +477,37 @@ But PDF extraction was only part of the story. The knowledge graph also includes
 - **Unstructured (PDFs):** Rich content about companies, risks, metrics
 - **Structured (CSVs):** Precise ownership data and document relationships
 
-This created a complete picture: detailed company information from PDFs **plus** structured ownership and filing relationships. The bridge between structured and unstructured data enables the powerful GraphRAG queries you'll explore.
+This creates a complete picture: detailed company information from PDFs **plus structured ownership and filing relationships**.
+// The bridge between structured and unstructured data enables the powerful GraphRAG queries you'll explore.
 
-[.transcript-only]
+
+[.slide]
+== Step 4: Sample Structured Data
+
+[.col]
 ====
-**Sample Structured Data:**
-
 **Asset Manager Holdings (Sample Data):**
-[%autowidth]
+
+[%width=100%]
 |===
 | managerName | companyName | ticker | Value | shares
 
 | ALLIANCEBERNSTEIN L.P. | AMAZON COM INC | AMZN | $6,360,000,000 | 50,065,439
-| ALLIANCEBERNSTEIN L.P. | APPLE INC | AAPL | $4,820,000,000 | 28,143,032  
+| ALLIANCEBERNSTEIN L.P. | APPLE INC | AAPL | $4,820,000,000 | 28,143,032
 | AMERIPRISE FINANCIAL INC | ALPHABET INC | GOOG | $4,780,000,000 | 36,603,757
 | BlackRock Inc. | AMAZON COM INC | AMZN | $78,000,000,000 | 613,380,364
 | FMR LLC | MICROSOFT CORP | MSFT | $68,200,000,000 | 215,874,152
 |===
+====
 
+[.slide]
+== Step 4: Sample Structured Data
+
+[.col]
+====
 **Company Filing Information (Sample Data):**
-[%autowidth]  
+
+[%width=100%]
 |===
 | name | ticker | cusip | cik | form10KUrls
 
@@ -332,15 +519,18 @@ This created a complete picture: detailed company information from PDFs **plus**
 |===
 ====
 
-[.slide.discrete]
-== Step 4: How the Data Was Loaded
-**How The Data Was Loaded:**
 
-1. **Neo4j Data Importer** processed the CSV files
-2. **AssetManager nodes** were created from holdings data  
+[.slide.discrete]
+== Loading Structured Data
+
+1. **Neo4j Data Importer** to map CSV files to the existing knowledge graph
+2. **AssetManager nodes** were created from holdings data
 3. **OWNS relationships** connected asset managers to companies with holding values
 4. **FILED relationships** linked companies to their PDF documents
 
+
+[.transcript-only]
+====
 **Verify the Complete Graph:**
 
 [source, cypher]
@@ -350,11 +540,13 @@ MATCH (n)
 RETURN labels(n) as nodeType, count(n) as count
 ORDER BY count DESC
 ----
+====
 
 [.slide.col-2]
-== Step 5: Exploring What Was Created
+== Exploring What Was Created
 
-Now that we've seen how the knowledge graph was built, let's explore what was created. Your complete knowledge graph contains:
+Now that we've seen how to build a knowledge graph, let's explore one.
+You have access to a knowledge graph that contains:
 
 [.col]
 ====
@@ -362,7 +554,7 @@ Now that we've seen how the knowledge graph was built, let's explore what was cr
 
 - **500+ Company entities** extracted from SEC filings
 - **Asset Manager entities** with ownership information
-- **2,000+ Financial metrics and risk factors** as structured nodes  
+- **2,000+ Financial metrics and risk factors** as structured nodes
 - **Clear entity relationships** connecting business concepts
 - **Document links** bridging structured and unstructured data
 ====
@@ -383,22 +575,19 @@ This shows the complete knowledge graph schema including both extracted entities
 ====
 
 [.slide.discrete]
-== Step 5: Explore a Complete Company Profile
+== Explore a Complete Company Profile
 
 **Explore a Complete Company Profile:**
 
 [source, cypher]
+.See how all three data types connect for one company
 ----
-// See how all three data types connect for one company
 MATCH (c:Company {name: 'APPLE INC'})
-OPTIONAL MATCH (c)-[r1]->(extracted)
-WHERE NOT extracted:Chunk AND NOT extracted:Document
-OPTIONAL MATCH (am:AssetManager)-[r2:OWNS]->(c)
-OPTIONAL MATCH (c)<-[:FROM_CHUNK]->(chunk:Chunk)
 RETURN c.name,
-       count(DISTINCT extracted) as extractedEntities,
-       count(DISTINCT am) as assetManagers, 
-       count(DISTINCT chunk) as textChunks
+  COUNT { (c)-[r1]->(extracted) WHERE NOT extracted:Chunk AND NOT extracted:Document } AS extractedEntities,
+  COUNT { (:AssetManager)-[:OWNS]->(c) } AS assetManagers,
+  COUNT { (c)<-[:FROM_CHUNK]->(chunk:Chunk) } AS textChunks
+
 ----
 
 [.transcript-only]
@@ -406,14 +595,12 @@ RETURN c.name,
 **Additional Exploration Queries:**
 
 [source, cypher]
+.Count what the pipeline created
 ----
-// Count what the pipeline created
 MATCH (d:Document)
-OPTIONAL MATCH (d)<-[:FROM_DOCUMENT]->(c:Chunk)
-OPTIONAL MATCH (c)<-[:FROM_CHUNK]-(e)
-RETURN d.path, 
-       count(DISTINCT c) as chunks, 
-       count(DISTINCT e) as entities
+RETURN d.path,
+  COUNT { (d)<-[:FROM_DOCUMENT]->(:Chunk) } AS chunks,
+  COUNT { (c)<-[:FROM_CHUNK]-() } AS entities
 ORDER BY entities DESC
 ----
 
@@ -431,7 +618,7 @@ LIMIT 10
 // Check data quality across companies
 MATCH (c:Company)
 OPTIONAL MATCH (c)-[r]->(entity)
-RETURN c.name, count(r) as totalRelationships, 
+RETURN c.name, count(r) as totalRelationships,
        collect(DISTINCT type(r)) as relationshipTypes
 ORDER BY totalRelationships DESC
 LIMIT 5
@@ -457,20 +644,21 @@ LIMIT 50
 [.slide]
 == Key Takeaways
 
-✅ **Unstructured → Structured:** PDF text was transformed into business entities and relationships +
-✅ **Schema-Driven:** Clear entity definitions guided accurate extraction +
-✅ **AI-Powered:** LLMs identified and extracted meaningful business concepts +
-✅ **Relationship-Aware:** Connections between entities were preserved and made explicit +
-✅ **Data Model Ready:** Clean, structured data prepared for the knowledge graph you'll explore +
+✅ **Unstructured → Structured:** PDF text will be transformed into business entities and relationships +
+✅ **Schema-Driven:** Clear entity definitions will guide accurate extraction +
+✅ **AI-Powered:** LLMs will identify and extract meaningful business concepts +
+✅ **Relationship-Aware:** Connections between entities will be preserved and made explicit +
+✅ **Data Model Ready:** Clean, structured data will be prepared for the knowledge graph you'll explore +
 
-This structured data model is the foundation for everything that follows - without it, you'd still have unstructured text instead of the queryable business entities you'll work with!
+A structured data model is the foundation for everything that follows.   Without it, you would still have inflated, unprecise, unstructured text rather than a repository of facts that the text attempts to convey!
 
 read::Continue[]
 
 [.summary]
 == Summary
 
-In this lesson, you learned how we extracted structured data from unstructured PDF documents:
+In this lesson, you learned how to extract structured data from unstructured PDF documents.
+We explored an end-to-end process of entity extraction to create a knowledge graph from PDF documents.
 
 **The Process:**
 
@@ -489,10 +677,12 @@ In this lesson, you learned how we extracted structured data from unstructured P
 
 **Key Technologies:**
 
-- Schema definition for consistent entity extraction
-- OpenAI GPT-4 for entity and relationship identification
-- Guided prompts for data quality control
-- Structured extraction pipeline
+- `SimpleKGPipeline` for end-to-end knowledge graph construction
+- `ERExtractionTemplate` for custom prompt engineering
+- `SchemaFromTextExtractor` for automatic schema generation
+- OpenAI GPT-4 with JSON response formatting for structured extraction
+- Custom validation and error handling strategies
+- Advanced entity resolution and relationship mapping
 
 This structured data model is now ready to be stored in a knowledge graph and enhanced with vector embeddings for search.
 

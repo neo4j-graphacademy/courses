@@ -1,135 +1,227 @@
-# GraphRAG Workshop with LangChain and Neo4j
+# Introduction to GraphRAG Workshop
 
-> A condensed, targeted 1-hour workshop that builds upon foundational GenAI concepts to focus specifically on GraphRAG fundamentals, differentiators, and practical implementation. Leverages prior knowledge from the 2-hour "Neo4j & Generative AI Workshop" to efficiently cover knowledge graph construction, relationship context, evaluation methods, and hands-on challenges in a focused format.
+> Learn how to combine graph databases with generative AI to improve the quality of LLM-generated content through GraphRAG.
 
-## Workshop Overview
+This workshop covers building production-ready GraphRAG applications using Neo4j and OpenAI models. Key focus areas include schema-driven entity extraction, three retriever types (Vector, Vector+Cypher, Text2Cypher), hybrid approaches for different query types, and production considerations for scaling and optimization. The framework enables intelligent retrieval systems that leverage graph structure for explainable, deterministic results.
 
-This condensed workshop builds directly on the 2-hour "Neo4j & Generative AI Workshop" foundation, assuming participants already understand:
-- GenAI and LLM fundamentals
-- Basic RAG concepts and vector embeddings  
-- Neo4j vector indexes and similarity search
-- Simple retriever types (vector, vector+cypher, text2cypher)
-- Basic agent construction with LangChain
+[Learn more about this course](https://graphacademy.neo4j.com/courses/workshop-graphrag-introduction)
 
-**Efficient Leverage Strategy**: Rather than re-teaching basics, this workshop uses the established foundation to quickly move into GraphRAG-specific concepts, advanced differentiators, and practical implementation challenges that weren't covered in the foundational workshop.
+## Concepts
 
-### How Workshop-GenAI Content is Leveraged
+* **GraphRAG** - Retrieval Augmented Generation using graph databases to improve LLM response quality through structured, relationship-aware retrieval
+* **Knowledge Graph** - Graph database storing entities, relationships, and properties with semantic meaning, extracted from unstructured data
+* **Lexical Graph** - Graph structure preserving document hierarchy (Document → Chunk) while storing text chunks for semantic search
+* **Domain Graph** - Graph containing business domain knowledge with structured schemas for deterministic retrieval
+* **Entity Extraction** - LLM-powered process of identifying and structuring entities and relationships from unstructured text
+* **Schema-Driven Extraction** - Using predefined entity types and relationships to guide AI extraction with validation and quality control
+* **Vector Retriever** - Component performing semantic search across text chunks using vector embeddings and cosine similarity
+* **Vector + Cypher Retriever** - Hybrid retriever combining semantic search with graph traversal to provide enriched contextual results
+* **Text2Cypher Retriever** - Natural language to Cypher conversion enabling precise structured queries against the knowledge graph
+* **Index-free Adjacency** - Neo4j feature where relationships are stored as pointers, eliminating expensive join calculations for fast traversal
+* **Organizing Principles** - Rules defining how to classify and relate entities consistently within domain-specific schemas
 
-**From 2-Hour Workshop Foundation**:
-- **Module 1**: GenAI fundamentals, LLM capabilities → *Assumed knowledge for GraphRAG positioning*
-- **Module 2**: Vector retrievers, vector+cypher retrievers → *Enhanced with GraphRAG relationship patterns*  
-- **Module 3**: Basic agents, tool selection → *Extended with GraphRAG evaluation and routing strategies*
+## Overview
 
-**Condensed Workshop Enhancement**:
-- **Skip**: GenAI basics, vector concepts, simple retriever setup (already mastered)
-- **Quick Recap**: Retriever limitations experienced in workshop-genai (5 minutes)
-- **Deep Focus**: GraphRAG-specific patterns, evaluation methods, optimization (50 minutes)
-- **Leverage**: Existing Neo4j setup, familiar agent architecture, established retriever patterns
+### Summary of GraphRAG Implementation and Best Practices
 
-### Key Learning Objectives
+#### **Module 1: Introduction and Fundamentals**
 
-1. **Fundamentals and Differentiators** - Understanding what GraphRAG is and how it fundamentally differs from vector-based RAG approaches
-2. **Building Knowledge Graphs** - Learning to construct domain graphs structured to effectively answer questions  
-3. **Relationship Context** - Understanding how relationships provide additional context through lexical graphs with hierarchy and entity connections
-4. **Evaluation Methods** - Learning to systematically evaluate GraphRAG vs Vector RAG performance, accuracy, and cost
+1. **What is GraphRAG**
+   - GraphRAG combines graph databases with generative AI to improve LLM response quality
+   - Unlike vector-based RAG, GraphRAG provides deterministic, relationship-aware retrieval
+   - Addresses vector RAG limitations: opaque similarity, chunk isolation, and hallucination-prone responses
+   - Enables both local search (entity neighborhoods) and global search (pattern analysis)
 
-### Target Audience
+2. **Vector RAG vs GraphRAG Comparison**
+   - **Vector RAG strengths**: Contextual questions, synonyms, fuzzy queries, broad exploration
+   - **Vector RAG weaknesses**: Fact-based queries, numerical data, logical operations, entity connections
+   - **GraphRAG advantages**: Explicit relationships, structured retrieval, rich context, index-free adjacency
+   - **Use case decision**: Factual/numerical queries → GraphRAG, Semantic/exploratory → Vector RAG
 
-**Prerequisites**: Participants should have completed the 2-hour "Neo4j & Generative AI Workshop" or have equivalent knowledge of:
-- GenAI fundamentals and LLM capabilities/limitations
-- Basic RAG architecture and vector embeddings
-- Neo4j database basics and Cypher reading ability
-- Python programming and LangChain familiarity
+3. **Knowledge Graph Types for GraphRAG**
+   - **Lexical Graphs**: Document hierarchy with text chunks and vector embeddings
+   - **Lexical + Entities**: Combines document structure with extracted entity connections
+   - **Domain Graphs**: Business domain knowledge with structured schemas and ontologies
+   - **Memory Graphs**: Semantic and episodic memory for conversational context
 
-**Primary Audience**:
-- Workshop-GenAI graduates ready for advanced GraphRAG concepts
-- Data Scientists moving beyond basic retriever implementations  
-- ML Engineers seeking GraphRAG differentiation and evaluation methods
-- Developers wanting to understand when/how to choose GraphRAG over vector approaches
+---
 
-## Core Concepts and Theory
+#### **Module 2: Building Knowledge Graphs**
 
-### Vector RAG Limitations
+1. **GraphRAG Pipeline Architecture**
+   - **Document Processing**: PDF extraction and semantic text chunking
+   - **Entity Extraction**: LLM-powered identification of domain entities and relationships
+   - **Graph Storage**: Structured entities and relationships stored in Neo4j
+   - **Vector Indexing**: Embeddings generated for chunks enabling semantic search
+   - **Quality Control**: Schema validation and entity resolution for consistency
 
-Vector-based RAG approaches have several fundamental limitations that GraphRAG addresses:
+2. **Schema-Driven Extraction Best Practices**
+   ```python
+   # Entity schema definition
+   entities = [
+     {"label": "Company", "properties": [{"name": "name", "type": "STRING"}]},
+     {"label": "Executive", "properties": [{"name": "name", "type": "STRING"}]},
+     {"label": "FinancialMetric", "properties": [{"name": "name", "type": "STRING"}]}
+   ]
 
-- **Opaque Semantic Similarity**: Vectors only capture semantic similarity without understanding actual relationships
-- **Probabilistic Outputs**: Prone to hallucinations and inconsistent responses
-- **Ineffective for Specific Queries**: Poor performance on fact-based, numerical, or logical queries
-- **Limited Context**: Each chunk exists in isolation with no understanding of entity connections
-- **Chunk Boundary Limitations**: Important context may be split across multiple chunks
+   # Relationship schema definition
+   relations = [
+     {"label": "HAS_METRIC", "source": "Company", "target": "FinancialMetric"},
+     {"label": "FACES_RISK", "source": "Company", "target": "RiskFactor"},
+     {"label": "ISSUED_STOCK", "source": "Company", "target": "StockType"}
+   ]
+   ```
 
-### GraphRAG Advantages
+3. **SimpleKGPipeline Implementation**
+   ```python
+   from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
 
-- **Deterministic Retrieval**: Structured, predictable retrieval patterns vs probabilistic similarity
-- **Explicit Relationships**: Clear entity connections that provide rich context
-- **Index-Free Adjacency**: Fast graph traversals without expensive joins
-- **Local and Global Search**: Support for both neighborhood exploration and pattern analysis
-- **Rich Context**: Connected data provides comprehensive information retrieval
+   # Complete pipeline configuration
+   kg_builder = SimpleKGPipeline(
+     driver=driver,
+     llm=llm,
+     embedder=embedder,
+     prompt_template=custom_prompt,  # Guided extraction prompts
+     entities=entities,              # Entity schema
+     relations=relations,            # Relationship schema
+     from_pdf=True,                  # PDF processing enabled
+   )
 
-### Knowledge Graph Types for GraphRAG
+   # Execute extraction pipeline
+   result = await kg_builder.run_async(text=document_text)
+   ```
 
-#### 1. Lexical Graphs
-- Store document hierarchy and text chunks
-- Preserve structural navigation (Book → Chapter → Section → Paragraph)
-- Enable both document retrieval and semantic search
-- Good for: Document-based Q&A, content navigation
+4. **Custom Extraction Prompts**
+   ```python
+   # Company validation prompt example
+   company_instruction = (
+     "You are an expert in extracting company information from SEC filings. "
+     "When extracting, the company name must match exactly as shown below. "
+     "If the text refers to 'the Company', you MUST look up the exact name. "
+     "UNDER NO CIRCUMSTANCES output generic phrases."
+   )
 
-#### 2. Lexical Graphs with Entities
-- Combine document structure with extracted entities
-- Create bridges between chunks through entity connections
-- Solve the "context spread across chunks" problem
-- Good for: Enhanced semantic search with entity awareness
+   custom_template = company_instruction + ERExtractionTemplate.DEFAULT_TEMPLATE
+   prompt_template = ERExtractionTemplate(template=custom_template)
+   ```
 
-#### 3. Domain Graphs
-- Contain business domain knowledge and structured schemas
-- Use ontologies and organizing principles for consistency
-- Support deterministic structured data retrieval
-- Good for: Fact-based queries, business logic, compliance
+---
 
-#### 4. Memory Graphs
-- Store semantic and episodic memory for conversations
-- Track relationships and context over time
-- Enable personalized and context-aware responses
-- Good for: Conversational AI, user profiling, temporal reasoning
+#### **Module 3: Querying and Retrieval**
 
-## Technology Stack
+1. **Vector Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import VectorRetriever
 
-### Core Technologies
-- **Neo4j**: Graph database for storing knowledge graphs
-- **LangChain**: Framework for building LLM applications with graph integration
-- **OpenAI**: LLM models (GPT-4o) and embeddings (text-embeddings-small)
-- **Python**: Primary programming language for implementation
+   vector_retriever = VectorRetriever(
+     driver=driver,
+     index_name='chunkEmbeddings',
+     embedder=embedder,
+     return_properties=['text']
+   )
 
-### Key Libraries and Components
+   # Best for: Semantic exploration, broad topic search, conceptual questions
+   result = vector_retriever.search(query="What are Apple's main risks?", top_k=5)
+   ```
+
+2. **Vector + Cypher Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import VectorCypherRetriever
+
+   # Custom Cypher for graph traversal
+   retrieval_query = """
+   MATCH (chunk:Chunk)
+   WHERE chunk.text CONTAINS $query
+
+   // Traverse to related entities
+   MATCH (chunk)-[:FROM_CHUNK]->(company:Company)
+   OPTIONAL MATCH (company)-[r]->(related)
+   WHERE NOT related:Chunk AND NOT related:Document
+
+   RETURN chunk.text AS context,
+          company.name AS entity,
+          collect(DISTINCT related.name) AS related_entities,
+          collect(DISTINCT type(r)) AS relationship_types
+   """
+
+   vector_cypher_retriever = VectorCypherRetriever(
+     driver=driver,
+     index_name='chunkEmbeddings',
+     embedder=embedder,
+     retrieval_query=retrieval_query
+   )
+
+   # Best for: Entity-specific context, relationship exploration
+   result = vector_cypher_retriever.search(query="Apple's financial performance", top_k=5)
+   ```
+
+3. **Text2Cypher Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import Text2CypherRetriever
+
+   # Schema information for LLM
+   schema = """
+   Node types:
+   - Company: {name: STRING}
+   - FinancialMetric: {name: STRING}
+   - RiskFactor: {name: STRING}
+
+   Relationship types:
+   - (Company)-[:HAS_METRIC]->(FinancialMetric)
+   - (Company)-[:FACES_RISK]->(RiskFactor)
+   """
+
+   text2cypher_retriever = Text2CypherRetriever(
+     driver=driver,
+     llm=llm,
+     neo4j_schema=schema
+   )
+
+   # Best for: Precise queries, numerical data, structured facts
+   result = text2cypher_retriever.search(query="How many companies face cybersecurity risks?")
+   ```
+
+4. **Advanced Query Patterns**
+   ```cypher
+   // Count entities by type
+   MATCH (e)
+   WHERE NOT e:Document AND NOT e:Chunk
+   RETURN labels(e) as entityType, count(e) as count
+   ORDER BY count DESC
+
+   // Explore company relationships
+   MATCH (c:Company {name: 'APPLE INC'})
+   RETURN c.name,
+     COUNT { (c)-[r1]->(extracted) WHERE NOT extracted:Chunk } AS extractedEntities,
+     COUNT { (:AssetManager)-[:OWNS]->(c) } AS assetManagers,
+     COUNT { (c)<-[:FROM_CHUNK]->(chunk:Chunk) } AS textChunks
+
+   // Find relationship patterns
+   MATCH (c:Company)-[r]->(entity)
+   RETURN c.name, type(r) as relationship, entity.name
+   ORDER BY c.name, relationship
+   ```
+
+---
+
+#### **Key Implementation Insights**
+
+**Technology Stack:** Neo4j GraphRAG Library, OpenAI GPT-4o/embeddings, LangChain integration
+
+**Quality & Performance:**
+- Schema-driven extraction with entity validation and context resolution
+- Specific relationship types and proper MERGE patterns for performance
+- Caching and traversal depth limits for optimization
+- Vector RAG for exploration, GraphRAG for precise/factual queries
+
+## Implementation Patterns
+
+### Entity Extraction with Quality Control
 
 ```python
-# Neo4j Integration
-from neo4j import GraphDatabase
-from langchain_neo4j import Neo4jGraph, Neo4jVector, GraphDocument
-from langchain_community.graphs import Neo4jGraph
-
-# LangChain Components
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
-from langchain.prompts import PromptTemplate
-from langchain.schema.output_parser import StrOutputParser
-
-# OpenAI Integration
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
-# Structured Outputs
-from langchain.output_parsers import PydanticOutputParser
 from pydantic import BaseModel, Field
 from typing import List, Optional
-```
 
-## Implementation Best Practices
-
-### Entity Extraction Best Practices
-
-**DO: Use Structured Outputs with Clear Schemas**
-```python
 class Entity(BaseModel):
     name: str = Field(description="The entity name")
     type: str = Field(description="Entity type: Person, Location, Organization")
@@ -137,303 +229,149 @@ class Entity(BaseModel):
 
 class Relationship(BaseModel):
     source: str = Field(description="Source entity name")
-    target: str = Field(description="Target entity name") 
+    target: str = Field(description="Target entity name")
     type: str = Field(description="Relationship type")
     properties: dict = Field(default_factory=dict)
+
+# Structured output parser for consistent extraction
+parser = PydanticOutputParser(pydantic_object=List[Entity])
 ```
 
-**DON'T: Allow Unrestricted Entity Extraction**
-- Avoid generic prompts that extract irrelevant entities
-- Provide specific constraints and examples
-- Focus on entities central to your domain and use case
+### Graph Modeling Best Practices
 
-### Graph Modeling Performance Tips
-
-**Use Specific Relationship Types**
 ```cypher
-// Good - specific, performant
-MATCH (romeo:Person)-[:LOVES]->(juliet:Person)
-WHERE juliet.family = 'Capulet'
+// Good - specific, performant relationships
+MATCH (company:Company)-[:HAS_METRIC]->(metric:FinancialMetric)
+WHERE metric.name CONTAINS 'revenue'
 
-// Bad - generic, slow
-MATCH (romeo:Person)-[:RELATED_TO]->(juliet:Person)  
-WHERE juliet.family = 'Capulet' AND rel.type = 'love'
-```
+// Bad - generic, slow relationships
+MATCH (company:Company)-[r:RELATED_TO]->(entity)
+WHERE r.type = 'has_metric' AND entity.name CONTAINS 'revenue'
 
-**Proper MERGE Usage**
-```cypher
+// Proper MERGE usage - avoid duplicates
+MERGE (c:Company {name: "Apple Inc"})
+SET c.ticker = "AAPL", c.sector = "Technology"
+
 // Bad - creates duplicate nodes
-MERGE (p:Person {name: "Romeo", age: 16, family: "Montague"})
-
-// Good - MERGE on key, SET other properties
-MERGE (p:Person {name: "Romeo"})
-SET p.age = 16, p.family = "Montague"
+MERGE (c:Company {name: "Apple Inc", ticker: "AAPL", sector: "Technology"})
 ```
 
-### Text-to-Cypher Best Practices
+### Text-to-Cypher Safety and Validation
 
-**Provide Comprehensive Examples in Prompts**
 ```python
 TEXT_TO_CYPHER_PROMPT = """
-You are an expert at converting natural language questions to Cypher queries.
+You are an expert at converting natural language to Cypher queries.
+Use ONLY read-only operations: MATCH, RETURN, WHERE, ORDER BY, LIMIT.
+NEVER use CREATE, DELETE, SET, MERGE, or any write operations.
 
 Schema:
-- Person(name, family, age)
-- Location(name, type)
-- LOVES, HATES, MEMBER_OF relationships
+{schema}
 
 Examples:
-Question: "Who are the Capulets?"
-Cypher: MATCH (p:Person)-[:MEMBER_OF]->(f:Family {name: "Capulet"}) RETURN p.name
+Question: "How many companies are in the database?"
+Cypher: MATCH (c:Company) RETURN count(c) as total_companies
 
-Question: "How many people love Romeo?"
-Cypher: MATCH (p:Person)-[:LOVES]->(romeo:Person {name: "Romeo"}) RETURN count(p)
+Question: "What financial metrics does Apple have?"
+Cypher: MATCH (c:Company {name: 'APPLE INC'})-[:HAS_METRIC]->(m:FinancialMetric) RETURN m.name
 
-Now convert this question: {question}
+Convert this question: {question}
+Only return the Cypher query, nothing else.
 """
+
+def validate_cypher_safety(query: str) -> bool:
+    """Validate that Cypher query contains only read operations"""
+    forbidden_keywords = ['CREATE', 'DELETE', 'SET', 'MERGE', 'REMOVE', 'DROP']
+    query_upper = query.upper()
+    return not any(keyword in query_upper for keyword in forbidden_keywords)
 ```
 
-**Restrict to Read-Only Operations**
+### Hybrid Retrieval Strategy
+
 ```python
-# Good - restrict to read-only operations
-prompt = """Convert to a READ-ONLY Cypher query using only MATCH and RETURN.
-Do not use CREATE, DELETE, SET, or any write operations: {question}"""
+class HybridGraphRAGRetriever:
+    def __init__(self, vector_retriever, vector_cypher_retriever, text2cypher_retriever):
+        self.vector_retriever = vector_retriever
+        self.vector_cypher_retriever = vector_cypher_retriever
+        self.text2cypher_retriever = text2cypher_retriever
+
+    def route_query(self, question: str) -> str:
+        """Route questions to appropriate retriever based on type"""
+        if any(word in question.lower() for word in ['how many', 'count', 'number of']):
+            return 'text2cypher'
+        elif any(word in question.lower() for word in ['what', 'which', 'who']):
+            return 'vector_cypher'
+        else:
+            return 'vector'
+
+    def retrieve(self, question: str, top_k: int = 5):
+        retriever_type = self.route_query(question)
+
+        if retriever_type == 'text2cypher':
+            return self.text2cypher_retriever.search(question)
+        elif retriever_type == 'vector_cypher':
+            return self.vector_cypher_retriever.search(question, top_k=top_k)
+        else:
+            return self.vector_retriever.search(question, top_k=top_k)
 ```
 
-## Common Mistakes and Solutions
+### Error Handling and Robustness
 
-### 1. Information Overload in Knowledge Graphs
-**Problem**: LLM extracts too much irrelevant information
-**Solution**: Use explicit constraints and few-shot examples with negative examples
-
-### 2. Unperformant Graph Traversals
-**Problem**: Queries traverse too many relationships
-**Solution**: Add intermediate aggregation nodes and limit traversal depth
-
-### 3. Poor Entity Resolution
-**Problem**: Same entities created with different names
-**Solution**: Use existing graph data for entity resolution and similarity matching
-
-### 4. Assuming Binary Choice
-**Problem**: Treating GraphRAG vs Vector RAG as either/or decision
-**Solution**: Use hybrid approaches that combine both methods strategically
-
-## Evaluation Framework
-
-### Performance Metrics
-- **Response Time**: Measure query execution speed for both approaches
-- **Token Usage**: Calculate cost implications for LLM interactions
-- **Accuracy**: Evaluate correctness of retrieved information
-- **Relevance**: Assess quality and contextual appropriateness of results
-- **Explainability**: Measure ability to trace and understand retrieval paths
-
-### Question Types for Evaluation
-
-**Vector RAG Excels:**
-- Contextual or meaning-based questions
-- Synonyms and paraphrasing
-- Fuzzy or vague queries
-- Broad, open-ended questions
-- Complex queries with multiple concepts
-
-**GraphRAG Excels:**
-- Highly specific or fact-based questions
-- Numerical or exact-match queries
-- Boolean or logical queries
-- Questions requiring relationship traversal
-- Multi-hop reasoning across entities
-
-### Evaluation Implementation
 ```python
-import time
-import tiktoken
-from ragas import evaluate
-from ragas.metrics import answer_relevancy, faithfulness, context_precision
-
-def comprehensive_evaluation(questions, vector_retriever, graph_retriever):
-    results = {
-        "vector": {"times": [], "tokens": [], "accuracy": []},
-        "graph": {"times": [], "tokens": [], "accuracy": []}
-    }
-    
-    encoder = tiktoken.encoding_for_model("gpt-4")
-    
-    for question in questions:
-        # Measure vector approach
-        start_time = time.time()
-        vector_result = vector_retriever.retrieve(question)
-        vector_time = time.time() - start_time
-        vector_tokens = len(encoder.encode(str(vector_result)))
-        
-        # Measure graph approach
-        start_time = time.time()
-        graph_result = graph_retriever.retrieve(question)
-        graph_time = time.time() - start_time
-        graph_tokens = len(encoder.encode(str(graph_result)))
-        
-        # Store metrics
-        results["vector"]["times"].append(vector_time)
-        results["vector"]["tokens"].append(vector_tokens)
-        results["graph"]["times"].append(graph_time)
-        results["graph"]["tokens"].append(graph_tokens)
-    
-    return results
+def robust_text_to_cypher(question: str, max_retries: int = 3) -> str:
+    """Generate Cypher with retry logic and validation"""
+    for attempt in range(max_retries):
+        try:
+            cypher = llm_generate_cypher(question)
+            if not validate_cypher_safety(cypher):
+                raise ValueError("Unsafe Cypher query detected")
+            graph.query(f"{cypher} LIMIT 1")  # Test execution
+            return cypher
+        except Exception as e:
+            if attempt == max_retries - 1: return None
+            question = f"[Previous attempt failed: {str(e)}] {question}"
+    return None
 ```
-
-## Hybrid Implementation Strategies
-
-### 1. Question Routing
-- Classify question types to route to appropriate retrieval method
-- Use LLM to determine whether question is factual, exploratory, or relationship-based
-- Route factual questions to graph, exploratory to vector, complex to hybrid
-
-### 2. Parallel Retrieval
-- Run both vector and graph retrieval simultaneously
-- Combine and rank results based on relevance scores
-- Provide diverse perspectives on the same question
-
-### 3. Sequential Enhancement
-- Start with vector search for semantic matching
-- Enrich results with graph context for related entities
-- Combine semantic similarity with structured relationships
-
-### 4. Graph-Enhanced Vectors
-- Include relationship information in embeddings
-- Store entity context alongside text chunks
-- Use graph structure to inform vector similarity calculations
 
 ## Production Considerations
 
 ### Scaling Strategies
-- **Small datasets** (< 100k nodes): Single Neo4j instance
-- **Medium datasets** (100k - 1M nodes): Neo4j cluster with read replicas
-- **Large datasets** (> 1M nodes): Distributed setup with graph partitioning
+- **Small datasets** (< 100k nodes): Single Neo4j instance with vector indexes
+- **Medium datasets** (100k - 1M nodes): Neo4j cluster with read replicas for retrieval
+- **Large datasets** (> 1M nodes): Distributed setup with graph partitioning strategies
 
 ### Caching Implementation
 ```python
-from functools import lru_cache
-import redis
-
-# Cache frequent Cypher queries
+# Cache Cypher queries and entity extraction with LRU cache and Redis
 @lru_cache(maxsize=1000)
 def cached_graph_query(query: str, params_str: str):
-    params = json.loads(params_str)
-    return graph.query(query, params)
-
-# Cache entity resolution results
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+    return graph.query(query, json.loads(params_str))
 
 def get_or_cache_entities(text_chunk: str) -> List[Dict]:
     cache_key = f"entities:{hash(text_chunk)}"
-    cached_result = redis_client.get(cache_key)
-    
-    if cached_result:
-        return json.loads(cached_result)
-    
+    cached = redis_client.get(cache_key)
+    if cached: return json.loads(cached)
+
     entities = extract_entities(text_chunk)
     redis_client.setex(cache_key, 3600, json.dumps(entities))
     return entities
 ```
 
-### Error Handling and Robustness
-```python
-def robust_text_to_cypher(question: str, max_retries: int = 3) -> str:
-    for attempt in range(max_retries):
-        try:
-            cypher = llm_generate_cypher(question)
-            validate_cypher_syntax(cypher)
-            test_query = f"{cypher} LIMIT 1"
-            graph.query(test_query)
-            return cypher
-        except Exception as e:
-            if attempt == max_retries - 1:
-                return "// Cypher generation failed, using vector fallback"
-            question = f"[Previous attempt failed: {str(e)}] {question}"
-    return None
-```
+### Common Mistakes and Solutions
 
-## Workshop Structure and Timing
+1. **Information Overload in Knowledge Graphs**
+   - Problem: LLM extracts too much irrelevant information
+   - Solution: Use explicit constraints and few-shot examples with negative examples
 
-### Condensed 1-Hour Format Leveraging Prior Workshop Knowledge
+2. **Unperformant Graph Traversals**
+   - Problem: Queries traverse too many relationships
+   - Solution: Add intermediate aggregation nodes and limit traversal depth
 
-**Efficiency Strategy**: Build on established foundation from 2-hour workshop to maximize learning density.
+3. **Poor Entity Resolution**
+   - Problem: Same entities created with different names
+   - Solution: Use existing graph data for entity resolution and similarity matching
 
-**Lesson 1: GraphRAG Fundamentals & Differentiators (15 minutes)**
-- *Skip*: GenAI/LLM basics (covered in prerequisite workshop)
-- *Quick recap*: Vector limitations from workshop-genai experience
-- *Focus*: Specific GraphRAG advantages and when to choose over vector approaches
-- *Leverage*: Existing retriever knowledge to explain GraphRAG enhancement patterns
+4. **Assuming Binary Choice**
+   - Problem: Treating GraphRAG vs Vector RAG as either/or decision
+   - Solution: Use hybrid approaches that combine both methods strategically
 
-**Lesson 2: Advanced Knowledge Graph Construction (20 minutes)**
-- *Skip*: Basic Neo4j and Cypher concepts (covered in prerequisite)
-- *Quick recap*: Vector indexes and embeddings (already implemented)
-- *Focus*: Domain-specific graph patterns, entity extraction sophistication, relationship modeling
-- *Leverage*: Existing vector+cypher retriever experience to show enhanced context patterns
 
-**Lesson 3: Relationship Context & Evaluation (15 minutes)**  
-- *Skip*: Basic retriever comparisons (already experienced in prerequisite)
-- *Focus*: How relationships bridge chunks, local vs global search, systematic evaluation
-- *Leverage*: Existing agent building experience to show intelligent routing strategies
-
-**Lesson 4: Implementation & Next Steps (10 minutes)**
-- *Focus*: Production considerations, hybrid approaches, optimization techniques
-- *Leverage*: Workshop-genai implementation experience for practical insights
-- Next steps building on both workshops
-
-## Key Terminology and Definitions
-
-- **GraphRAG**: Retrieval Augmented Generation using graph databases to improve LLM response quality
-- **Index-free Adjacency**: Graph database feature where relationships are stored as pointers, eliminating join calculations
-- **Knowledge Graph**: Graph database storing entities, relationships, and properties with semantic meaning
-- **Ontology**: Set of concepts and categories that define entities, properties, and relations in a domain
-- **Organizing Principles**: Rules that define how to classify and relate entities consistently
-- **Text-to-Cypher**: Technique using LLMs to convert natural language into Cypher query statements
-- **Lexical Graph**: Graph structure preserving document hierarchy while storing text chunks
-- **Domain Graph**: Graph containing business domain knowledge with structured schemas
-- **Local Search**: Exploration of immediate entity neighborhoods for specific queries
-- **Global Search**: Analysis of broader graph patterns for insights and trends
-
-## Sample Dataset and Use Cases
-
-### Building on Workshop-GenAI Foundation
-
-The GraphRAG workshop leverages the same Neo4j environment and data patterns established in the prerequisite workshop, allowing participants to:
-
-**Reuse Existing Setup**: 
-- Same Neo4j instance and connection patterns
-- Previously created vector indexes and embeddings
-- Familiar LangChain agent architecture
-- Established retriever patterns (vector, vector+cypher, text2cypher)
-
-**Enhance with Romeo and Juliet Dataset**:
-- **Familiar Structure**: Similar entity-relationship patterns as workshop-genai company data
-- **Clear Hierarchies**: Family structures parallel to company organizational charts
-- **Rich Relationships**: Character interactions demonstrate GraphRAG relationship traversal advantages
-- **Evolution Over Time**: Relationship changes show temporal graph patterns
-
-### Strategic Query Progression from Workshop-GenAI Experience
-
-**Level 1 - Familiar Patterns** (building on workshop-genai experience):
-- "Who works for which family?" (parallels "who works for which company?")
-- "What are the family relationships?" (parallels organizational structure queries)
-
-**Level 2 - GraphRAG-Specific Advantages**:
-- "How many families are feuding?" (counting relationship patterns)
-- "Who serves the Capulet family?" (service relationship traversal)
-- "Why is Romeo and Juliet's love forbidden?" (multi-hop reasoning: love → families → feud)
-
-**Level 3 - Advanced GraphRAG Concepts**:
-- "How does the Nurse's loyalty change over time?" (temporal relationship analysis)
-- "Which character has the most influence?" (graph centrality analysis)
-- "What relationship patterns predict tragic outcomes?" (pattern analysis)
-
-### Evaluation Framework Building on Prior Experience
-
-Participants can directly compare their workshop-genai retriever implementations with GraphRAG approaches:
-
-**Vector Retriever** (from workshop-genai) vs **Enhanced GraphRAG Retriever**:
-- Same question types, measurable performance differences
-- Familiar evaluation patterns with new insights
-- Clear progression from basic to advanced techniques
-
-This approach maximizes the 1-hour format by building incrementally on established knowledge while demonstrating clear GraphRAG advantages through familiar patterns and progressive complexity.

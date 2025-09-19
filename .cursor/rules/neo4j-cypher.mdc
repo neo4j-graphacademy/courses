@@ -1,0 +1,50 @@
+---
+description: When writing Cypher statements to query a Neo4j Database
+globs:
+alwaysApply: true
+---
+
+## Only use OPTIONAL MATCH as a last resort
+
+### Need a count of paths, nodes or relationship types? Use a COUNT subquery
+
+Bad:
+
+```
+MATCH (m:Movie)
+WHERE m.title = 'The Matrix'
+
+OPTIONAL MATCH (:Person)-[:ACTED_IN]->(m)
+
+RETURN m.title, count(*) AS count
+```
+
+Instead do:
+
+```
+MATCH (m:Movie)
+WHERE m.title = 'The Matrix'
+RETURN m.title, COUNT { (:Person)-[:ACTED_IN]->(m) }
+```
+
+### Need (nested) values? Use a pattern comprehension
+
+Bad:
+
+```
+MATCH (m:Movie)
+WHERE m.title = 'The Matrix'
+
+OPTIONAL MATCH (p:Person)-[:ACTED_IN]->(m)
+
+WHERE m.title = 'The Matrix'
+RETURN m.title, collect(p.name) AS actors
+```
+
+Instead do:
+
+```
+MATCH (m:Movie)
+WHERE m.title = 'The Matrix'
+RETURN m.title, [ (p:Person)-[:ACTED_IN]->(m) | p.name ]
+```
