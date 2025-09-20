@@ -1,0 +1,377 @@
+# Introduction to GraphRAG Workshop
+
+> Learn how to combine graph databases with generative AI to improve the quality of LLM-generated content through GraphRAG.
+
+This workshop covers building production-ready GraphRAG applications using Neo4j and OpenAI models. Key focus areas include schema-driven entity extraction, three retriever types (Vector, Vector+Cypher, Text2Cypher), hybrid approaches for different query types, and production considerations for scaling and optimization. The framework enables intelligent retrieval systems that leverage graph structure for explainable, deterministic results.
+
+[Learn more about this course](https://graphacademy.neo4j.com/courses/workshop-graphrag-introduction)
+
+## Concepts
+
+* **GraphRAG** - Retrieval Augmented Generation using graph databases to improve LLM response quality through structured, relationship-aware retrieval
+* **Knowledge Graph** - Graph database storing entities, relationships, and properties with semantic meaning, extracted from unstructured data
+* **Lexical Graph** - Graph structure preserving document hierarchy (Document → Chunk) while storing text chunks for semantic search
+* **Domain Graph** - Graph containing business domain knowledge with structured schemas for deterministic retrieval
+* **Entity Extraction** - LLM-powered process of identifying and structuring entities and relationships from unstructured text
+* **Schema-Driven Extraction** - Using predefined entity types and relationships to guide AI extraction with validation and quality control
+* **Vector Retriever** - Component performing semantic search across text chunks using vector embeddings and cosine similarity
+* **Vector + Cypher Retriever** - Hybrid retriever combining semantic search with graph traversal to provide enriched contextual results
+* **Text2Cypher Retriever** - Natural language to Cypher conversion enabling precise structured queries against the knowledge graph
+* **Index-free Adjacency** - Neo4j feature where relationships are stored as pointers, eliminating expensive join calculations for fast traversal
+* **Organizing Principles** - Rules defining how to classify and relate entities consistently within domain-specific schemas
+
+## Overview
+
+### Summary of GraphRAG Implementation and Best Practices
+
+#### **Module 1: Introduction and Fundamentals**
+
+1. **What is GraphRAG**
+   - GraphRAG combines graph databases with generative AI to improve LLM response quality
+   - Unlike vector-based RAG, GraphRAG provides deterministic, relationship-aware retrieval
+   - Addresses vector RAG limitations: opaque similarity, chunk isolation, and hallucination-prone responses
+   - Enables both local search (entity neighborhoods) and global search (pattern analysis)
+
+2. **Vector RAG vs GraphRAG Comparison**
+   - **Vector RAG strengths**: Contextual questions, synonyms, fuzzy queries, broad exploration
+   - **Vector RAG weaknesses**: Fact-based queries, numerical data, logical operations, entity connections
+   - **GraphRAG advantages**: Explicit relationships, structured retrieval, rich context, index-free adjacency
+   - **Use case decision**: Factual/numerical queries → GraphRAG, Semantic/exploratory → Vector RAG
+
+3. **Knowledge Graph Types for GraphRAG**
+   - **Lexical Graphs**: Document hierarchy with text chunks and vector embeddings
+   - **Lexical + Entities**: Combines document structure with extracted entity connections
+   - **Domain Graphs**: Business domain knowledge with structured schemas and ontologies
+   - **Memory Graphs**: Semantic and episodic memory for conversational context
+
+---
+
+#### **Module 2: Building Knowledge Graphs**
+
+1. **GraphRAG Pipeline Architecture**
+   - **Document Processing**: PDF extraction and semantic text chunking
+   - **Entity Extraction**: LLM-powered identification of domain entities and relationships
+   - **Graph Storage**: Structured entities and relationships stored in Neo4j
+   - **Vector Indexing**: Embeddings generated for chunks enabling semantic search
+   - **Quality Control**: Schema validation and entity resolution for consistency
+
+2. **Schema-Driven Extraction Best Practices**
+   ```python
+   # Entity schema definition
+   entities = [
+     {"label": "Company", "properties": [{"name": "name", "type": "STRING"}]},
+     {"label": "Executive", "properties": [{"name": "name", "type": "STRING"}]},
+     {"label": "FinancialMetric", "properties": [{"name": "name", "type": "STRING"}]}
+   ]
+
+   # Relationship schema definition
+   relations = [
+     {"label": "HAS_METRIC", "source": "Company", "target": "FinancialMetric"},
+     {"label": "FACES_RISK", "source": "Company", "target": "RiskFactor"},
+     {"label": "ISSUED_STOCK", "source": "Company", "target": "StockType"}
+   ]
+   ```
+
+3. **SimpleKGPipeline Implementation**
+   ```python
+   from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
+
+   # Complete pipeline configuration
+   kg_builder = SimpleKGPipeline(
+     driver=driver,
+     llm=llm,
+     embedder=embedder,
+     prompt_template=custom_prompt,  # Guided extraction prompts
+     entities=entities,              # Entity schema
+     relations=relations,            # Relationship schema
+     from_pdf=True,                  # PDF processing enabled
+   )
+
+   # Execute extraction pipeline
+   result = await kg_builder.run_async(text=document_text)
+   ```
+
+4. **Custom Extraction Prompts**
+   ```python
+   # Company validation prompt example
+   company_instruction = (
+     "You are an expert in extracting company information from SEC filings. "
+     "When extracting, the company name must match exactly as shown below. "
+     "If the text refers to 'the Company', you MUST look up the exact name. "
+     "UNDER NO CIRCUMSTANCES output generic phrases."
+   )
+
+   custom_template = company_instruction + ERExtractionTemplate.DEFAULT_TEMPLATE
+   prompt_template = ERExtractionTemplate(template=custom_template)
+   ```
+
+---
+
+#### **Module 3: Querying and Retrieval**
+
+1. **Vector Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import VectorRetriever
+
+   vector_retriever = VectorRetriever(
+     driver=driver,
+     index_name='chunkEmbeddings',
+     embedder=embedder,
+     return_properties=['text']
+   )
+
+   # Best for: Semantic exploration, broad topic search, conceptual questions
+   result = vector_retriever.search(query="What are Apple's main risks?", top_k=5)
+   ```
+
+2. **Vector + Cypher Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import VectorCypherRetriever
+
+   # Custom Cypher for graph traversal
+   retrieval_query = """
+   MATCH (chunk:Chunk)
+   WHERE chunk.text CONTAINS $query
+
+   // Traverse to related entities
+   MATCH (chunk)-[:FROM_CHUNK]->(company:Company)
+   OPTIONAL MATCH (company)-[r]->(related)
+   WHERE NOT related:Chunk AND NOT related:Document
+
+   RETURN chunk.text AS context,
+          company.name AS entity,
+          collect(DISTINCT related.name) AS related_entities,
+          collect(DISTINCT type(r)) AS relationship_types
+   """
+
+   vector_cypher_retriever = VectorCypherRetriever(
+     driver=driver,
+     index_name='chunkEmbeddings',
+     embedder=embedder,
+     retrieval_query=retrieval_query
+   )
+
+   # Best for: Entity-specific context, relationship exploration
+   result = vector_cypher_retriever.search(query="Apple's financial performance", top_k=5)
+   ```
+
+3. **Text2Cypher Retriever Implementation**
+   ```python
+   from neo4j_graphrag.retrievers import Text2CypherRetriever
+
+   # Schema information for LLM
+   schema = """
+   Node types:
+   - Company: {name: STRING}
+   - FinancialMetric: {name: STRING}
+   - RiskFactor: {name: STRING}
+
+   Relationship types:
+   - (Company)-[:HAS_METRIC]->(FinancialMetric)
+   - (Company)-[:FACES_RISK]->(RiskFactor)
+   """
+
+   text2cypher_retriever = Text2CypherRetriever(
+     driver=driver,
+     llm=llm,
+     neo4j_schema=schema
+   )
+
+   # Best for: Precise queries, numerical data, structured facts
+   result = text2cypher_retriever.search(query="How many companies face cybersecurity risks?")
+   ```
+
+4. **Advanced Query Patterns**
+   ```cypher
+   // Count entities by type
+   MATCH (e)
+   WHERE NOT e:Document AND NOT e:Chunk
+   RETURN labels(e) as entityType, count(e) as count
+   ORDER BY count DESC
+
+   // Explore company relationships
+   MATCH (c:Company {name: 'APPLE INC'})
+   RETURN c.name,
+     COUNT { (c)-[r1]->(extracted) WHERE NOT extracted:Chunk } AS extractedEntities,
+     COUNT { (:AssetManager)-[:OWNS]->(c) } AS assetManagers,
+     COUNT { (c)<-[:FROM_CHUNK]->(chunk:Chunk) } AS textChunks
+
+   // Find relationship patterns
+   MATCH (c:Company)-[r]->(entity)
+   RETURN c.name, type(r) as relationship, entity.name
+   ORDER BY c.name, relationship
+   ```
+
+---
+
+#### **Key Implementation Insights**
+
+**Technology Stack:** Neo4j GraphRAG Library, OpenAI GPT-4o/embeddings, LangChain integration
+
+**Quality & Performance:**
+- Schema-driven extraction with entity validation and context resolution
+- Specific relationship types and proper MERGE patterns for performance
+- Caching and traversal depth limits for optimization
+- Vector RAG for exploration, GraphRAG for precise/factual queries
+
+## Implementation Patterns
+
+### Entity Extraction with Quality Control
+
+```python
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+class Entity(BaseModel):
+    name: str = Field(description="The entity name")
+    type: str = Field(description="Entity type: Person, Location, Organization")
+    properties: dict = Field(description="Additional properties")
+
+class Relationship(BaseModel):
+    source: str = Field(description="Source entity name")
+    target: str = Field(description="Target entity name")
+    type: str = Field(description="Relationship type")
+    properties: dict = Field(default_factory=dict)
+
+# Structured output parser for consistent extraction
+parser = PydanticOutputParser(pydantic_object=List[Entity])
+```
+
+### Graph Modeling Best Practices
+
+```cypher
+// Good - specific, performant relationships
+MATCH (company:Company)-[:HAS_METRIC]->(metric:FinancialMetric)
+WHERE metric.name CONTAINS 'revenue'
+
+// Bad - generic, slow relationships
+MATCH (company:Company)-[r:RELATED_TO]->(entity)
+WHERE r.type = 'has_metric' AND entity.name CONTAINS 'revenue'
+
+// Proper MERGE usage - avoid duplicates
+MERGE (c:Company {name: "Apple Inc"})
+SET c.ticker = "AAPL", c.sector = "Technology"
+
+// Bad - creates duplicate nodes
+MERGE (c:Company {name: "Apple Inc", ticker: "AAPL", sector: "Technology"})
+```
+
+### Text-to-Cypher Safety and Validation
+
+```python
+TEXT_TO_CYPHER_PROMPT = """
+You are an expert at converting natural language to Cypher queries.
+Use ONLY read-only operations: MATCH, RETURN, WHERE, ORDER BY, LIMIT.
+NEVER use CREATE, DELETE, SET, MERGE, or any write operations.
+
+Schema:
+{schema}
+
+Examples:
+Question: "How many companies are in the database?"
+Cypher: MATCH (c:Company) RETURN count(c) as total_companies
+
+Question: "What financial metrics does Apple have?"
+Cypher: MATCH (c:Company {name: 'APPLE INC'})-[:HAS_METRIC]->(m:FinancialMetric) RETURN m.name
+
+Convert this question: {question}
+Only return the Cypher query, nothing else.
+"""
+
+def validate_cypher_safety(query: str) -> bool:
+    """Validate that Cypher query contains only read operations"""
+    forbidden_keywords = ['CREATE', 'DELETE', 'SET', 'MERGE', 'REMOVE', 'DROP']
+    query_upper = query.upper()
+    return not any(keyword in query_upper for keyword in forbidden_keywords)
+```
+
+### Hybrid Retrieval Strategy
+
+```python
+class HybridGraphRAGRetriever:
+    def __init__(self, vector_retriever, vector_cypher_retriever, text2cypher_retriever):
+        self.vector_retriever = vector_retriever
+        self.vector_cypher_retriever = vector_cypher_retriever
+        self.text2cypher_retriever = text2cypher_retriever
+
+    def route_query(self, question: str) -> str:
+        """Route questions to appropriate retriever based on type"""
+        if any(word in question.lower() for word in ['how many', 'count', 'number of']):
+            return 'text2cypher'
+        elif any(word in question.lower() for word in ['what', 'which', 'who']):
+            return 'vector_cypher'
+        else:
+            return 'vector'
+
+    def retrieve(self, question: str, top_k: int = 5):
+        retriever_type = self.route_query(question)
+
+        if retriever_type == 'text2cypher':
+            return self.text2cypher_retriever.search(question)
+        elif retriever_type == 'vector_cypher':
+            return self.vector_cypher_retriever.search(question, top_k=top_k)
+        else:
+            return self.vector_retriever.search(question, top_k=top_k)
+```
+
+### Error Handling and Robustness
+
+```python
+def robust_text_to_cypher(question: str, max_retries: int = 3) -> str:
+    """Generate Cypher with retry logic and validation"""
+    for attempt in range(max_retries):
+        try:
+            cypher = llm_generate_cypher(question)
+            if not validate_cypher_safety(cypher):
+                raise ValueError("Unsafe Cypher query detected")
+            graph.query(f"{cypher} LIMIT 1")  # Test execution
+            return cypher
+        except Exception as e:
+            if attempt == max_retries - 1: return None
+            question = f"[Previous attempt failed: {str(e)}] {question}"
+    return None
+```
+
+## Production Considerations
+
+### Scaling Strategies
+- **Small datasets** (< 100k nodes): Single Neo4j instance with vector indexes
+- **Medium datasets** (100k - 1M nodes): Neo4j cluster with read replicas for retrieval
+- **Large datasets** (> 1M nodes): Distributed setup with graph partitioning strategies
+
+### Caching Implementation
+```python
+# Cache Cypher queries and entity extraction with LRU cache and Redis
+@lru_cache(maxsize=1000)
+def cached_graph_query(query: str, params_str: str):
+    return graph.query(query, json.loads(params_str))
+
+def get_or_cache_entities(text_chunk: str) -> List[Dict]:
+    cache_key = f"entities:{hash(text_chunk)}"
+    cached = redis_client.get(cache_key)
+    if cached: return json.loads(cached)
+
+    entities = extract_entities(text_chunk)
+    redis_client.setex(cache_key, 3600, json.dumps(entities))
+    return entities
+```
+
+### Common Mistakes and Solutions
+
+1. **Information Overload in Knowledge Graphs**
+   - Problem: LLM extracts too much irrelevant information
+   - Solution: Use explicit constraints and few-shot examples with negative examples
+
+2. **Unperformant Graph Traversals**
+   - Problem: Queries traverse too many relationships
+   - Solution: Add intermediate aggregation nodes and limit traversal depth
+
+3. **Poor Entity Resolution**
+   - Problem: Same entities created with different names
+   - Solution: Use existing graph data for entity resolution and similarity matching
+
+4. **Assuming Binary Choice**
+   - Problem: Treating GraphRAG vs Vector RAG as either/or decision
+   - Solution: Use hybrid approaches that combine both methods strategically
+
+
