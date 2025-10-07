@@ -4,24 +4,30 @@
 :order: 1
 :minutes: 10
 
-// * Installation
-// *  Import into project
-// * Driver
-// * session
-// * Closing connection
-// * try-with-resources
 
 [.slide.discrete]
 == Introduction
 In the link:/courses/cypher-fundamentals/[Cypher Fundamentals^] course, you learned how to query Neo4j using Cypher.
 
-To run Cypher statements in a Go application, you'll need the link:https://neo4j.com/developer/go[Neo4j Go Driver^].
+To run Cypher statements in a Go application, you'll need the link:https://neo4j.com//docs/go-manual[Neo4j Go Driver^].
 The driver acts as a bridge between your Go code and Neo4j, handling connections to the database and the execution of Cypher queries.
+
+[.slide]
+== Setting up a Go Project
+
+First, create a new Go project and initialize it as a module:
+
+[source,shell]
+----
+mkdir hello-neo4j
+cd hello-neo4j
+go mod init graphacademy/hello
+----
 
 [.slide]
 == Installing the Driver
 
-To install the driver, use go get:
+To install the driver, use the `go get` command:
 
 [source,shell]
 go get github.com/neo4j/neo4j-go-driver/v5
@@ -31,10 +37,11 @@ go get github.com/neo4j/neo4j-go-driver/v5
 
 [.col]
 ====
-You start by importing the driver and creating an instance:
 
 [source,go]
 ----
+package main
+
 import (
     "context"
     "fmt"
@@ -46,9 +53,7 @@ func main() {
         "neo4j://localhost:7687", // <1>
         neo4j.BasicAuth("neo4j", "your-password", ""), // <2>
     )
-    if err != nil {
-        panic(err)
-    }
+    if err != nil { panic(err) }
     defer driver.Close(context.Background()) // <3>
 }
 ----
@@ -56,9 +61,12 @@ func main() {
 
 [.col]
 ====
+You start by importing the driver and creating an instance using the `neo4j.NewDriverWithContext()` function:
+
+
 <1> The connection string for your Neo4j database
 <2> Your Neo4j username and password
-<3> Always close the driver when done
+<3> Always close the driver when done using the `defer` statement
 
 [TIP]
 .Best Practice
@@ -90,7 +98,7 @@ You can verify the connection is correct by calling the `VerifyConnectivity()` m
 [source,go]
 ----
 ctx := context.Background()
-err := driver.VerifyConnectivity(ctx)
+err = driver.VerifyConnectivity(ctx)
 if err != nil {
     panic(err)
 }
@@ -118,13 +126,10 @@ result, err := neo4j.ExecuteQuery(ctx, driver, // <1>
     nil, // <2>
     neo4j.EagerResultTransformer, // <3>
 )
-if err != nil {
-    panic(err)
-}
+if err != nil { panic(err) }
 
 // Get the first record
 first := result.Records[0] // <4>
-
 // Print the count entry
 count, _ := first.Get("count") // <5>
 fmt.Println(count)
@@ -139,34 +144,87 @@ fmt.Println(count)
 <4> `Records` contains a slice of the rows returned
 <5> Values from the `RETURN` clause are accessed using the `Get()` method
 
-[.slide]
+[.slide.col-2]
 == Full driver lifecycle
 
-Once you have finished with the driver, call `Close()` to release any resources held by the driver.
+It is good practice to close the driver when you are finished with it.
+You can use the `defer` statement to automatically close the driver when the function exits.
+
+You can also explicitly call `Close()` to release any resources held by the driver.
+
+[.col]
+====
+[source,go]
+----
+driver, err := neo4j.NewDriverWithContext(
+    "neo4j://localhost:7687",
+    neo4j.BasicAuth("neo4j", "your-password", ""),
+)
+if err != nil {
+    panic(err)
+}
+defer driver.Close(context.Background())
+----
+
+====
+
+[.col]
+====
+
 
 [source,go]
 ----
 ctx := context.Background()
 driver.Close(ctx)
 ----
+====
 
-You can use `defer` to create an all-in-one solution that will automatically close the driver when the function exits.
 
-[source,go]
-----
-func main() {
-    driver, err := neo4j.NewDriverWithContext(NEO4J_URI, neo4j.BasicAuth(NEO4J_USERNAME, NEO4J_PASSWORD, ""))
-    if err != nil {
-        panic(err)
-    }
-    defer driver.Close(context.Background())
+// [.transcript-only]
+// == Full sample code 
+
+// The following code sample demonstrates the full driver lifecycle, including connecting to the database, running a query, and using `defer` to automatically close the driver when the function exits.
+
+// [source,go]
+// ----
+// package main
+
+// import (
+//     "context"
+//     "fmt"
+//     "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+// )
+
+// func main() {
+//     driver, err := neo4j.NewDriverWithContext(
+//         "neo4j://localhost:7687",
+//         neo4j.BasicAuth("neo4j", "your-password", ""),
+//     )
+//     if err != nil {
+//         panic(err)
+//     }
+//     defer driver.Close(context.Background())
     
-    result, err := neo4j.ExecuteQuery(context.Background(), driver, "RETURN COUNT {()} AS count", nil, neo4j.EagerResultTransformer)
-    if err != nil {
-        panic(err)
-    }
-}
-----
+//     ctx := context.Background()
+//     err = driver.VerifyConnectivity(ctx)
+//     if err != nil {
+//         panic(err)
+//     }
+    
+//     result, err := neo4j.ExecuteQuery(ctx, driver,
+//         "RETURN COUNT {()} AS count",
+//         nil,
+//         neo4j.EagerResultTransformer,
+//     )
+//     if err != nil {
+//         panic(err)
+//     }
+    
+//     first := result.Records[0]
+//     count, _ := first.Get("count")
+//     fmt.Println(count)
+// }
+// ----
 
 
 [.next.discrete]

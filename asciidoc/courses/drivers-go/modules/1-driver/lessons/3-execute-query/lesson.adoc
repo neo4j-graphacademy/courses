@@ -49,16 +49,32 @@ It is good practice to use parameters in your queries to avoid malicious code be
 [.slide]
 == Handling the Result
 
-The `neo4j.ExecuteQuery()` function returns a result object containing:
+The `neo4j.ExecuteQuery()` function returns a `ResultWithContext` object containing:
 
-1. A slice of `Record` objects
+1. A list of `Record` objects
 2. Summary information about the query execution
 3. Keys specified in the `RETURN` clause
 
 [source,go]
 ----
+fmt.Println(result.Records) // [...]
 fmt.Println(result.Keys)  // [title role]
 fmt.Println(result.Summary)  // A summary of the query execution
+----
+
+[.slide]
+== Specifying a database 
+
+You can specify a database to query using the `ExecuteQueryWithDatabase()` method.
+
+[source,go]
+----
+result, err := neo4j.ExecuteQuery(ctx, driver,
+    cypher,
+    map[string]any{"name": name},
+    neo4j.EagerResultTransformer,
+    neo4j.ExecuteQueryWithDatabase("recommendations") // Query the 'recommendations' database
+)
 ----
 
 [.slide]
@@ -70,21 +86,20 @@ You can access any item in the `RETURN` clause using the `Get()` method.
 
 [source,go]
 ----
-// RETURN m.title AS title, r.role AS role
+// RETURN a.name AS name, m.title AS title, r.role AS role
 
 for _, record := range result.Records {
+    name, _ := record.Get("name")  // Tom Hanks
     title, _ := record.Get("title")  // Toy Story
     role, _ := record.Get("role")    // "Woody"
-    fmt.Printf("%s played %s\n", title, role)
+    fmt.Printf("%s played %s in %s\n", name, role, title) // Tom Hanks played Woody in Toy Story
 }
 ----
 
 [.slide]
 == Transforming results
 
-The `ExecuteQuery()` method accepts a result transformer that allows you to transform the result into an alternative format.
-
-Rather than returning the standard result, the query will return the output of the transformer function.
+The `ExecuteQuery()` method accepts a result transformer as a third argument that allows you to transform the result into an alternative format.
 
 [source,go]
 ----
@@ -101,40 +116,20 @@ result, err := neo4j.ExecuteQuery(ctx, driver,
         return movies, nil
     },
 )
+----
 
+
+[.slide.discrete]
+== Transforming results
+
+Rather than returning the standard result, the method will return the output of the transformer function.
+
+[source,go]
+----
 fmt.Println(result)  // ["Tom Hanks played Woody in Toy Story", ...]
 ----
 
 
-[.slide]
-== Working with DataFrames
-
-The Go driver doesn't have built-in DataFrame support like Python, but you can easily transform results into structured data:
-
-[source,go]
-----
-type MovieRole struct {
-    Title string `json:"title"`
-    Role  string `json:"role"`
-}
-
-result, err := neo4j.ExecuteQuery(ctx, driver,
-    cypher,
-    map[string]any{"name": name},
-    func(result neo4j.ResultWithContext) (any, error) {
-        var movies []MovieRole
-        for _, record := range result.Records {
-            title, _ := record.Get("title")
-            role, _ := record.Get("role")
-            movies = append(movies, MovieRole{
-                Title: title.(string),
-                Role:  role.(string),
-            })
-        }
-        return movies, nil
-    },
-)
-----
 
 [.slide]
 == Reading and writing 
@@ -150,12 +145,12 @@ result, err := neo4j.ExecuteQuery(ctx, driver,
     cypher,
     map[string]any{"name": name},
     neo4j.EagerResultTransformer,
-    neo4j.ExecuteQueryWithRoutingControl(neo4j.ReadRouting), // <1>
+    neo4j.ExecuteQueryWithReadersRouting(), // <1>
 )
 ----
 
 [TIP]
-You can also use `neo4j.WriteRouting` for write mode.
+You can also use `neo4j.ExecuteQueryWithWritersRouting` to explicitly invoke write mode.
 
 [.next.discrete]
 == Check your understanding
