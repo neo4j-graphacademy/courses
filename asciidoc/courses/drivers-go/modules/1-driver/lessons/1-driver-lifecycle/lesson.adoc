@@ -1,0 +1,184 @@
+= Installing the driver
+:type: lesson
+:slides: true
+:order: 1
+:minutes: 10
+
+// * Installation
+// *  Import into project
+// * Driver
+// * session
+// * Closing connection
+// * try-with-resources
+
+[.slide.discrete]
+== Introduction
+In the link:/courses/cypher-fundamentals/[Cypher Fundamentals^] course, you learned how to query Neo4j using Cypher.
+
+To run Cypher statements in a Go application, you'll need the link:https://neo4j.com/developer/go[Neo4j Go Driver^].
+The driver acts as a bridge between your Go code and Neo4j, handling connections to the database and the execution of Cypher queries.
+
+[.slide]
+== Installing the Driver
+
+To install the driver, use go get:
+
+[source,shell]
+go get github.com/neo4j/neo4j-go-driver/v5
+
+[.slide.col-2]
+== Creating a Driver Instance
+
+[.col]
+====
+You start by importing the driver and creating an instance:
+
+[source,go]
+----
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687", // <1>
+        neo4j.BasicAuth("neo4j", "your-password", ""), // <2>
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background()) // <3>
+}
+----
+====
+
+[.col]
+====
+<1> The connection string for your Neo4j database
+<2> Your Neo4j username and password
+<3> Always close the driver when done
+
+[TIP]
+.Best Practice
+=====
+Create **one** Driver instance and share it across your entire application.
+=====
+
+// [.transcript-only]
+// =====
+
+// [%collapsible]
+// .Connect to your Neo4j Sandbox?
+// ======
+// If you want to experiment with the driver, you can connect to the Neo4j Sandbox which has been created for you.
+
+// Neo4j Connection String:: [copy]#neo4j://{instance-ip}:{instance-boltPort}#
+// Username:: [copy]#{instance-username}#
+// Password:: [copy]#{instance-password}#
+// ======
+
+// =====
+====
+
+[.slide]
+== Verifying Connectivity
+
+You can verify the connection is correct by calling the `VerifyConnectivity()` method.
+
+[source,go]
+----
+ctx := context.Background()
+err := driver.VerifyConnectivity(ctx)
+if err != nil {
+    panic(err)
+}
+----
+
+[NOTE]
+.Verify Connectivity
+=====
+The `VerifyConnectivity()` method will link:https://neo4j.com/docs/go-manual/current/errors.html[return an error^] if the connection cannot be made.
+=====
+
+
+[.slide,role="col-2"]
+== Running Your First Query
+
+[.col]
+====
+The `ExecuteQuery()` method executes a Cypher query and returns the results.
+
+[source,go]
+----
+ctx := context.Background()
+result, err := neo4j.ExecuteQuery(ctx, driver, // <1>
+    "RETURN COUNT {()} AS count",
+    nil, // <2>
+    neo4j.EagerResultTransformer, // <3>
+)
+if err != nil {
+    panic(err)
+}
+
+// Get the first record
+first := result.Records[0] // <4>
+
+// Print the count entry
+count, _ := first.Get("count") // <5>
+fmt.Println(count)
+----
+====
+
+[.col]
+=== What is happening here?
+<1> `neo4j.ExecuteQuery()` runs a Cypher query to get the count of all nodes in the database
+<2> `nil` means no parameters are passed to the query
+<3> `EagerResultTransformer` loads all results into memory
+<4> `Records` contains a slice of the rows returned
+<5> Values from the `RETURN` clause are accessed using the `Get()` method
+
+[.slide]
+== Full driver lifecycle
+
+Once you have finished with the driver, call `Close()` to release any resources held by the driver.
+
+[source,go]
+----
+ctx := context.Background()
+driver.Close(ctx)
+----
+
+You can use `defer` to create an all-in-one solution that will automatically close the driver when the function exits.
+
+[source,go]
+----
+func main() {
+    driver, err := neo4j.NewDriverWithContext(NEO4J_URI, neo4j.BasicAuth(NEO4J_USERNAME, NEO4J_PASSWORD, ""))
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background())
+    
+    result, err := neo4j.ExecuteQuery(context.Background(), driver, "RETURN COUNT {()} AS count", nil, neo4j.EagerResultTransformer)
+    if err != nil {
+        panic(err)
+    }
+}
+----
+
+
+[.next.discrete]
+== Check your understanding
+
+link:../2c-create-driver-instance/[Take challenge,role=btn]
+
+[.summary]
+== Lesson Summary
+
+In this lesson you learned how to install the Neo4j Go Driver, create a Driver instance, verify connectivity to your database, and execute your first Cypher statement.
+
+For async applications, link:https://neo4j.com/docs/go-manual/current/concurrency/[use the async API methods].
+
+In the next lesson, you will take a quiz to test your knowledge of installing and creating a driver instance.

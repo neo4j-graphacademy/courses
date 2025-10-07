@@ -1,0 +1,94 @@
+= Error handling
+:type: lesson
+:order: 3
+:slides: true
+
+[.slide.discrete]
+== Introduction
+
+In production applications, proper error handling is crucial for maintaining system stability and providing meaningful feedback to users.
+
+The Neo4j Go driver provides comprehensive error handling capabilities that help you manage different types of errors gracefully.
+
+[.slide]
+== Types of errors
+
+Neo4j errors can be categorized into several types:
+
+* **Connection errors** - Network issues, authentication failures
+* **Constraint errors** - Violations of database constraints
+* **Transaction errors** - Deadlocks, timeout issues
+* **Query errors** - Syntax errors, parameter issues
+
+[source,go]
+----
+import (
+    "errors"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+result, err := neo4j.ExecuteQuery(ctx, driver, query, params, neo4j.EagerResultTransformer)
+if err != nil {
+    // Check for specific error types
+    if neo4j.IsNeo4jError(err) {
+        neo4jErr := err.(*neo4j.Neo4jError)
+        switch neo4jErr.Code {
+        case "Neo.ClientError.Schema.ConstraintValidationFailed":
+            // Handle constraint violation
+            log.Printf("Constraint violation: %s", neo4jErr.Msg)
+        case "Neo.ClientError.Statement.SyntaxError":
+            // Handle syntax error
+            log.Printf("Syntax error: %s", neo4jErr.Msg)
+        default:
+            // Handle other Neo4j errors
+            log.Printf("Neo4j error: %s", neo4jErr.Msg)
+        }
+    } else {
+        // Handle non-Neo4j errors
+        log.Printf("Other error: %v", err)
+    }
+}
+----
+
+[.slide]
+== Retry logic
+
+For transient errors, you can implement retry logic:
+
+[source,go]
+----
+func executeWithRetry(ctx context.Context, driver neo4j.Driver, query string, params map[string]any, maxRetries int) (neo4j.EagerResult, error) {
+    var lastErr error
+    
+    for i := 0; i < maxRetries; i++ {
+        result, err := neo4j.ExecuteQuery(ctx, driver, query, params, neo4j.EagerResultTransformer)
+        if err == nil {
+            return result, nil
+        }
+        
+        // Check if error is retryable
+        if neo4j.IsRetryable(err) {
+            lastErr = err
+            time.Sleep(time.Duration(i+1) * time.Second) // Exponential backoff
+            continue
+        }
+        
+        // Non-retryable error
+        return neo4j.EagerResult{}, err
+    }
+    
+    return neo4j.EagerResult{}, lastErr
+}
+----
+
+[.next.discrete]
+== Check your understanding
+
+link:../4c-handling-errors/[Advance to challenge,role=btn]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about error handling in Neo4j applications using the Go driver.
+
+Proper error handling ensures your application can gracefully handle various error conditions and provide meaningful feedback to users.
