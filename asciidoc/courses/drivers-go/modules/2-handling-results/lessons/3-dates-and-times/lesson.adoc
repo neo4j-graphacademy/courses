@@ -15,7 +15,7 @@ Temporal types in Neo4j are a combination of date, time and timezone elements.
 |Type |Description |Date? |Time? |Timezone?
 
 |`neo4j.Date` |A tuple of Year, Month and Day |Y | |
-|`neo4j.OffsetTime` |The time of the day with a UTC offset |Y |Y |
+|`neo4j.OffsetTime` |The time of the day with a UTC offset | |Y |Y
 |`neo4j.LocalTime` |A time without a timezone | |Y |
 |`time.Time` |A combination of Date and Time |Y |Y |Y
 |`neo4j.LocalDateTime` |A combination of Date and Time without a timezone |Y |Y |
@@ -31,12 +31,7 @@ Temporal types in Neo4j are a combination of date, time and timezone elements.
 
 [source,go]
 ----
-import (
-    "time"
-    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
-)
-
-neo4j.ExecuteQuery(ctx, driver, `
+res, err := neo4j.ExecuteQuery(ctx, driver, `
 CREATE (e:Event {
   startsAt: $datetime,              // <1>
   createdAt: datetime($dtstring),   // <2>
@@ -44,7 +39,7 @@ CREATE (e:Event {
 })
 `, 
     map[string]any{
-        "datetime": time.Date(2024, 5, 15, 14, 30, 0, 0, time.FixedZone("CEST", 2*60*60)), // <4>
+        "datetime": time.Date(2024, 5, 15, 14, 30, 0, 0, time.LoadLocation("Europe/Paris")), // <4>
         "dtstring": "2024-05-15T14:30:00+02:00",
     },
     neo4j.EagerResultTransformer,
@@ -59,7 +54,7 @@ When you write temporal types to the database, you can pass Go time objects as p
 This example demonstrates how to:
 
 <1> Use a `time.Time` object as a parameter to the query (`<4>`)
-<2> Cast an link:https://www.iso.org/iso-8601-date-and-time-format.html[ISO 8601 format string^] within a Cypher statement
+<2> Cast an `datetime` with an link:https://www.iana.org/time-zones[IANA timezone identifier^] within the Cypher statement
 <3> Get the current date and time using the `datetime()` function.
 
 ====
@@ -101,11 +96,6 @@ for _, record := range result.Records {
 
 [source,go]
 ----
-import (
-    "time"
-    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
-)
-
 startsAt := time.Now()
 eventLength := neo4j.DurationOf(time.Hour + 30*time.Minute)
 endsAt := startsAt.Add(time.Duration(eventLength))
@@ -115,8 +105,7 @@ CREATE (e:Event {
   startsAt: $startsAt, endsAt: $endsAt,
   duration: $eventLength, // <1>
   interval: duration('P30M') // <2>
-})
-`,
+})`,
     map[string]any{
         "startsAt": startsAt,
         "endsAt": endsAt,

@@ -66,9 +66,13 @@ These functions will also retry if the transaction fails due to a transient erro
 [.slide.col-2]
 == Unit of work patterns
 
-[.col]
+[.transcript-only]
 ====
 A unit of work is a pattern that groups related operations into a single transaction. 
+====
+
+[.col]
+====
 
 [source,go]
 ----
@@ -78,14 +82,7 @@ func createPerson(tx neo4j.ManagedTransaction, name string, age int64) (neo4j.No
     RETURN p
     `, map[string]any{"name": name, "age": age}) // <2>
     
-    if err != nil {
-        return nil, err
-    }
-    
     record, err := result.Single(ctx)
-    if err != nil {
-        return nil, err
-    }
     
     node, _ := record.Get("p")
     return node.(neo4j.Node), nil
@@ -100,11 +97,17 @@ func createPerson(tx neo4j.ManagedTransaction, name string, age int64) (neo4j.No
 <2> The `Run()` method on the `ManagedTransaction` object is called to execute a Cypher statement.
 ====
 
-[.slide]
+[.slide.col-2]
 == Multiple Queries in One Transaction
 
-You can execute multiple queries within the same transaction function to ensure that all operations are completed or fail as a single unit.
 
+[.col]
+====
+You can execute multiple queries within the same transaction function to ensure that all operations are completed or fail as a single unit.
+====
+
+[.col]
+====
 [source,go]
 ----
 func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, amount float64) error {
@@ -113,9 +116,7 @@ func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, a
         "MATCH (a:Account {id: $from}) SET a.balance = a.balance - $amount", 
         map[string]any{"from": fromAccount, "amount": amount},
     )
-    if err != nil {
-        return err
-    }
+    if err != nil { return err }
 
     // Add to second account
     _, err = tx.Run(ctx,
@@ -125,9 +126,11 @@ func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, a
     return err
 }
 ----
+====
 
 [.slide]
 == Transaction state
+
 ====
 [WARNING]
 .Transaction state
@@ -142,8 +145,7 @@ Transaction state is maintained in the DBMS's memory, so be mindful of running t
 [.col]
 ====
 The `ManagedTransaction.Run()` method returns a `Result` object.
-
-The records contained within the result will be iterated over as soon as they are available.
+The records contained within the result can be accessed as soon as they are available.
 
 The result must be consumed within the transaction function.
 
@@ -154,8 +156,6 @@ The `Session.ExecuteRead`/`Session.ExecuteWrite` function will return the result
 
 [.col]
 ====
-
-
 
 [source,go]
 .Consuming results
@@ -175,14 +175,23 @@ summary, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any,
 if err != nil {
     log.Fatal(err)
 }
+----
+====
 
+[.slide]
+== Result Summary
+
+The `ResultSummary` object returned by the `ExecuteRead()` and `ExecuteWrite()` methods holds information about the Cypher statement execution, including database information, execution time and in the case of a write query, statistics on changes made to the database as a result of the statement execution.
+
+[source,go]
+.Result Summary
+----
 summaryObj := summary.(neo4j.ResultSummary)
 fmt.Printf("Results available after %d ms and consumed after %d ms\n",
     summaryObj.ResultAvailableAfter(),
     summaryObj.ResultConsumedAfter())
 ----
 
-====
 
 [.next.discrete]
 == Check your understanding
