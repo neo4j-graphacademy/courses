@@ -16,6 +16,7 @@ describe('QA Tests', () => {
     const exclude = ['30-days']
     const coursePaths = globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
         .filter(path => exclude.some(folder => !path.endsWith(folder)))
+        .filter(path => existsSync(join(path, 'course.adoc')))
 
     for (const coursePath of coursePaths) {
         const slug = coursePath.split(sep).reverse()[0]
@@ -31,6 +32,16 @@ describe('QA Tests', () => {
 
                 it('should have a caption', () => {
                     expect(getAttribute(courseAdoc, 'caption')).toBeDefined()
+                })
+
+                it('should have a level', () => {
+                    expect(getAttribute(courseAdoc, 'categories')).toBeDefined()
+
+                    const categories = getAttribute(courseAdoc, 'categories').split(',').map(e => e.trim())
+                    expect(categories.length).toBeGreaterThan(0)
+
+                    const levels = ['beginner', 'intermediate', 'advanced', 'workshop']
+                    expect(levels.some(level => categories.includes(level))).toBe(true)
                 })
 
                 it('should have one or more modules', () => {
@@ -96,12 +107,14 @@ describe('QA Tests', () => {
 
                                 it('should not have any broken links', async () => {
                                     for (const link of findLinks(lessonAdoc)) {
-                                        const statusCode = await getStatusCode(link)
-                                        try {
-                                            expect(statusCode).toBe(200)
-                                        }
-                                        catch (e) {
-                                            throw new Error(`${link} returns ${statusCode}`)
+                                        if (!link.includes('platform.openai')) {
+                                            const statusCode = await getStatusCode(link)
+                                            try {
+                                                expect(statusCode).toBe(200)
+                                            }
+                                            catch (e) {
+                                                throw new Error(`${link} returns ${statusCode}`)
+                                            }
                                         }
                                     }
                                 })

@@ -1,0 +1,340 @@
+# Neo4j Fundamentals
+
+Learn about Graph databases and get started with Neo4j
+
+[Learn more about this course](https://graphacademy.neo4j.com/courses/neo4j-fundamentals)
+
+## Concepts
+
+* **Graph Database** - A database that stores data as nodes and relationships instead of tables, designed for storing and traversing connected data
+* **Node** - A circular entity in a graph that represents objects or entities (like people, movies, locations)
+* **Relationship** - A connection between two nodes that has a direction, type, and can contain properties
+* **Label** - A tag that categorizes nodes (e.g., :Person, :Movie, :Company) to group similar entities
+* **Property** - Key-value pairs stored on nodes and relationships to hold data attributes
+* **Cypher** - Neo4j's declarative query language using ASCII-art syntax for pattern matching
+* **Pattern Matching** - Finding specific structures in the graph using Cypher's bracket and arrow syntax
+* **MATCH** - Cypher clause for finding patterns in existing data
+* **MERGE** - Cypher clause for creating patterns only if they don't already exist
+* **Index-free Adjacency** - Neo4j's storage method where relationships are stored as pointers, enabling fast traversal
+
+## Graph Database Fundamentals
+
+```cypher
+// Basic graph elements visualization
+// Nodes are represented with parentheses: (n)
+// Relationships use arrows: -[r]->
+// Labels are prefixed with colon: :Person
+// Properties use curly braces: {name: "value"}
+
+// A simple pattern: Person works at Company
+(person:Person)-[works:WORKS_FOR]->(company:Company)
+```
+
+[Reference: What is Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/1-graph-thinking/1-what-is-neo4j/)
+
+## Node and Relationship Structures
+
+```cypher
+// Nodes with labels and properties
+(tom:Person {name: "Tom Hanks", born: 1956})
+(movie:Movie {title: "Toy Story", released: 1995})
+
+// Relationships with types and properties
+(tom)-[:ACTED_IN {roles: ["Woody"]}]->(movie)
+
+// Multiple labels on a single node
+(michael:Person:Employee {name: "Michael", position: "Developer"})
+
+// Bidirectional relationships
+(sarah:Person)-[:MARRIED_TO]->(john:Person)
+(john)-[:MARRIED_TO]->(sarah)
+```
+
+[Reference: What is Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/1-graph-thinking/1-what-is-neo4j/)
+
+## Reading Data with Cypher
+
+```cypher
+// Find a specific person
+MATCH (n:Person)
+WHERE n.name = 'Tom Hanks'
+RETURN n
+
+// Find person and their movies
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN p, r, m
+
+// Return specific properties as table
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN p.name AS actor, m.title AS movie, r.roles AS roles
+
+// Find movies and their genres
+MATCH (m:Movie)-[r:IN_GENRE]->(g:Genre)
+WHERE m.title = 'Toy Story'
+RETURN m.title AS movie, g.name AS genre
+```
+
+[Reference: Reading Graphs](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/1-reading-data/)
+
+## Pattern Matching with Cypher
+
+```cypher
+// Basic pattern: Person acted in Movie
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+RETURN p, r, m
+
+// Complex pattern: Find co-actors
+MATCH (p1:Person)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person)
+WHERE p1.name = 'Tom Hanks'
+RETURN p2.name AS coactor, m.title AS movie
+
+// Pattern with multiple relationships
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre)
+WHERE p.name = 'Tom Hanks'
+RETURN p.name, m.title, g.name
+
+// User ratings pattern
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE u.name = "Mr. Jason Love"
+RETURN u.name, r.rating, m.title
+ORDER BY r.rating DESC
+```
+
+[Reference: Pattern Matching](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/2-pattern-matching/)
+
+## Creating Data with MERGE
+
+```cypher
+// Create a single node
+MERGE (m:Movie {title: "Arthur the King"})
+SET m.year = 2024
+RETURN m
+
+// Create nodes and relationships
+MERGE (m:Movie {title: "Arthur the King"})
+MERGE (u:User {name: "Adam"})
+MERGE (u)-[r:RATED {rating: 5}]->(m)
+RETURN u, r, m
+
+// Create person and their movie
+MERGE (p:Person {name: "Jane Doe"})
+MERGE (m:Movie {title: "New Movie"})
+MERGE (p)-[:ACTED_IN {roles: ["Lead Actor"]}]->(m)
+RETURN p, m
+
+// Create complex graph structure
+MERGE (p:Person {name: "Director Name"})
+MERGE (m:Movie {title: "Epic Film", released: 2024})
+MERGE (g:Genre {name: "Action"})
+MERGE (p)-[:DIRECTED]->(m)
+MERGE (m)-[:IN_GENRE]->(g)
+RETURN p, m, g
+```
+
+[Reference: Creating Graphs](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/3-creating-graphs/)
+
+## Common Graph Patterns
+
+```cypher
+// Recommendation pattern: Users who liked similar movies
+MATCH (u1:User)-[r1:RATED]->(m:Movie)<-[r2:RATED]-(u2:User)
+WHERE u1.name = "Alice" AND r1.rating >= 4 AND r2.rating >= 4
+RETURN u2.name AS similar_user, m.title AS shared_movie
+
+// Shortest path between actors
+MATCH path = shortestPath((p1:Person)-[*]-(p2:Person))
+WHERE p1.name = "Tom Hanks" AND p2.name = "Kevin Bacon"
+RETURN path
+
+// Find influential nodes (most connections)
+MATCH (p:Person)-[r:ACTED_IN]->()
+RETURN p.name, count(r) AS movie_count
+ORDER BY movie_count DESC
+LIMIT 10
+
+// Collaborative filtering: movies liked by similar users
+MATCH (u1:User {name: "Alice"})-[r1:RATED]->(m1:Movie)
+MATCH (u2:User)-[r2:RATED]->(m1)
+MATCH (u2)-[r3:RATED]->(m2:Movie)
+WHERE r1.rating >= 4 AND r2.rating >= 4 AND r3.rating >= 4
+  AND NOT (u1)-[:RATED]->(m2)
+RETURN m2.title AS recommendation, count(*) AS score
+ORDER BY score DESC
+```
+
+[Reference: Pattern Matching](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/2-pattern-matching/)
+
+## Database Schema Exploration
+
+```cypher
+// View database schema
+CALL db.schema.visualization()
+
+// List all node labels
+CALL db.labels()
+
+// List all relationship types
+CALL db.relationshipTypes()
+
+// List all properties
+CALL db.propertyKeys()
+
+// Get node counts by label
+MATCH (n:Person) RETURN count(n) AS person_count
+MATCH (n:Movie) RETURN count(n) AS movie_count
+MATCH (n:User) RETURN count(n) AS user_count
+
+// Get relationship counts by type
+MATCH ()-[r:ACTED_IN]->() RETURN count(r) AS acted_in_count
+MATCH ()-[r:RATED]->() RETURN count(r) AS rated_count
+MATCH ()-[r:DIRECTED]->() RETURN count(r) AS directed_count
+```
+
+[Reference: Reading Graphs](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/1-reading-data/)
+
+## Neo4j Deployment Options
+
+```bash
+# AuraDB (Cloud) - Create free instance at console.neo4j.io
+# No installation required, fully managed
+
+# Neo4j Desktop - Download and install
+# Includes local database, browser, and development tools
+
+# Docker deployment
+docker run \
+    --name neo4j \
+    -p7474:7474 -p7687:7687 \
+    -d \
+    -v $HOME/neo4j/data:/data \
+    -v $HOME/neo4j/logs:/logs \
+    -v $HOME/neo4j/import:/var/lib/neo4j/import \
+    -v $HOME/neo4j/plugins:/plugins \
+    --env NEO4J_AUTH=neo4j/password \
+    neo4j:latest
+
+# Access Neo4j Browser at http://localhost:7474
+# Connect with bolt://localhost:7687
+```
+
+[Reference: Get Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/3-explore-neo4j/1-neo4j-options/)
+
+## Connection and Authentication
+
+```cypher
+# Default connection details
+# URL: bolt://localhost:7687 (for local) or neo4j://localhost:7687
+# Username: neo4j
+# Password: Set during first connection
+
+# Connection string formats:
+# bolt://localhost:7687 - Single instance
+# neo4j://localhost:7687 - Routing (cluster)
+# bolt+s://xxx.databases.neo4j.io:7687 - AuraDB with encryption
+
+# Authentication examples (varies by driver):
+# Username/password: neo4j/your-password
+# No authentication: some local installations
+```
+
+[Reference: Get Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/3-explore-neo4j/1-neo4j-options/)
+
+## Data Modeling Best Practices
+
+```cypher
+// Use singular nouns for labels
+(:Person) // Good
+(:People) // Avoid
+
+// Use verbs for relationship types
+[:ACTED_IN] // Good
+[:ACTOR] // Avoid
+
+// Model verbs as nodes when they have properties
+// Instead of: (p:Person)-[:PURCHASED {date: "2024-01-01", total: 100}]->(product:Product)
+// Use: (p:Person)-[:PLACED]->(order:Order {date: "2024-01-01", total: 100})-[:CONTAINS]->(product:Product)
+
+// Multiple labels for classification
+(person:Person:Actor:Director {name: "Clint Eastwood"})
+
+// Properties should be atomic values
+{name: "Tom Hanks", born: 1956, bio: "American actor..."}
+
+// Use relationships to model hierarchies
+(parent:Person)-[:PARENT_OF]->(child:Person)
+(company:Company)-[:OWNS]->(subsidiary:Company)
+```
+
+[Reference: What is Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/1-graph-thinking/1-what-is-neo4j/)
+
+## Query Optimization
+
+```cypher
+// Use LIMIT to restrict results
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+RETURN p.name, m.title
+LIMIT 10
+
+// Use ORDER BY for sorting
+MATCH (m:Movie)
+WHERE m.released IS NOT NULL
+RETURN m.title, m.released
+ORDER BY m.released DESC
+LIMIT 5
+
+// Use indexes for performance (create via browser or application)
+CREATE INDEX person_name IF NOT EXISTS FOR (p:Person) ON (p.name)
+CREATE INDEX movie_title IF NOT EXISTS FOR (m:Movie) ON (m.title)
+
+// Use PROFILE to analyze query performance
+PROFILE MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title
+
+// Use EXPLAIN to see query plan without executing
+EXPLAIN MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title
+```
+
+[Reference: Reading Graphs](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/2-querying-graphs/1-reading-data/)
+
+## Common Use Cases
+
+```cypher
+// Social Network Analysis
+// Find friends of friends
+MATCH (user:User)-[:FRIENDS_WITH]->(friend)-[:FRIENDS_WITH]->(fof:User)
+WHERE user.name = "Alice" AND fof <> user
+RETURN DISTINCT fof.name AS friend_of_friend
+
+// Recommendation Engine
+// Collaborative filtering
+MATCH (u1:User)-[:RATED]->(m:Movie)<-[:RATED]-(u2:User)
+MATCH (u2)-[:RATED]->(rec:Movie)
+WHERE u1.name = "Alice" AND NOT (u1)-[:RATED]->(rec)
+RETURN rec.title AS recommendation, count(*) AS score
+ORDER BY score DESC
+
+// Fraud Detection
+// Find unusual patterns
+MATCH (account:Account)-[t:TRANSFERRED]->(other:Account)
+WHERE t.amount > 10000 AND t.timestamp > datetime() - duration('P1D')
+RETURN account, other, t
+
+// Supply Chain Analysis
+// Find dependencies
+MATCH path = (product:Product)-[:DEPENDS_ON*]->(component:Component)
+WHERE product.name = "Car"
+RETURN path
+
+// Knowledge Graph
+// Entity relationships
+MATCH (entity:Entity)-[r]->(related:Entity)
+WHERE entity.name CONTAINS "Neo4j"
+RETURN entity, r, related
+```
+
+[Reference: What is Neo4j](https://graphacademy.neo4j.com/courses/neo4j-fundamentals/1-graph-thinking/1-what-is-neo4j/) 

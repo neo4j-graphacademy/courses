@@ -1,0 +1,192 @@
+= Spatial types 
+:type: lesson
+:minutes: 10
+:order: 5
+
+[.slide.discrete]
+== Points and locations
+
+
+[.col]
+====
+Neo4j has built-in support for two-dimensional and three-dimensional spatial data types.
+These are referred to as **points**.
+
+A point may represent geographic coordinates (longitude, latitude) or Cartesian coordinates (x, y). 
+
+In Java, points are represented by the `org.neo4j.driver.types.Point` type, which is wrapped by the `org.neo4j.driver.Values` class to expose as a generic `Value` object.
+
+The `Point` type provides methods to access the coordinates and SRID of the point, allowing for easy manipulation and retrieval of spatial data.
+
+[.transcript-only]
+=====
+[TIP]
+.SRID
+======
+The **Spatial Reference Identifier** (SRID) is a unique identifier used to define the type of coordinate system used.
+======
+=====
+
+====
+
+[.col]
+====
+|===
+| Cypher Type | Java Type | SRID | 3D SRID
+
+| Point (Cartesian) | `org.neo4j.driver.types.Point` | `7203` | `9157`
+
+| Point (WGS-84) | `org.neo4j.driver.types.Point` | `4326` | `4979`
+|===
+====
+
+[.slide]
+== CartesianPoint
+
+A Cartesian Point defines a point with x and y coordinates. 
+An additional z value can be provided to define a three-dimensional point.
+
+You can create a cartesian point by passing `x`, `y` and optionally `z` values to the `Values.point()` method:
+
+.CartesianPoint
+[source,java]
+----
+import org.neo4j.driver.Values;
+
+var location2d = Values.point(srid, x, y);
+var location3d = Values.point(srid, x, y, z);
+----
+
+[.slide.discrete]
+== CartesianPoint
+
+Points returned from Cypher queries are converted to instances of the `Point` interface:
+
+[source,java]
+----
+var result = driver.executableQuery("RETURN point({x: 1.23, y: 4.56, z: 7.89}) AS point")
+    .withConfig(QueryConfig.builder().withDatabase("neo4j").build())
+    .execute();
+var point = result.records().get(0).get("point");
+
+System.out.println(point);
+System.out.println(
+    point.asPoint().x() + ", " + point.asPoint().y() + ", " + point.asPoint().z()
+    ); 
+----
+
+The values can be accessed using the `x`, `y` and `z` methods.
+
+[.slide.col-2]
+== WGS84Point
+
+[.col]
+====
+A WSG  _(World Geodetic System)_ point consists of a `latitude` (`y`) and `longitude` (`x`) value. An additional `height` (`z`) value can be provided to define a three-dimensional point.
+
+You can create a WGS84 point by passing `longitude`, `latitude` and `height` values to the point function in Cypher or passing the values to the `Values.point()` in Java.
+====
+
+[.col]
+====
+.WGS84Point
+[source,java]
+----
+import org.neo4j.driver.Values;
+
+var location2d = Values.point(4326, -0.118092, 51.509865);
+System.out.println(location2d.asPoint().x() + ", " + 
+                    location2d.asPoint().y() + ", " + 
+                    location2d.asPoint().srid());
+
+var location3d = Values.point(4979, -0.086500, 51.504501, 310);
+System.out.println(location3d.asPoint().x() + ", " + 
+                    location3d.asPoint().y() + ", " + 
+                    location3d.asPoint().z() + ", " + 
+                    location3d.asPoint().srid());
+----
+====
+
+[.slide.discrete.col-2]
+== WGS84Point
+
+[.col]
+====
+The driver will return `WGS84Point` objects when `point` data types are created with `latitude` and `longitude` values in Cypher.  The values can be accessed using the `x`, `y` and `z` attributes.
+====
+
+[.col]
+====
+.Using point()
+[source,java]
+----
+var result = driver.executableQuery("""
+        RETURN point(
+            {latitude: 51.5, longitude: -0.118, height: 100}
+        ) AS point
+    """)
+    .execute();
+
+var point = result.records().get(0).get("point");
+var longitude = point.asPoint().x();
+var latitude = point.asPoint().y();
+var height = point.asPoint().z();
+var srid = point.asPoint().srid();
+
+System.out.println(longitude + ", " + latitude + ", " + height + ", " + srid);
+System.out.println(point.asPoint());
+----
+====
+
+
+[.slide.col-2]
+== Distance
+
+[.col]
+====
+The `point.distance` function can be used to calculate the distance between two points with the same SRID.
+
+The result is a `float` representing the distance in a straight line between the two points.
+
+[WARNING]
+.SRIDs must be compatible
+=====
+If the SRID values are different, the function will return `None`.
+=====
+
+====
+
+[.col]
+====
+[source,Java]
+----
+var point1 = Values.point(7203, 1.23, 4.56);
+var point2 = Values.point(7203, 2.34, 5.67);
+
+var result = driver.executableQuery("""
+        RETURN point.distance($p1, $p2) AS distance
+        """)
+        .withParameters(
+            Map.of("p1", point1, "p2", point2))
+        .execute();
+
+var distance = result.records().get(0).get("distance").asDouble();
+System.out.println(distance);
+----
+
+[.next.discrete]
+== Check your understanding
+
+link:../6c-using-spatial-types/[Advance to challenge,role=btn]
+
+====
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to work with 2D and 3D `Cartesian` and `WGS-84` points.
+
+Regardless of the point, you can use the `x`, `y`, and `z` coordinate methods.
+
+For more information on Spatial types, view the link:https://neo4j.com/docs/cypher-manual/current/values-and-types/spatial/[spatial types page in Cypher Manual^] or the related https://neo4j.com/docs/java-manual/current/data-types/#_spatial_types[Java manual types and mapping page^].
+

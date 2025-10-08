@@ -1,0 +1,130 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Dry run (do not create actual release)"
+        required: false
+        default: false
+        type: boolean
+      run_qa_tests:
+        description: "Run QA tests"
+        required: false
+        default: true
+        type: boolean
+      run_build_tests:
+        description: "Run build and HTML tests"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "graphacademy-release[bot]"
+          git config --global user.email "graphacademy@neo4j.com"
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v4
+        with:
+          node-version: "16"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install NPM Dependencies
+        run: npm install --include=dev
+
+      - name: Run QA Tests
+        if: ${{ inputs.run_qa_tests }}
+        run: |
+          set -e
+          npm run test qa.test.js
+
+      - name: Run Build Tests
+        if: ${{ inputs.run_build_tests }}
+        run: |
+          set -e
+          npm run build:html
+          npm run test html.test.js
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Bump version (dry run)
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "DRY RUN: Would bump version from ${{ steps.current_version.outputs.current_version }} using: npm version ${{ inputs.version_type }}"
+          NEW_VERSION=$(npm version ${{ inputs.version_type }} --no-git-tag-version)
+          echo "DRY RUN: New version would be: $NEW_VERSION"
+          git checkout -- package.json package-lock.json
+
+      - name: Bump version and push tags
+        if: ${{ !inputs.dry_run }}
+        id: version_bump
+        run: |
+          NEW_VERSION=$(npm version ${{ inputs.version_type }})
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          git push --tags origin
+
+      - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version_bump.outputs.new_version }}
+          release_name: Release ${{ steps.version_bump.outputs.new_version }}
+          body: |
+            ## Changes in ${{ steps.version_bump.outputs.new_version }}
+
+            This release was created automatically via GitHub Actions.
+
+            **Version bump type:** ${{ inputs.version_type }}
+            **Previous version:** v${{ steps.current_version.outputs.current_version }}
+            **New version:** ${{ steps.version_bump.outputs.new_version }}
+
+            The release workflow will automatically deploy this version to production.
+          draft: false
+          prerelease: false
+
+      - name: Summary
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "## 🧪 Dry Run Complete" >> $GITHUB_STEP_SUMMARY
+            echo "This was a dry run. No changes were made." >> $GITHUB_STEP_SUMMARY
+            echo "- **Current version:** v${{ steps.current_version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Would bump:** ${{ inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🚀 Release Created Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "- **Previous version:** v${{ steps.current_version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **New version:** ${{ steps.version_bump.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Version bump type:** ${{ inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The existing release workflow will now automatically deploy this version." >> $GITHUB_STEP_SUMMARY
+          fi

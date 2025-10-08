@@ -10,4 +10,14 @@ CREATE CONSTRAINT Person_name_exists IF NOT EXISTS FOR (x:Person) REQUIRE x.name
 CREATE CONSTRAINT Movie_title_exists IF NOT EXISTS FOR (x:Movie) REQUIRE x.title IS NOT NULL;
 CREATE CONSTRAINT User_name_exists IF NOT EXISTS FOR (x:User) REQUIRE x.name IS NOT NULL;
 CREATE CONSTRAINT RATED_timestamp_exists IF NOT EXISTS FOR ()-[x:RATED]-() REQUIRE x.timestamp IS NOT NULL;
-CREATE CONSTRAINT Movie_imdbId_nodekey IF NOT EXISTS FOR (x:Movie) REQUIRE x.imdbId IS NODE KEY
+CREATE CONSTRAINT Movie_imdbId_nodekey IF NOT EXISTS FOR (x:Movie) REQUIRE x.imdbId IS NODE KEY;
+
+// reset Austin Green data
+MATCH (a:Person {tmdbId: "1634650"})
+SET 
+    a.name = "Austin Green", 
+    a.url = "https://themoviedb.org/person/1634650";
+MATCH (a:Person {tmdbId: "135067"})
+SET 
+    a.name = "Austin Green", 
+    a.url = "https://themoviedb.org/person/135067";

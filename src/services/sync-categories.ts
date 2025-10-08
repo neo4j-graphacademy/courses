@@ -2,8 +2,8 @@
 import path, { basename } from 'path'
 import fs from 'fs'
 import { loadFile } from '../modules/asciidoc'
-import { write } from '../modules/neo4j';
-import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_SHORTNAME, ATTRIBUTE_STATUS, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE, Language } from '../constants';
+import { writeTransaction } from '../modules/neo4j';
+import { ATTRIBUTE_CAPTION, ATTRIBUTE_LANGUAGE, ATTRIBUTE_LINK, ATTRIBUTE_PARENT, ATTRIBUTE_REDIRECT, ATTRIBUTE_SHORTNAME, ATTRIBUTE_STATUS, CATEGORY_DIRECTORY, DEFAULT_LANGUAGE, Language } from '../constants';
 import { categoryOverviewPath } from '../utils';
 
 
@@ -16,7 +16,7 @@ interface CategoryWithParents {
     caption: string;
     description: string;
     shortName: string;
-
+    redirect: string | undefined;
     parents: { category: string, order: number }[];
 }
 
@@ -36,7 +36,7 @@ const loadCategory = (slug: string): CategoryWithParents => {
     const description = file.getContent()
     const link = file.getAttribute(ATTRIBUTE_LINK, null)
     const language = file.getAttribute(ATTRIBUTE_LANGUAGE, DEFAULT_LANGUAGE)
-
+    const redirect = file.getAttribute(ATTRIBUTE_REDIRECT, null)
 
     const parents = file.getAttribute(ATTRIBUTE_PARENT, '')
         .split(',')
@@ -46,11 +46,11 @@ const loadCategory = (slug: string): CategoryWithParents => {
         // @ts-ignore
         .map(([category, order]) => ({ order: order || '99', category: category?.trim() }))
 
-
     return {
         slug,
         status,
         title: file.getTitle() as string,
+        redirect,
         language,
         link,
         caption,
@@ -63,24 +63,26 @@ const loadCategory = (slug: string): CategoryWithParents => {
 export async function syncCategories(): Promise<void> {
     const categories = loadCategories()
 
-    // Disable all categories
-    await write(`MATCH (c:Category) SET c.status = 'disabled'`)
+    await writeTransaction(async tx => {
+        // Disable all categories
+        await tx.run(`MATCH (c:Category) SET c.status = 'disabled'`)
 
-    // Remove all parent-child relationships
-    await write(`MATCH (p:Category)-[r:HAS_CHILD]->(c:Category) DELETE r`)
+        // Remove all parent-child relationships
+        await tx.run(`MATCH (p:Category)-[r:HAS_CHILD]->(c:Category) DELETE r`)
 
-    // Run import and update status
-    await write(`
-        UNWIND $categories AS row
-        MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
-        SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .link }
+        // Run import and update status
+        await tx.run(`
+            UNWIND $categories AS row
+            MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
+            SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .redirect, .link }
 
-        FOREACH (parent in row.parents |
-            MERGE (p:Category {id: apoc.text.base64Encode(parent.category)})
-            MERGE (p)-[r:HAS_CHILD]->(c)
-            SET r.order = parent.order
-        )
-    `, { categories })
+            FOREACH (parent in row.parents |
+                MERGE (p:Category {id: apoc.text.base64Encode(parent.category)})
+                MERGE (p)-[r:HAS_CHILD]->(c)
+                SET r.order = parent.order
+            )
+        `, { categories })
 
-    console.log(`🎒 ${categories.length} Categories merged into graph`);
+        console.log(`🎒 ${categories.length} Categories merged into graph`);
+    })
 }

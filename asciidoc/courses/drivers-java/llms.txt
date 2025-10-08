@@ -1,0 +1,483 @@
+# Using Neo4j with Java
+
+Learn how to interact with Neo4j from Java using the Neo4j Java Driver.
+
+## Concepts
+
+* **Driver** - The main entry point for connecting to Neo4j, manages connection pooling and configuration
+* **Session** - Manages database connections and provides transaction management
+* **Transaction** - A unit of work that ensures ACID compliance for database operations
+* **Record** - A single row returned by a Cypher query, provides map-like access to data
+* **Node** - Represents a graph node with labels, properties, and an element ID
+* **Relationship** - Represents a graph relationship with type, properties, start and end nodes
+* **Path** - A sequence of alternating nodes and relationships
+* **EagerResult** - Contains a list of records, summary, and keys from query execution
+* **TransactionContext** - Provides access to transaction operations within unit of work functions
+
+## Installing and Creating Driver Instance
+
+```xml
+<!-- Add to pom.xml -->
+<dependency>
+    <groupId>org.neo4j.driver</groupId>
+    <artifactId>neo4j-java-driver</artifactId>
+    <version>5.28.0</version>
+</dependency>
+```
+
+```java
+import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.AuthTokens;
+
+// Create a driver instance (create once, use throughout app)
+var driver = GraphDatabase.driver(
+    "neo4j://localhost:7687",                          // Connection string
+    AuthTokens.basic("neo4j", "your-password")         // Authentication
+);
+
+// Verify connectivity
+driver.verifyConnectivity();
+
+// Use with try-with-resources for automatic cleanup
+try (var driver = GraphDatabase.driver(NEO4J_URI, AuthTokens.basic(NEO4J_USERNAME, NEO4J_PASSWORD))) {
+    // Your code here
+} // Driver automatically closed
+```
+
+[Reference: Driver Installation and Setup](https://graphacademy.neo4j.com/courses/drivers-java/1-driver/1-driver-lifecycle/)
+
+## Executing Basic Queries
+
+```java
+import java.util.Map;
+
+// Execute a simple query
+var result = driver.executableQuery("RETURN COUNT {()} AS count").execute();
+
+// Access results
+var records = result.records();  // List of Record objects
+var summary = result.summary();  // ResultSummary with execution metadata
+var keys = result.keys();        // List of keys from RETURN clause
+
+// Access the first record
+var first = records.get(0);
+System.out.println(first.get("count"));  // Access by key
+
+// Query with parameters (prevents injection attacks)
+final String cypher = """
+    MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie)
+    RETURN m.title AS title, r.role AS role
+    """;
+
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("name", "Tom Hanks"))  // Named parameters
+    .execute();
+
+// Process results
+var records = result.records();
+records.forEach(record -> {
+    System.out.println(record.get("title") + ": " + record.get("role"));
+});
+```
+
+[Reference: Query Execution](https://graphacademy.neo4j.com/courses/drivers-java/1-driver/3-execute-query/)
+
+## Query Configuration and Routing
+
+```java
+import org.neo4j.driver.RoutingControl;
+import org.neo4j.driver.QueryConfig;
+
+// Configure query for read operations (distributes load in cluster)
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("name", "Tom Hanks"))
+    .withConfig(QueryConfig.builder()
+        .withRouting(RoutingControl.READ)  // Optimize for read operations
+        .build())
+    .execute();
+
+// For write operations (default behavior)
+var result = driver.executableQuery(cypher)
+    .withParameters(Map.of("name", "New Person"))
+    .withConfig(QueryConfig.builder()
+        .withRouting(RoutingControl.WRITE)  // Send to cluster leader
+        .build())
+    .execute();
+```
+
+[Reference: Query Execution and Routing](https://graphacademy.neo4j.com/courses/drivers-java/1-driver/3-execute-query/)
+
+## Working with Graph Types
+
+```java
+import org.neo4j.driver.types.Node;
+import org.neo4j.driver.types.Relationship;
+import org.neo4j.driver.types.Path;
+
+// Query returning nodes, relationships, and paths
+var result = driver.executableQuery("""
+    MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+    RETURN path, person, actedIn, movie
+    """)
+    .withParameters(Map.of("title", "Toy Story"))
+    .execute();
+
+var records = result.records();
+records.forEach(record -> {
+    // Working with Node objects
+    Node node = record.get("movie").asNode();
+    System.out.println(node.elementId());      // Node's element ID
+    System.out.println(node.labels());         // Set of labels: [Movie]
+    System.out.println(node.values());         // All properties as name-value pairs
+    System.out.println(node.get("title"));     // Access specific property
+    
+    // Working with Relationship objects
+    Relationship actedIn = record.get("actedIn").asRelationship();
+    System.out.println(actedIn.elementId());           // Relationship element ID
+    System.out.println(actedIn.type());                // Relationship type: "ACTED_IN"
+    System.out.println(actedIn.values());              // All properties
+    System.out.println(actedIn.get("role"));           // Access relationship property
+    System.out.println(actedIn.startNodeElementId());  // Start node element ID
+    System.out.println(actedIn.endNodeElementId());    // End node element ID
+    
+    // Working with Path objects
+    Path path = record.get("path").asPath();
+    System.out.println(path.start());          // First node in path
+    System.out.println(path.end());            // Last node in path
+    System.out.println(path.length());         // Number of relationships in path
+    System.out.println(path.nodes());          // Iterable of node objects
+    System.out.println(path.relationships());  // Iterable of relationship objects
+});
+```
+
+[Reference: Graph Types](https://graphacademy.neo4j.com/courses/drivers-java/2-handling-results/1-type-system/)
+
+## Transaction Management with Sessions
+
+```java
+import org.neo4j.driver.TransactionContext;
+import org.neo4j.driver.SessionConfig;
+
+// Using sessions for transaction control
+try (var session = driver.session()) {
+    
+    // Unit of work pattern for read transactions
+    public static List<String> getPersonMovies(TransactionContext tx, String personName) {
+        var result = tx.run("""
+            MATCH (p:Person {name: $name})-[:ACTED_IN]->(m:Movie)
+            RETURN m.title AS title
+            ORDER BY m.released
+            """, Map.of("name", personName));
+        
+        return result.list(record -> record.get("title").asString());
+    }
+    
+    // Execute read transaction
+    var movies = session.executeRead(tx -> getPersonMovies(tx, "Tom Hanks"));
+    
+    // Unit of work pattern for write transactions
+    public static Node createPerson(TransactionContext tx, String name, int age) {
+        var result = tx.run("""
+            CREATE (p:Person {name: $name, age: $age})
+            RETURN p
+            """, Map.of("name", name, "age", age));
+        
+        return result.single().get("p").asNode();
+    }
+    
+    // Execute write transaction
+    var person = session.executeWrite(tx -> createPerson(tx, "John Doe", 30));
+}
+
+// Specify database in multi-database setup
+try (var session = driver.session(SessionConfig.builder()
+        .withDatabase("movies")
+        .build())) {
+    // Use specific database
+}
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-java/3-in-production/1-transaction-management/)
+
+## Multi-Query Transactions
+
+```java
+// Multiple queries in single transaction (ACID compliance)
+public static void transferFunds(TransactionContext tx, String fromAccount, String toAccount, double amount) {
+    // Deduct from first account
+    tx.run(
+        "MATCH (a:Account {id: $from_}) SET a.balance = a.balance - $amount", 
+        Map.of("from_", fromAccount, "amount", amount)
+    );
+    
+    // Add to second account
+    tx.run(
+        "MATCH (a:Account {id: $to_}) SET a.balance = a.balance + $amount", 
+        Map.of("to_", toAccount, "amount", amount)
+    );
+}
+
+// Execute the transfer
+try (var session = driver.session()) {
+    session.executeWrite(tx -> {
+        transferFunds(tx, "acc1", "acc2", 100.0);
+        return "Transaction completed";
+    });
+}
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-java/3-in-production/1-transaction-management/)
+
+## Result Processing and Streaming
+
+```java
+import org.neo4j.driver.Result;
+import org.neo4j.driver.summary.ResultSummary;
+import java.util.concurrent.TimeUnit;
+
+// Process results immediately as they become available (streaming)
+try (var session = driver.session()) {
+    session.executeRead(tx -> {
+        Result result = tx.run("""
+            MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+            RETURN p.name AS name, m.title AS movie
+            """);
+        
+        // Process records as they arrive
+        while (result.hasNext()) {
+            var record = result.next();
+            System.out.println(record.get("name") + " acted in " + record.get("movie"));
+        }
+        
+        // Get summary information
+        ResultSummary summary = result.consume();
+        System.out.printf("Query executed in %d ms%n", 
+            summary.resultAvailableAfter(TimeUnit.MILLISECONDS));
+        
+        return summary;
+    });
+}
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-java/3-in-production/1-transaction-management/)
+
+## Error Handling
+
+```java
+import org.neo4j.driver.exceptions.*;
+
+try (var session = driver.session()) {
+    session.executeWrite(tx -> someTransactionFunction(tx));
+    
+} catch (ServiceUnavailableException e) {
+    // Database is unavailable
+    System.err.println("Database unavailable: " + e.getMessage());
+    
+} catch (TransientException e) {
+    // Temporary error - transaction will be retried automatically
+    System.err.println("Transient error (will retry): " + e.getMessage());
+    
+} catch (DatabaseException e) {
+    // Database-related error
+    System.err.println("Database error: " + e.getMessage());
+    
+} catch (ClientException e) {
+    // Client-side error (e.g., Cypher syntax error)
+    System.err.println("Client error: " + e.getMessage());
+    
+} finally {
+    // Always close the driver when done
+    driver.close();
+}
+```
+
+[Reference: Error Handling](https://graphacademy.neo4j.com/courses/drivers-java/3-in-production/3-error-handling/)
+
+## Working with Temporal Types
+
+```java
+import java.time.*;
+import java.time.temporal.ChronoUnit;
+
+// Creating temporal data
+var datetime = ZonedDateTime.of(2024, 5, 15, 14, 30, 0, 0, ZoneId.of("+02:00"));
+var duration = Duration.ofHours(1).plusMinutes(30);
+
+var result = driver.executableQuery("""
+    CREATE (e:Event {
+        startsAt: $datetime,
+        createdAt: datetime($dtstring),
+        updatedAt: datetime(),
+        duration: $duration,
+        interval: duration('PT1H30M')
+    })
+    RETURN e
+    """)
+    .withParameters(Map.of(
+        "datetime", datetime,
+        "dtstring", "2024-05-15T14:30:00+02:00",
+        "duration", duration
+    ))
+    .execute();
+
+// Working with returned temporal types
+var records = result.records();
+records.forEach(record -> {
+    var event = record.get("e").asNode();
+    
+    // Convert Neo4j temporal types to Java types
+    var startsAt = event.get("startsAt").asZonedDateTime();
+    var createdAt = event.get("createdAt").asZonedDateTime();
+    var eventDuration = event.get("duration").asIsoDuration();
+    
+    System.out.println("Event starts at: " + startsAt);
+    System.out.println("Duration: " + eventDuration.toString());
+});
+```
+
+[Reference: Temporal Types](https://graphacademy.neo4j.com/courses/drivers-java/2-handling-results/3-dates-and-times/)
+
+## Working with Spatial Types
+
+```java
+import org.neo4j.driver.types.Point;
+
+// Creating spatial data
+var result = driver.executableQuery("""
+    CREATE (l:Location {
+        coordinates: point({latitude: 40.7128, longitude: -74.0060}),
+        cartesian: point({x: 1.0, y: 2.0})
+    })
+    RETURN l
+    """).execute();
+
+// Working with spatial types
+var records = result.records();
+records.forEach(record -> {
+    var location = record.get("l").asNode();
+    
+    // WGS84 Point (geographic coordinates)
+    Point coords = location.get("coordinates").asPoint();
+    System.out.println("Latitude: " + coords.y() + ", Longitude: " + coords.x());
+    System.out.println("SRID: " + coords.srid());  // Spatial Reference System ID
+    
+    // Cartesian Point
+    Point cartesian = location.get("cartesian").asPoint();
+    System.out.println("X: " + cartesian.x() + ", Y: " + cartesian.y());
+});
+```
+
+[Reference: Spatial Types](https://graphacademy.neo4j.com/courses/drivers-java/2-handling-results/5-spatial-types/)
+
+## Type System and Value Mapping
+
+```java
+import org.neo4j.driver.Value;
+
+// Direct type mapping between Java and Neo4j
+var result = driver.executableQuery("""
+    RETURN 
+        null AS nullValue,
+        true AS booleanValue,
+        42 AS integerValue,
+        3.14 AS floatValue,
+        'Hello' AS stringValue,
+        [1, 2, 3] AS listValue,
+        {key: 'value'} AS mapValue
+    """).execute();
+
+var record = result.records().get(0);
+
+// Access values with type checking
+Value nullValue = record.get("nullValue");
+boolean booleanValue = record.get("booleanValue").asBoolean();
+long integerValue = record.get("integerValue").asLong();
+double floatValue = record.get("floatValue").asDouble();
+String stringValue = record.get("stringValue").asString();
+var listValue = record.get("listValue").asList();
+var mapValue = record.get("mapValue").asMap();
+
+// Safe access with default values
+String name = record.get("name").asString("Unknown");
+int age = record.get("age").asInt(0);
+```
+
+[Reference: Type System](https://graphacademy.neo4j.com/courses/drivers-java/2-handling-results/1-type-system/)
+
+## Connection Pooling and Configuration
+
+```java
+import org.neo4j.driver.Config;
+import java.time.Duration;
+
+// Advanced driver configuration
+var config = Config.builder()
+    .withMaxConnectionPoolSize(50)              // Max connections in pool
+    .withConnectionAcquisitionTimeout(Duration.ofSeconds(30))  // Timeout for acquiring connection
+    .withConnectionTimeout(Duration.ofSeconds(30))             // TCP connection timeout
+    .withMaxTransactionRetryTime(Duration.ofSeconds(30))       // Max retry time for transient failures
+    .withLogging(Logging.console(Level.INFO))   // Enable logging
+    .build();
+
+var driver = GraphDatabase.driver(NEO4J_URI, AuthTokens.basic(NEO4J_USERNAME, NEO4J_PASSWORD), config);
+
+// Driver automatically manages connection pooling
+// Connections are reused and managed efficiently
+```
+
+[Reference: Driver Configuration](https://graphacademy.neo4j.com/courses/drivers-java/1-driver/1-driver-lifecycle/)
+
+## Best Practices Summary
+
+```java
+public class Neo4jService {
+    private final Driver driver;
+    
+    public Neo4jService(String uri, String username, String password) {
+        // Create one driver instance per application
+        this.driver = GraphDatabase.driver(uri, AuthTokens.basic(username, password));
+    }
+    
+    public List<String> getPersonMovies(String personName) {
+        // Use read transactions for queries
+        try (var session = driver.session()) {
+            return session.executeRead(tx -> {
+                var result = tx.run("""
+                    MATCH (p:Person {name: $name})-[:ACTED_IN]->(m:Movie)
+                    RETURN m.title AS title
+                    """, Map.of("name", personName));
+                
+                return result.list(record -> record.get("title").asString());
+            });
+        }
+    }
+    
+    public void createPerson(String name, int age) {
+        // Use write transactions for mutations
+        try (var session = driver.session()) {
+            session.executeWrite(tx -> {
+                tx.run("""
+                    CREATE (p:Person {name: $name, age: $age})
+                    """, Map.of("name", name, "age", age));
+                return null;
+            });
+        }
+    }
+    
+    public void close() {
+        // Always close driver when application shuts down
+        driver.close();
+    }
+}
+
+// Usage
+var service = new Neo4jService(NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD);
+try {
+    var movies = service.getPersonMovies("Tom Hanks");
+    service.createPerson("Jane Doe", 30);
+} finally {
+    service.close();
+}
+```
+
+[Reference: Best Practices](https://graphacademy.neo4j.com/courses/drivers-java/) 

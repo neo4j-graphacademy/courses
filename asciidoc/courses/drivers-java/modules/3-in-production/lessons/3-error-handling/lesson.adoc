@@ -1,0 +1,126 @@
+= Handling Database Errors
+:type: lesson
+:minutes: 15
+:order: 3
+
+[.slide.discrete.col-2]
+== Error Handling
+
+When working with Neo4j, you may encounter various database errors that need to be handled gracefully in your application. 
+The driver exports a https://neo4j.com/docs/api/java-driver/5.28/org.neo4j.driver/org/neo4j/driver/exceptions/Neo4jException.html[`Neo4jException` class^] that is inherited by all exceptions thrown by the database.
+
+
+=== Common exceptions 
+
+* `AuthenticationException` - Raised when authentication fails (incorrect credentials provided)
+* `ClientException` - Raised when the client-side error occurs
+* `ConnectionReadTimeoutException` - Raised when the connection to the database times out (transaction took longer than timeout - 30 seconds, by default)
+* `DatabaseException` - Raised when there is a problem with the database
+* `GqlStatusErrorClassification` - Raises an error based on GQL status codes
+* `RetryableException` - Indicates retrying the transaction may succeed
+* `ServiceUnavailableException` - Raised when the database is unavailable (e.g., server is down or not running)
+* `TransactionTerminatedException` - Indicates that a transaction was terminated for some reason
+
+
+[.slide]
+== Handling errors
+
+When using the Neo4j Java driver, you can handle errors by catching specific exceptions.
+Any errors raised by the DBMS (`Neo4jException`) will have a `message` property that describes the error, as well as optional properties for `code`, `gql_status`, `cause`, and more.
+
+[source,java]
+----
+try (var session = driver.session()) {
+    // Run a Cypher statement
+    var result = session.run("MATCH (n) RETURN n LIMIT 10;");
+    result.forEachRemaining(record -> {
+        System.out.println(record.get("n").asNode().asMap());
+    });
+} catch (Neo4jException e) {
+    e.code(); // Outputs the error code
+    e.getMessage(); // Outputs the error message
+    e.gqlStatus(); // Outputs the GQL status
+    e.printStackTrace(); // Outputs full stack trace
+}
+----
+
+The `gqlStatus` property contains an error code that corresponds to an error in the ISO GQL standard. A full list of GQL error codes can be found in link:https://neo4j.com/docs/status-codes/current/errors/gql-errors/[Status Codes for Errors & Notifications^].
+
+
+[.slide.col-2]
+== Example: Handling unique constraint violations
+
+[.col]
+====
+One common scenario is dealing with constraint violations when inserting data.
+A unique constraint ensures that a property value is unique across all nodes with a specific label. 
+
+The following Cypher statement creates a unique constraint named `unique_email` to ensure that the `email` property is unique for the `User` label:
+
+[source,cypher]
+----
+CREATE CONSTRAINT unique_email IF NOT EXISTS 
+FOR (u:User) REQUIRE u.email IS UNIQUE;
+----
+
+If a Cypher statement violates this constraint, Neo4j will raise a `ConstraintError`.
+
+====
+
+[.col]
+====
+
+[.transcript-only]
+=====
+Here's an example of how to handle a unique constraint violation (pops as a `ClientException`) when creating a new user:
+=====
+
+[source,Java]
+----
+var name = "Test Name";
+var email = "test@test.com";
+        
+try (var session = driver.session()) {
+    var result = session.run("""
+        CREATE (u:User {name: $name, email: $email})
+        RETURN u;
+    """, 
+    Values.parameters("name", name, "email", email));
+} catch (ClientException e) {
+    e.printStackTrace(); 
+    // org.neo4j.driver.exceptions.ClientException:
+        // Node(5) already exists with label `User` 
+        // and property `email` = 'test@test.com'
+}
+----
+
+====
+
+[.next.discrete]
+== Check your understanding
+
+link:../4c-handling-errors/[Advance to challenge,role="btn transcript-only"]
+
+
+[.summary]
+== Summary
+
+Proper error handling is crucial for building robust Neo4j applications. By catching and handling specific exceptions:
+
+* Your application can gracefully handle expected error conditions
+* Users receive meaningful feedback
+* You can implement appropriate recovery strategies
+* Your application remains stable even when errors occur
+
+[TIP]
+.Best Practices
+====
+* Always catch specific exceptions rather than using a generic error
+* Log errors appropriately for debugging
+* Provide meaningful feedback to users
+* Consider implementing retry logic for transient errors
+====
+
+You can link:https://neo4j.com/docs/status-codes/current/errors/[find a full list of exception status codes in the Neo4j documentation^], https://neo4j.com/docs/java-manual/current/query-simple/#_error_handling[check out the Java documentation manual^] for more info on handling errors, or https://neo4j.com/docs/api/java-driver/current/org.neo4j.driver/org/neo4j/driver/exceptions/Neo4jException.html[look into the API docs^] for exception details.
+
+In the next challenge, you will use this information to handle errors in a real-world scenario.

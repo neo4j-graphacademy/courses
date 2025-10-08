@@ -1,0 +1,129 @@
+# Module 1: Generative AI
+
+## Learning Objectives:
+
+- Recap some key concepts
+- Explore a knowledge graph of structured and unstructured data
+- Search the graph using embeddings and vector indexes
+
+## Key Concepts Covered:
+
+### Lesson 1: What is Generative AI
+
+- **Generative AI** creates new content (text, images, audio, code) using patterns learned from training data but lacks true understanding.
+- **Large Language Models (LLMs)** generate probabilistic responses based on statistical patterns.
+- **Knowledge Graphs** organize interrelated data using nodes, relationships, and properties.
+- **Cypher** is a powerful query language for graph data.
+- **Retrieval Augmented Generation (RAG)** combines LLMs with external data retrieval for accurate responses, enhanced by Knowledge Graphs for structured, relationship-aware retrieval.
+
+### Lesson 2: Building a Graph
+
+- **Traditional RAG Limitations**: Blind to context, treats data as isolated chunks, lacks domain understanding.
+- **GraphRAG Solution**: Extract structured entities and relationships from unstructured PDF documents to create a knowledge graph.
+- **Transformation Process**:
+  - Extract text from PDFs.
+  - Chunk text into semantically meaningful units.
+  - Use schema-driven AI prompts to extract entities and relationships.
+  - Store structured data in Neo4j.
+- **Structured Data Integration**: Combines unstructured PDF data with structured CSV data for a complete knowledge graph.
+
+Code to create a knowledge graph from PDF:
+
+```python
+## Building Knowledge Graphs from Unstructured Data
+
+The code used to build the knowledge graph from unstructured data.
+
+```python
+# Example of SimpleKGPipeline for extracting structured data from PDFs
+from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
+
+# Define entity schema for extraction
+entities = {
+    "Company": ["name", "industry"],
+    "Executive": ["name", "title"], 
+    "Product": ["name", "description"],
+    "FinancialMetric": ["name", "value", "period"],
+    "RiskFactor": ["name", "description"],
+    "StockType": ["type", "class"],
+    "Transaction": ["type", "amount", "date"],
+    "TimePeriod": ["start_date", "end_date"]
+}
+
+# Define relationship schema
+relations = [
+    "Company HAS_METRIC FinancialMetric",
+    "Company FACES_RISK RiskFactor", 
+    "Company ISSUED_STOCK StockType",
+    "Company MENTIONS Product",
+    "Executive WORKS_FOR Company"
+]
+
+# Create and configure extraction pipeline
+pipeline = SimpleKGPipeline(
+    driver=driver,  # Neo4j connection
+    llm=llm,        # OpenAI LLM for extraction
+    embedder=embedder,  # OpenAI embeddings
+    entities=entities,  # Entity schema definition
+    relations=relations,  # Relationship schema
+    enforce_schema="STRICT",  # Enforce strict schema compliance
+    prompt_template=custom_prompt_template  # Custom extraction prompts
+)
+
+# Process PDF documents to build knowledge graph
+pdf_documents = [
+    "apple-10K-2023.pdf", 
+    "microsoft-10K-2023.pdf",
+    "amazon-10K-2023.pdf"
+]
+
+# Extract entities and relationships from each document
+for pdf_file in pdf_documents:
+    pipeline.run(file_path=pdf_file)
+```
+
+### Lesson 3: Vectors
+
+- **Vectors**: Numerical representations of data (e.g., `[1, 2, 3]`) used for semantic similarity search.
+- **Embeddings**: High-dimensional vectors that capture meaning and context, enabling semantic search.
+- **Applications**:
+  - Create embeddings for text using OpenAI's API.
+  - Store embeddings in Neo4j for hybrid retrieval.
+  - Use vector indexes for fast similarity search.
+  - Combine vector similarity with graph traversal for contextual retrieval.
+- **Practical Use**: Search for semantically relevant content, traverse graphs to find related entities, and enable intelligent, context-aware search capabilities.
+
+Cypher to create an embedding:
+
+```cypher
+WITH genai.vector.encode(
+    "Create an embedding for this text",
+    "OpenAI",
+    { token: "sk-..." }) AS embedding
+RETURN embedding
+```
+
+Cypher to query a vector index:
+
+```cypher
+WITH genai.vector.encode(
+    "What is the latest with Apple Inc?",
+    "OpenAI",
+    { token: "sk-..." }) AS embedding
+CALL db.index.vector.queryNodes('chunkEmbeddings', 6, embedding)
+YIELD node, score
+RETURN node.text, score
+```
+
+Cypher to traverse the graph around the query result:
+
+```cypher
+WITH genai.vector.encode(
+    "Whats the latest with Apple Inc?",
+    "OpenAI",
+    { token: "sk-..." }) AS embedding
+CALL db.index.vector.queryNodes('chunkEmbeddings', 6, embedding)
+YIELD node, score
+MATCH (node)<-[:FROM_CHUNK]-(e:__Entity__)
+RETURN node.text, score, collect(e.name) AS entities
+```

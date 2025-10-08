@@ -1,0 +1,323 @@
+# Using Neo4j with Python
+
+Learn how to interact with Neo4j from Python using the Neo4j Python Driver.
+
+## Concepts
+
+* **Driver** - The main entry point for connecting to Neo4j, manages connection pooling and configuration
+* **Session** - Manages database connections and provides transaction management
+* **Transaction** - A unit of work that ensures ACID compliance for database operations
+* **Record** - A single row returned by a Cypher query, provides dictionary-like access to data
+* **Node** - Represents a graph node with labels, properties, and an element ID
+* **Relationship** - Represents a graph relationship with type, properties, start and end nodes
+* **Path** - A sequence of alternating nodes and relationships
+
+## Installing and Creating Driver Instance
+
+```python
+# Install the driver
+# pip install neo4j
+
+from neo4j import GraphDatabase
+
+# Create a driver instance (create once, use throughout app)
+driver = GraphDatabase.driver(
+    "neo4j://localhost:7687",       # Connection string
+    auth=("neo4j", "your-password") # Authentication
+)
+
+# Verify connectivity
+driver.verify_connectivity()
+
+# Use with context manager for automatic cleanup
+with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD)) as driver:
+    # Your code here
+    pass
+```
+
+[Reference: Driver Installation and Setup](https://graphacademy.neo4j.com/courses/drivers-python/1-driver/1-driver-lifecycle/)
+
+## Executing Basic Queries
+
+```python
+# Execute a simple query
+records, summary, keys = driver.execute_query(
+    "RETURN COUNT {()} AS count"
+)
+
+# Access the first record
+first = records[0]
+print(first["count"])  # Dictionary-style access
+
+# Query with parameters (prevents injection attacks)
+cypher = """
+MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
+RETURN m.title AS title, r.role AS role
+"""
+
+records, summary, keys = driver.execute_query(
+    cypher,
+    name="Tom Hanks"  # Named parameter
+)
+
+# Process results
+for record in records:
+    print(f"{record['title']}: {record['role']}")
+```
+
+[Reference: Query Execution](https://graphacademy.neo4j.com/courses/drivers-python/1-driver/3-execute-query/)
+
+## Result Transformation and DataFrames
+
+```python
+from neo4j import Result, RoutingControl
+
+# Transform results with custom function
+result = driver.execute_query(
+    cypher,
+    name="Tom Hanks",
+    result_transformer_=lambda result: [
+        f"Tom Hanks played {record['role']} in {record['title']}" 
+        for record in result
+    ]
+)
+
+# Convert to pandas DataFrame
+df = driver.execute_query(
+    cypher,
+    name="Tom Hanks",
+    result_transformer_=Result.to_df,
+    routing_=RoutingControl.READ  # Optimize for read operations
+)
+```
+
+[Reference: Result Transformation](https://graphacademy.neo4j.com/courses/drivers-python/1-driver/3-execute-query/)
+
+## Working with Graph Types
+
+```python
+# Query returning nodes, relationships, and paths
+records, summary, keys = driver.execute_query("""
+MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+RETURN path, person, actedIn, movie
+""", title="Toy Story")
+
+for record in records:
+    # Working with Node objects
+    node = record["movie"]
+    print(node.element_id)      # Node's element ID
+    print(node.labels)          # Set of labels: {'Movie'}
+    print(node.items())         # All properties as dict items
+    print(node["title"])        # Access specific property
+    print(node.get("year", "Unknown"))  # Safe property access with default
+    
+    # Working with Relationship objects
+    acted_in = record["actedIn"]
+    print(acted_in.id)          # Internal relationship ID
+    print(acted_in.type)        # Relationship type: 'ACTED_IN'
+    print(acted_in.items())     # All properties
+    print(acted_in["roles"])    # Access relationship property
+    print(acted_in.start_node)  # Start node object
+    print(acted_in.end_node)    # End node object
+    
+    # Working with Path objects
+    path = record["path"]
+    print(path.start_node)      # First node in path
+    print(path.end_node)        # Last node in path
+    print(len(path))            # Number of relationships in path
+    print(path.relationships)   # Tuple of relationship objects
+    
+    # Iterate over path relationships
+    for relationship in iter(path):
+        print(relationship.type)
+```
+
+[Reference: Graph Types](https://graphacademy.neo4j.com/courses/drivers-python/2-handling-results/1-type-system/)
+
+## Transaction Management with Sessions
+
+```python
+# Using sessions for transaction control
+with driver.session() as session:
+    
+    # Unit of work pattern for read transactions
+    def get_person_movies(tx, person_name):
+        result = tx.run("""
+        MATCH (p:Person {name: $name})-[:ACTED_IN]->(m:Movie)
+        RETURN m.title AS title
+        ORDER BY m.released
+        """, name=person_name)
+        
+        return [record["title"] for record in result]
+    
+    # Execute read transaction
+    movies = session.execute_read(get_person_movies, "Tom Hanks")
+    
+    # Unit of work pattern for write transactions
+    def create_person(tx, name, age):
+        result = tx.run("""
+        CREATE (p:Person {name: $name, age: $age})
+        RETURN p
+        """, name=name, age=age)
+        
+        return result.single()["p"]
+    
+    # Execute write transaction
+    person = session.execute_write(create_person, "John Doe", 30)
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-python/3-in-production/1-transaction-management/)
+
+## Multi-Query Transactions
+
+```python
+# Multiple queries in single transaction (ACID compliance)
+def transfer_funds(tx, from_account, to_account, amount):
+    # Deduct from first account
+    tx.run(
+        "MATCH (a:Account {id: $from_}) SET a.balance = a.balance - $amount", 
+        from_=from_account, amount=amount
+    )
+    
+    # Add to second account
+    tx.run(
+        "MATCH (a:Account {id: $to}) SET a.balance = a.balance + $amount", 
+        to=to_account, amount=amount
+    )
+    
+    # Return transaction summary
+    return tx.run("RETURN 'Transaction completed' AS status").consume()
+
+# Execute the transfer
+with driver.session() as session:
+    summary = session.execute_write(transfer_funds, "acc1", "acc2", 100)
+    print(f"Transaction completed in {summary.result_consumed_after}ms")
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-python/3-in-production/1-transaction-management/)
+
+## Error Handling
+
+```python
+from neo4j import exceptions
+
+try:
+    with driver.session() as session:
+        result = session.execute_write(some_transaction_function)
+        
+except exceptions.ServiceUnavailable as e:
+    # Database is unavailable
+    print(f"Database unavailable: {e}")
+    
+except exceptions.TransientError as e:
+    # Temporary error - transaction will be retried automatically
+    print(f"Transient error (will retry): {e}")
+    
+except exceptions.DatabaseError as e:
+    # Database-related error
+    print(f"Database error: {e}")
+    
+except exceptions.CypherError as e:
+    # Cypher syntax or semantic error
+    print(f"Cypher error: {e}")
+    
+finally:
+    # Always close the driver when done
+    driver.close()
+```
+
+[Reference: Error Handling](https://graphacademy.neo4j.com/courses/drivers-python/3-in-production/3-error-handling/)
+
+## Working with Temporal Types
+
+```python
+from datetime import datetime, date, time
+from neo4j.time import DateTime, Date, Time, Duration
+
+# Creating temporal data
+records, summary, keys = driver.execute_query("""
+CREATE (e:Event {
+    created: datetime(),
+    date: date(),
+    time: time(),
+    duration: duration('P1Y2M3DT4H5M6S')
+})
+RETURN e
+""")
+
+# Working with returned temporal types
+for record in records:
+    event = record["e"]
+    
+    # Neo4j DateTime to Python datetime
+    created = event["created"]
+    python_datetime = created.to_native()  # Convert to Python datetime
+    
+    # Neo4j Date to Python date
+    event_date = event["date"]
+    python_date = event_date.to_native()   # Convert to Python date
+    
+    # Neo4j Duration
+    duration = event["duration"]
+    print(f"Duration: {duration.years}Y {duration.months}M {duration.days}D")
+```
+
+[Reference: Temporal Types](https://graphacademy.neo4j.com/courses/drivers-python/2-handling-results/3-dates-times/)
+
+## Working with Spatial Types
+
+```python
+from neo4j.spatial import CartesianPoint, WGS84Point
+
+# Creating spatial data
+records, summary, keys = driver.execute_query("""
+CREATE (l:Location {
+    coordinates: point({latitude: 40.7128, longitude: -74.0060}),
+    cartesian: point({x: 1.0, y: 2.0})
+})
+RETURN l
+""")
+
+# Working with spatial types
+for record in records:
+    location = record["l"]
+    
+    # WGS84 Point (geographic coordinates)
+    coords = location["coordinates"]
+    print(f"Latitude: {coords.latitude}, Longitude: {coords.longitude}")
+    print(f"SRID: {coords.srid}")  # Spatial Reference System ID
+    
+    # Cartesian Point
+    cartesian = location["cartesian"]
+    print(f"X: {cartesian.x}, Y: {cartesian.y}")
+```
+
+[Reference: Spatial Types](https://graphacademy.neo4j.com/courses/drivers-python/2-handling-results/5-spatial-types/)
+
+## Database Routing and Performance
+
+```python
+from neo4j import RoutingControl
+
+# Read queries - distribute across cluster members
+with driver.session() as session:
+    movies = session.execute_read(
+        get_person_movies, 
+        "Tom Hanks",
+        routing_=RoutingControl.READ  # or just "r"
+    )
+
+# Write queries - sent to cluster leader
+with driver.session() as session:
+    person = session.execute_write(
+        create_person,
+        "Jane Doe", 25,
+        routing_=RoutingControl.WRITE  # or just "w" 
+    )
+
+# Specify database in multi-database setup
+with driver.session(database="movies") as session:
+    result = session.execute_read(some_function)
+```
+
+[Reference: Query Execution and Routing](https://graphacademy.neo4j.com/courses/drivers-python/1-driver/3-execute-query/)
