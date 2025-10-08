@@ -1,33 +1,20 @@
-# Installing the driver
+# Installing the Neo4j Go Driver
 
-## Introduction
+Learn how to install the Neo4j Go Driver, create driver instances, and execute your first queries.
 
-In the Cypher Fundamentals course, you learned how to query Neo4j using Cypher.
-
-To run Cypher statements in a Go application, you'll need the Neo4j Go Driver.
-The driver acts as a bridge between your Go code and Neo4j, handling connections to the database and the execution of Cypher queries.
-
-## Setting up a Go Project
-
-First, create a new Go project and initialize it as a module:
+## Installation and Setup
 
 ```shell
+# Create a new Go project
 mkdir hello-neo4j
 cd hello-neo4j
 go mod init graphacademy/hello
-```
 
-## Installing the Driver
-
-To install the driver, use go get:
-
-```shell
+# Install the Neo4j Go Driver
 go get github.com/neo4j/neo4j-go-driver/v5
 ```
 
 ## Creating a Driver Instance
-
-You start by importing the driver and creating an instance:
 
 ```go
 package main
@@ -39,86 +26,110 @@ import (
 )
 
 func main() {
+    // Create driver instance (singleton pattern - share across application)
     driver, err := neo4j.NewDriverWithContext(
-        "neo4j://localhost:7687", // The connection string for your Neo4j database
-        neo4j.BasicAuth("neo4j", "your-password", ""), // Your Neo4j username and password
+        "neo4j://localhost:7687",                    // Connection string
+        neo4j.BasicAuth("neo4j", "your-password", ""), // Authentication
     )
     if err != nil {
         panic(err)
     }
-    defer driver.Close(context.Background()) // Always close the driver when done
+    defer driver.Close(context.Background()) // Always close driver when done
+    
+    // Verify connectivity before using
+    ctx := context.Background()
+    err = driver.VerifyConnectivity(ctx)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Println("Connected to Neo4j!")
 }
 ```
 
-**Best Practice**: Create one Driver instance and share it across your entire application.
+## Best Practices
 
-## Verifying Connectivity
-
-You can verify the connection is correct by calling the `VerifyConnectivity()` method.
-
-```go
-ctx := context.Background()
-err := driver.VerifyConnectivity(ctx)
-if err != nil {
-    panic(err)
-}
-```
-
-The `VerifyConnectivity()` method will return an error if the connection cannot be made.
+* **Singleton Pattern**: Create **one** driver instance and share it across your entire application
+* **Resource Management**: Always use `defer driver.Close()` for automatic cleanup
+* **Error Handling**: Check connectivity before executing queries
+* **Context Usage**: Use `context.Background()` or custom contexts for operations
 
 ## Running Your First Query
 
-The `ExecuteQuery()` method executes a Cypher query and returns the results.
-
 ```go
-ctx := context.Background()
-result, err := neo4j.ExecuteQuery(ctx, driver, // neo4j.ExecuteQuery() runs a Cypher query to get the count of all nodes in the database
-    "RETURN COUNT {()} AS count",
-    nil, // nil means no parameters are passed to the query
-    neo4j.EagerResultTransformer, // EagerResultTransformer loads all results into memory
-)
-if err != nil {
-    panic(err)
-}
-
-// Get the first record
-first := result.Records[0] // Records contains a slice of the rows returned
-
-// Print the count entry
-count, _ := first.Get("count") // Values from the RETURN clause are accessed using the Get() method
-fmt.Println(count)
-```
-
-## Full driver lifecycle
-
-Once you have finished with the driver, call `Close()` to release any resources held by the driver.
-
-```go
-ctx := context.Background()
-driver.Close(ctx)
-```
-
-You can use `defer` to create an all-in-one solution that will automatically close the driver when the function exits.
-
-```go
-func main() {
-    driver, err := neo4j.NewDriverWithContext(NEO4J_URI, neo4j.BasicAuth(NEO4J_USERNAME, NEO4J_PASSWORD, ""))
+// Execute a simple query to count all nodes
+func executeFirstQuery(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "RETURN COUNT(*) AS count",           // Cypher query (corrected syntax)
+        nil,                                  // No parameters
+        neo4j.EagerResultTransformer,         // Load all results into memory
+    )
     if err != nil {
         panic(err)
+    }
+
+    // Access the first record
+    if len(result.Records) > 0 {
+        first := result.Records[0]
+        count, _ := first.Get("count")
+        fmt.Printf("Total nodes in database: %v\n", count)
+    }
+}
+```
+
+## Complete Example
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    // Create and configure driver
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",
+        neo4j.BasicAuth("neo4j", "your-password", ""),
+    )
+    if err != nil {
+        panic(fmt.Sprintf("Failed to create driver: %v", err))
     }
     defer driver.Close(context.Background())
     
-    result, err := neo4j.ExecuteQuery(context.Background(), driver, "RETURN COUNT {()} AS count", nil, neo4j.EagerResultTransformer)
+    // Verify connectivity
+    ctx := context.Background()
+    if err := driver.VerifyConnectivity(ctx); err != nil {
+        panic(fmt.Sprintf("Failed to connect: %v", err))
+    }
+    
+    // Execute first query
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "RETURN COUNT(*) AS count",
+        nil,
+        neo4j.EagerResultTransformer,
+    )
     if err != nil {
-        panic(err)
+        panic(fmt.Sprintf("Query failed: %v", err))
+    }
+    
+    // Process results
+    if len(result.Records) > 0 {
+        count, _ := result.Records[0].Get("count")
+        fmt.Printf("Database contains %v nodes\n", count)
     }
 }
 ```
 
-## Lesson Summary
+## Key Concepts
 
-In this lesson you learned how to install the Neo4j Go Driver, create a Driver instance, verify connectivity to your database, and execute your first Cypher statement.
+* **Driver**: Bridge between Go application and Neo4j database
+* **Context**: Go's context package for cancellation and timeouts
+* **ExecuteQuery()**: Method for executing one-off Cypher statements
+* **EagerResultTransformer**: Loads all query results into memory at once
+* **Record**: Individual row returned by a query
+* **Get()**: Method to access values from a record by column name
 
-For async applications, use the async API methods.
-
-In the next lesson, you will take a quiz to test your knowledge of installing and creating a driver instance.
+[Reference: Installing the Driver](https://graphacademy.neo4j.com/courses/drivers-go/1-driver/1-driver-lifecycle)

@@ -1,106 +1,398 @@
-# Graph types
+# Neo4j Type System and Graph Types
 
-## Introduction
+Learn how Neo4j data types map to Go types and how to work with graph elements like Nodes, Relationships, and Paths.
 
-Let's take a look at the types of data returned by a Cypher query.
-
-The majority of the types returned by a Cypher query are mapped directly to Go types, but some more complex types need special handling.
-
-* Graph types - Nodes, Relationships and Paths
-* Temporal types - Dates and times
-* Spatial types - Points and distances
-
-**Types in Neo4j Browser**: When graph types are returned by a query, they are visualized in a graph layout.
-
-## Direct mapping
-
-| Go Type | Neo4j Cypher Type |
-|---------|-------------------|
-| `nil` | `null` |
-| `bool` | `Boolean` |
-| `int64` | `Integer` |
-| `float64` | `Float` |
-| `string` | `String` |
-| `[]byte` | `Bytes [1]` |
-| `[]any` | `List` |
-| `map[string]any` | `Map` |
-
-## Graph types
-
-The following code snippet finds all movies with the specified title and returns `person`, `acted_in` and `movie`.
+## Type Mapping Overview
 
 ```go
-result, err := neo4j.ExecuteQuery(ctx, driver, `
-MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
-RETURN path, person, actedIn, movie
-`, map[string]any{"title": movie}, neo4j.EagerResultTransformer)
-```
-
-## Nodes
-
-Nodes are returned as a `neo4j.Node` object.
-
-```go
-for _, record := range result.Records {
-    node, _ := record.Get("movie")
-    movieNode := node.(neo4j.Node)
+// Direct type mappings between Neo4j and Go
+var typeMappings = map[string]string{
+    "null":    "nil",
+    "Boolean": "bool", 
+    "Integer": "int64",
+    "Float":   "float64",
+    "String":  "string",
+    "Bytes":   "[]byte",
+    "List":    "[]any",
+    "Map":     "map[string]any",
 }
 ```
 
-Working with Node Objects:
+## Working with Basic Types
 
 ```go
-fmt.Println(movieNode.ElementId)      // The ElementId property provides access to the node's element ID (eg. 4:97b72e9c-ae4d-427c-96ff-8858ecf16f88:0)
-fmt.Println(movieNode.Labels)          // The Labels property is a slice containing an array of labels attributed to the Node (eg. ["Person", "Actor"])
-fmt.Println(movieNode.Props)           // The Props property provides access to the node's properties as a map (eg. {name: "Tom Hanks", tmdbId: "31"})
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
 
-// A single property can be retrieved using the Get() method which returns the value and a boolean indicating if the property exists.
-name, exists := movieNode.Get("name")
-if exists {
-    fmt.Println(name)
+// Demonstrate basic type handling
+func handleBasicTypes(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        RETURN 
+            null AS nullValue,
+            true AS boolValue,
+            42 AS intValue,
+            3.14 AS floatValue,
+            "Hello" AS stringValue,
+            [1, 2, 3] AS listValue,
+            {name: "Alice", age: 30} AS mapValue
+    `, nil, neo4j.EagerResultTransformer)
+    
+    if err != nil {
+        panic(err)
+    }
+    
+    if len(result.Records) > 0 {
+        record := result.Records[0]
+        
+        // Handle null values
+        nullVal, _ := record.Get("nullValue")
+        fmt.Printf("Null value: %v (type: %T)\n", nullVal, nullVal) // <nil> (type: <nil>)
+        
+        // Handle boolean
+        boolVal, _ := record.Get("boolValue")
+        fmt.Printf("Boolean: %v (type: %T)\n", boolVal, boolVal) // true (type: bool)
+        
+        // Handle integer
+        intVal, _ := record.Get("intValue")
+        fmt.Printf("Integer: %v (type: %T)\n", intVal, intVal) // 42 (type: int64)
+        
+        // Handle float
+        floatVal, _ := record.Get("floatValue")
+        fmt.Printf("Float: %v (type: %T)\n", floatVal, floatVal) // 3.14 (type: float64)
+        
+        // Handle string
+        stringVal, _ := record.Get("stringValue")
+        fmt.Printf("String: %v (type: %T)\n", stringVal, stringVal) // Hello (type: string)
+        
+        // Handle list
+        listVal, _ := record.Get("listValue")
+        fmt.Printf("List: %v (type: %T)\n", listVal, listVal) // [1 2 3] (type: []interface{})
+        
+        // Handle map
+        mapVal, _ := record.Get("mapValue")
+        fmt.Printf("Map: %v (type: %T)\n", mapVal, mapVal) // map[age:30 name:Alice] (type: map[string]interface{})
+    }
 }
 ```
 
-## Relationships
-
-Relationships are returned as a `neo4j.Relationship` object.
+## Working with Graph Types
 
 ```go
-actedIn, _ := record.Get("actedIn")
-relationship := actedIn.(neo4j.Relationship)
+// Query that returns graph elements
+func handleGraphTypes(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+        RETURN path, person, actedIn, movie
+        LIMIT 1
+    `, map[string]any{"title": "The Matrix"}, neo4j.EagerResultTransformer)
+    
+    if err != nil {
+        panic(err)
+    }
+    
+    if len(result.Records) == 0 {
+        fmt.Println("No results found")
+        return
+    }
+    
+    record := result.Records[0]
+    
+    // Handle Node
+    handleNode(record)
+    
+    // Handle Relationship  
+    handleRelationship(record)
+    
+    // Handle Path
+    handlePath(record)
+}
+```
 
-fmt.Println(relationship.ElementId)         // ElementId - Internal ID of the relationship (eg. 9876)
-fmt.Println(relationship.Type)              // Type - Type of relationship (eg. ACTED_IN)
-fmt.Println(relationship.Props)             // Props - Returns relationship properties as a map (eg. {role: "Woody"})
+## Working with Nodes
 
-// Access properties using the Get() method
-role, exists := relationship.Get("role")
-if exists {
-    fmt.Println(role)
+```go
+// Extract and work with Node objects
+func handleNode(record neo4j.Record) {
+    personData, _ := record.Get("person")
+    person := personData.(neo4j.Node)
+    
+    fmt.Println("=== Node Information ===")
+    
+    // Element ID (unique identifier)
+    fmt.Printf("Element ID: %s\n", person.ElementId)
+    
+    // Labels (slice of strings)
+    fmt.Printf("Labels: %v\n", person.Labels) // e.g., ["Person", "Actor"]
+    
+    // Properties (map[string]any)
+    fmt.Printf("All Properties: %v\n", person.Props)
+    
+    // Safe property access
+    if name, exists := person.Props["name"]; exists && name != nil {
+        fmt.Printf("Name: %s\n", name.(string))
+    }
+    
+    if born, exists := person.Props["born"]; exists && born != nil {
+        fmt.Printf("Born: %d\n", born.(int64))
+    }
+    
+    // Check for specific labels
+    hasPersonLabel := false
+    for _, label := range person.Labels {
+        if label == "Person" {
+            hasPersonLabel = true
+            break
+        }
+    }
+    fmt.Printf("Has Person label: %t\n", hasPersonLabel)
+}
+```
+
+## Working with Relationships
+
+```go
+// Extract and work with Relationship objects
+func handleRelationship(record neo4j.Record) {
+    actedInData, _ := record.Get("actedIn")
+    relationship := actedInData.(neo4j.Relationship)
+    
+    fmt.Println("=== Relationship Information ===")
+    
+    // Element ID
+    fmt.Printf("Element ID: %s\n", relationship.ElementId)
+    
+    // Relationship type
+    fmt.Printf("Type: %s\n", relationship.Type) // e.g., "ACTED_IN"
+    
+    // Start and end node IDs
+    fmt.Printf("Start Node ID: %s\n", relationship.StartElementId)
+    fmt.Printf("End Node ID: %s\n", relationship.EndElementId)
+    
+    // Properties
+    fmt.Printf("All Properties: %v\n", relationship.Props)
+    
+    // Safe property access
+    if role, exists := relationship.Props["role"]; exists && role != nil {
+        fmt.Printf("Role: %s\n", role.(string))
+    }
+    
+    if roles, exists := relationship.Props["roles"]; exists && roles != nil {
+        // Handle list of roles
+        roleList := roles.([]any)
+        fmt.Printf("Roles: ")
+        for i, role := range roleList {
+            if i > 0 {
+                fmt.Print(", ")
+            }
+            fmt.Print(role.(string))
+        }
+        fmt.Println()
+    }
+}
+```
+
+## Working with Paths
+
+```go
+// Extract and work with Path objects
+func handlePath(record neo4j.Record) {
+    pathData, _ := record.Get("path")
+    path := pathData.(neo4j.Path)
+    
+    fmt.Println("=== Path Information ===")
+    
+    // Start and end nodes
+    fmt.Printf("Start Node: %v\n", path.Start.Props["name"])
+    fmt.Printf("End Node: %v\n", path.End.Props["title"])
+    
+    // Path length (number of relationships)
+    fmt.Printf("Path Length: %d\n", len(path.Relationships))
+    
+    // Iterate through relationships in path
+    fmt.Println("Path Relationships:")
+    for i, rel := range path.Relationships {
+        fmt.Printf("  %d. %s (type: %s)\n", i+1, rel.ElementId, rel.Type)
+        
+        // Print relationship properties
+        for key, value := range rel.Props {
+            fmt.Printf("     %s: %v\n", key, value)
+        }
+    }
+    
+    // Iterate through nodes in path (start node + end nodes of each relationship)
+    fmt.Println("Path Nodes:")
+    fmt.Printf("  Start: %v\n", path.Start.Props["name"])
+    for i, rel := range path.Relationships {
+        // Note: Path doesn't directly expose intermediate nodes
+        // You would need to query them separately if needed
+        fmt.Printf("  After relationship %d: (end node of %s)\n", i+1, rel.Type)
+    }
+}
+```
+
+## Type-Safe Property Access
+
+```go
+// Helper functions for safe type conversion
+func getStringProperty(props map[string]any, key string) (string, bool) {
+    if value, exists := props[key]; exists && value != nil {
+        if str, ok := value.(string); ok {
+            return str, true
+        }
+    }
+    return "", false
 }
 
-fmt.Println(relationship.StartNodeId)       // StartNodeId - Element ID of the node at the start of the relationship
-fmt.Println(relationship.EndNodeId)          // EndNodeId - Element ID of the node at the end of the relationship
+func getIntProperty(props map[string]any, key string) (int64, bool) {
+    if value, exists := props[key]; exists && value != nil {
+        if i, ok := value.(int64); ok {
+            return i, true
+        }
+    }
+    return 0, false
+}
+
+func getFloatProperty(props map[string]any, key string) (float64, bool) {
+    if value, exists := props[key]; exists && value != nil {
+        if f, ok := value.(float64); ok {
+            return f, true
+        }
+    }
+    return 0.0, false
+}
+
+func getBoolProperty(props map[string]any, key string) (bool, bool) {
+    if value, exists := props[key]; exists && value != nil {
+        if b, ok := value.(bool); ok {
+            return b, true
+        }
+    }
+    return false, false
+}
+
+// Usage example
+func safePropertyAccess(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person) RETURN p LIMIT 1",
+        nil,
+        neo4j.EagerResultTransformer,
+    )
+    if err != nil || len(result.Records) == 0 {
+        return
+    }
+    
+    personData, _ := result.Records[0].Get("p")
+    person := personData.(neo4j.Node)
+    
+    // Safe property access with type checking
+    if name, exists := getStringProperty(person.Props, "name"); exists {
+        fmt.Printf("Name: %s\n", name)
+    }
+    
+    if born, exists := getIntProperty(person.Props, "born"); exists {
+        fmt.Printf("Born: %d\n", born)
+    }
+    
+    if rating, exists := getFloatProperty(person.Props, "rating"); exists {
+        fmt.Printf("Rating: %.2f\n", rating)
+    }
+}
 ```
 
-## Paths
-
-A path is a sequence of nodes and relationships and is returned as a `neo4j.Path` object.
+## Complete Example
 
 ```go
-path, _ := record.Get("path")
-pathObj := path.(neo4j.Path)
+package main
 
-fmt.Println(pathObj.Start)  // Start - neo4j.Node object at the start of the path
-fmt.Println(pathObj.End)    // End - neo4j.Node object at the end of the path
-fmt.Println(len(pathObj.Relationships))  // len(pathObj.Relationships) - The number of relationships within the path
-fmt.Println(pathObj.Relationships)  // Relationships - A slice of neo4j.Relationship objects within the path.
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",
+        neo4j.BasicAuth("neo4j", "password", ""),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background())
+    
+    ctx := context.Background()
+    
+    // Query returning various graph types
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        MATCH path = (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie)
+        RETURN path, p AS person, r AS relationship, m AS movie
+        LIMIT 1
+    `, map[string]any{"name": "Tom Hanks"}, neo4j.EagerResultTransformer)
+    
+    if err != nil {
+        panic(err)
+    }
+    
+    if len(result.Records) == 0 {
+        fmt.Println("No results found")
+        return
+    }
+    
+    record := result.Records[0]
+    
+    // Process Node
+    if personData, exists := record.Get("person"); exists {
+        person := personData.(neo4j.Node)
+        fmt.Printf("Person: %s (Labels: %v)\n", 
+            person.Props["name"], person.Labels)
+    }
+    
+    // Process Relationship
+    if relData, exists := record.Get("relationship"); exists {
+        rel := relData.(neo4j.Relationship)
+        fmt.Printf("Relationship: %s", rel.Type)
+        if role, exists := rel.Props["role"]; exists {
+            fmt.Printf(" (Role: %s)", role)
+        }
+        fmt.Println()
+    }
+    
+    // Process Movie Node
+    if movieData, exists := record.Get("movie"); exists {
+        movie := movieData.(neo4j.Node)
+        fmt.Printf("Movie: %s", movie.Props["title"])
+        if released, exists := movie.Props["released"]; exists {
+            fmt.Printf(" (%d)", released)
+        }
+        fmt.Println()
+    }
+    
+    // Process Path
+    if pathData, exists := record.Get("path"); exists {
+        path := pathData.(neo4j.Path)
+        fmt.Printf("Path length: %d relationships\n", len(path.Relationships))
+    }
+}
 ```
 
-**Paths are iterable**: Use `for _, rel := range pathObj.Relationships` to iterate over the relationships in a path.
+## Key Concepts
 
-## Summary
+* **Type Mapping**: Neo4j types map directly to Go types for primitives
+* **Graph Types**: Nodes, Relationships, and Paths are special Neo4j types
+* **Element IDs**: Unique identifiers for nodes and relationships
+* **Properties**: Accessed via Props map with type assertions
+* **Labels**: Node labels are available as string slices
+* **Type Safety**: Always use type assertions and check for nil values
 
-In this lesson, you learned about the types of data returned by a Cypher query and how to work with them in your application.
+## Best Practices
 
-Now it's time to test yourself on what you've learned.
+* **Type Assertions**: Always use type assertions when accessing graph type properties
+* **Nil Checks**: Check for nil values before type assertions
+* **Helper Functions**: Create utility functions for safe property access
+* **Error Handling**: Handle cases where expected properties don't exist
+* **Performance**: Cache frequently accessed properties rather than repeated map lookups
+
+[Reference: Graph Types](https://graphacademy.neo4j.com/courses/drivers-go/2-handling-results/1-type-system)

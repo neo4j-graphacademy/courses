@@ -1,127 +1,221 @@
-# Executing Cypher statements
+# Executing Cypher Statements
 
-## Introduction
+Learn how to execute Cypher queries, handle parameters, process results, and optimize performance with routing.
 
-You can use the `neo4j.ExecuteQuery()` function to run one-off Cypher statements or statements that return a small number of records.
-This function fetches a list of records and loads them into memory.
+## Basic Query Execution
 
 ```go
-cypher := `
-MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
-RETURN m.title AS title, r.role AS role
-`
-name := "Tom Hanks"
-
-result, err := neo4j.ExecuteQuery(ctx, driver, // The function returns a result object and an error.
-    cypher,    // The function expects a Cypher statement as a string as the first argument.
-    map[string]any{"name": name}, // Parameters are passed as a map with string keys and any values.
-    neo4j.EagerResultTransformer, // The result transformer determines how results are processed.
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
-```
 
-**Using Parameters**: It is good practice to use parameters in your queries to avoid malicious code being injected into your Cypher statement.
+// Execute parameterized queries safely
+func executeParameterizedQuery(ctx context.Context, driver neo4j.Driver) {
+    cypher := `
+    MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
+    RETURN m.title AS title, r.role AS role
+    `
+    
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        cypher,                                    // Cypher query string
+        map[string]any{"name": "Tom Hanks"},      // Parameters (always use for security)
+        neo4j.EagerResultTransformer,             // Result transformer
+    )
+    if err != nil {
+        panic(err)
+    }
 
-## Handling the Result
-
-The `neo4j.ExecuteQuery()` function returns a result object containing:
-
-1. A slice of `Record` objects
-2. Summary information about the query execution
-3. Keys specified in the `RETURN` clause
-
-```go
-fmt.Println(result.Keys)  // [title role]
-fmt.Println(result.Summary)  // A summary of the query execution
-```
-
-## Accessing results
-
-Each row returned by the query is a `Record` object. The `Record` object provides access to the data returned by the query.
-
-You can access any item in the `RETURN` clause using the `Get()` method.
-
-```go
-// RETURN m.title AS title, r.role AS role
-
-for _, record := range result.Records {
-    title, _ := record.Get("title")  // Toy Story
-    role, _ := record.Get("role")    // "Woody"
-    fmt.Printf("%s played %s\n", title, role)
+    // Process results
+    for _, record := range result.Records {
+        title, _ := record.Get("title")
+        role, _ := record.Get("role")
+        fmt.Printf("%s played %s in %s\n", "Tom Hanks", role, title)
+    }
 }
 ```
 
-## Transforming results
-
-The `ExecuteQuery()` method accepts a result transformer that allows you to transform the result into an alternative format.
-
-Rather than returning the standard result, the query will return the output of the transformer function.
+## Understanding Query Results
 
 ```go
-result, err := neo4j.ExecuteQuery(ctx, driver,
-    cypher,
-    map[string]any{"name": name},
-    func(result neo4j.ResultWithContext) (any, error) {
-        var movies []string
-        for _, record := range result.Records {
-            title, _ := record.Get("title")
-            role, _ := record.Get("role")
-            movies = append(movies, fmt.Sprintf("Tom Hanks played %s in %s", role, title))
-        }
-        return movies, nil
-    },
-)
+// Explore the ResultWithContext structure
+func exploreResults(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person) RETURN p.name AS name, p.born AS born LIMIT 5",
+        nil,
+        neo4j.EagerResultTransformer,
+    )
+    if err != nil {
+        panic(err)
+    }
 
-fmt.Println(result)  // ["Tom Hanks played Woody in Toy Story", ...]
+    // Result components
+    fmt.Printf("Keys: %v\n", result.Keys)           // Column names: [name born]
+    fmt.Printf("Record count: %d\n", len(result.Records)) // Number of rows
+    fmt.Printf("Summary: %v\n", result.Summary)     // Query execution metadata
+    
+    // Access individual records
+    for i, record := range result.Records {
+        name, _ := record.Get("name")
+        born, _ := record.Get("born")
+        fmt.Printf("Record %d: %s (born %v)\n", i, name, born)
+    }
+}
 ```
 
-## Working with DataFrames
-
-The Go driver doesn't have built-in DataFrame support like Python, but you can easily transform results into structured data:
+## Custom Result Transformers
 
 ```go
+// Transform results into custom data structures
 type MovieRole struct {
-    Title string `json:"title"`
+    Actor string `json:"actor"`
+    Movie string `json:"movie"`
     Role  string `json:"role"`
 }
 
-result, err := neo4j.ExecuteQuery(ctx, driver,
-    cypher,
-    map[string]any{"name": name},
-    func(result neo4j.ResultWithContext) (any, error) {
-        var movies []MovieRole
-        for _, record := range result.Records {
-            title, _ := record.Get("title")
-            role, _ := record.Get("role")
-            movies = append(movies, MovieRole{
-                Title: title.(string),
-                Role:  role.(string),
-            })
-        }
-        return movies, nil
-    },
-)
+func customTransformer(ctx context.Context, driver neo4j.Driver) {
+    // Custom transformer that returns structured data
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name, m.title, r.role LIMIT 10",
+        nil,
+        func(result neo4j.ResultWithContext) (any, error) {
+            var roles []MovieRole
+            for _, record := range result.Records {
+                actor, _ := record.Get("p.name")
+                movie, _ := record.Get("m.title")
+                role, _ := record.Get("r.role")
+                
+                roles = append(roles, MovieRole{
+                    Actor: actor.(string),
+                    Movie: movie.(string),
+                    Role:  role.(string),
+                })
+            }
+            return roles, nil
+        },
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    // Result is now []MovieRole instead of standard ResultWithContext
+    roles := result.([]MovieRole)
+    for _, role := range roles {
+        fmt.Printf("%s played %s in %s\n", role.Actor, role.Role, role.Movie)
+    }
+}
 ```
 
-## Reading and writing
-
-By default, `neo4j.ExecuteQuery()` runs in **WRITE** mode. In a clustered environment, this sends all queries to the cluster leader, putting unnecessary load on the leader.
-
-When you're only reading data, you can optimize performance by setting the routing control to READ mode.
-This distributes your read queries across all cluster members.
+## Database Routing and Performance
 
 ```go
-result, err := neo4j.ExecuteQuery(ctx, driver,
-    cypher,
-    map[string]any{"name": name},
-    neo4j.EagerResultTransformer,
-    neo4j.ExecuteQueryWithRoutingControl(neo4j.ReadRouting), // <1>
-)
+// Optimize performance with read/write routing
+func optimizedQueries(ctx context.Context, driver neo4j.Driver) {
+    // Read queries - distribute across cluster members
+    readResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person) RETURN p.name LIMIT 10",
+        nil,
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithReadersRouting(), // Route to read replicas
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    // Write queries - send to cluster leader (default behavior)
+    writeResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "CREATE (p:Person {name: $name}) RETURN p",
+        map[string]any{"name": "Alice"},
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithWritersRouting(), // Explicit write routing
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Read %d records, created %d records\n", 
+        len(readResult.Records), len(writeResult.Records))
+}
 ```
 
-You can also use `neo4j.WriteRouting` for write mode.
+## Multi-Database Support
 
-## Summary
+```go
+// Target specific databases in multi-database setups
+func multiDatabaseQueries(ctx context.Context, driver neo4j.Driver) {
+    // Query the main database
+    mainResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (n) RETURN count(n) AS count",
+        nil,
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithDatabase("neo4j"), // Target main database
+    )
+    
+    // Query analytics database
+    analyticsResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (n) RETURN count(n) AS count",
+        nil,
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithDatabase("analytics"), // Target analytics database
+    )
+    
+    if err == nil {
+        mainCount, _ := mainResult.Records[0].Get("count")
+        analyticsCount, _ := analyticsResult.Records[0].Get("count")
+        fmt.Printf("Main DB: %v nodes, Analytics DB: %v nodes\n", mainCount, analyticsCount)
+    }
+}
+```
 
-In this lesson, you learned how to execute one-off Cypher statements using the `ExecuteQuery()` method and access the results.
+## Error Handling Best Practices
 
-The Go driver provides flexible result transformation and routing control for optimal performance.
+```go
+// Robust error handling for query execution
+func robustQueryExecution(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person {name: $name}) RETURN p",
+        map[string]any{"name": "NonExistentPerson"},
+        neo4j.EagerResultTransformer,
+    )
+    
+    if err != nil {
+        // Handle query execution errors
+        fmt.Printf("Query failed: %v\n", err)
+        return
+    }
+    
+    // Handle empty results
+    if len(result.Records) == 0 {
+        fmt.Println("No records found")
+        return
+    }
+    
+    // Process successful results
+    for _, record := range result.Records {
+        person, exists := record.Get("p")
+        if !exists {
+            fmt.Println("Expected field 'p' not found in record")
+            continue
+        }
+        fmt.Printf("Found person: %v\n", person)
+    }
+}
+```
+
+## Key Concepts
+
+* **Parameterized Queries**: Use `map[string]any` for parameters to prevent injection attacks
+* **Result Transformers**: Functions that process query results into custom formats
+* **Routing Control**: Optimize performance by directing reads to replicas and writes to leaders
+* **Multi-Database**: Target specific databases in Neo4j Enterprise multi-database setups
+* **Error Handling**: Always check for errors and handle empty result sets gracefully
+
+## Security Best Practices
+
+* **Always use parameters** instead of string concatenation
+* **Validate input data** before passing to queries
+* **Use appropriate routing** to avoid unnecessary load on cluster leaders
+* **Handle errors gracefully** without exposing internal details
+
+[Reference: Executing Cypher Statements](https://graphacademy.neo4j.com/courses/drivers-go/1-driver/3-execute-query)
