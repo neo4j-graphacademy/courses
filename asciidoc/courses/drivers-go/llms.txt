@@ -1,42 +1,659 @@
 # Using Neo4j with Go
 
-## Course Description
+Learn how to interact with Neo4j from Go using the Neo4j Go Driver
 
-In this course, you will learn how to integrate Neo4j into your Go projects.
+[Learn more about this course](https://graphacademy.neo4j.com/courses/drivers-go)
 
-By the end of this course, you will have gained a solid understanding of how to use Neo4j in a Go application to build a practical and robust API.
-You will be able to use your newfound knowledge to create your own Neo4j-backed applications.
+## Concepts
 
-## Prerequisites
+* **Neo4j Go Driver** - Official driver that acts as a bridge between Go applications and Neo4j databases, handling connections and Cypher query execution
+* **Driver Instance** - Singleton object that manages database connections and should be shared across the entire application lifecycle
+* **ExecuteQuery()** - Method for executing one-off Cypher statements that loads all results into memory using eager evaluation
+* **Session** - Object that manages database connections and provides methods for executing transactions with automatic resource cleanup
+* **Transaction Functions** - Methods (ExecuteRead/ExecuteWrite) that provide ACID guarantees and automatic retry logic for transient errors
+* **Result Transformers** - Functions that process query results into custom formats, with EagerResultTransformer loading all data into memory
+* **Graph Types** - Neo4j-specific data structures (Node, Relationship, Path) that represent graph elements with properties and metadata
+* **Temporal Types** - Date and time handling with timezone support using both Go standard library and Neo4j-specific types
+* **Spatial Types** - Geographic coordinate support with Point2D/Point3D for Cartesian and WGS-84 coordinate systems
+* **Error Handling** - Comprehensive error management with specific Neo4j error types and retry logic for transient failures
 
-By taking this course, we assume that you have a working knowledge of Go and Go modules.
-We also assume that you have at least a basic knowledge of Neo4j.
+## Installation and Setup
 
-If you haven't already done so, we recommend that you also take the Neo4j Fundamentals course in order to gain a basic understanding of Neo4j and the Cypher Fundamentals to understand how to query Neo4j using Cypher.
+```go
+// Install the Neo4j Go Driver
+// go get github.com/neo4j/neo4j-go-driver/v5
 
-## Duration
+package main
 
-1 hour
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
 
-## What you will learn
+func main() {
+    // Create driver instance (singleton pattern - share across application)
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",                    // Connection string
+        neo4j.BasicAuth("neo4j", "your-password", ""), // Authentication
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background()) // Always close driver when done
 
-* The lifecycle of the Neo4j Driver and how it relates to your application
-* How to install and instantiate the Neo4j Go Driver to your Go project
-* How read and write transactions work with Neo4j
-* Best practices on how to use Neo4j within your Go project.
+    // Verify connectivity before using
+    ctx := context.Background()
+    err = driver.VerifyConnectivity(ctx)
+    if err != nil {
+        panic(err)
+    }
+}
+```
 
-## This course includes
+[Reference: Driver Installation and Setup](https://graphacademy.neo4j.com/courses/drivers-go/1-driver/1-driver-lifecycle)
 
-* 7 lessons
-* 8 challenges
+## Basic Query Execution
 
-## Key Points
+```go
+// Execute simple queries with parameters
+func executeBasicQuery(ctx context.Context, driver neo4j.Driver) {
+    cypher := `
+    MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
+    RETURN m.title AS title, r.role AS role
+    `
+    
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        cypher,                                    // Cypher query string
+        map[string]any{"name": "Tom Hanks"},      // Parameters (always use for security)
+        neo4j.EagerResultTransformer,             // Result transformer
+    )
+    if err != nil {
+        panic(err)
+    }
 
-* Driver life cycle
-* Installing and instantiation
-* Read and write transactions
-* Best practices
+    // Access result components
+    fmt.Println(result.Records) // Slice of Record objects
+    fmt.Println(result.Keys)    // Column names from RETURN clause
+    fmt.Println(result.Summary) // Query execution metadata
 
-## Next Course
+    // Iterate through results
+    for _, record := range result.Records {
+        title, _ := record.Get("title") // Access by column name
+        role, _ := record.Get("role")
+        fmt.Printf("Movie: %s, Role: %s\n", title, role)
+    }
+}
+```
 
-app-go
+[Reference: Executing Cypher Statements](https://graphacademy.neo4j.com/courses/drivers-go/1-driver/3-execute-query)
+
+## Database Routing and Performance
+
+```go
+// Optimize performance with read/write routing
+func optimizedQueries(ctx context.Context, driver neo4j.Driver) {
+    // Read queries - distribute across cluster members
+    readResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person) RETURN p.name LIMIT 10",
+        nil,
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithReadersRouting(), // Route to read replicas
+    )
+
+    // Write queries - send to cluster leader (default behavior)
+    writeResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "CREATE (p:Person {name: $name}) RETURN p",
+        map[string]any{"name": "Alice"},
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithWritersRouting(), // Explicit write routing
+    )
+
+    // Specify target database in multi-database setup
+    dbResult, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (n) RETURN count(n)",
+        nil,
+        neo4j.EagerResultTransformer,
+        neo4j.ExecuteQueryWithDatabase("analytics"), // Target specific database
+    )
+}
+```
+
+## Custom Result Transformers
+
+```go
+// Transform results into custom formats
+func customTransformers(ctx context.Context, driver neo4j.Driver) {
+    // Custom transformer that returns formatted strings
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person)-[r:ACTED_IN]->(m:Movie) RETURN p.name, r.role, m.title",
+        nil,
+        func(result neo4j.ResultWithContext) (any, error) {
+            var movies []string
+            for _, record := range result.Records {
+                name, _ := record.Get("p.name")
+                role, _ := record.Get("r.role")
+                title, _ := record.Get("m.title")
+                movies = append(movies, fmt.Sprintf("%s played %s in %s", name, role, title))
+            }
+            return movies, nil
+        },
+    )
+    
+    // Result is now []string instead of standard ResultWithContext
+    movieStrings := result.([]string)
+    for _, movie := range movieStrings {
+        fmt.Println(movie)
+    }
+}
+```
+
+## Working with Graph Types
+
+```go
+// Handle Neo4j graph elements (Nodes, Relationships, Paths)
+func handleGraphTypes(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        MATCH path = (person:Person)-[actedIn:ACTED_IN]->(movie:Movie {title: $title})
+        RETURN path, person, actedIn, movie
+    `, map[string]any{"title": "The Matrix"}, neo4j.EagerResultTransformer)
+
+    for _, record := range result.Records {
+        // Working with Nodes
+        personNode, _ := record.Get("person")
+        person := personNode.(neo4j.Node)
+        
+        fmt.Println(person.ElementId)           // Unique element ID
+        fmt.Println(person.Labels)              // Node labels: ["Person", "Actor"]
+        fmt.Println(person.Props)               // Properties map
+        
+        // Safe property access
+        if name, ok := person.Props["name"]; ok {
+            fmt.Printf("Person name: %s\n", name)
+        }
+
+        // Working with Relationships
+        relationshipData, _ := record.Get("actedIn")
+        relationship := relationshipData.(neo4j.Relationship)
+        
+        fmt.Println(relationship.ElementId)     // Relationship ID
+        fmt.Println(relationship.Type)          // Relationship type: "ACTED_IN"
+        fmt.Println(relationship.Props)         // Relationship properties
+        
+        if role, ok := relationship.Props["role"]; ok {
+            fmt.Printf("Role: %s\n", role)
+        }
+
+        // Working with Paths
+        pathData, _ := record.Get("path")
+        path := pathData.(neo4j.Path)
+        
+        fmt.Println(path.Start)                 // Starting node
+        fmt.Println(path.End)                   // Ending node
+        fmt.Println(len(path.Relationships))    // Number of relationships
+        
+        // Iterate through path relationships
+        for _, rel := range path.Relationships {
+            fmt.Printf("Relationship type: %s\n", rel.Type)
+        }
+    }
+}
+```
+
+[Reference: Graph Types and Data Handling](https://graphacademy.neo4j.com/courses/drivers-go/2-handling-results/1-type-system)
+
+## Temporal Types and Date Handling
+
+```go
+import "time"
+
+// Work with dates, times, and durations
+func handleTemporalTypes(ctx context.Context, driver neo4j.Driver) {
+    // Writing temporal data
+    loc, _ := time.LoadLocation("Europe/Paris")
+    eventTime := time.Date(2024, 5, 15, 14, 30, 0, 0, loc)
+    
+    _, err := neo4j.ExecuteQuery(ctx, driver, `
+        CREATE (e:Event {
+            startsAt: $datetime,              // Go time.Time object
+            createdAt: datetime($dtstring),   // ISO string with timezone
+            updatedAt: datetime()             // Current timestamp
+        })
+    `, map[string]any{
+        "datetime": eventTime,
+        "dtstring": "2024-05-15T14:30:00+02:00",
+    }, neo4j.EagerResultTransformer)
+
+    // Reading temporal data
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        RETURN date() as date, time() as time, datetime() as datetime
+    `, nil, neo4j.EagerResultTransformer)
+
+    for _, record := range result.Records {
+        date, _ := record.Get("date")           // neo4j.Date
+        time, _ := record.Get("time")           // neo4j.OffsetTime  
+        datetime, _ := record.Get("datetime")   // time.Time
+        
+        fmt.Printf("Date: %v, Time: %v, DateTime: %v\n", date, time, datetime)
+    }
+
+    // Working with durations
+    startsAt := time.Now()
+    eventLength := neo4j.DurationOf(time.Hour + 30*time.Minute)
+    endsAt := startsAt.Add(time.Duration(eventLength))
+
+    neo4j.ExecuteQuery(ctx, driver, `
+        CREATE (e:Event {
+            startsAt: $startsAt,
+            endsAt: $endsAt,
+            duration: $eventLength,           // neo4j.Duration
+            interval: duration('P1DT2H30M')  // ISO 8601 duration string
+        })
+    `, map[string]any{
+        "startsAt": startsAt,
+        "endsAt": endsAt,
+        "eventLength": eventLength,
+    }, neo4j.EagerResultTransformer)
+}
+```
+
+[Reference: Dates and Times](https://graphacademy.neo4j.com/courses/drivers-go/2-handling-results/3-dates-and-times)
+
+## Spatial Types and Geographic Data
+
+```go
+// Handle geographic coordinates and spatial calculations
+func handleSpatialTypes(ctx context.Context, driver neo4j.Driver) {
+    // Create 2D Cartesian point
+    cartesianPoint := neo4j.Point2D{
+        X: 1.23,
+        Y: 4.56,
+        SpatialRefId: 7203, // Cartesian SRID
+    }
+
+    // Create 3D WGS-84 point (longitude, latitude, height)
+    londonPoint := neo4j.Point3D{
+        X: -0.118092,  // longitude
+        Y: 51.509865,  // latitude
+        Z: 100,        // height in meters
+        SpatialRefId: 4979, // WGS-84 3D SRID
+    }
+
+    // Store spatial data
+    _, err := neo4j.ExecuteQuery(ctx, driver, `
+        CREATE (l:Location {
+            name: $name,
+            coordinates: $point,
+            cartesian: point({x: 1.0, y: 2.0}),           // Cypher point function
+            geographic: point({latitude: 51.5, longitude: -0.1}) // Geographic point
+        })
+    `, map[string]any{
+        "name": "London",
+        "point": londonPoint,
+    }, neo4j.EagerResultTransformer)
+
+    // Calculate distances between points
+    point1 := neo4j.Point2D{X: 1.23, Y: 4.56, SpatialRefId: 7203}
+    point2 := neo4j.Point2D{X: 2.34, Y: 5.67, SpatialRefId: 7203}
+
+    result, err := neo4j.ExecuteQuery(ctx, driver, `
+        RETURN point.distance($p1, $p2) AS distance
+    `, map[string]any{
+        "p1": point1,
+        "p2": point2,
+    }, neo4j.EagerResultTransformer)
+
+    if len(result.Records) > 0 {
+        distance, _ := result.Records[0].Get("distance")
+        fmt.Printf("Distance: %f units\n", distance.(float64))
+    }
+
+    // Read spatial data
+    spatialResult, err := neo4j.ExecuteQuery(ctx, driver, `
+        MATCH (l:Location) RETURN l.coordinates AS coords
+    `, nil, neo4j.EagerResultTransformer)
+
+    for _, record := range spatialResult.Records {
+        coords, _ := record.Get("coords")
+        if point3d, ok := coords.(neo4j.Point3D); ok {
+            fmt.Printf("Longitude: %f, Latitude: %f, Height: %f, SRID: %d\n",
+                point3d.X, point3d.Y, point3d.Z, point3d.SpatialRefId)
+        }
+    }
+}
+```
+
+[Reference: Spatial Types](https://graphacademy.neo4j.com/courses/drivers-go/2-handling-results/5-spatial-types)
+
+## Transaction Management
+
+```go
+// Use sessions and transactions for production applications
+func transactionManagement(ctx context.Context, driver neo4j.Driver) {
+    // Create session with automatic cleanup
+    session := driver.NewSession(ctx, neo4j.SessionConfig{
+        Database: "neo4j", // Specify database for multi-database instances
+    })
+    defer session.Close(ctx)
+
+    // Read transaction with streaming results
+    result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+        // Execute query within transaction
+        result, err := tx.Run(ctx, `
+            MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+            RETURN p.name AS actor, m.title AS movie
+            LIMIT 10
+        `, nil)
+        if err != nil {
+            return nil, err
+        }
+
+        // Process results immediately as they become available
+        var actors []map[string]any
+        for result.Next(ctx) {
+            record := result.Record()
+            actor, _ := record.Get("actor")
+            movie, _ := record.Get("movie")
+            actors = append(actors, map[string]any{
+                "actor": actor,
+                "movie": movie,
+            })
+        }
+        return actors, nil
+    })
+
+    // Write transaction with error handling and rollback
+    _, err = session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+        // Multiple operations in single transaction
+        _, err := tx.Run(ctx, `
+            CREATE (p:Person {name: $name, age: $age})
+        `, map[string]any{"name": "Alice", "age": 30})
+        if err != nil {
+            return nil, err // Automatic rollback on error
+        }
+
+        _, err = tx.Run(ctx, `
+            MATCH (p:Person {name: $name})
+            CREATE (p)-[:WORKS_AT]->(:Company {name: $company})
+        `, map[string]any{"name": "Alice", "company": "Neo4j"})
+        
+        return nil, err // Automatic commit on success
+    })
+}
+```
+
+## Unit of Work Pattern
+
+```go
+// Implement reusable transaction functions
+func createPerson(tx neo4j.ManagedTransaction, name string, age int64) (neo4j.Node, error) {
+    result, err := tx.Run(context.Background(), `
+        CREATE (p:Person {name: $name, age: $age})
+        RETURN p
+    `, map[string]any{"name": name, "age": age})
+    if err != nil {
+        return neo4j.Node{}, err
+    }
+    
+    record, err := result.Single(context.Background())
+    if err != nil {
+        return neo4j.Node{}, err
+    }
+    
+    node, _ := record.Get("p")
+    return node.(neo4j.Node), nil
+}
+
+// Multi-operation transaction (e.g., financial transfer)
+func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, amount float64) error {
+    // Deduct from source account
+    _, err := tx.Run(context.Background(),
+        "MATCH (a:Account {id: $from}) SET a.balance = a.balance - $amount",
+        map[string]any{"from": fromAccount, "amount": amount},
+    )
+    if err != nil {
+        return err
+    }
+
+    // Add to destination account
+    _, err = tx.Run(context.Background(),
+        "MATCH (a:Account {id: $to}) SET a.balance = a.balance + $amount",
+        map[string]any{"to": toAccount, "amount": amount},
+    )
+    return err
+}
+
+// Use unit of work functions
+func useTransactionFunctions(ctx context.Context, driver neo4j.Driver) {
+    session := driver.NewSession(ctx, neo4j.SessionConfig{})
+    defer session.Close(ctx)
+
+    // Execute unit of work
+    person, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+        return createPerson(tx, "Bob", 25)
+    })
+
+    // Execute multi-step transaction
+    err = session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+        return nil, transferFunds(tx, "account1", "account2", 100.0)
+    })
+}
+```
+
+[Reference: Transaction Management](https://graphacademy.neo4j.com/courses/drivers-go/3-in-production/1-transaction-management)
+
+## Comprehensive Error Handling
+
+```go
+import (
+    "context"
+    "errors"
+    "log"
+    "time"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+// Handle different types of Neo4j errors
+func handleErrors(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "CREATE (p:Person {email: $email})", // Assuming unique constraint on email
+        map[string]any{"email": "duplicate@example.com"},
+        neo4j.EagerResultTransformer,
+    )
+    
+    if err != nil {
+        // Check if it's a Neo4j-specific error
+        if neo4j.IsNeo4jError(err) {
+            neo4jErr := err.(*neo4j.Neo4jError)
+            
+            switch neo4jErr.Code {
+            case "Neo.ClientError.Schema.ConstraintValidationFailed":
+                log.Printf("Constraint violation: %s", neo4jErr.Msg)
+                // Handle duplicate data
+                
+            case "Neo.ClientError.Statement.SyntaxError":
+                log.Printf("Cypher syntax error: %s", neo4jErr.Msg)
+                // Handle malformed query
+                
+            case "Neo.TransientError.General.DatabaseUnavailable":
+                log.Printf("Database unavailable: %s", neo4jErr.Msg)
+                // Implement retry logic
+                
+            default:
+                log.Printf("Neo4j error [%s]: %s", neo4jErr.Code, neo4jErr.Msg)
+            }
+        } else {
+            // Handle non-Neo4j errors (network, etc.)
+            log.Printf("General error: %v", err)
+        }
+    }
+}
+
+// Implement retry logic for transient errors
+func executeWithRetry(ctx context.Context, driver neo4j.Driver, query string, params map[string]any, maxRetries int) (neo4j.EagerResult, error) {
+    var lastErr error
+    
+    for i := 0; i < maxRetries; i++ {
+        result, err := neo4j.ExecuteQuery(ctx, driver, query, params, neo4j.EagerResultTransformer)
+        if err == nil {
+            return result, nil
+        }
+        
+        // Check if error is retryable
+        if neo4j.IsRetryable(err) {
+            lastErr = err
+            backoffDuration := time.Duration(i+1) * time.Second
+            log.Printf("Retryable error, waiting %v before retry %d/%d: %v", backoffDuration, i+1, maxRetries, err)
+            time.Sleep(backoffDuration)
+            continue
+        }
+        
+        // Non-retryable error, fail immediately
+        return neo4j.EagerResult{}, err
+    }
+    
+    return neo4j.EagerResult{}, fmt.Errorf("max retries (%d) exceeded, last error: %w", maxRetries, lastErr)
+}
+
+// Production-ready error handling with context
+func productionErrorHandling(ctx context.Context, driver neo4j.Driver) {
+    // Use retry logic for important operations
+    result, err := executeWithRetry(ctx, driver,
+        "MATCH (p:Person {id: $id}) RETURN p",
+        map[string]any{"id": "user123"},
+        3, // Max 3 retries
+    )
+    
+    if err != nil {
+        log.Printf("Failed to fetch user after retries: %v", err)
+        return
+    }
+    
+    // Process successful result
+    for _, record := range result.Records {
+        person, _ := record.Get("p")
+        fmt.Printf("Found person: %v\n", person)
+    }
+}
+```
+
+[Reference: Error Handling](https://graphacademy.neo4j.com/courses/drivers-go/3-in-production/3-error-handling)
+
+## Production Best Practices
+
+```go
+// Complete production-ready application structure
+package main
+
+import (
+    "context"
+    "log"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+type Neo4jService struct {
+    driver neo4j.Driver
+}
+
+func NewNeo4jService(uri, username, password string) (*Neo4jService, error) {
+    // Create driver with production configuration
+    driver, err := neo4j.NewDriverWithContext(
+        uri,
+        neo4j.BasicAuth(username, password, ""),
+        func(config *neo4j.Config) {
+            config.MaxConnectionLifetime = 30 * time.Minute
+            config.MaxConnectionPoolSize = 50
+            config.ConnectionAcquisitionTimeout = 2 * time.Minute
+        },
+    )
+    if err != nil {
+        return nil, err
+    }
+
+    // Verify connectivity
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := driver.VerifyConnectivity(ctx); err != nil {
+        driver.Close(ctx)
+        return nil, err
+    }
+
+    return &Neo4jService{driver: driver}, nil
+}
+
+func (s *Neo4jService) Close(ctx context.Context) error {
+    return s.driver.Close(ctx)
+}
+
+func (s *Neo4jService) CreateUser(ctx context.Context, name, email string) error {
+    session := s.driver.NewSession(ctx, neo4j.SessionConfig{})
+    defer session.Close(ctx)
+
+    _, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+        _, err := tx.Run(ctx, `
+            CREATE (u:User {name: $name, email: $email, createdAt: datetime()})
+        `, map[string]any{"name": name, "email": email})
+        return nil, err
+    })
+
+    return err
+}
+
+func main() {
+    // Initialize service
+    service, err := NewNeo4jService(
+        os.Getenv("NEO4J_URI"),
+        os.Getenv("NEO4J_USERNAME"),
+        os.Getenv("NEO4J_PASSWORD"),
+    )
+    if err != nil {
+        log.Fatal("Failed to connect to Neo4j:", err)
+    }
+
+    // Graceful shutdown
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    // Handle shutdown signals
+    sigChan := make(chan os.Signal, 1)
+    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+    go func() {
+        <-sigChan
+        log.Println("Shutting down...")
+        cancel()
+        
+        shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer shutdownCancel()
+        
+        if err := service.Close(shutdownCtx); err != nil {
+            log.Printf("Error closing Neo4j connection: %v", err)
+        }
+        os.Exit(0)
+    }()
+
+    // Application logic
+    if err := service.CreateUser(ctx, "Alice", "alice@example.com"); err != nil {
+        log.Printf("Failed to create user: %v", err)
+    }
+
+    // Keep application running
+    <-ctx.Done()
+}
+```
+
+## Key Production Guidelines
+
+* **Driver Lifecycle**: Create one driver instance per application and share it across all components
+* **Resource Management**: Always use `defer` for cleanup and implement graceful shutdown
+* **Error Handling**: Distinguish between retryable and non-retryable errors, implement exponential backoff
+* **Transaction Strategy**: Use `ExecuteQuery()` for simple operations, sessions for complex transactions
+* **Performance**: Use read routing for queries, write routing for mutations, specify target databases
+* **Security**: Always use parameterized queries, never concatenate user input into Cypher strings
+* **Monitoring**: Log query execution times, connection pool metrics, and error rates
+* **Configuration**: Set appropriate timeouts, connection pool sizes, and retry policies for your environment
