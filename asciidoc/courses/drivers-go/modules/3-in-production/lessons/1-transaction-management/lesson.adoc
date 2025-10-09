@@ -128,6 +128,58 @@ func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, a
 ----
 ====
 
+[.slide.col-2]
+== Transaction Rollback
+
+[.col]
+====
+When any error occurs within a transaction function, the entire transaction is automatically rolled back. This means **all changes** made within the transaction are undone, ensuring data consistency.
+
+==== 
+
+
+[.col]
+====
+
+[source,go]
+----
+func addActorToMovie(tx neo4j.ManagedTransaction, actorName string, movieTitle string, role string) error {
+    // Create actor if not exists
+    _, err := tx.Run(ctx, `
+        MERGE (a:Person {name: $name})
+    `, map[string]any{"name": actorName})
+    if err != nil {
+        return err // Transaction rolls back
+    }
+    
+    // Create acting relationship
+    _, err = tx.Run(ctx, `
+        MATCH (a:Person {name: $actorName})
+        MATCH (m:Movie {title: $movieTitle})
+        CREATE (a)-[:ACTED_IN {role: $role}]->(m)
+    `, map[string]any{
+        "actorName": actorName, 
+        "movieTitle": movieTitle, 
+        "role": role,
+    })
+    
+    if err != nil {
+        return err // Transaction rolls back
+        // Actor creation is also undone!
+    }
+    
+    return nil // Transaction commits
+}
+----
+====
+
+[.slide.discrete]
+== Transaction Rollback
+
+
+When a transaction function returns an error, Neo4j automatically rolls back all changes made within that transaction, maintaining data consistency by preventing partial updates.
+
+
 [.slide]
 == Transaction state
 
@@ -203,6 +255,14 @@ link:../2c-write-transaction/[Advance to the next lesson,role=btn]
 
 In this lesson, you learned how to use transaction functions for read and write operations, implement the unit of work pattern, and execute multiple queries within a single transaction.
 
-You should use transaction functions for read and write operations when you want to start consuming results as soon as they are available.
+Key concepts covered:
+
+* **Transaction Functions** - `ExecuteRead()` and `ExecuteWrite()` for managing transactions
+* **Unit of Work Pattern** - Grouping related operations into a single transaction
+* **Automatic Rollback** - Any error causes the entire transaction to be rolled back
+* **ACID Compliance** - All operations succeed together or fail together
+* **Result Consumption** - Processing results within the transaction function
+
+You should use transaction functions for read and write operations when you want to start consuming results as soon as they are available, and when you need to ensure data consistency across multiple operations.
 
 In the next lesson, you will take a quiz to test your knowledge of using transactions.

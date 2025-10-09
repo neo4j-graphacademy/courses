@@ -17,8 +17,8 @@ This function fetches a list of records and loads them into memory.
 [source,go]
 ----
 cypher := `
-MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
-RETURN m.title AS title, r.role AS role
+MATCH (a:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
+RETURN a.name AS name, m.title AS title, r.role AS role
 `
 name := "Tom Hanks"
 
@@ -103,17 +103,18 @@ The `ExecuteQuery()` method accepts a result transformer as a fourth argument th
 
 [source,go]
 ----
-result, err := neo4j.ExecuteQuery(ctx, driver,
+roles, err := neo4j.ExecuteQuery(ctx, driver,
     cypher,
     map[string]any{"name": name},
     func(result neo4j.ResultWithContext) (any, error) {
-        var movies []string
+        var roles []string
         for _, record := range result.Records {
+            name, _ := record.Get("name")
             title, _ := record.Get("title")
             role, _ := record.Get("role")
-            movies = append(movies, fmt.Sprintf("Tom Hanks played %s in %s", role, title))
+            roles = append(roles, fmt.Sprintf("%s played %s in %s", name, role, title))
         }
-        return movies, nil
+        return roles, nil
     },
 )
 ----
@@ -122,13 +123,14 @@ result, err := neo4j.ExecuteQuery(ctx, driver,
 [.slide.discrete]
 == Transforming results
 
-Rather than returning the standard result, the method will return the output of the transformer function.
+The benefit to defining a custom transformer is that you can directly convert the result into a format that can be used directly in your application.
 
 [source,go]
 ----
-fmt.Println(result)  // ["Tom Hanks played Woody in Toy Story", ...]
+fmt.Println(roles)  // ["Tom Hanks played Woody in Toy Story", ...]
 ----
 
+This method also allows you to process the results as they are returned, rather than waiting for the final result to be returned.
 
 
 [.slide]
