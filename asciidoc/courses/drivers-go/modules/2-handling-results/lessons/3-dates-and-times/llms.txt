@@ -1,0 +1,115 @@
+# Dates and times
+
+## Temporal types
+
+The `neo4j` package provides types for working with dates and times in Go.
+
+Temporal types in Neo4j are a combination of date, time and timezone elements.
+
+| Type | Description | Date? | Time? | Timezone? |
+|------|-------------|-------|-------|-----------|
+| `neo4j.Date` | A tuple of Year, Month and Day | Y | | |
+| `neo4j.OffsetTime` | The time of the day with a UTC offset | Y | Y | |
+| `neo4j.LocalTime` | A time without a timezone | | Y | |
+| `time.Time` | A combination of Date and Time | Y | Y | Y |
+| `neo4j.LocalDateTime` | A combination of Date and Time without a timezone | Y | Y | |
+| `neo4j.Duration` | A period of time | | | |
+
+## Writing temporal types
+
+```go
+import (
+    "time"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+neo4j.ExecuteQuery(ctx, driver, `
+CREATE (e:Event {
+  startsAt: $datetime,              // Use a time.Time object as a parameter to the query
+  createdAt: datetime($dtstring),   // Cast an ISO 8601 format string within a Cypher statement
+  updatedAt: datetime()             // Get the current date and time using the datetime() function
+})
+`, 
+    map[string]any{
+        "datetime": time.Date(2024, 5, 15, 14, 30, 0, 0, time.FixedZone("CEST", 2*60*60)),
+        "dtstring": "2024-05-15T14:30:00+02:00",
+    },
+    neo4j.EagerResultTransformer,
+)
+```
+
+When you write temporal types to the database, you can pass Go time objects as parameters to the query or cast the value within a Cypher statement.
+
+This example demonstrates how to:
+1. Use a `time.Time` object as a parameter to the query
+2. Cast an ISO 8601 format string within a Cypher statement
+3. Get the current date and time using the `datetime()` function.
+
+## Reading temporal types
+
+When reading temporal types from the database, you will receive an instance of the corresponding Go type unless you cast the value within your query.
+
+```go
+// Query returning temporal types
+result, err := neo4j.ExecuteQuery(ctx, driver, `
+RETURN date() as date, time() as time, datetime() as datetime, toString(datetime()) as asString
+`, nil, neo4j.EagerResultTransformer)
+
+// Access the first record
+for _, record := range result.Records {
+    // Automatic conversion to Go driver types
+    date, _ := record.Get("date")           // neo4j.Date
+    time, _ := record.Get("time")           // neo4j.OffsetTime
+    datetime, _ := record.Get("datetime")   // time.Time
+    asString, _ := record.Get("asString")   // string
+}
+```
+
+## Working with Durations
+
+```go
+import (
+    "time"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+startsAt := time.Now()
+eventLength := neo4j.DurationOf(time.Hour + 30*time.Minute)
+endsAt := startsAt.Add(time.Duration(eventLength))
+
+neo4j.ExecuteQuery(ctx, driver, `
+CREATE (e:Event {
+  startsAt: $startsAt, endsAt: $endsAt,
+  duration: $eventLength, // Pass an instance of neo4j.Duration to the query
+  interval: duration('P30M') // Use the duration() function to create a Duration object from an ISO 8601 format string
+})
+`,
+    map[string]any{
+        "startsAt": startsAt,
+        "endsAt": endsAt,
+        "eventLength": eventLength,
+    },
+    neo4j.EagerResultTransformer,
+)
+```
+
+Durations represent a period of time and can be used for date arithmetic in both Go and Cypher. These types can also be created in Go or cast within a Cypher statement.
+
+1. Pass an instance of `neo4j.Duration` to the query
+2. Use the `duration()` function to create a `Duration` object from an ISO 8601 format string
+
+**Calculating durations**: You can use Go's `time` package methods to calculate the duration between two date or time objects.
+
+## Lesson Summary
+
+In this lesson, you learned about working with temporal types in Neo4j using the Go driver:
+
+* The `neo4j` package provides types for handling dates, times, and durations
+* You can pass Go time objects as parameters or create them within Cypher statements
+* When reading temporal values from Neo4j, they are automatically converted to the appropriate Go driver types
+* Durations can be used for date arithmetic in both Go and Cypher
+
+**Converting between driver and standard library types**: The Neo4j Go driver's temporal types (like `neo4j.Date`) are different from Go's standard library types (like `time.Time`). If you need to convert between them:
+
+* To convert from driver types to standard library: use the `.Time()` method
+* To convert from standard library to driver types: use the `*Of()` functions like `DateOf()`, `LocalDateTimeOf()`, etc.

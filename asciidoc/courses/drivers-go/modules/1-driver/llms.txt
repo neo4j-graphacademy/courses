@@ -1,0 +1,90 @@
+# The Driver Module
+
+Learn the fundamentals of working with Neo4j in Go applications, from installation to executing queries and processing results.
+
+## Module Overview
+
+This module covers:
+* Installing and setting up the Neo4j Go Driver
+* Creating and managing driver instances
+* Executing Cypher queries with parameters
+* Processing and transforming query results
+* Best practices for driver lifecycle management
+
+## Installation and Setup
+
+```shell
+# Create Go project
+mkdir neo4j-app
+cd neo4j-app
+go mod init myapp
+
+# Install Neo4j Go Driver
+go get github.com/neo4j/neo4j-go-driver/v5
+```
+
+## Basic Driver Usage
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    // Create driver instance (singleton pattern)
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",
+        neo4j.BasicAuth("neo4j", "password", ""),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background())
+    
+    // Verify connectivity
+    ctx := context.Background()
+    if err := driver.VerifyConnectivity(ctx); err != nil {
+        panic(err)
+    }
+    
+    // Execute query
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "MATCH (p:Person {name: $name}) RETURN p.name AS name",
+        map[string]any{"name": "Tom Hanks"},
+        neo4j.EagerResultTransformer,
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    // Process results
+    for _, record := range result.Records {
+        name, _ := record.Get("name")
+        fmt.Printf("Found person: %s\n", name)
+    }
+}
+```
+
+## Key Concepts from This Module
+
+* **Driver Instance**: Singleton object that manages database connections
+* **ExecuteQuery()**: Method for executing one-off Cypher statements
+* **Parameters**: Safe way to pass values to queries using map[string]any
+* **Records**: Individual rows returned by queries
+* **Result Transformers**: Functions that process query results into custom formats
+* **Resource Management**: Proper cleanup using defer statements
+
+## Best Practices Learned
+
+* Create one driver instance per application and share it
+* Always use parameters instead of string concatenation
+* Verify connectivity before executing queries
+* Handle errors appropriately at each step
+* Use defer for automatic resource cleanup
+* Choose appropriate result transformers for your use case
+
+[Reference: The Driver Module](https://graphacademy.neo4j.com/courses/drivers-go/1-driver)

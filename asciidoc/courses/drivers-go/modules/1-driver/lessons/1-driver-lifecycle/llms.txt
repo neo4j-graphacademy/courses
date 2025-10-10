@@ -1,0 +1,135 @@
+# Installing the Neo4j Go Driver
+
+Learn how to install the Neo4j Go Driver, create driver instances, and execute your first queries.
+
+## Installation and Setup
+
+```shell
+# Create a new Go project
+mkdir hello-neo4j
+cd hello-neo4j
+go mod init graphacademy/hello
+
+# Install the Neo4j Go Driver
+go get github.com/neo4j/neo4j-go-driver/v5
+```
+
+## Creating a Driver Instance
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    // Create driver instance (singleton pattern - share across application)
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",                    // Connection string
+        neo4j.BasicAuth("neo4j", "your-password", ""), // Authentication
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer driver.Close(context.Background()) // Always close driver when done
+    
+    // Verify connectivity before using
+    ctx := context.Background()
+    err = driver.VerifyConnectivity(ctx)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Println("Connected to Neo4j!")
+}
+```
+
+## Best Practices
+
+* **Singleton Pattern**: Create **one** driver instance and share it across your entire application
+* **Resource Management**: Always use `defer driver.Close()` for automatic cleanup
+* **Error Handling**: Check connectivity before executing queries
+* **Context Usage**: Use `context.Background()` or custom contexts for operations
+
+## Running Your First Query
+
+```go
+// Execute a simple query to count all nodes
+func executeFirstQuery(ctx context.Context, driver neo4j.Driver) {
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "RETURN COUNT(*) AS count",           // Cypher query (corrected syntax)
+        nil,                                  // No parameters
+        neo4j.EagerResultTransformer,         // Load all results into memory
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    // Access the first record
+    if len(result.Records) > 0 {
+        first := result.Records[0]
+        count, _ := first.Get("count")
+        fmt.Printf("Total nodes in database: %v\n", count)
+    }
+}
+```
+
+## Complete Example
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+    // Create and configure driver
+    driver, err := neo4j.NewDriverWithContext(
+        "neo4j://localhost:7687",
+        neo4j.BasicAuth("neo4j", "your-password", ""),
+    )
+    if err != nil {
+        panic(fmt.Sprintf("Failed to create driver: %v", err))
+    }
+    defer driver.Close(context.Background())
+    
+    // Verify connectivity
+    ctx := context.Background()
+    if err := driver.VerifyConnectivity(ctx); err != nil {
+        panic(fmt.Sprintf("Failed to connect: %v", err))
+    }
+    
+    // Execute first query
+    result, err := neo4j.ExecuteQuery(ctx, driver,
+        "RETURN COUNT(*) AS count",
+        nil,
+        neo4j.EagerResultTransformer,
+    )
+    if err != nil {
+        panic(fmt.Sprintf("Query failed: %v", err))
+    }
+    
+    // Process results
+    if len(result.Records) > 0 {
+        count, _ := result.Records[0].Get("count")
+        fmt.Printf("Database contains %v nodes\n", count)
+    }
+}
+```
+
+## Key Concepts
+
+* **Driver**: Bridge between Go application and Neo4j database
+* **Context**: Go's context package for cancellation and timeouts
+* **ExecuteQuery()**: Method for executing one-off Cypher statements
+* **EagerResultTransformer**: Loads all query results into memory at once
+* **Record**: Individual row returned by a query
+* **Get()**: Method to access values from a record by column name
+
+[Reference: Installing the Driver](https://graphacademy.neo4j.com/courses/drivers-go/1-driver/1-driver-lifecycle)

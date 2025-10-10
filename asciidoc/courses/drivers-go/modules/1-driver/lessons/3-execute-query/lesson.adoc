@@ -1,0 +1,167 @@
+= Executing Cypher statements
+:type: lesson 
+:slides: true
+:minutes: 10
+:order: 3
+
+
+[.slide.col-2,discrete]
+== Introduction
+
+[.col]
+====
+You can use the `neo4j.ExecuteQuery()` function to run one-off Cypher statements or statements that return a small number of records.
+This function fetches a list of records and loads them into memory.
+
+
+[source,go]
+----
+cypher := `
+MATCH (a:Person {name: $name})-[r:ACTED_IN]->(m:Movie) 
+RETURN a.name AS name, m.title AS title, r.role AS role
+`
+name := "Tom Hanks"
+
+result, err := neo4j.ExecuteQuery(ctx, driver, // <1>
+    cypher,    // <2>
+    map[string]any{"name": name}, // <3>
+    neo4j.EagerResultTransformer, // <4>
+)
+----
+====
+
+[.col]
+====
+
+<1> The function returns a result object and an error.
+<2> The function expects a Cypher statement as a string as the first argument.
+<3> Parameters are passed as a map with string keys and any values.
+<4> The result transformer determines how results are processed.
+
+[TIP]
+.Using Parameters
+=====
+It is good practice to use parameters in your queries to avoid malicious code being injected into your Cypher statement.
+=====
+====
+
+
+[.slide]
+== Handling the Result
+
+The `neo4j.ExecuteQuery()` function returns a `ResultWithContext` object containing:
+
+1. A list of `Record` objects
+2. Summary information about the query execution
+3. Keys specified in the `RETURN` clause
+
+[source,go]
+----
+fmt.Println(result.Records) // [...]
+fmt.Println(result.Keys)  // [title role]
+fmt.Println(result.Summary)  // A summary of the query execution
+----
+
+[.slide]
+== Specifying a database 
+
+You can specify a database to query using the `ExecuteQueryWithDatabase()` method.
+
+[source,go]
+----
+result, err := neo4j.ExecuteQuery(ctx, driver,
+    cypher,
+    map[string]any{"name": name},
+    neo4j.EagerResultTransformer,
+    neo4j.ExecuteQueryWithDatabase("recommendations") // Query the 'recommendations' database
+)
+----
+
+[.slide]
+== Accessing results
+
+Each row returned by the query is a `Record` object.  The `Record` object provides access to the data returned by the query.
+
+You can access any item in the `RETURN` clause using the `Get()` method.
+
+[source,go]
+----
+// RETURN a.name AS name, m.title AS title, r.role AS role
+
+for _, record := range result.Records {
+    name, _ := record.Get("name")  // Tom Hanks
+    title, _ := record.Get("title")  // Toy Story
+    role, _ := record.Get("role")    // "Woody"
+    fmt.Printf("%s played %s in %s\n", name, role, title) // Tom Hanks played Woody in Toy Story
+}
+----
+
+[.slide]
+== Transforming results
+
+The `ExecuteQuery()` method accepts a result transformer as a fourth argument that allows you to transform the result into an alternative format.
+
+[source,go]
+----
+roles, err := neo4j.ExecuteQuery(ctx, driver,
+    cypher,
+    map[string]any{"name": name},
+    func(result neo4j.ResultWithContext) (any, error) {
+        var roles []string
+        for _, record := range result.Records {
+            name, _ := record.Get("name")
+            title, _ := record.Get("title")
+            role, _ := record.Get("role")
+            roles = append(roles, fmt.Sprintf("%s played %s in %s", name, role, title))
+        }
+        return roles, nil
+    },
+)
+----
+
+
+[.slide.discrete]
+== Transforming results
+
+The benefit to defining a custom transformer is that you can directly convert the result into a format that can be used directly in your application.
+
+[source,go]
+----
+fmt.Println(roles)  // ["Tom Hanks played Woody in Toy Story", ...]
+----
+
+This method also allows you to process the results as they are returned, rather than waiting for the final result to be returned.
+
+
+[.slide]
+== Reading and writing 
+
+By default, `neo4j.ExecuteQuery()` runs in **WRITE** mode.  In a clustered environment, this sends all queries to the cluster leader, putting unnecessary load on the leader. 
+
+When you're only reading data, you can optimize performance by setting the routing control to READ mode. 
+This distributes your read queries across all cluster members.
+
+[source,go]
+----
+result, err := neo4j.ExecuteQuery(ctx, driver,
+    cypher,
+    map[string]any{"name": name},
+    neo4j.EagerResultTransformer,
+    neo4j.ExecuteQueryWithReadersRouting(), // <1>
+)
+----
+
+[TIP]
+You can also use `neo4j.ExecuteQueryWithWritersRouting` to explicitly invoke write mode.
+
+[.next.discrete]
+== Check your understanding
+
+link:../4c-your-first-query/[Run your first query,role=btn]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to execute one-off Cypher statements using the `ExecuteQuery()` method and access the results.
+
+The Go driver provides flexible result transformation and routing control for optimal performance.

@@ -1,0 +1,268 @@
+= Transaction management
+:type: lesson
+:minutes: 10
+:slides: true
+:order: 1
+
+[.slide.discrete]
+== Introduction
+In the previous module, you learned how to execute one-off Cypher statements using the `ExecuteQuery()`  method.
+
+The drawback of this method is that the entire record set is only available once the final result is returned. 
+For longer running queries or larger datasets, this can consume a lot of memory and a long wait for the final result.
+
+In a production application, you may also need finer control of database transactions or to run multiple related queries as part of a single transaction.
+
+Transaction functions allow you to run multiple queries in a single transaction while accessing results immediately.
+
+
+[TIP]
+.Understanding Transactions
+====
+Neo4j is an ACID-compliant transactional database, which means queries are executed as part of a single atomic transaction. This ensures your data operations are consistent and reliable.
+====
+
+
+[.slide]
+== Sessions
+
+To execute transactions, you need to open a session. The session object manages the underlying database connections and provides methods for executing transactions.
+
+[source,go]
+----
+session := driver.NewSession(ctx, neo4j.SessionConfig{})
+defer session.Close(ctx)
+// Call transaction functions here
+----
+
+Using `defer session.Close(ctx)` will automatically close the session and release any underlying connections when the function exits.
+
+[TIP]
+.Specifying a database
+====
+In a multi-database instance, you can specify the database to use when creating a session using the `Database` field in `SessionConfig`.
+====
+
+
+
+[.slide]
+== Transaction functions
+
+The session object provides two methods for managing transactions:
+
+* `Session.ExecuteRead()`
+* `Session.ExecuteWrite()`
+
+If the entire function runs successfully, the transaction is committed automatically. If any errors occur, the entire transaction is rolled back.
+
+[TIP]
+.Transient errors
+====
+These functions will also retry if the transaction fails due to a transient error, for example, a network issue.
+====
+
+
+
+[.slide.col-2]
+== Unit of work patterns
+
+[.transcript-only]
+====
+A unit of work is a pattern that groups related operations into a single transaction. 
+====
+
+[.col]
+====
+
+[source,go]
+----
+func createPerson(tx neo4j.ManagedTransaction, name string, age int64) (neo4j.Node, error) { // <1>
+    result, err := tx.Run(ctx, `
+    CREATE (p:Person {name: $name, age: $age})
+    RETURN p
+    `, map[string]any{"name": name, "age": age}) // <2>
+    
+    record, err := result.Single(ctx)
+    
+    node, _ := record.Get("p")
+    return node.(neo4j.Node), nil
+}
+----
+====
+
+[.col]
+====
+<1> The first argument to the transaction function is always a `ManagedTransaction` object. Any additional arguments are passed from the call to `Session.ExecuteRead`/`Session.ExecuteWrite`.
+
+<2> The `Run()` method on the `ManagedTransaction` object is called to execute a Cypher statement.
+====
+
+[.slide.col-2]
+== Multiple Queries in One Transaction
+
+
+[.col]
+====
+You can execute multiple queries within the same transaction function to ensure that all operations are completed or fail as a single unit.
+====
+
+[.col]
+====
+[source,go]
+----
+func transferFunds(tx neo4j.ManagedTransaction, fromAccount, toAccount string, amount float64) error {
+    // Deduct from first account
+    _, err := tx.Run(ctx,
+        "MATCH (a:Account {id: $from}) SET a.balance = a.balance - $amount", 
+        map[string]any{"from": fromAccount, "amount": amount},
+    )
+    if err != nil { return err }
+
+    // Add to second account
+    _, err = tx.Run(ctx,
+        "MATCH (a:Account {id: $to}) SET a.balance = a.balance + $amount", 
+        map[string]any{"to": toAccount, "amount": amount},
+    )
+    return err
+}
+----
+====
+
+[.slide.col-2]
+== Transaction Rollback
+
+[.col]
+====
+When any error occurs within a transaction function, the entire transaction is automatically rolled back. This means **all changes** made within the transaction are undone, ensuring data consistency.
+
+==== 
+
+
+[.col]
+====
+
+[source,go]
+----
+func addActorToMovie(tx neo4j.ManagedTransaction, actorName string, movieTitle string, role string) error {
+    // Create actor if not exists
+    _, err := tx.Run(ctx, `
+        MERGE (a:Person {name: $name})
+    `, map[string]any{"name": actorName})
+    if err != nil {
+        return err // Transaction rolls back
+    }
+    
+    // Create acting relationship
+    _, err = tx.Run(ctx, `
+        MATCH (a:Person {name: $actorName})
+        MATCH (m:Movie {title: $movieTitle})
+        CREATE (a)-[:ACTED_IN {role: $role}]->(m)
+    `, map[string]any{
+        "actorName": actorName, 
+        "movieTitle": movieTitle, 
+        "role": role,
+    })
+    
+    if err != nil {
+        return err // Transaction rolls back
+        // Actor creation is also undone!
+    }
+    
+    return nil // Transaction commits
+}
+----
+====
+
+[.slide.discrete]
+== Transaction Rollback
+
+
+When a transaction function returns an error, Neo4j automatically rolls back all changes made within that transaction, maintaining data consistency by preventing partial updates.
+
+
+[.slide]
+== Transaction state
+
+====
+[WARNING]
+.Transaction state
+=====
+Transaction state is maintained in the DBMS's memory, so be mindful of running too many operations in a single transaction. Break up very large operations into smaller transactions when possible.
+=====
+====
+
+[.slide.col-2]
+== Handling outputs 
+
+[.col]
+====
+The `ManagedTransaction.Run()` method returns a `Result` object.
+The records contained within the result can be accessed as soon as they are available.
+
+The result must be consumed within the transaction function.
+
+The `Consume()` method discards any remaining records and returns a `Summary` object that can be used to access metadata about the Cypher statement.
+
+The `Session.ExecuteRead`/`Session.ExecuteWrite` function will return the result of the transaction function upon successful execution.
+====
+
+[.col]
+====
+
+[source,go]
+.Consuming results
+----
+session := driver.NewSession(ctx, neo4j.SessionConfig{})
+defer session.Close(ctx)
+
+summary, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+    result, err := tx.Run(ctx, "RETURN $answer AS answer", map[string]any{"answer": 42})
+    if err != nil {
+        return nil, err
+    }
+
+    return result.Consume(ctx)
+})
+
+if err != nil {
+    log.Fatal(err)
+}
+----
+====
+
+[.slide]
+== Result Summary
+
+The `ResultSummary` object returned by the `ExecuteRead()` and `ExecuteWrite()` methods holds information about the Cypher statement execution, including database information, execution time and in the case of a write query, statistics on changes made to the database as a result of the statement execution.
+
+[source,go]
+.Result Summary
+----
+summaryObj := summary.(neo4j.ResultSummary)
+fmt.Printf("Results available after %d ms and consumed after %d ms\n",
+    summaryObj.ResultAvailableAfter(),
+    summaryObj.ResultConsumedAfter())
+----
+
+
+[.next.discrete]
+== Check your understanding
+
+link:../2c-write-transaction/[Advance to the next lesson,role=btn]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned how to use transaction functions for read and write operations, implement the unit of work pattern, and execute multiple queries within a single transaction.
+
+Key concepts covered:
+
+* **Transaction Functions** - `ExecuteRead()` and `ExecuteWrite()` for managing transactions
+* **Unit of Work Pattern** - Grouping related operations into a single transaction
+* **Automatic Rollback** - Any error causes the entire transaction to be rolled back
+* **ACID Compliance** - All operations succeed together or fail together
+* **Result Consumption** - Processing results within the transaction function
+
+You should use transaction functions for read and write operations when you want to start consuming results as soon as they are available, and when you need to ensure data consistency across multiple operations.
+
+In the next lesson, you will take a quiz to test your knowledge of using transactions.
