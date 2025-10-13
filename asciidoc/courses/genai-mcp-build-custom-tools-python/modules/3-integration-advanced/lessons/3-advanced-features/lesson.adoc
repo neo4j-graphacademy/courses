@@ -1,0 +1,290 @@
+= Advanced MCP Features
+:type: lesson
+:order: 3
+
+
+Beyond the core MCP features you've learned so far (tools, resources, prompts, lifespan, context, and pagination), the MCP Python SDK offers additional advanced capabilities that can enhance your server's functionality.
+
+In this optional lesson, you'll learn about **Sampling** and **Completions** - two powerful features for building more sophisticated MCP servers.
+
+[NOTE]
+====
+This lesson is optional and does not include a hands-on challenge.
+These features are more advanced and not required for basic MCP server development.
+====
+
+
+== Sampling: Interacting with LLMs from Tools
+
+**Sampling** allows your MCP tools to interact with the LLM during execution.
+This enables sophisticated workflows where tools can ask the LLM for help processing data.
+
+
+=== What is Sampling?
+
+Sampling is the process of requesting the LLM to generate text based on a prompt.
+In MCP, tools can use sampling to:
+
+* Generate natural language explanations of data
+* Transform structured data into readable text
+* Ask the LLM to make decisions or recommendations
+* Create summaries of complex information
+
+
+=== How Sampling Works
+
+When a tool uses sampling, it sends a message to the LLM through the MCP session, and the LLM responds with generated content:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context
+from mcp.types import SamplingMessage, TextContent
+
+@mcp.tool()
+async def explain_movie_data(movie_title: str, ctx: Context) -> str:
+    """Get a natural language explanation of movie data."""
+    
+    # First, query Neo4j for movie data
+    driver = ctx.request_context.lifespan_context.driver
+    records, _, _ = await driver.execute_query(
+        """
+        MATCH (m:Movie {title: $title})
+        OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
+        OPTIONAL MATCH (p:Person)-[:ACTED_IN]->(m)
+        RETURN m.title AS title,
+               m.released AS released,
+               m.tagline AS tagline,
+               collect(DISTINCT g.name) AS genres,
+               collect(DISTINCT p.name)[..5] AS actors
+        """,
+        title=movie_title
+    )
+    
+    if not records:
+        return f"Movie '{movie_title}' not found"
+    
+    movie_data = records[0].data()
+    
+    # Ask the LLM to explain the movie data
+    result = await ctx.session.create_message(
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(
+                    type="text",
+                    text=f"""Based on this movie data, write a brief, engaging 
+                    description of the movie:
+                    
+                    Title: {movie_data['title']}
+                    Released: {movie_data['released']}
+                    Tagline: {movie_data['tagline']}
+                    Genres: {', '.join(movie_data['genres'])}
+                    Notable Actors: {', '.join(movie_data['actors'])}
+                    
+                    Write a 2-3 sentence description."""
+                )
+            )
+        ],
+        max_tokens=200
+    )
+    
+    # Extract and return the LLM's response
+    if result.content.type == "text":
+        return result.content.text
+    
+    return str(result.content)
+----
+
+
+=== When to Use Sampling
+
+Sampling is useful for:
+
+* **Natural language generation** - Converting data to readable descriptions
+* **Data interpretation** - Asking the LLM to analyze patterns or trends
+* **Recommendations** - Having the LLM suggest next steps based on data
+* **Summarization** - Creating concise summaries of large datasets
+
+**Note:** Sampling requires the MCP client to support the sampling capability.
+Not all clients implement this feature.
+
+
+== Completions: Providing Autocomplete Suggestions
+
+**Completions** help users by providing autocomplete suggestions for tool parameters, resource URIs, and prompt arguments.
+
+
+=== What are Completions?
+
+Completions are suggestions provided by the server to help users fill in parameters.
+Think of it like autocomplete in your IDE - as you type, relevant suggestions appear.
+
+
+=== Use Cases for Completions
+
+In a Neo4j context, completions can suggest:
+
+* **Genre names** - When filtering movies by genre
+* **Movie titles** - When searching for specific movies
+* **Person names** - When looking for actors or directors
+* **Property keys** - When building dynamic queries
+* **Node labels** - When exploring the graph structure
+
+
+=== Implementing Completions
+
+Here's an example of providing genre completions:
+
+[source,python]
+----
+from mcp.server.lowlevel import Server
+from mcp.types import Completion, CompleteResult
+
+server = Server("movie-server")
+
+@server.complete()
+async def handle_completion(
+    ref: types.PromptReference | types.ResourceReference,
+    argument: types.CompleteArgument
+) -> CompleteResult:
+    """Provide completions for arguments."""
+    
+    # Check if completing the genre argument
+    if argument.name == "genre":
+        # Query Neo4j for genres matching the prefix
+        driver = get_driver()  # Your driver access method
+        
+        records, _, _ = await driver.execute_query(
+            """
+            CALL db.labels() YIELD label
+            WHERE label STARTS WITH $prefix
+            RETURN label
+            ORDER BY label
+            LIMIT 10
+            """,
+            prefix=argument.value
+        )
+        
+        # Return matching genres
+        return CompleteResult(
+            completion=Completion(
+                values=[record["label"] for record in records]
+            )
+        )
+    
+    # No completions for other arguments
+    return CompleteResult(completion=Completion(values=[]))
+----
+
+
+=== Context-Aware Completions
+
+Completions can be context-aware, providing different suggestions based on previously filled arguments:
+
+[source,python]
+----
+@server.complete()
+async def handle_completion(
+    ref: types.PromptReference | types.ResourceReference,
+    argument: types.CompleteArgument,
+    context_arguments: dict[str, str] | None = None
+) -> CompleteResult:
+    """Provide context-aware completions."""
+    
+    # If completing actor name after genre is selected
+    if argument.name == "actor" and context_arguments:
+        genre = context_arguments.get("genre")
+        
+        if genre:
+            # Suggest actors who acted in movies of this genre
+            records, _, _ = await driver.execute_query(
+                """
+                MATCH (p:Person)-[:ACTED_IN]->(m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+                WHERE p.name STARTS WITH $prefix
+                RETURN DISTINCT p.name AS name
+                ORDER BY p.name
+                LIMIT 10
+                """,
+                genre=genre,
+                prefix=argument.value
+            )
+            
+            return CompleteResult(
+                completion=Completion(
+                    values=[record["name"] for record in records]
+                )
+            )
+    
+    return CompleteResult(completion=Completion(values=[]))
+----
+
+
+=== Completions in FastMCP
+
+Note that completions require the **low-level server API** - they're not directly supported by FastMCP's decorator-based approach.
+
+If you need completions, you'll need to use the low-level `Server` class instead of `FastMCP`.
+
+
+== When to Use These Features
+
+**Use Sampling when:**
+
+* You want to generate natural language from structured data
+* You need the LLM to interpret or analyze query results
+* You're building conversational workflows
+* The client supports sampling
+
+**Use Completions when:**
+
+* Users need to discover available values (labels, properties, etc.)
+* You want to improve the user experience with autocomplete
+* You're building a UI with form inputs
+* The client supports completions
+
+**Consider not using them when:**
+
+* You're building a simple server for basic queries
+* Your client doesn't support these capabilities
+* The added complexity isn't worth the benefit
+* Performance is critical (both add overhead)
+
+
+== Checking Client Capabilities
+
+Before using these features, check if the client supports them:
+
+[source,python]
+----
+@mcp.tool()
+async def sample_aware_tool(ctx: Context) -> str:
+    """Tool that checks for sampling support."""
+    
+    # Check client capabilities
+    client_capabilities = ctx.session.client_params.capabilities
+    
+    if client_capabilities.sampling:
+        # Client supports sampling, we can use it
+        result = await ctx.session.create_message(...)
+        return result.content.text
+    else:
+        # Fall back to simpler behavior
+        return "Client doesn't support sampling"
+----
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about advanced MCP features:
+
+* **Sampling** - Allow tools to interact with the LLM during execution for natural language generation, analysis, and recommendations
+* **Completions** - Provide autocomplete suggestions for parameters, helping users discover available values
+* **Context-aware completions** - Tailor suggestions based on previously filled arguments
+* **Low-level API requirement** - Completions require using the low-level Server API instead of FastMCP
+* **Client capability checking** - Always verify the client supports these features before using them
+
+These advanced features can significantly enhance your MCP server's capabilities, but they add complexity and require careful consideration of when to use them.
+
+In the next lesson, you'll review what you've learned and discover next steps for building production-ready MCP servers.
+

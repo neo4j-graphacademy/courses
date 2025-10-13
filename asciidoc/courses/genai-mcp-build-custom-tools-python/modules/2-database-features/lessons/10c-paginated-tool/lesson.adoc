@@ -1,0 +1,238 @@
+= Build a Paginated Tool
+:type: challenge
+:order: 10
+
+
+In the previous lesson, you learned about pagination and how to use Neo4j's `SKIP` and `LIMIT` clauses to fetch data in manageable chunks.
+
+In this challenge, you will implement a paginated tool that allows users to browse through movies in a specific genre, page by page.
+
+
+== Challenge Goals
+
+To complete this challenge, you will:
+
+1. Create a tool that lists movies by genre with pagination support
+2. Use cursor-based pagination with Neo4j's `SKIP` and `LIMIT`
+3. Return structured output with movies and pagination metadata
+4. Test pagination by fetching multiple pages
+
+
+== Step 1: Implement the Paginated Tool
+
+Add this tool to your `server/main.py`:
+
+[source,python]
+.server/main.py
+----
+@mcp.tool()
+async def browse_movies_by_genre(
+    genre: str,
+    cursor: str = "0",
+    page_size: int = 10,
+    ctx: Context = None
+) -> dict:
+    """
+    Browse movies in a genre with pagination support.
+    
+    Args:
+        genre: Genre name (e.g., "Action", "Comedy", "Drama")
+        cursor: Pagination cursor - position in the result set (default "0")
+        page_size: Number of movies to return per page (default 10)
+    
+    Returns:
+        Dictionary containing:
+        - movies: List of movie objects with title, released, and rating
+        - next_cursor: Cursor for the next page (null if no more pages)
+        - page: Current page number (1-indexed)
+        - has_more: Boolean indicating if more pages are available
+    """
+    
+    # Parse cursor to get skip value
+    try:
+        skip = int(cursor)
+    except ValueError:
+        await ctx.error(f"Invalid cursor: {cursor}")
+        skip = 0
+    
+    # Access driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Log the request
+    page_num = (skip // page_size) + 1
+    await ctx.info(f"Fetching {genre} movies, page {page_num} (showing {page_size} per page)...")
+    
+    try:
+        # Execute paginated query
+        records, summary, keys = await driver.execute_query(
+            """
+            MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+            RETURN m.title AS title,
+                   m.released AS released,
+                   m.imdbRating AS rating
+            ORDER BY m.imdbRating DESC, m.title ASC
+            SKIP $skip
+            LIMIT $limit
+            """,
+            genre=genre,
+            skip=skip,
+            limit=page_size
+        )
+        
+        # Convert to list of dictionaries
+        movies = [record.data() for record in records]
+        
+        # Calculate next cursor
+        # If we got a full page, there might be more
+        next_cursor = None
+        if len(movies) == page_size:
+            next_cursor = str(skip + page_size)
+        
+        # Log results
+        await ctx.info(f"Returned {len(movies)} movies from page {page_num}")
+        if next_cursor is None:
+            await ctx.info("This is the last page")
+        
+        # Return structured response
+        return {
+            "genre": genre,
+            "movies": movies,
+            "next_cursor": next_cursor,
+            "page": page_num,
+            "page_size": page_size,
+            "has_more": next_cursor is not None,
+            "count": len(movies)
+        }
+        
+    except Exception as e:
+        await ctx.error(f"Query failed: {str(e)}")
+        raise
+----
+
+
+== Step 2: Test with the MCP Inspector
+
+Start the MCP Inspector:
+
+[source,bash]
+----
+npx @modelcontextprotocol/inspector uv --directory $PWD/server run main.py
+----
+
+Connect to your server and test the `browse_movies_by_genre` tool:
+
+
+=== Fetch the First Page
+
+Parameters:
+* `genre`: `"Action"`
+* `cursor`: `"0"` (or leave empty for default)
+* `page_size`: `10`
+
+The response should contain:
+* 10 Action movies
+* A `next_cursor` value (e.g., `"10"`)
+* `page: 1`
+* `has_more: true`
+
+
+=== Fetch the Second Page
+
+Use the `next_cursor` from the first response:
+
+Parameters:
+* `genre`: `"Action"`
+* `cursor`: `"10"` (from previous response)
+* `page_size`: `10`
+
+The response should contain:
+* The next 10 Action movies
+* A new `next_cursor` value (e.g., `"20"`)
+* `page: 2`
+* `has_more: true` (if more pages exist)
+
+
+=== Continue to the Last Page
+
+Keep using the `next_cursor` until you reach a response where:
+* `next_cursor` is `null` or not present
+* `has_more: false`
+* Fewer than `page_size` movies are returned
+
+
+== Step 3: Test with Different Genres
+
+Try different genres to see how pagination behaves:
+
+* `"Comedy"` - Might have many pages
+* `"Sci-Fi"` - Moderate number of pages
+* `"Documentary"` - Might fit in a single page
+
+Notice how some genres have more movies than others!
+
+
+== Step 4: Experiment with Page Sizes
+
+Try different `page_size` values:
+
+* `5` - Small pages, more pagination
+* `20` - Larger pages, fewer requests
+* `50` - Very large pages
+
+Observe how this affects the `next_cursor` and number of pages needed.
+
+
+== Verify Your Implementation
+
+Your implementation should:
+
+1. ✅ Accept `genre`, `cursor`, and `page_size` parameters
+2. ✅ Use `SKIP` and `LIMIT` in the Cypher query
+3. ✅ Return movies ordered by rating (descending) and title
+4. ✅ Calculate `next_cursor` correctly (only when more data exists)
+5. ✅ Include pagination metadata (`page`, `has_more`, `count`)
+6. ✅ Handle invalid cursors gracefully
+7. ✅ Log informative messages during execution
+
+read::My paginated tool is working![]
+
+
+[TIP]
+.Pagination in Practice
+====
+**When browsing through pages:**
+
+* Users typically only view the first 2-3 pages
+* Use smaller page sizes (10-20) for better UX
+* Consider adding a "load more" pattern instead of traditional page numbers
+
+**Performance tip:**
+
+For very large datasets, consider adding a total count query:
+
+[source,cypher]
+----
+MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+RETURN count(m) AS total
+----
+
+But beware - this adds overhead to every request!
+====
+
+
+[.summary]
+== Summary
+
+In this challenge, you successfully implemented cursor-based pagination:
+
+* **Cursor parameter** - Accepted a cursor string to track position in results
+* **SKIP and LIMIT** - Used Neo4j's pagination clauses for efficient queries
+* **Next cursor calculation** - Determined when more pages are available
+* **Structured response** - Returned movies with rich pagination metadata
+* **Error handling** - Handled invalid cursors and query errors
+* **Logging** - Provided informative feedback during pagination
+
+Your tool can now handle large datasets efficiently, providing a great user experience when browsing through collections.
+
+In the next lesson, you'll learn about building prompts to provide pre-defined templates to MCP clients.
+

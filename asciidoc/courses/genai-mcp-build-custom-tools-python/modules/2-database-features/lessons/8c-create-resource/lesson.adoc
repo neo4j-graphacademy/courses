@@ -1,0 +1,222 @@
+= Create a Movie Resource
+:type: challenge
+:order: 8
+
+
+In the previous lesson, you learned about resources and how they differ from tools.
+
+
+In this challenge, you will create a resource that exposes detailed movie information by TMDB ID, building on top of the server you've already created.
+
+
+== Challenge Goals
+
+To complete this challenge, you will:
+
+1. Add a movie resource with a dynamic URI pattern
+2. Query Neo4j for comprehensive movie details
+3. Format the output as readable markdown
+4. Include cast, genres, directors, and plot information
+5. Test the resource with the MCP Inspector
+
+
+== Step 1: Understanding the Resource URI
+
+Resources use URI patterns to identify what data to fetch.
+
+For a movie resource, we'll use the pattern: `movie://{tmdb_id}`
+
+
+**Examples:**
+
+* `movie://603` - The Matrix
+* `movie://605` - The Matrix Reloaded
+* `movie://13` - Forrest Gump
+
+
+This allows clients to request specific movies by their TMDB ID.
+
+
+== Step 2: Create the Resource Function
+
+Add this resource to your `server/main.py` file, after your existing tools:
+
+[source,python]
+----
+include::code/solution.py[tag=get_movie_resource]
+----
+
+
+**Key points in this code:**
+
+1. **URI pattern**: `movie://{tmdb_id}` - The `tmdb_id` parameter is extracted from the URI
+2. **Comprehensive query**: Fetches movie details, genres, cast, and directors in one query
+3. **Optional matches**: Uses `OPTIONAL MATCH` to handle movies without all relationships
+4. **Limited cast**: `[..5]` limits cast to first 5 actors to keep output manageable
+5. **Markdown formatting**: Returns nicely formatted text for readability
+6. **Error handling**: Handles missing movies gracefully
+
+
+== Step 3: Understanding the Cypher Query
+
+Let's break down the query:
+
+[source,cypher]
+----
+MATCH (m:Movie {tmdbId: $tmdb_id})              // <1>
+OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)       // <2>
+OPTIONAL MATCH (p:Person)-[r:ACTED_IN]->(m)     // <3>
+OPTIONAL MATCH (d:Person)-[:DIRECTED]->(m)      // <4>
+RETURN m.title AS title,                        // <5>
+       m.released AS released,
+       m.tagline AS tagline,
+       m.plot AS plot,
+       m.imdbRating AS rating,
+       m.runtime AS runtime,
+       collect(DISTINCT g.name) AS genres,       // <6>
+       collect(DISTINCT {name: p.name, role: r.role})[..5] AS cast,  // <7>
+       collect(DISTINCT d.name) AS directors
+----
+<1> Find the movie by TMDB ID
+<2> Get all genres (optional - movie might not have genres)
+<3> Get all actors and their roles
+<4> Get all directors
+<5> Return movie properties
+<6> Collect genre names into an array
+<7> Collect cast as objects with name and role, limit to 5
+
+
+== Step 4: Test with MCP Inspector
+
+Start your server with the Inspector:
+
+[source,bash]
+----
+npx @modelcontextprotocol/inspector uv --directory $PWD/server run main.py
+----
+
+
+=== Test Popular Movies
+
+Try these TMDB IDs in the MCP Inspector:
+
+* `603` - The Matrix (1999)
+* `13` - Forrest Gump (1994)
+* `550` - Fight Club (1999)
+* `680` - Pulp Fiction (1994)
+
+
+**To test:**
+
+1. Connect to your server in the Inspector
+2. Go to the **Resources** tab
+3. You should see your resource template: `movie://{tmdb_id}`
+4. Enter a TMDB ID (e.g., `603`)
+5. Click **Read Resource**
+
+
+You should see formatted output like:
+
+[source,markdown]
+----
+# The Matrix (1999)
+
+_Welcome to the Real World_
+
+**Rating:** 8.7/10
+**Runtime:** 136 minutes
+**Genres:** Action, Science Fiction
+**Director(s):** Lilly Wachowski, Lana Wachowski
+
+## Plot
+Set in the 22nd century, The Matrix tells the story of a computer hacker...
+
+## Cast
+- Keanu Reeves as Neo
+- Laurence Fishburne as Morpheus
+- Carrie-Anne Moss as Trinity
+- Hugo Weaving as Agent Smith
+- Gloria Foster as Oracle
+----
+
+
+== Step 5: Understanding Resource vs Tool
+
+**Why is this a resource instead of a tool?**
+
+
+**As a resource:**
+
+* The client/application decides which movies to load
+* Perfect for loading context about a specific movie upfront
+* The URI pattern makes it clear what you're getting: `movie://603`
+* No LLM decision-making needed - direct access
+
+
+**If it were a tool:**
+
+* The LLM would decide when to call it
+* Would require the LLM to know or discover the TMDB ID
+* More appropriate for searches or filters
+
+
+**Best practice:** Use resources for specific entities by ID, use tools for searches and queries.
+
+
+== Step 6: Verify Your Implementation
+
+Your resource should:
+
+1. ✅ Use the URI pattern `movie://{tmdb_id}`
+2. ✅ Accept the tmdb_id parameter
+3. ✅ Query Neo4j for comprehensive movie data
+4. ✅ Handle movies that don't exist gracefully
+5. ✅ Return formatted, readable output
+6. ✅ Include logging for debugging
+7. ✅ Work in the MCP Inspector's Resources tab
+
+
+read::My movie resource is working![]
+
+
+[TIP]
+.Try More Movies
+====
+Explore the database with different TMDB IDs:
+
+* `78` - Blade Runner (1982)
+* `157336` - Interstellar (2014)
+* `27205` - Inception (2010)
+* `11` - Star Wars (1977)
+
+Notice how the formatting handles movies with different amounts of data!
+====
+
+
+== Complete Solution
+
+Your `server/main.py` should now have:
+
+1. ✅ Lifespan management with Neo4j driver
+2. ✅ Letter counting tool (from Module 1)
+3. ✅ Movies by genre tool (from challenge 6)
+4. ✅ Movie resource by TMDB ID (new!)
+
+
+Each new feature builds on the previous ones, creating a progressively more capable server.
+
+
+[.summary]
+== Summary
+
+In this challenge, you successfully created a movie resource:
+
+* **Dynamic URI pattern** - `movie://{tmdb_id}` for flexible resource access
+* **Comprehensive query** - Fetched movie details, cast, genres, and directors
+* **Markdown formatting** - Created readable, structured output
+* **Error handling** - Gracefully handled missing movies
+* **Resource design** - Understood when to use resources vs tools
+
+Your server now exposes data in two ways: tools for searches and resources for specific entities.
+
+In the next lesson, you'll learn about pagination for handling large datasets.
