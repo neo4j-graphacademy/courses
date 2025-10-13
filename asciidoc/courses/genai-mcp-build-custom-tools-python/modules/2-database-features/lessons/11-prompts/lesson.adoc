@@ -1,0 +1,338 @@
+= Building Prompts
+:type: lesson
+:order: 11
+
+
+You've built tools that LLMs can call and resources that clients can load.
+
+Now you'll learn about **prompts** - pre-defined templates that help users interact with your server more effectively.
+
+
+== What are Prompts?
+
+**Prompts** are reusable templates that guide users in how to interact with your MCP server.
+
+They are **user-controlled** - the user explicitly chooses to invoke a prompt, typically through a UI menu or slash command.
+
+
+== The Three MCP Primitives
+
+Let's recap the three ways to expose functionality:
+
+[cols="1,2,2,2"]
+|===
+| Feature | Control | Purpose | Example
+
+| **Tools**
+| LLM decides
+| Execute actions, query data
+| `search_movies_by_genre()`
+
+| **Resources**
+| Client/App decides
+| Load context data
+| `movie://603`
+
+| **Prompts**
+| User decides
+| Template common workflows
+| "Recommend movies like X"
+|===
+
+
+Prompts help users by providing pre-written templates for common tasks.
+
+
+== Creating Prompts with FastMCP
+
+FastMCP provides the `@mcp.prompt()` decorator to create prompts:
+
+[source,python]
+----
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Movie Server")
+
+
+@mcp.prompt()
+def movie_recommendation() -> str:
+    """Get movie recommendations based on your preferences."""
+    return """I'd like to discover new movies to watch.
+
+Please ask me about:
+1. What genres I enjoy
+2. Any specific movies I've loved
+3. My preferred movie era or style
+
+Then recommend 5 movies I might enjoy and explain why each one would be a good fit."""
+----
+
+**Key points:**
+
+* The decorator takes no arguments for simple prompts
+* The function returns a string that becomes the prompt text
+* The docstring describes what the prompt does
+* Users see this in their client's prompt menu
+
+
+== Prompts with Parameters
+
+Prompts can accept parameters to customize the template:
+
+[source,python]
+----
+@mcp.prompt()
+def similar_movies(movie_title: str, count: int = 5) -> str:
+    """Find movies similar to one you enjoyed."""
+    return f"""I really enjoyed the movie "{movie_title}".
+
+Can you recommend {count} similar movies and explain why each one is similar?
+
+Consider factors like:
+- Genre and themes
+- Director or actors
+- Mood and tone
+- Era and style"""
+----
+
+Users provide the parameters when invoking the prompt, and the template is filled in.
+
+
+== Multi-Message Prompts
+
+Prompts can return multiple messages to create a conversation flow:
+
+[source,python]
+----
+from mcp.server.fastmcp.prompts import base
+
+@mcp.prompt()
+def analyze_preferences(favorite_movies: str) -> list[base.Message]:
+    """Analyze your movie preferences and recommend genres."""
+    
+    return [
+        base.UserMessage(
+            content=f"Here are my favorite movies: {favorite_movies}"
+        ),
+        base.AssistantMessage(
+            content="I'll analyze your movie preferences. Let me look at the genres and themes..."
+        ),
+        base.UserMessage(
+            content="Based on my favorites, what genres should I explore next?"
+        )
+    ]
+----
+
+This creates a conversation starter that includes both user and assistant messages.
+
+
+== Prompt Best Practices
+
+**1. Be specific and actionable:**
+
+[source,python]
+----
+# Good - specific guidance
+@mcp.prompt()
+def movie_night_planner() -> str:
+    """Plan a themed movie night."""
+    return """Help me plan a movie night with these details:
+    
+1. Theme or genre I want to explore
+2. Number of movies (2-4 recommended)
+3. Any constraints (runtime, rating, era)
+
+Create a curated list with:
+- Movie titles and years
+- Why they fit the theme
+- Suggested watching order
+- Total runtime"""
+
+# Avoid - too vague
+@mcp.prompt()
+def movies() -> str:
+    """Movies."""
+    return "Tell me about movies"
+----
+
+
+**2. Provide structure:**
+
+[source,python]
+----
+@mcp.prompt()
+def movie_review_template(movie_title: str) -> str:
+    """Write a structured movie review."""
+    return f"""Write a review of "{movie_title}" covering:
+
+**Plot Summary** (no spoilers)
+- Brief overview in 2-3 sentences
+
+**Strengths**
+- What worked well?
+- Standout performances?
+
+**Weaknesses**  
+- What could be improved?
+
+**Overall Verdict**
+- Rating out of 10
+- Who would enjoy this movie?"""
+----
+
+
+**3. Use clear parameters:**
+
+[source,python]
+----
+@mcp.prompt()
+def discovery_prompt(
+    genre: str,
+    decade: str = "any",
+    mood: str = "any"
+) -> str:
+    """Discover hidden gems in a specific genre."""
+    
+    filters = []
+    if decade != "any":
+        filters.append(f"from the {decade}s")
+    if mood != "any":
+        filters.append(f"with a {mood} mood")
+    
+    filter_text = " ".join(filters) if filters else "from any era"
+    
+    return f"""Help me discover lesser-known {genre} movies {filter_text}.
+
+Find me 5 hidden gems that:
+- Have high ratings but are under-appreciated
+- Represent the genre well
+- Offer something unique
+
+For each movie, explain:
+- Why it's worth watching
+- What makes it special
+- Who would enjoy it"""
+----
+
+
+== When to Use Prompts
+
+**Ideal use cases:**
+
+* **Common workflows** - Tasks users do repeatedly
+* **Complex requests** - Multi-step processes that need structure
+* **Guided interactions** - Help users ask better questions
+* **Templates** - Standard formats for reviews, analyses, etc.
+* **Discovery** - Help users explore your server's capabilities
+
+
+**Examples in our movie server:**
+
+* "Recommend movies based on my favorites"
+* "Plan a themed movie marathon"
+* "Help me find movies I wouldn't normally discover"
+* "Analyze why I like certain genres"
+* "Compare two movies I'm deciding between"
+
+
+== Prompts vs Tools
+
+Understanding the difference:
+
+
+**Prompts are templates:**
+
+* Pre-written text that guides the user
+* User explicitly selects them
+* Create a starting point for conversation
+* Don't execute code
+
+
+**Tools are functions:**
+
+* Execute code and return results
+* LLM decides when to call them
+* Perform actions and queries
+* Can have side effects
+
+
+**Use both together:**
+
+A prompt might guide the user to ask questions that cause the LLM to call your tools.
+
+
+**Example:**
+
+1. User invokes "Movie Recommendation" prompt
+2. Prompt asks about preferences
+3. LLM calls `search_movies_by_genre()` tool
+4. LLM uses results to make recommendations
+
+
+== Adding Prompts to Your Server
+
+Prompts are simple to add - just use the decorator:
+
+[source,python]
+----
+@mcp.prompt()
+def movie_discovery(genre: str = "any") -> str:
+    """Discover new movies in a genre."""
+    
+    if genre == "any":
+        return """Help me discover new movies!
+
+Ask me:
+- What genres I usually enjoy
+- Recent movies I loved
+- If I prefer classics or recent releases
+
+Then recommend 5 diverse movies I should watch next."""
+    
+    return f"""I want to explore {genre} movies.
+
+Recommend 5 {genre} movies that:
+- Represent different styles within the genre
+- Include both popular and hidden gems
+- Span different eras
+
+For each, explain why it's a great example of {genre}."""
+
+
+@mcp.prompt()
+def analyze_movie(movie_title: str) -> str:
+    """Deep analysis of a specific movie."""
+    return f"""Provide a detailed analysis of "{movie_title}":
+
+**Themes & Symbolism**
+- Major themes explored
+- Symbolic elements
+
+**Filmmaking**
+- Directorial choices
+- Cinematography highlights
+- Score and sound design
+
+**Cultural Impact**
+- Reception and influence
+- Legacy
+
+Use the movie database to gather information about cast, director, and plot."""
+----
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about MCP prompts:
+
+* **User-controlled templates** - Users explicitly invoke prompts
+* **`@mcp.prompt()` decorator** - Create prompts with optional parameters
+* **Multi-message prompts** - Build conversation flows
+* **Best practices** - Be specific, provide structure, use clear parameters
+* **Use cases** - Common workflows, guided interactions, templates
+* **Prompts vs Tools** - Templates vs executable functions
+
+Prompts make your server more user-friendly by providing pre-written templates for common tasks.
+
+In the next module, you'll learn how to integrate MCP tools into your development workflows.

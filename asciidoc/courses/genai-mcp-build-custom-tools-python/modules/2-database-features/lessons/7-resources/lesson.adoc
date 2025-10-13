@@ -1,0 +1,244 @@
+= Using Resources
+:type: lesson
+:order: 7
+
+
+You've built tools that allow the LLM to query your Neo4j database.
+
+Now you'll learn about **resources** - a different way to expose data that gives the client application control over what gets loaded into the LLM's context.
+
+
+== What are Resources?
+
+**Resources** are data that can be loaded into the LLM's context by the client application.
+
+Unlike tools (which the LLM decides to call), resources are **application-controlled** - the client decides what to load.
+
+
+== Tools vs Resources
+
+Understanding when to use each is key to effective MCP server design:
+
+
+**Use Tools when:**
+
+* The LLM should decide when to access the data
+* You need to perform computation or filtering
+* The operation might have side effects
+* You want the LLM to discover capabilities dynamically
+
+
+**Example:** `search_movies_by_genre(genre: str)` - The LLM decides when to search
+
+
+**Use Resources when:**
+
+* The client/application decides what data to load
+* You're exposing reference data or documentation
+* The data should be loaded into context upfront
+* You want to provide specific pieces of data by ID
+
+
+**Example:** `movie://123` - The client directly requests a specific movie
+
+
+== Creating Resources with FastMCP
+
+FastMCP provides the `@mcp.resource()` decorator to expose resources:
+
+[source,python]
+----
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("Movie Server")
+
+
+@mcp.resource("movie://config")
+def get_config() -> str:
+    """Server configuration information."""
+    return """
+    Movie Database Server
+    Version: 1.0
+    
+    This server provides access to a Neo4j movie database.
+    Available genres: Action, Comedy, Drama, Sci-Fi
+    """
+----
+
+**Key points:**
+
+* The decorator takes a URI pattern as the first argument
+* The function returns the resource content (usually string or dict)
+* The docstring describes what the resource contains
+* Resources are read-only (no side effects)
+
+
+== Dynamic Resource URIs
+
+Resources can include **parameters** in their URI using curly braces:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context
+
+@mcp.resource("movie://{movie_id}")
+async def get_movie(movie_id: str, ctx: Context) -> str:
+    """Get details about a specific movie by ID."""
+    
+    driver = ctx.request_context.lifespan_context.driver
+    
+    records, _, _ = await driver.execute_query(
+        """
+        MATCH (m:Movie {tmdbId: $movie_id})
+        RETURN m.title AS title,
+               m.tagline AS tagline,
+               m.released AS released,
+               m.plot AS plot
+        """,
+        movie_id=movie_id
+    )
+    
+    if not records:
+        return f"Movie {movie_id} not found"
+    
+    movie = records[0].data()
+    
+    return f"""
+    Title: {movie['title']}
+    Released: {movie['released']}
+    Tagline: {movie['tagline']}
+    
+    Plot: {movie['plot']}
+    """
+----
+
+**The URI pattern** `movie://{movie_id}` creates a resource template:
+
+* Client can request `movie://603` to get The Matrix
+* Client can request `movie://605` to get The Matrix Reloaded
+* The `movie_id` parameter is passed to your function
+
+
+== URI Best Practices
+
+**1. Use meaningful schemes:**
+
+[source,python]
+----
+# Good
+@mcp.resource("movie://{id}")
+@mcp.resource("person://{id}")
+@mcp.resource("genre://{name}")
+
+# Avoid
+@mcp.resource("data://{id}")  # Too generic
+@mcp.resource("thing://{id}")  # Unclear
+----
+
+**2. Be consistent:**
+
+[source,python]
+----
+# Good - consistent pattern
+@mcp.resource("movie://{movie_id}")
+@mcp.resource("person://{person_id}")
+
+# Avoid - inconsistent
+@mcp.resource("movies/{id}")      # Missing scheme
+@mcp.resource("person://id/{id}")  # Different structure
+----
+
+**3. Use appropriate identifiers:**
+
+[source,python]
+----
+# For database entities, use stable IDs
+@mcp.resource("movie://{tmdb_id}")
+
+# For conceptual resources, use names
+@mcp.resource("genre://{genre_name}")
+----
+
+
+== Structured Resource Content
+
+Resources can return structured data as JSON:
+
+[source,python]
+----
+@mcp.resource("movie://{movie_id}/details")
+async def get_movie_details(movie_id: str, ctx: Context) -> dict:
+    """Get structured movie details."""
+    
+    driver = ctx.request_context.lifespan_context.driver
+    
+    records, _, _ = await driver.execute_query(
+        """
+        MATCH (m:Movie {tmdbId: $movie_id})
+        OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
+        OPTIONAL MATCH (p:Person)-[r:ACTED_IN]->(m)
+        RETURN m.title AS title,
+               m.released AS released,
+               m.plot AS plot,
+               collect(DISTINCT g.name) AS genres,
+               collect(DISTINCT {
+                   name: p.name, 
+                   role: r.role
+               })[..5] AS cast
+        """,
+        movie_id=movie_id
+    )
+    
+    if not records:
+        return {"error": f"Movie {movie_id} not found"}
+    
+    return records[0].data()
+----
+
+This returns structured JSON that clients can parse programmatically.
+
+
+== When to Use Resources
+
+**Ideal use cases:**
+
+* **Reference data** - Movie details, person profiles, genre information
+* **Documentation** - API docs, server capabilities, usage examples
+* **Configuration** - Server settings, available options
+* **Static content** - About pages, help text, terms of service
+* **Specific entities** - Get one item by ID
+
+
+**Not ideal for:**
+
+* **Dynamic searches** - Use tools instead
+* **Filtered lists** - Use tools with parameters
+* **Computed results** - Use tools for computation
+* **Operations with side effects** - Definitely use tools
+
+
+== Resources in the MCP Protocol
+
+When a client connects to your server, it can:
+
+1. **List resources** - See what's available
+2. **Read a resource** - Load specific content by URI
+
+The client decides what to load into the LLM's context **before** the conversation starts.
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about MCP resources:
+
+* **Resources vs Tools** - Application-controlled vs LLM-controlled data access
+* **`@mcp.resource()` decorator** - Create resources with URI patterns
+* **Dynamic URIs** - Use parameters like `movie://{id}` for flexibility
+* **URI best practices** - Meaningful schemes, consistency, appropriate identifiers
+* **Structured content** - Return JSON for programmatic access
+* **Use cases** - Reference data, documentation, specific entities
+
+Resources are perfect for exposing specific pieces of data that the client wants to load into context.
+
+In the next challenge, you'll create a resource that exposes movie details by ID.

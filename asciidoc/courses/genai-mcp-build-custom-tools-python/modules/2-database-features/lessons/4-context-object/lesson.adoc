@@ -1,0 +1,236 @@
+= Using the Context Object
+:type: lesson
+:order: 4
+
+
+In the previous module, you learned how to use lifespan management to initialize and share resources like the Neo4j driver across your MCP server.
+
+But how do your tools actually access these resources? And how can you provide feedback to users during long-running operations?
+
+This is where the **Context object** comes in.
+
+
+== What is the Context Object?
+
+The Context object is automatically injected into tools and resources that request it.
+It provides access to:
+
+* **Lifespan resources** - Database connections, configuration, etc.
+* **Logging methods** - Send messages to the client at different log levels
+* **Progress reporting** - Show progress for long-running operations
+* **Resource reading** - Access other resources from within tools
+* **Session information** - Request metadata and client capabilities
+
+
+== Accessing the Context
+
+To use the Context in a tool or resource, simply add a parameter with the `Context` type annotation:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context, FastMCP
+
+mcp = FastMCP("Movie Server")
+
+
+@mcp.tool()
+async def my_tool(query: str, ctx: Context) -> str:
+    """A tool that uses the context."""
+    
+    # The context is automatically injected by FastMCP
+    # The parameter can have any name, but must be type-annotated
+    
+    return await process_query(query, ctx)
+----
+
+[TIP]
+====
+The context parameter can have any name (`ctx`, `context`, `c`, etc.) as long as it has the `Context` type annotation.
+====
+
+
+== Accessing Lifespan Resources
+
+The most common use of the Context object is to access resources initialized during lifespan:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context
+
+@mcp.tool()
+async def get_movie_count(ctx: Context) -> int:
+    """Count the number of movies in the database."""
+    
+    # Access the Neo4j driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Use the driver to query Neo4j
+    records, summary, keys = await driver.execute_query(
+        "MATCH (m:Movie) RETURN count(m) AS count"
+    )
+    
+    return records[0]["count"]
+----
+
+
+== Logging
+
+The Context object provides logging methods that send messages to the client:
+
+[source,python]
+----
+@mcp.tool()
+async def analyze_graph(ctx: Context) -> dict:
+    """Analyze the graph structure."""
+    
+    # Debug - detailed information for troubleshooting
+    await ctx.debug("Starting graph analysis")
+    
+    # Info - general informational messages
+    await ctx.info("Analyzing node relationships...")
+    
+    # Warning - non-critical issues
+    await ctx.warning("Large dataset detected, this may take a while")
+    
+    # Error - error messages (doesn't stop execution)
+    await ctx.error("Some relationships may be incomplete")
+    
+    # Perform analysis
+    driver = ctx.request_context.lifespan_context.driver
+    records, summary, keys = await driver.execute_query(
+        "MATCH (n) RETURN count(n) AS nodeCount"
+    )
+    
+    await ctx.info(f"Analysis complete: {records[0]['nodeCount']} nodes")
+    
+    return {"nodeCount": records[0]["nodeCount"]}
+----
+
+**Benefits of logging:**
+
+* **Debugging** - See what's happening inside your tools during development
+* **Monitoring** - Track tool execution in production
+* **User feedback** - Show progress for complex operations
+* **Error tracking** - Log errors without stopping execution
+
+
+== Progress Reporting
+
+For long-running operations, you can report progress to keep users informed:
+
+[source,python]
+----
+@mcp.tool()
+async def process_large_dataset(ctx: Context) -> str:
+    """Process a large dataset with progress updates."""
+    
+    driver = ctx.request_context.lifespan_context.driver
+    
+    await ctx.info("Starting data processing...")
+    
+    # Get total count
+    count_records, _, _ = await driver.execute_query(
+        "MATCH (n:Movie) RETURN count(n) AS total"
+    )
+    total = count_records[0]["total"]
+    
+    # Process in batches
+    batch_size = 100
+    for i in range(0, total, batch_size):
+        # Report progress (current, total, optional message)
+        await ctx.report_progress(
+            progress=i,
+            total=total,
+            message=f"Processed {i}/{total} movies"
+        )
+        
+        # Process batch
+        await driver.execute_query(
+            """
+            MATCH (m:Movie)
+            WHERE id(m) >= $start AND id(m) < $end
+            SET m.processed = true
+            """,
+            start=i,
+            end=i + batch_size
+        )
+    
+    await ctx.report_progress(progress=total, total=total, message="Complete!")
+    
+    return f"Processed {total} movies"
+----
+
+
+== Combining Context Features
+
+Here's a realistic example that combines lifespan resources, logging, and progress reporting:
+
+[source,python]
+----
+@mcp.tool()
+async def recommend_movies(genre: str, limit: int, ctx: Context) -> list[dict]:
+    """Get movie recommendations based on genre."""
+    
+    # Log the request
+    await ctx.info(f"Finding {limit} {genre} movies...")
+    
+    # Access driver from lifespan
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Report initial progress
+    await ctx.report_progress(progress=0, total=1, message="Querying database...")
+    
+    # Execute query with logging
+    await ctx.debug(f"Executing Cypher query for genre: {genre}")
+    
+    try:
+        records, summary, keys = await driver.execute_query(
+            """
+            MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+            RETURN m.title AS title, 
+                   m.tagline AS tagline,
+                   m.released AS released
+            ORDER BY m.imdbRating DESC
+            LIMIT $limit
+            """,
+            genre=genre,
+            limit=limit
+        )
+        
+        # Report completion
+        await ctx.report_progress(progress=1, total=1, message="Query complete")
+        await ctx.info(f"Found {len(records)} {genre} movies")
+        
+        return [record.data() for record in records]
+        
+    except Exception as e:
+        # Log errors
+        await ctx.error(f"Query failed: {str(e)}")
+        raise
+----
+
+
+== Context Properties Reference
+
+The Context object provides:
+
+* `ctx.request_context.lifespan_context` - Access to lifespan resources
+* `ctx.request_context.meta` - Request metadata from the client
+* `ctx.request_context.request_id` - Unique identifier for this request
+* `ctx.fastmcp` - Access to the FastMCP server instance
+* `ctx.session` - Access to the underlying session for advanced features
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to use the Context object to build more powerful and user-friendly MCP tools:
+
+* **Context injection** - Add a `Context` parameter to tools to automatically receive it
+* **Lifespan resources** - Access shared resources like database drivers via `ctx.request_context.lifespan_context`
+* **Logging methods** - Use `ctx.debug()`, `ctx.info()`, `ctx.warning()`, and `ctx.error()` to provide feedback
+* **Progress reporting** - Use `ctx.report_progress()` to show progress for long-running operations
+* **Best practices** - Combine logging and progress reporting for better user experience
+
+In the next challenge, you will build a tool that uses the Context object to query Neo4j and provide logging feedback to users.
+
