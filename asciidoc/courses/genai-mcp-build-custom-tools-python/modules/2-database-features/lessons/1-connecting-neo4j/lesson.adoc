@@ -50,27 +50,34 @@ A lifespan function is an async context manager that yields a context object con
 
 [source,python]
 ----
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from neo4j import AsyncGraphDatabase
 
-from mcp.server.fastmcp import FastMCP
+from neo4j import AsyncGraphDatabase, AsyncDriver
+from mcp.server.fastmcp import Context, FastMCP
 
 
-# Define a context class to hold your resources
+# 1. Define a context class to hold your resources
 @dataclass
 class AppContext:
     """Application context with shared resources."""
     driver: AsyncDriver
 
 
+# 2. Create the lifespan context manager
 @asynccontextmanager
 async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Manage application lifecycle."""
     
-    # Startup: Initialize resources
-    driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
+    # Startup: Read credentials from environment variables
+    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    username = os.getenv("NEO4J_USERNAME", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "password")
+    
+    # Initialize the Neo4j driver
+    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
         # Yield the context with initialized resources
@@ -80,69 +87,125 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         await driver.close()
 
 
-# Pass lifespan to the server
+# 3. Pass lifespan to the server
 mcp = FastMCP("Movie Server", lifespan=app_lifespan)
-----
-
-**Key points:**
-
-* The `@asynccontextmanager` decorator creates an async context manager
-* Code before `yield` runs at **server startup**
-* The yielded value is the **context** that tools can access
-* Code in the `finally` block runs at **server shutdown**
 
 
-=== Using Environment Variables
-
-You should **never** hardcode credentials in your code.
-Instead, use environment variables to store sensitive information:
-
-[source,python]
-----
-import os
-from neo4j import AsyncGraphDatabase
-
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Manage application lifecycle with environment variables."""
-    
-    # Read credentials from environment variables
-    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    username = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "password")
-    
-    # Initialize driver
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
-    
-    try:
-        yield AppContext(driver=driver)
-    finally:
-        await driver.close()
-----
-
-
-=== Accessing Lifespan Context in Tools
-
-Once you've set up lifespan management, your tools can access the shared resources through the `Context` object:
-
-[source,python]
-----
-from mcp.server.fastmcp import Context, FastMCP
-
+# 4. Access the driver in your tools
 @mcp.tool()
-async def get_movies(ctx: Context) -> list[dict]:
-    """Get a list of movies from Neo4j."""
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
     
     # Access the driver from lifespan context
     driver = ctx.request_context.lifespan_context.driver
     
     # Use the driver to query Neo4j
     records, summary, keys = await driver.execute_query(
-        "MATCH (m:Movie) RETURN m.title AS title LIMIT 10"
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
     )
     
-    return [record.data() for record in records]
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
 ----
+
+
+=== Breaking Down the Implementation
+
+Let's examine each part of this implementation:
+
+
+==== 1. Define the Context Class
+
+[source,python]
+----
+@dataclass
+class AppContext:
+    """Application context with shared resources."""
+    driver: AsyncDriver
+----
+
+The context class holds all resources that should be shared across your server.
+Using a dataclass with type hints provides better IDE support and type safety.
+
+
+==== 2. Create the Lifespan Context Manager
+
+[source,python]
+----
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+----
+
+The `@asynccontextmanager` decorator creates an async context manager.
+Code before `yield` runs at **server startup**, code in `finally` runs at **server shutdown**.
+
+
+==== 3. Use Environment Variables
+
+[source,python]
+----
+uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+username = os.getenv("NEO4J_USERNAME", "neo4j")
+password = os.getenv("NEO4J_PASSWORD", "password")
+----
+
+**Never** hardcode credentials in your code.
+Environment variables keep sensitive information secure and allow different configurations for development and production.
+
+
+==== 4. Initialize and Clean Up Resources
+
+[source,python]
+----
+driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+
+try:
+    yield AppContext(driver=driver)
+finally:
+    await driver.close()
+----
+
+The driver is created once at startup and closed at shutdown, ensuring proper resource management.
+
+
+==== 5. Access Context in Tools
+
+[source,python]
+----
+@mcp.tool()
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
+    
+    # Access the driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Use the driver to query Neo4j
+    records, summary, keys = await driver.execute_query(
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
+    )
+    
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
+----
+
+Tools receive the `Context` object (imported from `mcp.server.fastmcp`) through the `ctx` parameter.
+The `ctx.request_context.lifespan_context` provides access to your `AppContext` instance with the shared driver.
+
+
+[TIP]
+.What else can Context be used for?
+====
+Beyond accessing lifespan resources, the `Context` object can also be used to:
+
+* **Access request metadata** - Information about the current tool invocation
+* **Log messages** - Use `ctx.info()`, `ctx.warning()`, and `ctx.error()` to send log messages to the client
+* **Send progress updates** - Keep the client informed during long-running operations
+* **Access client information** - Metadata about the calling agent or application
+====
 
 
 == Benefits of Lifespan Management
