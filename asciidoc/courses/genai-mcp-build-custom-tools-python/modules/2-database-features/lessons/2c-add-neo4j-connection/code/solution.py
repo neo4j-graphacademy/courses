@@ -58,21 +58,24 @@ def count_letters(text: str, search: str) -> int:
 # end::count_letters[]
 
 
-# tag::test_connection[]
+# tag::graph_statistics[]
 @mcp.tool()
-async def test_connection(ctx: Context) -> str:
-    """Test the Neo4j connection."""
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
     
-    # Access driver from lifespan context
+    # Access the driver from lifespan context
     driver = ctx.request_context.lifespan_context.driver
     
-    # Execute a simple query
+    # Use the driver to query Neo4j
     records, summary, keys = await driver.execute_query(
-        "RETURN 'Connection successful!' AS message"
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
     )
     
-    return records[0]["message"]
-# end::test_connection[]
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
+# end::graph_statistics[]
 
 
 # tag::run[]

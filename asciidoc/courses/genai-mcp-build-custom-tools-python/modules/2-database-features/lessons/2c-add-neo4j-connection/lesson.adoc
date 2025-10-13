@@ -34,15 +34,15 @@ uv add neo4j
 
 Create a `.env` file in your `server/` directory with your Neo4j connection details:
 
-[source,bash]
+[source,bash,subs="attributes+"]
 .server/.env
 ----
-NEO4J_URI=<your-neo4j-uri>
-NEO4J_USERNAME=<your-username>
-NEO4J_PASSWORD=<your-password>
+NEO4J_URI={instance-scheme}://{instance-ip}:{instance-boltPort}
+NEO4J_USERNAME={instance-username}
+NEO4J_PASSWORD={instance-password}
+NEO4J_DATABASE={instance-database}
 ----
 
-Your connection details can be found in the panel below.
 
 [NOTE]
 ====
@@ -65,12 +65,17 @@ from dataclasses import dataclass
 from neo4j import AsyncGraphDatabase, AsyncDriver
 from mcp.server.fastmcp import FastMCP
 
+# load credentials from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # Define context to hold the Neo4j driver
 @dataclass
 class AppContext:
     """Application context with Neo4j driver."""
     driver: AsyncDriver
+    database: str
 
 
 @asynccontextmanager
@@ -81,13 +86,14 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
     
     # Initialize driver on startup
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
         # Yield context with driver
-        yield AppContext(driver=driver)
+        yield AppContext(driver=driver, database=database)
     finally:
         # Close driver on shutdown
         await driver.close()
@@ -151,38 +157,39 @@ Update your `.vscode/mcp.json` to pass environment variables to the server:
                 "main.py"
             ],
             "env": {
-                "NEO4J_URI": "<your-neo4j-uri>",
-                "NEO4J_USERNAME": "<your-username>",
-                "NEO4J_PASSWORD": "<your-password>"
+                "NEO4J_URI": "{instance-scheme}://{instance-ip}:{instance-boltPort}",
+                "NEO4J_USERNAME": "{instance-username}",
+                "NEO4J_PASSWORD": "{instance-password}",
+                "NEO4J_DATABASE": "{instance-database}"
             }
         }
     }
 }
 ----
 
-Alternatively, you can reference your `.env` file using environment variables:
+// Alternatively, you can reference your `.env` file using environment variables:
 
-[source,json]
-..vscode/mcp.json (alternative)
-----
-{
-    "servers": {
-        "Movie Server": {
-            "type": "stdio",
-            "command": "bash",
-            "args": [
-                "-c",
-                "cd server && source .env && uv run main.py"
-            ]
-        }
-    }
-}
-----
+// [source,json]
+// ..vscode/mcp.json (alternative)
+// ----
+// {
+//     "servers": {
+//         "Movie Server": {
+//             "type": "stdio",
+//             "command": "bash",
+//             "args": [
+//                 "-c",
+//                 "cd server && source .env && uv run main.py"
+//             ]
+//         }
+//     }
+// }
+// ----
 
 
 == Step 6: Test the Connection
 
-Create a simple tool to test the Neo4j connection:
+Create a tool to test the Neo4j connection by getting database statistics:
 
 [source,python]
 .server/main.py
@@ -190,19 +197,24 @@ Create a simple tool to test the Neo4j connection:
 from mcp.server.fastmcp import Context
 
 @mcp.tool()
-async def test_connection(ctx: Context) -> str:
-    """Test the Neo4j connection."""
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
     
-    # Access driver from lifespan context
+    # Access the driver from lifespan context
     driver = ctx.request_context.lifespan_context.driver
     
-    # Execute a simple query
+    # Use the driver to query Neo4j
     records, summary, keys = await driver.execute_query(
-        "RETURN 'Connection successful!' AS message"
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
     )
     
-    return records[0]["message"]
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
 ----
+
+// TODO: replace mcp inspector?
 
 Test it with the MCP Inspector:
 
@@ -211,7 +223,7 @@ Test it with the MCP Inspector:
 npx @modelcontextprotocol/inspector uv --directory $PWD/server run main.py
 ----
 
-Run the `test_connection` tool. If it returns "Connection successful!", your lifespan management is working correctly!
+Run the `graph_statistics` tool. If it returns the node and relationship counts from your database, your lifespan management is working correctly!
 
 
 == Verify Your Implementation
@@ -219,7 +231,7 @@ Run the `test_connection` tool. If it returns "Connection successful!", your lif
 Once you've implemented the lifespan management:
 
 1. The server should start without errors
-2. The `test_connection` tool should return "Connection successful!"
+2. The `graph_statistics` tool should return node and relationship counts from your database
 3. The server should cleanly shut down when stopped (no connection warnings)
 
 read::My lifespan management is working![]
