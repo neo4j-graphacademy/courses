@@ -3,202 +3,46 @@
 :order: 1
 
 
-You've built a complete MCP server with tools, resources, prompts, and pagination.
-
-Now you'll learn how to integrate your MCP server into your development workflow to build even more sophisticated tools.
-
-
-== The Meta-Programming Opportunity
-
-Here's a powerful idea: **You can use MCP tools to help you build MCP tools**.
-
-
-Your MCP server can:
-
-1. Query the Neo4j schema
-2. Generate Cypher queries
-3. Validate those queries
-4. Help you build new tools
-
-
-This is **meta-programming** - using your tools to build better tools.
-
+You've built a complete MCP server with tools, resources, prompts, and pagination. Now it's time to use these tools to build even better tools - a concept known as **meta-programming**. Your MCP server can query schemas, generate and validate Cypher queries, and help build new tools, making development faster and more sophisticated.
 
 == Building Tools with AI Assistance
 
-Let's walk through a real workflow for building a new MCP tool.
+Instead of manually exploring schemas, writing queries, and debugging code, you can use your MCP tools with AI to automate the development process. For example, to create a tool that finds actors who worked with a specific director, simply ask the AI to help. It will use your tools to explore the schema, generate and validate the Cypher query, and write the complete Python function.
 
 
-=== The Challenge
+== Using Cursor Rules
 
-You want to create a tool that finds actors who have worked with a specific director.
-
-
-=== Traditional Approach
-
-1. Manually explore the Neo4j schema
-2. Write Cypher query by hand
-3. Test query in Neo4j Browser
-4. Debug issues
-5. Write Python function
-6. Test in MCP Inspector
-7. Iterate until it works
-
-
-**Time:** 30-60 minutes
-
-
-=== AI-Assisted Approach with MCP
-
-1. Ask AI: "I need a tool to find actors who worked with a director"
-2. AI uses your MCP Neo4j tools to explore the schema
-3. AI generates and validates the Cypher query
-4. AI writes the complete Python function with proper error handling
-5. You review and test
-
-
-**Time:** 5-10 minutes
-
-
-== Using Cursor Rules for MCP Integration
-
-link:https://cursor.sh[Cursor^] is an AI-powered code editor that can leverage MCP servers.
-
-You can create **Cursor Rules** that tell the AI how to use your MCP server.
-
-
-=== Create a Cursor Rule
-
-Create `.cursor/rules/mcp-neo4j.md` in your project:
+link:https://cursor.sh[Cursor^] can leverage your MCP server through **Cursor Rules**. Create `.cursor/rules/mcp-neo4j.md` with instructions for using your tools:
 
 [source,markdown]
 ----
 # Neo4j MCP Server Integration
 
-When working with Neo4j queries for this project:
-
-## Available MCP Tools
-
-1. **neo4j_schema** - Get the current database schema
-   - Shows node labels, relationship types, and properties
-   - Use this FIRST before writing any Cypher
-
-2. **neo4j_query** - Execute read-only Cypher queries
-   - Validates query syntax
-   - Returns results or error messages
-   - Use this to TEST queries before adding to code
-
-## Workflow for Creating Neo4j Tools
-
-1. **Always start with schema**
-   ```
-   Use neo4j_schema tool to understand the data model
-   ```
-
-2. **Write and test the Cypher**
-   ```
-   Use neo4j_query tool to test query
-   Iterate until it works correctly
-   ```
-
-3. **Generate the Python function**
-   ```python
-   @mcp.tool()
-   async def tool_name(param: type, ctx: Context) -> return_type:
-       """Clear docstring."""
-       driver = ctx.request_context.lifespan_context.driver
-       # Use the validated Cypher query
-   ```
+## Available Tools
+- **neo4j_schema**: Get database schema (labels, relationships, properties)
+- **neo4j_query**: Execute and validate Cypher queries
 
 ## Best Practices
+- Start with schema exploration
+- Test queries before implementation
+- Avoid OPTIONAL MATCH unless absolutely necessary. Use list comprehension in the RETURN clause instead.
+- Add ORDER BY and LIMIT clauses
+- Use parameters ($param)
+- Include logging and error handling
 
-- Use OPTIONAL MATCH for relationships that might not exist
-- Limit results with LIMIT clause
-- Add ORDER BY for consistent results
-- Use parameters ($param) never string interpolation
-- Add logging with ctx.info() and ctx.debug()
-- Handle errors gracefully with try/except
-
-## Example
-
+## Example Usage
 "Create a tool to find movies with a specific actor"
-
-Steps:
-1. Check schema to see Person-[:ACTED_IN]->Movie relationships
-2. Write query: MATCH (p:Person {name: $name})-[:ACTED_IN]->(m:Movie)
-3. Test with neo4j_query tool
-4. Generate complete Python tool function
+1. Check schema: Person-[:ACTED_IN]->Movie
+2. Test query: MATCH (p:Person {name: $name})-[r:ACTED_IN]->(m:Movie) RETURN m.title AS title, r.role AS role
+3. Generate Python function with proper structure
 ----
 
-
-=== Using the Rule
-
-Now when you ask Cursor:
-
-> "Create a tool to find directors who worked with Keanu Reeves"
-
-Cursor will:
-
-1. Use your MCP server to get the schema
-2. Understand the Person and DIRECTED relationships
-3. Generate and test a Cypher query
-4. Write the complete Python function with proper structure
+Now Cursor can use your MCP tools to explore schemas, validate queries, and generate code automatically.
 
 
 == Iterative Development with MCP
 
-MCP enables an iterative workflow:
-
-
-=== Iteration 1: Basic Query
-
-[source,python]
-----
-@mcp.tool()
-async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
-    """Find directors who worked with an actor."""
-    
-    driver = ctx.request_context.lifespan_context.driver
-    
-    records, _, _ = await driver.execute_query(
-        """
-        MATCH (p:Person {name: $actor_name})-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-        RETURN DISTINCT d.name AS director
-        """,
-        actor_name=actor_name
-    )
-    
-    return [r.data() for r in records]
-----
-
-
-=== Iteration 2: Add Movie Information
-
-Ask AI: "Include which movies they worked together on"
-
-[source,python]
-----
-@mcp.tool()
-async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
-    """Find directors who worked with an actor."""
-    
-    records, _, _ = await driver.execute_query(
-        """
-        MATCH (p:Person {name: $actor_name})-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-        RETURN d.name AS director, 
-               collect(m.title) AS movies
-        ORDER BY size(movies) DESC
-        """,
-        actor_name=actor_name
-    )
-    
-    return [r.data() for r in records]
-----
-
-
-=== Iteration 3: Add Error Handling and Logging
-
-Ask AI: "Add proper error handling and logging"
+MCP enables rapid iteration through AI assistance. Here's how a tool evolves:
 
 [source,python]
 ----
@@ -207,11 +51,10 @@ async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
     """Find directors who worked with an actor."""
     
     await ctx.info(f"Finding directors who worked with {actor_name}")
-    
     driver = ctx.request_context.lifespan_context.driver
     
     try:
-        # First check if actor exists
+        # Check if actor exists
         check_records, _, _ = await driver.execute_query(
             "MATCH (p:Person {name: $name}) RETURN count(p) AS count",
             name=actor_name
@@ -221,7 +64,7 @@ async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
             await ctx.warning(f"Actor '{actor_name}' not found in database")
             return []
         
-        # Find directors
+        # Find directors and their collaborations
         records, _, _ = await driver.execute_query(
             """
             MATCH (p:Person {name: $actor_name})-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
@@ -235,7 +78,6 @@ async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
         
         results = [r.data() for r in records]
         await ctx.info(f"Found {len(results)} directors who worked with {actor_name}")
-        
         return results
         
     except Exception as e:
@@ -243,57 +85,37 @@ async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
         raise
 ----
 
-
-## Building a Text-to-Cypher Tool
-
-One of the most powerful tools you can build is one that generates Cypher queries from natural language.
+Each improvement (adding movie information, error handling, logging) can be requested from the AI, which uses your MCP tools to validate and implement the changes.
 
 
-This tool would:
+== The Power of MCP: From Probabilistic to Deterministic Graph Development
 
-1. Accept a natural language question
-2. Use the Neo4j schema to understand what's possible
-3. Generate an appropriate Cypher query
-4. Execute and return results
+The ultimate example of MCP's power is using MCP servers to build reliable graph tools. Instead of relying on probabilistic AI responses, you can create a deterministic workflow:
 
+1. Use `neo4j_schema` to understand the exact graph structure
+2. Use `neo4j_query` to write and validate Cypher statements
+3. Write the validated code into your project
 
-**Example usage:**
+For example, to build a movie search feature:
 
-> "Show me action movies from the 1990s"
+[source,python]
+----
+# 1. Get schema to understand relationships
+schema = neo4j_schema()  # Shows Movie-[:IN_GENRE]->Genre exists
 
-The tool would:
+# 2. Validate the Cypher query
+result = neo4j_query("""
+    MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+    WHERE m.released >= $year_start AND m.released < $year_end
+    RETURN m.title, m.released, m.rating
+    ORDER BY m.rating DESC
+""")
 
-1. Understand you want Movies
-2. Know there's a Genre relationship
-3. Generate: `MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: 'Action'}) WHERE m.released >= 1990 AND m.released < 2000 RETURN m`
-4. Execute and return results
+# 3. Write the validated query into your tool
+write_to_project(validated_query)
+----
 
-
-**This is exactly what you'll build in the next challenge!**
-
-
-== The Power of MCP in Development
-
-MCP transforms your development workflow:
-
-
-**Without MCP:**
-
-* Manual schema exploration
-* Trial and error with queries
-* Repetitive code patterns
-* Slow iteration cycles
-
-
-**With MCP:**
-
-* AI-assisted query generation
-* Automated testing with your tools
-* Faster iteration
-* More sophisticated features
-
-
-**The result:** You can build more complex tools in less time with higher quality.
+This approach ensures reliable results - as long as you use the right tools in the right order. You'll build this exact workflow in the next challenge!
 
 
 [.summary]
