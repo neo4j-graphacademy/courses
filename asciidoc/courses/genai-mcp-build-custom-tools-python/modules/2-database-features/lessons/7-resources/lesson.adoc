@@ -12,7 +12,7 @@ Now you'll learn about **resources** - a way to expose data through static URIs,
 
 **Resources** are data that can be loaded into the LLM's context by the client application.
 
-Unlike tools (which the LLM decides to call), resources are **application-controlled** - the client decides what to load.
+Unlike tools, which the LLM decides to call, resources are **application-controlled** - the client decides what to load.
 
 
 == Tools vs Resources
@@ -33,8 +33,8 @@ Understanding when to use each is key to effective MCP server design:
 
 **Use Resources when:**
 
-* The client/application decides what data to load
-* You're exposing reference data or documentation
+// * The client/application decides what data to load
+* You're exposing static reference data or documentation that has a unique identifier
 * The data should be loaded into context upfront
 * You want to provide specific pieces of data by ID
 
@@ -44,49 +44,23 @@ Understanding when to use each is key to effective MCP server design:
 
 == Creating Resources with FastMCP
 
-FastMCP provides the `@mcp.resource()` decorator to expose resources. Let's look at a static resource that provides reference data:
+FastMCP provides the `@mcp.resource()` decorator to expose resources. Here's a static resource that provides reference data:
+
+The resource starts with a URI and function signature:
 
 [source,python]
 ----
-import os
-from mcp.server.fastmcp import FastMCP
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
-
-from neo4j import AsyncGraphDatabase, AsyncDriver
-
-
-@dataclass
-class AppContext:
-    """Application context with Neo4j driver and database."""
-    driver: AsyncDriver
-    database: str
-
-
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Manage application lifecycle."""
-    # Get connection details from environment
-    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    username = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "password")
-    database = os.getenv("NEO4J_DATABASE", "neo4j")
-
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
-    try:
-        yield AppContext(driver=driver, database=database)
-    finally:
-        await driver.close()
-
-
-mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
-
-
 @mcp.resource("catalog://genres")
 async def get_genres(ctx: Context) -> dict:
     """Get all available movie genres with their counts."""
-    
+----
+
+The `catalog://genres` URI is static - it doesn't need any parameters because it always returns the complete list of genres. The `catalog://` prefix tells clients this is a reference list they can use to look up valid genres. The function is marked as `async` since it makes database calls.
+
+The code then accesses the Neo4j driver from the context:
+
+[source,python]
+----
     context = ctx.request_context.lifespan_context
     records, _, _ = await context.driver.execute_query(
         """
@@ -97,36 +71,22 @@ async def get_genres(ctx: Context) -> dict:
         """,
         database_=context.database
     )
-    
+----
+
+The Cypher query finds all Genre nodes and counts how many movies belong to each genre. The alphabetical ordering makes the list easy to scan. Each result includes the genre name and its movie count.
+
+The results are formatted in a clean, structured way:
+
+[source,python]
+----
     return {
         "genres": [
-            {"name": r["name"], "movieCount": r["movieCount"]}
-            for r in records
+            dict(r) for r in records
         ]
     }
 ----
 
-Let's break down this example:
-
-1. **URI Pattern** - `catalog://genres`
-   * Uses `catalog://` to indicate this is a reference list
-   * No parameters needed since it returns all genres
-   * Static URI that clients can reliably reference
-
-2. **Function Signature**
-   * `async` function since it queries the database
-   * Takes `ctx: Context` to access the Neo4j driver
-   * Returns `dict` for structured data
-
-3. **Database Query**
-   * Finds all Genre nodes
-   * Counts how many movies are in each genre
-   * Orders alphabetically for consistency
-
-4. **Return Format**
-   * Returns a dictionary with a "genres" list
-   * Each genre has its name and movie count
-   * Structured format makes it easy for clients to process
+The returned dictionary contains a "genres" list, with each entry containing a name and movie count. This structure makes it easy for client applications to process the data programmatically.
 
 This resource is perfect for providing reference data that clients can load upfront to understand what genres are available.
 
@@ -143,77 +103,59 @@ Resources should return structured data (objects or dictionaries) that clients c
 
 == Dynamic Resource URIs
 
-While static resources are great for reference data, sometimes you need to access specific entities. This is where dynamic URIs come in, using **parameters** in curly braces:
+While static resources are great for reference data, sometimes you need to access specific entities. This is where dynamic URIs come in, using parameters in curly braces:
+
+The resource definition starts with a dynamic URI pattern:
 
 [source,python]
 ----
-from mcp.server.fastmcp import Context
-
 @mcp.resource("movie://{id}")
 async def get_movie(id: str, ctx: Context) -> dict:
     """Get details about a specific movie by ID."""
-    
+----
+
+The URI pattern `movie://{id}` introduces a dynamic element. When a client requests `movie://603`, FastMCP extracts "603" and passes it to your function's `id` parameter. The type hint ensures the value is in the correct format.
+
+The function queries the database for the movie and its genres:
+
+[source,python]
+----
     context = ctx.request_context.lifespan_context
     records, _, _ = await context.driver.execute_query(
         """
         MATCH (m:Movie {tmdbId: $id})
-        OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
         RETURN m.title AS title,
                m.tagline AS tagline,
                m.released AS released,
                m.plot AS plot,
-               collect(g.name) AS genres
+               [ (m)-[:IN_GENRE]->(g:Genre) | g.name ] AS genres
         """,
         id=id,
         database_=context.database
     )
-    
+----
+
+The final step handles error checking:
+
+[source,python]
+----
     if not records:
         return {"error": f"Movie {id} not found"}
     
     return records[0].data()
 ----
 
-Let's examine this dynamic resource:
+The function returns a structured error message if no movie exists. Otherwise, it returns the movie's details in a dictionary format following standard JSON API practices.
 
-1. **Dynamic URI Pattern** - `movie://{id}`
-   * Uses `movie://` to indicate this returns a specific movie
-   * The `{id}` parameter lets clients request any movie
-   * FastMCP automatically extracts the ID from the URI
+// The URI patterns demonstrate two common resource types:
 
-2. **Parameter Handling**
-   * The `id` parameter in the function matches the `{id}` in the URI
-   * FastMCP passes the value from the URI to your function
-   * Type hints ensure proper parameter typing
-
-3. **Database Query**
-   * Uses the ID to find a specific movie
-   * `OPTIONAL MATCH` ensures we get genres if they exist
-   * Returns multiple properties for a rich response
-
-4. **Error Handling**
-   * Checks if the movie was found
-   * Returns a structured error response
-   * Clients can easily detect error conditions
-
-5. **Structured Response**
-   * Returns all data as a dictionary
-   * Includes both movie details and related genres
-   * Consistent with JSON API practices
-
-The URI patterns demonstrate two common resource types:
-
-* `catalog://genres` - A static resource that returns reference data (all available genres)
-* `movie://{id}` - A dynamic resource template that returns specific movie details
+// * `catalog://genres` - A static resource that returns reference data (all available genres)
+// * `movie://{id}` - A dynamic resource template that returns specific movie details
 
 The dynamic pattern allows clients to:
+
 * Request `movie://603` to get The Matrix
 * Request `movie://605` to get The Matrix Reloaded
-* The `id` parameter is automatically passed to your function
-
-The protocol scheme (`catalog://` vs `movie://`) helps clients understand the type of resource:
-* `catalog://` indicates a list or catalog of available items
-* `movie://` indicates a specific movie entity
 
 
 == When to Use Resources
@@ -233,16 +175,6 @@ The protocol scheme (`catalog://` vs `movie://`) helps clients understand the ty
 * **Filtered lists** - Use tools with parameters
 * **Computed results** - Use tools for computation
 * **Operations with side effects** - Definitely use tools
-
-
-== Resources in the MCP Protocol
-
-When a client connects to your server, it can:
-
-1. **List resources** - See what's available
-2. **Read a resource** - Load specific content by URI
-
-The client decides what to load into the LLM's context **before** the conversation starts.
 
 
 [.summary]
