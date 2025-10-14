@@ -116,18 +116,12 @@ async def get_movie(tmdb_id: str, ctx: Context) -> str:
         records, _, _ = await context.driver.execute_query(
             """
             MATCH (m:Movie {tmdbId: $tmdb_id})
-            OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
-            OPTIONAL MATCH (p:Person)-[r:ACTED_IN]->(m)
-            OPTIONAL MATCH (d:Person)-[:DIRECTED]->(m)
             RETURN m.title AS title,
-                   m.released AS released,
-                   m.tagline AS tagline,
-                   m.plot AS plot,
-                   m.imdbRating AS rating,
-                   m.runtime AS runtime,
-                   collect(DISTINCT g.name) AS genres,
-                   collect(DISTINCT {name: p.name, role: r.role})[..5] AS cast,
-                   collect(DISTINCT d.name) AS directors
+               m.released AS released,
+               m.tagline AS tagline,
+               [ (m)-[:IN_GENRE]->(g:Genre) | g.name ] AS genres,
+               [ (p)-[:ACTED_IN]->(m) | p.name ] AS actors,
+               [ (d)-[:DIRECTED]->(m) | d.name ] AS directors
             """,
             tmdb_id=tmdb_id,
             database_=context.database

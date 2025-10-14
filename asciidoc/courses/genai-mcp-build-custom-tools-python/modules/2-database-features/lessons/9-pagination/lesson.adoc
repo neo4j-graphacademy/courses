@@ -3,16 +3,12 @@
 :order: 9
 
 
-When working with graph databases like Neo4j, you'll often deal with large datasets that can't be efficiently returned all at once.
-
-Imagine trying to list every node in a database with millions of entries - this would be slow, consume excessive memory, and overwhelm the client.
-
-This is where **pagination** comes in.
+When working with large datasets in Neo4j, returning all data at once can be slow, consume excessive memory, and overwhelm clients. **Pagination** solves this by returning data in smaller, manageable chunks.
 
 
 == Why Pagination?
 
-Consider a simple resource that lists all movies:
+Consider the following resource that lists all movies:
 
 [source,python]
 ----
@@ -20,20 +16,13 @@ Consider a simple resource that lists all movies:
 async def list_all_movies() -> str:
     """List ALL movies in the database."""
     records, summary, keys = await driver.execute_query(
-        "MATCH (m:Movie) RETURN m.title ORDER BY m.title"
+        "MATCH (m:Movie) RETURN m.title AS title ORDER BY m.title"
     )
     
     # What if there are 100,000 movies?
-    movies = [record["m"]["title"] for record in records]
+    movies = [record["title"] for record in records] # ["The Matrix", "Toy Story", ...]
     return "\n".join(movies)
 ----
-
-**Problems with this approach:**
-
-* **Memory issues** - Loading 100,000 movies into memory at once
-* **Slow response** - The client waits for the entire query to complete
-* **Poor user experience** - Overwhelming the user with too much data
-* **Timeout risks** - Large queries may exceed timeout limits
 
 
 == Understanding Cursor-Based Pagination
@@ -53,15 +42,23 @@ MCP uses **cursor-based pagination**, where a cursor (opaque string) marks your 
 
 == Implementing Pagination in Neo4j
 
-Neo4j's `SKIP` and `LIMIT` clauses are perfect for pagination:
+To implement pagination in a Cypher query, use Neo4j's `SKIP` and `LIMIT` clauses.
 
+The following query returns the first 100 movies:
+
+.First 100 movies
 [source,cypher]
 ----
 MATCH (m:Movie)
 RETURN m.title
 ORDER BY m.title
 SKIP 0 LIMIT 100  // First page (0-99)
+----
 
+The following query skips the first 100 movies and returns the next 100 movies:
+
+[source,cypher]
+----
 MATCH (m:Movie)
 RETURN m.title
 ORDER BY m.title
@@ -147,91 +144,17 @@ async def list_movies_paginated(
 ----
 
 
-== Pagination by Genre
-
-A more practical example is paginating movies within a specific genre:
-
-[source,python]
-----
-@mcp.tool()
-async def list_movies_by_genre_paginated(
-    genre: str,
-    cursor: str = "0",
-    page_size: int = 20,
-    ctx: Context = None
-) -> dict:
-    """
-    List movies in a genre with pagination.
-    
-    Args:
-        genre: Genre name (e.g., "Action", "Drama")
-        cursor: Pagination cursor (default "0")
-        page_size: Movies per page (default 20)
-    
-    Returns:
-        Dictionary with movies, next_cursor, and metadata
-    """
-    
-    skip = int(cursor)
-    driver = ctx.request_context.lifespan_context.driver
-    
-    await ctx.info(f"Fetching {genre} movies, page {skip // page_size + 1}...")
-    
-    # Query with genre filter and pagination
-    records, summary, keys = await driver.execute_query(
-        """
-        MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
-        RETURN m.title AS title, 
-               m.released AS released,
-               m.imdbRating AS rating
-        ORDER BY m.imdbRating DESC, m.title
-        SKIP $skip
-        LIMIT $limit
-        """,
-        genre=genre,
-        skip=skip,
-        limit=page_size
-    )
-    
-    movies = [record.data() for record in records]
-    
-    # Determine if there are more pages
-    next_cursor = str(skip + page_size) if len(movies) == page_size else None
-    
-    return {
-        "genre": genre,
-        "movies": movies,
-        "next_cursor": next_cursor,
-        "page": skip // page_size + 1,
-        "has_more": next_cursor is not None
-    }
-----
-
 
 == Best Practices for Pagination
 
 1. **Consistent ordering** - Always use `ORDER BY` to ensure consistent results across pages
-2. **Reasonable page sizes** - Default to 20-50 items per page for good UX
+2. **Reasonable page sizes** - Default to 20-50 items per page for good user experience
 3. **Include metadata** - Return page number, total pages (if known), and `has_more` flag
 4. **Handle invalid cursors** - Validate cursor values and handle errors gracefully
 5. **Optimize queries** - Use indexes on properties used in `ORDER BY` and `WHERE` clauses
 6. **Consider total counts** - For some UIs, include total count (but this adds query overhead)
 
 
-== When to Use Pagination
-
-Use pagination when:
-
-* **Large datasets** - More than 50-100 items
-* **List operations** - Browsing or searching through collections
-* **Performance matters** - Reducing memory and network usage
-* **User experience** - Preventing overwhelming the user with data
-
-Don't need pagination for:
-
-* **Small datasets** - Less than 50 items
-* **Single item lookups** - Getting one specific movie, person, etc.
-* **Aggregations** - Returning summary statistics
 
 
 [.summary]

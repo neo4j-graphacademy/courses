@@ -64,6 +64,7 @@ from mcp.server.fastmcp import Context, FastMCP
 class AppContext:
     """Application context with shared resources."""
     driver: AsyncDriver
+    database: str
 
 
 # 2. Create the lifespan context manager
@@ -75,13 +76,14 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
     
     # Initialize the Neo4j driver
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
         # Yield the context with initialized resources
-        yield AppContext(driver=driver)
+        yield AppContext(driver=driver, database=database)
     finally:
         # Shutdown: Clean up resources
         await driver.close()
@@ -124,6 +126,7 @@ Let's examine each part of this implementation:
 class AppContext:
     """Application context with shared resources."""
     driver: AsyncDriver
+    database: str
 ----
 
 The context class holds all resources that should be shared across your server.
@@ -151,13 +154,15 @@ Code before `yield` runs at **server startup**, code in `finally` runs at **serv
 uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 username = os.getenv("NEO4J_USERNAME", "neo4j")
 password = os.getenv("NEO4J_PASSWORD", "password")
+database = os.getenv("NEO4J_DATABASE", "neo4j")
 ----
 
 [WARNING]
 .Never hardcode credentials
 ====
-**Never** hardcode credentials in your code.
-Environment variables keep sensitive information secure and allow different configurations for development and production.
+Environment variables contain sensitive information and allow different configurations for development and production.
+
+They should never be written into your code.
 ====
 
 
@@ -168,7 +173,7 @@ Environment variables keep sensitive information secure and allow different conf
 driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
 
 try:
-    yield AppContext(driver=driver)
+    yield AppContext(driver=driver, database=database)
 finally:
     await driver.close()
 ----
