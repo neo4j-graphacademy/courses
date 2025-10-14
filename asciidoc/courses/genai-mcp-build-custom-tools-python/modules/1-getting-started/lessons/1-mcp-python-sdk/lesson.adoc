@@ -8,6 +8,15 @@ In this course, you will learn how to build your own MCP servers with graph-back
 
 You will  learn to build these tools with the MCP Python SDK, and you will use the MCP Inspector to test your servers.
 
+[TIP]
+.Emerging standards
+====
+The Model Context Protocol is an emerging standard for connecting AI applications with tools and data sources. 
+As such the protocol is still evolving, and the features taught in this course are subject to change.
+
+You can follow link:https://modelcontextprotocol.io/[the Model Context Protocol documentation^] to stay up to date with the latest changes.
+====
+
 
 == Understanding the MCP Python SDK
 
@@ -39,17 +48,103 @@ This package includes both the core MCP functionality and the FastMCP high-level
 
 == Introducing FastMCP
 
-FastMCP is the high-level interface in the MCP Python SDK designed to make server development as simple as possible.
-It uses Python decorators to automatically handle the protocol details, letting you focus on the business logic of your tools and resources.
+FastMCP is the high-level interface in the MCP Python SDK designed to make server development as simple as possible.  FastMCP is built on top of the FastAPI framework, and uses a decorator approach to defining MCP features.
 
-FastMCP is a high-level server implementation built on top of FastAPI, which takes a decorator approach to building an MCP server.
-The `FastMCP` class provides decorators that can be used to register functions as MCP features, for example a tool or a resource.
 
-Let's take a look at a simple example of how we can protect against a commonly known weakness of LLMs, **counting**.
-LLMs are probabilistic systems that struggle with deterministic tasks like counting occurrences of letters in words.
+== Core MCP Features
 
-We can solve this problem by using MCP to provide the LLM with access to a deterministic function that counts the occurrences of a letter in a word.
+MCP servers expose three types of features to clients. Let's take a look at each one and when to use them.
 
+=== 1. Tools
+
+**Tools** are functions that LLMs can call to perform actions or retrieve data. They are perfect for tasks that LLMs struggle with, like counting or complex calculations.
+
+**Characteristics:**
+
+* Called by the LLM (model-controlled)
+* Can have side effects (create, update, delete)
+* Can perform computation
+* Return structured results
+
+**Use tools when:**
+
+* You need to execute code or query a database
+* The action depends on user input or context
+* You want the LLM to decide when to use it
+* You need deterministic results
+
+Here's a simple example of a tool that helps LLMs with counting - a task they typically struggle with:
+
+[source,python]
+----
+@mcp.tool()
+def count_letters(text: str, search: str) -> int:
+    """
+    Count occurrences of a letter in the text.
+    Use this tool when you need to find how many times a substring appears in a text.
+    """
+    return text.lower().count(search.lower())
+----
+
+=== 2. Resources
+
+**Resources** expose data that can be loaded into the LLM's context, similar to a REST API endpoint.
+
+**Characteristics:**
+
+* Accessed by the client application (application-controlled)
+* Read-only (no side effects)
+* Typically static or parameterized URIs
+* Provide context for the LLM
+
+**Use resources when:**
+
+* You want to expose data that doesn't change often
+* The client decides what to load (not the LLM)
+* You're providing reference information or documentation
+* You need to expose specific entities by ID
+
+Example of a resource with a parameterized URI:
+
+[source,python]
+----
+@mcp.resource("greeting://{name}")
+def get_greeting(name: str) -> str:
+    """Get a personalized greeting."""
+    return f"Hello, {name}!"
+----
+
+=== 3. Prompts
+
+**Prompts** are pre-defined templates that help users interact with your server effectively.
+
+**Characteristics:**
+
+* Invoked by the user (user-controlled)
+* Provide reusable templates
+* Can accept parameters
+* Guide the conversation
+
+**Use prompts when:**
+
+* You want to provide common workflows
+* Users need help formulating requests
+* You want to standardize interactions
+* You need to ensure consistent input format
+
+Example of a prompt template:
+
+[source,python]
+----
+@mcp.prompt(title="Count Letters")
+def count_letters_prompt(text: str, search: str) -> str:
+    """Template for counting letter occurrences."""
+    return f"Count the occurrences of the letter '{search}' in the text:\n\n{text}"
+----
+
+=== Putting It All Together
+
+Here's a complete example showing all three features working together:
 
 [source,python]
 .server.py
@@ -57,36 +152,33 @@ We can solve this problem by using MCP to provide the LLM with access to a deter
 from mcp.server.fastmcp import FastMCP 
 
 # Create an MCP server
-mcp = FastMCP("Stawrbrerry")  # <1>
+mcp = FastMCP("Text Analysis Server")  # <1>
 
-# Add a tool that counts letters (LLMs famously struggle with this!)
+# Tool for deterministic counting
 @mcp.tool()  # <2>
 def count_letters(text: str, search: str) -> int:
-    """
-    Count occurrences of a letter in the text.
-    Use this tool when you need to find how many times a substring appears in a text.
-    """
+    """Count occurrences of a letter in the text."""
     return text.lower().count(search.lower()) 
 
-# Add a resource with a decorator
+# Resource for reference data
 @mcp.resource("greeting://{name}")  # <3>
 def get_greeting(name: str) -> str:
     """Get a personalized greeting"""
     return f"Hello, {name}!"
 
-# Add a prompt
-@mcp.prompt(title="Count Letters")
+# Prompt template for common task
+@mcp.prompt(title="Count Letters")  # <4>
 def count_letters_prompt(text: str, search: str) -> str:
+    """Template for letter counting task."""
     return f"Count the occurrences of the letter '{search}' in the text:\n\n{text}"
-
 ----
 
-This code: 
+This code demonstrates:
 
-1. The `FastMCP` class creates an instance of an MCP server called `Stawrbrerry`.
-2. The `@mcp.tool()` decorator registers a function as an MCP tool that counts the occurrences of a letter in a word.
-3. The `@mcp.resource()` decorator registers a function as an MCP resource that returns a personalized greeting.
-4. The `@mcp.prompt()` decorator registers a function as an MCP prompt that provides the end-user with a pre-written prompt template to solve a common problem.
+1. Creating a FastMCP server instance
+2. A tool that performs deterministic counting
+3. A resource that provides parameterized data
+4. A prompt that helps users formulate requests
 
 == Using Decorators 
 
@@ -175,9 +267,13 @@ You can also provide the `--transport`, `--host`, `--port`, and `--path` flags t
 
 In this lesson, you learned the foundational concepts for building MCP servers with Python:
 
-* **MCP Python SDK** - A comprehensive library that implements the full MCP specification, providing both client and server implementations
-* **FastMCP** - A high-level, decorator-based approach that simplifies server development by automatically handling protocol details
-* **Decorators** - Use `@mcp.tool()`, `@mcp.resource()`, and `@mcp.prompt()` to register functions as MCP features
-* **Transport methods** - Run servers using `stdio` (default) for local development or `http` for web deployments
+* **MCP Python SDK** - A comprehensive library that implements the full MCP specification
+* **FastMCP** - A high-level, decorator-based approach that simplifies server development
+* **Core Features:**
+** Tools - Model-controlled functions for actions and computation
+** Resources - Application-controlled data access via URIs
+** Prompts - User-controlled templates for common workflows
+* **Decorators** - Use `@mcp.tool()`, `@mcp.resource()`, and `@mcp.prompt()` to register features
+* **Transport methods** - Run servers using `stdio` (default) or `http` for web deployments
 
 In the next lesson, you will create your first MCP server using FastMCP and test it with the MCP Inspector.

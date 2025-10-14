@@ -14,8 +14,9 @@ load_dotenv()
 # tag::lifespan[]
 @dataclass
 class AppContext:
-    """Application context with Neo4j driver."""
+    """Application context with Neo4j driver and database."""
     driver: AsyncDriver
+    database: str
 
 
 @asynccontextmanager
@@ -24,18 +25,19 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
     
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
-        yield AppContext(driver=driver)
+        yield AppContext(driver=driver, database=database)
     finally:
         await driver.close()
 # end::lifespan[]
 
 
 # tag::server[]
-mcp = FastMCP("Movie Server", lifespan=app_lifespan)
+mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
 # end::server[]
 
 
@@ -51,10 +53,11 @@ def count_letters(text: str, search: str) -> int:
 @mcp.tool()
 async def test_connection(ctx: Context) -> str:
     """Test the Neo4j connection."""
-    driver = ctx.request_context.lifespan_context.driver
+    context = ctx.request_context.lifespan_context
     
-    records, summary, keys = await driver.execute_query(
-        "RETURN 'Connection successful!' AS message"
+    records, summary, keys = await context.driver.execute_query(
+        "RETURN 'Connection successful!' AS message",
+        database_=context.database
     )
     
     return records[0]["message"]
@@ -79,15 +82,15 @@ async def get_movies_by_genre(genre: str, limit: int = 10, ctx: Context = None) 
     # Log the request
     await ctx.info(f"Searching for {genre} movies (limit: {limit})...")
     
-    # Access the Neo4j driver from lifespan context
-    driver = ctx.request_context.lifespan_context.driver
+    # Access context
+    context = ctx.request_context.lifespan_context
     
     # Log the query execution
     await ctx.debug(f"Executing Cypher query for genre: {genre}")
     
     try:
         # Execute the query
-        records, summary, keys = await driver.execute_query(
+        records, summary, keys = await context.driver.execute_query(
             """
             MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
             RETURN m.title AS title,
@@ -97,7 +100,8 @@ async def get_movies_by_genre(genre: str, limit: int = 10, ctx: Context = None) 
             LIMIT $limit
             """,
             genre=genre,
-            limit=limit
+            limit=limit,
+            database_=context.database
         )
         
         # Convert records to list of dictionaries
