@@ -48,24 +48,54 @@ FastMCP provides the `@mcp.resource()` decorator to expose resources. Let's look
 
 [source,python]
 ----
+import os
 from mcp.server.fastmcp import FastMCP
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
-mcp = FastMCP("Movie Server")
+from neo4j import AsyncGraphDatabase, AsyncDriver
+
+
+@dataclass
+class AppContext:
+    """Application context with Neo4j driver and database."""
+    driver: AsyncDriver
+    database: str
+
+
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+    """Manage application lifecycle."""
+    # Get connection details from environment
+    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    username = os.getenv("NEO4J_USERNAME", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
+
+    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+    try:
+        yield AppContext(driver=driver, database=database)
+    finally:
+        await driver.close()
+
+
+mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
 
 
 @mcp.resource("catalog://genres")
 async def get_genres(ctx: Context) -> dict:
     """Get all available movie genres with their counts."""
     
-    driver = ctx.request_context.lifespan_context.driver
-    
-    records, _, _ = await driver.execute_query(
+    context = ctx.request_context.lifespan_context
+    records, _, _ = await context.driver.execute_query(
         """
         MATCH (g:Genre)
         RETURN g.name AS name,
                count((g)<-[:IN_GENRE]-()) AS movieCount
         ORDER BY g.name
-        """
+        """,
+        database_=context.database
     )
     
     return {
@@ -123,9 +153,8 @@ from mcp.server.fastmcp import Context
 async def get_movie(id: str, ctx: Context) -> dict:
     """Get details about a specific movie by ID."""
     
-    driver = ctx.request_context.lifespan_context.driver
-    
-    records, _, _ = await driver.execute_query(
+    context = ctx.request_context.lifespan_context
+    records, _, _ = await context.driver.execute_query(
         """
         MATCH (m:Movie {tmdbId: $id})
         OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
@@ -135,7 +164,8 @@ async def get_movie(id: str, ctx: Context) -> dict:
                m.plot AS plot,
                collect(g.name) AS genres
         """,
-        id=id
+        id=id,
+        database_=context.database
     )
     
     if not records:

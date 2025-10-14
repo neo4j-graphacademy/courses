@@ -13,8 +13,9 @@ load_dotenv()
 
 @dataclass
 class AppContext:
-    """Application context with Neo4j driver."""
+    """Application context with Neo4j driver and database."""
     driver: AsyncDriver
+    database: str
 
 
 @asynccontextmanager
@@ -23,16 +24,17 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
     
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
-        yield AppContext(driver=driver)
+        yield AppContext(driver=driver, database=database)
     finally:
         await driver.close()
 
 
-mcp = FastMCP("Movie Server", lifespan=app_lifespan)
+mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
 
 
 # Previous tools from earlier challenges
@@ -45,9 +47,10 @@ def count_letters(text: str, search: str) -> int:
 @mcp.tool()
 async def test_connection(ctx: Context) -> str:
     """Test the Neo4j connection."""
-    driver = ctx.request_context.lifespan_context.driver
-    records, _, _ = await driver.execute_query(
-        "RETURN 'Connection successful!' AS message"
+    context = ctx.request_context.lifespan_context
+    records, _, _ = await context.driver.execute_query(
+        "RETURN 'Connection successful!' AS message",
+        database_=context.database
     )
     return records[0]["message"]
 
@@ -57,10 +60,10 @@ async def get_movies_by_genre(genre: str, limit: int = 10, ctx: Context = None) 
     """Get movies by genre from the Neo4j database."""
     await ctx.info(f"Searching for {genre} movies (limit: {limit})...")
     
-    driver = ctx.request_context.lifespan_context.driver
+    context = ctx.request_context.lifespan_context
     
     try:
-        records, _, _ = await driver.execute_query(
+        records, _, _ = await context.driver.execute_query(
             """
             MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
             RETURN m.title AS title,
@@ -70,7 +73,8 @@ async def get_movies_by_genre(genre: str, limit: int = 10, ctx: Context = None) 
             LIMIT $limit
             """,
             genre=genre,
-            limit=limit
+            limit=limit,
+            database_=context.database
         )
         
         movies = [record.data() for record in records]
@@ -87,10 +91,10 @@ async def get_movie(tmdb_id: str, ctx: Context) -> str:
     """Get detailed information about a specific movie by TMDB ID."""
     await ctx.info(f"Fetching movie details for TMDB ID: {tmdb_id}")
     
-    driver = ctx.request_context.lifespan_context.driver
+    context = ctx.request_context.lifespan_context
     
     try:
-        records, _, _ = await driver.execute_query(
+        records, _, _ = await context.driver.execute_query(
             """
             MATCH (m:Movie {tmdbId: $tmdb_id})
             OPTIONAL MATCH (m)-[:IN_GENRE]->(g:Genre)
@@ -106,7 +110,8 @@ async def get_movie(tmdb_id: str, ctx: Context) -> str:
                    collect(DISTINCT {name: p.name, role: r.role})[..5] AS cast,
                    collect(DISTINCT d.name) AS directors
             """,
-            tmdb_id=tmdb_id
+            tmdb_id=tmdb_id,
+            database_=context.database
         )
         
         if not records:
@@ -160,8 +165,8 @@ async def browse_movies_by_genre(
         await ctx.error(f"Invalid cursor: {cursor}")
         skip = 0
     
-    # Access driver from lifespan context
-    driver = ctx.request_context.lifespan_context.driver
+    # Access context
+    context = ctx.request_context.lifespan_context
     
     # Log the request
     page_num = (skip // page_size) + 1
@@ -169,7 +174,7 @@ async def browse_movies_by_genre(
     
     try:
         # Execute paginated query
-        records, summary, keys = await driver.execute_query(
+        records, summary, keys = await context.driver.execute_query(
             """
             MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
             RETURN m.title AS title,
@@ -181,7 +186,8 @@ async def browse_movies_by_genre(
             """,
             genre=genre,
             skip=skip,
-            limit=page_size
+            limit=page_size,
+            database_=context.database
         )
         
         # Convert to list of dictionaries

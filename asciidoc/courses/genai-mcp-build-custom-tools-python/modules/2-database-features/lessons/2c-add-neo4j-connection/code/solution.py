@@ -17,8 +17,9 @@ load_dotenv()
 # tag::context[]
 @dataclass
 class AppContext:
-    """Application context with Neo4j driver."""
+    """Application context with Neo4j driver and database."""
     driver: AsyncDriver
+    database: str
 # end::context[]
 
 
@@ -31,13 +32,14 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     username = os.getenv("NEO4J_USERNAME", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
     
     # Initialize driver on startup
     driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
     
     try:
-        # Yield context with driver
-        yield AppContext(driver=driver)
+        # Yield context with driver and database
+        yield AppContext(driver=driver, database=database)
     finally:
         # Close driver on shutdown
         await driver.close()
@@ -46,7 +48,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
 
 # tag::server[]
 # Create server with lifespan
-mcp = FastMCP("Movie Server", lifespan=app_lifespan)
+mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
 # end::server[]
 
 
@@ -63,12 +65,13 @@ def count_letters(text: str, search: str) -> int:
 async def graph_statistics(ctx: Context) -> dict[str, int]:
     """Count the number of nodes and relationships in the graph."""
     
-    # Access the driver from lifespan context
-    driver = ctx.request_context.lifespan_context.driver
+    # Access the context
+    context = ctx.request_context.lifespan_context
     
     # Use the driver to query Neo4j
-    records, summary, keys = await driver.execute_query(
-        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
+    records, summary, keys = await context.driver.execute_query(
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships",
+        database_=context.database
     )
     
     # Process the results
