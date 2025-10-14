@@ -12,7 +12,7 @@ Instead of manually exploring schemas, writing queries, and debugging code, you 
 
 == Using Cursor Rules
 
-link:https://cursor.sh[Cursor^] can leverage your MCP server through **Cursor Rules**. Create `.cursor/rules/mcp-neo4j.md` with instructions for using your tools:
+Configure link:https://cursor.sh[Cursor^] to use your MCP tools through rules in `.cursor/rules/mcp-neo4j.md`:
 
 [source,markdown]
 ----
@@ -37,98 +37,30 @@ link:https://cursor.sh[Cursor^] can leverage your MCP server through **Cursor Ru
 3. Generate Python function with proper structure
 ----
 
-Now Cursor can use your MCP tools to explore schemas, validate queries, and generate code automatically.
+These rules help Cursor generate reliable code by following the deterministic workflow.
 
 
-== Iterative Development with MCP
+== Iterative Development
 
-MCP enables rapid iteration through AI assistance. Here's how a tool evolves:
+The ultimate example of MCP's power is transforming probabilistic AI responses into deterministic graph development. This process eliminates uncertainty through a structured workflow.
 
-[source,python]
-----
-@mcp.tool()
-async def find_directors_for_actor(actor_name: str, ctx: Context) -> list[dict]:
-    """Find directors who worked with an actor."""
-    
-    await ctx.info(f"Finding directors who worked with {actor_name}")
-    driver = ctx.request_context.lifespan_context.driver
-    
-    try:
-        # Check if actor exists
-        check_records, _, _ = await driver.execute_query(
-            "MATCH (p:Person {name: $name}) RETURN count(p) AS count",
-            name=actor_name
-        )
-        
-        if check_records[0]["count"] == 0:
-            await ctx.warning(f"Actor '{actor_name}' not found in database")
-            return []
-        
-        # Find directors and their collaborations
-        records, _, _ = await driver.execute_query(
-            """
-            MATCH (p:Person {name: $actor_name})-[:ACTED_IN]->(m:Movie)<-[:DIRECTED]-(d:Person)
-            RETURN d.name AS director, 
-                   collect(m.title) AS movies,
-                   count(m) AS collaboration_count
-            ORDER BY collaboration_count DESC
-            """,
-            actor_name=actor_name
-        )
-        
-        results = [r.data() for r in records]
-        await ctx.info(f"Found {len(results)} directors who worked with {actor_name}")
-        return results
-        
-    except Exception as e:
-        await ctx.error(f"Query failed: {str(e)}")
-        raise
-----
+1. **Schema Understanding** - Use Neo4j MCP tools to understand the structure of the graph
+2. **Query Validation** - Write Cypher statements that answer specific questions and execute the queries on the graph to validate the results
+3. **Implementation** - Use the cypher statements to build tools within the project
 
-Each improvement (adding movie information, error handling, logging) can be requested from the AI, which uses your MCP tools to validate and implement the changes.
+Rather than relying on probabilistic AI responses, or generating the same Cypher statements over and over, you can use LLMs to build tools, verify the results, and implement the tools within the project.
 
+Each step builds on verified information from the previous step, creating a reliable chain of development. This transforms potentially unreliable AI suggestions into production-ready code through systematic validation.
 
-== The Power of MCP: From Probabilistic to Deterministic Graph Development
-
-The ultimate example of MCP's power is using MCP servers to build reliable graph tools. Instead of relying on probabilistic AI responses, you can create a deterministic workflow:
-
-1. Use `neo4j_schema` to understand the exact graph structure
-2. Use `neo4j_query` to write and validate Cypher statements
-3. Write the validated code into your project
-
-For example, to build a movie search feature:
-
-[source,python]
-----
-# 1. Get schema to understand relationships
-schema = neo4j_schema()  # Shows Movie-[:IN_GENRE]->Genre exists
-
-# 2. Validate the Cypher query
-result = neo4j_query("""
-    MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
-    WHERE m.released >= $year_start AND m.released < $year_end
-    RETURN m.title, m.released, m.rating
-    ORDER BY m.rating DESC
-""")
-
-# 3. Write the validated query into your tool
-write_to_project(validated_query)
-----
-
-This approach ensures reliable results - as long as you use the right tools in the right order. You'll build this exact workflow in the next challenge!
 
 
 [.summary]
 == Summary
 
-In this lesson, you learned about integrated workflows with MCP:
+MCP transforms graph development by providing:
 
-* **Meta-programming** - Using MCP tools to build MCP tools
-* **Cursor Rules** - Configure AI assistants to use your MCP server
-* **Iterative development** - Rapidly improve tools with AI assistance
-* **AI-assisted queries** - Generate and validate Cypher with MCP
-* **Text-to-Cypher** - Build tools that understand natural language
+* **Deterministic Workflow** - Schema understanding → Query validation → Implementation
+* **Systematic Validation** - Each step verified through MCP tools
+* **Reliable Results** - From probabilistic AI suggestions to production-ready code
 
-MCP isn't just about the tools you create - it's about empowering the development process itself.
-
-In the next challenge, you'll build a text-to-Cypher tool that brings this all together.
+In the next lesson, you'll learn about advanced MCP features.
