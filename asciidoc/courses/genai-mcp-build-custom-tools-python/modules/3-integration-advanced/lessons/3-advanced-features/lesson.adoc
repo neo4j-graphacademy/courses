@@ -3,18 +3,14 @@
 :order: 3
 
 
-The MCP Python SDK offers two advanced features for building more sophisticated servers: **Sampling** and **Completions**. These optional features enable more dynamic interactions with LLMs and improved user experiences.
+The MCP Python SDK offers two advanced features for building more sophisticated servers: **Sampling** and **Completions**.
+
 
 == Sampling: Dynamic LLM Interactions
 
-Sampling allows tools to interact with the LLM during execution, enabling tools to:
+Sampling allows your tools to call the LLM during execution. Instead of just returning data from the database, a tool can ask the LLM that powers the Agent to transform, explain, or enhance that data.
 
-* Generate natural language from structured data
-* Transform query results into readable text
-* Get recommendations based on data analysis
-* Create dynamic summaries
-
-Here's how sampling works:
+For example, a tool could retrieve movie information from Neo4j and then ask the LLM to convert the strctured data into a natural language description:
 
 [source,python]
 ----
@@ -43,21 +39,24 @@ async def explain_movie_data(movie_title: str, ctx: Context) -> str:
     return result.content.text if result.content.type == "text" else str(result.content)
 ----
 
+Use sampling when you need:
+
+* Natural language generation from structured data
+* Dynamic summaries based on query results
+* Content that adapts to the specific data retrieved
+* Recommendations or insights derived from data
+
 [NOTE]
 ====
-Sampling requires client support and adds processing overhead. Use it when the dynamic content generation justifies the complexity.
+Sampling requires client support and adds processing overhead. The client must support the sampling capability for this feature to work.
 ====
 
 
 == Completions: Smart Parameter Suggestions
 
-Completions provide autocomplete suggestions for tool parameters and resource URIs. For example, in a movie database:
+Completions provide autocomplete suggestions when users are filling in tool parameters or resource URIs. This helps users discover valid values without memorizing them.
 
-* Suggest genre names when filtering movies
-* Autocomplete movie titles in searches
-* Provide actor names based on previous selections
-
-Here's a basic example:
+For example, when a user starts typing a genre name, completions can suggest matching options from the database:
 
 [source,python]
 ----
@@ -71,9 +70,10 @@ async def handle_completion(
     if argument.name == "genre":
         records, _, _ = await driver.execute_query(
             """
-            CALL db.labels() YIELD label
-            WHERE label STARTS WITH $prefix
-            RETURN label LIMIT 10
+            MATCH (g:Genre) 
+            WHERE g.name STARTS WITH $prefix
+            RETURN g.name AS name 
+            ORDER BY name ASC LIMIT 10
             """,
             prefix=argument.value
         )
@@ -87,30 +87,36 @@ async def handle_completion(
     return CompleteResult(completion=Completion(values=[]))
 ----
 
+Use completions when:
+
+* Users need to discover valid parameter values
+* Your tools accept specific values from a dataset
+* You want to improve user experience with suggestions
+* Form-based interfaces benefit from autocomplete
+
 [NOTE]
 ====
 Completions require using the low-level `Server` API instead of FastMCP's decorator-based approach.
 ====
 
 
-== When to Use Advanced Features
+== Choosing Advanced Features
 
-Consider these features when:
+Both features are optional and add complexity. Consider them when:
 
-* **Sampling** - Need dynamic content generation from structured data
-* **Completions** - Want to improve UX with smart parameter suggestions
+* Building user-facing tools where experience matters
+* The benefit justifies the implementation cost
+* Your client supports these capabilities
 
-Skip them when:
+Always check client support before using advanced features:
 
-* Building simple query-based tools
-* Client doesn't support the features
-* Performance is critical (both add overhead)
-
-[TIP]
-====
-Always check client capabilities before using advanced features:
-`if ctx.session.client_params.capabilities.sampling:`
-====
+[source,python]
+----
+if ctx.session.client_params.capabilities.sampling:
+    # Use sampling
+else:
+    # Provide simpler alternative
+----
 
 
 [.summary]
@@ -124,3 +130,4 @@ Advanced MCP features can enhance your server's capabilities:
 
 In the next lesson, you'll review what you've learned and discover next steps for building production-ready MCP servers.
 
+In the next lesson, you'll review what you've learned and explore next steps.
