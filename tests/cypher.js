@@ -11,8 +11,11 @@ function initDriver() {
     )
 }
 
-function closeDriver() {
-    return driver.close()
+async function closeDriver() {
+    if (driver) {
+        await driver.close()
+        driver = null
+    }
 }
 
 
