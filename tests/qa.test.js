@@ -17,7 +17,7 @@ describe("QA Tests", () => {
     initDriver();
   });
 
-  afterAll(() => closeDriver());
+  afterAll(async () => await closeDriver());
 
   const skipLinkChecks = process.env.SKIP_LINK_CHECKS === "true";
   const skipCypherChecks = process.env.SKIP_CYPHER_CHECKS === "true";
