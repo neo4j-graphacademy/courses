@@ -1,0 +1,176 @@
+= Handling Large Datasets with Pagination
+:type: lesson
+:order: 9
+
+
+When working with large datasets in Neo4j, returning all data at once can be slow, consume excessive memory, and overwhelm clients. **Pagination** solves this by returning data in smaller, manageable chunks.
+
+
+== Why Pagination?
+
+Consider the following resource that lists all movies:
+
+[source,python]
+----
+@mcp.resource("neo4j://movies")
+async def list_all_movies() -> str:
+    """List ALL movies in the database."""
+    records, summary, keys = await driver.execute_query(
+        "MATCH (m:Movie) RETURN m.title AS title ORDER BY m.title"
+    )
+    
+    # What if there are 100,000 movies?
+    movies = [record["title"] for record in records] # ["The Matrix", "Toy Story", ...]
+    return "\n".join(movies)
+----
+
+
+== Understanding Cursor-Based Pagination
+
+Pagination allows you to fetch data in smaller **pages** or **batches**.
+MCP uses **cursor-based pagination**, where a cursor (opaque string) marks your position in the dataset.
+
+
+**How it works:**
+
+1. Client requests the first page (no cursor)
+2. Server returns the first batch + a cursor to the next page
+3. Client requests the next page using the cursor
+4. Server returns the next batch + a new cursor
+5. Process repeats until no cursor is returned (end of data)
+
+
+== Implementing Pagination in Neo4j
+
+To implement pagination in a Cypher query, use Neo4j's `SKIP` and `LIMIT` clauses.
+
+The following query returns the first 100 movies:
+
+.First 100 movies
+[source,cypher]
+----
+MATCH (m:Movie)
+RETURN m.title
+ORDER BY m.title
+SKIP 0 LIMIT 100  // First page (0-99)
+----
+
+The following query skips the first 100 movies and returns the next 100 movies:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+RETURN m.title
+ORDER BY m.title
+SKIP 100 LIMIT 100  // Second page (100-199)
+----
+
+**The cursor** is simply the skip value encoded as a string.
+
+
+== Paginated Resources in FastMCP
+
+Unfortunately, FastMCP doesn't directly support pagination in its high-level decorator API.
+However, you can implement pagination manually by:
+
+1. Accepting a `page` or `cursor` parameter in your tool
+2. Converting the cursor to a skip value
+3. Querying with `SKIP` and `LIMIT`
+4. Returning both the data and the next cursor
+
+
+=== Pagination as a Tool
+
+Since FastMCP's `@mcp.resource()` decorator doesn't support pagination parameters, we can implement pagination as a **tool** instead:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context
+
+@mcp.tool()
+async def list_movies_paginated(
+    cursor: str = "0",
+    page_size: int = 50,
+    ctx: Context = None
+) -> dict:
+    """
+    List movies with pagination support.
+    
+    Args:
+        cursor: Pagination cursor (skip value as string, default "0")
+        page_size: Number of movies per page (default 50)
+    
+    Returns:
+        Dictionary with 'movies' list and 'next_cursor' for next page
+    """
+    
+    # Convert cursor to skip value
+    skip = int(cursor)
+    
+    await ctx.info(f"Fetching movies {skip} to {skip + page_size}...")
+    
+    # Access driver
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Query with SKIP and LIMIT
+    records, summary, keys = await driver.execute_query(
+        """
+        MATCH (m:Movie)
+        RETURN m.title AS title, m.released AS released
+        ORDER BY m.title
+        SKIP $skip
+        LIMIT $limit
+        """,
+        skip=skip,
+        limit=page_size
+    )
+    
+    movies = [record.data() for record in records]
+    
+    # Calculate next cursor
+    # If we got a full page, there might be more data
+    next_cursor = None
+    if len(movies) == page_size:
+        next_cursor = str(skip + page_size)
+    
+    await ctx.info(f"Returned {len(movies)} movies")
+    
+    return {
+        "movies": movies,
+        "next_cursor": next_cursor,
+        "current_page": skip // page_size,
+        "page_size": page_size
+    }
+----
+
+
+
+== Best Practices for Pagination
+
+1. **Consistent ordering** - Always use `ORDER BY` to ensure consistent results across pages
+2. **Reasonable page sizes** - Default to 20-50 items per page for good user experience
+3. **Include metadata** - Return page number, total pages (if known), and `has_more` flag
+4. **Handle invalid cursors** - Validate cursor values and handle errors gracefully
+5. **Optimize queries** - Use indexes on properties used in `ORDER BY` and `WHERE` clauses
+6. **Consider total counts** - For some UIs, include total count (but this adds query overhead)
+
+
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about handling large datasets with pagination:
+
+* **Why pagination** - Prevents memory issues, improves performance, and enhances UX
+* **Cursor-based pagination** - Use opaque strings to mark position in dataset
+* **Neo4j SKIP and LIMIT** - Use these Cypher clauses for efficient pagination
+* **Pagination as tools** - Implement paginated queries as tools with cursor parameters
+* **Return metadata** - Include `next_cursor`, page info, and `has_more` flags
+* **Best practices** - Always order consistently, use reasonable page sizes, handle errors
+
+
+read::Mark as Completed[]
+
+In the next challenge, you'll implement a paginated tool to browse movies by genre using cursor-based pagination.
+
