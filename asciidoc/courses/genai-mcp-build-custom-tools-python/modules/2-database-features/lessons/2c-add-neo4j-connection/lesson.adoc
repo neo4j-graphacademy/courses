@@ -27,7 +27,7 @@ First, create a new directory for your MCP server, and use the `uv add` command 
 ----
 mkdir server
 cd server
-uv add neo4j python-dotenv
+uv add mcp neo4j python-dotenv
 ----
 
 
@@ -119,20 +119,14 @@ Then define a new `FastMCP` server instance with the name [copy]#Movies GraphRAG
 ----
 # Create server with lifespan
 mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
-
-if __name__ == "__main__":
-    mcp.run()
 ----
 
 
 == Step 4: Add a Graph Statistics Tool
 
-Now that we have our lifespan management set up, let's create a tool to return the number of nodes and relationships in the graph. 
+Now that we have our lifespan management set up, let's create a tool to return the number of nodes and relationships in the graph.
 
-
-First, create a `graph_statistics` tool function, and pass the `Context` object as a parameter.
-
-Use `ctx.request_context.lifespan_context` to access the driver and database from the lifespan context.
+Create a `graph_statistics` tool function that uses `ctx.request_context.lifespan_context` to access the driver and database from the lifespan context, then executes a Cypher query to count nodes and relationships:
 
 [source,python]
 .server/main.py
@@ -146,13 +140,7 @@ async def graph_statistics(ctx: Context) -> dict[str, int]:
     # Access the driver from lifespan context
     driver = ctx.request_context.lifespan_context.driver
     database = ctx.request_context.lifespan_context.database
-----
-
-Next, use the driver to execute a Cypher query that counts nodes and relationships:
-
-[source,python]
-.server/main.py
-----
+    
     # Use the driver to query Neo4j with the correct database
     records, summary, keys = await driver.execute_query(
         r"RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships",
@@ -172,74 +160,57 @@ The `database_` parameter is used to specify the database to execute the query o
 Any named arguments that do not end with an underscore will be passed as parameters to the Cypher query.
 ====
 
-== Step 5: Configure VS Code and Test the Tool
 
-Add the new server definition to your `.vscode/mcp.json` file to pass environment variables to the server:
+== Step 5: Add the Main Function
 
-[source,json,subs="attributes+"]
-..vscode/mcp.json
+Finally, add the main function at the bottom of your `main.py` file to run the server:
+
+[source,python]
+.server/main.py
 ----
-{
-    "servers": {
-        "Movie Server": {
-            "type": "stdio",
-            "command": "uv",
-            "args": [
-                "--directory",
-                "server",
-                "run",
-                "main.py"
-            ],
-            "env": {
-                "NEO4J_URI": "{instance-scheme}://{instance-ip}:{instance-boltPort}",
-                "NEO4J_USERNAME": "{instance-username}",
-                "NEO4J_PASSWORD": "{instance-password}",
-                "NEO4J_DATABASE": "{instance-database}"
-            }
-        }
-    }
-}
+if __name__ == "__main__":
+    mcp.run(transport="streamable-http")
 ----
 
-// Alternatively, you can reference your `.env` file using environment variables:
 
-// [source,json]
-// ..vscode/mcp.json (alternative)
-// ----
-// {
-//     "servers": {
-//         "Movie Server": {
-//             "type": "stdio",
-//             "command": "bash",
-//             "args": [
-//                 "-c",
-//                 "cd server && source .env && uv run main.py"
-//             ]
-//         }
-//     }
-// }
-// ----
+== Step 6: Run the Server and Test with Inspector
+
+Now let's test your server with the MCP Inspector.
 
 
-Test it with the MCP Inspector:
+=== Start the Server
 
-[source,bash]
+First, start your MCP server in a terminal:
+
+[source,shell]
 ----
-npx @modelcontextprotocol/inspector uv --directory $PWD/server run main.py
+cd server
+uv run main.py
 ----
 
-Run the `graph_statistics` tool. If it returns the node and relationship counts from your database, your lifespan management is working correctly!
+If the server starts successfully, you should see a URL displayed (e.g., `http://0.0.0.0:8000`). This confirms your server is running correctly.
 
 
-== Verify Your Implementation
+=== Start the Inspector
 
-Once you've implemented the lifespan management:
+In a separate terminal, start the MCP Inspector:
 
-1. The server should start without errors
-2. The `graph_statistics` tool should return node and relationship counts from your database
-3. The server should cleanly shut down when stopped (no connection warnings)
+[source,shell]
+----
+ALLOWED_ORIGINS=https://$CODESPACE_NAME-6274.app.github.dev,https://$CODESPACE_NAME-6277.app.github.dev DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector
+----
 
-read::My lifespan management is working![]
+Once running:
+
+1. Configure the Codespaces ports (6274, 6277, and 8000) to be **Public**
+2. Connect the Inspector using **Streamable HTTP** transport with the forwarded addresses
+3. Use the **Tools** tab to run the `graph_statistics` tool
+4. Verify it returns the node and relationship counts from your database
+
+link:/courses/genai-mcp-build-custom-tools-python/1-getting-started/5c-test-with-inspector/[See full Inspector setup instructions^] if you need detailed steps.
+
+
+read::I have database statistics![]
 
 
 [TIP]
@@ -263,8 +234,8 @@ In this challenge, you successfully added lifespan management to your MCP server
 * **Environment variables** - Stored credentials in `.env` file and loaded them with `python-dotenv`
 * **Lifespan function** - Created an async context manager to initialize and clean up the Neo4j driver
 * **Context access** - Used `ctx.request_context.lifespan_context` to access the driver in tools
-* **Connection testing** - Verified the connection works with a simple test tool
+* **Connection testing** - Verified the connection works with the `graph_statistics` tool via the MCP Inspector
 
 Your server now properly manages the Neo4j driver lifecycle, creating it once on startup and reusing it across all tool calls.
 
-In the next lesson, you'll learn about the MCP Inspector and how to use it to test your server's tools and resources.
+In the next lesson, you'll learn how to add more advanced database features to your MCP server.
