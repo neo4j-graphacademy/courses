@@ -16,7 +16,7 @@ You can link:/courses/cypher-fundamentals/[learn more about Cypher in the Cypher
 
 The data structure of the graph contains both structured and unstructured elements.
 
-Structured elements include the document, chunks, and other metadata you added to the graph.
+Structured elements include the document and chunks.
 Unstructured elements include the entities and relationships extracted from the text.
 
 image::images/structured-unstructured.svg[A data model showing the structured and unstructured elements of a knowledge graph.]
@@ -40,15 +40,15 @@ ORDER BY nodes DESC
 A knowledge graph created from link:/course/llm-fundamentals[Neo4j & LLM Fundamentals^] course content contained the following entities:
 
 [cols="2*", options="header"]
-|=====================
-| labels       | nodes
-| [Concept]    | 283
-| [Technology] | 110
-| [Object]     | 22
-| [Skill]      | 13
-| [Person]     | 13
-| [Event]      | 4
-|=====================
+|==================================
+| labels                    | nodes
+| [Capability]              | 189
+| [Technology]              | 131
+| [Concept]                 | 50
+| [Benefit]                 | 44
+| [Risk]                    | 35
+| ["Technology", "Concept"] | 31
+|==================================
 
 [IMPORTANT]
 .Inconsistent results
@@ -72,14 +72,14 @@ ORDER BY mentions DESC
 The course is about using Neo4j and LLMs with LangChain and OpenAI - this is reflected in the most mentioned technologies:
 
 [cols="2*", options="header"]
-|======================
-| entityId       | mentions
-| Neo4J      | 14
-| Llm        | 13
-| Langchain  | 8
-| Openai     | 4
-| Chat Model | 3
-|======================
+|=========================
+| entityId      | mentions
+| Neo4J         | 10
+| vector search | 10
+| LLM           | 9
+| GraphRAG      | 9
+| retriever     | 7
+|=========================
 
 == Relationships
 
@@ -96,18 +96,18 @@ ORDER BY number DESC
 
 [cols="2*", options="header"]
 |=======================
-| relType         | number
-| USES            | 355
-| RELATED_TO      | 287
-| GROUPS          | 176
-| INTEGRATES_WITH | 130
-| PROVIDES        | 122
-| USAGE           | 96
+| relType       | number
+| HAS           | 1242
+| RELATED_TO    | 853
+| USES          | 290
+| ENABLES       | 178
+| HAS_POTENTIAL | 158
+| EXPLAINED_IN  | 51
 |=======================
 
 You can build statements about the content by using the entity and relationship data, for example:
 
-`Technology` `Neo4J` `RELATED_TO` `Concept` `Knowledge Graphs`
+`Technology` `Neo4J` `HAS` `Capability` `Vector search`
 
 This Cypher query uses the entity labels, id, and relationship type to create these statements:
 
@@ -120,14 +120,14 @@ RETURN DISTINCT
 
 [cols="5*", options="header"]
 |===
-| labels(entity) | entity.id          | type(r)                 | labels(other) | other.id
-| [Technology]   | Langchain          | RELATED_TO              | [Concept]     | Chains
-| [Concept]      | Model Training     | AFFECTS                 | [Technology]  | Llm
-| [Concept]      | Grounding          | ENHANCES_ACCURACY       | [Technology]  | Llm
-| [Technology]   | Langchain          | SUPPORTS_LANGUAGE       | [Technology]  | Python
-| [Technology]   | Langchain          | INTEGRATES_WITH         | [Technology]  | Neo4J
-| [Skill]        | Vector Indexes     | USE_IN                  | [Technology]  | Neo4J
-| [Technology]   | Pip                | INSTALLS                | [Technology]  | Youtube-Search
+| labels(entity) | entity.id                     | type(r)      | labels(other) | other.id
+| [Technology]   | GenAI Frameworks              | HAS          | [Capability]  | Retrieval-augmented generation
+| [Application]  | GenAI application development | USES         | [Technology]  | Neo4j
+| [Technology]   | GenAI Frameworks              | RELATED_TO   | [Technology]  | Neo4j
+| [Technology]   | GraphRAG for Python           | HAS          | [Capability]  | Knowledge graph construction
+| [Technology]   | GraphRAG pipeline             | ENABLES      | [Benefit]     | more accurate responses
+| [Skill]        | Vector Indexes                | USE_IN       | [Technology]  | Neo4J
+| [Technology]   | Pip                           | INSTALLS     | [Technology]  | Youtube-Search
 |===
 
 This structured output from the content allows you to understand the relationships between entities in the text.
@@ -142,24 +142,22 @@ This Cypher query matches one specific document and uses the entities to find re
 [source, cypher]
 ----
 MATCH (d:Document {
-    id: "llm-fundamentals_1-introduction_1-neo4j-and-genai.pdf"
+    fileName: "genai-fundamentals_1-generative-ai_1-what-is-genai.pdf"
 })<-[:PART_OF]-(c:Chunk)
 MATCH (c)-[:HAS_ENTITY]->(entity)<-[:HAS_ENTITY]-(otherChunk)
 MATCH (otherChunk)-[:PART_OF]->(otherDocument)
-RETURN DISTINCT entity.id, otherDocument.id
+WHERE d <> otherDocument
+RETURN DISTINCT entity.id, otherDocument.fileName
 ----
 
 [cols="2*", options="header"]
 |===
 | entity.id             | otherDocument.id
-| Training Data         | llm-fundamentals_1-introduction_2-hallucination.pdf
-| Context               | llm-fundamentals_4-cypher-generation_1-cypher-qa-chain.pdf
-| Large Language Models | llm-fundamentals_1-introduction_1-neo4j-and-genai.pdf
-| Model                 | llm-fundamentals_3-intro-to-langchain_4-agents.pdf
-| Question              | llm-fundamentals_4-cypher-generation_1-cypher-qa-chain.pdf
-| Knowledge Graphs      | llm-fundamentals_1-introduction_2-hallucination.pdf
-| Neo4J                 | llm-fundamentals_1-introduction_3-grounding.pdf
-| Neo4J                 | llm-fundamentals_1-introduction_1-neo4j-and-genai.pdf
+| Generative AI         | genai-fundamentals_3-knowledge-graphs_1-what-is-a-knowledge-graph.pdf
+| Large Language Models | genai-fundamentals_3-knowledge-graphs_2-constructing-knowledge-graphs.pdf
+| LLM                   | genai-fundamentals_1-generative-ai_2-considerations.pdf
+| LLM                   | genai-fundamentals_4-integrating-neo4j_3-rag.pdf
+| hallucination         | genai-fundamentals_1-generative-ai_2-considerations.pdf
 |===
 
 The knowledge graph contains the relationships between entities in all the documents.
@@ -170,7 +168,7 @@ This Cypher query restricts the output to a specific chunk or document:
 [source, cypher]
 ----
 MATCH (d:Document {
-    id: "llm-fundamentals_1-introduction_2-hallucination.pdf"
+    fileName: 'genai-fundamentals_2-rag_1-what-is-rag.pdf'
 })<-[:PART_OF]-(c:Chunk)
 MATCH (c)-[:HAS_ENTITY]->(e)
 
@@ -191,9 +189,6 @@ You can gain the nodes labels, ids, relationship types by _unwinding_ the path's
 
 [source, cypher]
 ----
-MATCH (d:Document {
-    id: "llm-fundamentals_1-introduction_2-hallucination.pdf"
-})<-[:PART_OF]-(c:Chunk)
 MATCH (c)-[:HAS_ENTITY]->(e)
 
 MATCH p = (e)-[r]-(e2)
@@ -201,52 +196,58 @@ WHERE (c)-[:HAS_ENTITY]->(e2)
 
 UNWIND relationships(p) as rels
 RETURN
-    labels(startNode(rels))[0] as eLabel,
+    labels(startNode(rels))[1] as eLabel,
     startNode(rels).id as eId,
     type(rels) as relType,
-    labels(endNode(rels))[0] as e2Label,
+    labels(endNode(rels))[1] as e2Label,
     endNode(rels).id as e2Id
 ----
 
 [cols="5*", options="header"]
-|====================================================================
-| eLabel     | eId            | relType  | e2Label | e2Id
-| Concept    | Data Sources   | CAN_HELP | Concept | Knowledge Graphs
-| Technology | Llms           | USE_FOR  | Concept | Knowledge Graphs
-| Concept    | Lesson Summary | EXPLORE  | Concept | Knowledge Graphs
-| Technology | Llm            | CAUSE    | Concept | Model
-| Person     | User           | ASKS     | Concept | Question
-| Technology | Llms           | USE_FOR  | Concept | Knowledge Graphs
-|====================================================================
+|===
+| eLabel     | eId                            | relType      | e2Label    | e2Id
+| Technology | Retrieval-Augmented Generation | ENABLES      | Benefit    | generate more accurate and tailored answers
+| Concept    | Grounding                      | EXPLAINED_IN | Resource   | The process of providing context to an LLM to improve the accuracy of its responses and reduce the likelihood of hallucinations is known as Grounding.
+| Technology | Knowledge Graphs               | ENABLES      | Benefit    | provide context and relationships between entities
+| Technology | Knowledge Graphs               | HAS          | Capability | Graph-based representations of information
+| Technology | embeddings                     | RELATED_TO   | Technology | vector search
+|===
 
 == Vector search
 
 The chunks in the knowledge graph can be queried using the vector index to find similar entities.
 
-This Cypher query generates an embedding for a user query and uses the vector index to find related chunks:
+The LLM Graph Builder created the chunk embeddings using the link:https://ollama.com/library/all-minilm[ollama `all-minilm` model^].
+
+GraphAcademy has loaded some example text and embeddings using the `all-minilm` model so you can you explore vector search.
+
+[source, cypher]
+.View example embeddings
+----
+MATCH (n:Embedding)
+RETURN n.text, n.model, n.embedding[0..5] as sample
+----
+
+You can use these embeddings to perform a vector search on the chunks in the knowledge graph.
 
 [source,cypher]
 ----
-WITH genai.vector.encode(
-    "Why do LLMs get things wrong?",
-    "OpenAI",
-    { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('chunkVector', 6, userEmbedding)
+MATCH (n:Embedding {text:'What is retrieval augmented generation?'})
+WITH n
+
+CALL db.index.vector.queryNodes('vector', 5, n.embedding)
 YIELD node, score
 RETURN node.text, score
 ----
 
-[NOTE]
-You will need to update the `token` parameter with your OpenAI API key.
-
 [cols="2*", options="header"]
 |===
 | node.text, | score
-| = Avoiding Hallucination :order:2 type: lesson As you learned in the previous lesson, LLMs can \""ma...    | 0.911712646484375
-| === Missing Information The training process for LLMs is intricate and time-intensive often requiri... | 09065704345703125
-| Precision in the task description, potentially combined with examples or context, ensures that the m...     | 0.90338134765625
-| Large Language Models (LLMs) are often considered \""black boxes\"" due to the difficulty deciphering th... | 0.8992767333984375
-| === Grounding Grounding allows a language model to reference external, up-to-date sources or databas...     | 0.87774658203125
+| "= What is RAG? :order: 1 :type: lesson [.slide] == Retrieval-Augmented Generation Retrieval-Augmented Generation (RAG) is an approach that enhances the responses of LLMs...    | 0.7470729351043701
+| = Vector RAG :order: 2 :type: lesson [.slide.discrete] == Vector RAG In the last lesson, you learned about **Retrieval Augmented Generation** (RAG) and the role of retrievers in finding relevant information... | 0.6814607381820679
+| (such as documents, databases, or knowledge graphs) to find relevant information based on the userâ€™s query. . **Response Generation**  +  The retrieved information is inserted into the prompt,...     | 0.678839385509491
+| = What is Generative AI :order: 1 :type: lesson :slides: true [.slide] == GenAI Generative AI (or GenAI) refers to artificial intelligence systems designed to create new content that resembles human-made data... | 0.6775093078613281
+| The high-level process is as follows: . A user submits a query. . The system uses a vector search to find nodes similar to the users query. . The graph is then traversed to find related nodes or entities...     | 0.6728277206420898
 |===
 
 [TIP]
@@ -261,11 +262,10 @@ This Cypher query finds the related nodes and relationships, unwinds the relatio
 
 [source, cypher]
 ----
-WITH genai.vector.encode(
-    "Why do LLMs get things wrong?",
-    "OpenAI",
-    { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('chunkVector', 6, userEmbedding)
+MATCH (n:Embedding {text:'What is retrieval augmented generation?'})
+WITH n
+
+CALL db.index.vector.queryNodes('vector', 5, n.embedding)
 YIELD node, score
 
 MATCH (node)-[:HAS_ENTITY]->(e)
@@ -275,10 +275,10 @@ WHERE (node)-[:HAS_ENTITY]->(e2)
 UNWIND relationships(p) as rels
 WITH node, score, collect(
         [
-            labels(startNode(rels))[0],
+            labels(startNode(rels))[1],
             startNode(rels).id,
             type(rels),
-            labels(endNode(rels))[0],
+            labels(endNode(rels))[1],
             endNode(rels).id
         ]
     )
@@ -289,19 +289,54 @@ RETURN node.text, score, kg
 [cols="3*", options="header"]
 |===
 | node.text | score | kg
-| = Avoiding Hallucination ...    | 0.911712646484375 | [["Technology", "Llm", "CAUSE", "Concept", "Model"], ["Technology", "Llm", "CAUSE", "Concept", "Training Data"],...]
-| === Missing Information ... | 09065704345703125 | [["Concept", "Data Sources", "CAN_HELP", "Concept", "Knowledge Graphs"], ["Person", "User", "ASKS", "Concept", "Question"], ,..]
-| Precision in the task ...     | 0.90338134765625 | [["Concept", "Question", "CHANGE", "Concept", "Context"], ["Concept", "Question", "CHANGE", "Concept", "Context"], ...]
-| Large Language Models (LLMs) ... | 0.8992767333984375 | [["Technology", "Large Language Models", "DESCRIBES", "Concept", "Context"], ["Technology", "Large Language Models", "DESCRIBES", "Concept", "Black Boxes"], ...]
-| === Grounding Grounding allows...     | 0.87774658203125 | [["Technology", "Llms", "USE_FOR", "Concept", "Knowledge Graphs"], ["Concept", "Lesson Summary", "EXPLORE", "Concept", "Knowledge Graphs"], ...]
+| = What is RAG? :order: 1 ...  | 0.7470729351043701 | [["Technology", "Retrieval-Augmented Generation", "ENABLES", "Benefit", "generate more accurate and tailored answers"], ["Technology", "Retrieval-Augmented Generation", "HAS", "Capability", "enhances the responses of LLMs by providing them with relevant, up-to-date information retrieved from external sources"], ...]
+| = Vector RAG :order: 2 :t... ... | 0.6814607381820679 | [["Technology", "traditional keyword search", "HAS", "Capability", "proximity-based algorithms that find similar words"], ["Technology", "Retrieval Augmented Generation", "HAS", "Capability", "finding relevant information"], ...]
+|  (such as documents, data...     | 0.678839385509491 | [["Technology", "RAG", "ENABLES", "Benefit", "contextually aware responses"], ["Technology", "RAG", "ENABLES", "Benefit", "grounded in real, up-to-date information"], ...]
+| = What is Generative AI :... | 0.6775093078613281 | ["Technology", "Generative AI", "ENABLES", "Capability", "code generation"],  ["Technology", "GPT", "RELATED_TO", "Technology", "Generative AI"], ...]
+| === The high-level process is...    | 0.67282772064208985 | [["Technology", "vector search", "ENABLES", "Benefit", "relevant results used as context for the LLM"], ["Technology", "vector search", "HAS", "Capability", "find nodes similar to the user's query"], ...]
 |===
 
+
+== Communities
+
+The LLM Graph Builder used link:https://neo4j.com/docs/graph-data-science/current/algorithms/leiden/[Graph Data Science Leiden^] algorithm to find communities of entities in the knowledge graph.
+
+You can view the communities by querying the `__Community__` nodes:
+
+[source, cypher]
+.Find communities
+----
+MATCH (n:`__Community__`)
+RETURN n.title, n.summary
+----
+
+Each community has a relationship to a set of related entities:
+
+[source, cypher]
+.View community entities
+----
+MATCH (n:`__Community__`)<-[r:IN_COMMUNITY]-(e:`__Entity__`)
+RETURN n,r,e
+LIMIT 100
+----
+
+You can use the communities to summarize the entities in the documents:
+
+[source, cypher]
+----
+MATCH (n:`__Community__`)<-[r:IN_COMMUNITY]-(e:`__Entity__`)
+MATCH (e)<-[:HAS_ENTITY]-(c:Chunk)-[:PART_OF]-(d:Document)
+RETURN DISTINCT d.fileName, n.title
+ORDER BY d.fileName
+----
+
+This summary show the main topics covered in each document.
 
 == Explore
 
 Spend some time exploring these queries and the output.
 
-When you are ready, move on to the next module.
+When you are ready, move on to the last lesson and final challenge.
 
 read::Continue[]
 
@@ -310,4 +345,4 @@ read::Continue[]
 
 In this lesson, you explore some examples of how to gather data from the knowledge graph.
 
-In the next optional challenge, you can upload your own documents and build a knowledge graph from them.
+In the next optional challenge, you will upload your own documents and build a knowledge graph from them.
