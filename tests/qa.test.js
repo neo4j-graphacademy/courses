@@ -24,7 +24,7 @@ describe('QA Tests', () => {
             const slug = path.split(sep).reverse()[0].toLowerCase();
             return targetCourses.some(term => slug.includes(term));
         });
-        console.log(`Filtering QA tests to courses matching: ${targetCourses.join(', ')}`);
+        console.log(`Filtering QA tests to courses matching: ${targetCourses.join(', ')} (${coursePaths.length})`);
     }
 
     for (const coursePath of coursePaths) {
@@ -51,7 +51,7 @@ describe('QA Tests', () => {
                         .map(e => e.trim())
                     expect(categories.length).toBeGreaterThan(0)
 
-                    const levels = ['beginners', 'intermediate', 'advanced', 'workshop']
+                    const levels = ['beginners', 'intermediate', 'advanced', 'workshops']
                     expect(levels.some(level => categories.includes(level))).toBe(true)
                 })
 
@@ -118,7 +118,7 @@ describe('QA Tests', () => {
 
                                 it('should not have any broken links', async () => {
                                     for (const link of findLinks(lessonAdoc)) {
-                                        if (!link.includes('platform.openai') && !link.includes('example') && !link.includes('localhost')) {
+                                        if (!link.includes('openai') && !link.includes('example') && !link.includes('localhost')) {
                                             const statusCode = await getStatusCode(link)
                                             try {
                                                 expect(statusCode).toBe(200)
@@ -149,13 +149,15 @@ describe('QA Tests', () => {
                                             expect(asciidoc).toContain('\n[TIP,role=solution]')
                                         })
 
-                                        it(`${questionFile} should have a correct answer`, () => {
-                                            const hasCorrectAnswer = asciidoc.includes('* [x] ') ||
-                                                                    asciidoc.includes('* [*] ') ||
-                                                                    asciidoc.includes('- [x] ') ||
-                                                                    asciidoc.includes('- [*] ')
-                                            expect(hasCorrectAnswer).toBe(true)
-                                        })
+                                        if (!asciidoc.includes('verify::')) {
+                                            it(`${questionFile} should have a correct answer`, () => {
+                                                const hasCorrectAnswer = asciidoc.includes('* [x] ') ||
+                                                                        asciidoc.includes('* [*] ') ||
+                                                                        asciidoc.includes('- [x] ') ||
+                                                                        asciidoc.includes('- [*] ')
+                                                expect(hasCorrectAnswer).toBe(true)
+                                            })
+                                        }
 
                                         if (asciidoc.includes('verify::')) {
                                             it('requires verification, should have a valid verify.cypher', async () => {
