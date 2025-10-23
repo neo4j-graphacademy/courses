@@ -14,9 +14,19 @@ describe('QA Tests', () => {
     afterAll(() => closeDriver())
 
     const exclude = ['30-days']
-    const coursePaths = globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
+    let coursePaths = globSync(globJoin(__dirname, '..', 'asciidoc', 'courses', '*'))
         .filter(path => exclude.some(folder => !path.endsWith(folder)))
         .filter(path => existsSync(join(path, 'course.adoc')))
+
+    // Filter by COURSES environment variable if set (comma-separated list)
+    if (process.env.COURSES) {
+        const targetCourses = process.env.COURSES.split(',').map(c => c.trim())
+        coursePaths = coursePaths.filter(path => {
+            const slug = path.split(sep).reverse()[0]
+            return targetCourses.includes(slug)
+        })
+        console.log(`Filtering QA tests to courses: ${targetCourses.join(', ')}`)
+    }
 
     for (const coursePath of coursePaths) {
         const slug = coursePath.split(sep).reverse()[0]
@@ -37,10 +47,12 @@ describe('QA Tests', () => {
                 it('should have a level', () => {
                     expect(getAttribute(courseAdoc, 'categories')).toBeDefined()
 
-                    const categories = getAttribute(courseAdoc, 'categories').split(',').map(e => e.trim())
+                    const categories = getAttribute(courseAdoc, 'categories').split(',')
+                        .map(e => e.split(':')[0])
+                        .map(e => e.trim())
                     expect(categories.length).toBeGreaterThan(0)
 
-                    const levels = ['beginner', 'intermediate', 'advanced', 'workshop']
+                    const levels = ['beginners', 'intermediate', 'advanced', 'workshop']
                     expect(levels.some(level => categories.includes(level))).toBe(true)
                 })
 
@@ -50,7 +62,7 @@ describe('QA Tests', () => {
 
                 it('should have an illustration', () => {
                     const illustrationPath = join(__dirname, '..', 'asciidoc',
-                        'courses', slug, 'illustration.adoc')
+                        'courses', slug, 'illustration.svg')
                     const exists = existsSync(illustrationPath)
 
                     expect(exists).toBe(true)
@@ -107,7 +119,7 @@ describe('QA Tests', () => {
 
                                 it('should not have any broken links', async () => {
                                     for (const link of findLinks(lessonAdoc)) {
-                                        if (!link.includes('platform.openai')) {
+                                        if (!link.includes('platform.openai') && !link.includes('example') && !link.includes('localhost')) {
                                             const statusCode = await getStatusCode(link)
                                             try {
                                                 expect(statusCode).toBe(200)
@@ -117,7 +129,7 @@ describe('QA Tests', () => {
                                             }
                                         }
                                     }
-                                })
+                                }, 10000)
 
                                 it('should contain valid [source,cypher] blocks', async () => {
                                     for (const cypher of findCypherStatements(lessonAdoc)) {

@@ -1,0 +1,37 @@
+#!/bin/sh
+
+echo "Checking for modified courses..."
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only)
+
+# Extract unique course slugs from staged files in asciidoc/courses/
+MODIFIED_COURSES=$(echo "$STAGED_FILES" | grep "^asciidoc/courses/" | sed 's|^asciidoc/courses/||' | cut -d'/' -f1 | sort -u | tr '\n' ',')
+
+# Remove trailing comma
+MODIFIED_COURSES=$(echo "$MODIFIED_COURSES" | sed 's/,$//')
+
+# If no courses were modified, skip QA tests
+if [ -z "$MODIFIED_COURSES" ]; then
+    echo "✅ No courses modified. Skipping QA tests."
+    exit 0
+fi
+
+echo "Running pre-commit QA tests..."
+
+# Run QA tests
+echo "Running QA tests for courses: $MODIFIED_COURSES"
+COURSES="$MODIFIED_COURSES" npm run test:qa
+
+# Capture the exit code
+QA_EXIT_CODE=$?
+
+if [ $QA_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ QA tests failed."
+    echo "Please fix the issues and try again."
+    exit 1
+fi
+
+echo "✅ QA tests passed. Proceeding with commit..."
+exit 0
