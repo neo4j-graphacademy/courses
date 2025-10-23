@@ -19,14 +19,36 @@ To complete this challenge, you will:
 5. Verify the connection works
 
 
-== Step 1: Install Required Packages
+[TIP]
+.Solution Available
+====
+If you get stuck, you can review the complete solution in the repository at `solutions/2c-add-neo4j-connection/main.py`.
 
-First, create a new directory for your MCP server, and use the `uv add` command to install the required packages to your project:
+To see the solution in action, run:
 
 [source,bash]
 ----
+uv --directory solutions/2c-add-neo4j-connection run main.py
+----
+====
+
+
+== Step 1: Install Required Packages
+
+First, create a new directory for your MCP server, use the `uv init` command to initialize a new project:
+
+[source,bash]
+.Create a new project
+----
 mkdir server
 cd server
+uv init
+----
+
+Next, use the `uv add` command to install the required packages to your project:
+
+[source,bash]
+----
 uv add mcp neo4j python-dotenv
 ----
 
@@ -58,17 +80,7 @@ Let's build the lifespan management step by step. First, create a new file `main
 [source,python]
 .server/main.py
 ----
-import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
-
-from neo4j import AsyncGraphDatabase, AsyncDriver
-from mcp.server.fastmcp import FastMCP
-
-# Load environment variables from .env file
-from dotenv import load_dotenv
-load_dotenv()
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=imports]
 ----
 
 
@@ -77,11 +89,7 @@ Next, create a context class to hold the Neo4j driver and database configuration
 [source,python]
 .server/main.py
 ----
-@dataclass
-class AppContext:
-    """Application context with Neo4j driver."""
-    driver: AsyncDriver
-    database: str
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=appcontext]
 ----
 
 
@@ -90,25 +98,7 @@ Now, implement the lifespan function that will manage the Neo4j driver:
 [source,python]
 .server/main.py
 ----
-@asynccontextmanager
-async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
-    """Manage Neo4j driver lifecycle."""
-    
-    # Read connection details from environment
-    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    username = os.getenv("NEO4J_USERNAME", "neo4j")
-    password = os.getenv("NEO4J_PASSWORD", "password")
-    database = os.getenv("NEO4J_DATABASE", "neo4j")
-    
-    # Initialize driver on startup
-    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
-    
-    try:
-        # Yield context with driver
-        yield AppContext(driver=driver, database=database)
-    finally:
-        # Close driver on shutdown
-        await driver.close()
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=lifespan]
 ----
 
 
@@ -117,8 +107,7 @@ Then define a new `FastMCP` server instance with the name [copy]#Movies GraphRAG
 [source,python]
 .server/main.py
 ----
-# Create server with lifespan
-mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=server]
 ----
 
 
@@ -131,26 +120,7 @@ Create a `graph_statistics` tool function that uses `ctx.request_context.lifespa
 [source,python]
 .server/main.py
 ----
-from mcp.server.fastmcp import Context
-
-@mcp.tool()
-async def graph_statistics(ctx: Context) -> dict[str, int]:
-    """Count the number of nodes and relationships in the graph."""
-    
-    # Access the driver from lifespan context
-    driver = ctx.request_context.lifespan_context.driver
-    database = ctx.request_context.lifespan_context.database
-    
-    # Use the driver to query Neo4j with the correct database
-    records, summary, keys = await driver.execute_query(
-        r"RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships",
-        database_=database
-    )
-    
-    # Process the results
-    if records:
-        return dict(records[0])
-    return {"nodes": 0, "relationships": 0}
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=tool]
 ----
 
 [TIP]
@@ -158,6 +128,8 @@ async def graph_statistics(ctx: Context) -> dict[str, int]:
 ====
 The `database_` parameter is used to specify the database to execute the query on.
 Any named arguments that do not end with an underscore will be passed as parameters to the Cypher query.
+
+You can link:/courses/drivers-python/[learn more about the Driverin the Using Neo4j with Python course^].
 ====
 
 
@@ -168,14 +140,13 @@ Finally, add the main function at the bottom of your `main.py` file to run the s
 [source,python]
 .server/main.py
 ----
-if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=main]
 ----
 
 
-== Step 6: Run the Server and Test with Inspector
+== Step 6: Run the Server and Test with the Interactive Client
 
-Now let's test your server with the MCP Inspector.
+Now let's test your server with the interactive Python client.
 
 
 === Start the Server
@@ -184,33 +155,48 @@ First, start your MCP server in a terminal:
 
 [source,shell]
 ----
-cd server
-uv run main.py
+uv --directory server run main.py
 ----
 
-If the server starts successfully, you should see a URL displayed (e.g., `http://0.0.0.0:8000`). This confirms your server is running correctly.
+If the server starts successfully, you should see output similar to:
+
+[source,output,role=nocopy]
+----
+INFO:     Started server process [92061]
+INFO:     Waiting for application startup.
+StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+----
 
 
-=== Start the Inspector
+=== Run the Interactive Client
 
 In a separate terminal, start the MCP Inspector:
 
-[source,shell]
+[source,bash]
 ----
-ALLOWED_ORIGINS=https://$CODESPACE_NAME-6274.app.github.dev,https://$CODESPACE_NAME-6277.app.github.dev DANGEROUSLY_OMIT_AUTH=true npx @modelcontextprotocol/inspector
+uv --directory client run main.py
 ----
 
-Once running:
+The client will display a menu of available tools. Select the `graph_statistics` tool and press Enter to execute it (this tool requires no parameters).
 
-1. Configure the Codespaces ports (6274, 6277, and 8000) to be **Public**
-2. Connect the Inspector using **Streamable HTTP** transport with the forwarded addresses
-3. Use the **Tools** tab to run the `graph_statistics` tool
-4. Verify it returns the node and relationship counts from your database
+You should see the node and relationship counts from your database returned in the results:
 
-link:/courses/genai-mcp-build-custom-tools-python/1-getting-started/5c-test-with-inspector/[See full Inspector setup instructions^] if you need detailed steps.
+[source,role=nocopy]
+----
+✨ Result:
+------------------------------------------------------------
+{
+  "nodes": 28863,
+  "relationships": 332522
+}
+------------------------------------------------------------
+----
 
 
 read::I have database statistics![]
+
 
 
 [TIP]
@@ -221,8 +207,21 @@ If you're having issues:
 * Check that your `.env` file has the correct Neo4j credentials
 * Verify the environment variables are being loaded (add print statements to debug)
 * Ensure the Neo4j database is running and accessible
-* Check the MCP Inspector's History tab for error messages
+* Check the client output for error messages
 ====
+
+
+[%collapsible]
+.Complete Solution
+====
+You can view the complete solution in the `solutions/2c-add-neo4j-connection/main.py` file.
+
+[source,python]
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tags=**]
+----
+====
+
 
 
 [.summary]
@@ -234,7 +233,7 @@ In this challenge, you successfully added lifespan management to your MCP server
 * **Environment variables** - Stored credentials in `.env` file and loaded them with `python-dotenv`
 * **Lifespan function** - Created an async context manager to initialize and clean up the Neo4j driver
 * **Context access** - Used `ctx.request_context.lifespan_context` to access the driver in tools
-* **Connection testing** - Verified the connection works with the `graph_statistics` tool via the MCP Inspector
+* **Connection testing** - Verified the connection works with the `graph_statistics` tool via the interactive client
 
 Your server now properly manages the Neo4j driver lifecycle, creating it once on startup and reusing it across all tool calls.
 

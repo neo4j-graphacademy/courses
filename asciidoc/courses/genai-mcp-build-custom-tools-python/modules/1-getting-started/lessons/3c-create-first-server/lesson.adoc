@@ -22,10 +22,25 @@ You can open your existing codespaces at link:https://github.com/codespaces[gith
 
 To complete this challenge, you will need to:
 
-1. Create a new MCP server using the MCP Python SDK.
-2. Create a tool that counts the number of times a letter appears in a word.
-3. Configure VS Code to use the MCP server with stdio.
-4. Test the server using the Chat window in Agent mode.
+1. Create a new MCP server using the MCP Python SDK
+2. Create a tool that counts the number of times a letter appears in a word
+3. Run your MCP server with HTTP transport
+4. Test the server using the interactive client
+
+
+[TIP]
+.Solution Available
+====
+If you get stuck, you can review the complete solution in the repository at `solutions/3c-create-first-server/main.py`.
+
+To see the solution in action, run:
+
+[source,bash]
+----
+uv --directory solutions/3c-create-first-server run main.py
+----
+====
+
 
 == Step-by-Step Instructions
 
@@ -34,6 +49,7 @@ To complete this challenge, you will need to:
 First, create a new directory for your MCP server:
 
 [source,bash]
+.Create a new directory
 ----
 mkdir strawberry
 cd strawberry
@@ -44,6 +60,7 @@ cd strawberry
 Initialize a new Python project using `uv`:
 
 [source,bash]
+.Initialize a new UV project
 ----
 uv init
 ----
@@ -55,6 +72,7 @@ This will create a basic project structure with a `pyproject.toml` file and a `m
 Add the MCP Python SDK to your project:
 
 [source,bash]
+.Add the MCP Python SDK to your project
 ----
 uv add "mcp[cli]"
 ----
@@ -70,7 +88,7 @@ Open `main.py` in your editor and add the following code to create a simple MCP 
 from mcp.server.fastmcp import FastMCP
 
 # Create an MCP server
-mcp = FastMCP("Strawbrerry")
+mcp = FastMCP("Strawberry")
 
 @mcp.tool()
 def count_letters(text: str, search: str) -> int:
@@ -88,24 +106,23 @@ if __name__ == "__main__":
 This example uses the `streaming-http` transport method to run the server.
 This differs from `stdio` in that the client uses HTTP to communicate with the server.
 
-We have made this choice to make it easier to test the server in GitHub Codespaces with the MCP Inspector.
+We have made this choice to make it easier to test the server in GitHub Codespaces with the interactive Python client.
 For local development, using `stdio` is also a valid option.
 
 link:https://modelcontextprotocol.io/specification/2025-06-18/basic/transports[Learn more about transports^]
 ====
 
-=== Step 5: Configure your server in VS Code and test with Agent mode
+=== Step 5: Run Your Server
 
-Now let's configure your server to work with VS Code's Agent mode. This will allow you to interact with your MCP server through a conversational interface.
-
-First, let's run the server to make sure it works:
+Start your MCP server:
 
 [source,bash]
+.Run your MCP server
 ----
 uv run main.py
 ----
 
-If the server is running, you will see the following output in the terminal:
+If the server is running successfully, you will see output similar to:
 
 [source,role=nocopy]
 .Console Output
@@ -118,58 +135,99 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ----
 
+Your server is now running on port 8000 and ready to accept connections from MCP clients.
 
-Once the server is running, modify the `.vscode/mcp.json` file to configure VS Code to use the server.
 
-[source,json]
+== Test with the Interactive Client
+
+Now let's test your server. The course repository includes an interactive Python client in the `client/` folder that you can use to test your MCP server.
+
+
+Open a **new terminal** (keep the server running in the first one) and run the following command:
+
+[source,bash]
+.Run the interactive client
 ----
-{
-    "servers": {
-        "strawberry": {
-            "type": "http",
-            "url": "http://localhost:8000/mcp"
-        }
-    }
-}
+uv --directory client run main.py
 ----
 
-This configuration tells VS Code to connect to the server at `http://localhost:8000/mcp` using a HTTP connection.
+The client will connect to your server and display an interactive menu showing available tools:
 
+[source,output,role=nocopy]
+.Console Output
+----
+============================================================
+🔧 Available Tools:
+============================================================
 
-=== Step 6: Verify your implementation
+1. count_letters
+   Count occurrences of a letter in the text
 
+0. Exit
+============================================================
 
-To test your server, open up the Chat window in **Agent** mode:
+Select a tool, resource, or template (enter number): 
+----
 
-1. Open the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
-2. Execute the "Chat: Open Chat (Agent)" command
+Enter `1` to select the `count_letters` tool.
 
-Now try asking the following question:
+The client will prompt you for the required parameters with type information:
 
-[copy]#How many times does the letter 'r' appear in the word 'strawberry'?#
+[source,output,role=nocopy]
+.Console Output
+----
+text (required)
+  Type: string
+  Enter value: strawberry
 
-The agent should discover the `count_letters` tool and prompt you to confirm the tool call.
-It should respond with the answer `3`.
+search (required)
+  Type: string
+  Enter value: r
+----
+
+After entering the parameters, you'll see the result returned by the tool:
+
+[source,output,role=nocopy]
+.Console Output
+----
+✨ Result:
+------------------------------------------------------------
+3
+------------------------------------------------------------
+----
+
+Try testing with different inputs to verify the tool works correctly. Press Enter to return to the menu, or `q` to quit.
 
 
 [TIP]
-.The agent didn't call the tool?
+.Other Testing Options
 ====
-This is the joy of LLMs and tool calling.
-Depending on the underlying model, the agent may not behave as you expect.  
-In this case, the model may feel confident in its own answer and not call the tool.
+**VS Code Agent Mode**: You can also test your MCP server directly in VS Code by configuring it in `.vscode/mcp.json` and using the Chat window in Agent mode. This allows you to interact with your tools conversationally.
 
-Try switching to a different model, rephrasing the question, or explicitly mentioning the tool you want to use.
+[%collapsible]
+.Configuring the server for VS Code Agent mode
+=====
+[source,json]
+.vscode/mcp.json
+----
+{
+  "servers": {
+    "strawberry": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
+----
+=====
+
+**MCP Inspector**: For visual debugging, the link:https://github.com/modelcontextprotocol/inspector[MCP Inspector^] provides a web-based UI for exploring tools, resources, and prompts. Run it with `npx @modelcontextprotocol/inspector`.
 ====
-
 
 
 == That's it!
 
-You have just created your first MCP server! 
-
-The Chat window in VS Code is a useful way to test your server, but it isn't the most efficient way to test your MCP server.
-In the next lesson, you will learn about the MCP Inspector, which is a tool that allows you to inspect the MCP server and its tools.
+You have just created and tested your first MCP server!
 
 
 read::Mark as Completed[]
@@ -180,8 +238,9 @@ read::Mark as Completed[]
 In this challenge, you successfully built your first MCP server from scratch:
 
 * **FastMCP setup** - Created a new MCP server using the FastMCP class with the MCP Python SDK
-* **Tool implementation** - Added a `count_letters` tool using the `@mcp.tool()` decorator to solve LLM counting limitations.
-* **Server installation** - Configured the server for VS Code using `uv run mcp install main.py`
-* **Agent mode testing** - Tested the server functionality through VS Code Agent mode with conversational queries
+* **Tool implementation** - Added a `count_letters` tool using the `@mcp.tool()` decorator to solve LLM counting limitations
+* **HTTP transport** - Configured the server to use streaming-HTTP transport for easy testing
+* **Interactive testing** - Tested the server with the Python client for immediate feedback
 
-In the next lesson, you will learn about context management for handling server lifecycle and resource management.
+
+In the next module, you will learn about context management for handling server lifecycle and resource management, and you'll start building tools that connect to Neo4j.
