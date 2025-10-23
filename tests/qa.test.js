@@ -18,14 +18,13 @@ describe('QA Tests', () => {
         .filter(path => exclude.some(folder => !path.endsWith(folder)))
         .filter(path => existsSync(join(path, 'course.adoc')))
 
-    // Filter by COURSES environment variable if set (comma-separated list)
     if (process.env.COURSES) {
-        const targetCourses = process.env.COURSES.split(',').map(c => c.trim())
+        const targetCourses = process.env.COURSES.split(',').map(c => c.trim().toLowerCase());
         coursePaths = coursePaths.filter(path => {
-            const slug = path.split(sep).reverse()[0]
-            return targetCourses.includes(slug)
-        })
-        console.log(`Filtering QA tests to courses: ${targetCourses.join(', ')}`)
+            const slug = path.split(sep).reverse()[0].toLowerCase();
+            return targetCourses.some(term => slug.includes(term));
+        });
+        console.log(`Filtering QA tests to courses matching: ${targetCourses.join(', ')}`);
     }
 
     for (const coursePath of coursePaths) {
@@ -148,6 +147,14 @@ describe('QA Tests', () => {
 
                                         it(`${questionFile} should have a solution`, () => {
                                             expect(asciidoc).toContain('\n[TIP,role=solution]')
+                                        })
+
+                                        it(`${questionFile} should have a correct answer`, () => {
+                                            const hasCorrectAnswer = asciidoc.includes('* [x] ') ||
+                                                                    asciidoc.includes('* [*] ') ||
+                                                                    asciidoc.includes('- [x] ') ||
+                                                                    asciidoc.includes('- [*] ')
+                                            expect(hasCorrectAnswer).toBe(true)
                                         })
 
                                         if (asciidoc.includes('verify::')) {
