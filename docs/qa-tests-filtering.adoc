@@ -1,0 +1,233 @@
+= QA Tests Filtering
+
+== Overview
+
+The QA tests can be filtered to run against specific courses using the `COURSES` environment variable. This is particularly useful when working on a subset of courses or when running tests in CI/CD pipelines.
+
+
+== Usage
+
+=== Running QA Tests for Specific Courses
+
+To run QA tests for one or more specific courses, set the `COURSES` environment variable with a comma-separated list of course slugs:
+
+[source,bash]
+----
+COURSES=neo4j-fundamentals,cypher-fundamentals npm run test:qa
+----
+
+
+=== Running All QA Tests
+
+If the `COURSES` environment variable is not set, all active non-certification courses will be tested:
+
+[source,bash]
+----
+npm run test:qa
+----
+
+
+== Pre-Commit Hook (Husky)
+
+A pre-commit git hook has been configured using Husky to automatically run QA tests for modified courses before committing changes. This hook:
+
+1. Detects which courses have been modified in the staged changes
+2. If no courses are modified, skips QA tests
+3. If courses are modified, automatically runs QA tests for those courses only
+4. If tests fail, the commit is blocked
+
+
+=== How It Works
+
+The hook automatically:
+
+* Scans staged files for changes in `asciidoc/courses/`
+* Extracts the course slugs from file paths
+* Sets the `COURSES` environment variable automatically
+* Runs QA tests only for the affected courses
+
+For example, if you modify:
+
+* `asciidoc/courses/neo4j-fundamentals/modules/1/lessons/1/lesson.adoc`
+* `asciidoc/courses/cypher-fundamentals/course.adoc`
+
+The hook will automatically run: `COURSES=neo4j-fundamentals,cypher-fundamentals npm run test:qa`
+
+
+=== Setup for New Developers
+
+When cloning the repository, the pre-commit hook is automatically installed when running:
+
+[source,bash]
+----
+npm install
+----
+
+This is handled by the `prepare` script in `package.json` which runs Husky to set up git hooks.
+
+
+=== Normal Workflow
+
+Just commit as usual - the hook handles everything automatically:
+
+[source,bash]
+----
+git add asciidoc/courses/neo4j-fundamentals/
+git commit -m "Update neo4j-fundamentals course"
+# Hook automatically detects and tests neo4j-fundamentals
+----
+
+
+=== Manual Override
+
+If you need to manually specify courses (e.g., for testing), you can still set the `COURSES` environment variable:
+
+[source,bash]
+----
+COURSES=neo4j-fundamentals,cypher-fundamentals git commit -m "Your commit message"
+----
+
+
+=== Bypassing the Hook (Not Recommended)
+
+If you need to bypass the pre-commit hook (not recommended for production), you can use:
+
+[source,bash]
+----
+git commit --no-verify -m "Your commit message"
+----
+
+
+== Examples
+
+=== Test a Single Course
+
+[source,bash]
+----
+COURSES=neo4j-fundamentals npm run test:qa
+----
+
+
+=== Test Multiple Courses
+
+[source,bash]
+----
+COURSES=neo4j-fundamentals,cypher-fundamentals,app-nodejs npm run test:qa
+----
+
+
+=== Set and Commit
+
+[source,bash]
+----
+export COURSES=neo4j-fundamentals
+npm run test:qa
+git commit -m "Update neo4j-fundamentals course"
+----
+
+
+== Course Slugs
+
+Course slugs correspond to the directory names in `asciidoc/courses/`. Some examples:
+
+* `neo4j-fundamentals`
+* `cypher-fundamentals`
+* `modeling-fundamentals`
+* `app-nodejs`
+* `app-python`
+* `graphql-basics`
+
+
+== Troubleshooting
+
+=== Commit is Blocked
+
+If your commit is blocked, the QA tests failed for one or more modified courses. To debug:
+
+1. Check which courses were detected:
++
+[source,bash]
+----
+# View your staged files
+git diff --cached --name-only | grep "asciidoc/courses"
+----
+
+2. Run tests manually to see the failures:
++
+[source,bash]
+----
+# Test specific course
+COURSES=neo4j-fundamentals npm run test:qa
+----
+
+3. Fix the issues and commit again
+
+
+=== No QA Tests Running
+
+If you're modifying course files but no QA tests are running, check:
+
+1. Are your changes staged?
++
+[source,bash]
+----
+git status
+git add asciidoc/courses/your-course/
+----
+
+2. Are you modifying files outside `asciidoc/courses/`?
++
+The hook only runs tests for files in the courses directory. Changes to other files (docs, tests, etc.) won't trigger QA tests.
+
+
+=== Hook Not Working
+
+If the pre-commit hook is not running:
+
+1. Ensure Husky is installed:
++
+[source,bash]
+----
+npm install
+----
+
+2. Verify the hook file exists:
++
+[source,bash]
+----
+ls -la .husky/pre-commit
+----
+
+3. Check if the `prepare` script is in `package.json`:
++
+[source,json]
+----
+{
+  "scripts": {
+    "prepare": "husky"
+  }
+}
+----
+
+
+=== Testing the Hook
+
+To test if the hook is working without making real commits:
+
+[source,bash]
+----
+# Stage some course files
+git add asciidoc/courses/neo4j-fundamentals/
+
+# Dry run to see what would be detected
+git diff --cached --name-only | grep "asciidoc/courses"
+----
+
+
+=== Updating the Hook
+
+The pre-commit hook is stored in `.husky/pre-commit` and is tracked by git. To modify it:
+
+1. Edit `.husky/pre-commit`
+2. Commit the changes
+3. Other developers will get the updated hook on their next `git pull` and `npm install`
