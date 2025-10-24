@@ -28,7 +28,7 @@ Understanding when to use each is key to effective MCP server design:
 * You want the LLM to discover capabilities dynamically
 
 
-**Example:** `search_movies_by_genre(genre: str)` - The LLM decides when to search
+**Example:** `get_movies_by_genre(genre: str)` - The LLM decides when to search
 
 
 **Use Resources when:**
@@ -39,7 +39,7 @@ Understanding when to use each is key to effective MCP server design:
 * You want to provide specific pieces of data by ID
 
 
-**Example:** `movie://123` - The client directly requests a specific movie
+**Example:** `genre://Comedy` - The client directly requests a specific genre
 
 
 == Creating Resources with FastMCP
@@ -101,11 +101,9 @@ Resources should return structured data (objects or dictionaries) that clients c
 ====
 
 
-== Dynamic Resource URIs
+== Resource Templates
 
-While static resources are great for reference data, sometimes you need to access specific entities. This is where dynamic URIs come in, using parameters in curly braces:
-
-The resource definition starts with a dynamic URI pattern:
+While static resources are great for reference data, sometimes you need to access specific entities.  Resources can be defined with parameters, wrapped in curly braces, that are passed into the function as arguments.
 
 [source,python]
 ----
@@ -114,36 +112,32 @@ async def get_movie(id: str, ctx: Context) -> dict:
     """Get details about a specific movie by ID."""
 ----
 
-The URI pattern `movie://{id}` introduces a dynamic element. When a client requests `movie://603`, FastMCP extracts "603" and passes it to your function's `id` parameter. The type hint ensures the value is in the correct format.
+The URI pattern `movie://{id}` introduces a dynamic element. When a client requests `movie://603`, FastMCP extracts "603", coerces the parameter into the correct type if necessary, and passes it to your function's `id` parameter. The type hint ensures the value is in the correct format.
 
-The function queries the database for the movie and its genres:
-
-[source,python]
-----
-    context = ctx.request_context.lifespan_context
-    records, _, _ = await context.driver.execute_query(
-        """
-        MATCH (m:Movie {tmdbId: $id})
-        RETURN m.title AS title,
-               m.tagline AS tagline,
-               m.released AS released,
-               m.plot AS plot,
-               [ (m)-[:IN_GENRE]->(g:Genre) | g.name ] AS genres
-        """,
-        id=id,
-        database_=context.database
-    )
-----
-
-The final step handles error checking:
+The parameter can then be used in the query, for example to be used as a filter in the WHERE clause.
 
 [source,python]
 ----
-    if not records:
-        return {"error": f"Movie {id} not found"}
-    
-    return records[0].data()
+context = ctx.request_context.lifespan_context
+records, _, _ = await context.driver.execute_query(
+    """
+    MATCH (m:Movie {tmdbId: $id})
+    RETURN m.title AS title,
+            m.tagline AS tagline,
+            m.released AS released,
+            m.plot AS plot,
+            [ (m)-[:IN_GENRE]->(g:Genre) | g.name ] AS genres
+    """,
+    id=id,
+    database_=context.database
+)
+
+if not records:
+    return {"error": f"Movie {id} not found"}
+
+return records[0].data()
 ----
+
 
 The function returns a structured error message if no movie exists. Otherwise, it returns the movie's details in a dictionary format following standard JSON API practices.
 
@@ -184,7 +178,7 @@ In this lesson, you learned about MCP resources:
 
 * **Resources vs Tools** - Application-controlled vs LLM-controlled data access
 * **`@mcp.resource()` decorator** - Create resources with URI patterns
-* **Dynamic URIs** - Use parameters like `movie://{id}` for flexibility
+* **Resource Templates** - Use parameters like `movie://{id}` for flexibility
 * **Structured content** - Return JSON for programmatic access
 * **Use cases** - Reference data, documentation, specific entities
 

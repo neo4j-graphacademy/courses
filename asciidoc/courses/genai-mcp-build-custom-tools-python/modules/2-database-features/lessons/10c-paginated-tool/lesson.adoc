@@ -2,7 +2,6 @@
 :type: challenge
 :order: 10
 
-
 In the previous lesson, you learned about pagination and how to use Neo4j's `SKIP` and `LIMIT` clauses to fetch data in manageable chunks.
 
 In this challenge, you will implement a paginated tool that allows users to browse through movies in a specific genre, page by page.
@@ -41,111 +40,42 @@ First, define the tool function with its parameters:
 [source,python]
 .server/main.py
 ----
-@mcp.tool()
-async def browse_movies_by_genre(
-    genre: str,
-    cursor: str = "0",
-    page_size: int = 10,
-    ctx: Context = None
-) -> dict:
-    """
-    Browse movies in a genre with pagination support.
-    
-    Args:
-        genre: Genre name (e.g., "Action", "Comedy", "Drama")
-        cursor: Pagination cursor - position in the result set (default "0")
-        page_size: Number of movies to return per page (default 10)
-    
-    Returns:
-        Dictionary containing:
-        - movies: List of movie objects with title, released, and rating
-        - next_cursor: Cursor for the next page (null if no more pages)
-        - page: Current page number (1-indexed)
-        - has_more: Boolean indicating if more pages are available
-    """
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_def]
 ----
 
-The function takes a required `genre` parameter and optional `cursor` and `page_size` parameters. The cursor defaults to "0" (start of the list), and page_size defaults to 10 items per page.
+The function takes a required `genre` parameter and optional `cursor` and `page_size` parameters. The cursor defaults to `0` (start of the list), and page_size defaults to 10 items per page.
 
 Next, handle cursor validation and setup:
 
 [source,python]
 ----
-    # Parse cursor to get skip value
-    try:
-        skip = int(cursor)
-    except ValueError:
-        await ctx.error(f"Invalid cursor: {cursor}")
-        skip = 0
-    
-    # Access driver from lifespan context
-    driver = ctx.request_context.lifespan_context.driver
-    
-    # Log the request
-    page_num = (skip // page_size) + 1
-    await ctx.info(f"Fetching {genre} movies, page {page_num} (showing {page_size} per page)...")
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_cursor]
 ----
 
-This section converts the cursor string to a number and calculates the current page number. If the cursor is invalid, it defaults to the start (skip = 0).
+This section uses the cursor number to calculate the skip value. 
 
-The query execution uses Neo4j's SKIP and LIMIT for pagination:
+Next, using the driver instance from the lifespan context, execute the query to fetch the movies using the SKIP and LIMIT clauses, and coerce the results into a list of dictionaries.
 
 [source,python]
 ----
-    try:
-        # Execute paginated query
-        records, summary, keys = await driver.execute_query(
-            """
-            MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
-            RETURN m.title AS title,
-                   m.released AS released,
-                   m.imdbRating AS rating
-            ORDER BY m.imdbRating DESC, m.title ASC
-            SKIP $skip
-            LIMIT $limit
-            """,
-            genre=genre,
-            skip=skip,
-            limit=page_size
-        )
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_execute]
 ----
 
-The Cypher query finds movies in the specified genre, ordered by rating (highest first) and title. SKIP and LIMIT handle the pagination.
-
-Finally, process the results and return the paginated response:
+Finally, calculate the next cursor and return the structured output.
 
 [source,python]
 ----
-        # Convert to list of dictionaries
-        movies = [record.data() for record in records]
-        
-        # Calculate next cursor
-        next_cursor = None
-        if len(movies) == page_size:
-            next_cursor = str(skip + page_size)
-        
-        # Log results
-        await ctx.info(f"Returned {len(movies)} movies from page {page_num}")
-        if next_cursor is None:
-            await ctx.info("This is the last page")
-        
-        # Return structured response
-        return {
-            "genre": genre,
-            "movies": movies,
-            "next_cursor": next_cursor,
-            "page": page_num,
-            "page_size": page_size,
-            "has_more": next_cursor is not None,
-            "count": len(movies)
-        }
-        
-    except Exception as e:
-        await ctx.error(f"Query failed: {str(e)}")
-        raise
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_return]
 ----
 
-The response includes the movies list and pagination metadata. The `next_cursor` is only set if a full page was returned, indicating more results are available.
+The structured output consists of a dictionary with the following keys:
+
+* `genre` - The genre passed to the tool by the client
+* `movies` - A list of movies returned from the query
+* `next_cursor` - The cursor for the next page
+* `page` - The current page number
+* `page_size` - The number of movies per page
+* `has_more` - A boolean indicating if more pages are available
 
 
 == Step 2: Test with the Interactive Client
@@ -177,21 +107,41 @@ genre (required)
   Type: string
   Enter value: Action
 
-cursor (optional, default: 0)
-  Type: string
-  Enter value: 0
-
-page_size (optional, default: 10)
+page_size (optional)
   Type: integer
-  Enter value: 10
+  Enter value: 2
+
+cursor (optional)
+  Type: string
+  Enter value: 1=9
+
 ----
 
-The response should contain:
+You should receive a structured response similar to the following, with information about the current page and the next cursor.
 
-* 10 Action movies
-* A `next_cursor` value (e.g., `"10"`)
-* `page: 1`
-* `has_more: true`
+[source,json]
+.Structured Response
+----
+{
+  "genre": "Action",
+  "movies": [
+    {
+      "title": "'Hellboy': The Seeds of Creation",
+      "released": "2004-07-27",
+      "rating": 6.9
+    },
+    {
+      "title": "13 Assassins (Jûsan-nin no shikaku)",
+      "released": "2010-09-25",
+      "rating": 7.6
+    }
+  ],
+  "next_cursor": 2,
+  "page": 1,
+  "page_size": 2,
+  "has_more": true
+}
+----
 
 
 === Fetch the Second Page
@@ -204,45 +154,49 @@ genre (required)
   Type: string
   Enter value: Action
 
-cursor (optional, default: 0)
-  Type: string
-  Enter value: 10
-
 page_size (optional, default: 10)
   Type: integer
-  Enter value: 10
+  Enter value: 2
+
+cursor (optional, default: 0)
+  Type: string
+  Enter value: 2
+
 ----
 
-The response should contain:
+The response should contain a different page number, next cursor and list of movies.
 
-* The next 10 Action movies
-* A new `next_cursor` value (e.g., `"20"`)
-* `page: 2`
-* `has_more: true` (if more pages exist)
+[source,json]
+.Paginated Response
+----
+{
+  "genre": "Action",
+  "movies": [
+    {
+      "title": "2 Fast 2 Furious (Fast and the Furious 2, The)",
+      "released": "2003-06-06",
+      "rating": 5.8
+    },
+    {
+      "title": "2 Guns",
+      "released": "2013-08-02",
+      "rating": 6.7
+    }
+  ],
+  "next_cursor": 6,
+  "page": 3,
+  "page_size": 2,
+  "has_more": true
+}
+----
 
 
-=== Continue to the Last Page
-
-Keep using the `next_cursor` until you reach a response where:
-
-* `next_cursor` is `null` or not present
-* `has_more` is `false`
-* Fewer than `page_size` movies are returned
-
-
-== Step 3: Test with Different Genres
-
-Try different genres to see how pagination behaves:
-
-* `"Comedy"` - Might have many pages
-* `"Sci-Fi"` - Moderate number of pages
-* `"Documentary"` - Might fit in a single page
-
-Notice how some genres have more movies than others!
+Experiment with different genres, for example [copy]#Comedy#, [copy]#Sci-Fi#, or [copy]#Documentary#, and change the [copy]#page_size# to see how it affects the results.
 
 
 read::I have pagination![]
 
+// TODO: Update this to add a COUNT {} subquery for the total?  Nice use of degree counts...
 
 [.summary]
 == Summary
