@@ -1,0 +1,264 @@
+= Connecting to Neo4j
+:type: lesson
+:order: 1
+
+
+Now that you have a working MCP server, it's time to connect it to a database.
+
+In this lesson, you will learn how to connect your MCP server to Neo4j using FastMCP's lifespan management feature to properly handle database connections.
+
+
+== The Problem with Simple Connections
+
+Consider this naive approach to connecting to Neo4j:
+
+[source,python]
+.Naive connection approach
+----
+from neo4j import GraphDatabase
+
+@mcp.tool()
+def get_movies() -> list[dict]:
+    """Get a list of movies"""
+    # Creating a new driver for every tool call!
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    with driver.session() as session:
+        result = session.run("MATCH (m:Movie) RETURN m LIMIT 10")
+        return [record.data() for record in result]
+    driver.close()
+----
+
+This approach has several problems:
+
+* **Performance**: Creating a new driver connection for every tool call is slow and inefficient
+* **Resource leaks**: If the tool fails, the driver may not be closed properly
+* **Connection pooling**: Neo4j drivers maintain connection pools that should be reused across requests
+* **Best practices**: The Neo4j driver should be created once and closed when the server shuts down
+
+
+== Introducing Lifespan Management
+
+FastMCP provides a **lifespan** feature that allows you to:
+
+1. **Initialize resources** when the server starts (e.g., create database connections)
+2. **Clean up resources** when the server shuts down (e.g., close connections)
+3. **Share resources** across all tools and resources in your server
+
+
+=== The Lifespan Context Manager
+
+To share objects across the server, we can create a function that initializes resources when the server starts and cleans them up when it shuts down.
+
+The function yields an object that contains the FastMCP server will make available to any tools and resources that request it.
+
+Let's take a look at a full example:
+
+[source,python]
+.Full lifespan example
+----
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+
+from neo4j import AsyncGraphDatabase, AsyncDriver
+from mcp.server.fastmcp import Context, FastMCP
+
+
+# 1. Define a context class to hold your resources
+@dataclass
+class AppContext:
+    """Application context with shared resources."""
+    driver: AsyncDriver
+    database: str
+
+
+# 2. Create the lifespan context manager
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+    """Manage application lifecycle."""
+    
+    # Startup: Read credentials from environment variables
+    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    username = os.getenv("NEO4J_USERNAME", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "password")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
+    
+    # Initialize the Neo4j driver
+    driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+    
+    try:
+        # Yield the context with initialized resources
+        yield AppContext(driver=driver, database=database)
+    finally:
+        # Shutdown: Clean up resources
+        await driver.close()
+
+
+# 3. Pass lifespan to the server
+mcp = FastMCP("Movies GraphRAG Server", lifespan=app_lifespan)
+
+
+# 4. Access the driver in your tools
+@mcp.tool()
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
+    
+    # Access the driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Use the driver to query Neo4j
+    records, summary, keys = await driver.execute_query(
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
+    )
+    
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
+----
+
+
+=== Breaking Down the Implementation
+
+Let's examine each part of this implementation:
+
+
+==== 1. Define the Context Class
+
+[source,python]
+.Defining the context class
+----
+@dataclass
+class AppContext:
+    """Application context with shared resources."""
+    driver: AsyncDriver
+    database: str
+----
+
+The context class holds all resources that should be shared across your server.
+Using a dataclass with type hints provides better IDE support and type safety.
+
+For your MCP server, you will need to define a context class that holds the Neo4j driver and the current database.
+
+
+==== 2. Create the Lifespan Context Manager
+
+[source,python]
+.Context manager function
+----
+@asynccontextmanager
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
+----
+
+The `@asynccontextmanager` decorator creates an async context manager.
+Code before `yield` runs at **server startup**, code in `finally` runs at **server shutdown**.
+
+
+==== 3. Use Environment Variables
+
+[source,python]
+.Accessing environment variables
+----
+uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+username = os.getenv("NEO4J_USERNAME", "neo4j")
+password = os.getenv("NEO4J_PASSWORD", "password")
+database = os.getenv("NEO4J_DATABASE", "neo4j")
+----
+
+The credentials needed to connect to the database are read from environment variables.
+
+[WARNING]
+.Never hardcode credentials
+====
+Environment variables contain sensitive information and allow different configurations for development and production.
+
+They should never be written into your code.
+====
+
+
+==== 4. Initialize and Clean Up Resources
+
+[source,python]
+.Initializing the driver and yielding context
+----
+driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+
+try:
+    yield AppContext(driver=driver, database=database)
+finally:
+    await driver.close()
+----
+
+The function establishes a connection to the database using Neo4j's `AsyncGraphDatabase` driver.
+The driver is combined with the database into the `AppContext` object, which is yielded to the application from the server.
+
+When the application exits, the driver connection is closed, ensuring proper resource management.
+
+
+==== 5. Access Context in Tools
+
+[source,python]
+.Using the driver in a tool
+----
+@mcp.tool()
+async def graph_statistics(ctx: Context) -> dict[str, int]:
+    """Count the number of nodes and relationships in the graph."""
+    
+    # Access the driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Use the driver to query Neo4j
+    records, summary, keys = await driver.execute_query(
+        "RETURN COUNT {()} AS nodes, COUNT {()-[]-()} AS relationships"
+    )
+    
+    # Process the results
+    if records:
+        return dict(records[0])
+    return {"nodes": 0, "relationships": 0}
+----
+
+Tools receive the `Context` object (imported from `mcp.server.fastmcp`) through the `ctx` parameter.
+The `ctx.request_context.lifespan_context` provides access to your `AppContext` instance with the shared driver.
+
+
+[TIP]
+.What else can Context be used for?
+====
+Beyond accessing lifespan resources, the `Context` object can also be used to:
+
+* **Access request metadata** - Information about the current tool invocation
+* **Log messages** - Use `ctx.info()`, `ctx.warning()`, and `ctx.error()` to send log messages to the client
+* **Send progress updates** - Keep the client informed during long-running operations
+* **Access client information** - Metadata about the calling agent or application
+====
+
+
+== Benefits of Lifespan Management
+
+Using lifespan management provides several advantages:
+
+* **Performance**: Database connections are created once and reused across all tool calls
+* **Reliability**: Resources are properly cleaned up when the server shuts down
+* **Best practices**: Follows Neo4j driver best practices for connection management
+* **Type safety**: The context object can be strongly typed for better IDE support
+* **Testability**: Makes it easier to mock database connections in tests
+
+
+read::Mark as Completed[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about FastMCP's lifespan management feature:
+
+* **Lifespan context managers** - Use `@asynccontextmanager` to manage server startup and shutdown
+* **Resource initialization** - Create database connections when the server starts
+* **Resource cleanup** - Close connections when the server shuts down
+* **Environment variables** - Use `os.getenv()` to read credentials from environment variables
+* **Shared context** - Access initialized resources in tools via `ctx.request_context.lifespan_context`
+
+In the next challenge, you will add lifespan management to your MCP server to properly manage a Neo4j driver connection.
+

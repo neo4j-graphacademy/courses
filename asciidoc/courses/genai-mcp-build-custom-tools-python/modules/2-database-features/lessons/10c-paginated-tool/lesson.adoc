@@ -1,0 +1,216 @@
+= Build a Paginated Tool
+:type: challenge
+:order: 10
+
+In the previous lesson, you learned about pagination and how to use Neo4j's `SKIP` and `LIMIT` clauses to fetch data in manageable chunks.
+
+In this challenge, you will implement a paginated tool that allows users to browse through movies in a specific genre, page by page.
+
+
+== Challenge Goals
+
+To complete this challenge, you will:
+
+1. Create a tool that lists movies by genre with pagination support
+2. Use cursor-based pagination with Neo4j's `SKIP` and `LIMIT`
+3. Return structured output with movies and pagination metadata
+4. Test pagination by fetching multiple pages
+
+
+[TIP]
+.Solution Available
+====
+If you get stuck, you can review the complete solution in the repository at `solutions/10c-paginated-tool/main.py`.
+
+To see the solution in action, run:
+
+[source,bash]
+----
+uv --directory solutions/10c-paginated-tool run main.py
+----
+====
+
+
+== Step 1: Implement the Paginated Tool
+
+Add this tool to your `server/main.py`. Let's break it down into parts:
+
+First, define the tool function with its parameters:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_def]
+----
+
+The function takes a required `genre` parameter and optional `cursor` and `page_size` parameters. The cursor defaults to `0` (start of the list), and page_size defaults to 10 items per page.
+
+Next, handle cursor validation and setup:
+
+[source,python]
+----
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_cursor]
+----
+
+This section uses the cursor number to calculate the skip value. 
+
+Next, using the driver instance from the lifespan context, execute the query to fetch the movies using the SKIP and LIMIT clauses, and coerce the results into a list of dictionaries.
+
+[source,python]
+----
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_execute]
+----
+
+Finally, calculate the next cursor and return the structured output.
+
+[source,python]
+----
+include::{repository-raw}/main/solutions/10c-paginated-tool/main.py[tag=list_movies_by_genre_return]
+----
+
+The structured output consists of a dictionary with the following keys:
+
+* `genre` - The genre passed to the tool by the client
+* `movies` - A list of movies returned from the query
+* `next_cursor` - The cursor for the next page
+* `page` - The current page number
+* `page_size` - The number of movies per page
+* `has_more` - A boolean indicating if more pages are available
+
+
+== Step 2: Test with the Interactive Client
+
+Start your server in one terminal:
+
+[source,bash]
+----
+uv --directory server run main.py
+----
+
+In a separate terminal, run the interactive client from the project root:
+
+[source,bash]
+----
+uv --directory client run main.py
+----
+
+Select the `browse_movies_by_genre` tool from the menu and test pagination:
+
+
+=== Fetch the First Page
+
+The client will prompt you for parameters:
+
+[source,role=nocopy]
+----
+genre (required)
+  Type: string
+  Enter value: Action
+
+page_size (optional)
+  Type: integer
+  Enter value: 2
+
+cursor (optional)
+  Type: string
+  Enter value: 1=9
+
+----
+
+You should receive a structured response similar to the following, with information about the current page and the next cursor.
+
+[source,json]
+.Structured Response
+----
+{
+  "genre": "Action",
+  "movies": [
+    {
+      "title": "'Hellboy': The Seeds of Creation",
+      "released": "2004-07-27",
+      "rating": 6.9
+    },
+    {
+      "title": "13 Assassins (Jûsan-nin no shikaku)",
+      "released": "2010-09-25",
+      "rating": 7.6
+    }
+  ],
+  "next_cursor": 2,
+  "page": 1,
+  "page_size": 2,
+  "has_more": true
+}
+----
+
+
+=== Fetch the Second Page
+
+Use the `next_cursor` from the first response. When the menu returns, select the same tool again and enter:
+
+[source,role=nocopy]
+----
+genre (required)
+  Type: string
+  Enter value: Action
+
+page_size (optional, default: 10)
+  Type: integer
+  Enter value: 2
+
+cursor (optional, default: 0)
+  Type: string
+  Enter value: 2
+
+----
+
+The response should contain a different page number, next cursor and list of movies.
+
+[source,json]
+.Paginated Response
+----
+{
+  "genre": "Action",
+  "movies": [
+    {
+      "title": "2 Fast 2 Furious (Fast and the Furious 2, The)",
+      "released": "2003-06-06",
+      "rating": 5.8
+    },
+    {
+      "title": "2 Guns",
+      "released": "2013-08-02",
+      "rating": 6.7
+    }
+  ],
+  "next_cursor": 6,
+  "page": 3,
+  "page_size": 2,
+  "has_more": true
+}
+----
+
+
+Experiment with different genres, for example [copy]#Comedy#, [copy]#Sci-Fi#, or [copy]#Documentary#, and change the [copy]#page_size# to see how it affects the results.
+
+
+read::I have pagination![]
+
+// TODO: Update this to add a COUNT {} subquery for the total?  Nice use of degree counts...
+
+[.summary]
+== Summary
+
+In this challenge, you successfully implemented cursor-based pagination:
+
+* **Cursor parameter** - Accepted a cursor string to track position in results
+* **SKIP and LIMIT** - Used Neo4j's pagination clauses for efficient queries
+* **Next cursor calculation** - Determined when more pages are available
+* **Structured response** - Returned movies with rich pagination metadata
+* **Error handling** - Handled invalid cursors and query errors
+* **Logging** - Provided informative feedback during pagination
+
+Your tool can now handle large datasets efficiently, providing a great user experience when browsing through collections.
+
+In the next lesson, you'll learn about building prompts to provide pre-defined templates to MCP clients.
+

@@ -17,9 +17,23 @@ function globJoin() {
 }
 
 async function getStatusCode(url) {
-    const res = await fetch(url)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
 
-    return res.status
+    try {
+        const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'Connection': 'close' }
+        })
+        clearTimeout(timeout)
+        return res.status
+    } catch (error) {
+        clearTimeout(timeout)
+        if (error.name === 'AbortError') {
+            return 408 // Request Timeout
+        }
+        throw error
+    }
 }
 
 function findLinks(asciidoc) {

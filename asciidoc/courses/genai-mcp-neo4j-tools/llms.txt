@@ -11,11 +11,31 @@ Learn how to use the Model Context Protocol to create intelligent AI application
 * **MCP Client** - Manages one-to-one connections to servers and executes tools on behalf of the host
 * **MCP Host** - An application (like Claude Desktop, VS Code, or custom agents) that manages clients and determines which tools to use
 * **MCP Tools** - Discrete functions with unique identifiers, descriptions, and parameters that can be invoked by AI agents
-* **ReAct Framework** - A continuous loop of planning, reasoning, and acting that agents use to achieve specific goals
 * **Agent** - A system that acts independently using tool calling to access information and take actions to achieve specific goals
 * **Neo4j Cypher MCP Server** - A specialized MCP server that provides AI agents with the ability to read and write data to Neo4j databases
 * **Schema Discovery** - The process of understanding database structure before generating queries to prevent AI hallucinations
 * **stdio Transport** - Communication method where client starts server locally and communicates through standard input/output streams
+
+### ReAct Framework
+
+A continuous loop of planning, reasoning, and acting that agents use to achieve specific goals:
+
+1. **Planning** - Analyze the task and break it down into smaller, manageable sub-tasks
+2. **Reasoning** - Select the most appropriate tools and actions for each sub-task based on available capabilities
+3. **Acting** - Execute the selected tools and gather results from the actions taken
+4. **Evaluation** - Check if the goal has been achieved or if further iterations are needed
+5. **Feedback** - Use results to refine the approach and inform the next iteration of the loop
+
+### MCP Server Features
+
+MCP servers provide three main types of capabilities:
+
+* **Tools** - Discrete functions that can be invoked by AI agents to perform specific actions (e.g., database queries, API calls, file operations)
+* **Resources** - Static or dynamic content that can be read by clients (e.g., files, documents, configuration data)
+* **Prompts** - Pre-defined prompt templates that can be used to guide AI interactions and provide consistent context
+
+[Reference: What is MCP?](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
+
 
 ## Installation and Configuration
 
@@ -48,13 +68,15 @@ Learn how to use the Model Context Protocol to create intelligent AI application
 
 ### get-neo4j-schema Tool
 
-```text
-// Tool invocation examples:
-// "Describe the data model"
-// "What node labels and relationship types are available in the database?"
-// "How are User and Movie nodes related?"
+**Purpose**: Discovers the database schema including node labels, properties, and relationships.
 
-// Example schema output:
+**Input**: Natural language requests about the database structure:
+- "Describe the data model"
+- "What node labels and relationship types are available in the database?"
+- "How are User and Movie nodes related?"
+
+**Output**:
+```json
 [
   {
     "label": "Movie",
@@ -87,11 +109,7 @@ Learn how to use the Model Context Protocol to create intelligent AI application
 
 ### read-neo4j-cypher Tool
 
-```text
-// Safe read-only queries that don't modify data
-// Example invocations:
-// "What are the top 10 movies by revenue?"
-// "Who directed the movie 'The Matrix'?"
+**Purpose**: Executes safe read-only Cypher queries that don't modify data.
 
 // Example query for top movies by revenue:
 MATCH (m:Movie)
@@ -100,27 +118,47 @@ RETURN m.title AS title, m.revenue AS revenue
 ORDER BY m.revenue DESC
 LIMIT 10
 
-// Example query for finding directors:
-MATCH (d:Director)-[:DIRECTED]->(m:Movie {title: 'The Matrix'})
-RETURN d.name AS director
+**Output**:
+```json
+[
+  {
+    "title": "Avatar",
+    "revenue": 2847246203
+  },
+  {
+    "title": "Avengers: Endgame", 
+    "revenue": 2797501328
+  },
+  {
+    "title": "Titanic",
+    "revenue": 2257844554
+  }
+]
 ```
 
 ### write-neo4j-cypher Tool
 
-```text
-// Write operations that modify data (requires approval)
-// Example invocations:
-// "Create a new user named Sarah"
-// "Add a 5-star rating from John to The Godfather"
+**Purpose**: Executes write operations that modify database data (requires user approval).
 
-// Example create user query:
-CREATE (u:User {name: 'Sarah', userId: 'sarah123'})
-RETURN u
+**Input**: Natural language requests for data modification:
+- "Create a new user named Sarah"
+- "Add a 5-star rating from John to The Godfather"
+- "Update the movie budget for Titanic to 200000000"
 
-// Example create rating query:
-MATCH (u:User {name: 'John'}), (m:Movie {title: 'The Godfather'})
-CREATE (u)-[:RATED {rating: 5}]->(m)
-RETURN u, m
+**Output**:
+```json
+[
+  {
+    "u": {
+      "identity": 1234,
+      "labels": ["User"],
+      "properties": {
+        "name": "Sarah",
+        "userId": "sarah123"
+      }
+    }
+  }
+]
 ```
 
 [Reference: Using the Neo4j Cypher MCP Server](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
@@ -159,8 +197,7 @@ Example stdio configuration:
 
 #### HTTP
 
-Remote server via Server-Sent Events (SSE) or Streaming HTTP
-
+Remote server via Server-Sent Events (SSE) or Streaming HTTP.
 
 
 ### Example tool definition structure

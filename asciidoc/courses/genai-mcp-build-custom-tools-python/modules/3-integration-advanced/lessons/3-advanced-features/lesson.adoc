@@ -1,0 +1,134 @@
+= Advanced MCP Features
+:type: lesson
+:order: 3
+
+
+The MCP Python SDK offers two advanced features for building more sophisticated servers: **Sampling** and **Completions**.
+
+
+== Sampling: Dynamic LLM Interactions
+
+Sampling allows your tools to call the LLM during execution. Instead of just returning data from the database, a tool can ask the LLM that powers the Agent to transform, explain, or enhance that data.
+
+For example, a tool could retrieve movie information from Neo4j and then ask the LLM to convert the strctured data into a natural language description:
+
+[source,python]
+----
+@mcp.tool()
+async def explain_movie_data(movie_title: str, ctx: Context) -> str:
+    """Get a natural language explanation of movie data."""
+    
+    # Get movie data from Neo4j
+    movie_data = await get_movie_details(movie_title, ctx)
+    
+    # Ask LLM to explain the data
+    result = await ctx.session.create_message(
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(
+                    text=f"Describe {movie_data['title']} ({movie_data['released']}) " +
+                         f"starring {', '.join(movie_data['actors'])}. " +
+                         "Write 2-3 engaging sentences."
+                )
+            )
+        ],
+        max_tokens=200
+    )
+    
+    return result.content.text if result.content.type == "text" else str(result.content)
+----
+
+Use sampling when you need:
+
+* Natural language generation from structured data
+* Dynamic summaries based on query results
+* Content that adapts to the specific data retrieved
+* Recommendations or insights derived from data
+
+[NOTE]
+====
+Sampling requires client support and adds processing overhead. The client must support the sampling capability for this feature to work.
+====
+
+
+== Completions: Smart Parameter Suggestions
+
+Completions provide autocomplete suggestions when users are filling in tool parameters or resource URIs. This helps users discover valid values without memorizing them.
+
+For example, when a user starts typing a genre name, completions can suggest matching options from the database:
+
+[source,python]
+----
+@server.complete()
+async def handle_completion(
+    ref: types.PromptReference | types.ResourceReference,
+    argument: types.CompleteArgument
+) -> CompleteResult:
+    """Provide genre completions."""
+    
+    if argument.name == "genre":
+        records, _, _ = await driver.execute_query(
+            """
+            MATCH (g:Genre) 
+            WHERE g.name STARTS WITH $prefix
+            RETURN g.name AS name 
+            ORDER BY name ASC LIMIT 10
+            """,
+            prefix=argument.value
+        )
+        
+        return CompleteResult(
+            completion=Completion(
+                values=[record["label"] for record in records]
+            )
+        )
+    
+    return CompleteResult(completion=Completion(values=[]))
+----
+
+Use completions when:
+
+* Users need to discover valid parameter values
+* Your tools accept specific values from a dataset
+* You want to improve user experience with suggestions
+* Form-based interfaces benefit from autocomplete
+
+[NOTE]
+====
+Completions require using the low-level `Server` API instead of FastMCP's decorator-based approach.
+====
+
+
+== Choosing Advanced Features
+
+Both features are optional and add complexity. Consider them when:
+
+* Building user-facing tools where experience matters
+* The benefit justifies the implementation cost
+* Your client supports these capabilities
+
+Always check client support before using advanced features:
+
+[source,python]
+----
+if ctx.session.client_params.capabilities.sampling:
+    # Use sampling
+else:
+    # Provide simpler alternative
+----
+
+
+[.summary]
+== Summary
+
+Advanced MCP features can enhance your server's capabilities:
+
+* **Sampling** - Dynamic content generation through LLM interactions
+* **Completions** - Smart parameter suggestions for better UX
+* **Implementation Notes** - Check client support and consider performance impact
+
+
+read::Mark as Completed[]
+
+In the next lesson, you'll review what you've learned and explore next steps.
