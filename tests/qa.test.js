@@ -45,7 +45,7 @@ describe("QA Tests", () => {
       return targetCourses.some((term) => slug.includes(term));
     });
     console.log(
-      `Filtering QA tests to courses matching: ${targetCourses.join(", ")} (${
+      `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
         coursePaths.length
       })`
     );
@@ -211,6 +211,10 @@ describe("QA Tests", () => {
               const lines = moduleAdoc.split("\n");
               const content = lines.slice(1).join("\n").trim();
               expect(content.length).toBeGreaterThanOrEqual(300);
+            });
+
+            it("should have at least one list item", () => {
+              expect(moduleAdoc).toContain("\n* ");
             });
 
             it("should have one or more lessons", () => {
