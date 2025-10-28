@@ -1,0 +1,215 @@
+= Build a GraphRAG Tool
+:type: challenge
+:order: 6
+
+
+In the previous lessons, you learned about building tools with the `@mcp.tool()` decorator and using the Context object to access lifespan resources and provide logging.
+
+In this challenge, you will build a tool that searches for movies in a specific genre, using nodes and relationships from the graph to provide relevant context to the LLM - the essence of **GraphRAG**.
+
+
+== Challenge Goals
+
+To complete this challenge, you will:
+
+1. Create a tool that accepts a genre parameter
+2. Use the Context object to access the Neo4j driver
+3. Query Neo4j for movies in the specified genre
+4. Add logging to provide feedback during execution
+5. Return structured output with movie information
+6. Test the tool with the interactive client
+
+
+[TIP]
+.Solution Available
+====
+If you get stuck, you can review the complete solution in the repository at `solutions/6c-build-database-tool/main.py`.
+
+To see the solution in action, run:
+
+[source,bash]
+----
+uv --directory solutions/6c-build-database-tool run main.py
+----
+====
+
+
+== Step 1: Create the Tool Function
+
+Add a new tool to your `server/main.py` file:
+
+[source,python]
+.server/main.py
+----
+from mcp.server.fastmcp import Context
+
+@mcp.tool()
+async def get_movies_by_genre(genre: str, limit: int = 10, ctx: Context = None) -> list[dict]:
+    """
+    Get movies by genre from the Neo4j database.
+    
+    Args:
+        genre: The genre to search for (e.g., "Action", "Drama", "Comedy")
+        limit: Maximum number of movies to return (default: 10)
+        ctx: Context object (injected automatically)
+    
+    Returns:
+        List of movies with title, tagline, and release year
+    """
+    
+    # Log the request
+    await ctx.info(f"Searching for {genre} movies (limit: {limit})...")
+    
+    # Access the Neo4j driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Log the query execution
+    await ctx.debug(f"Executing Cypher query for genre: {genre}")
+    
+    try:
+        # Execute the query
+        records, summary, keys = await driver.execute_query(
+            """
+            MATCH (m:Movie)-[:IN_GENRE]->(g:Genre {name: $genre})
+            RETURN m.title AS title,
+                   m.tagline AS tagline,
+                   m.released AS released
+            ORDER BY m.imdbRating DESC
+            LIMIT $limit
+            """,
+            genre=genre,
+            limit=limit
+        )
+        
+        # Convert records to list of dictionaries
+        movies = [record.data() for record in records]
+        
+        # Log the result
+        await ctx.info(f"Found {len(movies)} {genre} movies")
+        
+        if len(movies) == 0:
+            await ctx.warning(f"No movies found for genre: {genre}")
+        
+        return movies
+        
+    except Exception as e:
+        # Log any errors
+        await ctx.error(f"Query failed: {str(e)}")
+        raise
+----
+
+
+[TIP]
+.Structured Output:
+====
+Notice that the tool returns a `list[dict]`.
+FastMCP will automatically convert this to structured output that clients can parse and use programmatically.
+
+The type hints help the LLM understand what the tool returns!
+====
+
+
+== Step 2: Test with the Interactive Client
+
+Start your server in one terminal:
+
+[source,bash]
+----
+uv --directory server run main.py
+----
+
+In a separate terminal, run the interactive client from the project root:
+
+[source,bash]
+----
+uv --directory client run main.py
+----
+
+Select the `get_movies_by_genre` tool from the menu. The client will prompt you for parameters:
+
+[source,role=nocopy]
+----
+genre (required)
+  Type: string
+  Enter value: Action
+
+limit (optional, default: 10)
+  Type: integer
+  Enter value: 5
+----
+
+Test with different genres: `Action`, `Comedy`, `Drama`, `Sci-Fi`
+
+Try different limit values (5, 10, 20) to see how it affects the results.
+
+
+== Step 3: Observe the Logging
+
+While testing, check the server terminal window to see the logging messages:
+
+* Look for `info` messages showing the search and results
+* Check for `debug` messages showing the Cypher query execution
+* Try an invalid genre to see the `warning` message
+
+
+== Step 4: Verify the Output
+
+The tool should return structured data like:
+
+[source,json]
+----
+[
+  {
+    "title": "The Matrix",
+    "tagline": "Welcome to the Real World",
+    "released": 1999
+  },
+  {
+    "title": "The Matrix Reloaded",
+    "tagline": "Free your mind",
+    "released": 2003
+  }
+]
+----
+
+
+== Verify Your Implementation
+
+Once you've implemented and tested the tool:
+
+1. The tool should appear in the interactive client's tool list
+2. It should accept `genre` and optional `limit` parameters
+3. It should return a list of movies with title, tagline, and released year
+4. Logging messages should appear in the server terminal
+5. The tool should handle invalid genres gracefully
+
+read::My tool is working with context and logging![]
+
+
+[TIP]
+.Experiment Further
+====
+Try enhancing your tool:
+
+* Add progress reporting for large queries
+* Include more movie properties (director, actors, rating)
+* Add error handling for connection issues
+* Create additional tools for other queries (by year, by rating, etc.)
+====
+
+
+[.summary]
+== Summary
+
+In this challenge, you successfully built a Neo4j-backed tool using the Context object:
+
+* **Context parameter** - Added `ctx: Context` to access MCP capabilities
+* **Driver access** - Retrieved the Neo4j driver from `ctx.request_context.lifespan_context`
+* **Logging** - Used `ctx.info()`, `ctx.debug()`, `ctx.warning()`, and `ctx.error()` for feedback
+* **Structured output** - Returned typed data (`list[dict]`) for client consumption
+* **Error handling** - Caught and logged exceptions appropriately
+
+Your tool now provides a great user experience with informative logging and structured data output.
+
+In the next lesson, you'll learn about resources and how to expose Neo4j data in a different way.
+

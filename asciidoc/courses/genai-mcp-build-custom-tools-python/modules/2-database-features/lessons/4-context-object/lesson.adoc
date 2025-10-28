@@ -1,0 +1,216 @@
+= Using Context within Tools
+:type: lesson
+:order: 4
+
+
+In the previous lesson, you learned how to use lifespan management to initialize and share resources like the Neo4j driver across your MCP server.
+
+But how do your tools actually access these resources? And how can you provide feedback to users during long-running operations?
+
+This is where the **Context object** comes in.
+
+
+== What is the Context Object?
+
+The Context object is automatically injected into tools and resources that request it.
+It provides access to:
+
+* **Lifespan resources** - Database connections, configuration, etc.
+* **Logging methods** - Send messages to the client at different log levels
+* **Progress reporting** - Show progress for long-running operations
+* **Resource reading** - Access other resources from within tools
+* **Session information** - Request metadata and client capabilities
+
+
+== Accessing the Context
+
+To use the Context in a tool or resource, simply add a parameter with the `Context` type annotation:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context, FastMCP
+
+mcp = FastMCP("Movies GraphRAG Server")
+
+
+@mcp.tool()
+async def my_tool(query: str, ctx: Context) -> str:
+    """A tool that uses the context."""
+    
+    # The context is automatically injected by FastMCP
+    # The parameter can have any name, but must be type-annotated
+    
+    return await process_query(query, ctx)
+----
+
+[TIP]
+.Choose any parameter name
+====
+The context parameter can have any name (`ctx`, `context`, `c`, etc.) as long as it has the `Context` type annotation.
+====
+
+
+== A Complete Example
+
+Let's look at a simple example that demonstrates using the Context object to track progress while running multiple database queries:
+
+[source,python]
+----
+from mcp.server.fastmcp import Context, FastMCP
+
+mcp = FastMCP("Movies GraphRAG Server")
+
+@mcp.tool()
+async def count_movie_nodes(ctx: Context) -> dict:
+    """Count different types of nodes in the movie graph."""
+    
+    # Access the Neo4j driver from lifespan context
+    driver = ctx.request_context.lifespan_context.driver
+    
+    # Initialize results
+    results = {}
+    
+    # Define queries to run
+    queries = [
+        ("Person", "MATCH (p:Person) RETURN count(p) AS count"),
+        ("Movie", "MATCH (m:Movie) RETURN count(m) AS count"),
+        ("Genre", "MATCH (g:Genre) RETURN count(g) AS count"),
+        ("User", "MATCH (u:User) RETURN count(u) AS count")
+    ]
+    
+    # Log start of operation
+    await ctx.info("Starting node count analysis...")
+    
+    # Execute each query and track progress
+    for i, (label, query) in enumerate(queries):
+        # Report progress (0-based index)
+        await ctx.report_progress(
+            progress=i,
+            total=len(queries),
+            message=f"Counting {label} nodes..."
+        )
+        
+        # Execute query
+        records, _, _ = await driver.execute_query(query)
+        count = records[0]["count"]
+        
+        # Store and log result
+        results[label] = count
+        await ctx.info(f"Found {count} {label} nodes")
+    
+    # Report completion
+    await ctx.report_progress(
+        progress=len(queries),
+        total=len(queries),
+        message="Analysis complete!"
+    )
+    
+    return results
+----
+
+[TIP]
+.Use transactions for consistent results
+====
+When running multiple queries that are related, consider using transactions to ensure data consistency. 
+For example, if you're counting related nodes, running the queries in a transaction ensures all counts are from the same point in time.
+
+Learn more about transactions in the https://graphacademy.neo4j.com/courses/drivers-python/[Using Neo4j with Python] course.
+====
+
+
+== Understanding the Components
+
+Let's break down the key features demonstrated in this example:
+
+=== 1. Lifespan Resource Access
+
+[source,python]
+----
+# Access Neo4j driver from the lifespan context
+driver = ctx.request_context.lifespan_context.driver
+----
+
+The Context object provides access to resources initialized during server startup, like database connections.
+
+
+=== 2. Logging
+
+[source,python]
+----
+await ctx.info("Starting node count analysis...")
+await ctx.info(f"Found {count} {label} nodes")
+----
+
+The Context provides logging methods to keep users informed:
+
+* **debug** - Detailed technical information
+* **info** - General progress updates
+* **warning** - Non-critical issues
+* **error** - Error conditions
+
+
+=== 3. Progress Reporting
+
+[source,python]
+----
+await ctx.report_progress(
+    progress=i,
+    total=len(queries),
+    message=f"Counting {label} nodes..."
+)
+----
+
+Progress reporting keeps users informed during long-running operations:
+
+* **progress** - Current step (0-based)
+* **total** - Total number of steps
+* **message** - Optional status message
+
+
+=== 4. Structured Results
+
+[source,python]
+----
+results = {}
+# ... 
+results[label] = count
+----
+
+The tool returns a dictionary of results, which will be converted to structured output by the client.
+
+== Common Usage Patterns
+
+The Context object shines in complex database operations where you need to combine multiple features. For example, when searching through movie relationships, you might use transactions to ensure data consistency while keeping users informed with progress updates. The Context's logging methods let you provide meaningful feedback - using warnings for missing data and error messages for database issues.
+
+Another powerful pattern is tool composition, where one tool can invoke another through the Context. This allows you to build complex operations from simpler ones, like analyzing movie genres by first counting nodes and then calculating percentages. Combined with proper error handling and progress reporting, this creates tools that are both powerful and user-friendly.
+
+
+// == Context Properties Reference
+
+// The Context object provides:
+
+// * `ctx.request_context.lifespan_context` - Access to lifespan resources
+// * `ctx.request_context.meta` - Request metadata from the client
+// * `ctx.request_context.request_id` - Unique identifier for this request
+// * `ctx.fastmcp` - Access to the FastMCP server instance
+// * `ctx.session` - Access to the underlying session for advanced features
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to use the Context object to build more powerful and user-friendly MCP tools:
+
+* **Context injection** - Add a `Context` parameter to tools to automatically receive it
+* **Lifespan resources** - Access shared resources like database drivers via `ctx.request_context.lifespan_context`
+* **Logging methods** - Use `ctx.debug()`, `ctx.info()`, `ctx.warning()`, and `ctx.error()` to provide feedback
+* **Progress reporting** - Use `ctx.report_progress()` to show progress for long-running operations
+* **Best practices** - Combine logging and progress reporting for better user experience
+* **Data consistency** - Use transactions when running multiple related queries to ensure consistent results
+
+Remember that good tools not only work correctly but also provide a great experience for users by keeping them informed of what's happening.
+
+
+read::Mark as Completed[]
+
+In the next challenge, you will build a tool that searches for movies by genre.

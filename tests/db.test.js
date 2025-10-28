@@ -51,7 +51,7 @@ describe(`Database Tests ${process.env.ENV_FILE}`, () => {
         dbCourses = res.records.map(row => row.get('course'))
     })
 
-    afterAll(() => driver.close())
+    afterAll(async () => await driver.close())
 
     describe('sanity tests', () => {
         it('should have neo4j variables defined', () => {

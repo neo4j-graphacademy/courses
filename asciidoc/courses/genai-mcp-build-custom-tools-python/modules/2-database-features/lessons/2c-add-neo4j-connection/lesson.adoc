@@ -1,0 +1,240 @@
+= Add Neo4j Connection
+:type: challenge
+:order: 2
+
+
+In the previous lesson, you learned about lifespan management and how it helps you properly manage resources like database connections.
+
+In this challenge, you will build a _Movies GraphRAG Server_ that uses lifespan management to establish and maintain a connection to a Neo4j database.
+
+
+== Challenge Goals
+
+To complete this challenge, you will:
+
+1. Install required Python packages
+2. Configure environment variables for Neo4j connection details
+3. Create a lifespan function that initializes a Neo4j driver on startup
+4. Update your server to use the lifespan function
+5. Verify the connection works
+
+
+[TIP]
+.Solution Available
+====
+If you get stuck, you can review the complete solution in the repository at `solutions/2c-add-neo4j-connection/main.py`.
+
+To see the solution in action, run:
+
+[source,bash]
+----
+uv --directory solutions/2c-add-neo4j-connection run main.py
+----
+====
+
+
+== Step 1: Install Required Packages
+
+First, create a new directory for your MCP server, use the `uv init` command to initialize a new project:
+
+[source,bash]
+.Create a new project
+----
+mkdir server
+cd server
+uv init
+----
+
+Next, use the `uv add` command to install the required packages to your project:
+
+[source,bash]
+----
+uv add mcp neo4j python-dotenv
+----
+
+
+== Step 2: Configure Environment Variables
+
+Create a `.env` file in your `server/` directory with your Neo4j connection details:
+
+[source,bash,subs="attributes+"]
+.server/.env
+----
+NEO4J_URI={instance-scheme}://{instance-ip}:{instance-boltPort}
+NEO4J_USERNAME={instance-username}
+NEO4J_PASSWORD={instance-password}
+NEO4J_DATABASE={instance-database}
+----
+
+
+[NOTE]
+====
+The `.env` file is already in `.gitignore` so your credentials won't be committed to version control.
+====
+
+
+== Step 3: Implement Lifespan Management
+
+Let's build the lifespan management step by step. First, create a new file `main.py` in your server directory and add the required imports:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=imports]
+----
+
+
+Next, create a context class to hold the Neo4j driver and database configuration:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=appcontext]
+----
+
+
+Now, implement the lifespan function that will manage the Neo4j driver:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=lifespan]
+----
+
+
+Then define a new `FastMCP` server instance with the name [copy]#Movies GraphRAG Server# and pass the `app_lifespan` function as the lifespan parameter.
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=server]
+----
+
+
+== Step 4: Add a Graph Statistics Tool
+
+Now that we have our lifespan management set up, let's create a tool to return the number of nodes and relationships in the graph.
+
+Create a `graph_statistics` tool function that uses `ctx.request_context.lifespan_context` to access the driver and database from the lifespan context, then executes a Cypher query to count nodes and relationships:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=tool]
+----
+
+[TIP]
+.Using the Database Configuration
+====
+The `database_` parameter is used to specify the database to execute the query on.
+Any named arguments that do not end with an underscore will be passed as parameters to the Cypher query.
+
+You can link:/courses/drivers-python/[learn more about the Driverin the Using Neo4j with Python course^].
+====
+
+
+== Step 5: Add the Main Function
+
+Finally, add the main function at the bottom of your `main.py` file to run the server:
+
+[source,python]
+.server/main.py
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tag=main]
+----
+
+
+== Step 6: Run the Server and Test with the Interactive Client
+
+Now let's test your server with the interactive Python client.
+
+
+=== Start the Server
+
+First, start your MCP server in a terminal:
+
+[source,shell]
+----
+uv --directory server run main.py
+----
+
+If the server starts successfully, you should see output similar to:
+
+[source,output,role=nocopy]
+----
+INFO:     Started server process [92061]
+INFO:     Waiting for application startup.
+StreamableHTTP session manager started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+----
+
+
+=== Run the Interactive Client
+
+In a separate terminal, start the MCP Inspector:
+
+[source,bash]
+----
+uv --directory client run main.py
+----
+
+The client will display a menu of available tools. Select the `graph_statistics` tool and press Enter to execute it (this tool requires no parameters).
+
+You should see the node and relationship counts from your database returned in the results:
+
+[source,role=nocopy]
+----
+✨ Result:
+------------------------------------------------------------
+{
+  "nodes": 28863,
+  "relationships": 332522
+}
+------------------------------------------------------------
+----
+
+
+read::I have database statistics![]
+
+
+
+[TIP]
+.Troubleshooting
+====
+If you're having issues:
+
+* Check that your `.env` file has the correct Neo4j credentials
+* Verify the environment variables are being loaded (add print statements to debug)
+* Ensure the Neo4j database is running and accessible
+* Check the client output for error messages
+====
+
+
+[%collapsible]
+.Complete Solution
+====
+You can view the complete solution in the `solutions/2c-add-neo4j-connection/main.py` file.
+
+[source,python]
+----
+include::{repository-raw}/main/solutions/2c-add-neo4j-connection/main.py[tags=**]
+----
+====
+
+
+
+[.summary]
+== Summary
+
+In this challenge, you successfully added lifespan management to your MCP server:
+
+* **Package installation** - Added the `neo4j` and `python-dotenv` packages to your project
+* **Environment variables** - Stored credentials in `.env` file and loaded them with `python-dotenv`
+* **Lifespan function** - Created an async context manager to initialize and clean up the Neo4j driver
+* **Context access** - Used `ctx.request_context.lifespan_context` to access the driver in tools
+* **Connection testing** - Verified the connection works with the `graph_statistics` tool via the interactive client
+
+Your server now properly manages the Neo4j driver lifecycle, creating it once on startup and reusing it across all tool calls.
+
+In the next lesson, you'll learn how to add more advanced database features to your MCP server.
