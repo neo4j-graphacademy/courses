@@ -1,0 +1,94 @@
+[.question]
+= Index Optimization Strategy
+
+You're optimizing this slow query (2,800ms average):
+
+[source,cypher]
+----
+MATCH (u:User)
+WHERE u.email = 'john@example.com'
+MATCH (u)-[:PURCHASED]->(o:Order)
+WHERE o.date > '2024-01-01'
+RETURN u.name, o.id, o.total
+----
+
+Database: 2M User nodes, 10M Order nodes
+Current state: NO indexes on User.email or Order.date
+
+You test three approaches:
+
+**Option A**: Index on User.email only → 450ms
+**Option B**: Index on Order.date only → 2,100ms
+**Option C**: Indexes on BOTH User.email AND Order.date → 85ms
+
+How should you balance performance and resource usage?
+
+* [ ] Option A - indexing email gives good enough improvement
+
+* [ ] Option B - focusing on the larger dataset (orders)
+* [x] Option C - indexing both properties gives optimal performance
+
+* [ ] None - query needs rewriting instead
+
+[TIP,role=hint]
+.Hint
+====
+Consider that this query has TWO lookup operations. What happens when you index both versus just one?
+====
+
+[TIP,role=solution]
+.Solution
+====
+**Option C - indexing both properties gives optimal performance** is correct.
+
+**Performance analysis**:
+
+**No indexes (2,800ms)**:
+1. Scan 2M User nodes to find email match → ~1,500ms
+2. For that user, scan all their orders for date match → ~1,300ms
+3. Total: 2,800ms
+
+**Option A (450ms)** - User.email index only:
+1. Index lookup finds user instantly → ~10ms
+2. Still scan that user's orders for date → ~440ms
+3. Total: 450ms
+4. **Improvement**: 84% faster
+
+**Option B (2,100ms)** - Order.date index only:
+1. Still scan 2M users for email → ~1,500ms
+2. Index helps filter orders → ~600ms
+3. Total: 2,100ms
+4. **Improvement**: Only 25% faster (not much!)
+
+**Option C (85ms)** - BOTH indexes:
+1. Index lookup finds user → ~10ms
+2. Index finds relevant orders → ~70ms
+3. Traverse relationship → ~5ms
+4. Total: 85ms
+5. **Improvement**: 97% faster!
+
+**Why Option C is best**:
+
+**The query has two lookups**:
+[source,cypher]
+----
+WHERE u.email = 'john@example.com'  // Lookup 1
+WHERE o.date > '2024-01-01'          // Lookup 2
+----
+
+Without indexes on both, at least one lookup requires scanning, scanning is expensive, and performance suffers. With indexes on both, both lookups are direct, minimal data is touched, and you get optimal performance.
+
+**Implementation**:
+[source,cypher]
+----
+CREATE INDEX user_email FOR (n:User) ON (n.email);
+CREATE INDEX order_date FOR (n:Order) ON (n.date);
+----
+
+**Cost-benefit**: **Indexes use storage** (yes, but minimal compared to benefit), **Indexes slow writes** (slightly, but read performance gain is huge), and **For lookup properties** they're always worth it.
+
+**Daily time saved** (500 executions/day): Before optimization takes 2,800ms × 500 = 1,400,000ms = 23 minutes, after takes 85ms × 500 = 42,500ms = 0.7 minutes. **Saved: 22.3 minutes/day**.
+
+**General principle**: For queries with multiple WHERE clauses on properties, index all properties used for lookups to achieve optimal performance.
+====
+

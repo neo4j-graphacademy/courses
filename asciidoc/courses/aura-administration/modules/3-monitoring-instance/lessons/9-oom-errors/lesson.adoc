@@ -1,0 +1,477 @@
+= Out of Memory Errors
+:type: lesson
+:order: 9
+
+
+== Introduction
+
+Out of Memory (OOM) errors are critical failures that occur when the JVM cannot allocate memory for an operation, even after attempting garbage collection.
+
+In this lesson, you will learn how to identify, interpret, and respond to OOM errors in your Aura instance.
+
+
+== Understanding Out of Memory Errors
+
+An OOM error represents the most severe form of memory pressure:
+
+
+**What happens during an OOM error**:
+
+* JVM attempts to allocate memory for an operation
+* Garbage collection runs to free up space
+* If still insufficient memory, the JVM throws an OutOfMemoryError
+* The operation fails immediately
+* Queries and transactions may be terminated
+
+
+**Impact on your database**:
+
+* Failed queries and transactions
+* Degraded application performance
+* Potential data inconsistencies
+* User-facing errors
+
+
+[WARNING]
+====
+OOM errors are **critical incidents** requiring immediate action.
+
+Unlike high GC time which degrades performance, OOM errors cause direct failures.
+====
+
+
+== Out of Memory Error Metrics
+
+Aura provides OOM metrics to monitor critical memory failures:
+
+
+=== OOM Error Rate
+
+The number of Out of Memory errors occurring per minute.
+
+// UI Description: The number of Out of Memory errors occurring per minute. OOM errors happen when the JVM 
+// cannot allocate memory for an operation, even after garbage collection. This indicates severe memory 
+// pressure that can cause queries to fail and transactions to be terminated. Any OOM errors require 
+// immediate attention as they directly impact application functionality and user experience.
+
+**Expected value**: 0 errors per minute
+
+**Any non-zero value**: Critical issue requiring immediate investigation
+
+This metric shows real-time memory exhaustion events.
+
+
+=== OOM Error Count (Cumulative)
+
+The total number of Out of Memory errors since the server started.
+
+// UI Description: The total number of Out of Memory errors since the server started. This value may drop 
+// if background maintenance is performed by Aura. A non-zero count indicates that the instance has 
+// experienced critical memory exhaustion and needs investigation. Recurring OOM errors signal that the 
+// instance size is insufficient for the workload.
+
+**Expected value**: 0 total errors
+
+**Any value > 0**: Indicates past critical memory issues
+
+This helps identify if OOM errors are recurring or were a one-time event.
+
+
+[NOTE]
+====
+This value may drop if background maintenance is performed by Aura.
+
+Track trends over time rather than relying on absolute values.
+====
+
+
+== Types of Out of Memory Errors
+
+
+=== Heap Space Exhausted
+
+**Most common OOM error** - The heap memory is full and cannot accommodate new objects.
+
+**Causes**:
+
+* Query returning extremely large result sets
+* Long-running transactions holding memory
+* Memory-intensive aggregations
+* Insufficient heap size for workload
+
+
+=== GC Overhead Limit Exceeded
+
+The JVM is spending too much time in garbage collection with minimal memory reclaimed.
+
+**Causes**:
+
+* Heap nearly full with live objects
+* Constant GC activity yielding little free space
+* Workload consistently exceeding available memory
+
+
+=== Direct Buffer Memory
+
+Less common - native memory outside the heap is exhausted.
+
+**Causes**:
+
+* Excessive Bolt connections
+* Network buffer exhaustion
+* Memory leaks in native code
+
+
+== Why OOM Errors Occur
+
+OOM errors happen when memory demand exceeds capacity:
+
+
+=== Query-Level Issues
+
+**Large result sets**:
+
+* Queries returning millions of nodes/relationships
+* Missing `LIMIT` clauses
+* Collecting entire graph traversals into memory
+
+
+**Memory-intensive operations**:
+
+* Cartesian products (missing join conditions)
+* Complex aggregations on large datasets
+* Inefficient path-finding without constraints
+
+
+**Long-running transactions**:
+
+* Transactions open for extended periods
+* Accumulating changes in memory before commit
+* Multiple large operations in single transaction
+
+
+=== Instance-Level Issues
+
+**Undersized instance**:
+
+* Heap memory insufficient for normal workload
+* Growth in data or query complexity
+* Increased concurrent query load
+
+
+**Memory leaks** (rare):
+
+* Application not closing connections
+* Resources not properly released
+* Driver configuration issues
+
+
+== The Progression to OOM
+
+Memory pressure typically follows this pattern:
+
+**Stage 1: Normal Operations**
+
+* Heap usage: 40-70%
+* GC time: <2%
+* OOM errors: 0
+
+
+**Stage 2: Memory Pressure**
+
+* Heap usage: 75-85%
+* GC time: 5-10%
+* OOM errors: 0
+
+
+**Stage 3: Critical Pressure**
+
+* Heap usage: >85%
+* GC time: >10%
+* OOM errors: 0 (but at risk)
+
+
+**Stage 4: Memory Exhaustion**
+
+* Heap usage: 95-100%
+* GC time: >15%
+* OOM errors: >0 (critical failure)
+
+
+[TIP]
+====
+Monitor heap usage and GC metrics to prevent reaching Stage 4.
+
+Taking action at Stage 2 or 3 prevents OOM errors from occurring.
+====
+
+
+== Correlating Metrics
+
+When investigating OOM errors, review multiple metrics together:
+
+
+=== High Heap + High GC + OOM Errors
+
+**Pattern**: Critical memory exhaustion
+
+* Heap usage: >90%
+* GC time: >10%
+* OOM errors: Multiple per minute
+
+**Root cause**: Instance severely undersized
+
+**Action**: Immediate instance scaling required
+
+
+=== Spiky OOM Errors
+
+**Pattern**: Intermittent OOM during specific operations
+
+* Heap usage: Spikes to 100% periodically
+* GC time: Spikes during events
+* OOM errors: Occur during spikes
+
+**Root cause**: Specific memory-intensive queries
+
+**Action**: Identify and optimize problematic queries in query logs
+
+
+=== Sustained OOM Errors
+
+**Pattern**: Continuous memory failures
+
+* Heap usage: Constantly >95%
+* GC time: Constantly high
+* OOM errors: Continuous
+
+**Root cause**: Workload permanently exceeds capacity
+
+**Action**: Scale instance AND optimize queries
+
+
+== Immediate Response to OOM Errors
+
+
+=== When You See OOM Errors
+
+**1. Assess severity**:
+
+* Check OOM error rate (errors per minute)
+* Review time period affected
+* Determine if ongoing or resolved
+
+
+**2. Check application impact**:
+
+* Are queries currently failing?
+* Are users experiencing errors?
+* Review application error logs
+
+
+**3. Review correlated metrics**:
+
+* Current heap usage
+* GC time percentage
+* Query rate and latency
+
+
+**4. Take immediate action**:
+
+* Scale instance if errors are ongoing
+* Identify problematic queries in query logs
+* Consider temporarily reducing workload
+
+
+== Preventing OOM Errors
+
+
+=== Query Optimization
+
+**Always use LIMIT**:
+
+```cypher
+// Bad - returns entire result set
+MATCH (n:Product)-[:SIMILAR_TO]->(rec)
+RETURN rec
+
+// Good - limits memory usage
+MATCH (n:Product)-[:SIMILAR_TO]->(rec)
+RETURN rec
+LIMIT 100
+```
+
+
+**Paginate large results**:
+
+```cypher
+MATCH (n:Customer)
+RETURN n
+ORDER BY n.created
+SKIP $offset
+LIMIT $pageSize
+```
+
+
+**Use aggregations**:
+
+```cypher
+// Bad - collects all nodes
+MATCH (n:Order)
+WITH collect(n) AS orders
+RETURN size(orders)
+
+// Good - counts directly
+MATCH (n:Order)
+RETURN count(n)
+```
+
+
+**Process in batches**:
+
+```cypher
+// Use CALL {} IN TRANSACTIONS for large updates
+MATCH (n:Customer)
+WHERE n.status = 'inactive'
+CALL {
+  WITH n
+  SET n.archived = true
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+
+=== Transaction Management
+
+* Keep transactions short
+* Commit or rollback promptly
+* Avoid accumulating large change sets
+* Break batch operations into smaller transactions
+
+
+=== Workload Management
+
+* Monitor concurrent query load
+* Implement query queuing for heavy operations
+* Schedule memory-intensive operations during off-peak hours
+* Set connection pool limits appropriately
+
+
+=== Instance Sizing
+
+* Size instance for peak workload plus headroom
+* Plan for data growth
+* Review metrics regularly
+* Scale proactively before reaching critical levels
+
+
+== Investigating OOM Errors
+
+When OOM errors occur, use query logs to investigate:
+
+
+**Filter query logs for the time period**:
+
+* Set time range to when OOM errors occurred
+* Look for queries with high duration
+* Check for failed queries
+* Review memory allocation (`alloc bytes`)
+
+
+**Look for problematic patterns**:
+
+* Queries without `LIMIT` clauses
+* High `alloc bytes` values
+* Queries with high `page faults`
+* Failed queries with "terminated" errors
+
+
+**Identify the culprit**:
+
+* Which query was running during OOM?
+* Is it a one-time query or recurring?
+* What user/application initiated it?
+* Can it be optimized?
+
+
+[TIP]
+====
+Query logs show `alloc bytes` - the memory allocated for each query.
+
+Queries with extremely high `alloc bytes` are likely candidates for causing OOM errors.
+====
+
+
+== The Relationship Between Metrics
+
+Understanding how metrics relate helps diagnose issues:
+
+**Heap → GC → OOM progression**:
+
+* High heap usage triggers more GC
+* Excessive GC indicates approaching limits
+* When GC cannot free enough memory, OOM occurs
+
+
+**OOM errors are the outcome, not the cause**:
+
+* The cause is insufficient memory
+* OOM is the symptom when limits are reached
+* Fix the underlying memory pressure, not just the error
+
+
+== Recovery and Prevention
+
+
+=== After an OOM Incident
+
+**1. Immediate recovery**:
+
+* Scale instance to provide more heap memory
+* Clear or optimize problematic queries
+* Monitor for recurrence
+
+
+**2. Root cause analysis**:
+
+* Review query logs for memory-intensive queries
+* Check application code for inefficient queries
+* Identify data growth or workload changes
+
+
+**3. Long-term prevention**:
+
+* Implement query optimization best practices
+* Set up alerts for heap usage thresholds
+* Regular capacity planning reviews
+* Monitor trends in memory usage
+
+
+=== Monitoring Strategy
+
+Set up alerts for early warning:
+
+* **Alert on Heap >80%**: Warning level
+* **Alert on Heap >85%**: Urgent action needed
+* **Alert on GC >5%**: Investigation required
+* **Alert on any OOM errors**: Critical incident
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-oom-response.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You learned how to monitor and respond to Out of Memory errors in Aura.
+
+OOM errors are critical failures that occur when the JVM cannot allocate memory even after garbage collection, causing queries and transactions to fail.
+
+You learned that OOM errors rate and cumulative count should always be zero, and any non-zero values require immediate investigation.
+
+The progression from normal operations through memory pressure to OOM errors can be tracked through heap usage and GC metrics, allowing you to take preventive action.
+
+In the next challenge, you will apply this knowledge to diagnose and resolve an OOM crisis scenario.
+

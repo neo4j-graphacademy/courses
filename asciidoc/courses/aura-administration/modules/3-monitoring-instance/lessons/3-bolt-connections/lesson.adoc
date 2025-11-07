@@ -1,0 +1,302 @@
+= Bolt Connections
+:type: lesson
+:order: 5
+
+
+[.discrete]
+== Introduction
+
+Bolt is the protocol used by applications to connect to Neo4j.
+
+In this lesson, you will learn how to monitor Bolt connections to understand application connectivity patterns and identify potential issues.
+
+
+== Understanding Bolt Connections
+
+Bolt connections represent:
+
+* Client applications connected to your database
+* Active query execution sessions
+* Idle connections in connection pools
+* Connection lifecycle (opened and closed)
+
+
+Applications typically use connection pools to:
+
+* Reuse connections for multiple queries
+* Reduce connection overhead
+* Manage concurrent query execution
+
+
+== Bolt Connection Metrics
+
+Aura provides several Bolt connection metrics:
+
+
+=== Running Connections
+
+The total number of Bolt connections currently executing Cypher transactions and returning results.
+
+// UI Description: The total number of Bolt connections that are currently executing Cypher transactions and 
+// returning results. This is a set of snapshots over time and may appear to spike if workloads are all 
+// completed quickly
+
+**Characteristics**:
+
+* Snapshots over time
+* May spike if workloads complete quickly
+* Indicates active query execution
+
+
+=== Idle Connections
+
+The total number of Bolt connections connected to the database but not currently executing queries or returning results.
+
+// UI Description: The total number of Bolt connections that are connected to the Aura database but not currently 
+// executing Cypher or returning results.
+
+**Characteristics**:
+
+* Connections waiting in connection pools
+* Available for immediate use
+* Normal for well-configured applications
+
+
+=== Opened (Count)
+
+The total number of Bolt connections opened since startup.
+
+// UI Description: The total number of Bolt connections opened since startup. This includes both successful and 
+// failed connections. This value may drop if background maintenance is performed by Aura.
+
+Includes both successful and failed connections.
+
+[NOTE]
+.Background maintenance
+====
+This value may drop if background maintenance is performed by Aura.
+
+This is normal and doesn't indicate a problem.
+====
+
+
+=== Opened (Rate)
+
+The rate of Bolt connections opened per minute.
+
+// UI Description: The rate of of Bolt connections opened per minute. This includes both successful and failed connections.
+
+Includes both successful and failed connections.
+
+
+=== Closed (Count)
+
+The total number of Bolt connections closed since startup.
+
+// UI Description: The total number of Bolt connections closed since startup. This includes both properly and 
+// abnormally ended connections. This value may drop if background maintenance is performed by Aura.
+
+Includes both properly and abnormally ended connections.
+
+
+=== Closed (Rate)
+
+The rate of Bolt connections being closed per minute.
+
+// UI Description: The rate of Bolt connections being closed per minute. This includes both properly and 
+// abnormally ended connections.
+
+Includes both properly and abnormally ended connections.
+
+
+== Interpreting Connection Metrics
+
+
+=== Healthy Connection Patterns
+
+**Steady idle connections**:
+
+* Applications maintain connection pools
+* Connections are reused efficiently
+* Ready for immediate query execution
+
+
+**Running connections scale with workload**:
+
+* Increases during high activity
+* Decreases during low activity
+* Matches expected usage patterns
+
+
+**Balanced open/close rates**:
+
+* Similar number of connections opened and closed over time
+* Indicates stable connection management
+
+
+=== Warning Signs
+
+
+==== High Connection Churn
+
+If connections are constantly opening and closing:
+
+* High open and close rates
+* Few idle connections
+* Connection pooling may not be configured
+
+**Impact**:
+
+* Increased overhead from connection setup
+* Reduced performance
+* Higher resource usage
+
+**Action**: Review application connection pool configuration.
+
+
+==== Too Many Idle Connections
+
+Excessive idle connections indicate:
+
+* Connection pool size too large
+* Resources held unnecessarily
+* Potential connection leaks
+
+**Action**: Reduce connection pool size in applications.
+
+
+==== Connection Spikes
+
+Sudden spikes in running connections may indicate:
+
+* Application deployment or restart
+* Batch job execution
+* Potential connection leak
+
+**Action**: Investigate application behavior during spikes.
+
+
+==== Opened >> Closed
+
+If many more connections are opened than closed:
+
+* Potential connection leak
+* Applications not closing connections properly
+* Connection pool exhaustion possible
+
+**Action**: Review application code for proper connection handling.
+
+
+== Connection Limits and Scaling
+
+Each Aura instance has connection limits based on:
+
+* Instance tier
+* Instance size
+* Available resources
+
+
+=== When Limits are Reached
+
+When connection limits are approached:
+
+* New connection attempts may fail
+* Application errors occur
+* Users experience connectivity issues
+
+**Action**: Optimize connection usage or scale instance.
+
+
+== Optimizing Connection Management
+
+
+=== Application-Level Optimization
+
+**Configure connection pools properly**:
+
+* Minimum pool size: 5-10 connections
+* Maximum pool size: Based on concurrent query needs
+* Connection timeout: 30-60 seconds
+* Idle connection timeout: 5-10 minutes
+
+
+**Close connections properly**:
+
+[source,python]
+----
+# Python example using context manager
+with driver.session() as session:
+    result = session.run("MATCH (n) RETURN count(n)")
+    # Connection automatically closed
+----
+
+
+**Avoid connection leaks**:
+
+* Always close sessions and transactions
+* Use try-finally blocks or context managers
+* Handle errors properly
+* Monitor application logs for connection errors
+
+
+=== Monitoring Best Practices
+
+* Track connection metrics during peak hours
+* Compare running vs. idle connections
+* Monitor for unexpected connection spikes
+* Alert on high open/close rates
+
+
+== Troubleshooting Common Issues
+
+
+=== Issue: Application Can't Connect
+
+**Check**:
+
+* Running + Idle connections vs. instance limits
+* Recent changes in application deployment
+* Network connectivity issues
+
+**Action**: Scale instance or reduce connection pool sizes.
+
+
+=== Issue: Slow Query Performance
+
+**Check**:
+
+* High number of running connections
+* CPU and memory metrics
+* Query logs for slow queries
+
+**Action**: May indicate too many concurrent queries; implement queuing.
+
+
+=== Issue: Connection Timeouts
+
+**Check**:
+
+* Long-running queries holding connections
+* Connection pool exhaustion
+* Instance resource limits
+
+**Action**: Optimize queries, adjust timeouts, or scale instance.
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-connection-patterns.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You learned how to monitor Bolt connections for your Aura instances.
+
+You learned about the different connection metrics (running, idle, opened, closed) and how to identify healthy connection patterns versus warning signs.
+
+Properly configured connection pools maintain idle connections for reuse, while high connection churn indicates configuration issues.
+
+In the next lesson, you will learn about garbage collection metrics and their impact on performance.
+

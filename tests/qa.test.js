@@ -223,258 +223,266 @@ describe("QA Tests", () => {
 
             for (const lessonPath of lessonPaths) {
               const lessonSlug = lessonPath.split(sep).reverse()[0];
-
-              const lessonAdoc = readFileSync(
-                join(lessonPath, "lesson.adoc")
-              ).toString();
-
-              const optional = getAttribute(lessonAdoc, "optional") === "true";
-              const hasReadButton = lessonAdoc.match(/read::(.*)\[\]/) !== null;
-              const includesSandbox = lessonAdoc.includes(
-                'include::{shared}/courses/apps/sandbox.adoc[tags="summary'
-              );
+              const lessonAdocPath = join(lessonPath, "lesson.adoc")
 
               describe(lessonSlug, () => {
-                const questionPaths = globSync(
-                  globJoin(
-                    __dirname,
-                    "..",
-                    "asciidoc",
-                    "courses",
-                    slug,
-                    "modules",
-                    moduleSlug,
-                    "lessons",
-                    lessonSlug,
-                    "questions",
-                    "*.adoc"
-                  )
-                );
 
-                it("should have a title", () => {
-                  const titleMatch = lessonAdoc.match(/^=\s+(.+)$/m);
-                  expect(titleMatch).toBeTruthy();
-                  expect(titleMatch[1].trim().length).toBeGreaterThan(0);
+                it("should have a lesson.adoc file", () => {
+                  expect(existsSync(lessonAdocPath)).toBe(true);
                 });
 
-                it("should have an :order: attribute", () => {
-                  expect(getAttribute(lessonAdoc, "order")).toBeDefined();
-                });
+                if (existsSync(lessonAdocPath)) {
+                  const lessonAdoc = readFileSync(
+                    lessonAdocPath
+                  ).toString();
 
-                it("should have a valid :type: attribute if defined", () => {
-                  const type = getAttribute(lessonAdoc, "type");
-                  if (type) {
-                    const validTypes = [
-                      "video",
-                      "lesson",
-                      "text",
-                      "quiz",
-                      "activity",
-                      "challenge",
-                    ];
-                    expect(validTypes).toContain(type);
-                  }
-                });
+                  const optional = getAttribute(lessonAdoc, "optional") === "true";
+                  const hasReadButton = lessonAdoc.match(/read::(.*)\[\]/) !== null;
+                  const includesSandbox = lessonAdoc.includes(
+                    'include::{shared}/courses/apps/sandbox.adoc[tags="summary'
+                  );
 
-                it("should have a [.summary] section", () => {
-                  expect(lessonAdoc).toMatch(/^\[\.summary\]/m);
-                });
+                  const questionPaths = globSync(
+                    globJoin(
+                      __dirname,
+                      "..",
+                      "asciidoc",
+                      "courses",
+                      slug,
+                      "modules",
+                      moduleSlug,
+                      "lessons",
+                      lessonSlug,
+                      "questions",
+                      "*.adoc"
+                    )
+                  );
 
-                it("should have meaningful content", () => {
-                  const lines = lessonAdoc.split("\n");
-                  const content = lines.slice(1).join("\n").trim();
-                  expect(content.length).toBeGreaterThanOrEqual(200);
-                });
+                  it("should have a title", () => {
+                    const titleMatch = lessonAdoc.match(/^=\s+(.+)$/m);
+                    expect(titleMatch).toBeTruthy();
+                    expect(titleMatch[1].trim().length).toBeGreaterThan(0);
+                  });
 
-                // it("all admonitions should have titles", () => {
-                //   const admonitionRegex =
-                //     /^\[(TIP|NOTE|WARNING|CAUTION|IMPORTANT)\]/gm;
-                //   const admonitions = [...lessonAdoc.matchAll(admonitionRegex)];
+                  it("should have an :order: attribute", () => {
+                    expect(getAttribute(lessonAdoc, "order")).toBeDefined();
+                  });
 
-                //   for (const match of admonitions) {
-                //     const startIndex = match.index;
-                //     const afterAdmonition = lessonAdoc.substring(startIndex);
-                //     const nextLines = afterAdmonition.split("\n").slice(1, 3);
+                  it("should have a valid :type: attribute if defined", () => {
+                    const type = getAttribute(lessonAdoc, "type");
+                    if (type) {
+                      const validTypes = [
+                        "video",
+                        "lesson",
+                        "text",
+                        "quiz",
+                        "activity",
+                        "challenge",
+                      ];
+                      expect(validTypes).toContain(type);
+                    }
+                  });
 
-                //     const hasTitle =
-                //       nextLines[0] && nextLines[0].trim().startsWith(".");
-                //     expect(hasTitle).toBe(true);
-                //   }
-                // });
+                  it("should have a [.summary] section", () => {
+                    expect(lessonAdoc).toMatch(/^\[\.summary\]/m);
+                  });
 
-                it("should be optional, mark as read or have one or more questions", () => {
-                  expect(
-                    optional ||
-                    hasReadButton ||
-                    includesSandbox ||
-                    questionPaths.length > 0
-                  ).toBe(true);
-                });
+                  it("should have meaningful content", () => {
+                    const lines = lessonAdoc.split("\n");
+                    const content = lines.slice(1).join("\n").trim();
+                    expect(content.length).toBeGreaterThanOrEqual(200);
+                  });
 
-                // TODO: Test all verify & solution cypher files
-                // if (type === 'challenge' && !optional) {
-                //     it('should contain a valid verify.cypher', async () => {
-                //         expect(existsSync(join(__dirname, '..', 'asciidoc',
-                //             'courses', slug, 'modules', moduleSlug, 'lessons',
-                //             lessonSlug, 'verify.cypher'))
-                //         ).toBe(true)
+                  // it("all admonitions should have titles", () => {
+                  //   const admonitionRegex =
+                  //     /^\[(TIP|NOTE|WARNING|CAUTION|IMPORTANT)\]/gm;
+                  //   const admonitions = [...lessonAdoc.matchAll(admonitionRegex)];
 
-                //         const cypher = readFileSync(join(lessonPath, 'verify.cypher')).toString()
-                //         expect(await explainCypherError(cypher)).toBeUndefined()
-                //     })
+                  //   for (const match of admonitions) {
+                  //     const startIndex = match.index;
+                  //     const afterAdmonition = lessonAdoc.substring(startIndex);
+                  //     const nextLines = afterAdmonition.split("\n").slice(1, 3);
 
-                //     it('should contain a valid solution.cypher', async () => {
-                //         expect(existsSync(join(__dirname, '..', 'asciidoc',
-                //             'courses', slug, 'modules', moduleSlug, 'lessons',
-                //             lessonSlug, 'solution.cypher'))
-                //         ).toBe(true)
-                //     })
-                // }
+                  //     const hasTitle =
+                  //       nextLines[0] && nextLines[0].trim().startsWith(".");
+                  //     expect(hasTitle).toBe(true);
+                  //   }
+                  // });
 
-                if (!skipLinkChecks) {
-                  it("should not have any broken links", async () => {
-                    for (const link of findLinks(lessonAdoc)) {
-                      if (
-                        !link.includes("openai") &&
-                        !link.includes("example") &&
-                        !link.includes("localhost")
-                      ) {
-                        const statusCode = await getStatusCode(link);
-                        try {
-                          expect(statusCode).toBe(200);
-                        } catch (e) {
-                          throw new Error(`${link} returns ${statusCode}`);
+                  it("should be optional, mark as read or have one or more questions", () => {
+                    expect(
+                      optional ||
+                      hasReadButton ||
+                      includesSandbox ||
+                      questionPaths.length > 0
+                    ).toBe(true);
+                  });
+
+                  // TODO: Test all verify & solution cypher files
+                  // if (type === 'challenge' && !optional) {
+                  //     it('should contain a valid verify.cypher', async () => {
+                  //         expect(existsSync(join(__dirname, '..', 'asciidoc',
+                  //             'courses', slug, 'modules', moduleSlug, 'lessons',
+                  //             lessonSlug, 'verify.cypher'))
+                  //         ).toBe(true)
+
+                  //         const cypher = readFileSync(join(lessonPath, 'verify.cypher')).toString()
+                  //         expect(await explainCypherError(cypher)).toBeUndefined()
+                  //     })
+
+                  //     it('should contain a valid solution.cypher', async () => {
+                  //         expect(existsSync(join(__dirname, '..', 'asciidoc',
+                  //             'courses', slug, 'modules', moduleSlug, 'lessons',
+                  //             lessonSlug, 'solution.cypher'))
+                  //         ).toBe(true)
+                  //     })
+                  // }
+
+                  if (!skipLinkChecks) {
+                    it("should not have any broken links", async () => {
+                      for (const link of findLinks(lessonAdoc)) {
+                        if (
+                          !link.includes("openai") &&
+                          !link.includes("example") &&
+                          !link.includes("localhost")
+                        ) {
+                          const statusCode = await getStatusCode(link);
+                          try {
+                            expect(statusCode).toBe(200);
+                          } catch (e) {
+                            throw new Error(`${link} returns ${statusCode}`);
+                          }
                         }
                       }
-                    }
-                  }, 10000);
-                }
-
-                it("should contain valid [source,cypher] blocks", async () => {
-                  if (!skipCypherChecks) {
-                    for (const cypher of findCypherStatements(lessonAdoc)) {
-                      expect(await explainCypherError(cypher)).toBeUndefined();
-                    }
+                    }, 10000);
                   }
-                });
 
-                if (!optional && !hasReadButton) {
-                  for (const questionPath of questionPaths) {
-                    const questionSlug = questionPath.split(sep).reverse()[0];
-                    const asciidoc = readFileSync(questionPath).toString();
-                    const isVerificationQuestion =
-                      asciidoc.includes("verify::");
-
-                    describe(questionSlug, () => {
-                      it("should have [.question] or [.verify] marker", () => {
-                        expect(asciidoc).toMatch(/^\[\.question|\[\.verify/m);
-                      });
-
-                      it("should have a title", () => {
-                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
-                        expect(titleMatch).toBeTruthy();
-                        expect(titleMatch[1].trim().length).toBeGreaterThan(0);
-                      });
-
-                      it(`should have a hint`, () => {
-                        expect(asciidoc).toContain("\n[TIP,role=hint]");
-                      });
-
-                      it(`should have a solution`, () => {
-                        expect(asciidoc).toContain("\n[TIP,role=solution]");
-                      });
-
-                      if (isVerificationQuestion) {
-                        describe("Verify Question", () => {
-                          it("should have a valid verify.cypher", async () => {
-                            expect(
-                              existsSync(
-                                join(
-                                  __dirname,
-                                  "..",
-                                  "asciidoc",
-                                  "courses",
-                                  slug,
-                                  "modules",
-                                  moduleSlug,
-                                  "lessons",
-                                  lessonSlug,
-                                  "verify.cypher"
-                                )
-                              )
-                            ).toBe(true);
-
-                            if (!skipCypherChecks) {
-                              const contents = readFileSync(
-                                join(lessonPath, "verify.cypher")
-                              ).toString();
-
-                              for (const cypher of contents
-                                .split(";")
-                                .filter((e) => e.trim() != "")) {
-                                expect(
-                                  await explainCypherError(cypher)
-                                ).toBeUndefined();
-                              }
-                            }
-                          });
-
-                          it("should have a valid solution.cypher", async () => {
-                            expect(
-                              existsSync(
-                                join(
-                                  __dirname,
-                                  "..",
-                                  "asciidoc",
-                                  "courses",
-                                  slug,
-                                  "modules",
-                                  moduleSlug,
-                                  "lessons",
-                                  lessonSlug,
-                                  "solution.cypher"
-                                )
-                              )
-                            ).toBe(true);
-
-                            if (!skipCypherChecks) {
-                              const contents = readFileSync(
-                                join(lessonPath, "solution.cypher")
-                              ).toString();
-
-                              for (const cypher of contents
-                                .split(";")
-                                .filter((e) => e.trim() != "")) {
-                                expect(
-                                  await explainCypherError(cypher)
-                                ).toBeUndefined();
-                              }
-                            }
-                          });
-                        });
-                      } else {
-                        describe("Multiple Choice Question", () => {
-                          it("should have at least 1 answer option", () => {
-                            const answerMatches = asciidoc.match(
-                              /^[\*\-]\s*\[[\sxX\*]\]/gm
-                            );
-                            expect(answerMatches).toBeTruthy();
-                            expect(answerMatches.length).toBeGreaterThanOrEqual(
-                              1
-                            );
-                          });
-
-                          it("should have a correct answer", () => {
-                            const hasCorrectAnswer =
-                              asciidoc.includes("* [x] ") ||
-                              asciidoc.includes("* [*] ") ||
-                              asciidoc.includes("- [x] ") ||
-                              asciidoc.includes("- [*] ");
-                            expect(hasCorrectAnswer).toBe(true);
-                          });
-                        });
+                  it("should contain valid [source,cypher] blocks", async () => {
+                    if (!skipCypherChecks) {
+                      for (const cypher of findCypherStatements(lessonAdoc)) {
+                        expect(await explainCypherError(cypher)).toBeUndefined();
                       }
-                    });
+                    }
+                  });
+
+                  if (!optional && !hasReadButton) {
+                    for (const questionPath of questionPaths) {
+                      const questionSlug = questionPath.split(sep).reverse()[0];
+                      const asciidoc = readFileSync(questionPath).toString();
+                      const isVerificationQuestion =
+                        asciidoc.includes("verify::");
+
+                      describe(questionSlug, () => {
+                        it("should have [.question] or [.verify] marker", () => {
+                          expect(asciidoc).toMatch(/^\[\.question|\[\.verify/m);
+                        });
+
+                        it("should have a title", () => {
+                          const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
+                          expect(titleMatch).toBeTruthy();
+                          expect(titleMatch[1].trim().length).toBeGreaterThan(0);
+                        });
+
+                        it(`should have a hint`, () => {
+                          expect(asciidoc).toContain("\n[TIP,role=hint]");
+                        });
+
+                        it(`should have a solution`, () => {
+                          expect(asciidoc).toContain("\n[TIP,role=solution]");
+                        });
+
+                        if (isVerificationQuestion) {
+                          describe("Verify Question", () => {
+                            it("should have a valid verify.cypher", async () => {
+                              expect(
+                                existsSync(
+                                  join(
+                                    __dirname,
+                                    "..",
+                                    "asciidoc",
+                                    "courses",
+                                    slug,
+                                    "modules",
+                                    moduleSlug,
+                                    "lessons",
+                                    lessonSlug,
+                                    "verify.cypher"
+                                  )
+                                )
+                              ).toBe(true);
+
+                              if (!skipCypherChecks) {
+                                const contents = readFileSync(
+                                  join(lessonPath, "verify.cypher")
+                                ).toString();
+
+                                for (const cypher of contents
+                                  .split(";")
+                                  .filter((e) => e.trim() != "")) {
+                                  expect(
+                                    await explainCypherError(cypher)
+                                  ).toBeUndefined();
+                                }
+                              }
+                            });
+
+                            it("should have a valid solution.cypher", async () => {
+                              expect(
+                                existsSync(
+                                  join(
+                                    __dirname,
+                                    "..",
+                                    "asciidoc",
+                                    "courses",
+                                    slug,
+                                    "modules",
+                                    moduleSlug,
+                                    "lessons",
+                                    lessonSlug,
+                                    "solution.cypher"
+                                  )
+                                )
+                              ).toBe(true);
+
+                              if (!skipCypherChecks) {
+                                const contents = readFileSync(
+                                  join(lessonPath, "solution.cypher")
+                                ).toString();
+
+                                for (const cypher of contents
+                                  .split(";")
+                                  .filter((e) => e.trim() != "")) {
+                                  expect(
+                                    await explainCypherError(cypher)
+                                  ).toBeUndefined();
+                                }
+                              }
+                            });
+                          });
+                        } else {
+                          describe("Multiple Choice Question", () => {
+                            it("should have at least 1 answer option", () => {
+                              const answerMatches = asciidoc.match(
+                                /^[\*\-]\s*\[[\sxX\*]\]/gm
+                              );
+                              expect(answerMatches).toBeTruthy();
+                              expect(answerMatches.length).toBeGreaterThanOrEqual(
+                                1
+                              );
+                            });
+
+                            it("should have a correct answer", () => {
+                              const hasCorrectAnswer =
+                                asciidoc.includes("* [x] ") ||
+                                asciidoc.includes("* [*] ") ||
+                                asciidoc.includes("- [x] ") ||
+                                asciidoc.includes("- [*] ");
+                              expect(hasCorrectAnswer).toBe(true);
+                            });
+                          });
+                        }
+                      });
+                    }
                   }
                 }
               });

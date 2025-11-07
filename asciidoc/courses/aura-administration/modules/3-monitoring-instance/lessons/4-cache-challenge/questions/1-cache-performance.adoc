@@ -1,0 +1,50 @@
+[.question]
+= Page Cache Degradation
+
+What action restores performance?
+
+* [ ] Optimize queries - they've become inefficient
+
+* [ ] Increase heap memory allocation
+
+* [x] Scale instance to get more page cache memory
+
+* [ ] Run database compaction to reduce size
+
+[TIP,role=hint]
+.Hint
+====
+What changed over the month? What's the relationship between database size, page cache size, and hit ratio?
+====
+
+[TIP,role=solution]
+.Solution
+====
+**Scale instance to get more page cache memory** is correct.
+
+**Root cause analysis**:
+
+**What happened**: Database grew 53% (95GB → 145GB), page cache size stayed the same, graph no longer fits in memory, and many queries now read from disk (slow).
+
+**The math**: Month ago you had a 95GB database that fit in cache with 99% hit ratio. Now you have a 145GB database that doesn't fit in cache with 87% hit ratio. Evictions are up 10x, indicating cache thrashing.
+
+**Why queries are slower**:
+----
+Before (in memory):
+  Query reads 1000 nodes from cache
+  Time: ~50ms
+
+After (disk reads):
+  Query reads 700 from cache, 300 from disk
+  Time: ~400ms (8x slower)
+----
+
+**Solution**: Scale to larger instance to get more page cache memory. The full graph will fit in memory again, hit ratio returns to 98-100%, and query performance is restored.
+
+The other options don't address the root cause: Queries haven't changed (the data/memory ratio changed), heap is fine at 65%, and compaction won't help because this is real data growth.
+
+**Prevention**: Monitor the relationship between database size and page cache capacity. Plan scaling when database approaches 80% of cache size.
+
+**Key lesson**: As your database grows, eventually it outgrows your instance's memory. This predictably degrades performance.
+====
+

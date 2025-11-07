@@ -1,0 +1,323 @@
+= Filtering and Finding Queries
+:type: lesson
+:order: 2
+
+
+[.discrete]
+== Introduction
+
+Query logs can contain thousands of entries, making it essential to filter effectively to find specific queries or issues.
+
+In this lesson, you will learn how to use query log filters to quickly identify problematic queries.
+
+
+== Filter Options
+
+The query log interface provides multiple filters to narrow down results:
+
+
+=== Time Period
+
+Filter by when queries were executed:
+
+* **Last 15 minutes**: Real-time troubleshooting
+* **Last 30 minutes**: Recent activity
+* **Last hour**: Short-term investigation
+* **Last 6 hours**: Trend analysis
+* **Last 24 hours**: Daily patterns
+* **Custom range**: Specific time windows
+
+[TIP]
+.Time-based filtering
+====
+When investigating user complaints, ask for the approximate time of the issue and filter to that specific period.
+====
+
+
+=== Status
+
+Filter by query completion status:
+
+* **Completed**: Successfully executed queries
+* **Failed**: Queries that encountered errors
+
+Use failed status to quickly identify error patterns.
+
+
+=== GQL Status Codes
+
+Filter by specific Graph Query Language status codes:
+
+* **00000**: Success
+* **02000**: No data (query found nothing)
+* **22000**: Data violation (constraint errors)
+* **42000**: Syntax error
+* **40000**: Transaction error
+
+Understanding common status codes helps identify issue types.
+
+
+=== User
+
+Filter by database username:
+
+* Typically `neo4j` or custom user names
+* Useful for multi-user environments
+
+Identifies which application or user caused issues
+
+Example: `neo4j`, `app_user`, `admin`
+
+
+=== Driver
+
+Filter by client driver signature:
+
+* Identifies driver language and version
+
+Format: `neo4j-<language>/<version>`
+
+Examples:
+
+* `neo4j-python/5.9.0`
+* `neo4j-java/5.9.0`
+* `neo4j-javascript/5.9.0`
+
+Useful for narrowing down to specific application versions.
+
+
+=== Application
+
+Filter by application name supplied in driver metadata:
+
+* Custom name set in driver configuration
+* Examples: `explore`, `browser`, `my-app`
+
+**Setting application name in driver:**
+
+[source,python]
+----
+# Python example
+driver = GraphDatabase.driver(
+    uri, 
+    auth=(user, password),
+    user_agent="my-application-name"
+)
+----
+
+This makes it easy to identify which application generated queries.
+
+
+=== Initiation Type
+
+Filter by how the query was initiated:
+
+* User-initiated queries
+* System queries
+* Background operations
+
+
+=== Query Language
+
+Filter by Cypher version:
+
+* `cypher 5`
+* `cypher 5.1`
+* `cypher 5.2`
+* etc.
+
+Useful when upgrading or testing new Cypher features.
+
+
+=== Minimum Duration
+
+Filter for slow queries by minimum execution time (milliseconds):
+
+* `1000`: Queries taking > 1 second
+* `5000`: Queries taking > 5 seconds
+* `10000`: Queries taking > 10 seconds
+
+**This is one of the most useful filters for performance optimization.**
+
+
+=== Query Text
+
+Filter queries containing specific text:
+
+* Search within Cypher query text
+* Case-insensitive
+
+Partial matches
+
+Examples:
+
+* `Product`: Find queries on Product nodes
+* `CREATE`: Find write operations
+* `DELETE`: Find deletion operations
+
+
+=== Error Text
+
+Filter by error message content:
+
+* Search within error messages
+
+Useful for identifying specific errors
+
+Common searches:
+
+* `terminated`: Transaction timeout errors
+* `constraint`: Constraint violations
+* `memory`: Out of memory errors
+* `locked`: Lock conflicts
+
+
+## Effective Filtering Strategies
+
+
+=== Finding Slow Queries
+
+**Goal**: Identify optimization candidates
+
+**Filters**:
+
+1. Status: Completed
+2. Minimum duration: 1000ms
+3. Time period: Last 24 hours
+
+**Analysis**: Review Summary tab, sort by total time spent
+
+
+=== Investigating Errors
+
+**Goal**: Understand what's failing
+
+**Filters**:
+
+1. Status: Failed
+2. Time period: When errors occurred
+3. Error text: (if you know the error)
+
+**Analysis**: Review Details tab for specific error messages
+
+
+=== Finding Queries from Specific Application
+
+**Goal**: Isolate one application's queries
+
+**Filters**:
+
+1. Application: Your app name
+2. Time period: Relevant window
+
+**Analysis**: Review all queries from that application
+
+
+=== Identifying Non-Parameterized Queries
+
+**Goal**: Find queries not using parameters
+
+**Filters**:
+
+1. Time period: Recent
+2. Review Summary tab
+
+**Analysis**: Look for many similar queries with literal values
+
+
+=== Investigating User Complaint
+
+**Goal**: Find queries related to specific issue
+
+**Filters**:
+
+1. Time period: When issue occurred (e.g., "around 2 PM")
+2. Duration: If "slow", filter for > 1000ms
+3. Status: If "error", filter for Failed
+
+**Analysis**: Correlate with user actions
+
+
+== Combining Filters
+
+Filters work together - combine them for precision:
+
+
+=== Example 1: Slow Python Queries
+
+* Minimum duration: 5000ms
+* Driver: `neo4j-python`
+* Status: Completed
+
+
+=== Example 2: Recent Constraint Violations
+
+* Status: Failed
+* Error text: `constraint`
+* Time: Last hour
+
+
+=== Example 3: Specific App Failures
+
+* Application: `my-app`
+* Status: Failed
+* Time: Last 24 hours
+
+
+== Best Practices
+
+
+=== Start Broad, Then Narrow
+
+1. Begin with time period
+2. Add status if relevant
+3. Add duration for performance issues
+4. Add specific text filters last
+
+
+=== Use Summary for Patterns
+
+* Identify common issues
+* Find frequently failing queries
+* Spot high-impact slow queries
+
+
+=== Use Details for Investigation
+
+* Understand specific failures
+* See exact parameter values (if logged)
+* Correlate with other events
+
+
+=== Set Custom Application Names
+
+Configure your applications to send meaningful names:
+
+* Makes filtering much easier
+* Helps identify issue sources quickly
+* Improves troubleshooting efficiency
+
+
+=== Save Common Filter Combinations
+
+Document useful filter combinations for your team:
+
+* "Slow queries check": Duration > 1000ms
+* "Error investigation": Status Failed, Last hour
+* "App X issues": Application "my-app", Status Failed
+
+
+read::Continue to next lesson[]
+
+
+[.summary]
+== Summary
+
+You learned how to filter query logs to find specific queries and issues.
+
+Key filters include minimum duration (for finding slow queries), status (for finding failures), and error text (for specific errors).
+
+Combining filters helps narrow down to exactly the queries you need to investigate.
+
+In the next lesson, you will learn how to analyze query logs to optimize performance.
+

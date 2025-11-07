@@ -1,0 +1,64 @@
+[.question]
+= Garbage Collection User Impact
+
+Users complain "the app freezes for a few seconds randomly."
+
+Metrics show:
+
+. Total GC: 8%
+. Young Gen GC: 3% (every few seconds)
+. Old Gen GC: 5% (every 5-10 minutes, each taking 3-5 seconds)
+. Heap: 88-92%
+. Page Cache: 99%
+. CPU: 70%
+
+What will eliminate the user-facing freezes?
+
+* [ ] Optimize queries to reduce GC pressure
+
+* [ ] Reduce concurrent query load
+
+* [x] Scale instance to get more heap memory
+
+* [ ] Restart instance to clear GC issues
+
+[TIP,role=hint]
+.Hint
+====
+What's causing the multi-second pauses users experience? What's the fastest way to eliminate those pauses?
+====
+
+[TIP,role=solution]
+.Solution
+====
+**Scale instance to get more heap memory** is correct.
+
+**Understanding the freezes**:
+
+Users experience freezes because Old Gen GC runs every 5-10 minutes, and during Old Gen GC the database PAUSES for 3-5 seconds. All queries wait during this pause, so users see this as "app freezing".
+
+**Timeline from user perspective**:
+
+----
+00:00 - Query: 50ms (fast)
+01:30 - Query: 45ms (fast)
+05:00 - [OLD GEN GC STARTS - 4 SECOND PAUSE]
+05:00 - Query: 4,050ms (appears to freeze!)
+05:04 - [GC ENDS]
+05:05 - Query: 52ms (fast again)
+10:00 - [OLD GEN GC AGAIN]
+----
+
+**Root cause**: Heap at 88-92% forces frequent, expensive Old Gen GC.
+
+**Solution - Scale instance**: Get more heap memory so heap usage drops to 60-70%, Old Gen GC becomes rare (hours apart), and when it does run it's faster. This eliminates the freezes.
+
+**After scaling**: Total GC drops to <2%, Old Gen GC is rare (every few hours), users experience no more freezes, and you have consistent performance.
+
+The other options: Query optimization helps but doesn't eliminate the core issue, reducing load is not a solution (users need to use the system), and restarting doesn't change heap capacity (freezes will return).
+
+**Key principle**: Old Gen GC pauses directly impact user experience. High heap usage → frequent Old Gen GC → user-facing freezes.
+
+Scaling is the most effective solution to eliminate these pauses.
+====
+

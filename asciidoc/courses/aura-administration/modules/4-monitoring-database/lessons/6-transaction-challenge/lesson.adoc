@@ -1,0 +1,76 @@
+=  Transaction Rollback Issue
+:type: challenge
+:order: 6
+
+
+== Scenario
+
+The application development team reports that users are experiencing "random save failures" when creating new records.
+
+Reviewing Database metrics:
+
+* **Committed transactions rate**: 200/minute (normal)
+* **Rollback rate**: 40/minute (20% of commits - concerning!)
+* **Active write transactions**: 5-10 (normal)
+* **Query rate**: 800/minute (normal)
+* **Failed queries per minute**: 35 (matches rollback rate)
+
+Filtering query logs for "status: failed" shows the same pattern repeatedly:
+
+[source,cypher]
+----
+CREATE (p:Product {
+  id: $productId,
+  name: $name,
+  sku: $sku
+})
+----
+
+Error message: `Constraint violation: Node with property 'id' = '12345' already exists`
+
+Looking at the application logs, you see that when a user clicks "Save" multiple times quickly, the application sends multiple create requests with the same product ID.
+
+
+== The Challenge
+
+What's causing this and how should you fix it?
+
+
+include::questions/1-rollback-analysis.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+High rollback rates usually indicate application logic issues. Investigate constraint violations and fix the application to prevent duplicates rather than changing database configuration
+
+1. **Disable button after first click** to prevent multiple submissions
+2. **Check for existence** before creating:
+
+[source,cypher]
+----
+MERGE (p:Product {id: $productId})
+ON CREATE SET p.name = $name, p.sku = $sku
+ON MATCH SET p.updated = true
+RETURN p
+----
+
+3. **Implement idempotency** tokens in the application
+4. **Handle errors gracefully** on the frontend
+
+**Why not change the database?**
+
+* The constraint is correctly preventing duplicate data
+* Removing the constraint would allow data corruption
+* The database is working as designed
+
+**When rollbacks ARE a database issue:**
+
+* Deadlocks from lock contention
+* Transaction timeouts from resource constraints
+* Cluster synchronization issues
+
+**But in this case:** Application needs to handle duplicate submissions properly.
+
+Always review the specific errors causing rollbacks to identify the true root cause.
+

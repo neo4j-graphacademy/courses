@@ -1,0 +1,288 @@
+= Page Cache Performance
+:type: lesson
+:order: 3
+
+
+[.discrete]
+== Introduction
+
+The page cache stores frequently accessed graph data in memory, dramatically improving query performance.
+
+In this lesson, you will learn how to monitor page cache metrics and optimize for maximum performance.
+
+
+== Understanding the Page Cache
+
+The page cache stores:
+
+* Graph data (nodes and relationships)
+* Property data
+* Index data
+
+Schema information
+
+When a query needs data:
+
+. Check if data is in page cache (cache hit)
+. If not, read from disk (cache miss)
+
+**Cache hits** are fast (microseconds) - data is already in memory.
+
+**Cache misses** are slow (milliseconds) - must read from disk.
+
+
+== Page Cache Metrics
+
+Aura provides three page cache metrics:
+
+
+=== Hit Ratio
+
+The percentage of times data was found in the page cache versus needing to be read from disk.
+
+// UI Description: The percentage of times data required during query execution was found in memory vs needing 
+// to be read from disk. Ideally the whole graph should fit into memory, and this should consistently be between 
+// 98% and 100%. If this value is consistently or significantly under 100%, check the page cache usage ratio to 
+// see if the graph is too large to fit into memory. A high amount of insert or update activity on a graph can 
+// also cause this value to change.
+
+**Target**: 98-100%
+
+This is your most important page cache metric.
+
+
+=== Usage Ratio
+
+The percentage of allocated page cache currently in use.
+
+// UI Description: The percentage of the allocated page cache in use. If this is close to or at 100%, then it is 
+// likely that the hit ratio will start dropping, and you should consider increasing the size of your instance 
+// so that more memory is available for the page cache.
+
+
+=== Evictions per Minute
+
+The number of times data in memory is replaced per minute.
+
+// UI Description: The number of times data in memory is being replaced per minute. A spike can mean your workload 
+// is exceeding the instance's available memory, and you may notice a degradation in performance or query execution 
+// errors. Consider increasing the size of your instance to improve performance if this metric remains high.
+
+
+== Monitoring Hit Ratio
+
+
+=== Ideal Hit Ratio: 98-100%
+
+A hit ratio between 98% and 100% indicates:
+
+* Most of your graph fits in memory
+* Queries are executing efficiently
+
+Optimal performance
+
+This is the target for production workloads.
+
+
+=== Good Hit Ratio: 90-98%
+
+A hit ratio between 90% and 98% may indicate:
+
+* Graph is slightly larger than page cache
+* Some cold data exists
+* Performance is good but could be better
+
+**Action**: Monitor trends and consider scaling if ratio continues to decline.
+
+
+=== Poor Hit Ratio: <90%
+
+A hit ratio below 90% indicates:
+
+* Significant portions of the graph don't fit in memory
+* Many queries are reading from disk
+* Performance is degraded
+
+**Action required**: Investigation and likely scaling needed.
+
+
+=== Fluctuating Hit Ratio
+
+If hit ratio varies significantly:
+
+* Workload accesses different data over time
+* Batch operations may be loading new data
+* Normal for some workload patterns
+
+**Action**: Understand the pattern and determine if it's acceptable.
+
+
+[NOTE]
+.Write activity impact
+====
+A high amount of insert or update activity can cause the hit ratio to fluctuate as new data is loaded into the page cache.
+
+This is normal during data imports or heavy write operations.
+====
+
+
+== Monitoring Usage Ratio
+
+
+=== Usage Ratio Near 100%
+
+If the page cache usage ratio is close to or at 100%:
+
+* The entire page cache is in use
+* Hit ratio may start declining
+* Performance may degrade as cache thrashing begins
+
+**Action**: Consider increasing instance size for more page cache memory.
+
+
+=== Usage Ratio Below 80%
+
+If the page cache usage ratio is well below 100%:
+
+* Graph comfortably fits in memory
+* Instance is appropriately sized or over-provisioned
+* Excellent performance potential
+
+
+== Monitoring Page Cache Evictions
+
+
+=== Low Evictions
+
+Low eviction rates (0-100 per minute) indicate:
+
+* Data fits well in memory
+* Minimal cache thrashing
+* Healthy state
+
+
+=== High Evictions
+
+High eviction rates (>1000 per minute) indicate:
+
+* Workload exceeds available memory
+* Cache thrashing is occurring
+
+Performance degradation likely
+
+A spike in evictions may indicate:
+
+* Workload burst exceeding memory capacity
+* Query execution errors possible
+* Immediate action may be needed
+
+**Action**: Consider increasing instance size to improve performance.
+
+
+== Understanding the Relationship
+
+These three metrics work together:
+
+
+=== Healthy State
+
+* Hit ratio: 98-100%
+* Usage ratio: 70-100%
+* Evictions: Low
+
+**Result**: Optimal performance
+
+
+=== Warning Signs
+
+* Hit ratio: Declining
+* Usage ratio: 100%
+* Evictions: Increasing
+
+**Result**: Performance degrading, action needed soon
+
+
+=== Critical State
+
+* Hit ratio: <90%
+* Usage ratio: 100%
+* Evictions: High
+
+**Result**: Poor performance, immediate action required
+
+
+== Optimizing Page Cache Performance
+
+
+=== Graph Size vs. Memory
+
+Ideally, your entire graph should fit in the page cache.
+
+Check your instance size:
+
+* **Small instances**: Limited page cache (GB range)
+* **Medium instances**: Moderate page cache (tens of GB)
+* **Large instances**: Large page cache (hundreds of GB)
+
+If your graph is larger than available page cache, consider scaling.
+
+
+=== Query Patterns
+
+Some query patterns are more cache-friendly:
+
+**Cache-friendly**:
+
+* Queries accessing hot data (frequently used nodes/relationships)
+* Queries following common traversal patterns
+* Queries on indexed properties
+
+
+**Cache-unfriendly**:
+
+* Full graph scans
+* Random access patterns
+* Queries accessing cold data
+
+
+=== Data Model Optimization
+
+* Place frequently accessed properties on frequently accessed nodes
+* Use appropriate indexes to reduce data scanning
+* Denormalize data to reduce traversal depth when appropriate
+
+
+== When to Scale for Page Cache
+
+Scale your instance when:
+
+* Hit ratio is consistently below 98%
+* Usage ratio is at 100% and hit ratio is declining
+* Evictions are high and performance is degraded
+* Your graph has grown significantly
+
+
+[TIP]
+.Monitor during peak hours
+====
+Monitor page cache metrics during peak usage periods to ensure adequate capacity when it matters most.
+====
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-cache-hit-ratio.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You learned how to monitor page cache performance for your Aura instances.
+
+You learned that ideally the page cache hit ratio should be between 98% and 100%, indicating that most of your graph fits in memory.
+
+You also learned to recognize warning signs like high evictions or declining hit ratios that indicate the need for scaling.
+
+In the next lesson, you will learn how to monitor Bolt connections and connection pool health.
+
