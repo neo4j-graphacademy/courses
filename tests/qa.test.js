@@ -36,7 +36,6 @@ describe("QA Tests", () => {
     .filter((path) => exclude.some((folder) => !path.endsWith(folder)))
     .filter((path) => existsSync(join(path, "course.adoc")));
 
-
   if (process.env.COURSES) {
     const targetCourses = process.env.COURSES.split(",").map((c) =>
       c.trim().toLowerCase()
@@ -46,7 +45,8 @@ describe("QA Tests", () => {
       return targetCourses.some((term) => slug.includes(term));
     });
     console.log(
-      `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${coursePaths.length
+      `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
+        coursePaths.length
       })`
     );
   }
@@ -286,28 +286,44 @@ describe("QA Tests", () => {
                   expect(content.length).toBeGreaterThanOrEqual(200);
                 });
 
-                // it("all admonitions should have titles", () => {
-                //   const admonitionRegex =
-                //     /^\[(TIP|NOTE|WARNING|CAUTION|IMPORTANT)\]/gm;
-                //   const admonitions = [...lessonAdoc.matchAll(admonitionRegex)];
+                it("should have at most one read button", () => {
+                  const readButtonCount = [
+                    ...lessonAdoc.matchAll(/read::(.*)\[\]/g),
+                  ].length;
+                  expect(readButtonCount).toBeLessThanOrEqual(1);
+                });
 
-                //   for (const match of admonitions) {
-                //     const startIndex = match.index;
-                //     const afterAdmonition = lessonAdoc.substring(startIndex);
-                //     const nextLines = afterAdmonition.split("\n").slice(1, 3);
+                it("all admonitions should have titles", () => {
+                  const admonitionRegex =
+                    /^\[(TIP|NOTE|WARNING|CAUTION|IMPORTANT)\]/gm;
+                  const admonitions = [...lessonAdoc.matchAll(admonitionRegex)];
 
-                //     const hasTitle =
-                //       nextLines[0] && nextLines[0].trim().startsWith(".");
-                //     expect(hasTitle).toBe(true);
-                //   }
-                // });
+                  for (const match of admonitions) {
+                    const startIndex = match.index;
+                    const afterAdmonition = lessonAdoc.substring(startIndex);
+                    const nextLines = afterAdmonition.split("\n").slice(1, 3);
+
+                    const hasTitle =
+                      nextLines[0] && nextLines[0].trim().startsWith(".");
+                    if (!hasTitle) {
+                      const firstNewlineIndex = afterAdmonition.indexOf("\n");
+                      const openingContent = afterAdmonition
+                        .slice(firstNewlineIndex + 1)
+                        .trim()
+                        .slice(0, 100);
+                      throw new Error(
+                        `Admonition ${match[0]} does not have an action oriented title. Opening content: "${openingContent}..."`
+                      );
+                    }
+                  }
+                });
 
                 it("should be optional, mark as read or have one or more questions", () => {
                   expect(
                     optional ||
-                    hasReadButton ||
-                    includesSandbox ||
-                    questionPaths.length > 0
+                      hasReadButton ||
+                      includesSandbox ||
+                      questionPaths.length > 0
                   ).toBe(true);
                 });
 
