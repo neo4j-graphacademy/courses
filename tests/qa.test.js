@@ -156,6 +156,10 @@ describe("QA Tests", () => {
           expect(exists).toBe(true);
         });
 
+        it("should end with a newline", () => {
+          expect(courseAdoc.endsWith("\n")).toBe(true);
+        });
+
         for (const modulePath of modulePaths) {
           const moduleSlug = modulePath.split(sep).reverse()[0];
           const moduleAdocPath = join(modulePath, "module.adoc");
@@ -221,6 +225,10 @@ describe("QA Tests", () => {
               expect(lessonPaths.length).toBeGreaterThan(0);
             });
 
+            it("should end with a newline", () => {
+              expect(moduleAdoc.endsWith("\n")).toBe(true);
+            });
+
             for (const lessonPath of lessonPaths) {
               const lessonSlug = lessonPath.split(sep).reverse()[0];
 
@@ -284,6 +292,10 @@ describe("QA Tests", () => {
                   const lines = lessonAdoc.split("\n");
                   const content = lines.slice(1).join("\n").trim();
                   expect(content.length).toBeGreaterThanOrEqual(200);
+                });
+
+                it("should end with a newline", () => {
+                  expect(lessonAdoc.endsWith("\n")).toBe(true);
                 });
 
                 it("should have at most one read button", () => {
@@ -398,6 +410,10 @@ describe("QA Tests", () => {
 
                       it(`should have a solution`, () => {
                         expect(asciidoc).toContain("\n[TIP,role=solution]");
+                      });
+
+                      it("should end with a newline", () => {
+                        expect(asciidoc.endsWith("\n")).toBe(true);
                       });
 
                       if (isVerificationQuestion) {
