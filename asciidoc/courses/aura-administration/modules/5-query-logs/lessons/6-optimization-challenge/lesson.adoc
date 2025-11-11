@@ -1,0 +1,114 @@
+=  Query Optimization Strategy
+:type: challenge
+:order: 5
+
+
+== Scenario
+
+You've identified a slow query that needs optimization:
+
+[source,cypher]
+----
+MATCH (u:User)
+WHERE u.email = 'john@example.com'
+MATCH (u)-[:PURCHASED]->(o:Order)
+WHERE o.date > '2024-01-01'
+RETURN u.name, o.id, o.total
+----
+
+**Current Performance (from query logs):**
+
+* Executions: 500 times/day
+* Average duration: 2,800ms
+* Planning time: 15ms
+* Page faults: 12,000
+* Page hits: 3,000
+
+**Database stats:**
+
+* 2 million User nodes
+* 10 million Order nodes
+* User.email has NO index
+* Order.date has NO index
+
+**Testing your optimization**, you try three approaches:
+
+
+**Option A**: Add index on User.email only
+
+* New average duration: 450ms
+* Page faults: 8,000
+
+
+**Option B**: Add index on Order.date only
+
+* New average duration: 2,100ms
+* Page faults: 10,000
+
+
+**Option C**: Add indexes on BOTH User.email AND Order.date
+
+* New average duration: 85ms
+* Page faults: 800
+
+
+== The Challenge
+
+Which optimization approach provides the best balance of performance improvement and resource usage?
+
+
+include::questions/1-optimization-strategy.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+When a query has multiple lookup properties, adding indexes on all of them provides the best performance improvement. Consider the total time saved across all query executions when evaluating optimization impact
+
+1. **Finding the user by email**: `WHERE u.email = 'john@example.com'`
+   - Without index: Scans 2 million User nodes
+   - With index: Direct lookup to one User
+
+2. **Filtering orders by date**: `WHERE o.date > '2024-01-01'`
+   - Without index: Examines all orders for that user
+   - With index: Only reads relevant orders
+
+**Why partial optimization (A or B) isn't enough:**
+
+* **Option A** improves user lookup but still scans all orders
+* **Option B** doesn't help the expensive user scan
+* Both leave significant performance on the table
+
+**Implementation**:
+
+[source,cypher]
+----
+// Create both indexes
+CREATE INDEX user_email FOR (n:User) ON (n.email);
+CREATE INDEX order_date FOR (n:Order) ON (n.date);
+----
+
+**Index cost considerations**:
+
+* Indexes use storage and memory
+* Indexes slow down writes slightly
+* But for lookup properties on large datasets, the benefit far outweighs the cost
+
+**General principle**:
+
+For queries with multiple lookup conditions, index all properties used in WHERE clauses for optimal performance.
+
+Test with PROFILE to verify indexes are being used:
+
+[source,cypher]
+----
+PROFILE
+MATCH (u:User)
+WHERE u.email = 'john@example.com'
+MATCH (u)-[:PURCHASED]->(o:Order)
+WHERE o.date > '2024-01-01'
+RETURN u.name, o.id, o.total
+----
+
+Look for "Index Seek" operations in the plan instead of "Node By Label Scan".
+

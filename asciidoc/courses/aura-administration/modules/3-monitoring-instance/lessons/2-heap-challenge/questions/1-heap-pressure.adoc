@@ -1,0 +1,42 @@
+[.question]
+= Memory Pressure Diagnosis
+
+What's causing the intermittent slowness?
+
+* [ ] CPU bottleneck slowing queries
+
+* [ ] Page cache too small for the database
+
+* [x] High heap usage causing excessive garbage collection pauses
+
+* [ ] Network latency causing intermittent slowness
+
+[TIP,role=hint]
+.Hint
+====
+Look at the relationship between heap usage and GC metrics. What causes intermittent slowness with variable query times?
+====
+
+[TIP,role=solution]
+.Solution
+====
+**High heap usage causing excessive garbage collection pauses** is correct.
+
+**Why intermittent slowness**: When Old Gen GC runs (every 10-15 minutes), ALL queries pause. Old Gen GC takes seconds to complete, so queries running during GC appear very slow (2-5 second pause). Between GC cycles, queries run normally (fast), causing users to experience unpredictable performance.
+
+**Evidence**: Heap at 85-95% (too high, should be <80%), GC time at 12% (critical, should be <2%), and Old Gen GC occurring every 10-15 minutes (too frequent, should be hours).
+
+**The pattern**:
+----
+Normal query: 50ms
+Query during GC: 50ms + 3000ms GC pause = 3050ms
+User: "Sometimes fast, sometimes slow!"
+----
+
+**Solution**: Scale instance to get more heap memory. This will cause heap usage to drop to 60-70%, Old Gen GC to become infrequent, and consistent query performance to be restored.
+
+Why the other answers are wrong: CPU at 50% is fine (not the bottleneck), page cache at 99% is excellent, and network issues would affect all queries equally, not create this intermittent pattern.
+
+**Key insight**: Even with good CPU and page cache, excessive GC from high heap usage causes intermittent performance problems that frustrate users.
+====
+

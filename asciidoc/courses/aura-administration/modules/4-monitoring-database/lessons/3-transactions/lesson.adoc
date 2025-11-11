@@ -1,0 +1,296 @@
+= Transaction Monitoring
+:type: lesson
+:order: 5
+
+
+[.discrete]
+== Introduction
+
+Transactions are the unit of work in Neo4j, and monitoring transaction patterns helps you understand database activity and identify issues.
+
+In this lesson, you will learn how to monitor active transactions, transaction rates, and identify transaction problems.
+
+
+== Understanding Transactions
+
+Every operation in Neo4j occurs within a transaction:
+
+* Queries that modify data (write transactions)
+* Queries that only read data (read transactions)
+* Both explicit and implicit transactions
+
+
+Healthy transaction patterns indicate:
+
+* Proper application behavior
+* Good transaction management
+* Efficient data operations
+
+
+== Transaction Metrics
+
+Aura provides several transaction-related metrics:
+
+
+=== Active Transactions
+
+The number of currently active transactions.
+
+// UI Description (Read): The number of currently active read transactions.
+// UI Description (Write): The number of currently active write transactions.
+
+**Read transactions**: Currently executing read operations
+
+**Write transactions**: Currently executing write operations
+
+These metrics show real-time database activity.
+
+
+=== Committed Transactions
+
+**Committed (count)**: Total transactions committed since server startup
+
+// UI Description (Committed count): The total number of committed transactions since the server was started. 
+// This value may drop if background maintenance is performed by Aura.
+
+**Committed (rate)**: Transactions being committed per minute
+
+// UI Description (Committed rate): The number of transactions being committed per minute.
+
+Successful transaction completion.
+
+
+=== Rolled Back Transactions
+
+**Rollbacks (count)**: Total transactions rolled back
+
+// UI Description (Rollbacks count): The total number of rolled-back transactions. This value may drop if 
+// background maintenance is performed by Aura.
+
+**Rollbacks (rate)**: Transaction rollbacks per minute
+
+// UI Description (Rollbacks rate): The number of transaction rollbacks happening per minute.
+
+Indicates transaction failures or explicit rollbacks.
+
+
+=== Peak Concurrent Transactions
+
+The highest number of concurrent transactions detected since server started.
+
+// UI Description: The highest number of concurrent transactions detected since the server started. This value 
+// may drop if background maintenance is performed by Aura.
+
+Shows maximum transaction concurrency experienced.
+
+
+=== Last Committed Transaction ID
+
+The ID of the last committed transaction.
+
+// UI Description: The id of the last committed transaction. Track this for primary cluster members of your Aura 
+// instance. It should show overlapping, ever-increasing lines and if one of the lines levels off or falls behind, 
+// it is clear that this cluster member is no longer replicating data, and action is needed to rectify the situation.
+
+**For clustered instances**: Track this for each primary cluster member.
+
+
+[NOTE]
+.Background maintenance
+====
+Some values may drop if background maintenance is performed by Aura.
+
+This is normal and doesn't indicate a problem.
+====
+
+
+== Interpreting Transaction Metrics
+
+
+=== Healthy Transaction Patterns
+
+**Active transactions**:
+
+* Fluctuates with workload
+* Read transactions > write transactions (typical)
+* Returns to low baseline between operations
+
+
+**Commit rate**:
+
+* Matches application activity
+* Consistent with query rate
+* Follows business hours patterns
+
+
+**Rollback rate**:
+
+* Very low (< 1% of commits)
+* Occasional rollbacks are normal
+
+
+=== Warning Signs
+
+
+==== High Rollback Rate
+
+If rollbacks are a significant portion of commits:
+
+* Application errors or bugs
+* Constraint violations
+* Deadlock conditions
+* Conflicting concurrent writes
+
+**Action**: Review application logs and query logs for errors.
+
+
+==== Many Long-Running Active Transactions
+
+High number of active transactions that persist:
+
+* Long-running queries
+* Transactions not being committed
+* Possible connection leaks holding transactions open
+
+**Impact**:
+
+* Holds memory
+* May block other operations
+* Can cause performance issues
+
+
+==== Growing Active Transactions
+
+If active transaction count continuously grows:
+
+* Transactions not being closed properly
+* Application bug (missing commits/rollbacks)
+* Connection pool issues
+
+**Action**: Review application transaction management.
+
+
+==== Last Transaction ID Not Advancing (Clustered)
+
+In Business Critical clustered instances:
+
+If one cluster member's transaction ID levels off or falls behind:
+
+* That member is no longer replicating
+* Cluster synchronization issue
+* Action needed to rectify replication
+
+**Action**: Contact Neo4j support for cluster issues.
+
+
+== Transaction Best Practices
+
+
+=== Application-Level Best Practices
+
+**Keep transactions short**:
+
+* Commit or rollback promptly
+* Don't hold transactions during user input
+* Avoid long-running transactions when possible
+
+
+**Handle errors properly**:
+
+[source,python]
+----
+with driver.session() as session:
+    try:
+        result = session.execute_write(create_data, params)
+        # Transaction automatically committed
+    except Exception as e:
+        # Transaction automatically rolled back
+        logger.error(f"Transaction failed: {e}")
+----
+
+
+**Use appropriate transaction types**:
+
+* Use read transactions for read-only operations
+* Use write transactions only when modifying data
+* Read transactions can run concurrently more efficiently
+
+
+=== Monitoring Best Practices
+
+* Monitor rollback rates for application health
+* Alert on growing active transaction counts
+* Track commit rates to understand workload
+* For clusters, monitor transaction ID progression
+
+
+== Common Transaction Issues
+
+
+=== Issue: High Rollback Rate
+
+**Symptoms**:
+
+* Rollbacks >5% of commits
+* Application errors
+* Data not being saved
+
+
+**Causes**:
+
+* Constraint violations (duplicate data)
+* Concurrent update conflicts
+* Application bugs
+
+
+Action: === Issue: Transaction Timeouts
+
+**Symptoms**:
+
+* Transactions failing with timeout errors
+* Long-running active transactions
+* User complaints about failures
+
+
+**Causes**:
+
+* Queries taking too long
+* Insufficient resources
+* Lock contention
+
+
+Action: 
+
+=== Issue: Growing Active Transactions
+
+**Symptoms**:
+
+* Active transaction count increasing over time
+* Not returning to baseline
+* Memory usage increasing
+
+
+**Causes**:
+
+* Transactions not being closed
+* Application connection leak
+* Missing commit/rollback in code
+
+
+Action: 
+
+
+read::Continue to next lesson[]
+
+
+[.summary]
+== Summary
+
+You learned how to monitor transaction patterns for your Aura databases.
+
+You learned that rollbacks should be very low (<1% of commits) and that growing active transaction counts indicate transaction management issues.
+
+For clustered instances, monitoring the last committed transaction ID helps identify replication issues.
+
+In the next lesson, you will learn about monitoring checkpoint and replan events.
+

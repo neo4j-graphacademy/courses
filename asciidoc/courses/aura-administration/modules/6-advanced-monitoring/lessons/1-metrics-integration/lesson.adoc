@@ -1,0 +1,330 @@
+= Metrics Integration
+:type: lesson
+:order: 1
+
+
+[.discrete]
+== Introduction
+
+Beyond the Aura console, you can integrate metrics with external monitoring platforms for advanced alerting and dashboarding.
+
+In this lesson, you will learn how to configure metrics integration with Prometheus and other monitoring tools.
+
+
+== Why External Monitoring?
+
+External monitoring platforms provide:
+
+* **Custom dashboards**: Combine Aura metrics with other system metrics
+* **Alerting**: Automated notifications when thresholds are exceeded
+* **Long-term retention**: Keep metrics beyond Aura's retention period
+* **Team collaboration**: Share dashboards with broader teams
+* **Integration**: Connect with incident management tools
+
+
+== Accessing Metrics Integration Settings
+
+To configure metrics integration:
+
+. Navigate to your project in Aura
+. Click **Settings** in the project menu
+. Select **Metrics Integration**
+
+You'll see configuration options for scraping metrics from your Aura instances.
+
+
+== Metrics Endpoint
+
+Aura provides a Prometheus-compatible metrics endpoint for each project.
+
+
+=== Endpoint URL
+
+The URL format:
+
+----
+https://customer-metrics-api.neo4j.io/api/v1/<project-id>/<metrics-id>/metrics
+----
+
+Example:
+
+----
+https://customer-metrics-api.neo4j.io/api/v1/cb50b84c-0a53-565c-ba05-008e104efee0/6b0c65e8/metrics
+----
+
+Copy this URL from the Metrics Integration settings page.
+
+
+=== Authentication
+
+Metrics endpoints require OAuth2 authentication:
+
+* **Client ID**: Provided in Aura settings
+* **Client Secret**: Generated in Aura settings
+* **Token URL**: `https://api.neo4j.io/oauth/token`
+
+
+[WARNING]
+.Keep credentials secure
+====
+Keep your client secret secure.
+
+Treat it like a password and never commit it to version control.
+====
+
+
+== Prometheus Configuration
+
+Prometheus is a popular open-source monitoring system.
+
+
+=== Prometheus Job Configuration
+
+Add this job to your Prometheus configuration:
+
+[source,yaml]
+----
+- job_name: 'aura-metrics'
+  scrape_timeout: 30s
+  metrics_path: '/api/v1/<your-project-id>/<your-metrics-id>/metrics'
+  scheme: 'https'
+  static_configs:
+    - targets: ['customer-metrics-api.neo4j.io']
+  oauth2:
+    client_id: '<AURA_CLIENT_ID>'
+    client_secret: '<AURA_CLIENT_SECRET>'
+    token_url: 'https://api.neo4j.io/oauth/token'
+----
+
+Replace placeholders with your actual values from Aura settings.
+
+
+=== Scrape Interval
+
+Configure scraping based on your needs:
+
+* **15-30 seconds**: Real-time monitoring
+* **1 minute**: Standard monitoring
+* **5 minutes**: Less frequent, reduced load
+
+
+=== Available Metrics
+
+The endpoint exposes all Aura metrics:
+
+* CPU usage
+* Memory usage (heap, page cache)
+* Storage metrics
+* Query rates and latency
+* Transaction metrics
+* Connection metrics
+* Garbage collection stats
+* And more
+
+
+== Grafana Dashboards
+
+Grafana is a popular visualization platform that works with Prometheus.
+
+
+=== Setting Up Grafana
+
+. Install Grafana
+. Add Prometheus as a data source
+. Create dashboards or import Neo4j templates
+
+
+=== Example Dashboard Panels
+
+**CPU Usage Panel**:
+
+[source,promql]
+----
+# CPU cores used
+neo4j_system_cpu_count
+----
+
+**Page Cache Hit Ratio**:
+
+[source,promql]
+----
+# Calculate hit ratio percentage
+(neo4j_page_cache_hits / (neo4j_page_cache_hits + neo4j_page_cache_faults)) * 100
+----
+
+**Query Rate**:
+
+[source,promql]
+----
+# Queries per second
+rate(neo4j_database_query_execution_success_total[5m])
+----
+
+
+## Creating Alerts
+
+Set up automated alerts for critical conditions:
+
+
+=== Example Alert Rules
+
+**High CPU Usage**:
+
+[source,yaml]
+----
+- alert: HighCPUUsage
+  expr: neo4j_system_cpu_count > 7
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Aura instance CPU usage high"
+    description: "CPU usage above 7 cores for 5 minutes"
+----
+
+**Low Page Cache Hit Ratio**:
+
+[source,yaml]
+----
+- alert: LowPageCacheHitRatio
+  expr: (neo4j_page_cache_hits / (neo4j_page_cache_hits + neo4j_page_cache_faults)) < 0.90
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Page cache hit ratio below 90%"
+    description: "Database may not fit in memory"
+----
+
+**High Heap Usage**:
+
+[source,yaml]
+----
+- alert: HighHeapUsage
+  expr: neo4j_vm_heap_used / neo4j_vm_heap_max > 0.85
+  for: 15m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Heap memory usage above 85%"
+    description: "Instance may need scaling"
+----
+
+
+== Other Monitoring Platforms
+
+
+=== Datadog
+
+Datadog can scrape Prometheus endpoints:
+
+. Configure Datadog Prometheus integration
+. Add Aura metrics endpoint
+. Configure OAuth2 authentication
+
+
+=== New Relic
+
+New Relic supports Prometheus data:
+
+. Use New Relic Prometheus OpenMetrics integration
+. Configure endpoint and authentication
+. Create custom dashboards
+
+
+=== CloudWatch
+
+For AWS environments:
+
+. Use Prometheus CloudWatch exporter
+. Export Aura metrics to CloudWatch
+. Set up CloudWatch alarms
+
+
+## Best Practices
+
+
+=== Security
+
+* Store credentials in secrets management (e.g., Vault, AWS Secrets Manager)
+* Rotate client secrets periodically
+* Limit access to metrics endpoints
+* Use HTTPS only (enforced by Aura)
+
+
+=== Performance
+
+* Set appropriate scrape intervals (30s - 1m recommended)
+* Don't scrape too frequently (increases load)
+* Monitor your monitoring system's resource usage
+
+
+=== Alerting
+
+* Start with critical alerts only
+* Avoid alert fatigue with appropriate thresholds
+* Use alert grouping and suppression
+* Include runbooks in alert descriptions
+
+
+=== Dashboard Design
+
+* Group related metrics together
+* Use consistent time ranges
+* Add context with annotations
+* Include threshold indicators
+
+
+== Troubleshooting
+
+Common issues and solutions:
+
+
+=== Authentication Failures
+
+**Problem**: `401 Unauthorized`
+
+**Solutions**:
+
+* Verify client ID and secret are correct
+* Check token URL is correct
+* Ensure OAuth2 configuration is properly formatted
+
+
+=== No Data Appearing
+
+**Problem**: Metrics endpoint returns empty
+
+**Solutions**:
+
+* Verify endpoint URL is correct
+* Check scrape timeout (increase to 30s+)
+* Confirm instance is running
+* Review Prometheus logs
+
+
+=== Intermittent Failures
+
+**Problem**: Scraping works sometimes
+
+**Solutions**:
+
+* Increase scrape timeout
+* Check network connectivity
+* Review rate limits
+
+
+read::Continue to next lesson[]
+
+
+[.summary]
+== Summary
+
+You learned how to integrate Aura metrics with external monitoring platforms like Prometheus and Grafana.
+
+You learned how to configure the metrics endpoint with OAuth2 authentication and set up automated alerts for critical conditions.
+
+External monitoring enables advanced dashboarding, long-term metric retention, and integration with your broader monitoring infrastructure.
+
+In the next lesson, you will learn about security logs for tracking authentication and authorization events.
+

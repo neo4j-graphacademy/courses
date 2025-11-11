@@ -1,0 +1,313 @@
+= Checkpoint and Replan Events
+:type: lesson
+:order: 7
+
+
+[.discrete]
+== Introduction
+
+Checkpoints and replan events are internal database operations that can indicate performance issues or configuration problems.
+
+In this lesson, you will learn how to monitor these events and what they tell you about database health.
+
+
+== Checkpoint Events
+
+Checkpoints are the process of writing committed transaction data from memory to disk.
+
+
+=== Understanding Checkpoints
+
+Checkpoints ensure:
+
+* Data durability
+* Transaction data is persisted
+* Recovery point in case of failure
+
+
+Neo4j performs checkpoints periodically to maintain data integrity.
+
+
+=== Checkpoint Metrics
+
+**Total count**: Number of checkpoint events since server startup
+
+// UI Description (Total count): The total number of checkpoint events executed since the server started. 
+// This value may drop if background maintenance is performed by Aura.
+
+**Rate**: Checkpoint events per minute
+
+// UI Description (Rate): The total number of checkpoint events executed since the server started.
+
+**Cumulative time**: Total time spent in checkpointing since startup
+
+// UI Description (Cumulative time): The total time in milliseconds spent in checkpointing since the server 
+// started. This value may drop if background maintenance is performed by Aura.
+
+**Duration**: Duration of the last checkpoint event in milliseconds
+
+// UI Description (Duration): The duration of the last checkpoint event in milliseconds. Checkpoints should 
+// typically take several seconds to several minutes. Values over 30 minutes warrant investigation.
+
+
+[NOTE]
+.Background maintenance
+====
+Checkpoint values may drop if background maintenance is performed by Aura.
+
+This is normal and doesn't indicate a problem.
+====
+
+
+=== Normal Checkpoint Behavior
+
+**Duration**: Several seconds to several minutes
+
+**Frequency**: Depends on write activity
+
+**Impact**: Minimal during normal operations
+
+
+=== Checkpoint Warning Signs
+
+**Duration >30 minutes**:
+
+* Warrants investigation
+* May indicate I/O issues
+* Heavy write load
+* Storage performance problems
+
+
+**Very frequent checkpoints**:
+
+* High write transaction rate
+* May impact performance
+* Consider write optimization
+
+
+**Increasing cumulative time**:
+
+* Track the rate of increase
+* Sudden increases indicate issues
+* May correlate with write-heavy periods
+
+
+== Replan Events
+
+Cypher query replanning occurs when Neo4j recreates the execution plan for a query.
+
+
+=== Understanding Replan Events
+
+Neo4j caches query execution plans for performance.
+
+Replanning occurs when:
+
+* A query is seen for the first time
+* Statistics have changed significantly
+* Schema has been modified
+* Cache has been cleared
+
+
+**The goal**: Minimize replanning by using query parameters correctly.
+
+
+=== Replan Metrics
+
+**Total count**: Times Cypher has replanned a query since startup
+
+// UI Description (Total count): The total number of times Cypher has replanned a query since the server started. 
+// If this spikes or is increasing, check that the queries executed are using parameters correctly. This value 
+// may drop if background maintenance is performed by Aura.
+
+**Rate**: Replanning events per minute
+
+// UI Description (Rate): The total number of times Cypher has replanned a query since the server started. 
+// If this spikes or is increasing, check that the queries executed are using parameters correctly.
+
+
+=== Normal Replan Behavior
+
+**Low rate**: Occasional replanning is normal
+
+**After schema changes**: Expected spike in replanning
+
+**New queries**: First execution triggers planning
+
+
+=== Replan Warning Signs
+
+**Spikes in replan rate**:
+
+* Check if queries are using parameters correctly
+* Queries with literal values instead of parameters
+* Each unique literal value triggers a new plan
+
+
+**Consistently high replan rate**:
+
+* Queries not using parameters
+* Each query execution treated as new query
+* Massive waste of planning resources
+
+
+**Growing replan count**:
+
+* Review query patterns
+* Ensure parameterized queries
+* Check application query generation
+
+
+== The Importance of Query Parameters
+
+Using parameters is critical for performance:
+
+
+=== Without Parameters (Bad)
+
+Although the queries below are similar, the query engine will create a new plan for each User ID.
+
+[source,cypher]
+.Hardcoded values require re-planning
+----
+// 
+MATCH (u:User {id: 12345})
+RETURN u
+----
+
+The execution of the same query with a different `id` will be identical, but the query engine will have to run the planning process again.
+
+.Two different plans, twice the work
+[source,cypher]
+----
+MATCH (u:User {id: 67890})
+RETURN u
+----
+
+
+=== With Parameters (Good)
+
+By replacing the hardcoded values with parameters, the query engine can reuse the same plan for all executions.
+
+[source,cypher]
+.Single plan reused for all executions
+----
+MATCH (u:User {id: $userId})
+RETURN u
+----
+
+
+== Monitoring Best Practices
+
+
+=== For Checkpoints
+
+* Monitor checkpoint duration
+* Alert if duration exceeds 30 minutes
+* Correlate with write transaction rates
+* Track cumulative time trends
+
+
+=== For Replan Events
+
+* Monitor replan rate
+* Alert on sustained high replan rates
+* Review query logs for non-parameterized queries
+* Educate developers on parameter usage
+
+
+== Common Issues
+
+
+=== Issue: Long Checkpoint Duration
+
+**Symptoms**:
+
+* Checkpoint taking >30 minutes
+* May cause write slowdowns
+
+
+**Causes**:
+
+* Heavy write load
+* Storage performance issues
+* Large transaction logs
+
+
+Action: === Issue: High Replan Rate
+
+**Symptoms**:
+
+* Replan events spiking
+* High planning overhead
+* Reduced query performance
+
+
+**Causes**:
+
+* Queries not using parameters
+* Application generating unique queries
+* Dynamic query construction with literals
+
+
+**Action**:
+
+Review query logs for queries that don't use parameters.
+
+Bad example - each query gets its own plan:
+
+[source,cypher]
+----
+MATCH (u:User) WHERE u.age > 25 RETURN u
+----
+
+[source,cypher]
+----
+MATCH (u:User) WHERE u.age > 30 RETURN u
+----
+
+[source,cypher]
+----
+MATCH (u:User) WHERE u.age > 35 RETURN u
+----
+
+Good example - single plan reused:
+
+[source,cypher]
+----
+MATCH (u:User) WHERE u.age > $minAge RETURN u
+----
+
+Work with development team to ensure queries use parameters.
+
+
+=== Issue: Sudden Replan Spike After Deployment
+
+**Symptoms**:
+
+* Replan rate spikes after deployment
+* Eventually stabilizes
+
+
+**Causes**:
+
+* New queries introduced
+* Schema changes
+* Query cache cleared
+
+
+Action: read::Continue to next module[]
+
+[.summary]
+== Summary
+
+You learned how to monitor checkpoint and replan events for your Aura databases.
+
+You learned that checkpoint duration should typically be seconds to a few minutes, with values over 30 minutes warranting investigation.
+
+For replan events, spikes or consistently high rates indicate queries aren't using parameters correctly, which wastes resources.
+
+Using parameterized queries is essential for query plan caching and optimal performance.
+
+In the next module, you will learn how to use query logs to identify and optimize slow queries.
+

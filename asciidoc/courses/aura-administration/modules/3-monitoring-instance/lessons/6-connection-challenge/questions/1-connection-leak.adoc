@@ -1,0 +1,63 @@
+[.question]
+= Connection Pool Misconfiguration
+
+What's causing the connection leak?
+
+* [ ] Instance has reached connection limits - need to scale
+
+* [ ] Network issues preventing connections
+
+* [x] Deployment changed connection pool config - connections not being reused
+
+* [ ] Database is slow causing connection exhaustion
+
+[TIP,role=hint]
+.Hint
+====
+Look at the opened and closed rates compared to normal. What pattern indicates connection pooling issues?
+====
+
+[TIP,role=solution]
+.Solution
+====
+**Deployment changed connection pool config - connections not being reused** is correct.
+
+**The smoking gun**:
+
+. Opened: 500/min (25x normal of 20/min)
+. Closed: 450/min (22.5x normal)
+. Idle: Only 5 (normally 50-100)
+. Running: Normal
+
+**What this means**: Application is creating new connections for every query, connections are closed after use (so the total doesn't grow), but the constant open/close is inefficient. Connection pool overhead causes timeouts, and there are no connections waiting in the pool (only 5 idle).
+
+**The deployment likely**:
+[source,python]
+----
+# Before (GOOD) - connection pooling
+driver = GraphDatabase.driver(uri, auth=auth)
+# Reuse driver for all queries
+
+# After deployment (BAD) - no pooling
+for query in queries:
+    driver = GraphDatabase.driver(uri, auth=auth)  # NEW driver each time!
+    session = driver.session()
+    session.run(query)
+    driver.close()  # Closes connection
+----
+
+**Solution**:
+1. Rollback deployment
+2. Fix connection pool configuration:
+   - Ensure driver is reused
+   - Proper min/max pool size
+   - Appropriate timeouts
+3. Redeploy fixed version
+
+The other options don't fit the pattern: Not at instance limits (connections aren't accumulating), not network issues (connections do work, just inefficiently), and not slowness (running connections are normal).
+
+**Healthy pattern**: Low open/close rates, stable idle connections, running varies with workload.
+
+**Unhealthy pattern** (this scenario): High open/close rates, no idle connections, constant churn.
+====
+

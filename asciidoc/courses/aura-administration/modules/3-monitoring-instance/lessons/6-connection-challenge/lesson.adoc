@@ -1,0 +1,64 @@
+=  Connection Issues
+:type: challenge
+:order: 6
+
+
+== Scenario
+
+Starting at 2:00 PM, users began reporting "database connection errors" in the application.
+
+Error logs show: `Unable to acquire connection from pool within 30 seconds`
+
+Reviewing Bolt Connection metrics:
+
+* **Running Connections**: 150 (normal)
+* **Idle Connections**: 5 (normally 50-100)
+* **Opened (rate)**: 500 connections/minute (normally 20/minute)
+* **Closed (rate)**: 450 connections/minute (normally 20/minute)
+* **Total Opened**: Growing rapidly
+* **Total Closed**: Growing rapidly but slower than opened
+
+Looking at query logs:
+
+* Average query duration: Normal (50-100ms)
+* No obvious slow queries
+
+Query rate: Normal
+
+A deployment occurred at 1:55 PM.
+
+
+== The Challenge
+
+What's causing this and how should you fix it?
+
+
+include::questions/1-connection-leak.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Constant connection opening/closing with few idle connections indicates improper connection pooling. Fix the application to reuse driver instances rather than creating new connections for each query
+
+**Likely causes:**
+
+* Recent deployment changed database connection configuration
+* Connection pooling was disabled or misconfigured
+* Connection pool max lifetime set too low
+* Application creating new driver instances per query
+
+**The fix:**
+
+1. **Rollback deployment** if possible for immediate relief
+2. **Review connection pool configuration** in the deployment
+3. **Ensure proper pooling**: Min 5-10, Max based on concurrent needs
+4. **Verify driver reuse**: Application should reuse driver instance
+
+**Proper connection pooling behavior:**
+
+* Connections opened once and reused
+* Idle connections wait in pool
+* Low open/close rates
+* Efficient resource usage
+
