@@ -271,6 +271,7 @@ describe("QA Tests", () => {
                       "quiz",
                       "activity",
                       "challenge",
+                      "conversation",
                     ];
                     expect(validTypes).toContain(type);
                   }
