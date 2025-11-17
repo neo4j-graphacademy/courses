@@ -6,38 +6,40 @@
 [.discrete]
 == Introduction
 
-A **snapshot** is a point-in-time copy of your database. Like a photograph, it captures everything that exists at that moment.
+A **snapshot** is a point-in-time copy of your database that you can restore in case of accidental changes, data loss, or to test changes safely without impacting your main database. 
 
-In this lesson, you'll learn about snapshot types, how to access them, and retention policies for different Aura tiers.
+In this lesson, you'll learn about the types of snapshot available, how to access them, and retention policies for different Aura tiers.
 
 
 == Snapshot Types
 
-Aura provides two types of snapshots to help you protect your data and maintain operational flexibility.
+Aura provides two types of snapshots to help you protect your data and maintain operational flexibility, full and sequential backups.
+
+A **full snapshot** captures your entire database at a specific point in time - it's complete and self-contained. 
+
+A **differential snapshot**, on the other hand, only records the changes since the last full snapshot, making it more efficient but dependent on the full snapshot that came before it.
+
+You can use both types of snapshots to restore your database to a specific point in time, but only full snapshots can be exported.
 
 
 === Scheduled Snapshots
 
-Scheduled snapshots run automatically - no manual intervention needed. Frequency depends on your tier.
+Scheduled snapshots run automatically. The frequency of scheduled snapshots depends on your tier.
 
-For instances running the latest version of Neo4j, **AuraDB Professional** and **AuraDS Professional** create snapshots once per day. **AuraDB Business Critical** creates snapshots every hour. **AuraDB Virtual Dedicated Cloud** creates both daily full snapshots and hourly differential snapshots. **AuraDS Enterprise** creates daily snapshots.
+* **AuraDB Professional** and **AuraDS Professional** create snapshots once per day.
+* **AuraDB Business Critical** creates snapshots every hour.
+* **AuraDB Virtual Dedicated Cloud** creates both daily full snapshots and hourly differential snapshots.
+* **AuraDS Enterprise** creates daily snapshots.
+// * **AuraDB Virtual Dedicated Cloud (4.x)** creates snapshots every 6 hours.
 
-If you're running Virtual Dedicated Cloud instances on Neo4j 4.x, you'll get scheduled snapshots every 6 hours.
 
-[NOTE]
-.Full vs. Differential Snapshots
+[TIP]
+.On Demand Snapshots
 ====
-Understanding the difference between snapshot types is important for your recovery strategy. A **full snapshot** captures your entire database at a specific point in time - it's complete and self-contained. A **differential snapshot**, on the other hand, only records the changes since the last full snapshot, making it more efficient but dependent on the full snapshot that came before it.
 
-Keep in mind that differential snapshots are not exportable and cannot be used to create new instances. They're designed purely for restore operations on your existing instance.
+You can create a snapshot anytime using the **Take snapshot** button in the Aura console. This is useful before major changes or migrations.
 ====
 
-
-=== On Demand Snapshots
-
-Create a snapshot anytime using the **Take snapshot** button in the Aura console. Useful before major changes or migrations.
-
-For AuraDB Free instances, on demand snapshots are the only snapshot type available.
 
 
 == Accessing Snapshots
@@ -45,58 +47,66 @@ For AuraDB Free instances, on demand snapshots are the only snapshot type availa
 To view and manage snapshots:
 
 . Navigate to your Aura instance card in the console
-. Click the more menu icon (**…**) on the instance card
-. Select **Inspect**
-. Select the **Snapshots** tab
+. Click the More menu icon (**…**) on the instance card
+. Select **Snapshots**
+
+image::images/snapshots-link.png[The Snapshots item in the More menu]
 
 The Snapshots tab displays a list of available snapshots with their creation time, type, and available actions.
 
-Use the **Show exportable only** toggle to filter snapshots by whether they can be exported.
+image::images/snapshots-pane.png[Snapshots pane]
+
 
 
 == Snapshot Actions
 
-Each snapshot has three actions via the more menu (**…**): export, create instance, and restore.
+Each _full_ snapshot has two actions via the more menu (**…**): 
+
+* **Export**
+* **Create instance from snapshot**
+
+
+The arrow icon image:images/restore-from-snapshot.png[Restore from snapshot icon] to the right of each snapshot item allows you to restore the snapshot to overwrite the current instance. 
 
 
 === Export
 
-Export downloads a snapshot as a backup file for offline storage or use with other Neo4j installations.
+The **Export** action downloads a snapshot as a backup file for offline storage or use with other Neo4j installations.
 
 **AuraDB instances** export as `.backup` files (latest version) or `.dump` files (version 4.x). **AuraDS instances** export as `.tar` files.
 
-[IMPORTANT]
-.Exportability Restrictions
+[TIP]
+.Show exportable only
 ====
-There are some limits to be aware of. For Virtual Dedicated Cloud instances running Neo4j latest version, you can only export one full snapshot per day. This is by design to balance data protection with system resources.
-
-Remember that differential backups cannot be exported at all - only full snapshots can be downloaded.
+Use the **Show exportable only** filter to identify downloadable snapshots. Only full snapshots can be exported.
 ====
-
 
 === Create Instance from Snapshot
 
-This creates a new instance with data from the snapshot. Your original instance remains unchanged.
+The **Create instance from snapshot** action creates a new instance with data from the snapshot. Your original instance remains unchanged.
 
-Use this to test changes, debug production issues, or provide realistic test data without affecting production.
+This is useful to test changes, debug production issues, or provide realistic test data without affecting production.
 
 
-=== Restore
+=== Restore from snapshot
 
-Restore reverts your instance to the snapshot state. Access via the arrow icon next to the more menu.
+The **Restore from snapshot** action reverts your instance to the snapshot state. 
+You will be prompted to confirm the operation by entering `RESTORE` to confirm.
+
+Any updates made to your instance between the time of the snapshot and the current time will be lost.
 
 [WARNING]
 .Overwriting existing data
 ====
-Restoring **overwrites all current data** in your instance. The operation is destructive and irreversible.
+Restoring **overwrites all current data** in your instance. This operation is destructive and irreversible.
 
-To verify snapshot data without overwriting, create a new instance from the snapshot instead.
+To verify snapshot data without overwriting, you can create a new instance from the snapshot instead.
 ====
 
 
 == Snapshot Retention
 
-Different tiers offer different retention policies:
+The retention policy for snapshots depends on the tier of your instance.
 
 [cols="1,1,1,1", options="header"]
 |===
@@ -141,26 +151,26 @@ Different tiers offer different retention policies:
 |90
 |===
 
-[NOTE]
-.On-Demand Snapshot Retention
-====
-On-demand snapshots are restorable and exportable for the same period as the total retention for your tier.
-====
+// [NOTE]
+// .On-Demand Snapshot Retention
+// ====
+// On-demand snapshots are restorable and exportable for the same period as the total retention for your tier.
+// ====
 
 
-== Best Practices
+// == Best Practices
 
-Take an on-demand snapshot before major database changes for a specific recovery point.
+// Take an on-demand snapshot before major database changes for a specific recovery point.
 
-Test restore procedures regularly to confirm they work before you need them in production.
+// Test restore procedures regularly to confirm they work before you need them in production.
 
-Download critical snapshots as backup files for recovery options independent of Aura.
+// Download critical snapshots as backup files for recovery options independent of Aura.
 
-Use **Show exportable only** filter to identify downloadable snapshots. Differential backups aren't exportable.
+// Use **Show exportable only** filter to identify downloadable snapshots. Differential backups aren't exportable.
 
-Understand your tier's retention policies - restorable versus exportable periods differ. Professional tier: 7 days for both. Higher tiers vary for full versus differential backups.
+// Understand your tier's retention policies - restorable versus exportable periods differ. Professional tier: 7 days for both. Higher tiers vary for full versus differential backups.
 
-For testing or troubleshooting, create new instances from snapshots rather than restoring to production.
+// For testing or troubleshooting, create new instances from snapshots rather than restoring to production.
 
 
 [.quiz]
@@ -176,5 +186,5 @@ You now know how to manage snapshots for your Aura instances.
 
 You've learned about automatic snapshot schedules, retention policies, and how to access the Snapshots page in the Aura console.
 
-Next up, you'll learn how to use snapshots to create test environments from production data.
+Next up, you'll learn about the restore operations available in Aura.
 
