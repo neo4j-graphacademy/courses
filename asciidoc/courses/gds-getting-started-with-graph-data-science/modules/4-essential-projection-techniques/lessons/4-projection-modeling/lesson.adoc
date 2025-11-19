@@ -1,0 +1,127 @@
+= Projection modeling for algorithms
+:type: lesson
+:order: 4
+
+[.transcript]
+== Introduction
+
+You've learned how to create projections and how to configure algorithms. Now it's time to connect these skills: modeling projections specifically for the questions you want your algorithms to answer.
+
+In Module 2, you discovered that the same data can be projected in different ways—monopartite, bipartite, or multipartite. Each projection reveals different patterns, and the right projection depends on your analytical question.
+
+In this lesson, you'll learn how to design projections that work effectively with specific algorithms to answer specific questions.
+
+By the end of this lesson, you will understand:
+
+* How projection structure affects algorithm results
+* How to match projections to algorithm types
+* How to design projections for specific analytical questions
+* When to transform your data model before projecting
+
+
+== The projection-algorithm relationship
+
+Every algorithm makes assumptions about graph structure. Choosing the right projection is about matching your data structure to these assumptions.
+
+**Centrality algorithms** (PageRank, Betweenness, Degree) work best on:
+
+- Networks where relationships indicate influence, flow, or importance
+- Monopartite graphs (same node type on both sides)
+- Example: Actor -> Actor (collaboration network)
+
+**Community detection** (Louvain, Leiden) works best on:
+
+- Networks where clusters are meaningful
+- Monopartite graphs with clear community boundaries
+- Example: Person -> Person (social networks) or Person -> CreditCard (financial transaction networks)
+
+**Similarity** (Node Similarity) works best on:
+
+- Bipartite graphs where nodes connect through intermediate entities
+- Example: User -> Movie, Actor -> Movie
+
+**Pathfinding** (Dijkstra, Yen's) is best for:
+
+- Networks with weighted relationships representing cost or distance
+- Clear source and target nodes
+- Example: JFK -> Heathrow -> Charles De Gaulle
+
+
+== Question-Driven Projection Design
+As with any data modeling task, it can be helpful to start with your question and then design the projection to answer it.
+
+Let's take a look at some examples:
+
+**Question**: "Which actors are most influential in Hollywood?"
+
+**Projection strategy**:
+
+- **Node types in answer:** Actor (monopartite)
+- **Relationships in answer:** Actor -> Actor (requires inferred relationship projection or graph refactor)
+- **Algorithm:** PageRank, Degree Centrality or Betweenness could all frame the same answer in slightly different ways.
+- **Why:** Influence flows through collaborations
+
+```cypher
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project('actor-influence', source, target) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+```
+
+**Question**: "Which users have similar movie tastes?"
+
+**Projection strategy**:
+
+- **Node types in answer:** Users
+- **Relationships:** User rates Movie
+- **Algorithm:** We don't need movies in the output, but we do need them in the input. So a bipartite graph using the Node Similarity algorithm would work.
+- **Why:** Similarity through shared ratings
+
+```cypher
+MATCH (source:User)-[r:RATED]->(target:Movie)
+WITH gds.graph.project(
+  'user-similarity',
+  source, 
+  target,
+  {
+    sourceNodeLabels: labels(source),
+    targetNodeLabels: labels(target)
+  },
+  {}
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+```
+
+You could reframe this question and come to a different conclusion.
+
+**Question**: "Which movies do users most like?"
+
+- **Node types in answer:** Users and Movies
+- **Relationships:** User rates Movie
+- **Algorithm:** Leiden (among others) would help you to cluster users into communities with shared movies they all enjoy. Then, you could identify which movies from that community a user has not yet seen and recommend it. 
+- **Why:** Similarity through shared ratings. Any recommendations would then be entirely based on user behaviors rather than any sort of synthetic, subjective classifications.
+
+
+== What's Next
+
+You now understand how to design projections that match algorithm assumptions and answer specific analytical questions.
+
+In the next lesson, you'll put all these skills together in a comprehensive challenge that requires you to project, configure, and run algorithms independently.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-question-driven-design.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Effective GDS analysis starts with projection design. Match your projection structure to algorithm assumptions: monopartite for centrality and community detection, bipartite for similarity, weighted for pathfinding.
+
+Start with your analytical question, then design a projection that lets the algorithm answer it. Transform your data during projection when needed—calculate weights, combine relationship types, or filter nodes.
+
+Validate every projection by checking node counts, relationship counts, and degree distributions before running algorithms.
+

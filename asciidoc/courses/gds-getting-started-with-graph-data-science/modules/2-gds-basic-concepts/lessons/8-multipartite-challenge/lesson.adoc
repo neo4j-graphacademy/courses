@@ -1,0 +1,112 @@
+= Challenge: Multipartite projections
+:type: challenge
+:order: 8
+:sandbox: true
+
+[.transcript]
+== Challenge: Create a user-genre projection
+
+You've learned how to create projections with multiple node types. Now it's your turn to create one independently.
+
+**Your task:** Create a bipartite projection of Users and Genres that preserves their labels and connects them through the movies they rated.
+
+This projection would be useful for:
+
+- Understanding user genre preferences
+- Finding users with similar genre tastes
+- Genre-based recommendation systems
+
+
+== Requirements
+
+Your projection should:
+
+1. Include User and Genre nodes with labels preserved
+2. Connect users to genres through the movies they rated
+3. Preserve relationship types
+4. Name the projection `'users-genres'`
+
+
+== Hints
+
+You'll need a two-hop pattern:
+
+- User rates a Movie
+- That Movie is in a Genre
+- Therefore, User connects to Genre
+
+Remember the configuration parameters:
+
+- `sourceNodeLabels` for source node labels
+- `targetNodeLabels` for target node labels
+- `relationshipType` for relationship types
+
+
+== Solution approach
+
+[%collapsible]
+====
+[source,cypher]
+----
+MATCH (source:User)-[:RATED]->
+  (:Movie)-[r:IN_GENRE]->(target:Genre)
+WITH gds.graph.project(
+  'users-genres',
+  source,
+  target,
+  {
+    sourceNodeLabels: labels(source),
+    targetNodeLabels: labels(target),
+    relationshipType: type(r)
+  },
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+**Key components:**
+- MATCH pattern connects users to genres through movies
+- Configuration preserves User and Genre labels
+- Relationship type is preserved as IN_GENRE
+- The result is a bipartite graph of user genre preferences
+====
+
+
+== Find popular genres by user ratings
+
+Once you have completed the previous steps, run the following query to group users by their favorite genres:
+
+
+[source,cypher]
+----
+MATCH (u:User)-[:SIMILAR]-(u2:User)
+WITH u.name AS name, 
+  collect(DISTINCT u2.name) AS similar_users_by_genre
+RETURN name, similar_users_by_genre
+----
+
+This simple query now returns each user along with all the users who have similar tastes in genre.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-multitype-pattern.adoc[leveloffset=+1]
+
+include::questions/2-label-benefits.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Creating multi-type projections with label preservation enables type-specific analysis and filtering. By preserving User and Genre labels, you can:
+
+- Run algorithms on specific node types
+- Filter results by label
+- Understand user preferences at the genre level
+- Build recommendation systems based on genre affinity
+
+You've now completed the graph structure types series! You understand monopartite, bipartite, and multipartite graphs, and you can create GDS projections for each. Next, you'll learn about the different categories of algorithms available in GDS.
+

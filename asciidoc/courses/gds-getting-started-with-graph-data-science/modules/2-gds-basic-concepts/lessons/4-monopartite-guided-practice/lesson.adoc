@@ -1,0 +1,356 @@
+= Practice monopartite projections
+:type: lesson
+:order: 4
+
+[.transcript]
+== Introduction
+
+Now that you understand what monopartite graphs are, it's time to practice creating different types of monopartite projections.
+
+In this lesson, you'll work with the Movies dataset to create various monopartite projections that reveal different network structures within the same data.
+
+By the end of this lesson, you will be able to:
+
+* Create monopartite projections from multipartite data
+* Project different node types as monopartite networks
+* Understand how projection patterns reveal different insights
+
+
+== The movies dataset
+
+Your database contains:
+
+- `Actor` nodes with properties like `name` and `born`
+- `Movie` nodes with properties like `title` and `released`
+- `User` nodes with properties like `name`
+- `Genre` nodes with properties like `name`
+- `ACTED_IN` relationships (Actor -> Movie)
+- `DIRECTED` relationships (Person -> Movie)
+- `RATED` relationships (User -> Movie)
+- `IN_GENRE` relationships (Movie -> Genre)
+
+
+== Projection 1: Actor collaboration network
+
+Remember this projection you created in the previous lesson, connecting actors to actors. 
+
+Run it again to create an actor-to-actor network:
+
+[source,cypher]
+----
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project(
+  'actor-network',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+This projection creates:
+
+- A monopartite network of only Actor nodes
+- Actors connected if they appeared in the same movie
+- Relationships representing collaborations
+
+**What this reveals:** Actor communities, collaboration patterns, degrees of separation between actors.
+
+
+=== Movie network
+
+Now create a monopartite network of movies connected through shared actors.
+
+Complete the query below by pasting it into the sandbox and replacing the `?????` placeholders:
+
+[source,cypher]
+----
+MATCH (source:?????)<-[:ACTED_IN]-
+  (:????)-[:ACTED_IN]->(target:?????)
+WITH gds.graph.project(
+  'movies-only',
+  ????,
+  ????
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+[%collapsible]
+====
+[source,cypher]
+----
+MATCH (source:Movie)<-[:ACTED_IN]-
+  (:Actor)-[:ACTED_IN]->(target:Movie)
+WITH gds.graph.project(
+  'movies-only',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+The `movies-only` graph now contains only the Movies in the network and their shared connections through actors.
+
+**Key points:**
+
+- `source:Movie` and `target:Movie` - both nodes are Movie type
+- Pattern goes through Actor nodes to connect movies
+- `source.title < target.title` prevents duplicate relationships
+- Name the projection `'movie-similarity'`
+
+**What this reveals:** Movie clusters, franchise connections, similar films based on shared cast.
+====
+
+
+== Projection 2: User network through shared ratings
+
+In the graph, you have `User` nodes with `RATED` relationships to `Movie` nodes. See if you can create a monopartite graph of only `Users` and their relationships to each other. 
+
+Remember, you __need__ the `Movie` nodes to get users' shared connections. However, you do not want to include `Movie` nodes in the projection
+
+Replace `????` with the appropriate Cypher query to complete the projection. 
+
+[source,cypher]
+----
+MATCH ????
+WITH gds.graph.project(
+  'user-interaction-network',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+[%collapsible]
+====
+
+[source,cypher]
+----
+MATCH (source:User)-[:RATED]->
+  (:Movie)
+    <-[:RATED]-(target:User)
+WITH gds.graph.project(
+  'user-interaction-network',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+**Key points:**
+
+- `source:User` and `target:User` - both nodes are User type
+- Pattern goes through Movie nodes to connect users
+- Users are directly connected by their shared watching history
+
+**What this reveals:** User connections through similar watch history
+====
+
+This projection creates:
+
+- A monopartite network of only User nodes
+- Users connected through shared movie ratings
+
+**What this reveals:** User communities with similar tastes, recommendation opportunities.
+
+
+=== Projection 3: Genre co-occurrence network
+
+Now create a network of genres that appear together in movies.
+
+Complete the query below by replacing the `?????` placeholders:
+
+[source,cypher]
+----
+MATCH ????
+WHERE ????  // Avoid duplicates
+WITH gds.graph.project(
+  '?????',
+  ?????,
+  ?????
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+If you require help, open the dropdown below to view the full solution. 
+
+[%collapsible]
+====
+[source,cypher]
+----
+MATCH (source:Genre)<-[:IN_GENRE]-
+  (:Movie)-[:IN_GENRE]->(target:Genre)
+WITH gds.graph.project(
+  'genre-cooccurrence',
+  source,
+  target
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+**Key points:**
+
+- `source:Genre` and `target:Genre` - both nodes are Genre type
+- Pattern goes through Movie nodes to connect genres
+- Name the projection `'genre-cooccurrence'`
+- Pass `source` and `target` to `gds.graph.project()`
+
+**What this reveals:** Common genre combinations, genre clustering (e.g., Action-Adventure-Sci-Fi).
+====
+
+
+== Understanding algorithm results
+
+Each of the graphs you just projected continues to exist in memory. 
+
+You can run mutliple algorithms on each one to compare results. 
+
+NOTE: Throughout these exercises, you'll use `.stream()` mode to run algorithms and view results. Don't worry if the syntax isn't fully clear yet—Module 3 will teach execution modes in detail. For now, focus on understanding the projection patterns and what insights each graph structure can reveal.
+
+Run the command below to see how degree centrality ranks the Movies in the 'movies-only' graph.
+
+[source,cypher]
+----
+CALL gds.degree.stream('movies-only')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).title AS movie, 
+  score AS collaborations
+ORDER BY score DESC
+LIMIT 10
+----
+
+The first movie returned is called "Backdraft". There's a good chance you have never heard of that movie. So, you may wonder why degree centrality ranks it as 'most important'.
+
+Up to now, we have used 'most important' to explain the intention of centrality algorithms -- and it's not entirely incorrect. It is, however, missing context.
+
+It is the most important movie in terms of its relationships' intent. In this case, that intent is actor collaborations. 
+
+So, we could predict perhaps that, although 'Backdraft' may not be as famous as, say, 'The Matrix', it should contain a lot more famous faces.
+
+It's true, we have some high degree centrality actors in there, including:
+
+[opts="header",cols="1,1"]
+|===
+| Actor                 | Degree rank     
+| Robert De Niro        | 1     
+| Kurt Russel           | 19 
+| Donald Sutherland     | 44 
+| Val Kilmer            | 119  
+| Jennifer Jason Leigh  | 139
+| Scott Glenn           | 447  
+| William Baldwin       | 769   
+|===
+
+There are many more, who may have lesser start power, but whose connections to movies which do are more numerous than most. 
+
+Take a look for yourself on link:https://www.imdb.com/title/tt0101393/fullcredits/[IMDb].
+
+The key takeaway here is that 'importance' or 'centrality' only matter in terms of the relationships analyzed. In this case, we have __not__ returned the most important or central movies in terms of user ratings, or cultural influence.
+
+Instead, its result is more relevant to the movie business itself. It answers 'Which movies contained the most important actor-to-actor collaborations overall'.
+
+If you had asked someone on the street, they are very unlikely to have guessed 'Backdraft'.
+
+Remember, degree centrality measures the number of outgoing relationships each node has.
+
+PageRank does the same, except it weights each node's score relative to the score of its neighbors. Run PageRank on this graph, and you might be less surprised by the result.
+
+[source,cypher]
+----
+CALL gds.pageRank.stream('movies-only')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).title AS movie, 
+  score AS collaborations
+ORDER BY score DESC
+LIMIT 10
+----
+
+You have another graph waiting in memory: 'user-interaction-network'.
+
+It is composed of `User` to `User` relationships through `Movie` nodes.
+
+Replace the graph name below to run the PageRank algorithm on this graph:
+
+[source,cypher]
+----
+CALL gds.pageRank.stream(
+  '?????'
+)
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS user, 
+  score AS centrality
+ORDER BY score DESC
+LIMIT 10
+----
+
+The resulting table provides you with a breakdown of the most 'important' users in terms of their movie ratings.
+
+This is also a great example of the difference between PageRank and degree centrality.
+
+Run degree centrality on the same graph to compare the results—the algorithm syntax is provided, just add the graph name:
+
+[source,cypher]
+----
+CALL gds.degree.stream(
+  '?????'
+)
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS user, 
+  score AS centrality
+ORDER BY score DESC
+LIMIT 10
+----
+
+Remember, degree centrality merely counts the outgoing relationships of the nodes -- PageRank weights those relationships in terms of other nodes in the graph.
+
+So, while 'Angela Garcia' may have rated the most movies overall, 'Zacahry Carey' is the most important user when weighted in terms of other important users. 
+
+
+== What's next
+
+You've now practiced creating multiple monopartite projections from the Movies dataset -- simply by modifying the initial Cypher query used to generate the graph. 
+
+Each projection transforms multipartite data (Actor-Movie, User-Movie, Movie-Genre) into monopartite networks for specific analyses.
+
+In the next lesson, you'll put this knowledge to the test with a challenge that requires you to create your own monopartite projection.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-contextual-importance.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Monopartite projections extract single node types from complex data by connecting them through intermediate nodes. You practiced creating projections for:
+
+- Actors connected through shared movies
+- Movies connected through shared actors
+- Users connected through shared ratings
+- Genres connected through shared movies
+
+Each projection serves different analytical goals. Understanding how to design meaningful projections is a fundamental GDS skill—the same data can reveal completely different insights depending on how you project it.
