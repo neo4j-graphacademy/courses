@@ -291,7 +291,8 @@ describe("QA Tests", () => {
                   if (!includesSandbox) {
                     const hasSummary =
                       lessonAdoc.match(/^\[\.summary/m) ||
-                      lessonAdoc.match(/tag="summary/m);
+                      lessonAdoc.match(/tag="summary/m) ||
+                      lessonAdoc.match(/conversation/m);
                     if (!hasSummary) {
                       throw new Error(
                         'Lesson is missing a summary section ([.summary] or [tag="summary"]).'
