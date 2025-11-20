@@ -9,7 +9,7 @@ REMOTE_URL=$(git config --get remote.origin.url)
 # Extract repo owner and name from remote URL
 # Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
 if echo "$REMOTE_URL" | grep -q "github.com"; then
-  REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github.com[:/]([^/]+/[^/]+)(\.git)?$|\1|')
+  REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github.com[:/]([^/]+/[^/]+)|\1|' | sed 's|\.git||')
 else
   # If not a GitHub repo, exit silently
   exit 0
@@ -40,7 +40,11 @@ if ! git rev-list --count "$COMMIT_RANGE" >/dev/null 2>&1; then
 fi
 
 # Get course.adoc files that were added or modified
-COURSE_FILES=$(git diff --name-only --diff-filter=AM "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+# Separate newly added files from modified files
+NEW_COURSE_FILES=$(git diff --name-only --diff-filter=A "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+MODIFIED_COURSE_FILES=$(git diff --name-only --diff-filter=M "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+COURSE_FILES="$NEW_COURSE_FILES $MODIFIED_COURSE_FILES"
+COURSE_FILES=$(echo "$COURSE_FILES" | tr -s ' ' | sed 's/^ *//;s/ *$//')
 
 if [ -z "$COURSE_FILES" ]; then
   # No course.adoc files modified, exit silently
@@ -62,13 +66,29 @@ for COURSE_FILE in $COURSE_FILES; do
   BASE_REF=$(echo "$COMMIT_RANGE" | sed 's/\.\..*//')
   BASE_COMMIT=$(git rev-parse "$BASE_REF" 2>/dev/null || echo "")
 
+  # Check if this is a newly created file
+  IS_NEW_FILE=false
+  if echo "$NEW_COURSE_FILES" | grep -q "^$COURSE_FILE$"; then
+    IS_NEW_FILE=true
+  elif [ -z "$BASE_COMMIT" ] || ! git cat-file -e "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null; then
+    # File doesn't exist in base, it's new
+    IS_NEW_FILE=true
+  fi
+
   # Check if :status: active was ADDED in the changes (release)
   # Look for additions of ":status: active" in the diff
-  STATUS_ADDED=$(git diff "$COMMIT_RANGE" -- "$COURSE_FILE" | grep -c "^+.*:status:[[:space:]]*active" || echo "0")
-
-  if [ "$STATUS_ADDED" -gt 0 ]; then
+  if git diff "$COMMIT_RANGE" -- "$COURSE_FILE" 2>/dev/null | grep -q "^+.*:status:[[:space:]]*active"; then
     # Status active was added in this change - it's a release
     FOUND_RELEASE=true
+  elif [ "$IS_NEW_FILE" = true ]; then
+    # File is newly created
+    if grep -q "^:status:[[:space:]]*active" "$COURSE_FILE"; then
+      # New file with active status - treat as release
+      FOUND_RELEASE=true
+    else
+      # New file without active status - it's a draft
+      FOUND_DRAFT=true
+    fi
   elif [ -n "$BASE_COMMIT" ] && git cat-file -e "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null; then
     # File existed before, check if it had active status
     BASE_HAS_ACTIVE=$(git show "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null | grep -q "^:status:[[:space:]]*active" && echo "yes" || echo "no")
@@ -77,19 +97,9 @@ for COURSE_FILE in $COURSE_FILES; do
     if [ "$BASE_HAS_ACTIVE" = "yes" ] && [ "$CURRENT_HAS_ACTIVE" = "yes" ]; then
       # Status was already active and still is - this is a fix
       FOUND_FIX=true
-    else
-      # No active status, it's a draft
-      FOUND_DRAFT=true
     fi
-  else
-    # File is new or we can't determine base, check current status
-    if grep -q "^:status:[[:space:]]*active" "$COURSE_FILE"; then
-      # New file with active status - treat as release
-      FOUND_RELEASE=true
-    else
-      # New file without active status - it's a draft
-      FOUND_DRAFT=true
-    fi
+    # If file existed but doesn't have active status, don't suggest anything
+    # (it's a modification to a draft course, but not a new draft)
   fi
 done
 
