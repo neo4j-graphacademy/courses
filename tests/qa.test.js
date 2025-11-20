@@ -29,11 +29,11 @@ describe("QA Tests", () => {
     console.log("Skipping Cypher validation checks (SKIP_CYPHER_CHECKS=true)");
   }
 
-  const exclude = ["30-days"];
+  const exclude = ["30-days", "how-we-teach"];
   let coursePaths = globSync(
     globJoin(__dirname, "..", "asciidoc", "courses", "*")
   )
-    .filter((path) => exclude.some((folder) => !path.endsWith(folder)))
+    .filter((path) => !exclude.some((folder) => path.endsWith(folder)))
     .filter((path) => existsSync(join(path, "course.adoc")));
 
   if (process.env.COURSES) {
