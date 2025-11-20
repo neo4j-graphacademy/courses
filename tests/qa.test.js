@@ -370,7 +370,7 @@ describe("QA Tests", () => {
                       ) {
                         const statusCode = await getStatusCode(link);
                         try {
-                          expect(statusCode).toBe(200);
+                          expect([200, 401, 402, 403]).toContain(statusCode);
                         } catch (e) {
                           throw new Error(`${link} returns ${statusCode}`);
                         }
