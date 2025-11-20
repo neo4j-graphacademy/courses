@@ -1,6 +1,3 @@
-**Course Name:** [Course Name]  
-**Caption:** [Caption]
-
 ### Pre-Submission Checklist
 
 #### Content Creation
