@@ -1,0 +1,128 @@
+#!/bin/sh
+
+# Get the current branch name
+LOCAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Get the remote URL to construct the PR URL
+REMOTE_URL=$(git config --get remote.origin.url)
+
+# Extract repo owner and name from remote URL
+# Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
+if echo "$REMOTE_URL" | grep -q "github.com"; then
+  REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github.com[:/]([^/]+/[^/]+)(\.git)?$|\1|')
+else
+  # If not a GitHub repo, exit silently
+  exit 0
+fi
+
+# Determine the base branch (main or master)
+BASE_BRANCH="main"
+if ! git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
+  BASE_BRANCH="master"
+fi
+
+# Get the range of commits being pushed
+# Pre-push hook receives: $1 = remote name, $2 = remote URL
+# We can also check what commits are being pushed
+REMOTE_REF="origin/$LOCAL_BRANCH"
+if git rev-parse --verify "$REMOTE_REF" >/dev/null 2>&1; then
+  # Remote branch exists, compare with it
+  COMMIT_RANGE="$REMOTE_REF..HEAD"
+else
+  # No remote branch yet, compare with base branch
+  COMMIT_RANGE="origin/$BASE_BRANCH..HEAD"
+fi
+
+# Check if we have any commits to push
+if ! git rev-list --count "$COMMIT_RANGE" >/dev/null 2>&1; then
+  # No commits to compare, exit silently
+  exit 0
+fi
+
+# Get course.adoc files that were added or modified
+COURSE_FILES=$(git diff --name-only --diff-filter=AM "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+
+if [ -z "$COURSE_FILES" ]; then
+  # No course.adoc files modified, exit silently
+  exit 0
+fi
+
+# Check each course.adoc file for status changes
+FOUND_DRAFT=false
+FOUND_RELEASE=false
+FOUND_FIX=false
+
+for COURSE_FILE in $COURSE_FILES; do
+  # Check if file exists (might be deleted in some commits)
+  if [ ! -f "$COURSE_FILE" ]; then
+    continue
+  fi
+
+  # Extract the base commit from the commit range (everything before ..)
+  BASE_REF=$(echo "$COMMIT_RANGE" | sed 's/\.\..*//')
+  BASE_COMMIT=$(git rev-parse "$BASE_REF" 2>/dev/null || echo "")
+
+  # Check if :status: active was ADDED in the changes (release)
+  # Look for additions of ":status: active" in the diff
+  STATUS_ADDED=$(git diff "$COMMIT_RANGE" -- "$COURSE_FILE" | grep -c "^+.*:status:[[:space:]]*active" || echo "0")
+
+  if [ "$STATUS_ADDED" -gt 0 ]; then
+    # Status active was added in this change - it's a release
+    FOUND_RELEASE=true
+  elif [ -n "$BASE_COMMIT" ] && git cat-file -e "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null; then
+    # File existed before, check if it had active status
+    BASE_HAS_ACTIVE=$(git show "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null | grep -q "^:status:[[:space:]]*active" && echo "yes" || echo "no")
+    CURRENT_HAS_ACTIVE=$(grep -q "^:status:[[:space:]]*active" "$COURSE_FILE" && echo "yes" || echo "no")
+
+    if [ "$BASE_HAS_ACTIVE" = "yes" ] && [ "$CURRENT_HAS_ACTIVE" = "yes" ]; then
+      # Status was already active and still is - this is a fix
+      FOUND_FIX=true
+    else
+      # No active status, it's a draft
+      FOUND_DRAFT=true
+    fi
+  else
+    # File is new or we can't determine base, check current status
+    if grep -q "^:status:[[:space:]]*active" "$COURSE_FILE"; then
+      # New file with active status - treat as release
+      FOUND_RELEASE=true
+    else
+      # New file without active status - it's a draft
+      FOUND_DRAFT=true
+    fi
+  fi
+done
+
+# Construct the PR URL
+PR_URL="https://github.com/$REPO/compare/$BASE_BRANCH...$LOCAL_BRANCH"
+
+# Display appropriate message (this will show before push, but is informational)
+if [ "$FOUND_RELEASE" = true ]; then
+  echo ""
+  echo "✅ Course(s) with :status: active added - this looks like a release!"
+  echo ""
+  echo "💡 Open a PR with the Course Release Template:"
+  echo ""
+  echo "   $PR_URL?template=course_release.md"
+  echo ""
+elif [ "$FOUND_FIX" = true ]; then
+  echo ""
+  echo "🔧 Course fix detected (course already has :status: active)!"
+  echo ""
+  echo "💡 Open a PR with the Course Fix Template:"
+  echo ""
+  echo "   $PR_URL?template=course_fix.md"
+  echo ""
+elif [ "$FOUND_DRAFT" = true ]; then
+  echo ""
+  echo "📝 Course draft(s) detected!"
+  echo ""
+  echo "💡 Open a PR with the Course Draft Template:"
+  echo ""
+  echo "   $PR_URL?template=course_draft.md"
+  echo ""
+fi
+
+# Always exit 0 to allow the push to proceed (this is informational only)
+exit 0
+
