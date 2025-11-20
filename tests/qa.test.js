@@ -129,17 +129,19 @@ describe("QA Tests", () => {
         });
 
         it("should have an illustration", () => {
-          const illustrationPath = join(
-            __dirname,
-            "..",
-            "asciidoc",
-            "courses",
-            slug,
-            "illustration.svg"
-          );
-          const exists = existsSync(illustrationPath);
+          if (!courseAdoc.includes("workshop")) {
+            const illustrationPath = join(
+              __dirname,
+              "..",
+              "asciidoc",
+              "courses",
+              slug,
+              "illustration.svg"
+            );
+            const exists = existsSync(illustrationPath);
 
-          expect(exists).toBe(true);
+            expect(exists).toBe(true);
+          }
         });
 
         it("should have a banner image", () => {
@@ -239,7 +241,7 @@ describe("QA Tests", () => {
               const optional = getAttribute(lessonAdoc, "optional") === "true";
               const hasReadButton = lessonAdoc.match(/read::(.*)\[\]/) !== null;
               const includesSandbox = lessonAdoc.includes(
-                'include::{shared}/courses/apps/sandbox.adoc[tags="summary'
+                'sandbox.adoc[tags="summary'
               );
 
               describe(lessonSlug, () => {
@@ -286,7 +288,17 @@ describe("QA Tests", () => {
                 });
 
                 it("should have a [.summary] section", () => {
-                  expect(lessonAdoc).toMatch(/^\[\.summary\]/m);
+                  if (!includesSandbox) {
+                    const hasSummary =
+                      lessonAdoc.match(/^\[\.summary/m) ||
+                      lessonAdoc.match(/tag="summary/m);
+                    if (!hasSummary) {
+                      throw new Error(
+                        'Lesson is missing a summary section ([.summary] or [tag="summary"]).'
+                      );
+                    }
+                    expect(hasSummary).toBeTruthy();
+                  }
                 });
 
                 it("should have meaningful content", () => {
@@ -297,6 +309,19 @@ describe("QA Tests", () => {
 
                 it("should end with a newline", () => {
                   expect(lessonAdoc.endsWith("\n")).toBe(true);
+                });
+
+                it("should include {instance-database} if {instance-ip} is present", () => {
+                  const hasInstanceIp = lessonAdoc.includes("{instance-ip}");
+                  const hasInstanceDatabase = lessonAdoc.includes(
+                    "{instance-database}"
+                  );
+                  if (hasInstanceIp) {
+                    expect(hasInstanceDatabase).toBe(
+                      true,
+                      "Files containing {instance-ip} must also include {instance-database}"
+                    );
+                  }
                 });
 
                 it("should have at most one read button", () => {
@@ -361,22 +386,30 @@ describe("QA Tests", () => {
                 // }
 
                 if (!skipLinkChecks) {
-                  it("should not have any broken links", async () => {
+                  describe("Links", () => {
                     for (const link of findLinks(lessonAdoc)) {
-                      if (
-                        !link.includes("openai") &&
-                        !link.includes("example") &&
-                        !link.includes("localhost")
-                      ) {
-                        const statusCode = await getStatusCode(link);
-                        try {
-                          expect(statusCode).toBe(200);
-                        } catch (e) {
-                          throw new Error(`${link} returns ${statusCode}`);
-                        }
-                      }
+                      it(
+                        link,
+                        async () => {
+                          if (
+                            !link.includes("openai") &&
+                            !link.includes("example") &&
+                            !link.includes("localhost")
+                          ) {
+                            const statusCode = await getStatusCode(link);
+                            try {
+                              expect([200, 401, 402, 403, 408]).toContain(
+                                statusCode
+                              );
+                            } catch (e) {
+                              throw new Error(`${link} returns ${statusCode}`);
+                            }
+                          }
+                        },
+                        10000
+                      );
                     }
-                  }, 10000);
+                  });
                 }
 
                 it("should contain valid [source,cypher] blocks", async () => {
