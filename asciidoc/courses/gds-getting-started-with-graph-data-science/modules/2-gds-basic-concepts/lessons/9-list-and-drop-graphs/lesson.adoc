@@ -1,0 +1,314 @@
+= List and drop graphs
+:type: lesson
+:order: 9
+
+[.transcript]
+== Introduction
+
+Now that you've practiced creating various types of projections—monopartite, bipartite, and multipartite—it's time to learn how to manage them efficiently.
+
+Throughout this course, you've been creating graph projections using `gds.graph.project()`. Each projection gets stored in GDS's **graph catalog**—an in-memory store of all your projected graphs.
+
+As you work with GDS, you'll create multiple projections for different analyses. Managing these graphs efficiently is crucial for memory management, workflow organization, and cleanup.
+
+In this lesson, you'll learn three essential graph catalog operations: listing graphs, checking if a graph exists, and dropping graphs you no longer need.
+
+By the end of this lesson, you will be able to:
+
+* List all graphs in the catalog
+* Check if a specific graph exists
+* Drop graphs to free up memory
+
+
+== Operation 1: Listing graphs
+
+The `gds.graph.list()` procedure shows you all graphs currently stored in the catalog. It returns information about projected graphs including their names, node counts, relationship counts, memory usage, and schemas.
+
+You'll use this operation to check what graphs are available, verify a projection was created successfully, review memory usage across all graphs, and inspect graph schemas and properties.
+
+Let's start by listing all graphs in the catalog:
+
+[source,cypher]
+----
+CALL gds.graph.list()
+YIELD graphName, nodeCount, relationshipCount, memoryUsage
+RETURN graphName, nodeCount, relationshipCount, memoryUsage
+ORDER BY graphName ASC
+----
+
+This returns basic information about every graph you've projected. The `memoryUsage` field shows how much heap memory each graph consumes.
+
+You can also get detailed information about a specific graph by passing its name to the procedure:
+
+[source,cypher]
+----
+CALL gds.graph.list('user-movie')
+YIELD graphName, schema, degreeDistribution, density
+RETURN graphName, schema, degreeDistribution, density
+----
+
+This returns extended information about the `user-movie` graph. The `schema` field contains node labels, relationship types, and properties. 
+
+The `degreeDistribution` field provides statistics about node connections like minimum, maximum, mean, and percentiles. 
+
+The `density` field tells you how connected the graph is by dividing the relationship count by the maximum possible relationships.
+
+
+=== List your graphs
+
+You've created several graphs in previous lessons. List them to see what's in your catalog.
+
+Run this query again to see all your graphs:
+
+[source,cypher]
+----
+CALL gds.graph.list()
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName, nodeCount, relationshipCount
+ORDER BY graphName ASC
+----
+
+Scroll through the results and you should see several graphs including `actor-collaboration` from the monopartite lessons, `user-movie` and `actor-movie` from the bipartite lessons, and any others you've created along the way.
+
+Now get detailed information about just one of your graphs by completing the query below. 
+
+Remember, to list a specific graph, you need to use the `.list` operator and provide the name of the graph.
+
+[source,cypher]
+----
+CALL gds.graph.?????(?????)
+YIELD graphName, schema
+RETURN graphName, schema
+----
+
+If you need help, feel free to check the dropdown below.
+
+[%collapsible]
+====
+[source,cypher]
+----
+CALL gds.graph.list('user-movie')
+YIELD graphName, schema
+RETURN graphName, schema
+----
+
+**Key points:**
+
+- Use `gds.graph.list()` with no arguments to list all graphs
+- Use `gds.graph.list('graph-name')` to get details about a specific graph
+- YIELD the fields you're interested in (graphName, schema, memoryUsage, etc.)
+
+Simply running `CALL gds.graph.list()` is also perfectly fine. It will return all information about your graphs in a slightly less readable format.
+
+[source,cypher]
+----
+CALL gds.graph.list()
+----
+
+====
+
+
+== Operation 2: Checking if a graph exists
+
+The `gds.graph.exists()` procedure checks whether a specific graph is in the catalog. It returns true if a graph with the given name exists, false otherwise.
+
+You can use this operation before creating a graph to avoid errors if it already exists, before running an algorithm to verify the graph is available, or in conditional logic and scripts.
+
+Let's check if a graph exists using the procedure:
+
+[source,cypher]
+----
+CALL gds.graph.exists('user-movie')
+YIELD graphName, exists
+RETURN graphName, exists
+----
+
+You can check multiple graphs at once by using UNWIND:
+
+[source,cypher]
+----
+UNWIND ['user-movie', 'user-genre', 'nonexistent-graph'] AS graph
+CALL gds.graph.exists(graph)
+YIELD graphName, exists
+RETURN graphName, exists
+----
+
+You can also use `gds.graph.exists()` as a function directly in queries:
+
+[source,cypher]
+----
+RETURN gds.graph.exists('user-movie') AS userMovieExists,
+       gds.graph.exists('fake-graph') AS fakeGraphExists
+----
+
+
+=== Check graph existence
+
+Check whether the graphs you've been working with exist in the catalog.
+
+Complete the query below to check if multiple graphs exist:
+
+[source,cypher]
+----
+UNWIND [????, ????, ????] AS graph
+CALL gds.graph.exists(graph)
+YIELD graphName, exists
+RETURN graphName, exists
+----
+
+If you need help filling in the placeholders, check the solution in the dropdown below.
+
+[%collapsible]
+====
+[source,cypher]
+----
+UNWIND ['user-movie', 'user-genre', 'nonexistent-graph'] AS graph
+CALL gds.graph.exists(graph)
+YIELD graphName, exists
+RETURN graphName, exists
+----
+
+**Key points:**
+
+- Use `gds.graph.exists('graph-name')` to check if a graph exists
+- YIELD `graphName` and `exists` (boolean) fields
+- Can also use as a function: `gds.graph.exists('graph-name')` returns true/false
+====
+
+
+== Operation 3: Dropping graphs
+
+The `gds.graph.drop()` procedure removes a graph from the catalog and releases the heap memory it was using.
+
+You'll use this operation to free up memory for new projections, remove outdated or incorrect projections, and clean up once analyses are complete.
+
+An important detail: dropping a graph only removes it from GDS's in-memory catalog. It does **not** affect your Neo4j database. Any data you wrote back using `.write()` mode remains in the database.
+
+Let's drop a graph from the catalog:
+
+[source,cypher]
+----
+CALL gds.graph.drop('user-movie')
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName, nodeCount, relationshipCount
+----
+
+This returns information about the dropped graph, confirming what was removed.
+
+By default, if you try to drop a graph that doesn't exist, GDS raises an error. You can suppress this error:
+
+[source,cypher]
+----
+CALL gds.graph.drop('nonexistent-graph', false)
+YIELD graphName
+----
+
+The second parameter `false` means "don't fail if the graph is missing." This is useful in cleanup scripts.
+
+
+=== Drop a graph
+
+Practice dropping a graph from your catalog. You have several graphs from previous lessons—let's remove one to free up memory.
+
+**Step 1:** First, list all your graphs to see what's available:
+
+[source,cypher]
+----
+CALL gds.?????.?????()
+YIELD ?????, ?????
+RETURN ?????, ?????
+----
+
+**Step 2:** Choose a graph you no longer need (like `movie-genre` or `actor-collaboration`) and drop it:
+
+[source,cypher]
+----
+CALL gds.?????.?????(?????)
+YIELD graphName, memoryUsage
+RETURN graphName, memoryUsage
+----
+
+**Step 3:** Verify it's gone by listing all graphs again or checking existence:
+
+[source,cypher]
+----
+RETURN gds.?????.?????(?????) AS exists
+----
+
+You can find the full solution in the dropdown below.
+
+[%collapsible]
+====
+**Step 1: List all graphs**
+
+[source,cypher]
+----
+CALL gds.graph.list()
+YIELD graphName, memoryUsage
+RETURN graphName, memoryUsage
+----
+
+**Step 2: Drop a graph**
+
+[source,cypher]
+----
+CALL gds.graph.drop('movie-genre')
+YIELD graphName, memoryUsage
+RETURN graphName, memoryUsage
+----
+
+**Step 3: Verify it's gone**
+
+[source,cypher]
+----
+RETURN gds.graph.exists('movie-genre') AS exists
+----
+
+**Key points:**
+
+- Use `gds.graph.list()` to see what graphs exist
+- Use `gds.graph.drop('graph-name')` to remove a graph
+- Use `gds.graph.exists('graph-name')` to verify it's gone
+- Dropping only affects the in-memory catalog, not your database
+====
+
+
+== Best practices
+
+As you work with GDS, you'll accumulate projections in memory. List graphs regularly to monitor memory usage and track your projections. Drop unused graphs to free up memory, especially when working with large datasets.
+
+Use meaningful names for your graphs so you can easily identify them in the catalog. Names like `user-movie-ratings-2024` are much clearer than `graph1` or `temp`.
+
+When writing automated workflows or scripts, check existence before dropping to avoid errors:
+
+[source,cypher]
+----
+CALL gds.graph.drop('my-graph', false)  // Won't fail if graph doesn't exist
+----
+
+
+== What's next
+
+You now know how to manage graphs in the GDS catalog: listing, checking existence, and dropping them. These operations are essential for efficient memory management and workflow organization.
+
+In the next lesson, you'll put these skills to the test with a challenge that requires you to clean up the rest of your graph catalog independently.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-when-to-drop-graphs.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+The graph catalog stores all your in-memory projections. Three key operations help you manage it:
+
+**gds.graph.list()** - View all graphs or get detailed information about a specific graph
+
+**gds.graph.exists()** - Check if a graph exists before using it
+
+**gds.graph.drop()** - Remove graphs to free memory
+
+These operations are essential for managing memory and organizing your GDS workflows effectively.

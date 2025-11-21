@@ -1,0 +1,383 @@
+= Configuring projections for undirected relationships
+:type: lesson
+:order: 7
+
+[.transcript]
+== Introduction
+
+In the previous lesson, you ran algorithms on directed relationships. But some algorithms work differently—or better—when relationships are undirected.
+
+In this lesson, you'll configure your projection to use undirected relationships and run PageRank and Leiden to see how the results change.
+
+By the end of this lesson, you will understand:
+
+* How to project undirected relationships
+* How PageRank behaves on undirected graphs
+* How Leiden differs from Louvain
+* When to use undirected projections
+
+
+== Why undirected relationships matter
+
+Some algorithms are designed for undirected graphs. Others can run on both but produce different results.
+
+**PageRank** originally assumed directed relationships (web pages linking to each other).
+
+**Leiden** is a community detection algorithm that improves on Louvain. Unlike Louvain, Leiden **requires** undirected relationships.
+
+For collaboration networks, undirected makes sense—if two actors worked together, the connection goes both ways.
+
+In this lesson, you will learn:
+
+- How to configure and project a directed graph into an undirected graph
+- How directionality impacts an algorithm's results
+
+
+== Create both directed and undirected projections
+
+To compare how relationship orientation affects results, let's create both projections side by side.
+
+First, drop any existing graphs:
+
+[source,cypher]
+----
+CALL gds.graph.drop('actor-network', false) YIELD graphName
+RETURN graphName
+----
+
+Create a **directed** actor collaboration network called `'actor-network-directed'`.
+
+You've created this type of projection many times—actors connected through shared movies.
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+----
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project(
+  'actor-network-directed',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+====
+
+Now let's create an **undirected** version of the same projection called `'actor-network-undirected'`.
+
+We use the exact same Cypher pattern but add this configuration to the second set of curly brackets:
+
+`undirectedRelationshipTypes: ['*']`
+
+[source,cypher]
+----
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project(
+  'actor-network-undirected',
+  source,
+  target,
+  {},
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+**Understanding the configuration:**
+
+- `undirectedRelationshipTypes: ['*']` tells GDS to treat __all__ relationships as undirected
+- To redirect only specific types, replace `'*'` with the relationship type: `['ACTED_IN']`
+- This configuration goes in the **second** set of brackets (projection config, not relationship config)
+- You must include both sets of curly brackets—even if the first set remains empty
+
+Both projections have the same nodes and relationships—only the **orientation** differs.
+
+In the following sections, we'll run two algorithms on both graphs to see how directionality can affect output.
+
+== PageRank: Comparing directed vs undirected
+
+PageRank measures importance by:
+
+- Counting the number of incoming connections
+- Weighting those incoming connections by the popularity of the linker
+- Dividing the popularity of the linker by their out-degree
+
+Basically, if node-A has many incoming 'votes' from other nodes, and those nodes' are both popular and not too frivolous with votes, node-A will have a high PageRank.
+
+Let's run PageRank on both projections and compare.
+
+Run PageRank in **stream mode** on the **directed** graph (`'actor-network-directed'`), returning the top 10 actors by score. Use `gds.util.asNode()` to access actor names.
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+----
+CALL gds.pageRank.stream('actor-network-directed', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 10
+----
+====
+
+Now run the same query on the **undirected** graph (`'actor-network-undirected'`):
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+----
+CALL gds.pageRank.stream('actor-network-undirected', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 10
+----
+====
+
+Compare the two result sets. 
+
+They should be identical -- same as with degree centrality.
+
+Despite this, there is a subtle difference. While degree centrality counts outgoing edges one-for-one __from__ the node we're ranking, PageRank counts them __to__ the node we're ranking and divides their weight by how many outgoing relationships the source nodes have given out.
+
+In this case, Robert De Niro gets the highest score because he has the most authority in the collaboration network overall, not simply because he has the highest number of movies.
+
+
+=== PageRank: Experimenting with dampingFactor
+We can test this by playing around with the dampingFactor. 
+
+The `dampingFactor` controls how randomly the algorithm will jump around the graph vs how strictly it will follow links.
+
+- **Low:** The algorithm will follow some links but will also 'teleport' around the graph more often
+- **High:** The algorithm will follow most links but will occasionally 'teleport' around the graph
+
+The `dampingFactor` provides a few benefits:
+
+1. Stops the algorithm from getting stuck inside a dead-end or cyclical relationship structure
+2. Helps to avoid one high-degree node overly dominating the results
+
+Move to the sandbox and run PageRank with different `dampingFactor` values on both graphs. Try values like 0.15, 0.50, 0.85, and 0.99.
+
+Track how specific actors like Robert De Niro, Jackie Chan and Vincent Price move up and down the rankings as you change the configuration.
+
+The default `dampingFactor` is 0.85. Normally, this provides a good mix of link-following vs random teleportation.
+
+You can review all of the available config settings on the link:https://neo4j.com/docs/graph-data-science/current/algorithms/page-rank/[PageRank docs].
+
+
+=== Compare PageRank on both graphs
+
+Run PageRank with `dampingFactor: 0.95` on both graphs and compare how orientation affects the rankings.
+
+Remember to use stream mode and return the top 10 actors by score.
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+----
+CALL gds.pageRank.stream('actor-network-directed', {
+  dampingFactor: 0.95
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 10
+----
+
+[source,cypher]
+----
+CALL gds.pageRank.stream('actor-network-undirected', {
+  dampingFactor: 0.95
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 10
+----
+====
+
+Compare the two result sets, and they should be identical. 
+
+**Key takeaway:** Directionality did not affect the output, because our graph is already symetrical.
+
+image::images/jim_tim.png[Two nodes connected by bidirectional relationships.]
+
+When we switch to undirected, we do not change the balance of the relationships.
+
+
+== Leiden: Comparing directed vs undirected
+
+Leiden is an improvement over Louvain that guarantees well-connected communities. Unlike PageRank, Leiden **requires** undirected relationships.
+
+Let's see what happens if we try to run it on our directed graph.
+
+Try running Leiden on the **directed** graph (`'actor-network-directed'`):
+
+[source,cypher]
+----
+CALL gds.leiden.stream('actor-network-directed', {})
+YIELD nodeId, communityId
+WITH communityId, COUNT(*) AS size
+RETURN communityId, size
+ORDER BY size DESC
+LIMIT 10
+----
+
+=== What happened?
+
+[%collapsible]
+====
+You should receive an error message indicating that Leiden requires undirected relationships.
+
+Leiden's algorithm is designed to work on undirected graphs because it analyzes bidirectional connections to guarantee well-connected communities. When you project directed relationships, Leiden cannot properly evaluate community cohesion.
+====
+
+
+=== Run Leiden on undirected graph
+
+Now run Leiden on the **undirected** graph (`'actor-network-undirected'`):
+
+[source,cypher]
+----
+CALL gds.leiden.stream('actor-network-undirected', {})
+YIELD nodeId, communityId
+WITH communityId, COUNT(*) AS size
+RETURN communityId, size
+ORDER BY size DESC
+LIMIT 10
+----
+
+
+Like Louvain, this shows community sizes. But Leiden tweaks the Louvain algorithm to produce more balanced, granular communities.
+
+**Key difference from PageRank:** PageRank can adapt to both directed and undirected graphs, while Leiden has a hard requirement for undirected relationships.
+
+You can find this out by referencing Leiden's attributes header in the docs:
+
+image::images/leiden_attributes.png[Leiden's attributes header in the GDS docs.]
+
+
+=== Leiden: Analyzing results
+
+Let's look at actors in the largest Leiden community.
+
+Complete the query to stream Leiden results and return sample actors from the largest community:
+
+[source,cypher]
+----
+CALL gds.leiden.stream('actor-network-undirected', {})
+YIELD nodeId, communityId
+WITH communityId, collect(????) AS actors, count(*) AS size
+ORDER BY size DESC
+LIMIT 1
+RETURN communityId, size, actors[0..10] AS sampleActors
+----
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+----
+CALL gds.leiden.stream('actor-network-undirected', {})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).name) AS actors, count(*) AS size
+ORDER BY size DESC
+LIMIT 1
+RETURN communityId, size, actors[0..10] AS sampleActors
+----
+
+These actors form a tightly-knit collaboration group based on shared movie appearances.
+====
+
+
+=== Leiden: Custom configuration
+
+Leiden also supports `maxLevels` like Louvain. Let's experiment with different configurations.
+
+Run Leiden with `maxLevels: 1` to see how many communities it detects:
+
+[source,cypher]
+----
+CALL gds.leiden.stats('actor-network-undirected', {
+  maxLevels: 1
+})
+YIELD communityCount, modularity, ranLevels
+RETURN communityCount, modularity, ranLevels
+----
+
+Review the results for `communityCount` and `ranLevels`.
+
+Now try with `maxLevels: 20`:
+
+[source,cypher]
+----
+CALL gds.leiden.stats('actor-network-undirected', {
+  maxLevels: 20
+})
+YIELD communityCount, modularity, ranLevels
+RETURN communityCount, modularity, ranLevels
+----
+
+The second run is unlikely to run to the full 20 levels.
+
+While higher `maxLevels` allows for more granular community detection, like Louvain, Leiden will stop early if communities have already converged.
+
+However, remember back when you ran Louvain on this graph. It returned around 1000+ communities. 
+
+Leiden should have returned many more than that -- Leiden generally excels at producing more modular and granular communities than Louvain.
+
+
+== When to use undirected projections
+
+**Use undirected relationships when:**
+
+- Relationships are naturally bidirectional (collaborated with, friends with, similar to)
+- You're running algorithms that require undirected graphs (like Leiden)
+- Direction doesn't add meaningful information to your analysis
+
+**Use directed relationships when:**
+
+- Direction has real meaning (follows, purchased, influenced)
+- You want to distinguish incoming from outgoing connections
+- Algorithms specifically need directional information
+
+
+== What's next
+
+You've learned how to project undirected relationships and run PageRank and Leiden on them. You've seen how configuration options like `dampingFactor` and `maxLevels` impact results.
+
+In the next lesson, you'll add relationship weights to your projection and see how algorithms can use those weights to produce even more nuanced results.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-deniro-undirected.adoc[leveloffset=+1]
+
+include::questions/2-price-directed.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Undirected projections treat relationships as bidirectional. Some algorithms like Leiden require undirected graphs, while others like PageRank produce different results on undirected networks.
+
+PageRank's `dampingFactor` controls whether the algorithm emphasizes connection quantity or quality. Leiden improves on Louvain with guaranteed well-connected communities. Both benefit from proper projection configuration.
+
+

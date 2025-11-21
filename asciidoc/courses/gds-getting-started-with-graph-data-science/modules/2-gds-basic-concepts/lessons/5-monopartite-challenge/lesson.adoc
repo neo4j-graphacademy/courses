@@ -1,0 +1,127 @@
+= Challenge: Monopartite projection
+:type: challenge
+:order: 5
+:sandbox: true
+
+[.transcript]
+== Challenge: Create an actor-director collaboration network
+
+You've learned how to create various monopartite projections. Now it's your turn to create one independently.
+
+In this challenge, you will need to think somewhat outside the box.
+
+All previous monopartite projections have used only one intermediate node. However, this challenge will require you to build your initial Cypher query from two intermediate nodes.
+
+**Your task:** Create a monopartite projection of **Actor** nodes connected through directors they've both worked with.
+
+This projection would be useful for:
+
+- Finding actors who've worked with the same directors
+- Understanding directorial influence on actor networks
+- Discovering potential casting recommendations
+
+
+== Requirements
+
+Your projection should:
+
+1. Include only `Actor` nodes
+2. Connect `Actor` nodes who have worked with the same `Director` nodes
+3. Name the projection `'actor-director-network'`
+
+
+== Hints
+
+Think about the pattern:
+
+- `Actor` A acted in a `Movie`
+- That movie was `DIRECTED` by a `Director`
+- The same director `DIRECTED` another `Movie`
+- `Actor` B acted in that other movie
+- Therefore, `Actor` A and `Actor` B are connected through that director
+
+
+== Solution approach
+
+[%collapsible]
+====
+The pattern requires tracing through movies and directors to connect actors:
+
+[source,cypher]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:DIRECTED]-
+  (:Person)-[:DIRECTED]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project(
+  'actor-director-network',
+  source,
+  target,
+  {},
+  {}
+) AS g
+RETURN g.graphName AS graph, 
+  g.nodeCount AS nodes, 
+  g.relationshipCount AS rels
+----
+
+**Key components:**
+
+- The MATCH pattern traces through both movies and directors
+- `source.name < target.name` prevents duplicates
+- The projection connects actors who share directors
+- This is different from direct collaboration (sharing movies)—it reveals directorial networks
+====
+
+
+== Verify your work
+
+Once you've created your projection, run degree centrality to find actors who've worked with many directors who've also worked with many other actors:
+
+[source,cypher]
+----
+CALL gds.degree.stream(
+  'actor-director-network'
+)
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, 
+  score AS director_network_size
+ORDER BY score DESC
+LIMIT 10
+----
+
+Actors with high scores are central to directorial networks—they've worked with directors who have also directed many other actors.
+
+Finally, try running PageRank on the same network. Replace the graph name to complete the query:
+
+[source,cypher]
+----
+CALL gds.pageRank.stream(
+  '?????'
+)
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, 
+  score AS influence
+ORDER BY score DESC
+LIMIT 10
+----
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-projection-pattern.adoc[leveloffset=+1]
+
+include::questions/2-network-difference.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Creating monopartite projections requires understanding the relationship patterns that connect nodes of the same type. The actor-director network demonstrates a more complex projection than simple collaboration—connecting actors through shared directors rather than shared movies.
+
+This type of projection reveals different network dynamics:
+- **Direct collaboration** (Actor → Movie ← Actor): Who worked together
+- **Director network** (Actor → Movie ← Director → Movie ← Actor): Who shares directorial connections
+
+Both are monopartite actor networks, but they reveal different aspects of the film industry ecosystem.
+
+Next, you'll learn about bipartite graphs and when preserving two distinct node types matters for analysis.
