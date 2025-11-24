@@ -32,10 +32,25 @@ Aura creates snapshots based on your instance tier:
 * **Aura Professional**: Regular automated snapshots with longer retention
 * **Aura Business Critical**: Frequent automated snapshots with extended retention periods
 
-// [NOTE]
-// ====
-// The frequency and retention of snapshots varies by tier. Check your specific tier documentation for exact details.
-// ====
+[.slide]
+== Snapshot frequency and retention
+
+The specific frequency and retention periods vary by tier:
+
+* **Aura Free**: On-demand snapshots only; only the latest snapshot is available
+* **Aura Professional**: Daily scheduled snapshots, retained for 7 days
+* **Aura Business Critical**: Daily full snapshots plus hourly differential snapshots, retained for 30 days
+* **Aura Virtual Dedicated Cloud**: Hourly snapshots for the first 7 days, then daily snapshots from day 8 to 60
+
+[.slide]
+== Taking on-demand snapshots
+
+You can manually trigger a snapshot at any time by selecting **Take snapshot** from the Snapshots tab of your instance. This is particularly useful:
+
+* Before major application updates or changes
+* After significant data imports
+* Before performing risky operations
+* When you need a backup outside the regular schedule
 [.slide]
 == Working with snapshots
 
@@ -50,8 +65,7 @@ There are three key actions you can take with any snapshot:
 == Snapshot actions
 image::images/03_snapshot_actions.jpg[snapshotactions,width=300,align=center]
       
-[.slide]
-
+[.slide]      
 === Export snapshots
 
 **Export** downloads the snapshot to your local machine. This is crucial for long-term archival beyond Aura's retention period, especially when you need to meet compliance requirements that mandate offline backups.
@@ -59,14 +73,52 @@ image::images/03_snapshot_actions.jpg[snapshotactions,width=300,align=center]
 It's also essential for creating backups before major changes or migrations, and for sharing data securely with development teams.
 
 [.slide]
-      
+=== How to export a snapshot
+
+To export a snapshot:
+
+1. Navigate to the **Snapshots** tab within your Aura instance
+2. Locate the snapshot you want to export
+3. Click the more menu (…​) next to the snapshot
+4. Select **Export** to download the snapshot
+
+The download time depends on your database size and network speed.
+
+[.slide]
+=== Export file formats
+
+Exported snapshots use different file formats depending on your Neo4j version:
+
+* **Neo4j Version 5**: `.backup` format (changed October 1, 2024)
+* **Neo4j Version 4.x**: `.dump` format
+
+Store your exported snapshots in a secure location with a clear naming convention that includes the instance name and export date.
+
+[.slide]      
 === Create new instances from snapshots
 
 **Create instance from snapshot** spins up a fresh instance with the snapshot's data. This is perfect for setting up development environments that mirror production, allowing you to test changes on a copy of real data.
 
 You can also use this to create staging environments for application testing, or as part of your disaster recovery scenarios.
+
 [.slide]
-     
+=== How to create an instance from a snapshot
+
+To create a new instance from a snapshot:
+
+1. In the **Snapshots** tab, find the snapshot you want to use
+2. Click the more menu (…​) next to the snapshot
+3. Select **Create instance from snapshot**
+4. Choose your desired tier and size (can be different from the original)
+5. Follow the prompts to configure the new instance
+
+[NOTE]
+.Remember
+==== 
+The new instance will be billed separately according to its selected tier and size. The time to create the instance varies based on database size and system load.
+====
+
+[.slide]    
 === Restoring snapshots
 
 **Restore** reverts your current instance to the snapshot's point in time. You want to use this when you need to roll back problematic changes, when data corruption has occurred, or when you want to return to a known good state after testing.
@@ -76,8 +128,34 @@ You can also use this to create staging environments for application testing, or
 ====
 Restoring a snapshot **overwrites** all current data in your instance. Make sure you export a current snapshot first if you might need to recover the current state later.
 ====
+
+[.slide]
+=== How to restore a snapshot
+
+To restore your instance to a previous snapshot:
+
+1. Go to the **Snapshots** tab in your Aura instance
+2. Locate the snapshot you wish to restore
+3. Click the restore icon (↩) next to the snapshot
+4. Type **RESTORE** to confirm the action
+5. Click **Restore** to proceed
+
+[NOTE]
+.Restore process
+====
+Your instance will be temporarily unavailable during the restore process. The duration depends on your database size. Plan for potential downtime when restoring snapshots.
+====
+
+[.slide]
+=== Previewing snapshot data
+
+There's no direct way to preview snapshot contents before restoring. However, you can:
+
+* Create a new instance from the snapshot to inspect the data
+* Verify the snapshot timestamp matches your expected state
+* Check the snapshot size as an indicator of data volume
       
-=[.slide]
+[.slide]
 == Restoring from backup file
 
 image::images/03_restore_from_backup.jpg[restore,width=450,align=center]
@@ -93,6 +171,22 @@ This is particularly useful when:
 * Restoring from an exported snapshot
 * Loading data from another Neo4j environment
 
+[.slide]
+=== How to restore from a local backup file
+
+To restore your instance from a local backup file:
+
+1. Navigate to the **Restore from backup file** tab in your Aura instance
+2. Drag and drop your `.backup`, `.dump`, or `.tar` file, or click to browse
+3. Confirm the restoration, understanding that this will overwrite all existing data
+4. Wait for the process to complete
+
+[NOTE]
+.Local restore process
+====
+Your instance will be unavailable during the restoration process. Duration varies based on file size and system resources.
+====
+
 
 [.slide]
 === Important limitations
@@ -104,7 +198,23 @@ Keep these constraints in mind when restoring from local files:
 * **File size limit**: Backup files cannot exceed 4GB for upload through the console
 * **Larger files**: Files bigger than 4GB require command-line tools
 
- [.slide]     
+[.slide]
+=== Handling files larger than 4GB
+
+For backup files exceeding 4GB, you'll need to use the Neo4j Admin command-line tool:
+
+[source,bash]
+----
+neo4j-admin database upload <database-name> \
+  --from-path=<path-to-backup> \
+  --to-uri=<aura-instance-uri> \
+  --to-user=<username> \
+  --to-password=<password>
+----
+
+This command uploads your database directly to your Aura instance, bypassing the console file size limitation.
+
+[.slide]     
 === When to use local restore
 
 The use case for local file restore is somewhat limited, but it's a **great** way to get started with smaller databases when moving from self-managed setups to Aura.
@@ -144,6 +254,17 @@ Regularly export important snapshots to your own storage:
 * Before performing any potentially risky operations
 
 [.slide]
+=== Example backup schedules
+
+Consider these backup schedules based on your environment:
+
+* **Development**: On-demand snapshots before major changes
+* **Staging**: Daily scheduled snapshots with weekly exports
+* **Production**: Hourly differential and daily full snapshots with weekly exports to external storage
+
+Adjust your schedule based on your data change frequency, recovery time objectives, and compliance requirements.
+
+[.slide]
       
 === Testing your restore process
 
@@ -153,6 +274,12 @@ A backup is only as good as your ability to restore from it. Regularly test your
 * Verify data integrity after restoration
 * Document your restore procedures
 * Train your team on the restore process
+
+[TIP]
+.Snapshot testing
+====
+Use snapshot testing to validate your backups without affecting your production instance. Create a test instance from a snapshot and run verification queries to ensure data completeness and accuracy.
+====
 
 [.slide]
      
@@ -165,6 +292,30 @@ Consider your organization's requirements:
 * Do you need backups stored in specific geographic regions?
 * Are there encryption requirements for exported snapshots?
 
+[.slide]
+=== Security and data protection
+
+Neo4j Aura provides built-in security for your backups:
+
+* **Encryption at rest**: All snapshots are stored in encrypted cloud storage buckets
+* **Encryption in transit**: Data is encrypted during backup and restore operations
+* **Dedicated storage**: Each instance has dedicated, secure storage for backups
+* **Access control**: Only authorized users can export, restore, or create instances from snapshots
+
+Your exported snapshot files maintain this security, but you're responsible for securing them once downloaded to your local system or external storage.
+
+[.slide]
+=== What's included in snapshots
+
+Snapshots provide a complete backup of your database instance, including:
+
+* All nodes, relationships, and properties
+* Indexes and constraints
+* Database schema and structure
+* Users, roles, and permissions
+* Configuration settings
+
+This ensures that when you restore or create an instance from a snapshot, you get an exact replica of your database at that point in time.
 
 [.slide]
 
@@ -172,6 +323,12 @@ Consider your organization's requirements:
 .Restoring using the Aura API
 ====
 You can also restore an instance and create a new instances from a snapshot by its ID through the Aura API.
+
+The API is particularly useful for:
+
+* Automating backup and restore operations
+* Integrating with CI/CD pipelines
+* Managing multiple instances programmatically
 
 link:https://neo4j.com/docs/aura/platform/api/specification/#/instances/post-instances[View the Aura API reference documentation]
 
@@ -188,8 +345,17 @@ include::questions/2-snapshot-actions.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, you learned about Aura's comprehensive backup and restore capabilities.
+In this lesson, you learned about Aura's comprehensive backup and restore capabilities, including:
 
-You also learned about the important limitations to keep in mind, particularly the 4GB file size limit for console uploads and the various restrictions that apply to different Aura tiers.
+* **Snapshot frequency and retention** - How different tiers (Free, Professional, Business Critical, VDC) handle automated and on-demand snapshots
+* **Exporting snapshots** - How to download snapshots in `.backup` or `.dump` format for long-term storage
+* **Creating instances from snapshots** - How to spin up new instances from existing snapshots for testing or development
+* **Restoring snapshots** - The step-by-step process to revert your instance to a previous state
+* **Restoring from local files** - How to upload backup files up to 4GB through the console or use command-line tools for larger files
+* **Security considerations** - How Aura encrypts your data at rest and in transit
+* **What's included** - Understanding that snapshots contain all your data, schema, indexes, constraints, users, and configuration
+
+You also learned about planning a backup strategy that includes regular exports, testing restore procedures, and meeting compliance requirements.
 
 In the next lesson, you'll move on to connecting to your instance and start working with your data directly.
+
