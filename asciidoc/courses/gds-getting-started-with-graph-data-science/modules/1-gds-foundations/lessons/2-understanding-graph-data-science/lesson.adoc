@@ -21,6 +21,7 @@ Graph databases are optimized for efficient relationship traversal—and it's mu
 You'll work with a dataset of movies, actors, directors, users, and genres. Run the query below to see its data model.
 
 [source,cypher,role=nocopy]
+.Visualize the database schema
 ----
 CALL db.schema.visualization()
 ----
@@ -30,9 +31,10 @@ If you have taken any other courses in the GraphAcademy catalog, you should alre
 This Cypher query searches for the top ten shortest paths between Charlie Chaplin and Kevin Bacon. Click 'Run' to see what happens.
 
 [source,cypher,role=nocopy]
+.Find shortest paths between Charlie Chaplin and Kevin Bacon
 ----
 MATCH path = SHORTEST 10 (chaz:Person {name: 'Charlie Chaplin'})
-    -[:ACTED_IN]-+ 
+    -[:ACTED_IN*..8]- 
         (kevin:Person {name:'Kevin Bacon'})
 RETURN [n IN nodes(path) | COALESCE(n.title, n.name)] 
     AS worked_with
@@ -43,6 +45,7 @@ The query returns a table with ten rows. The first row shows the shortest path b
 This query returns the same results as a graph visualization.
 
 [source,cypher,role=nocopy]
+.Visualize paths between Charlie Chaplin and Kevin Bacon
 ----
 MATCH path = SHORTEST 10 (chaz:Person {name: 'Charlie Chaplin'})
     -[:ACTED_IN]-+ 
@@ -96,13 +99,18 @@ image::images/lesson_2_liam_neeson.png[a graph network showing the connections b
 Run this query to explore the graph yourself.
 
 [source,cypher,role=nocopy]
+.Users who rated movies starring Liam Neeson
 ----
-MATCH path = (a:Actor {name: 'Liam Neeson'})
-    -[:ACTED_IN]
-        ->(m:Movie)<-
-    [:RATED]-(u:User)
-RETURN path
+MATCH path = (a:Actor {name: 'Liam Neeson'}) // <1>
+    -[:ACTED_IN]->(m:Movie) // <2>
+    <-[:RATED]-(u:User) // <3>
+RETURN path // <4>
 ----
+
+1. Find the Actor node for Liam Neeson
+2. Follow ACTED_IN relationships to Movie nodes
+3. Follow RATED relationships from User nodes back to those movies
+4. Return the complete path showing all connections
 
 You can click on any node in the returned graph to see its properties.
 
@@ -121,13 +129,13 @@ Run them in sequence and check out the results.
 This first query creates a new subgraph (an in-memory projection) from the larger main graph, containing only Users, Movies, Genres, and their relationships.
 
 [source,cypher,role=nocopy]
+.Create a subgraph of Users, Movies, and Genres
 ----
-// Create a subgraph
-MATCH (source)
-WHERE source:User OR source:Movie OR source:Genre
-OPTIONAL MATCH (source)-[r]->(target)
-WHERE target:User OR target:Movie OR target:Genre
-WITH gds.graph.project(
+MATCH (source) // <1>
+WHERE source:User OR source:Movie OR source:Genre // <2>
+OPTIONAL MATCH (source)-[r]->(target) // <3>
+WHERE target:User OR target:Movie OR target:Genre // <4>
+WITH gds.graph.project( // <5>
   'rec-simple',
   source,
   target,
@@ -136,34 +144,55 @@ WITH gds.graph.project(
     undirectedRelationshipTypes: ['*']
   }
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 ----
+
+1. Match all nodes in the database
+2. Filter to only User, Movie, or Genre nodes
+3. Optionally match relationships from these nodes
+4. Filter targets to only User, Movie, or Genre nodes
+5. Project an in-memory graph with undirected relationships
+6. Return the projection details
 
 This second query runs an algorithm called Leiden, which analyzes how nodes connect and clusters them into meaningful groups.
+
 [source,cypher,role=nocopy]
+.Run the Leiden community detection algorithm
 ----
-// Run an algorithm
-CALL gds.leiden.mutate('rec-simple', {
-    mutateProperty: 'communityId',
-    maxLevels: 10,
-    gamma: 1,
-    theta: 0.05})
+CALL gds.leiden.mutate('rec-simple', { // <1>
+    mutateProperty: 'communityId', // <2>
+    maxLevels: 10, // <3>
+    gamma: 1, // <4>
+    theta: 0.05}) // <5>
 ----
+
+1. Run Leiden algorithm on the 'rec-simple' projection
+2. Store community assignments as 'communityId' property
+3. Allow up to 10 hierarchical levels of community detection
+4. Resolution parameter controlling community size
+5. Threshold for community quality improvement
 
 This final query retrieves nodes in the same group and presents them as a table. The results show groups of users whose watching behaviors are more similar to each other than to users outside their group.
-[source,cypher,role=nocopy]
-----
-// Use the algorithm's results to gain actionable insights
-CALL gds.graph.nodeProperties.stream('rec-simple', 'communityId')
-    YIELD nodeId, propertyValue
 
-WITH gds.util.asNode(nodeId).name AS node, 
-    propertyValue AS communityId
-WITH communityId, collect(node) AS members
-WITH communityId, members, size(members) AS communitySize
-    RETURN communityId, communitySize, members
-    ORDER BY communitySize DESC
+[source,cypher,role=nocopy]
+.Retrieve and display community members
 ----
+CALL gds.graph.nodeProperties.stream('rec-simple', 'communityId') // <1>
+    YIELD nodeId, propertyValue // <2>
+WITH gds.util.asNode(nodeId).name AS node, propertyValue AS communityId // <3>
+WITH communityId, collect(node) AS members // <4>
+WITH communityId, members, size(members) AS communitySize // <5>
+RETURN communityId, communitySize, members // <6>
+ORDER BY communitySize DESC // <7>
+----
+
+1. Stream the communityId property from the projection
+2. Get each node's ID and community assignment
+3. Convert node IDs to names and rename the property
+4. Group nodes by community and collect their names
+5. Calculate the size of each community
+6. Return community details
+7. Order by largest communities first
 
 Right now, you might not fully understand what you just did. That's okay. By the end of this course, you'll be able to use Graph Data Science to solve a variety of problems.
 

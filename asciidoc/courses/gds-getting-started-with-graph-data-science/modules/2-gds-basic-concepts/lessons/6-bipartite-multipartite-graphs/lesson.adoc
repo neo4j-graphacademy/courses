@@ -50,6 +50,7 @@ A multipartite graph contains **three or more distinct node types**.
 You could also call this a 'heterogeneous graph' if it has **multiple relationship types** as well. 
 
 In practice:
+
 - **Multipartite** = multiple node types (3+)
 - **Heterogeneous** = more than one node type __and/or__ multiple relationship types
 
@@ -72,19 +73,27 @@ This graph has four node types (`Actor`, `User`, `Movie`, `Genre`) and three rel
 Remember when we projected actors and movies?
 
 [source,cypher]
+.Default projection without label preservation
 ----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
-WITH gds.graph.project(
-  'actors-movies', 
-  source, 
-  target,
-  {},
-  {}
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'actors-movies', // <3>
+  source, // <4>
+  target, // <5>
+  {}, // <6>
+  {} // <7>
 ) AS g
-RETURN g.graphName, 
-  g.nodeCount, 
-  g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
+
+1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
+2. Call the GDS projection function
+3. Name the projection 'actors-movies'
+4. Include source (Actor) nodes
+5. Include target (Movie) nodes
+6. First configuration map (empty - labels not preserved)
+7. Second configuration map (empty - using defaults)
+8. Return projection statistics
 
 Even though this graph is naturally bipartite, GDS sees this projection as a monopartite graph—treating all nodes as a single generic type, ignoring the Actor and Movie labels.
 
@@ -106,21 +115,32 @@ In earlier lessons, you saw the empty configuration settings in graph projection
 To preserve labels, use these configuration parameters:
 
 [source,cypher]
+.Project bipartite graph with label preservation
 ----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
-WITH gds.graph.project(
-  'actors-movies-bipartite',
-  source,
-  target,
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'actors-movies-bipartite', // <3>
+  source, // <4>
+  target, // <5>
   {
-    sourceNodeLabels: labels(source), //Preserves source labels
-    targetNodeLabels: labels(target), //Preserves target labels
-    relationshipType: type(r)         //Preserves rel types
+    sourceNodeLabels: labels(source), // <6>
+    targetNodeLabels: labels(target), // <7>
+    relationshipType: type(r) // <8>
   },
   {}
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <9>
 ----
+
+1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
+2. Call the GDS projection function
+3. Name the projection 'actors-movies-bipartite'
+4. Include source (Actor) nodes
+5. Include target (Movie) nodes
+6. Preserve source node labels
+7. Preserve target node labels
+8. Preserve relationship types
+9. Return projection statistics
 
 **Key configuration parameters:**
 
@@ -144,23 +164,34 @@ You do not have to use all three of these settings at any given time -- but ther
 The same configuration works for three or more node types:
 
 [source,cypher]
+.Project multipartite graph with multiple node types
 ----
-MATCH (source)-[r]->(target)
-WHERE source:Actor OR source:Movie OR source:User OR source:Genre
-  AND target:Actor OR target:Movie OR target:User OR target:Genre
-WITH gds.graph.project(
-  'movies-network-multi',
-  source,
-  target,
+MATCH (source)-[r]->(target) // <1>
+WHERE source:Actor OR source:Movie OR source:User OR source:Genre AND target:Actor OR target:Movie OR target:User OR target:Genre // <2>
+WITH gds.graph.project( // <3>
+  'movies-network-multi', // <4>
+  source, // <5>
+  target, // <6>
   {
-    sourceNodeLabels: labels(source),
-    targetNodeLabels: labels(target),
-    relationshipType: type(r)
+    sourceNodeLabels: labels(source), // <7>
+    targetNodeLabels: labels(target), // <8>
+    relationshipType: type(r) // <9>
   },
   {}
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <10>
 ----
+
+1. Match any source and target nodes with relationships
+2. Filter to include only Actor, Movie, User, or Genre nodes
+3. Call the GDS projection function
+4. Name the projection 'movies-network-multi'
+5. Include source nodes
+6. Include target nodes
+7. Preserve source node labels
+8. Preserve target node labels
+9. Preserve relationship types
+10. Return projection statistics
 
 This preserves all four node types (`Actor`, `Movie`, `User`, `Genre`) and their relationship types in a single projection.
 
@@ -188,21 +219,32 @@ Throughout this course, as you happen across an algorithm, we'll show you how to
 For now, to illustrate this, let's project our Movies and Users to a graph.
 
 [source,cypher]
+.Project user-movie bipartite graph
 ----
-MATCH (source:User)-[r:RATED]->(target:Movie)
-WITH gds.graph.project(
-  'user-rated-movie',
-  source,
-  target,
+MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'user-rated-movie', // <3>
+  source, // <4>
+  target, // <5>
   {
-    sourceNodeLabels: labels(source),
-    targetNodeLabels: labels(target),
-    relationshipType: type(r)
+    sourceNodeLabels: labels(source), // <6>
+    targetNodeLabels: labels(target), // <7>
+    relationshipType: type(r) // <8>
   },
   {}
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <9>
 ----
+
+1. Match User nodes connected to Movie nodes via RATED relationships
+2. Call the GDS projection function
+3. Name the projection 'user-rated-movie'
+4. Include source (User) nodes
+5. Include target (Movie) nodes
+6. Preserve source node labels
+7. Preserve target node labels
+8. Preserve relationship types
+9. Return projection statistics
 
 Now, you have projected a graph that really does look like this:
 
@@ -226,24 +268,36 @@ Let's run node similarity on our bipartite `user-rated-movie` graph.
 NOTE: Here we're using `.write()` mode to persist results to the database. This is different from `.stream()` which only displays results. You'll learn when to use each execution mode in Module 3.
 
 [source,cypher]
+.Run node similarity on bipartite graph
 ----
-CALL gds.nodeSimilarity.write(
-  'user-rated-movie',
+CALL gds.nodeSimilarity.write( // <1>
+  'user-rated-movie', // <2>
   {
-    writeRelationshipType: 'SIMILAR',
-    writeProperty: 'score'
+    writeRelationshipType: 'SIMILAR', // <3>
+    writeProperty: 'score' // <4>
   })
-YIELD nodesCompared, relationshipsWritten
+YIELD nodesCompared, relationshipsWritten // <5>
 ----
+
+1. Call node similarity algorithm in write mode
+2. Run on 'user-rated-movie' projection
+3. Write new relationships with type 'SIMILAR'
+4. Write similarity scores as 'score' property
+5. Yield the number of nodes compared and relationships written
 
 Now, to verify what it has done -- or rather, what it has not done -- run the following query:
 
 [source,cypher]
+.Check for User-to-Movie similarity (should be empty)
 ----
-MATCH (u:User)-[r:SIMILAR]->(m:Movie)
-RETURN u, r, m
-LIMIT 1
+MATCH (u:User)-[r:SIMILAR]->(m:Movie) // <1>
+RETURN u, r, m // <2>
+LIMIT 1 // <3>
 ----
+
+1. Try to match User nodes with SIMILAR relationships to Movie nodes
+2. Return the matched users, relationships, and movies
+3. Limit to 1 result (should return nothing)
 
 This query should have returned `no changes, no records`. 
 
@@ -258,12 +312,16 @@ The relationships that we created with the algorithm only exist between nodes **
 Run the following query to see some of your new `SIMILAR` relationships.
 
 [source,cypher]
+.View similar users and movies
 ----
-MATCH path = (:User)-[:SIMILAR]->(:User)
-  -[:RATED]->(:Movie)-[:SIMILAR]->(m:Movie)
-RETURN path
-LIMIT 10
+MATCH path = (:User)-[:SIMILAR]->(:User)-[:RATED]->(:Movie)-[:SIMILAR]->(m:Movie) // <1>
+RETURN path // <2>
+LIMIT 10 // <3>
 ----
+
+1. Match a path showing similar users and similar movies connected through ratings
+2. Return the complete path
+3. Limit to 10 results
 
 You should now find that `User` nodes have received SIMILAR relationships to each other, based on their movie rating behaviors.
 
@@ -294,13 +352,19 @@ include::questions/2-label-preservation-config.adoc[leveloffset=+1]
 By default, GDS ignores node labels, creating monopartite projections. To preserve multiple node types, use:
 
 [source,cypher]
+.Configuration for label preservation
 ----
-{
-  sourceNodeLabels: labels(source),
-  targetNodeLabels: labels(target),
-  relationshipType: type(r)
+{ // <1>
+  sourceNodeLabels: labels(source), // <2>
+  targetNodeLabels: labels(target), // <3>
+  relationshipType: type(r) // <4>
 }
 ----
+
+1. Configuration map for label preservation
+2. Preserve source node labels
+3. Preserve target node labels
+4. Preserve relationship types
 
 Label preservation matters when algorithms need to distinguish between node types, when you'll filter by type, or when you're analyzing relationships between different entities. Choose your projection structure based on your analytical goals.
 

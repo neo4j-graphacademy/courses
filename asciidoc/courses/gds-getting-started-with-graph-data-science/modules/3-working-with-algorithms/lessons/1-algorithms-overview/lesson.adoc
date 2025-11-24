@@ -64,6 +64,7 @@ Degree Centrality counts how many __outgoing__ relationships a node has. Nodes w
 You already projected the following graph in the previous module.
 
 [source,cypher]
+.Project actor collaboration network
 ----
 MATCH (a1:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(a2:Actor)
 WHERE a1.name < a2.name
@@ -78,6 +79,7 @@ This projection creates a network where actors connect directly to each other if
 Now run degree centrality on this graph:
 
 [source,cypher]
+.Run degree centrality on actor network
 ----
 CALL gds.degree.stream('actor-network')
 YIELD nodeId, score
@@ -108,13 +110,14 @@ Think of it this way: There are some actors whose faces you just 'know'. They sh
 
 These actors will receive an increased PageRank score because of their consistent connections to those more famous faces.
 
-**Question it answers:** "Which nodes are central __and__ highly connected to other central central?"
+**Question it answers:** "Which nodes are central __and__ highly connected to other central nodes?"
 
 **Data model example:** In the same actor network, PageRank reveals which actors are connected to other influential actors, not just many actors.
 
 Run it now, on the same graph, and compare the results.
 
 [source,cypher]
+.Run PageRank on actor network
 ----
 CALL gds.pageRank.stream('actor-network')
 YIELD nodeId, score
@@ -137,6 +140,7 @@ It is often described as measuring the "influence" of a node.
 **Data model example:** In our actor network, betweenness reveals actors who bridge different film collaborative communities.
 
 [source,cypher]
+.Run betweenness centrality on actor network
 ----
 CALL gds.betweenness.stream('actor-network')
 YIELD nodeId, score
@@ -158,7 +162,7 @@ Community detection algorithms find natural clusters or groups in your network. 
 
 Two of the most common algorithms are Louvain and Leiden -- but there are many more. 
 
-Both Louvain and Leiden work by maximizing "modularity", or the density of connections within groups compared to teh density between groups.
+Both Louvain and Leiden work by maximizing "modularity", or the density of connections within groups compared to the density between groups.
 
 
 === Louvain
@@ -174,6 +178,7 @@ This differs from our centrality algorithm in that we are not defining "importan
 Run the query below to uncover the communities of actors present in the collaboration graph.
 
 [source,cypher]
+.Run Louvain community detection
 ----
 CALL gds.louvain.stream('actor-network')
 YIELD nodeId, communityId
@@ -207,6 +212,7 @@ Node Similarity finds nodes that connect to similar neighbors. Two nodes are sim
 First, create a bipartite projection preserving labels:
 
 [source,cypher]
+.Project User-Movie bipartite graph
 ----
 MATCH (u:User)-[r:RATED]->(m:Movie)
 WITH gds.graph.project(
@@ -225,6 +231,7 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount
 Now run node similarity:
 
 [source,cypher]
+.Run node similarity on User-Movie graph
 ----
 CALL gds.nodeSimilarity.write('user-movie', {
   writeRelationshipType: 'SIMILAR',
@@ -238,6 +245,7 @@ This creates SIMILAR relationships between users who rated similar movies.
 Verify the results:
 
 [source,cypher]
+.View similar users
 ----
 MATCH (u1:User)-[s:SIMILAR]->(u2:User)
 RETURN u1.name, u2.name, s.score
@@ -270,6 +278,7 @@ Dijkstra finds the shortest path between two nodes. It's useful for understandin
 Run the following query to find the shortest path between two actors:
 
 [source,cypher]
+.Find shortest path between two actors
 ----
 MATCH (source:Actor {name: 'Meg Ryan'})
 MATCH (target:Actor {name: 'Kevin Bacon'})
@@ -306,6 +315,7 @@ FastRP (Fast Random Projection) creates node embeddings that capture both local 
 **Data model example:** Create embeddings of actors based on their collaboration patterns. These embeddings can then be used for clustering, classification, or similarity searches.
 
 [source,cypher]
+.Generate FastRP embeddings for actors
 ----
 CALL gds.fastRP.mutate('actor-network', {
   embeddingDimension: 64,
@@ -321,6 +331,7 @@ Each actor is now represented as a 64-dimensional vector that captures their pos
 You can now find the most similar actor to another -- in terms of their collaborations -- with a simple similarity function like cosine.
 
 [source,cypher]
+.Find similar actors using cosine similarity
 ----
 MATCH (a:Actor {name:'Kevin Bacon'})
 WITH a

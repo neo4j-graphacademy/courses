@@ -48,20 +48,27 @@ Think about the pattern:
 The pattern requires tracing through movies and directors to connect actors:
 
 [source,cypher]
+.Solution: Project actors connected through directors
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:DIRECTED]-
-  (:Person)-[:DIRECTED]->(:Movie)<-[:ACTED_IN]-(target:Actor)
-WITH gds.graph.project(
-  'actor-director-network',
-  source,
-  target,
-  {},
-  {}
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:DIRECTED]-(:Person)-[:DIRECTED]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+WITH gds.graph.project( // <2>
+  'actor-director-network', // <3>
+  source, // <4>
+  target, // <5>
+  {}, // <6>
+  {} // <7>
 ) AS g
-RETURN g.graphName AS graph, 
-  g.nodeCount AS nodes, 
-  g.relationshipCount AS rels
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <8>
 ----
+
+1. Match Actor nodes connected through Movie, Person (director), and Movie nodes
+2. Call the GDS projection function
+3. Name the projection 'actor-director-network'
+4. Include source (Actor) nodes
+5. Include target (Actor) nodes
+6. First configuration map (empty - using defaults)
+7. Second configuration map (empty - using defaults)
+8. Return projection statistics
 
 **Key components:**
 
@@ -77,32 +84,46 @@ RETURN g.graphName AS graph,
 Once you've created your projection, run degree centrality to find actors who've worked with many directors who've also worked with many other actors:
 
 [source,cypher]
+.Run degree centrality on actor-director network
 ----
-CALL gds.degree.stream(
-  'actor-director-network'
+CALL gds.degree.stream( // <1>
+  'actor-director-network' // <2>
 )
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS actor, 
-  score AS director_network_size
-ORDER BY score DESC
-LIMIT 10
+YIELD nodeId, score // <3>
+RETURN gds.util.asNode(nodeId).name AS actor, score AS director_network_size // <4>
+ORDER BY score DESC // <5>
+LIMIT 10 // <6>
 ----
+
+1. Call degree centrality in stream mode
+2. Run on 'actor-director-network' projection
+3. Yield node IDs and degree scores
+4. Convert node IDs to actor names and return with scores
+5. Sort by score in descending order
+6. Limit results to top 10 actors
 
 Actors with high scores are central to directorial networks—they've worked with directors who have also directed many other actors.
 
 Finally, try running PageRank on the same network. Replace the graph name to complete the query:
 
-[source,cypher]
+[source,cypher,role=nocopy noplay]
+.Run PageRank on actor-director network (replace ?????)
 ----
-CALL gds.pageRank.stream(
-  '?????'
+CALL gds.pageRank.stream( // <1>
+  '?????' // <2>
 )
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS actor, 
-  score AS influence
-ORDER BY score DESC
-LIMIT 10
+YIELD nodeId, score // <3>
+RETURN gds.util.asNode(nodeId).name AS actor, score AS influence // <4>
+ORDER BY score DESC // <5>
+LIMIT 10 // <6>
 ----
+
+1. Call PageRank in stream mode
+2. Specify the projection name (fill in 'actor-director-network')
+3. Yield node IDs and PageRank scores
+4. Convert node IDs to actor names and return with scores
+5. Sort by score in descending order
+6. Limit results to top 10 actors
 
 
 [.quiz]
@@ -119,6 +140,7 @@ include::questions/2-network-difference.adoc[leveloffset=+1]
 Creating monopartite projections requires understanding the relationship patterns that connect nodes of the same type. The actor-director network demonstrates a more complex projection than simple collaboration—connecting actors through shared directors rather than shared movies.
 
 This type of projection reveals different network dynamics:
+
 - **Direct collaboration** (Actor → Movie ← Actor): Who worked together
 - **Director network** (Actor → Movie ← Director → Movie ← Actor): Who shares directorial connections
 

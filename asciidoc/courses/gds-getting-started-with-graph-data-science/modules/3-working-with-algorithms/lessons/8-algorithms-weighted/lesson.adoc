@@ -34,6 +34,7 @@ Let's create a user-movie bipartite graph based on rating data. We'll create two
 First, drop any existing graphs using `gds.graph.drop` in the sandbox.
 
 Create an **unweighted** user-movie projection called `'user-movie-unweighted'`:
+
 - Project User and Movie nodes with RATED relationships
 - Make relationships **undirected** (Leiden requires this)
 - No relationship properties needed
@@ -45,19 +46,29 @@ Hint: For undirected relationships, place `undirectedRelationshipTypes: ['*]` in
 [%collapsible]
 ====
 [source,cypher]
+.Solution: Create unweighted User-Movie projection
 ----
-MATCH (source:User)-[r:RATED]->(target:Movie)
-WITH gds.graph.project(
-  'user-movie-unweighted',
-  source,
-  target,
-  {},
+MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'user-movie-unweighted', // <3>
+  source, // <4>
+  target, // <5>
+  {}, // <6>
   {
-    undirectedRelationshipTypes: ['*']
+    undirectedRelationshipTypes: ['*'] // <7>
   }
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
+
+1. Match User nodes connected to Movie nodes via RATED relationships
+2. Call the GDS projection function
+3. Name the projection 'user-movie-unweighted'
+4. Include source (User) nodes
+5. Include target (Movie) nodes
+6. First configuration map (empty - no relationship properties)
+7. Configure all relationships as undirected
+8. Return projection statistics
 
 This projection treats all ratings equally—it doesn't matter whether a user gave a movie 5 stars or 1 star.
 ====
@@ -71,21 +82,31 @@ Now let's create a **weighted** version called `'user-movie-weighted'`:
 `relationshipProperties: r { .rating }`
 
 [source,cypher]
+.Create weighted User-Movie projection
 ----
-MATCH (source:User)-[r:RATED]->(target:Movie)
-WITH gds.graph.project(
-  'user-movie-weighted',
-  source,
-  target,
+MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'user-movie-weighted', // <3>
+  source, // <4>
+  target, // <5>
   {
-    relationshipProperties: r { .rating }
+    relationshipProperties: r { .rating } // <6>
   },
   {
-    undirectedRelationshipTypes: ['*']
+    undirectedRelationshipTypes: ['*'] // <7>
   }
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
+
+1. Match User nodes connected to Movie nodes via RATED relationships
+2. Call the GDS projection function
+3. Name the projection 'user-movie-weighted'
+4. Include source (User) nodes
+5. Include target (Movie) nodes
+6. Store the rating property as relationship weight
+7. Configure all relationships as undirected
+8. Return projection statistics
 
 The key difference: `relationshipProperties: r { .rating }` stores the rating score (1-5) as a relationship weight.
 
@@ -109,22 +130,33 @@ Let's run Leiden on both projections using `stats` mode to compare the community
 First, on the **unweighted** graph:
 
 [source,cypher]
+.Leiden stats on unweighted graph
 ----
-CALL gds.leiden.stats('user-movie-unweighted', {})
-YIELD communityCount, modularity, modularities
-RETURN communityCount, modularity, modularities
+CALL gds.leiden.stats('user-movie-unweighted', {}) // <1>
+YIELD communityCount, modularity, modularities // <2>
+RETURN communityCount, modularity, modularities // <3>
 ----
+
+1. Call Leiden in stats mode on unweighted graph
+2. Yield community statistics
+3. Return community count, final modularity, and level-by-level modularities
 
 Now on the **weighted** graph:
 
 [source,cypher]
+.Leiden stats on weighted graph
 ----
-CALL gds.leiden.stats('user-movie-weighted', {
-  relationshipWeightProperty: 'rating'
+CALL gds.leiden.stats('user-movie-weighted', { // <1>
+  relationshipWeightProperty: 'rating' // <2>
 })
-YIELD communityCount, modularity, modularities
-RETURN communityCount, modularity, modularities
+YIELD communityCount, modularity, modularities // <3>
+RETURN communityCount, modularity, modularities // <4>
 ----
+
+1. Call Leiden in stats mode on weighted graph
+2. Configure to use the 'rating' property as relationship weights
+3. Yield community statistics
+4. Return community count, final modularity, and level-by-level modularities
 
 **Understanding the stats output:**
 
@@ -151,48 +183,51 @@ Compare the community counts. The weighted version often produces more nuanced c
 Let's examine what's actually in these communities. First, the **unweighted** version:
 
 [source,cypher]
+.Examine communities in unweighted graph
 ----
-CALL gds.leiden.stream('user-movie-unweighted', {})
-YIELD nodeId, communityId
-WITH communityId, 
-  COLLECT(CASE WHEN 'User' IN labels(gds.util.asNode(nodeId)) 
-    THEN gds.util.asNode(nodeId).name END) AS users,
-  COLLECT(CASE WHEN 'Movie' IN labels(gds.util.asNode(nodeId)) 
-    THEN gds.util.asNode(nodeId).title END) AS movies
-WHERE size(users) > 0 AND size(movies) > 0
-RETURN communityId, 
-  size(users) AS userCount, 
-  size(movies) AS movieCount,
-  users[0..3] AS sampleUsers,
-  movies[0..3] AS sampleMovies
-ORDER BY userCount + movieCount DESC
-LIMIT 5
+CALL gds.leiden.stream('user-movie-unweighted', {}) // <1>
+YIELD nodeId, communityId // <2>
+WITH communityId, COLLECT(CASE WHEN 'User' IN labels(gds.util.asNode(nodeId)) THEN gds.util.asNode(nodeId).name END) AS users, COLLECT(CASE WHEN 'Movie' IN labels(gds.util.asNode(nodeId)) THEN gds.util.asNode(nodeId).title END) AS movies // <3>
+WHERE size(users) > 0 AND size(movies) > 0 // <4>
+RETURN communityId, size(users) AS userCount, size(movies) AS movieCount, users[0..3] AS sampleUsers, movies[0..3] AS sampleMovies // <5>
+ORDER BY userCount + movieCount DESC // <6>
+LIMIT 5 // <7>
 ----
+
+1. Call Leiden in stream mode on unweighted graph
+2. Yield node IDs and community assignments
+3. Collect user names and movie titles separately by checking node labels
+4. Filter to communities containing both users and movies
+5. Return community details with sample members
+6. Sort by total community size
+7. Limit to top 5 largest communities
 
 These communities group users who rated similar movies—regardless of whether they loved or hated them.
 
 Now the **weighted** version:
 
 [source,cypher]
+.Examine communities in weighted graph
 ----
-CALL gds.leiden.stream('user-movie-weighted', {
-  relationshipWeightProperty: 'rating'
+CALL gds.leiden.stream('user-movie-weighted', { // <1>
+  relationshipWeightProperty: 'rating' // <2>
 })
-YIELD nodeId, communityId
-WITH communityId, 
-  COLLECT(CASE WHEN 'User' IN labels(gds.util.asNode(nodeId)) 
-    THEN gds.util.asNode(nodeId).name END) AS users,
-  COLLECT(CASE WHEN 'Movie' IN labels(gds.util.asNode(nodeId)) 
-    THEN gds.util.asNode(nodeId).title END) AS movies
-WHERE size(users) > 0 AND size(movies) > 0
-RETURN communityId, 
-  size(users) AS userCount, 
-  size(movies) AS movieCount,
-  users[0..3] AS sampleUsers,
-  movies[0..3] AS sampleMovies
-ORDER BY userCount + movieCount DESC
-LIMIT 5
+YIELD nodeId, communityId // <3>
+WITH communityId, COLLECT(CASE WHEN 'User' IN labels(gds.util.asNode(nodeId)) THEN gds.util.asNode(nodeId).name END) AS users, COLLECT(CASE WHEN 'Movie' IN labels(gds.util.asNode(nodeId)) THEN gds.util.asNode(nodeId).title END) AS movies // <4>
+WHERE size(users) > 0 AND size(movies) > 0 // <5>
+RETURN communityId, size(users) AS userCount, size(movies) AS movieCount, users[0..3] AS sampleUsers, movies[0..3] AS sampleMovies // <6>
+ORDER BY userCount + movieCount DESC // <7>
+LIMIT 5 // <8>
 ----
+
+1. Call Leiden in stream mode on weighted graph
+2. Configure to use the 'rating' property as relationship weights
+3. Yield node IDs and community assignments
+4. Collect user names and movie titles separately by checking node labels
+5. Filter to communities containing both users and movies
+6. Return community details with sample members
+7. Sort by total community size
+8. Limit to top 5 largest communities
 
 These communities group users who gave similar ratings to similar movies—they not only watched the same things, but felt similarly about them.
 
