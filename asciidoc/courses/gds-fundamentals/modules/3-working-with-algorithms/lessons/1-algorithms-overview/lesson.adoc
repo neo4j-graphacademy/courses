@@ -1,0 +1,382 @@
+= Algorithms overview
+:type: lesson
+:order: 1
+
+[.transcript]
+== Introduction
+
+Throughout the previous module, you already ran several GDS algorithms: degree centrality and PageRank on monopartite graphs, and node similarity on bipartite graphs. 
+
+Each algorithm revealed different insights about the same data.
+
+Now that you understand the basics of graph projection and catalog management, it's time to explore the full landscape of algorithms available in GDS. 
+
+This lesson introduces the main algorithm categories and what each is designed to analyze.
+
+In the lessons that follow, you'll dive deeper into the specifics of algorithm configuration and learn how to choose the right one for your goals.
+
+
+== What is an algorithm?
+
+A GDS algorithm is a computational procedure that analyzes graph structure and computes insights about nodes, relationships, or the overall network.
+
+Algorithms answer questions like:
+
+- Which nodes are most important?
+- What communities exist?
+- What's the shortest path between nodes?
+- Which nodes are structurally similar?
+
+In isolation, those questions are ambiguous and raise more questions than they answer:
+
+- 'Most important' in terms of what?
+- Communities of what kind?
+- What does a shortest path tell me?
+- Who cares if nodes 'look similar'? 
+
+An algorithm's output is only as relevant as the data model it analyzes. It will only answer the questions it is asked.
+
+Earlier in this course, you already discovered the importance of modeling projections in terms of intent.
+
+Now, let's take a look at:
+
+- The GDS algorithm categories
+- Some of the algorithms included in them
+- The kinds of questions they can answer
+- How those questions can be framed in projections
+
+
+== Centrality Algorithms: Finding Important Nodes
+
+Centrality algorithms identify which nodes are most important or influential in a network. However, "importance" depends entirely on how you model your network.
+
+The three most common centrality algorithms are Degree Centrality, PageRank, and Betweenness Centrality. Each measures importance differently.
+
+
+=== Degree centrality
+
+Degree Centrality counts how many __outgoing__ relationships a node has. Nodes with more connections score higher.
+
+**Question it answers:** "Who has the most direct connections?"
+
+**Data model example:** In an actor collaboration network, degree centrality reveals which actors have worked with the most co-stars.
+
+You already projected the following graph in the previous module.
+
+[source,cypher]
+.Project actor collaboration network
+----
+MATCH (a1:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(a2:Actor)
+WHERE a1.name < a2.name
+WITH gds.graph.project('actor-network', a1, a2, {}, {}) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+NOTE: Notice here how the format of the syntax does not change the output. 
+
+This projection creates a network where actors connect directly to each other if they appeared in movies together.
+
+Now run degree centrality on this graph:
+
+[source,cypher]
+.Run degree centrality on actor network
+----
+CALL gds.degree.stream('actor-network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, 
+  score AS collaborations
+ORDER BY score DESC
+LIMIT 10
+----
+
+The actors with the highest scores have collaborated with the most other actors. The question it answers then is __not__ 'How important is X?'; it is 'Who is the most central __collaborator__?'
+
+Had you interpreted the results as an answer of raw importance, you might have come to some pretty strange conclusions. Reframed in terms of what it is actually answering, however, puts the output in the correct context.
+
+Bruce Willis is certainly not the 'most important' actor in general terms. It is more believable that he would be the 'most important collaborator'. 
+
+However, this is only part of the story. Degree centrality counts only the number of connections and does not consider the relative importance of them.
+
+To do that, we need another algorithm you've seen before: PageRank.
+
+
+=== PageRank
+
+PageRank measures importance by considering both the number of connections and the relative importance of those connections. 
+
+A low-degree node connected to many more important nodes may score higher than a high-degree node connected to many nodes of lesser importance.
+
+Think of it this way: There are some actors whose faces you just 'know'. They show up all the time alongside more famous faces. If anyone asked you for their names, you wouldn't know the answer.
+
+These actors will receive an increased PageRank score because of their consistent connections to those more famous faces.
+
+**Question it answers:** "Which nodes are central __and__ highly connected to other central nodes?"
+
+**Data model example:** In the same actor network, PageRank reveals which actors are connected to other influential actors, not just many actors.
+
+Run it now, on the same graph, and compare the results.
+
+[source,cypher]
+.Run PageRank on actor network
+----
+CALL gds.pageRank.stream('actor-network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score AS influence
+ORDER BY score DESC
+LIMIT 10
+----
+
+PageRank often reveals different "important" actors than degree centrality because it weights relationship quality.
+
+
+=== Betweenness centrality
+
+Betweenness Centrality measures how often a node appears on the shortest paths between other nodes. High scores indicate nodes that connect different parts of the network.
+
+It is often described as measuring the "influence" of a node. 
+
+**Question it answers:** "Who connects different groups?"
+
+**Data model example:** In our actor network, betweenness reveals actors who bridge different film collaborative communities.
+
+[source,cypher]
+.Run betweenness centrality on actor network
+----
+CALL gds.betweenness.stream('actor-network')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score AS bridging
+ORDER BY score DESC
+LIMIT 10
+----
+
+Actors with high betweenness often work across multiple genres or connect different acting communities.
+
+Let's say you're a producer, and you want a star who will bridge multiple fan communities.
+
+You could use these results.
+
+
+== Community Detection: Finding Groups
+
+Community detection algorithms find natural clusters or groups in your network. They reveal how your network is organized into communities.
+
+Two of the most common algorithms are Louvain and Leiden -- but there are many more. 
+
+Both Louvain and Leiden work by maximizing "modularity", or the density of connections within groups compared to the density between groups.
+
+
+=== Louvain
+
+Louvain detects communities by grouping nodes that are more connected to each other than to the rest of the network.
+
+**Question it answers:** "What natural groups exist in this network?"
+
+**Data model example:** In an actor network, Louvain might reveal groups of actors who frequently work together, perhaps indicating film franchises or director preferences.
+
+This differs from our centrality algorithm in that we are not defining "importance" from collaborations, but we are literally finding the communities who collaborate.
+
+Run the query below to uncover the communities of actors present in the collaboration graph.
+
+[source,cypher]
+.Run Louvain community detection
+----
+CALL gds.louvain.stream('actor-network')
+YIELD nodeId, communityId
+RETURN communityId, 
+  collect(gds.util.asNode(nodeId).name) AS actors, 
+  count(*) AS size
+ORDER BY size DESC
+LIMIT 5
+----
+
+Each communityId represents a group of actors who are more connected to each other than to actors in other communities.
+
+You may notice here that Louvain has created rather large communities. This is a known limitation of Louvain. It tends to cluster early, and end up with a few large components.
+
+In the next lesson, you will learn to use Leiden -- which was created to fix Louvain's limitations.
+
+
+== Similarity: Finding Nodes That Look Alike
+
+Similarity algorithms find nodes that are structurally similar based on their connections, features or wider topological structures.
+
+
+=== Node similarity
+
+Node Similarity finds nodes that connect to similar neighbors. Two nodes are similar if they share many of the same connections.
+
+**Question it answers:** "Which nodes have similar connection patterns?"
+
+**Data model example:** In a user-movie network, node similarity reveals users with similar viewing habits or movies with similar audiences.
+
+First, create a bipartite projection preserving labels:
+
+[source,cypher]
+.Project User-Movie bipartite graph
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WITH gds.graph.project(
+  'user-movie',
+  u, m,
+  {
+    sourceNodeLabels: labels(u),
+    targetNodeLabels: labels(m),
+    relationshipType: type(r)
+  },
+  {}
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+Now run node similarity:
+
+[source,cypher]
+.Run node similarity on User-Movie graph
+----
+CALL gds.nodeSimilarity.write('user-movie', {
+  writeRelationshipType: 'SIMILAR',
+  writeProperty: 'score'
+})
+YIELD nodesCompared, relationshipsWritten
+----
+
+This creates SIMILAR relationships between users who rated similar movies.
+
+Verify the results:
+
+[source,cypher]
+.View similar users
+----
+MATCH (u1:User)-[s:SIMILAR]->(u2:User)
+RETURN u1.name, u2.name, s.score
+ORDER BY s.score DESC
+LIMIT 10
+----
+
+Users with high similarity scores have very similar movie rating patterns.
+
+There is, however, a caveat to this. The algorithm you just ran does not account for the __score__ that the user gave a movie -- only that they both rated the same movie. 
+
+It is, for example, possible that "Katie Collins" gave all movies five stars, while "Aaron Nelson" gave all their movies one star. 
+
+In lesson 3, you will learn how to configure an algorithm to include properties in its calculations and then re-run this algorithm.
+
+
+== Pathfinding: Discovering Routes
+
+Pathfinding algorithms find the shortest or best paths between nodes. They're essential for route optimization and navigation problems.
+
+
+=== Dijkstra's Shortest Path
+
+Dijkstra finds the shortest path between two nodes. It's useful for understanding how different parts of a network connect.
+
+**Question it answers:** "What's the shortest path from A to B?"
+
+**Data model example:** In the actor network you already created, Dijkstra reveals the "degrees of separation" between actors—how they connect through collaborations.
+
+Run the following query to find the shortest path between two actors:
+
+[source,cypher]
+.Find shortest path between two actors
+----
+MATCH (source:Actor {name: 'Meg Ryan'})
+MATCH (target:Actor {name: 'Kevin Bacon'})
+CALL gds.shortestPath.dijkstra.stream('actor-network', {
+  sourceNode: source,
+  targetNode: target
+})
+YIELD path
+RETURN [node IN nodes(path) | node.name] AS connectionPath, 
+  length(path) AS degrees
+----
+
+This returns the shortest collaboration chain connecting Meg Ryan to Kevin Bacon, and how many degrees of separation exist between them.
+
+Try a few different combinations.
+
+Other shortest path algorithms include:
+
+* Yen's Shortest Path: Find the top shortest paths within a user-defined range
+* Delta-Stepping Single-Source Shortest Path: Finds __all__ shortest paths between a source node and every other node in the graph
+
+
+== Node Embeddings: Vector Representations
+
+Embedding algorithms convert nodes into vector representations that capture their structural properties. These vectors can be used for machine learning tasks.
+
+
+=== FastRP
+
+FastRP (Fast Random Projection) creates node embeddings that capture both local and global network structure.
+
+**Question it answers:** "How can I represent this network as numbers?"
+
+**Data model example:** Create embeddings of actors based on their collaboration patterns. These embeddings can then be used for clustering, classification, or similarity searches.
+
+[source,cypher]
+.Generate FastRP embeddings for actors
+----
+CALL gds.fastRP.mutate('actor-network', {
+  embeddingDimension: 64,
+  mutateProperty: 'embedding',
+  iterationWeights: [0.0, 0.5, 1.0, 1.0],
+  nodeSelfInfluence: 0.1
+})
+YIELD nodePropertiesWritten
+----
+
+Each actor is now represented as a 64-dimensional vector that captures their position in the collaboration network.
+
+You can now find the most similar actor to another -- in terms of their collaborations -- with a simple similarity function like cosine.
+
+[source,cypher]
+.Find similar actors using cosine similarity
+----
+MATCH (a:Actor {name:'Kevin Bacon'})
+WITH a
+MATCH (b:Actor)
+WHERE b.embedding IS NOT NULL
+WITH gds.similarity.cosine(a.embedding, b.embedding) AS similarity, a, b
+RETURN a.name, b.name, similarity
+ORDER BY similarity DESC
+LIMIT 10
+----
+
+In the results, you will see which actors FastRP has decided are most __structurally__ similar. They may not even be direct neighbors in the graph -- in fact, they don't even need to be connected. 
+
+
+== Choosing the Right Algorithm Category
+
+Different questions require different algorithm categories:
+
+- **"Who is important?"** -> Centrality (Degree, PageRank, Betweenness)
+- **"What groups exist?"** -> Community Detection (Louvain, Leiden)
+- **"Who is similar?"** -> Similarity (Node Similarity)
+- **"What's the best route?"** -> Pathfinding (Dijkstra, Yen's)
+- **"How do I represent structure numerically?"** -> Embeddings (FastRP)
+
+The same projection can answer multiple questions. One projection cannot answer all questions equally. 
+
+== What's next
+
+You now understand the five main categories of algorithms in GDS and the types of questions each can answer. You've seen how the same data can be modeled differently depending on your analytical question.
+
+In the next lesson, you'll learn about the four execution modes available for every algorithm: estimate, stats, stream, mutate, and write.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-algorithm-category-matching.adoc[leveloffset=+1]
+
+include::questions/2-algorithm-output-context.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+GDS algorithms fall into five categories, each answering different questions: Centrality identifies important nodes, Community Detection finds groups, Similarity reveals similar nodes, Pathfinding discovers routes, and Embeddings create vector representations.
+
+The algorithm you choose depends on your question. The projection you create depends on your data model. Together, they determine what insights you can extract from your graph.
+

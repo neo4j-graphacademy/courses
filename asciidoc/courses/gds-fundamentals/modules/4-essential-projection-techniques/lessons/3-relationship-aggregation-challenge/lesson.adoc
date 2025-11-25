@@ -1,0 +1,105 @@
+= Challenge: Aggregated projection and analysis
+:type: challenge
+:order: 3
+
+[.transcript]
+== Introduction
+
+You've learned how to aggregate relationships during projection using `count(r)` to count relationships between node pairs. Now it's time to apply these skills independently.
+
+In this challenge, you'll design and build an aggregated projection from scratch, then analyze it with an algorithm of your choice.
+
+
+== Your task
+
+=== Step 1: Build an aggregated projection
+
+Create a projection called `'director-actor-collab'` that captures the collaboration network between directors and actors.
+
+**Your projection should:**
+
+- Connect `Director` nodes to `Actor` nodes through shared `Movie` nodes
+- Use relationship aggregation to create a weight representing the **total number of movies** each director-actor pair has worked on together
+- Project as a bipartite graph (preserving both Director and Actor labels)
+- Make relationships undirected
+
+**Pattern to consider:**
+
+- Directors connect to movies via `DIRECTED`
+- Actors connect to movies via `ACTED_IN`
+- You need to aggregate based on shared movies
+
+**Weight:**
+
+- Count how many movies each director-actor pair has collaborated on
+- This count should become the relationship `rels` property
+
+
+=== Step 2: Validate your projection
+
+Run `gds.graph.list()` on your projection and verify:
+
+- Both `Director` and `Actor` nodes are present
+- The relationship count is less than it would be without aggregation
+- The projection has a `rels` property
+
+[source,cypher]
+.Validate director-actor-collab projection
+----
+CALL gds.graph.list('director-actor-collab')
+YIELD graphName, nodeCount, relationshipCount, schema
+RETURN graphName, nodeCount, relationshipCount, schema
+----
+
+
+=== Step 3: Analyze with an algorithm
+
+Choose a community detection or centrality algorithm from the link:https://neo4j.com/docs/graph-data-science/current/algorithms/[GDS documentation^] that:
+
+- Supports bipartite graphs (or can work on bipartite data)
+- Can use weighted relationships
+
+Run the algorithm in `stream` mode and return meaningful results that show:
+
+- Which directors and actors cluster together
+- OR: Which directors/actors are most central in the collaboration network
+
+Use the `relationshipWeightProperty: 'rels'` configuration to leverage your aggregated weights.
+
+
+== Hint
+
+**Projection hint:**
+
+Your aggregation pattern should look something like:
+
+[source,cypher,role=nocopy noplay]
+.Hint: Aggregation pattern for Director-Actor projection
+----
+MATCH (source:Director)-[r:DIRECTED]->
+    (:Movie)
+        <-[:ACTED_IN]-(target:Actor)
+WITH source, target, count(r) AS rels
+// Continue with projection...
+----
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-aggregation-benefit.adoc[leveloffset=+1]
+
+include::questions/2-what-does-count-aggregate.adoc[leveloffset=+1]
+
+include::questions/3-parallel-relationships.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You've successfully designed and built an aggregated projection from scratch, choosing appropriate aggregation logic and validating your results.
+
+Relationship aggregation is essential for real-world GDS workflows where multiple interactions between entities need to be summarized into meaningful weights that reflect connection strength, frequency, or intensity.
+
+In the next lesson, you'll learn about projection modeling strategies—how to design projections that answer specific analytical questions.
+
