@@ -2,6 +2,8 @@
 :type: lesson
 :order: 3
 
+// UI Description: CPU usage (cores). CPU is used for planning and serving queries. 
+// If this metric is constantly spiking or at its limits, consider increasing the size of your instance.
 
 [.discrete]
 == Introduction
@@ -13,175 +15,191 @@ In this lesson, you'll learn how to monitor CPU usage, identify bottlenecks, and
 
 == Understanding CPU Metrics
 
-The CPU Usage metric shows the overall usage of the CPU's assigned to your instance.
-
-// UI Description: CPU usage (cores). CPU is used for planning and serving queries. 
-// If this metric is constantly spiking or at its limits, consider increasing the size of your instance.
-
-CPU is consumed by several key processes in Neo4j.
+Before you can effectively monitor CPU usage, you need to understand what consumes CPU in Neo4j. CPU is consumed by several key processes.
 
 
 === Query Planning and Execution
 
 The query planner analyzes your Cypher statements and creates an execution plan - a series of operations to retrieve your data. This planning process consumes CPU, especially for complex queries.
 
-Once planned, Neo4j executes your query using various operators, each with different CPU costs:
-
-* **Index seeks** - The most efficient operations, directly accessing specific nodes through indexes
-* **Label scans** - Scanning all nodes with a particular label consumes moderate CPU
-* **Full node scans** - The most expensive operation, fetching every node in your database
-* **Relationship traversals** - Expanding relationships by type and direction between nodes, with CPU cost proportional to the number of relationships that are expanded
-* **Filtering operations** - Applying `WHERE` clauses to the data held in memory at that time
-* **Sorting and aggregations** - Organizing results can be CPU-intensive for large datasets
+Once planned, Neo4j executes your query using various operators, each with different CPU costs. **Index seeks** are the most efficient operations, directly accessing specific nodes through indexes. **Label scans** consume moderate CPU by scanning all nodes with a particular label. **Full node scans** are the most expensive operation, fetching every node in your database. **Relationship traversals** expand relationships by type and direction between nodes, with CPU cost proportional to the number of relationships expanded. **Filtering operations** apply `WHERE` clauses to data held in memory, while **sorting and aggregations** can be CPU-intensive for large datasets.
 
 
 === Connection and Thread Management  
 
-Every client connection to your database uses CPU through Neo4j's Bolt protocol:
-
-* **Worker threads** execute your queries and process client requests
-* **I/O threads** manage network communication with clients
-* **Transaction threads** handle the transaction lifecycle
-
-Each active connection or transaction holds a thread, and that thread consumes CPU while processing. When you have hundreds of concurrent connections, this can put significant pressure on the CPU which subsequently can cause performance issues.
+Every client connection to your database uses CPU through Neo4j's Bolt protocol. **Worker threads** execute your queries and process client requests, **I/O threads** manage network communication with clients, and **transaction threads** handle the transaction lifecycle. Each active connection or transaction holds a thread, and that thread consumes CPU while processing. When you have hundreds of concurrent connections, this can put significant pressure on the CPU which subsequently can cause performance issues.
 
 
 === Background Operations
 
-Neo4j periodically performs maintenance tasks that consume CPU:
-
-* **Checkpointing** - Writing modified data from memory to disk
-* **Index updates** - Keeping indexes synchronized as the data held in the database changes
-* **Statistics collection** - Gathering counts of nodes, relationships and properties that will be used by the query planner to create the most efficient execution plan
-* **Garbage collection** - The Java Virtual Machine (JVM) reclaiming memory, indicating high workloads that lead to memory pressure
-* **Transaction log management** - Processing and rotating transaction logs
+Neo4j periodically performs maintenance tasks that consume CPU. **Checkpointing** writes modified data from memory to disk, while **index updates** keep indexes synchronized as data changes. **Statistics collection** gathers counts of nodes, relationships and properties for the query planner to create efficient execution plans. **Garbage collection** occurs when the Java Virtual Machine (JVM) reclaims memory, often indicating high workloads that lead to memory pressure. Finally, **transaction log management** processes and rotates transaction logs.
 
 
 == Reading the CPU Usage Chart
 
-The CPU Usage chart displays:
-
-* **Current usage**: Number of cores currently in use
-* **Usage over time**: Historical CPU consumption
-* **Available cores**: Total cores allocated to your instance (varies by tier and size)
+Now that you understand what consumes CPU, let's look at how to interpret the CPU metrics in Aura's monitoring dashboard.
 
 
-=== Normal CPU Usage Patterns
+image::images/cpu-usage-chart.png[CPU usage chart]
 
-You'll typically see a **steady baseline** from background operations and regular queries, **periodic peaks** from batch jobs or scheduled tasks, **gradual increases** as your workload grows over time, and **sudden spikes** from large queries or unexpected load. 
 
-Once you identify these patterns, you can tell the difference between normal behavior and actual issues.
+The CPU usage chart displays the minimum, maximum, and average percentage of your CPU capacity being used within the timeframe.
+
+In this example, the CPU usage is consistently below 10%, indicating a steady baseline from background operations and regular queries.
+
+You'll typically see a steady baseline like this from background operations and regular queries, but may notice periodic peaks from batch jobs or scheduled tasks, gradual increases as your workload grows over time, and sudden spikes from large queries or unexpected load.
 
 
 == Identifying CPU Issues
 
-Not all database operations cost the same, and understanding what drives CPU usage helps you identify the root cause of performance issues.
+Understanding normal patterns helps you spot problems. CPU issues manifest in three distinct patterns, each requiring different diagnostic approaches.
 
-Watch for the following warning signs:
-
-
-=== Constantly High CPU
-
-When your CPU usage stays consistently near or at your instance limits, queries queue for available CPU time rather than executing immediately. This causes increased latency and eventual timeouts as queries wait longer than their configured timeout thresholds.
-
-Before assuming you need more capacity, identify what's consuming CPU. 
-
-Inefficient queries performing expensive operations are the most common cause - full database scans examining every node, label scans without indexes, Cartesian products creating large intermediate result sets, or complex pattern matching that doesn't use indexes. An indexed lookup performs approximately 10 database hits, while a full scan performs millions - this translates directly to CPU cycles consumed.
-
-**Connection overhead** can also drive sustained high CPU. With 100 concurrent connections executing queries on an 8-core instance, 100 threads compete for 8 cores. The CPU cycles are spent on **context-switching overhead** (saving and restoring thread states) rather than executing query operations.
-
-**Diagnostic checklist**:
-
-* Profile your most frequently executed queries using `PROFILE` to measure database hits per operator
-* Review execution plans for AllNodesScan, NodeByLabelScan, or high-cost Expand operations
-* Check active connection count against available CPU cores (more than 10-15 connections per core indicates contention)
-* Verify indexes exist for common filter predicates in `WHERE` clauses
-* Identify missing indexes where Filter operators appear instead of NodeIndexSeek
-* Optimize expensive queries before scaling instance size
+Use this quick decision guide to identify which pattern you're experiencing:
 
 
-=== Frequent Spikes
-
-Regular CPU spikes typically indicate periodic batch operations, repeatedly executed inefficient queries, or lock contention. But they can also signal garbage collection pressure.
-
-Neo4j runs on the Java Virtual Machine (JVM), which periodically stops everything to reclaim unused memory. During these _"stop-the-world" pauses_, reclaiming memory is given priority, and no actual work gets done. 
-
-Normal garbage collection should consume less than 1% of CPU time. If you're seeing 5% or more, you're likely experiencing memory pressure - your heap is too small for your workload, forcing the JVM to constantly clean up memory.
-
-High garbage collection activity shows up as CPU spikes with degraded query performance across all queries, not just specific ones.
-
-**Diagnostic checklist**:
-
-* Review query logs to correlate spikes with specific queries or scheduled operations
-* Check garbage collection metrics - if GC time exceeds 1%, investigate memory pressure
-* Monitor heap utilization during spike periods - consistently near 100% indicates insufficient memory
-* Identify batch operations or scheduled jobs that coincide with spike timing
-* Examine long-running queries that may be holding memory resources
-* If GC metrics show more than 5% time in garbage collection, prioritize increasing instance size for more memory over query optimization
+[mermaid]
+----
+graph TD
+    Start[Observe CPU Usage] --> Decision{What pattern<br/>do you see?}
+    
+    Decision -->|Consistently 70-90%<br/>Queries slowing down| P1[Pattern 1:<br/>High CPU]
+    Decision -->|Regular spikes<br/>All queries affected| P2[Pattern 2:<br/>Frequent Spikes]
+    Decision -->|Sustained 100%<br/>Queries failing| P3[Pattern 3:<br/>Critical]
+    
+    P1 --> P1D[Likely: Inefficient queries,<br/>too many connections,<br/>or missing indexes]
+    P2 --> P2D[Likely: Memory pressure,<br/>batch operations,<br/>or scheduled jobs]
+    P3 --> P3D[Emergency: Runaway queries<br/>or capacity exceeded]
+    
+    style P3 fill:#ff6b6b
+    style P3D fill:#ff6b6b
+----
 
 
-=== Sustained 100% Usage
+=== Pattern 1: Consistently High CPU (70-90%)
 
-Sustained 100% CPU usage causes query failures or timeouts, degrades transaction processing, and indicates the system has reached capacity limits.
+When your CPU stays consistently high (70-90%), queries start queuing and waiting for available CPU time. Your application users will notice slower response times and increased latency.
 
-**Immediate actions**:
-
-* Identify currently running queries using query monitoring
-* Check for long-running queries that can be safely terminated
-* Review recent application deployments that may have introduced inefficient queries
-* Determine if this is a temporary spike or sustained load requiring scaling
-* If caused by specific queries, terminate them to restore service
-* If caused by sustained workload growth, initiate instance scaling
-* Implement query timeouts in application code to prevent runaway queries
+The good news? This pattern usually indicates optimization opportunities rather than a genuine need for more resources. Follow this diagnostic path to identify and fix the root cause:
 
 
-== When to Scale Your Instance
+[mermaid]
+----
+graph TD
+    A[High CPU 70-90%<br/>Queries slowing down] --> B{What's the cause?}
+    
+    B --> C[Inefficient Queries?]
+    B --> D[Too Many Connections?]
+    B --> E[Missing Indexes?]
+    
+    C --> C1["Run PROFILE MATCH (p:Person)-[:KNOWS]-(f)<br/>WHERE f.name = 'Alice' RETURN p"]
+    C1 --> C2{Check execution plan}
+    C2 --> C3["NodeByLabelScan = millions of hits<br/>AllNodesScan = scanning everything<br/>Expand with high DB hits"]
+    C3 --> C4["Optimize:<br/>Filter early, use selective patterns"]
+    
+    D --> D1[Check active connections<br/>vs available cores]
+    D1 --> D2{More than 15 per core?}
+    D2 -->|Yes| D3["Reduce connections<br/>200 connections on 8 cores = problem<br/>Review pool configuration"]
+    D2 -->|No| D4[Connections OK]
+    
+    E --> E1["Look in PROFILE results:<br/>Filter after retrieval?<br/>No NodeIndexSeek?"]
+    E1 --> E2["CREATE INDEX person_name<br/>FOR (p:Person) ON (p.name)"]
+    E2 --> E3["Restructure query:<br/>MATCH (f:Person {name: $name})-[:KNOWS]-(p)<br/>Use parameters for plan caching"]
+    
+    C4 --> F{Did CPU drop?}
+    D3 --> F
+    D4 --> F
+    E3 --> F
+    
+    F -->|Yes| G["Success!<br/>Monitor and maintain"]
+    F -->|No| H["All optimizations done?<br/>Time to scale instance"]
+----
 
-You should consider scaling your instance when your CPU usage consistently exceeds 70-80% during normal operations, query performance remains degraded after optimization efforts, peak usage regularly hits 100% causing query queuing, or growth trends indicate you'll exceed capacity within your planning window.
 
-But not all scaling is the same. You need to match the scaling strategy to your workload type.
+=== Pattern 2: Frequent CPU Spikes
 
+Seeing regular spikes that affect all queries equally? Unlike slow individual queries, these spikes impact your entire database at once. This is often a sign of memory pressure rather than query problems.
 
-=== Scaling for Write-Heavy Workloads
-
-Writes consume more CPU because Neo4j must write transaction logs, update data structures on disk, maintain indexes for all indexed properties, update statistics for the query planner, and perform consistency checks. 
-
-Write operations must go through the primary instance to maintain consistency in clustered deployments. For sustained write load consuming high CPU, scale the instance vertically by increasing its size to get more CPU cores. 
-
-**Horizontal scaling with secondaries does not reduce write-related CPU load on the primary.**
+Think of spikes as your database taking a "pause" to clean up - when those pauses happen too often or take too long, you'll feel it everywhere. Here's how to diagnose what's causing them:
 
 
-=== Scaling for Read-Heavy Workloads
+[mermaid]
+----
+graph TD
+    A["CPU Spiking Regularly<br/>All queries degraded at once"] --> B{Check GC Metrics First}
+    
+    B -->|"GC time >5%<br/>⚠️ Critical"| C["Memory Pressure Problem<br/>JVM spending too much time<br/>cleaning up memory"]
+    B -->|"GC time 1-5%<br/>⚠ Warning"| D["Borderline - investigate<br/>before it gets worse"]
+    B -->|"GC time <1%<br/>✓ Normal"| E["GC is fine<br/>Look for other causes"]
+    
+    C --> C1["Check heap utilization<br/>in metrics dashboard"]
+    C1 --> C2{Heap consistently<br/>above 90%?}
+    C2 -->|Yes| C3["Solution: Increase instance size<br/>You need more memory,<br/>not query optimization"]
+    C2 -->|No| D
+    
+    D --> D1["Review query logs<br/>Look at timestamps"]
+    D1 --> D2["Do spikes correlate with:<br/>- Specific queries?<br/>- Scheduled jobs?<br/>- Peak traffic times?"]
+    D2 --> D3["Optimize those queries<br/>or reschedule operations"]
+    
+    E --> E1["Check for batch operations<br/>ETL jobs, reports, backups"]
+    E1 --> E2["Solution: Reschedule to<br/>off-peak hours"]
+    
+    E --> E3["Identify long-running queries<br/>holding memory"]
+    E3 --> E4["Solution: Optimize or<br/>break into smaller chunks"]
+    
+    E --> E5["Check for lock contention<br/>Concurrent writes blocking reads"]
+    E5 --> E6["Solution: Separate workloads<br/>or adjust timing"]
+----
 
-Read operations generally consume less CPU than writes, though complex queries can still be expensive. Simple lookups with indexes use minimal CPU, while analytics queries scanning large portions of the graph can spike usage to 100%.
 
-For temporary read spikes - like end-of-quarter reporting or unexpected traffic surges - you can scale horizontally by adding **secondary** servers. Secondaries distribute read queries across multiple instances, reducing the CPU load on any single server.
+=== Pattern 3: Sustained 100% CPU
 
-// [CAUTION]
-// .Secondaries for temporary loads
-// ====
-// Use secondaries for temporary or variable read loads. If your read load is consistently high, scale the instance size instead - it's more cost-effective than running multiple replicas permanently.
+This is a critical situation - your database has hit its limit. Queries are timing out, users can't complete transactions, and things are breaking. You need to act fast to restore service, then figure out why this happened.
 
-// Only maintain multiple replicas when you need high availability or have genuinely variable traffic patterns.
-// ====
+This flowchart walks you through the emergency response and recovery process:
 
 
-=== Scaling for Mixed Workloads
-
-Production databases typically serve both transactional writes (Online Transactional Processing - OLTP) and analytical reads (Online Analytical Processing - OLAP) with different resource consumption patterns. Analyze your metrics to determine whether writes (requiring vertical scaling) or reads (allowing horizontal scaling with replicas) drive your CPU consumption, then apply the appropriate scaling strategy.
-
-[TIP]
-.Proactive scaling
-====
-Proactive scaling based on trend analysis prevents performance degradation by adding capacity before constraints impact operations. Reactive scaling adds capacity after performance has already degraded, meaning users experience slow queries and timeouts during the scaling transition.
-
-Monitor your metrics over weeks and months. Scale when trends indicate you'll reach 80% sustained utilization within your planning horizon, rather than waiting until 100% utilization causes active performance problems.
-====
+[mermaid]
+----
+graph TD
+    A["🚨 CPU at 100%<br/>Queries failing, timeouts"] --> B["IMMEDIATE ACTION<br/>Check Query Monitor"]
+    
+    B --> C{Spot any<br/>long-running queries?}
+    
+    C -->|"Yes<br/>Found the culprit"| D["Terminate runaway queries<br/>Use query monitoring to<br/>kill specific query IDs"]
+    
+    C -->|"No<br/>Everything looks normal"| E["Check recent deployments<br/>New code in last hour?<br/>Traffic spike?"]
+    
+    D --> F{Did CPU drop<br/>below 90%?}
+    E --> F
+    
+    F -->|"Yes - Crisis averted"| G["Quick Fixes<br/>Buy time while investigating"]
+    F -->|"No - Still maxed out"| H["🚨 EMERGENCY SCALE<br/>Increase instance size NOW<br/>Investigate after service restored"]
+    
+    G --> G1["Add query timeouts<br/>SET query.timeout=30s<br/>Prevent future runaway queries"]
+    G --> G2["Restrict expensive patterns<br/>Temporarily disable heavy<br/>analytics or reporting"]
+    
+    G1 --> I["Root Cause Analysis<br/>Why did this happen?"]
+    G2 --> I
+    H --> I
+    
+    I --> J{Was this a<br/>one-time event or<br/>growing trend?}
+    
+    J -->|"One-time spike<br/>e.g. bad query"| K["Apply Pattern 1 fixes:<br/>- PROFILE the bad query<br/>- Add missing indexes<br/>- Optimize query structure"]
+    
+    J -->|"Sustained growth<br/>Traffic increasing"| L["Scale instance permanently<br/>Your workload has outgrown<br/>current capacity"]
+    
+    K --> M["Preventive Measures<br/>Stop this happening again"]
+    L --> M
+    
+    M --> M1["Set up connection pooling<br/>Limit connections per app"]
+    M --> M2["Implement rate limiting<br/>Protect against traffic surges"]
+    M --> M3["Enable query monitoring alerts<br/>Catch problems early"]
+----
 
 
 == Optimizing CPU Usage
 
-Before scaling, consider these optimization strategies:
+Now that you can identify CPU issues, let's explore the optimization strategies referenced in the diagnostic flowcharts. Before scaling your instance, these techniques can often resolve performance problems.
 
 
 === Query Optimization
@@ -194,12 +212,7 @@ PROFILE MATCH (p:Person {name: 'Alice'})-[:KNOWS]->(f)
 RETURN f.name
 ----
 
-The **execution plan** shows you exactly where CPU is being spent. Query operations have vastly different costs - an **indexed lookup** might perform 10 **database hits**, while a **full scan** can perform millions. Look for:
-
-* **Full scans** - `AllNodesScan` or `NodeByLabelScan` operations examining every node or every node of a label
-* **High DB hits** - The cumulative number of database operations per operator
-* **Missing indexes** - `Filter` operations happening after data retrieval instead of `NodeIndexSeek` operations that go directly to matching nodes
-* **Expensive traversals** - `Expand` operations following many relationships without selective starting points
+The **execution plan** shows you exactly where CPU is being spent. Query operations have vastly different costs - an **indexed lookup** might perform 10 **database hits**, while a **full scan** can perform millions. Look for **full scans** (`AllNodesScan` or `NodeByLabelScan` operations examining every node or every node of a label), **high DB hits** (the cumulative number of database operations per operator), **missing indexes** (`Filter` operations happening after data retrieval instead of `NodeIndexSeek` operations that go directly to matching nodes), and **expensive traversals** (`Expand` operations following many relationships without selective starting points).
 
 **Add strategic indexes** for your most common query patterns:
 
@@ -244,107 +257,51 @@ MATCH (p:Person)-[:KNOWS]->(f:Person)
 ----
 
 
-
-// === Workload Management
-
-// **Schedule batch jobs during off-peak hours** - Large data imports, analytics queries, or report generation should run when normal traffic is low. A single **bulk operation** can monopolize CPU resources.
-
-// **Break large operations into smaller chunks** - Instead of processing 100,000 records in one transaction, **batch** them in groups of 1,000. This gives other queries a chance to execute and prevents **thread starvation**.
-
-// **Implement connection pooling** in your applications. Creating new database connections requires CPU for authentication, session initialization, and **thread pool assignment**. **Connection pools** maintain reusable connections, eliminating repeated setup overhead. Configure your pool size based on actual **concurrent query execution**, not total user count.
-
-// For example, an application pool of 50 connections serving thousands of users reduces CPU overhead compared to 500 connections. The 500 connection scenario forces 500 threads to compete for CPU cores, spending cycles on **context switching** rather than query execution.
-
-// === Application Changes
-
-// * Cache frequently accessed data at the application level
-// * Implement pagination for large result sets
-// * Reduce query frequency when possible
-// * Use background jobs for non-urgent operations
-
-
 == Monitoring CPU Patterns by Workload Type
 
-Different workload types create distinct CPU patterns that help you identify what's happening in your database.
+Once you can diagnose and fix CPU issues, implement these ongoing monitoring strategies tailored to your workload type. Different workloads create distinct CPU patterns that help you identify what's consuming CPU and whether you need optimization or scaling.
 
 
-=== Read-Heavy Workload Patterns
+=== Read-Heavy Workloads
 
-Watch for regular spikes during complex queries or aggregations These workloads benefit most from page cache optimization - when your frequently accessed data fits in memory, CPU is spent on actual query processing rather than waiting for disk I/O.
-
-If complex read queries are frequent and unavoidable, consider caching results at the application layer or using secondaries to distribute the load.
+Read-heavy workloads show regular spikes during complex queries or aggregations, with baseline CPU generally lower than write workloads. Simple indexed lookups consume minimal CPU, but analytics queries scanning large portions of the graph can spike usage to 100%. Page cache misses add overhead as CPU waits for disk I/O.
 
 
-=== Write-Heavy Workload Patterns  
-
-Sustained high CPU during peak write periods is normal - **index updates** are a major contributor. Each indexed property on modified nodes requires CPU to update.
-
-Look for optimization opportunities in **batching**. Processing 1,000 updates in a single **transaction** is much more efficient than 1,000 individual transactions, reducing both CPU overhead and index update frequency.
+**Optimize** by caching frequently accessed data at the application layer and ensuring your hot data fits in memory. Add indexes for common query patterns to reduce expensive scans.
 
 
-=== Mixed Workload Patterns
-
-Production environments typically combine reads and writes with competing resource requirements. Watch for high CPU with many active connections but low **query throughput** - this indicates queries are waiting for threads or resources rather than actually executing.
-
-Background writes consume CPU while holding **locks** that block concurrent reads. Long-running analytics queries hold **thread pool threads** for extended periods, preventing short transactional queries from acquiring threads to execute, causing those queries to queue despite available CPU capacity.
-
-Consider separating workloads by query complexity. Use different **connection pools** for short **transactional queries** versus long-running **analytics queries**, or schedule heavy **batch operations** during dedicated time windows.
+**Scale horizontally** by adding secondary servers for temporary read spikes like end-of-quarter reports or traffic surges - this distributes read queries across multiple instances. For sustained high read CPU, scale instance size vertically for more cores, which is more cost-effective than running permanent replicas.
 
 
-== Practical Example: Diagnosing High CPU
+=== Write-Heavy Workloads
 
-Let's walk through a real scenario. Your CPU usage has jumped to 90% sustained, and users are reporting slow queries.
+Write-heavy workloads show sustained high CPU during peak write periods with more consistent patterns than reads. Writes consume CPU through transaction log writes, index updates for all indexed properties (a major contributor), data structure updates on disk, statistics collection for the query planner, and consistency checks.
 
-**Step 1: Check active connections**
 
-Look at your metrics - you see 200 **active connections** on an 8-core instance. That's 25 connections per core, which creates significant **context-switching overhead**.
+**Optimize** by batching operations - process 1,000 updates in one transaction instead of 1,000 individual transactions. Review your indexed properties since each index adds write overhead. Schedule bulk operations during off-peak hours to reduce impact on normal workloads.
 
-**Step 2: Identify expensive queries**
 
-Review **query logs** for operations with high **execution times** and **database hits**. You find queries like:
+**Always scale vertically** by increasing instance size for more CPU cores. Write operations must go through the primary instance to maintain consistency, so horizontal scaling with secondaries does NOT reduce write-related CPU load on the primary.
 
-[source,cypher]
-----
-MATCH (p:Person)-[:KNOWS]-(f)
-WHERE f.name = 'Alice'
-RETURN p.name
-----
 
-This query performs **expensive operations** - it scans all Person nodes (potentially millions), follows all KNOWS relationships, then filters for Alice. The **filter** happens after the expensive traversal instead of using an **index seek** to start from Alice directly.
+=== Mixed Workloads (OLTP + OLAP)
 
-**Step 3: Analyze the execution plan**
+Mixed workloads show high CPU with many active connections but low query throughput - queries are waiting rather than executing. Background writes hold locks that block concurrent reads while long-running analytics queries occupy thread pool threads for extended periods. This causes short transactional queries to queue despite available CPU capacity.
 
-Running `PROFILE` shows:
 
-* `NodeByLabelScan` on Person (scanning millions of nodes)
-* `Expand(All)` following relationships
-* `Filter` operation checking names
-* Total: 15 million **database hits**
+**Optimize** by separating workloads - use different connection pools for transactional versus analytics queries. Schedule heavy batch operations during dedicated time windows and implement query timeouts to prevent thread starvation.
 
-**Step 4: Apply optimizations**
 
-Restructure the query to **filter early**:
+**Analyze your metrics first** to determine if writes (requiring vertical scaling) or reads (allowing horizontal scaling) drive your CPU consumption, then apply the appropriate scaling strategy based on the dominant workload type.
 
-[source,cypher]
-----
-MATCH (f:Person {name: 'Alice'})-[:KNOWS]-(p)
-RETURN p.name
-----
 
-Add an **index** if one doesn't exist:
+[TIP]
+.Proactive vs Reactive Scaling
+====
+Monitor CPU trends over weeks and months. Scale when you'll reach 80% sustained utilization within your planning horizon, not when you hit 100% and users are experiencing problems.
 
-[source,cypher]
-----
-CREATE INDEX person_name FOR (p:Person) ON (p.name)
-----
-
-The new **execution plan** shows:
-
-* `NodeIndexSeek` on Person using person_name
-* `Expand(All)` from only matching nodes
-* Total: 150 **database hits**
-
-You've reduced the cost by 99.999%, and CPU usage drops to 30%.
+Proactive scaling prevents performance degradation. Reactive scaling means users suffer through slow queries while you scramble to add capacity.
+====
 
 
 [.quiz]
@@ -356,16 +313,7 @@ include::questions/1-cpu-action.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You now understand how CPU is actually used in Neo4j and how to monitor CPU usage for your Aura instances.
-
-You've learned:
-
-* What specific operations consume CPU - from efficient **index seeks** to expensive **full scans**
-* How **query execution operators** differ in CPU cost (sometimes by millions of operations)
-* The role of **thread pools** in managing **concurrent connections**
-* How to use `PROFILE` to identify **expensive operations**
-* Specific optimization techniques to reduce CPU consumption
-* How to recognize and diagnose CPU issues through concrete examples
+You now understand how CPU is actually used in Neo4j and how to monitor CPU usage for your Aura instances. You've learned what specific operations consume CPU - from efficient **index seeks** to expensive **full scans** - and how **query execution operators** differ in CPU cost (sometimes by millions of operations). You understand the role of **thread pools** in managing **concurrent connections**, how to use `PROFILE` to identify **expensive operations**, specific optimization techniques to reduce CPU consumption, and how to recognize and diagnose CPU issues through concrete examples.
 
 With this knowledge, you can identify whether high CPU usage is due to **inefficient queries**, too many **connections**, or genuine **capacity limits** - and take appropriate action.
 
