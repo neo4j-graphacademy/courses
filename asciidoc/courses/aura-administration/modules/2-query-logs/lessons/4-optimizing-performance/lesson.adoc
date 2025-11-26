@@ -1,0 +1,438 @@
+= Optimizing Query Performance
+:type: lesson
+:order: 4
+
+// TODO: Content from Martin?
+
+[.discrete]
+== Introduction
+
+Query logs provide the data you need to identify and fix performance issues.
+
+In this lesson, you will learn how to use query logs to optimize slow queries and improve overall database performance.
+
+
+== The Optimization Process
+
+A systematic approach to query optimization:
+
+. **Identify** slow or problematic queries
+. **Analyze** what makes them slow
+. **Optimize** the query or data model
+. **Measure** the improvement
+. **Monitor** for regression
+
+
+== Identifying Queries to Optimize
+
+
+=== Prioritization Criteria
+
+Not all slow queries are equal. Prioritize based on:
+
+
+**Total time spent** (Frequency × Duration):
+* A query running 1,000 times/day at 500ms = 500 seconds/day
+* A query running once/day at 60 seconds = 60 seconds/day
+* First query has bigger impact despite being faster
+
+
+**User-facing vs. background**:
+
+* User-facing slow queries hurt UX immediately
+* Background jobs can often tolerate longer duration
+
+
+**Business criticality**:
+
+* Core business operations take priority
+* Nice-to-have features can wait
+
+
+=== Finding High-Impact Queries
+
+Using query logs:
+
+. **Filter for slow queries**: Minimum duration > 1000ms
+. **Review Summary tab**: Sort by "Total time spent"
+. **Identify patterns**: Look for queries that appear frequently
+. **Calculate impact**: Frequency × Average Duration
+
+
+== Analyzing Query Performance
+
+
+=== Key Metrics to Review
+
+For each slow query, examine:
+
+
+**Duration**:
+
+* How long does it take?
+* Is it consistently slow or variable?
+
+
+**Planning time**:
+
+* High planning (>100ms) suggests non-parameterized query
+* First-time queries show higher planning
+
+
+**Page faults**:
+
+* High page faults mean data not in cache
+* May need indexes or more memory
+
+
+**Execution pattern**:
+
+* When does it run?
+* How often?
+* Who/what triggers it?
+
+
+=== Common Slow Query Patterns
+
+
+==== Full Graph Scans
+
+**Symptom**: Query examines many nodes/relationships
+
+**Example**:
+
+[source,cypher]
+----
+MATCH (n:User) 
+WHERE n.email = 'user@example.com'
+RETURN n
+----
+
+**Problem**: No index on email property
+
+**Fix**: Create index
+
+[source,cypher]
+----
+CREATE INDEX user_email FOR (n:User) ON (n.email)
+----
+
+
+==== Cartesian Products
+
+**Symptom**: Intermediate result set explodes
+
+**Example**:
+
+[source,cypher]
+----
+MATCH (u:User)
+MATCH (p:Product)
+WHERE u.region = p.region
+RETURN u, p
+----
+
+**Problem**: Creates all combinations before filtering
+
+**Fix**: Add relationship or use WITH
+
+[source,cypher]
+----
+MATCH (u:User)
+WITH u
+MATCH (p:Product)
+WHERE u.region = p.region
+RETURN u, p
+----
+
+
+==== Returning Too Much Data
+
+**Symptom**: High duration, high memory
+
+**Example**:
+
+[source,cypher]
+----
+MATCH (u:User)-[:PURCHASED]->(p:Product)
+RETURN u, p
+// Returns 100,000+ rows
+----
+
+**Problem**: Returns massive result set
+
+**Fix**: Add pagination
+
+[source,cypher]
+----
+MATCH (u:User)-[:PURCHASED]->(p:Product)
+RETURN u, p
+SKIP $offset LIMIT $limit
+----
+
+
+==== Missing Indexes
+
+**Symptom**: High page faults, slow lookups
+
+**Example**:
+
+[source,cypher]
+----
+MATCH (p:Product)
+WHERE p.sku = $sku
+RETURN p
+----
+
+**Problem**: No index on frequently queried property
+
+**Fix**: Create appropriate index
+
+[source,cypher]
+----
+CREATE INDEX product_sku FOR (n:Product) ON (n.sku)
+----
+
+
+==== Deep Traversals
+
+**Symptom**: Long duration, many page faults
+
+**Example**:
+
+[source,cypher]
+----
+MATCH path = (u:User)-[*5..10]->(p:Product)
+RETURN path
+----
+
+**Problem**: Variable length path with wide range
+
+**Fix**: Narrow range, add direction, use specific relationship types
+
+[source,cypher]
+----
+MATCH path = (u:User)-[:FRIEND*2..3]->(friend)-[:PURCHASED]->(p:Product)
+RETURN path
+----
+
+
+## Optimization Techniques
+
+
+=== Add Indexes
+
+Indexes dramatically speed up property lookups.
+Consider the following example:
+
+[source,cypher]
+.Lookup users by email
+----
+// Before: Scans all User nodes
+MATCH (u:User {email: $email});
+----
+
+Without an index on the `email` property, the query will scan all nodes with a User label and check the `email` property of each individually.
+
+Creating an index on the `email` property will allow the query engine to quickly find the user by email address.
+
+[source,cypher]
+.Creating an index
+----
+CREATE INDEX user_email FOR (n:User) ON (n.email)
+----
+
+When the property is expected to be unique, you should create a unique constraint.  Creating a unique constraint will also create an index on the property.
+
+[source,cypher]
+.Creating a unique constraint
+----
+CREATE CONSTRAINT user_email_unique FOR (n:User) REQUIRE n.email IS UNIQUE
+----
+
+=== Use Parameters
+
+Parameters enable query plan caching:
+
+[source,cypher]
+----
+// Bad - new plan each time
+MATCH (u:User) WHERE u.age > 25 RETURN u;
+
+// Good - plan reused
+MATCH (u:User) WHERE u.age > $minAge RETURN u;
+----
+
+
+=== Limit Result Sets
+
+Don't return more data than needed:
+
+[source,cypher]
+----
+// Add LIMIT
+MATCH (u:User) RETURN u LIMIT 100;
+
+// Use aggregation instead of collecting
+MATCH (u:User) RETURN count(u)  // Not: RETURN collect(u)
+----
+
+
+=== Optimize Traversals
+
+Be specific about relationships and direction:
+
+[source,cypher]
+----
+// Vague - slow
+MATCH (u:User)-[*]-(p:Product) RETURN u, p;
+
+// Specific - fast
+MATCH (u:User)-[:PURCHASED]->(p:Product) RETURN u, p;
+----
+
+
+=== Use EXPLAIN and PROFILE
+
+Before changing production, test optimizations:
+
+[source,cypher]
+.See planned execution
+----
+EXPLAIN
+MATCH (u:User {email: $email}) RETURN u;
+----
+
+[source,cypher]
+.See actual execution statistics
+// 
+PROFILE
+MATCH (u:User {email: $email}) RETURN u;
+----
+
+
+## Measuring Improvement
+
+
+=== Before and After Comparison
+
+. **Record baseline**: Average duration from query logs
+. **Implement optimization**: Apply fixes in test environment
+. **Test thoroughly**: Verify results are correct
+. **Deploy to production**: Apply changes
+. **Monitor query logs**: Check new average duration
+
+**Calculate improvement**:
+
+----
+Improvement % = ((Old Duration - New Duration) / Old Duration) × 100
+----
+
+Example: 5000ms → 50ms = 99% improvement
+
+
+=== Validate with Query Logs
+
+After optimization:
+
+. Filter for the optimized query
+. Check Details tab for recent executions
+. Verify duration is improved
+. Check page faults are reduced
+. Confirm planning time is normal
+
+
+## Monitoring for Regression
+
+
+=== Set Up Ongoing Monitoring
+
+* Review query logs weekly for new slow queries
+* Alert on queries exceeding duration thresholds
+* Track trends in average query latency
+* Monitor Total time spent for top queries
+
+
+=== Common Causes of Regression
+
+**Data growth**:
+
+* Queries slow down as data grows
+* May need additional indexes
+* May need data archival
+
+
+**Schema changes**:
+
+* New properties or relationships
+* Changed data model
+* Index modifications
+
+
+**Application changes**:
+
+* New queries introduced
+* Changed query patterns
+* Removed parameters (accidental)
+
+
+## Real-World Example
+
+**Scenario**: Dashboard report slow
+
+**Investigation**:
+
+1. Query logs filtered for duration > 5000ms
+2. Found: `MATCH (u:User)-[:PURCHASED]->(p:Product) RETURN u.name, p.name`
+3. Frequency: 100 times/day
+4. Average duration: 7,500ms
+5. Total impact: 750 seconds/day (12.5 minutes)
+
+**Analysis**:
+
+* High page faults: 50,000
+* Returns 10,000+ rows
+* No pagination
+
+**Optimization**:
+
+[source,cypher]
+.Before - Returns all rows
+----
+MATCH (u:User)-[:PURCHASED]->(p:Product)
+RETURN u.name, p.name;
+----
+
+[source,cypher]
+.After - added pagination and sorting
+----
+MATCH (u:User)-[:PURCHASED]->(p:Product)
+RETURN u.name, p.name
+ORDER BY p.purchaseDate DESC
+SKIP $offset LIMIT 100
+----
+
+**Results**:
+
+* Duration: 7,500ms → 150ms (98% improvement)
+* Page faults: 50,000 → 500
+* Returns: 10,000 rows → 100 rows per request
+* Total impact: Saved 12 minutes/day
+
+
+read::Continue to next lesson[]
+
+
+[.summary]
+== Summary
+
+You learned how to use query logs to optimize database performance.
+
+The optimization process involves identifying high-impact queries (by total time spent), analyzing what makes them slow, applying appropriate optimizations, and measuring improvement.
+
+Common optimization techniques include adding indexes, using parameters, limiting result sets, and optimizing traversals.
+
+Always measure before and after performance using query logs to validate improvements.
+
+In the next module, you will learn about advanced monitoring features including metrics integration and security logs.
+

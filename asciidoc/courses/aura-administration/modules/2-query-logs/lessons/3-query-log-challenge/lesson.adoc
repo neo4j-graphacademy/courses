@@ -1,0 +1,80 @@
+=  Finding the Problem Query
+:type: challenge
+:order: 3
+
+// TODO: Needs better scenario/question
+
+== Scenario
+
+Users report that "the application has been really slow since this morning around 9 AM."
+
+It's now 11 AM, and you need to identify what's causing the slowness.
+
+You access the query logs and apply initial filters:
+
+* **Time period**: Last 3 hours (since 8 AM)
+* **Status**: Completed (focusing on slow, not failed)
+
+The summary view shows the following data sorted by total time spent:
+
+
+[cols="3,1,1,1,1",options="header"]
+|===
+| Query Pattern | Count | Total Time | Avg Time | Max Time
+
+| `MATCH (u:User)-[:FRIEND*]->(f) RETURN f.name`
+| 2,500
+| 375min
+| 9,000ms
+| 12,000ms
+
+| `MATCH (p:Product) WHERE p.price > $min RETURN p`
+| 15,000
+| 75min
+| 300ms
+| 800ms
+
+| `MATCH (o:Order {id: $id}) RETURN o`
+| 10,000
+| 5min
+| 30ms
+| 50ms
+|===
+
+
+include::questions/1-prioritization.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Prioritize query optimization by total time spent (frequency × duration), not just duration. A frequently executed slow query consumes more resources than an occasionally executed slower query
+
+**Query 3**: `MATCH (o:Order {id: $id})`
+
+* Executed 10,000 times (high frequency)
+* Average 30ms (fast!)
+* Total impact: 5 minutes (negligible)
+* No optimization needed - performing well
+
+**Optimization approach for Query 1:**
+
+The variable-length path query `[:FRIEND*]` with no maximum is extremely expensive:
+
+[source,cypher]
+----
+// Problem query
+MATCH (u:User)-[:FRIEND*]->(f) RETURN f.name;
+
+// Fixes:
+// 1. Add maximum depth
+MATCH (u:User)-[:FRIEND*..3]->(f) RETURN f.name;
+
+// 2. Or use specific depth
+MATCH (u:User)-[:FRIEND]->()-[:FRIEND]->(f) RETURN f.name;
+----
+
+**Key lesson**: A less frequent but very slow query can have more total impact than many fast queries.
+
+Always calculate: Frequency × Duration = Total Impact
+
