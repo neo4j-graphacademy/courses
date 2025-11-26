@@ -45,8 +45,7 @@ describe("QA Tests", () => {
       return targetCourses.some((term) => slug.includes(term));
     });
     console.log(
-      `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
-        coursePaths.length
+      `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${coursePaths.length
       })`
     );
   }
@@ -334,9 +333,9 @@ describe("QA Tests", () => {
                 it("should be optional, mark as read or have one or more questions", () => {
                   expect(
                     optional ||
-                      hasReadButton ||
-                      includesSandbox ||
-                      questionPaths.length > 0
+                    hasReadButton ||
+                    includesSandbox ||
+                    questionPaths.length > 0
                   ).toBe(true);
                 });
 
@@ -403,6 +402,20 @@ describe("QA Tests", () => {
                         const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
                         expect(titleMatch).toBeTruthy();
                         expect(titleMatch[1].trim().length).toBeGreaterThan(0);
+                      });
+
+                      it("should not have its title appear in the lesson content", () => {
+                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
+                        if (titleMatch) {
+                          const title = titleMatch[1].trim();
+
+                          // Check if the question title appears in the lesson content
+                          if (lessonAdoc.includes(`= ${title}\n`)) {
+                            throw new Error(
+                              `Question title "${title}" should not appear in the lesson content`
+                            );
+                          }
+                        }
                       });
 
                       it(`should have a hint`, () => {
