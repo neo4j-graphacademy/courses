@@ -56,12 +56,12 @@ You can use this retriever to create a `GraphRAG` pipeline to:
 . Use a Cypher query to add additional information to the context.
 . Pass the context to an LLM to generate a response to the original query.
 
-Open `genai-graphrag-python/vector_cypher_rag.py` and review the code:
+Open `workshop-genai/vector_cypher_rag.py` and review the code:
 
 [source, python]
 .vector_cypher_rag.py
 ----
-include::{repository-raw}/{branch}/genai-graphrag-python/vector_cypher_rag.py[]
+include::{repository-raw}/{branch}/workshop-genai/vector_cypher_rag.py[]
 ----
 
 The retriever is configured to use the `chunkEmbedding` vector index you just created.
@@ -69,7 +69,7 @@ The retriever is configured to use the `chunkEmbedding` vector index you just cr
 [source, python]
 .Retriever initialization
 ----
-include::{repository-raw}/{branch}/genai-graphrag-python/solutions/vector_cypher_rag.py[tag=retriever]
+include::{repository-raw}/{branch}/workshop-genai/solutions/vector_cypher_rag.py[tag=retriever]
 ----
 
 When you run the code:
@@ -87,7 +87,7 @@ You can print the context passed to the LLM by adding the following to the end o
 [source, python]
 .Print context
 ----
-include::{repository-raw}/{branch}/genai-graphrag-python/solutions/vector_cypher_rag.py[tag=print_context]
+include::{repository-raw}/{branch}/workshop-genai/solutions/vector_cypher_rag.py[tag=print_context]
 ----
 
 == Retrieval Cypher Query
@@ -101,7 +101,7 @@ Update the `retrieval_query` to add additional information about the lessons, te
 [source, python]
 .Enhanced retrieval query
 ----
-include::{repository-raw}/{branch}/genai-graphrag-python/solutions/vector_cypher_rag.py[tag=retrieval_query]
+include::{repository-raw}/{branch}/workshop-genai/solutions/vector_cypher_rag.py[tag=retrieval_query]
 ----
 
 The retriever will execute the Cypher query adding more context.
@@ -113,6 +113,50 @@ _You can learn more about knowledge graphs in the Neo4j blog post linked here: l
 The retrieval query includes additional context relating to technologies and concepts mentioned in the chunks.
 
 Experiment asking different questions relating to the knowledge graph such as _"What technologies and concepts support knowledge graphs?"_.
+
+== Generalize entity retrieval
+
+The retriever currently uses the knowledge graph to add additional context related to technologies and concepts.
+The specific entities allow for targeted retrieval, however you may also want to generalize the retrieval to include all related entities.
+
+You can use the node labels and relationship types to create a response that includes details about the entities.
+
+This cypher query retrieves all related entities between the chunks:
+
+[source, cypher]
+.Related entities
+----
+MATCH (c:Chunk)<-[:FROM_CHUNK]-(entity)-[r]->(other)-[:FROM_CHUNK]->()
+RETURN DISTINCT 
+  labels(entity)[2], entity.name, entity.type, entity.description, 
+  type(r), 
+  labels(other)[2], other.name, other.type, other.description
+----
+
+The output uses the node labels, properties, and relationship types to output rows which form statements such as:
+
+* `Concept` "Semantic Search" `RELATED_TO` `Technology` "Vector Indexes"
+* `Technology` "Retrieval Augmented Generation" `HAS_CHALLENGE` "Understanding what the user is asking for and finding the correct information to pass to the LLM"`
+
+These statements can be used to create additional context for the LLM to generate responses.
+
+Modify the `retrieval_query` to include all entities associated with the chunk:
+
+[source, python]
+.Enhanced retrieval query with all related entities
+----
+include::{repository-raw}/{branch}/workshop-genai/solutions/vector_cypher_rag.py[tag=advanced_retrieval_query]
+----
+
+[TIP]
+.Format the context
+====
+The Cypher functions `reduce` and `coalesce` are used to format the associated entities into readable statements. The `reduce` function adds space characters between the values, and `coalesce` replaces null values with empty strings. 
+====
+
+Experiment running the code again with different queries to see how the additional context changes the responses.
+
+read::Continue[]
 
 [.summary]
 == Lesson Summary
