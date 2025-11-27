@@ -1,4 +1,4 @@
-= Query Rate and Latency
+= Monitoring Query Rate and Latency
 :type: lesson
 :order: 3
 
@@ -6,293 +6,64 @@
 [.discrete]
 == Introduction
 
-Understanding query performance at the database level helps you identify slow queries and performance trends.
+Query performance directly affects user experience. Slow queries frustrate users, while failed queries may indicate application problems or resource constraints.
 
 In this lesson, you will learn how to monitor query rates, failed queries, and query latency percentiles.
 
 
-== Query Rate Metrics
+== Understanding Query Metrics
 
-The Database tab provides query rate metrics at the database level.
+Aura provides two types of query metrics at the database level to help you monitor performance.
 
+**Query rate** shows how many queries execute per minute. This includes both successful queries and failed queries. Query rate helps you understand database load and identify unusual patterns like sudden spikes or drops.
 
-=== Queries Per Minute
-
-The number of successful queries executed per minute on the database.
+**Query latency** shows how long queries take to execute, measured in percentiles. The **50th percentile** (median) shows typical performance, the **75th percentile** shows how most queries perform, and the **99th percentile** captures your slowest queries.
 
 // UI Description: Queries per minute is the number of successful queries executed per minute on this database.
 
-This metric shows:
+// UI Description: Failed queries per minute is the number of failed queries executed per minute on this database.
 
-* Overall database query load
-* Usage patterns over time
-* Impact of application changes
-
-
-=== Failed Queries Per Minute
-
-The number of failed queries executed per minute on the database.
-
-// UI Description: Failed queries per minute is the number of falied queries executed per minute on this database.
-
-Failed queries may result from:
-
-* Syntax errors in Cypher
-* Constraint violations
-* Query timeouts
-* Permission issues
-* Out-of-memory errors
-
-
-== Interpreting Query Rates
-
-
-=== Normal Query Rate Patterns
-
-**Healthy database**:
-
-* Queries per minute: Stable or gradually increasing
-* Failed queries: Very low (< 1% of total)
-* Consistent with application usage
-
-
-=== Warning Signs
-
-
-==== High Failed Query Rate
-
-If failed queries are a significant portion of total queries:
-
-* Application issues or bugs
-* Query syntax errors
-* Resource constraints causing timeouts
-* Permission configuration issues
-
-**Action**: Review query logs to identify failing queries and root causes.
-
-
-==== Sudden Changes in Query Rate
-
-Unexpected changes in query rate:
-
-**Sudden increase**:
-
-* New feature deployment
-* Increased application usage
-* Possible retry storms
-* DDoS or abuse
-
-**Sudden decrease**:
-
-* Application outage
-* Network issues
-* Scheduled downtime
-* Users unable to connect
-
-
-==== Growing Failed Queries
-
-Increasing failed query rate over time:
-
-* Growing resource pressure
-* Degrading performance
-* Application issues spreading
-* Query timeouts becoming common
-
-**Action**: Investigate failed queries and address root causes.
-
-
-== Query Latency Metrics
-
-Query latency metrics show query execution time in milliseconds.
-
-
-[NOTE]
-.Neo4j version requirement
-====
-Query latency percentiles are available from Neo4j Version 5.
-====
-
-
-=== 50th Percentile (Median)
-
-The query execution time where 50% of queries executed faster than the reported time.
-
-// UI Description: The query execution time in milliseconds where 50% of queries executed faster than the 
+// UI Description: The query execution time in milliseconds where 50% of queries executed faster than the
 // reported time. This also corresponds to the median of the query execution time. Available from Neo4j Version 5.
 
-This represents the typical query performance for your workload.
-
-
-=== 75th Percentile
-
-The query execution time where 75% of queries executed faster than the reported time.
-
-// UI Description: The query execution time in milliseconds where 75% of queries executed faster than the 
+// UI Description: The query execution time in milliseconds where 75% of queries executed faster than the
 // reported time. Available from Neo4j Version 5.
 
-This shows how most queries perform, excluding the slowest 25%.
-
-
-=== 99th Percentile
-
-The query execution time where 99% of queries executed faster than the reported time.
-
-// UI Description: The query execution time in milliseconds where 99% of queries executed faster than the 
+// UI Description: The query execution time in milliseconds where 99% of queries executed faster than the
 // reported time. Available from Neo4j Version 5.
 
-This captures the performance of your slowest queries.
 
-[TIP]
-.Why 99th percentile matters
-====
-The 99th percentile is crucial for user experience - even if most queries are fast, slow outliers can frustrate users.
-====
+== Monitoring Query Performance
 
+Monitor both query rate and latency together to understand database health.
 
-== Interpreting Query Latency
+Failed queries should be very low, typically less than 1% of total queries. High failed query rates indicate application errors, syntax problems, permission issues, or resource constraints causing timeouts. Review query logs to identify failing queries and their root causes.
 
+A stable or gradually increasing query rate with low latency indicates a healthy database. Sudden changes in query rate may indicate new deployments, application issues, or connectivity problems.
 
-=== Understanding Percentiles
+For query latency, a low 50th percentile (under 100ms) indicates typical queries are fast. If the 99th percentile is much higher than the median, specific queries need optimization rather than scaling the instance. A wide spread between percentiles indicates inconsistent query performance.
 
-**Low 50th percentile (< 100ms)**:
 
-* Typical queries are fast
-* Good user experience for most operations
+== Interpreting Query Patterns
 
+Different patterns reveal different issues and require different actions.
 
-**High 99th percentile (> 1000ms)**:
+**High query rate with increasing latency** indicates resource pressure. The database may be handling more load than it can process efficiently. Review CPU, memory, and page cache metrics to identify bottlenecks.
 
-* Some queries are slow
-* Occasional poor user experience
-* May indicate queries needing optimization
+**Low failed queries with high 99th percentile latency** indicates specific slow queries need optimization. Most queries work well, but outliers affect user experience. Use query logs to identify and optimize the slowest queries.
 
+**Increasing failed queries over time** indicates growing problems. Resource pressure may cause query timeouts, or application issues may be spreading. Investigate failed queries immediately to prevent further degradation.
 
-**Wide spread (50th vs. 99th)**:
 
-* Inconsistent query performance
-* Some queries much slower than others
-* Consider query optimization
+== When You Should Optimize or Scale
 
+Use query metrics to decide between optimization and scaling.
 
-=== Healthy Latency Patterns
+If the 99th percentile latency is very high (more than 10x the median), optimize specific queries first. Scaling won't fix poorly written queries. Review query logs for duration above your threshold and add indexes or rewrite queries.
 
-**Simple read queries**: 1-50ms
+If all percentiles (50th, 75th, 99th) are high, you have systemic performance issues. Review all instance metrics including CPU, memory, and page cache before scaling. The instance may be undersized for your workload.
 
-**Complex traversals**: 50-500ms
-
-**Large aggregations**: 500-5000ms
-
-**Batch operations**: Seconds to minutes
-
-
-These are guidelines - your acceptable latency depends on use case.
-
-
-=== Warning Signs
-
-
-==== Increasing Latency Over Time
-
-If latency percentiles are increasing:
-
-* Database growing beyond available resources
-* Page cache hit ratio may be declining
-* Indexes may be needed or not being used
-* Query patterns changing
-
-**Action**: Review page cache metrics and query logs.
-
-
-==== High 99th Percentile
-
-If 99th percentile is very high (>10x median):
-
-* Some queries are outliers
-* Specific queries need optimization
-* May cause timeout errors
-
-**Action**: Review query logs to identify slow queries.
-
-
-==== All Percentiles High
-
-If all percentiles (50th, 75th, 99th) are high:
-
-* Systemic performance issues
-* Instance undersized for workload
-* General optimization needed
-
-**Action**: Review all metrics (CPU, memory, page cache) and consider scaling.
-
-
-== Correlating Metrics
-
-Query rate and latency metrics work together:
-
-
-=== High Rate + Low Latency
-
-* Efficient queries executing frequently
-* Well-optimized database
-* Healthy state
-
-
-=== High Rate + High Latency
-
-* Many slow queries executing
-* Performance degraded
-* Resource pressure likely
-* **Action**: Optimization or scaling needed
-
-
-=== Low Rate + High Latency
-
-* Few queries but they're slow
-* Specific queries need optimization
-* May not be resource issue
-* **Action**: Focus on query optimization
-
-
-=== Growing Failed Queries + Increasing Latency
-
-* Performance degradation
-* Queries timing out
-* Resource exhaustion likely
-* **Action**: Immediate investigation required
-
-
-== Using Query Metrics for Optimization
-
-
-=== Identify Optimization Opportunities
-
-. Monitor 99th percentile latency
-. Look for spikes or trends
-. Correlate with query logs
-. Identify specific slow queries
-. Optimize those queries
-
-
-=== Measure Impact of Changes
-
-Before and after optimization:
-
-. Record latency percentiles
-. Make optimization changes
-. Monitor percentiles for improvement
-. Validate success
-
-
-=== Set Latency Targets
-
-Define acceptable latency for your application:
-
-* User-facing queries: < 100ms (50th percentile)
-* Reports: < 5000ms (99th percentile)
-* Batch operations: Custom limits
-
-Alert when targets are exceeded.
+Monitor query metrics before and after making changes to validate improvements. Set latency targets based on your use case, such as under 100ms for user-facing queries or under 5 seconds for reports.
 
 
 [.quiz]
@@ -304,11 +75,7 @@ include::questions/1-query-latency.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You learned how to monitor query rates and latency for your Aura databases.
-
-You learned that failed queries should be very low (<1% of total) and that the 99th percentile latency is crucial for user experience.
-
-Query latency percentiles help you identify slow queries and measure the impact of optimizations.
+Query rate and latency metrics help you monitor database performance. Failed queries should be very low, and the 99th percentile latency reveals slow queries that impact user experience. A large gap between median and 99th percentile indicates specific queries need optimization rather than scaling.
 
 In the next lesson, you will learn about monitoring transactions and identifying transaction issues.
 
