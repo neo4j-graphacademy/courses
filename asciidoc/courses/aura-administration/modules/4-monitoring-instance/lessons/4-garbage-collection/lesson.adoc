@@ -1,4 +1,4 @@
-= Garbage Collection
+= Monitoring Garbage Collection
 :type: lesson
 :order: 7
 
@@ -6,304 +6,79 @@
 [.discrete]
 == Introduction
 
-Garbage collection (GC) is the process of reclaiming memory from objects that are no longer needed.
+Heap memory usage directly relates to how often the Java Virtual Machine must perform garbage collection. When heap usage is high, garbage collection runs more frequently, which can cause query pauses and performance degradation.
 
 In this lesson, you will learn how to monitor garbage collection metrics and understand their impact on database performance.
 
 
 == Understanding Garbage Collection
 
-Neo4j runs on the Java Virtual Machine (JVM), which automatically manages memory through garbage collection.
+Neo4j runs on the **Java Virtual Machine**, which automatically reclaims memory from objects that are no longer needed. This process is called **garbage collection**.
 
-During garbage collection:
+The JVM pauses briefly during garbage collection to clean up unused memory. During these pauses, query execution may be delayed. The goal is to minimize the frequency and duration of these pauses to maintain consistent performance.
 
-* The JVM pauses to clean up unused memory
-* Query execution may be delayed
-* Resources are reclaimed for future use
+The JVM divides memory into two generations. **Young generation** handles short-lived objects like temporary query results. **Old generation** handles long-lived objects like cached data and transaction state.
 
-**The goal**: Minimize GC frequency and duration to maintain consistent performance.
 
+== Monitoring Garbage Collection
 
-== Garbage Collection Metrics
+image::images/garbage-collection.png[Garbage collection metrics]
 
-Aura provides several GC metrics to monitor:
+Aura provides several garbage collection metrics on the **Instance** tab.
 
 
-=== Total GC Time (%)
+=== Young Generation Metrics
 
-The amount of time spent in garbage collection as a percentage of total runtime.
+link:https://neo4j.com/docs/aura/metrics/metrics-integration/reference/#_garbage_collection_young_generation[Young generation garbage collection^] typically completes quickly in milliseconds. These collections happen frequently but have minimal impact on performance.
 
-// UI Description: Shows the amount of time spent in garbage collection as a percentage. High values indicate 
-// that the instance is running low on memory for the workload and you should consider increasing the size of 
-// your instance.
+**Young Gen (%)** shows the time spent in young generation garbage collection as a percentage. High values indicate that the instance is running low on memory for the workload.
 
-* **Normal**: <2% of time
-* **Warning**: 5-10% of time
-* **Critical**: >10% of time
+**Young Gen (Cumulative)** shows the total time since startup spent clearing up heap space for short-lived objects. Monitor the rate of increase rather than the absolute value.
 
-High values indicate memory pressure requiring action.
 
+=== Old Generation Metrics
 
-=== Total GC Time (Cumulative)
+link:https://neo4j.com/docs/aura/metrics/metrics-integration/reference/#_garbage_collection_old_generation[Old generation garbage collection^] can take seconds to complete. The Aura instance waits while garbage collection runs, causing noticeable query pauses.
 
-The total time since startup spent in garbage collection.
+**Old Gen (%)** shows the time spent in old generation garbage collection as a percentage. High values indicate that there are long-running processes or queries that could be optimized, or that your instance is running low on CPU or memory.
 
-// UI Description: Shows the total time since startup spent clearing up heap space. High values indicate that 
-// the instance is running low on memory for the workload and you should consider increasing the size of your instance.
+**Old Gen (Cumulative)** shows the total time since startup spent clearing up heap space for long-lived objects. Frequent old generation collections indicate performance issues.
 
-This continuously increases over time - monitor the rate of increase rather than the absolute value.
 
-A sudden increase in the rate indicates a problem.
+=== Total Garbage Collection Time
 
+**Total Garbage Collection Time (%)** shows the overall time spent in garbage collection as a percentage of runtime. High values indicate memory pressure and the need to scale your instance.
 
-=== Young Generation GC
 
-Young generation GC handles short-lived objects.
+== Mitigating Garbage Collection Issues
 
-// UI Description (Young Gen %): Shows the amount of time spent in garbage collection as a percentage. Young 
-// garbage collections typically complete quickly, and the Aura instance waits while the garbage collector is run. 
-// High values indicate that the instance is running low on memory for the workload and you should consider 
-// increasing the size of your instance.
+When you observe high garbage collection time, the root cause typically falls into one of two categories.
 
-// UI Description (Young Gen Cumulative): Shows the total time since startup spent clearing up heap space for 
-// short lived objects. Young garbage collections typically complete quickly, and the Aura instance waits while 
-// the garbage collector is run. High values indicate that the instance is running low on memory for the workload 
-// and you should consider increasing the size of your instance.
 
-**Characteristics**:
+=== Query-Level Issues
 
-* Frequent but fast (milliseconds)
-* Collects recently created objects
-* Minimal impact on performance
+Queries that create many temporary objects increase garbage collection frequency. Limit result set sizes with `LIMIT` to reduce object creation. Use aggregations instead of collecting all results in memory.
 
-**Young Gen (%)**: Time spent in young generation GC as a percentage.
+Use `CALL { } IN TRANSACTIONS` for batch operations to process data in smaller chunks. This prevents memory from filling up with intermediate results.
 
-**Young Gen (Cumulative)**: Total time spent in young generation GC.
 
+=== Memory-Intensive Workloads
 
-=== Old Generation GC
-
-Old generation GC handles long-lived objects.
-
-// UI Description (Old Gen %): Shows the amount of time spent in garbage collection as a percentage. Old garbage 
-// collections can take time to complete, and the Aura instance waits while the garbage collector is run. High 
-// values indicate that there are long-running processes or queries that could be optimized, or that your instance 
-// is running low on CPU or memory for the workload and you should consider reviewing these metrics and possibly 
-// increasing the size of your instance.
-
-// UI Description (Old Gen Cumulative): Shows the total time since startup spent clearing up heap space for 
-// long-lived objects. Old garbage collections can take time to complete, and the Aura instance waits while the 
-// garbage collector is run. High values indicate that there are long-running processes or queries that could be 
-// optimized, or that your instance is running low on CPU or memory for the workload and you should consider 
-// reviewing these metrics and possibly increasing the size of your instance.
-
-**Characteristics**:
-
-* Infrequent but slow (seconds)
-* Can cause noticeable pauses
-* Significant impact on performance if frequent
-
-**Old Gen (%)**: Time spent in old generation GC as a percentage.
-
-**Old Gen (Cumulative)**: Total time spent in old generation GC.
-
-
-== Interpreting GC Metrics
-
-
-=== Healthy GC Patterns
-
-**Young generation**:
-
-* Frequent (every few seconds to minutes)
-* Short duration (milliseconds)
-* Minimal percentage of total time
-
-**Old generation**:
-
-* Infrequent (minutes to hours)
-* Longer duration (seconds)
-* Very low percentage of total time
-
-**Total GC time**: <2% of runtime
-
-
-=== Warning Signs
-
-
-==== High Young Gen GC (>5%)
-
-Indicates:
-
-* High object creation rate
-* Insufficient heap memory for workload
-* Queries creating many temporary objects
-
-**Impact**: Slight performance degradation
-
-
-==== Frequent Old Gen GC
-
-Indicates:
-
-* Long-running queries or processes
-* Memory leaks (rare)
-* Heap memory nearly full
-
-**Impact**: Noticeable query pauses
-
-
-==== High Total GC Time (>10%)
-
-Indicates:
-
-* Severe memory pressure
-* Instance undersized for workload
-* Performance severely degraded
-
-**Impact**: Unacceptable performance, immediate action required
-
-
-==== Increasing Old Gen Cumulative Time
-
-If old gen GC time is increasing rapidly:
-
-* Long-running processes consuming memory
-* Queries that could be optimized
-* Possible memory leak
-
-**Action**: Review query logs for long-running queries
-
-
-== The Relationship Between Heap and GC
-
-GC metrics and heap memory are closely related:
-
-**High heap usage (>80%) + High GC time**:
-
-* Instance running low on memory
-* GC working hard to reclaim space
-* Performance degraded
-* **Action**: Scale instance or optimize queries
-
-**High heap usage + Normal GC time**:
-
-* Memory in use but stable
-* Generally acceptable
-* Monitor for trends
-
-**Normal heap usage + High GC time**:
-
-* Unusual pattern
-* May indicate specific query patterns
-* **Action**: Investigate query logs
+If your workload naturally requires significant memory, schedule memory-intensive operations during off-peak hours. This prevents garbage collection from impacting user queries during busy periods.
 
 
 == When to Scale Your Instance
 
-Consider scaling when:
+Consider increasing the size of your instance when garbage collection time shows consistently high values. If heap usage exceeds 80% and garbage collection time is elevated, your instance needs more memory.
 
-* Total GC time consistently exceeds 5%
-* Old generation GC is frequent (multiple times per hour)
-* GC time is increasing over time
+Frequent old generation garbage collection indicates that long-lived objects are consuming most of the heap. This pattern suggests the instance is undersized for your workload.
 
-Heap usage is consistently high (>80%)
 
 [WARNING]
+.Impact on Query Performance
 ====
-GC pauses can cause queries to timeout or fail.
-
-Old generation GC taking several seconds can impact user experience.
+Old generation garbage collection pauses can take several seconds to complete. During these pauses, all queries wait, which can cause timeouts or failed transactions. This directly impacts user experience and application reliability.
 ====
-
-
-== Optimizing to Reduce GC Pressure
-
-
-=== Query-Level Optimization
-
-**Reduce object creation**:
-
-* Limit result set sizes with `LIMIT`
-* Use aggregations instead of collecting all results
-* Stream results when possible
-
-
-**Shorter transactions**:
-
-* Keep transactions brief
-* Commit or rollback promptly
-* Avoid long-running transactions
-
-
-**Memory-efficient queries**:
-
-* Avoid collecting large collections in memory
-* Use `CALL {} IN TRANSACTIONS` for batch operations
-* Process data in smaller chunks
-
-
-=== Workload Management
-
-* Schedule memory-intensive operations during off-peak hours
-* Limit concurrent complex queries
-* Distribute batch operations over time
-* Implement query queuing for heavy workloads
-
-
-=== Application Changes
-
-* Implement pagination for large result sets
-* Cache frequently accessed data at application level
-* Reduce query frequency when possible
-
-
-== Monitoring GC Over Time
-
-Track GC metrics to identify trends:
-
-**Daily patterns**: GC activity during peak hours is normal
-
-**Weekly trends**: Gradual increase may indicate growing workload
-
-**Sudden changes**: Investigate new queries or application changes
-
-**Seasonal patterns**: Business cycles may affect GC behavior
-
-
-[TIP]
-====
-Review GC metrics alongside heap memory and query logs for complete understanding.
-
-Often, optimizing a few queries can dramatically reduce GC pressure.
-====
-
-
-== Common GC Scenarios
-
-
-=== Normal Operations
-
-* Total GC: <2%
-* Young Gen: Frequent, short
-* Old Gen: Rare
-* Performance: Excellent
-
-
-=== Memory Pressure
-
-* Total GC: 5-10%
-* Young Gen: Very frequent
-* Old Gen: Occasional
-* Performance: Degraded
-
-
-=== Critical Memory Issues
-
-* Total GC: >10%
-* Young Gen: Constant
-* Old Gen: Frequent
-* Performance: Severe degradation
 
 
 [.quiz]
@@ -315,11 +90,10 @@ include::questions/1-gc-indicators.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You learned how to monitor garbage collection metrics for your Aura instances.
+You learned how to monitor young generation and old generation garbage collection metrics for your Aura instances.
 
-You learned that high GC time (>10%) indicates memory pressure and that old generation GC can cause noticeable performance pauses.
+High garbage collection time indicates memory pressure. Old generation garbage collection causes noticeable performance pauses that can impact user experience.
 
-The relationship between heap memory usage and GC metrics helps you identify when to scale your instance or optimize queries.
+When garbage collection time is consistently high and heap usage exceeds 80%, consider increasing the size of your instance.
 
 In the next module, you will learn about database-level metrics including store size, query latency, and transaction patterns.
-
