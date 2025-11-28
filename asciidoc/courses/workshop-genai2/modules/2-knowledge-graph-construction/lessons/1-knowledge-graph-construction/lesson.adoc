@@ -1,12 +1,16 @@
-= How to Construct a Knowledge Graph with an LLM
-:order: 1
+= Constructing knowledge graphs
 :type: lesson
+:order: 1
 
-In this lesson, you will learn the process of constructing a knowledge graph using a Language Model (LLM).
+[.slide.discrete]
+== Lesson Overview
 
+In this lesson, you will review the process of constructing knowledge graphs from unstructured text using an LLM.
+
+[.slide]
 == The construction process
 
-Typically, you would follow these steps to construct a knowledge graph from unstructured text using an LLM:
+When constructing a knowledge graph from unstructured text, you typically follow these steps:
 
 . Gather the data
 . Chunk the data
@@ -14,6 +18,7 @@ Typically, you would follow these steps to construct a knowledge graph from unst
 . Pass the data to an LLM to extract nodes and relationships
 . Use the output to generate the graph
 
+[.transcript-only]
 === Gather your data sources
 
 The first step is to gather your unstructured data.
@@ -23,6 +28,7 @@ Depending on the format, you may need to reformat the data into a format (typica
 
 The data sources should contain the information you want to include in your knowledge graph.
 
+[.transcript-only]
 === Chunk the data
 
 The next step is to break down the data into _right-sized_ parts.
@@ -32,6 +38,7 @@ The size of the chunks depends on the LLM you are using, the complexity of the d
 
 You may not need to chunk the data if the LLM can process the entire document at once and it fits your requirements.
 
+[.transcript-only]
 === Vectorize the data
 
 Depending on your requirements for querying and searching the data, you may need to create *vector embeddings*.
@@ -43,6 +50,7 @@ Placing these vectors into a link:https://neo4j.com/docs/cypher-manual/current/i
 .Chunking, Vectors, and Similarity Search
 You can learn more about how to chunk documents, vectors, similarity search, and embeddings in the GraphAcademy course link:https://graphacademy.neo4j.com/courses/llm-vectors-unstructured/1-introduction/2-semantic-search/[Introduction to Vector Indexes and Unstructured Data^].
 
+[.transcript-only]
 === Extract nodes and relationships
 
 The next step is to pass the unstructured text data to the LLM to extract the nodes and relationships.
@@ -55,7 +63,7 @@ You should provide a suitable prompt that will instruct the LLM to:
 
 Optionally, you may also provide additional context or constraints for the extraction, such as the type of entities or relationships you are interested in extracting.
 
-
+[.transcript-only]
 === Generate the graph
 
 Finally, you can use the output from the LLM to generate the graph by creating the nodes and relationships within Neo4j.
@@ -63,14 +71,22 @@ Finally, you can use the output from the LLM to generate the graph by creating t
 The entity and relationship types would become labels and relationship types in the graph.
 The _names_ would be the node and relationship identifiers.
 
+[.slide.col-40-60]
 == Example
 
+[.col]
+====
 If you wanted to construct a knowledge graph based on the link:https://en.wikipedia.org/wiki/Neo4j[Neo4j Wikipedia page^], you would:
+====
 
-image::images/neo4j-wiki.png["A screenshot of the Neo4j wiki page"]
+[.col]
+image::images/neo4j-wiki.png["A screenshot of the Neo4j wiki page", width=80%]
+
+[.slide.discrete]
+== Gather
 
 . **Gather** the text from the page.
-+
+
     Neo4j is a graph database management system (GDBMS) developed by 
     Neo4j Inc.
 
@@ -79,6 +95,9 @@ image::images/neo4j-wiki.png["A screenshot of the Neo4j wiki page"]
     as an ACID-compliant transactional database with native graph 
     storage and processing...
 
+[.slide.discrete]
+== Chunk
+[start=2]
 . Split the text into **chunks**.
 +
     Neo4j is a graph database management system (GDBMS) developed 
@@ -94,6 +113,9 @@ image::images/neo4j-wiki.png["A screenshot of the Neo4j wiki page"]
     Described by its developers as an ACID-compliant transactional 
     database with native graph storage and processing...
 
+[.slide.discrete]
+== Embeddings
+[start=3]
 . Generate **embeddings** and **vectors** for each chunk.
 +
     [0.21972137987, 0.12345678901, 0.98765432109, ...]
@@ -106,6 +128,9 @@ image::images/neo4j-wiki.png["A screenshot of the Neo4j wiki page"]
 +
     [0.45678901234, 0.34567890123, 0.76543210987, ...]
 
+[.slide.discrete]
+== Extract
+[start=4]
 . **Extract** the entities and relationships using an **LLM**.
 +
 Send the text to the LLM with an appropriate prompt, for example:
@@ -119,37 +144,62 @@ Send the text to the LLM with an appropriate prompt, for example:
 +
 Parse the entities and relationships output by the LLM.
 +
+[.transcript-only]
+====
 [source, json]
 ----
-[
+{
+  "node_types": [
     {
-        "text": (
-            "Neo4j is a graph database management system (GDBMS) developed by Neo4j Inc."
-        ),
-        "head": "Neo4j",
-        "head_type": "GraphDatabase",
-        "relation": "DEVELOPED_BY",
-        "tail": "Neo4j Inc",
-        "tail_type": "Company",
+      "label": "GraphDatabase",
+      "properties": [
+        {
+          "name": "Neo4j", "type": "STRING"
+        }
+      ]
     },
     {
-        "text": (
-            "Neo4j is implemented in Java"
-        ),
-        "head": "Neo4j",
-        "head_type": "Graph Database",
-        "relation": "IMPLEMENTED_IN",
-        "tail": "Java",
-        "tail_type": "ProgrammingLanguage",
+      "label": "Company",
+      "properties": [
+        {
+          "name": "Neo4j Inc", "type": "STRING"
+        }
+      ]
     },
-    ...
-]
+    {
+      "label": "Programming Language",
+      "properties": [
+        {
+          "name": "Java", "type": "STRING"
+        }
+      ]
+    }
+  ],
+  "relationship_types": [
+    {
+      "label": "DEVELOPED_BY"
+    },
+    {
+      "label": "IMPLEMENTED_IN"
+    }
+  ],
+  "patterns": [
+    ["Neo4j", "DEVELOPED_BY", "Neo4j Inc"],
+    ["Neo4j", "IMPLEMENTED_IN", "Java"],
+  ]
+}
 ----
+====
+
+[.slide.discrete]
+== Generate
+[start=5]
 . **Generate** the graph.
 +
 Use the data to construct the graph in Neo4j by creating nodes and relationships based on the entities and relationships extracted by the LLM.
 +
-[source, cypher]
+[source, cypher, role=noplay nocopy]
+.Generate the graph
 ----
 MERGE (neo4jInc:Company {id: 'Neo4j Inc'})
 MERGE (neo4j:GraphDatabase {id: 'Neo4j'})
@@ -158,14 +208,11 @@ MERGE (neo4j)-[:DEVELOPED_BY]->(neo4jInc)
 MERGE (neo4j)-[:IMPLEMENTED_IN]->(java)
 ----
 
-[.quiz]
-== Check your understanding
-
-include::questions/1-steps.adoc[leveloffset=+1]
+read::Continue[]
 
 [.summary]
 == Lesson Summary
 
 In this lesson, you learned about how to construct a knowledge graph.
 
-In the next lesson, you will use Neo4j's LLM Graph Builder to experiment with the construction process.
+In the next lesson, you will extract a graph schema from a piece of text and review the results.
