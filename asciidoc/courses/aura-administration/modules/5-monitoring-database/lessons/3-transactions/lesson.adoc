@@ -1,31 +1,44 @@
-= Transaction Monitoring
+= Transaction monitoring
 :type: lesson
 :order: 5
 
 
-[.discrete]
+[.slide.discrete]
 == Introduction
 
-You learned how to monitor query rates and latency at the database level. Queries execute within transactions, so monitoring transaction patterns provides deeper insight into database activity and helps identify application issues.
+So far you've learned how to monitor query rates and latency at the database level. To understand what's happening inside your database, you need to go deeper—every query executes within a transaction, and monitoring transaction patterns reveals connection leaks and application bugs that query metrics alone can't detect.
 
 In this lesson, you will learn how to monitor active transactions, transaction rates, and identify transaction problems.
 
 
-== Understanding Transactions
+[.slide]
+== Understanding how transactions work
 
 Every operation in Neo4j occurs within a **transaction**. A transaction is the unit of work that groups one or more operations together to ensure data consistency.
 
 Neo4j executes two types of transactions. **Write transactions** modify data by creating, updating, or deleting nodes and relationships. **Read transactions** only query data without making changes. Read transactions can run concurrently, while write transactions need to be executed sequentially.
 
+All modifications performed in a transaction are kept in memory until the transaction commits or rolls back. This means large data updates should be split into multiple smaller transactions to avoid running out of memory.
+
 Monitoring transaction counts helps you identify connection leaks, application bugs, and performance issues before they impact users.
 
 
+[.slide]
 == Monitoring Transaction Metrics
 
 Aura provides several metrics to help you monitor transaction patterns and identify issues.
 
 
+[.slide.col-2.reverse]
 === Active Transactions
+
+[.col]
+====
+image::images/active-transactions-count.png[Active transactions metric]
+====
+
+[.col]
+====
 
 **Active transactions** shows the number of currently executing transactions. This metric is broken down into **read transactions** and **write transactions** to help you understand your workload distribution.
 
@@ -35,9 +48,19 @@ Aura provides several metrics to help you monitor transaction patterns and ident
 The expected pattern is for active transactions to fluctuate with workload and return to a low baseline between operations. Most databases see more read transactions than write transactions during normal operation.
 
 If active transaction counts remain high or continuously grow, transactions may not be closing properly. This indicates a potential connection leak or missing commit statements in your application code.
+====
 
 
+[.slide.col-2.reverse]
 === Transaction Rates
+
+[.col]
+====
+image::images/transactions-committed-rate.png[Committed transactions rate metric]
+====
+
+[.col]
+====
 
 **Committed transactions** shows both the total count since server startup and the rate per minute. This metric tracks successful transaction completion and should match your application activity patterns.
 
@@ -53,21 +76,39 @@ If active transaction counts remain high or continuously grow, transactions may 
 
 // UI Description (Rollbacks rate): The number of transaction rollbacks happening per minute.
 
-The expected value for rollbacks is very low, typically less than 1% of committed transactions. Occasional rollbacks are normal, but high rollback rates indicate application errors, constraint violations, or concurrent write conflicts.
+As a general guideline, rollbacks should be very low, for example less than 1% of committed transactions. Occasional rollbacks are normal, but high rollback rates indicate application errors, constraint violations, or concurrent write conflicts.
+
+====
 
 
+[.slide.col-2.reverse]
 === Peak Concurrent Transactions
 
+[.col]
+====
+image::images/transactions-peak-concurrent.png[Peak concurrent transactions metric]
+====
+
+[.col]
+====
 **Peak concurrent transactions** shows the highest number of concurrent transactions detected since server startup. This helps you understand your maximum transaction concurrency.
 
 // UI Description: The highest number of concurrent transactions detected since the server started. This value
 // may drop if background maintenance is performed by Aura.
 
 Monitor this value to plan capacity and identify unusual spikes in concurrent activity.
+====
 
-
+[.slide.col-2.reverse]
 === Last Committed Transaction ID
 
+[.col]
+====
+image::images/last-committed-transaction-id.png[Last committed transaction ID metric]
+====
+
+[.col]
+====
 **Last committed transaction ID** tracks the ID of the last committed transaction. For Business Critical instances with clustering, track this metric for each primary cluster member.
 
 // UI Description: The id of the last committed transaction. Track this for primary cluster members of your Aura
@@ -79,25 +120,31 @@ The expected pattern shows overlapping, ever-increasing lines for all cluster me
 
 [NOTE]
 .Background maintenance
-====
+=====
 Some transaction count values may drop if background maintenance is performed by Aura. This is normal and doesn't indicate a problem.
+=====
 ====
 
 
+[.slide]
 == Identifying Transaction Issues
 
 You should monitor transaction metrics to identify application bugs, connection leaks, and configuration problems before they impact users.
 
+To inspect currently running transactions, you can use the Cypher command `SHOW TRANSACTIONS` to see transaction IDs, execution time, and current status. This helps identify long-running transactions that may be causing issues.
 
+
+[.slide.discrete]
 === High Rollback Rate
 
-If rollbacks represent more than 5% of committed transactions, investigate the causes immediately.
+As a general guideline, if rollbacks represent a significant percentage of committed transactions, for example more than 5%, you should investigate the causes. These thresholds will vary depending on your specific application patterns.
 
 High rollback rates indicate general connectivity issues, constraint violations trying to create duplicate data, or concurrent update conflicts between transactions.
 
 Review your query logs for error messages. You can filter query logs by clicking the **Fetch logs** button and setting **Status** to Failed.  The GQL status codes will provide additional context about why the query failed.
 
 
+[.slide.discrete]
 === Growing Active Transaction Count
 
 Active transaction counts naturally fluctuate with workload. Increases can indicate large data loads or high read activity, which is normal behavior.
@@ -107,15 +154,17 @@ However, if active transactions continuously grow without returning to baseline 
 Review your application code to ensure all transactions explicitly commit or rollback, and that connections are properly closed in finally blocks or using context managers.
 
 
+[.slide.discrete]
 === Transaction Timeouts
 
-If users report transaction timeout errors and you see long-running active transactions, queries are taking too long to complete.  In this case, you should also observe high memory usage and possible Out of Memory errors discussed earlier in the course.
+If users report transaction timeout errors and you see long-running active transactions, queries are taking too long to complete. In this case, you should also observe high memory usage and possible Out of Memory errors discussed earlier in the course.
 
-This is a sign that the query should be optimized.
+Since all modifications are held in memory during a transaction, large updates can exhaust available heap space. This is a sign that the query should be optimized or the operation should be batched into smaller transactions.
 
-Review which queries are timing out and optimize them before considering scaling. Add appropriate indexes and use `EXPLAIN` to verify query plans use those indexes.
+Review which queries are timing out and optimize them before considering scaling. For large data modifications, consider batching operations into smaller transactions. Add appropriate indexes and use `EXPLAIN` to verify query plans use those indexes.
 
 
+[.slide.discrete]
 === Replication Issues in Clusters
 
 For Business Critical instances, if one cluster member's last committed transaction ID stops advancing while others continue, that member is no longer replicating data. This indicates a cluster synchronization issue that requires immediate attention.
@@ -123,7 +172,8 @@ For Business Critical instances, if one cluster member's last committed transact
 Contact Neo4j support for assistance with cluster replication issues.
 
 
-== Transaction Best Practices
+[.slide]
+== Applying transaction best practices
 
 Keep transactions short by committing or rolling back promptly. Avoid holding transactions open during user input or long-running operations outside the database.
 
@@ -132,6 +182,7 @@ Always close sessions and transactions when finished. Use try-with-resources in 
 Here's an example using the try-with-resources pattern with the Java driver:
 
 [source,java]
+.Self-closing sessions with try-with-resources
 ----
 try (var session = driver.session()) {
     try (var tx = session.beginTransaction()) {
@@ -142,16 +193,20 @@ try (var session = driver.session()) {
 }  // Session automatically closed here
 ----
 
+[.slide.discrete]
+=== Self-closing sessions
+
 Once the code block is exited, the session and transaction are automatically closed.
 
 
 Use write transactions for write operations whenever possible. This allows Neo4j to route the write to the leader.
 
-Explicitly specify read transactions in your application code to route route queries across the available instances in clustered environments.
+Explicitly specify read transactions in your application code to route queries across the available instances in clustered environments.
 
 Monitor rollback rates regularly to catch application issues early. Alert on growing active transaction counts to identify connection leaks before they cause problems.
 
 
+[.slide]
 == When You Should Scale
 
 High transaction rates alone don't indicate you need to scale. Review whether high rates correlate with high CPU usage, memory pressure, or slow query performance.
@@ -174,6 +229,6 @@ include::questions/2-active-transactions.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-Transaction monitoring helps you understand database activity and identify application issues. Rollback rates should be very low (less than 5% of commits), and growing active transaction counts indicate transactions not closing properly. For clustered instances, monitor the last committed transaction ID to identify replication issues. Always optimize transaction patterns and application code before considering scaling.
+Transaction monitoring helps you understand database activity and identify application issues. As a general guideline, rollback rates should be very low, and growing active transaction counts indicate transactions not closing properly. For clustered instances, monitor the last committed transaction ID to identify replication issues. Always optimize transaction patterns and application code before considering scaling.
 
 In the next lesson, you will apply your transaction monitoring knowledge to diagnose a real-world rollback issue.

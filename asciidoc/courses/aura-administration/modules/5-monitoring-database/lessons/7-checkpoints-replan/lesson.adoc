@@ -3,7 +3,7 @@
 :order: 7
 
 
-[.discrete]
+[.slide.discrete]
 == Introduction
 
 Neo4j performs internal operations that help maintain database health and optimize query performance.
@@ -11,82 +11,182 @@ Neo4j performs internal operations that help maintain database health and optimi
 In this lesson, you will learn how to monitor checkpoint and replan events to understand your database activity.
 
 
+[.slide]
 == Understanding Checkpoints and Replan Events
 
-**Checkpoints** are the process of writing committed transaction data from memory to disk. They ensure your data is safe and durable by creating recovery points. This is a normal, essential operation that occurs automatically.
+**Checkpoints** are the process of flushing pending updates from memory to disk. They ensure your data is safe and durable by creating recovery points that allow Neo4j to restart quickly after an unexpected shutdown. This is a normal, essential operation that occurs automatically.
 
-**Replan events** occur when Neo4j recreates the execution plan for a Cypher query. Neo4j caches query plans for efficiency, rebuilding them when needed to ensure optimal performance as your data evolves.
+**Replan events** occur when Neo4j recreates the execution plan for a Cypher query. Neo4j caches query plans for efficiency, rebuilding them when database statistics change significantly—such as when the number of nodes, relationships, or index characteristics evolve—to ensure optimal performance as your data grows.
 
 
+[.slide]
 == Monitoring Checkpoints
 
-The Monitoring dashboard shows four checkpoint metrics: total count, rate (events per minute), cumulative time, and duration of the last checkpoint.
+The Monitoring dashboard shows four checkpoint metrics that help you understand database write activity and health.
 
-The typical **duration** is several seconds to several minutes, which is normal and healthy. The frequency depends on your write activity—busier databases checkpoint more often.
 
-If you see checkpoint duration consistently over 30 minutes, this suggests an opportunity to optimize your write patterns or review storage performance.
+[.slide.col-2.reverse]
+=== Checkpoint Events - Total Count
 
-[NOTE]
-.Background maintenance
+[.col]
 ====
-Checkpoint values may drop if background maintenance is performed by Aura. This is normal and doesn't indicate a problem.
+image::images/checkpoint-events-count.png[Checkpoint events total count]
 ====
+
+[.col]
+====
+**Total checkpoint events** shows the total number of checkpoint events executed since the server started.
 
 // UI Description (Total count): The total number of checkpoint events executed since the server started.
 // This value may drop if background maintenance is performed by Aura.
 
-// UI Description (Rate): The total number of checkpoint events executed since the server started.
+The count depends on your write activity—busier databases checkpoint more often. This is a cumulative counter that helps you understand overall checkpoint frequency.
+====
+
+
+[.slide.col-2.reverse]
+=== Checkpoint Events - Rate
+
+[.col]
+====
+image::images/checkpoint-events-rate.png[Checkpoint events rate]
+====
+
+[.col]
+====
+**Checkpoint rate** shows the number of checkpoint events per minute.
+
+// UI Description (Rate): The number of checkpoint events happening per minute.
+
+A consistent, moderate rate is normal and healthy. The rate naturally correlates with write transaction volume.
+====
+
+
+[.slide.col-2.reverse]
+=== Checkpoint Cumulative Time
+
+[.col]
+====
+image::images/checkpoint-cumulative-time.png[Checkpoint cumulative time]
+====
+
+[.col]
+====
+**Cumulative checkpoint time** shows the total time in milliseconds spent in checkpointing since the server started.
 
 // UI Description (Cumulative time): The total time in milliseconds spent in checkpointing since the server
 // started. This value may drop if background maintenance is performed by Aura.
 
+This metric helps you understand the overall time investment in checkpointing operations over the lifetime of the instance.
+====
+
+
+[.slide.col-2.reverse]
+=== Last Checkpoint Duration
+
+[.col]
+====
+image::images/checkpoint-events-duration.png[Last checkpoint duration]
+====
+
+[.col]
+====
+**Last checkpoint duration** shows the duration of the most recent checkpoint event in milliseconds.
+
 // UI Description (Duration): The duration of the last checkpoint event in milliseconds. Checkpoints should
 // typically take several seconds to several minutes. Values over 30 minutes warrant investigation.
 
+The typical duration is several seconds to several minutes, which is normal and healthy. As a general guideline, if you see checkpoint duration consistently over 30 minutes, this suggests an opportunity to review storage performance or optimize your write patterns. These thresholds will vary depending on your specific workload.
 
+[NOTE]
+.Background maintenance
+====
+Checkpoint count and cumulative time values may drop if background maintenance is performed by Aura. This is normal and doesn't indicate a problem.
+====
+====
+
+
+[.slide]
 == Monitoring Replan Events
 
-The Monitoring dashboard shows two replan metrics: total count and rate (replanning events per minute).
+The Monitoring dashboard shows two replan metrics that help you understand query plan caching efficiency.
 
-A low replan rate with occasional spikes is normal and healthy. You'll naturally see replanning when executing new queries for the first time or after schema changes—this is Neo4j adapting to your evolving database.
 
-Consistently high replan rates suggest an optimization opportunity: your queries may benefit from using parameters instead of literal values.
+[.slide.col-2.reverse]
+=== Replan Events - Total Count
+
+[.col]
+====
+image::images/replan-events-count.png[Replan events total count]
+====
+
+[.col]
+====
+**Total replan events** shows the total number of times Cypher has replanned a query since the server started.
 
 // UI Description (Total count): The total number of times Cypher has replanned a query since the server started.
 // If this spikes or is increasing, check that the queries executed are using parameters correctly. This value
 // may drop if background maintenance is performed by Aura.
 
-// UI Description (Rate): The total number of times Cypher has replanned a query since the server started.
+A low count with occasional spikes is normal and healthy. You'll naturally see replanning when executing new queries for the first time, after schema changes, or when database statistics change significantly as your data grows—this is Neo4j adapting to your evolving database.
+====
+
+
+[.slide.col-2.reverse]
+=== Replan Events - Rate
+
+[.col]
+====
+image::images/replan-events-rate.png[Replan events rate]
+====
+
+[.col]
+====
+**Replan rate** shows the number of replanning events per minute.
+
+// UI Description (Rate): The number of replanning events per minute.
 // If this spikes or is increasing, check that the queries executed are using parameters correctly.
 
-
-== Optimizing with Query Parameters
-
-Using **query parameters** helps Neo4j efficiently reuse query execution plans. When you use parameters instead of hardcoded values, Neo4j can cache and reuse the same plan for multiple executions.
-
-This query with a hardcoded value requires Neo4j to create a new plan each time the ID changes:
-
-[source,cypher]
-----
-MATCH (u:User {id: 12345})
-RETURN u
-----
-
-Using parameters allows Neo4j to reuse the same optimized plan for all user lookups:
-
-[source,cypher]
-----
-MATCH (u:User {id: $userId})
-RETURN u
-----
-
-If you notice high replan rates, review your query logs to find opportunities to add parameters. This simple change can significantly improve query performance and reduce planning overhead.
+As a general guideline, consistently high replan rates suggest an optimization opportunity: your queries may benefit from using parameters instead of literal values. What constitutes "high" will vary depending on your query patterns.
+====
 
 
-read::Continue to next module[]
+[.slide]
+== Troubleshooting Checkpoint and Replan Issues
+
+Monitor checkpoint and replan metrics to identify database health issues and optimization opportunities.
+
+
+[.slide.discrete]
+=== Long Checkpoint Duration
+
+As a general guideline, if **checkpoint duration** is consistently over **30 minutes**, you should investigate potential causes. These thresholds will vary depending on your specific write patterns and storage configuration.
+
+Long checkpoints can indicate **heavy write load**, **storage I/O limitations**, or **large transaction logs** waiting to be flushed. Review your write patterns and consider batching large updates into smaller transactions.
+
+If checkpoints are slow during periods of normal activity, this may indicate **storage performance issues**. Contact Neo4j support for assistance with persistent checkpoint performance problems.
+
+
+[.slide.discrete]
+=== High Replan Rates
+
+A low **replan rate** with occasional spikes is normal—you'll naturally see replanning when executing **new queries**, after **schema changes**, or when **database statistics** change significantly as data volumes grow.
+
+As a general guideline, if replan rates are consistently high, this suggests an optimization opportunity. High replan rates typically indicate queries using **literal values** instead of **parameters**.
+
+Review your **query logs** to identify frequently executed queries. Look for queries with **hardcoded values** that could be replaced with parameters. This simple change can significantly improve query performance and reduce planning overhead.
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-checkpoint-duration.adoc[leveloffset=+1]
+
+include::questions/2-replan-cause.adoc[leveloffset=+1]
+
 
 [.summary]
 == Summary
 
-Checkpoints write committed transaction data from memory to disk, typically taking seconds to a few minutes. Replan events occur when Neo4j recreates query execution plans as your database evolves. Both are normal operations that help maintain database health and performance. Using parameterized queries allows Neo4j to efficiently reuse execution plans, reducing replanning overhead.
+Checkpoints flush pending updates from memory to disk, creating recovery points that enable faster database restarts. Typical duration is seconds to a few minutes; as a general guideline, duration consistently over 30 minutes warrants investigation. Replan events occur when Neo4j recreates query execution plans as database statistics change or when new queries are executed. Both are normal operations that help maintain database health and performance. High replan rates often indicate queries using literal values instead of parameters, which can be optimized as covered earlier in the course.
 

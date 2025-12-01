@@ -3,21 +3,25 @@
 :order: 3
 
 
-[.discrete]
+[.slide.discrete]
 == Introduction
 
-**Bolt** is the protocol used by applications to connect to Neo4j. Monitoring Bolt connections helps you identify connection pooling issues and optimize application connectivity.
+**Bolt** is a protocol used by applications to connect to Neo4j. Monitoring Bolt connections helps you identify connection pooling issues and optimize application connectivity.
 
 In this lesson, you'll learn how to monitor Bolt connections to ensure your applications are connecting to Neo4j efficiently.
 
 
+[.slide]
 == Understanding Bolt Connections
 
-Bolt connections represent client applications connected to your database. Each connection can be actively executing queries or sitting idle in a connection pool waiting to be used.
+**Bolt** is a stateful protocol that runs on port 7687. Bolt connections represent client applications connected to your database. Each connection can be actively executing queries or sitting idle in a connection pool waiting to be used.
+
+Bolt connections are **stateful**, meaning they maintain context between messages. When a connection starts a transaction, it holds that connection until the transaction completes. This is why properly closing transactions is important for freeing up connection resources.
 
 Applications use **connection pools** to reuse connections for multiple queries. This reduces the overhead of establishing new connections for every query. A well-configured connection pool maintains idle connections ready for immediate use.
 
 
+[.slide.col-2.reverse]
 == Monitoring Bolt Connection Metrics
 
 // UI Description: The total number of Bolt connections that are currently executing Cypher transactions and
@@ -38,41 +42,86 @@ Applications use **connection pools** to reuse connections for multiple queries.
 // UI Description: The rate of Bolt connections being closed per minute. This includes both properly and
 // abnormally ended connections.
 
+[.col]
+====
 image::images/bolt-connections.png[Bolt Connections metrics]
+====
 
-Aura provides several Bolt connection metrics to help you understand how applications connect to your database.
+[.col]
+====
+Bolt connection metrics are available in the Metrics dashboard on the **Instance** tab.
+
+Aura provides several metrics to help you understand how applications connect to your database.
+
+====
+
+[.slide]
+=== Running Connections
 
 **Running connections** shows the number of connections currently executing queries. This value changes constantly as queries start and finish. It should scale with your workload, increasing during high activity and decreasing during low activity.
 
+[.slide]
+=== Idle Connections
+
 **Idle connections** shows the number of connections sitting in connection pools waiting to be used. A stable number of idle connections indicates healthy connection pooling. These connections are ready for immediate use when a query needs to execute.
+
+Idle connections do not consume significant server resources - they simply wait for messages from the client. The connection becomes active when it starts processing a query or transaction.
+
+
+[.slide]
+=== Opened and Closed Connections
 
 **Opened and closed metrics** track the number and rate of connections being created and terminated. The opened count includes both successful and failed connection attempts. The closed count includes both properly closed connections and abnormal terminations.
 
 A healthy application maintains balanced open and close rates over time. High connection churn with many connections constantly opening and closing indicates the application may not be using connection pooling properly.
 
+If you see a sudden spike in failed connection attempts (opened connections that fail immediately), this could indicate:
 
+* The connection limit has been reached
+* Network connectivity issues between the application and database
+* Authentication problems with application credentials
+
+
+
+[.slide]
 == Managing Connection Health
 
-Healthy connection patterns show stable idle connections in the pool, running connections that scale with workload, and balanced open and close rates. This indicates applications are reusing connections efficiently rather than creating new connections for every query.
+**Healthy connection patterns** show **stable idle connections** in the pool, **running connections** that scale with workload, and **balanced open and close rates**. This indicates applications are reusing connections efficiently rather than creating new connections for every query.
 
-High connection churn occurs when connections constantly open and close with few idle connections maintained. This indicates connection pooling may not be configured properly. Connection churn increases overhead and reduces performance because establishing new connections is expensive.
+**High connection churn** occurs when connections constantly open and close with few idle connections maintained. This indicates **connection pooling** may not be configured properly. Connection churn increases overhead and reduces performance because establishing new connections is expensive.
 
-If you see many more connections opened than closed over time, this may indicate a connection leak. Applications should close connections properly using try-finally blocks or context managers. Connection leaks can lead to pool exhaustion where no connections are available for new queries.
+If you see many more connections opened than closed over time, this may indicate a **connection leak**. Applications should close connections properly when finished with them. Connection leaks can lead to **pool exhaustion** where no connections are available for new queries.
 
-Each Aura instance has connection limits based on instance tier and size. When limits are approached, new connection attempts may fail and users experience connectivity issues. Monitor your connection metrics during peak hours to ensure you stay well below these limits.
+[.slide.discrete]
+=== Managing Connection Health
+
+Work with your development team to ensure applications use proper connection handling patterns for their programming language (such as try-finally blocks in Java or context managers in Python).
+
+Each Aura instance has **connection limits** based on instance tier and size. You can view your instance's connection limit in the Aura console under the instance **Details** page.
+
+When the connection limit is reached, new connection attempts are rejected with an error message. This can cause application failures or degraded performance as users are unable to connect to the database.
+
+Monitor your connection metrics during peak hours to ensure you stay well below these limits. A good practice is to keep maximum usage at 80% or less of your instance's connection limit to allow for traffic spikes.
 
 
+[.slide]
 == Scaling Your Instance
 
-If your applications frequently hit connection limits, first review your connection pool configuration.
-Configure minimum and maximum pool sizes based on your application's concurrent query needs and connection timeout settings.
+If your applications frequently hit connection limits, first review your connection pool configuration with your development team.
+
+Key connection pool settings to review include:
+
+* **Maximum pool size** - The maximum number of connections the application can open. Should be less than your instance's connection limit.
+* **Minimum pool size** - The number of connections to keep ready. Should match typical concurrent query load.
+* **Connection timeout** - How long to wait for an available connection before failing.
+* **Idle connection lifetime** - How long to keep unused connections before closing them.
 
 If connection pools are optimized and limits are still reached, scale your instance to support more concurrent connections.
 
 [TIP]
 .Configuring connection pools
 ====
-Refer to your Neo4j driver documentation for connection pool configuration options specific to your programming language.
+Refer to your link:https://neo4j.com/docs/create-applications/[Neo4j driver documentation^] for connection pool configuration options specific to your programming language.
 ====
 
 
