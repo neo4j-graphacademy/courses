@@ -1,0 +1,426 @@
+# Bolt Connections
+
+Monitoring connection patterns, managing connection pools, and detecting connection issues.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/3-bolt-connections)
+
+## Concepts
+
+* **Bolt Protocol** - Communication protocol between Neo4j and client applications
+* **Connection** - Network link between client application and database
+* **Running Connection** - Connection actively executing query
+* **Idle Connection** - Connection in pool, waiting to be used
+* **Connection Pool** - Reusable connections maintained by driver
+* **Connection Churn** - Rapid opening and closing of connections
+* **Connection Leak** - Connections not properly closed, holding resources
+* **Connection Limit** - Maximum concurrent connections allowed by instance tier
+
+## Understanding Bolt Connections
+
+### Bolt Protocol Basics
+
+**Port 7687:**
+* Default Bolt protocol port
+* Encrypted connection (TLS)
+* Stateful protocol
+* Maintains context between messages
+
+**Stateful Nature:**
+* Connection remembers transaction state
+* Holds connection until transaction completes
+* Why proper closing is critical
+* Connection not reusable until released
+
+### Connection Lifecycle
+
+**1. Open:**
+* Client driver establishes connection
+* Authentication occurs
+* Connection added to pool
+
+**2. Active Use:**
+* Runs queries and transactions
+* Processes results
+* Holds resources
+
+**3. Idle:**
+* Returned to pool after use
+* Waiting for next operation
+* Still consuming minimal resources
+
+**4. Close:**
+* Cleanly terminated
+* Resources released
+* Connection no longer available
+
+## Monitoring Connection Metrics
+
+### Running Connections
+
+**What It Shows:**
+* Connections currently executing queries
+* Real-time workload indicator
+* Should scale with activity level
+
+**Healthy Pattern:**
+* Fluctuates with workload
+* High during peak hours
+* Low during off-hours
+* Correlates with query rate
+
+**Problematic Pattern:**
+* Sustained at or near limit
+* Doesn't decrease during low traffic
+* May indicate connection leaks
+* Can cause connection exhaustion
+
+### Idle Connections
+
+**What It Shows:**
+* Connections in pools, not executing
+* Ready for immediate use
+* Normal for well-configured applications
+
+**Healthy Pattern:**
+* Stable number of idle connections
+* Maintained by connection pools
+* Quick response to queries (no connection delay)
+* Proper pool management
+
+**Problematic Pattern:**
+* Continuously growing idle connections
+* Never decreasing
+* May indicate connection leak
+* Eventually hits connection limit
+
+**Expected Idle Connections:**
+* Depends on application pool configuration
+* Typically 5-50 per application instance
+* More applications = more idle connections
+* Should be relatively stable
+
+### Connection Open/Close Metrics
+
+**Opened Connections:**
+* Total connections created since startup
+* Rate of new connections per minute
+* Includes successful and failed attempts
+
+**Closed Connections:**
+* Total connections terminated
+* Rate of closures per minute
+* Properly closed and abnormal terminations
+
+**Balanced Pattern (Healthy):**
+* Similar opened and closed rates over time
+* Net growth near zero in steady state
+* Indicates proper connection management
+* Pools stable
+
+**Imbalanced Pattern (Problem):**
+* Many more opened than closed
+* Net connections growing
+* Indicates connection leak
+* Will eventually hit limit
+
+## Connection Health Patterns
+
+### Healthy Connection Pattern
+
+**Characteristics:**
+* Stable idle connection count
+* Running connections scale with load
+* Balanced open/close rates
+* No connection limit warnings
+
+**Application Behavior:**
+* Using connection pooling
+* Closing connections properly
+* Pool size appropriately configured
+* Try-finally or context managers used
+
+### High Connection Churn
+
+**Characteristics:**
+* High open/close rates
+* Few idle connections maintained
+* Opening connection for each query
+* Inefficient use of resources
+
+**Problems:**
+* Connection establishment overhead
+* Increased latency
+* Higher CPU usage
+* Reduced throughput
+
+**Causes:**
+* Connection pooling not configured
+* Pool too small (constantly creating new)
+* Application creating drivers repeatedly
+* Not reusing driver instance
+
+**Resolution:**
+```python
+# Bad - creates driver for each query
+def run_query(query):
+    driver = GraphDatabase.driver(uri, auth=auth)
+    with driver.session() as session:
+        result = session.run(query)
+    driver.close()
+
+# Good - reuse driver
+driver = GraphDatabase.driver(uri, auth=auth)
+
+def run_query(query):
+    with driver.session() as session:
+        result = session.run(query)
+        # Session closes, connection returns to pool
+```
+
+### Connection Leak Pattern
+
+**Characteristics:**
+* Open count growing continuously
+* Close count not keeping pace
+* Idle or running connections increasing
+* Eventually hits connection limit
+
+**Problems:**
+* Resources not released
+* Connection pool exhaustion
+* New queries cannot connect
+* Application failures
+
+**Causes:**
+* Sessions not closed properly
+* Transactions not committed/rolled back
+* Missing try-finally blocks
+* Exception handling issues
+
+**Resolution:**
+```python
+# Bad - session may not close
+session = driver.session()
+result = session.run(query)
+session.close()  # Might not execute if error
+
+# Good - guaranteed close
+with driver.session() as session:
+    result = session.run(query)
+    # Automatically closed even if error
+```
+
+## Connection Limit Management
+
+### Understanding Instance Limits
+
+**Tier-Based Limits:**
+* Each Aura tier has maximum connection limit
+* View in instance Details page
+* Includes both active and idle connections
+* Hard limit enforced
+
+**When Limit Reached:**
+* New connection attempts rejected
+* Error returned to application
+* Users cannot execute queries
+* Service degradation or outage
+
+**Best Practice:**
+* Keep maximum usage at 80% of limit
+* Allows for traffic spikes
+* Buffer for temporary increases
+* Prevents hitting hard limit
+
+### Calculating Connection Needs
+
+**Per Application Instance:**
+* Typical pool size: 10-50 connections
+* Depends on concurrent query load
+* More concurrent users = larger pool
+
+**Total Connections:**
+```
+Total = (Applications × Pool Size) + Buffer
+```
+
+**Example:**
+* 10 application instances
+* Pool size of 20 per instance
+* Total: 10 × 20 = 200 connections
+* Add 20% buffer = 240 connections
+* Choose tier supporting 300+ connections
+
+### Connection Pool Configuration
+
+**Key Settings:**
+
+**Max Pool Size:**
+* Maximum connections per driver
+* Should be less than instance limit / application instances
+* Balance: too small = queuing, too large = resource waste
+
+**Min Pool Size:**
+* Connections to keep ready
+* Match typical concurrent query load
+* Faster query start (no connection delay)
+
+**Connection Timeout:**
+* How long to wait for available connection
+* Typically 10-30 seconds
+* Prevents indefinite waiting
+
+**Idle Connection Lifetime:**
+* How long to keep unused connections
+* Balance: too short = churn, too long = wasted resources
+* Typically 30-60 minutes
+
+**Example Configuration (Python):**
+```python
+from neo4j import GraphDatabase
+
+driver = GraphDatabase.driver(
+    uri,
+    auth=auth,
+    max_connection_pool_size=50,    # Max connections
+    connection_acquisition_timeout=30,  # Wait time
+    max_connection_lifetime=3600,   # 1 hour max age
+    keep_alive=True
+)
+```
+
+## Troubleshooting Connection Issues
+
+### Issue: Connection Limit Reached
+
+**Symptoms:**
+* Applications unable to connect
+* Error messages about connection limit
+* Running + Idle connections at limit
+* Service disruption
+
+**Diagnosis:**
+1. Check connection metrics - at limit?
+2. Review connection open/close balance
+3. Identify if leak or legitimate load
+4. Review application pool configurations
+
+**Resolution:**
+
+**If Connection Leak:**
+1. Review application code for proper closing
+2. Add try-finally blocks or context managers
+3. Deploy fix to applications
+4. Monitor for connection decrease
+
+**If Legitimate Load:**
+1. Review pool sizes - can they be reduced?
+2. Is application count higher than expected?
+3. Scale instance for higher connection limit
+4. Implement connection request queuing
+
+### Issue: Slow Query Start Times
+
+**Symptoms:**
+* Queries take long to start executing
+* No slow query execution, just delay before start
+* High connection churn
+* Users complain of lag
+
+**Diagnosis:**
+1. Check idle connection count - very low?
+2. Review open/close rates - very high?
+3. Connection pools not maintaining connections?
+4. Creating new connection for each query?
+
+**Resolution:**
+1. Configure connection pooling properly
+2. Increase minimum pool size
+3. Reuse driver instance across queries
+4. Pre-warm connection pools at startup
+
+### Issue: Intermittent Connection Failures
+
+**Symptoms:**
+* Some queries succeed, some fail with connection errors
+* Random pattern
+* Network-related errors
+* Timeouts
+
+**Diagnosis:**
+1. Check network stability
+2. Review connection timeout settings
+3. Check for firewall or proxy issues
+4. Verify connection string correctness
+
+**Resolution:**
+1. Implement retry logic with exponential backoff
+2. Increase connection timeout
+3. Check network between application and Aura
+4. Verify DNS resolution working
+
+## Best Practices
+
+### Application Code
+
+**Always Close Connections:**
+```python
+# Pattern 1: Context manager (preferred)
+with driver.session() as session:
+    result = session.run(query)
+
+# Pattern 2: Try-finally
+session = driver.session()
+try:
+    result = session.run(query)
+finally:
+    session.close()
+```
+
+**Reuse Driver Instance:**
+```python
+# Create once at application startup
+driver = GraphDatabase.driver(uri, auth=auth)
+
+# Use throughout application lifecycle
+def run_query():
+    with driver.session() as session:
+        return session.run(query)
+
+# Close at application shutdown
+driver.close()
+```
+
+**Configure Pools Appropriately:**
+* Match pool size to concurrent load
+* Don't over-provision pools
+* Monitor actual usage
+* Adjust based on metrics
+
+### Monitoring and Alerting
+
+**Daily Monitoring:**
+* Check connection metrics
+* Verify reasonable levels
+* Note any unusual patterns
+* Correlate with application deployments
+
+**Alert Configuration:**
+
+**Warning: 80% of Connection Limit:**
+* Approaching capacity
+* Time to investigate
+* May need optimization or scaling
+
+**Critical: 95% of Connection Limit:**
+* Near exhaustion
+* Immediate action required
+* Service disruption imminent
+
+**Connection Leak Alert:**
+* Idle + Running connections growing >10% per hour
+* Indicates leak
+* Requires code review
+
+[Reference: Monitoring Instance Performance Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/)
+

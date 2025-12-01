@@ -1,0 +1,501 @@
+# Optimizing Query Performance
+
+Systematic methodology for identifying, analyzing, and optimizing slow queries in production.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/4-optimizing-performance)
+
+## Concepts
+
+* **Query Optimization** - Process of improving query performance through systematic analysis and refinement
+* **Total Time Spent** - Primary metric for prioritization (frequency × duration)
+* **Anchor Nodes** - Starting points for query execution
+* **Index-Free Adjacency** - Neo4j's ability to traverse relationships without index lookups
+* **EXPLAIN** - Shows planned execution steps without running query
+* **PROFILE** - Executes query and returns detailed performance statistics
+* **Execution Plan** - Series of operations Neo4j performs to execute query
+* **Database Hits** - Number of operations against the database
+* **NodeByLabelScan** - Scanning all nodes with a label (expensive)
+* **NodeIndexSeek** - Using index to find specific nodes (efficient)
+
+## Understanding Query Optimization
+
+### Why Optimize
+
+**User Experience:**
+* Slow queries frustrate users
+* Timeouts cause failed transactions
+* Perceived app slowness damages reputation
+
+**Resource Consumption:**
+* Slow queries hold connections longer
+* Consume CPU and memory unnecessarily
+* Block other operations from executing
+* Increase infrastructure costs
+
+**Capacity Planning:**
+* Inefficient queries waste capacity
+* Optimization can defer scaling needs
+* Better utilization of existing resources
+* Lower operational costs
+
+### Prioritization Metric: Total Time Spent
+
+**Formula:**
+```
+Total Time Spent = Frequency × Average Duration
+```
+
+**Why This Matters:**
+* Query running 1,000 times at 500ms = 500 seconds total
+* Query running once at 60 seconds = 60 seconds total
+* First query has 8× more impact despite being individually faster
+* Optimize highest total time spent first
+
+**Priority Calculation:**
+1. Sort queries by total time spent (descending)
+2. Focus on top 10 queries
+3. Calculate potential impact of 50% improvement
+4. Prioritize user-facing queries over batch jobs
+5. Consider ease of optimization vs impact
+
+## How Cypher Queries Work
+
+### Execution Model
+
+**Phase 1: Find Anchor Nodes**
+* Neo4j locates starting points first
+* Uses indexes when available
+* Falls back to label scans if no indexes
+* Fewer anchor nodes = faster query
+
+**Phase 2: Expand Relationships**
+* Traverse relationships from anchor nodes
+* Uses index-free adjacency (fast)
+* Direction and type specified = more efficient
+* Fewer relationships traversed = faster query
+
+**Phase 3: Filter and Return**
+* Apply WHERE clauses
+* Perform aggregations
+* Sort and limit results
+* Return data to client
+
+### Performance Principles
+
+**Minimize Anchor Nodes:**
+* Use indexes for property lookups
+* Specify labels to reduce search space
+* Use most selective filters first
+* Avoid starting with (n) - too broad
+
+**Optimize Traversals:**
+* Specify relationship types explicitly
+* Use relationship direction when known
+* Limit traversal depth ([*1..3] not [*])
+* Filter early to reduce work
+
+**Reduce Data Transfer:**
+* Return only needed properties
+* Use LIMIT to cap result sets
+* Aggregate in database when possible
+* Stream large results, don't collect all
+
+## Identifying Queries to Optimize
+
+### Step-by-Step Process
+
+**1. Access Query Logs:**
+* Navigate to Operations → Logs → Query
+* Set time period (last 24 hours)
+* Apply filter: Minimum duration 1000ms
+* Switch to Summary view
+
+**2. Sort by Total Time Spent:**
+* Click column header to sort descending
+* Top of list = highest impact queries
+* Focus on top 5-10 queries initially
+
+**3. Calculate Impact:**
+* Note frequency and duration for each
+* Estimate improvement potential
+* Consider optimization difficulty
+* Prioritize quick wins first
+
+**4. Separate User-Facing from Background:**
+* Check application name or user
+* User-facing queries = higher priority
+* Background jobs can tolerate longer runtime
+* Balance impact vs user experience
+
+**5. Document Candidates:**
+* Copy query text
+* Note current performance metrics
+* Record frequency of execution
+* Identify application or service
+
+## Analyzing Query Performance
+
+### Using EXPLAIN
+
+**Purpose:**
+* Shows execution plan without running query
+* No impact on database
+* Safe to run in production
+* Helps identify expensive operations before profiling
+
+**Process:**
+1. Copy query from logs
+2. Add EXPLAIN prefix
+3. Run in Neo4j Browser or application
+4. Review execution plan operators
+
+**Example:**
+```cypher
+EXPLAIN
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'Toy Story'
+RETURN u.name, r.rating
+```
+
+**What to Look For:**
+* **NodeByLabelScan** - Scanning all nodes (bad for large datasets)
+* **AllNodesScan** - Scanning entire database (very expensive)
+* **Filter** - Filtering after retrieval (should filter earlier)
+* **NodeIndexSeek** - Using index (good)
+* **Expand** - Relationship traversal
+* **Estimated rows** - Planner's guess at data volume
+
+### Using PROFILE
+
+**Purpose:**
+* Executes query and returns actual statistics
+* Shows real performance data
+* Identifies actual bottlenecks
+* Use after EXPLAIN analysis
+
+**Process:**
+1. Run PROFILE on query in non-production if possible
+2. Review actual vs estimated rows
+3. Check database hits per operator
+4. Identify operations with highest cost
+5. Note cache hits vs misses
+
+**Example:**
+```cypher
+PROFILE
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'Toy Story'
+RETURN u.name, r.rating
+```
+
+**Key Metrics:**
+* **DB hits** - Total database operations
+* **Rows** - Actual data processed
+* **Cache hits/misses** - Page cache effectiveness
+* **Time** - Execution time per operator
+
+**Reading Execution Plans:**
+* Start from bottom operator (data source)
+* Move up through transformations
+* Widest pipes = most data flowing
+* Orange highlights = expensive operations
+
+## Common Optimization Techniques
+
+### 1. Add Missing Indexes
+
+**Problem Pattern:**
+* PROFILE shows NodeByLabelScan
+* High DB hits on label scan operator
+* Filtering property after scan
+* Many nodes with label
+
+**Solution:**
+```cypher
+CREATE INDEX movie_title FOR (m:Movie) ON (m.title)
+```
+
+**Impact:**
+* NodeByLabelScan → NodeIndexSeek
+* DB hits reduced by orders of magnitude
+* Query time drops dramatically
+* Should see immediate improvement
+
+**Validation:**
+* Run PROFILE again after index creation
+* Verify NodeIndexSeek appears in plan
+* Compare DB hits before/after
+* Measure query duration improvement
+
+### 2. Use Query Parameters
+
+**Problem Pattern:**
+* High planning time (>100ms)
+* Query uses literal values
+* Same query structure executed frequently
+* Cannot reuse cached plans
+
+**Before (Bad):**
+```cypher
+MATCH (m:Movie)
+WHERE m.title = 'The Matrix'
+RETURN m
+```
+
+**After (Good):**
+```cypher
+MATCH (m:Movie)
+WHERE m.title = $title
+RETURN m
+```
+
+**Impact:**
+* Planning time drops to <10ms
+* Query plans cached and reused
+* Reduces CPU overhead
+* Scales better with load
+
+**Application Example (Python):**
+```python
+session.run(
+    "MATCH (m:Movie) WHERE m.title = $title RETURN m",
+    title="The Matrix"
+)
+```
+
+### 3. Add LIMIT Clauses
+
+**Problem Pattern:**
+* Query returns millions of rows
+* Application only displays first page
+* High memory consumption
+* Long execution times
+
+**Before (Bad):**
+```cypher
+MATCH (u:User)-[:RATED]->(m:Movie)
+RETURN u.name, m.title
+```
+
+**After (Good):**
+```cypher
+MATCH (u:User)-[:RATED]->(m:Movie)
+RETURN u.name, m.title
+LIMIT 100
+```
+
+**Impact:**
+* Stops processing after 100 results
+* Dramatically reduces memory usage
+* Query completes much faster
+* Client pagination works efficiently
+
+### 4. Avoid Cartesian Products
+
+**Problem Pattern:**
+* Multiple MATCH clauses without relationships
+* Warning: "This query builds a cartesian product"
+* Creates all combinations of results
+* Exponential growth in data processed
+
+**Before (Bad):**
+```cypher
+MATCH (m:Movie {title: 'The Matrix'})
+MATCH (m)<-[:ACTED_IN]-(actor:Person)
+MATCH (m)<-[:DIRECTED]-(director:Person)
+RETURN m.title, collect(actor.name), collect(director.name)
+```
+
+**After (Good):**
+```cypher
+MATCH (m:Movie)
+WHERE m.title = $title
+RETURN m.title,
+  [(m)<-[:ACTED_IN]-(actor) | actor.name] AS actors,
+  [(m)<-[:DIRECTED]-(director) | director.name] AS directors
+```
+
+**Impact:**
+* Eliminates cartesian product
+* Each relationship type processed independently
+* Massive reduction in intermediate results
+* Query completes orders of magnitude faster
+
+### 5. Filter on Relationship Properties
+
+**Problem Pattern:**
+* Filtering relationship properties with WHERE
+* Traverses all relationships then filters
+* High DB hits on relationship scan
+
+**Before (Less Efficient):**
+```cypher
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE r.rating = 5
+RETURN u.name, m.title
+```
+
+**After (More Efficient - for frequent pattern):**
+```cypher
+// First, create specific relationships
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE r.rating = 5
+MERGE (u)-[:RATED_5]->(m)
+
+// Then query using specific type
+MATCH (u:User)-[:RATED_5]->(m:Movie)
+RETURN u.name, m.title
+```
+
+**When to Use:**
+* Pattern queried very frequently
+* Relationship property values well-known
+* Performance gain justifies maintenance overhead
+* Data model supports specialized relationships
+
+## Query Optimization Checklist
+
+### Structural Checks
+
+**DO:**
+* Specify node labels: `MATCH (u:User)` not `MATCH (u)`
+* Specify relationship types: `-[:KNOWS]->` not `-[]->`
+* Specify relationship direction when known
+* Use parameters ($param) instead of literals
+* Add LIMIT to queries that could return many rows
+* Constrain variable-length paths: `[*1..5]` not `[*]`
+
+**DON'T:**
+* Start queries with (n) without label
+* Use variable-length paths without limits
+* Skip relationship types or direction
+* Use literal values in frequent queries
+* Return entire nodes when only properties needed
+* Collect all results when pagination possible
+
+### Index Strategy
+
+**DO:**
+* Create indexes on frequently queried properties
+* Index properties used in WHERE clauses
+* Index properties used for lookups (equality)
+* Verify indexes are being used (PROFILE)
+
+**DON'T:**
+* Create indexes on every property
+* Forget to wait for index population
+* Skip index validation after creation
+* Over-index (each index adds write overhead)
+
+### Result Set Management
+
+**DO:**
+* Return only needed properties
+* Use LIMIT for paginated results
+* Aggregate in database when possible
+* Stream large result sets
+
+**DON'T:**
+* Return entire nodes unnecessarily
+* Collect unbounded result sets
+* Transfer processing to application
+* Ignore pagination opportunities
+
+## Validation Process
+
+### Before Optimization
+
+**1. Establish Baseline:**
+* Run PROFILE in non-production
+* Record current execution time
+* Note DB hits and rows processed
+* Document problematic operators
+
+**2. Document Query:**
+* Save original query text
+* Note frequency from logs
+* Record current average duration
+* Calculate current total time spent
+
+### During Optimization
+
+**1. Make Single Change:**
+* Modify one aspect at a time
+* Add index, or change query, not both
+* Makes cause/effect clear
+
+**2. Test in Non-Production:**
+* Verify query still returns correct results
+* Check PROFILE for expected plan changes
+* Measure new execution time
+
+**3. Compare Plans:**
+* Review operator changes
+* Check DB hits reduction
+* Verify index usage
+* Ensure no new issues introduced
+
+### After Optimization
+
+**1. Deploy to Production:**
+* Create indexes during low-traffic period
+* Monitor query logs for new performance
+* Watch for unexpected side effects
+* Be ready to rollback if issues
+
+**2. Measure Impact:**
+* Check query logs after deployment
+* Compare average duration before/after
+* Calculate total time spent reduction
+* Verify frequency unchanged
+
+**3. Document Results:**
+* Record optimization applied
+* Note performance improvement percentage
+* Update runbook with technique
+* Share learnings with team
+
+## Continuous Optimization Strategy
+
+### Regular Review Schedule
+
+**Weekly:**
+* Check query logs for new slow queries
+* Review top 10 by total time spent
+* Identify recent changes or deployments
+* Quick wins: missing indexes, missing parameters
+
+**Monthly:**
+* Deep analysis of query patterns
+* Review all queries >1 second
+* Assess data model effectiveness
+* Plan larger optimization projects
+
+**Quarterly:**
+* Comprehensive performance audit
+* Review optimization impact over time
+* Adjust thresholds and alerts
+* Update query optimization guidelines
+
+### Preventing Performance Regression
+
+**Code Review:**
+* Require EXPLAIN/PROFILE for new queries
+* Verify parameters used
+* Check index availability
+* Review for anti-patterns
+
+**Pre-Deployment:**
+* Profile queries in staging
+* Load test with production-like data
+* Verify query performance acceptable
+* Document expected query patterns
+
+**Post-Deployment:**
+* Monitor query logs immediately
+* Check for new slow queries
+* Validate optimization assumptions
+* Quick rollback if regression detected
+
+[Reference: Logs and Query Optimization Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/)
+

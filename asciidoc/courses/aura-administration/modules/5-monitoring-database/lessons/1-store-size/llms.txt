@@ -1,0 +1,365 @@
+# Monitoring Database Store Size
+
+Understanding storage metrics, database compaction decisions, and capacity planning strategies.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/1-store-size)
+
+## Concepts
+
+* **Allocated Space** - Total disk space reserved for database
+* **Used Space** - Portion of allocated space containing active data
+* **Database Compaction** - Process of reclaiming unused allocated space
+* **Store Size Growth** - Rate of database size increase over time
+* **Capacity Planning** - Predicting future storage needs based on trends
+* **Wasted Space** - Allocated but unused space after deletions
+
+## Understanding Store Size Metrics
+
+### Allocated Space
+
+**What It Is:**
+* Total disk space reserved for database
+* Includes active data, deleted data not yet reclaimed, and internal structures
+* Neo4j allocates space in chunks for efficiency
+* May be larger than actual data size
+
+**Why It Matters:**
+* Shows total storage consumption
+* Determines billing/cost
+* Indicates when scaling needed
+* Reveals wasted space after deletions
+
+### Used Space
+
+**What It Is:**
+* Portion of allocated space containing active data
+* Actual size of your graph data
+* Excludes wasted/fragmented space
+
+**Calculation:**
+```
+Used Space = Allocated Space - Available Allocated Space
+```
+
+**Why It Matters:**
+* True data size
+* Growth rate of actual data
+* Comparison with allocated shows waste
+* Capacity planning baseline
+
+### The Difference Matters
+
+**Small Difference (Normal):**
+* Neo4j allocates space in advance
+* Deleted data marked as available but not immediately reclaimed
+* Typical operational overhead
+* No action needed
+
+**Large Difference (Problem):**
+* Significant storage waste
+* Often after major data deletions
+* Space allocated but not used
+* Compaction beneficial
+
+## Normal vs Problematic Patterns
+
+### Healthy Patterns
+
+**Linear Growth:**
+* Both allocated and used growing steadily
+* Small, consistent difference between them
+* Predictable and manageable
+* Indicates healthy data accumulation
+
+**Parallel Growth:**
+* Allocated and used tracking together
+* Difference remains relatively constant
+* Normal operations
+* No waste accumulation
+
+### Problematic Patterns
+
+**Growing Gap:**
+* Allocated growing, used stable or shrinking
+* Indicates deletions without space reclamation
+* Wasted storage accumulating
+* Compaction candidate
+
+**Sudden Jump in Allocated:**
+* Large increase in allocated space
+* Used space unchanged
+* May indicate:
+  - Failed bulk operation
+  - Aborted transaction
+  - Index rebuild
+  - Needs investigation
+
+**Declining Used Space:**
+* Used space decreasing over time
+* Allocated space stable or growing
+* Active data being deleted
+* Wasted space accumulating
+
+## Database Compaction
+
+### What Compaction Does
+
+**Process:**
+* Creates new copy of database
+* Includes only active data
+* Leaves behind unused allocated space
+* Results in smaller, more efficient store
+
+**Outcome:**
+* Allocated space reduces to match used space
+* Wasted storage reclaimed
+* Potential cost savings
+* Improved I/O efficiency
+
+### When to Consider Compaction
+
+**Clear Indicators:**
+* Large difference between allocated and used space (>30%)
+* After major data cleanup operations
+* Storage costs are concern
+* Performance degraded due to fragmentation
+
+**Scenarios:**
+* Deleted old time-series data
+* Removed obsolete nodes/relationships
+* Data retention policy implementation
+* Migration left unused data
+
+**Not Needed When:**
+* Small difference (<10%)
+* Normal operational variation
+* Continuous data growth
+* Cost not a concern
+
+### Compaction Methods
+
+**Method 1: Export and Restore Snapshot:**
+1. Take on-demand snapshot
+2. Export snapshot to backup file
+3. Create new instance from backup
+4. Used space = allocated space in new instance
+5. Update applications to new instance
+6. Delete old instance
+
+**Benefits:**
+* Clean, fresh instance
+* Opportunity to upgrade
+* Can test before switching
+* Rollback possible
+
+**Method 2: Neo4j Desktop (Self-Hosted):**
+* Use Neo4j Desktop to compact
+* Follow documentation procedure
+* Upload compacted database to Aura
+* Technical process, requires expertise
+
+### Compaction Considerations
+
+**Downtime:**
+* Database unavailable during process
+* Plan for maintenance window
+* Communicate to users
+* Can be hours for large databases
+
+**Cost:**
+* Temporarily running two instances
+* New instance while old still active
+* Data transfer costs
+* Budget accordingly
+
+**Risk:**
+* Test thoroughly in non-production first
+* Have rollback plan
+* Verify data integrity after
+* Monitor performance post-compaction
+
+## Planning for Storage Growth
+
+### Growth Rate Calculation
+
+**Daily Growth:**
+```
+Daily Rate = (Today's Size - Size 7 Days Ago) / 7
+```
+
+**Weekly Growth:**
+```
+Weekly Rate = (This Week - 4 Weeks Ago) / 4
+```
+
+**Monthly Growth:**
+```
+Monthly Rate = (This Month - Last Month)
+```
+
+### Projection Methods
+
+**Linear Projection:**
+```
+Future Size = Current Size + (Growth Rate × Days)
+```
+
+**Example:**
+* Current used space: 500 GB
+* Daily growth: 2 GB/day
+* Size in 30 days: 500 + (2 × 30) = 560 GB
+
+**Capacity Deadline:**
+```
+Days Until Full = (Total Capacity - Current Size) / Daily Growth Rate
+```
+
+**Example:**
+* Total capacity: 1000 GB
+* Current used: 700 GB
+* Daily growth: 5 GB
+* Days until full: (1000 - 700) / 5 = 60 days
+
+### Factors Affecting Growth
+
+**Business Factors:**
+* User base growth
+* New features adding data
+* Seasonal patterns (holidays, fiscal year-end)
+* Marketing campaigns driving activity
+
+**Technical Factors:**
+* Data retention policies
+* Archiving strategies
+* Denormalization vs normalization
+* Vector embeddings and indexes
+
+**Planning Considerations:**
+* Plan for peak, not average
+* Include 20-30% buffer
+* Consider seasonality
+* Budget for scaling ahead of need
+
+## Optimization Before Scaling
+
+### Data Model Review
+
+**Questions to Ask:**
+* Are all properties necessary?
+* Can large properties be externalized?
+* Is denormalization excessive?
+* Can computed values be removed?
+
+**Optimization Opportunities:**
+* Remove unused properties
+* Externalize large text/binary data
+* Normalize highly repeated data
+* Archive old data
+
+### Index Optimization
+
+**Review All Indexes:**
+* Which indexes are actually used?
+* Are full-text indexes necessary?
+* Vector index dimensions optimized?
+* Remove unused indexes
+
+**Index Storage Impact:**
+* Standard indexes: Moderate size
+* Full-text indexes: Large (duplicate text)
+* Vector indexes: Very large (high-dimensional)
+
+### Data Retention Policies
+
+**Implement Retention:**
+* Define data lifecycle
+* Archive or delete old data
+* Keep only active dataset in production
+* Move historical to data warehouse
+
+**Example Policy:**
+* Keep detailed data for 90 days
+* Aggregate older data to summaries
+* Delete after 2 years
+* Dramatically reduces storage growth
+
+### Query Result Caching
+
+**Application-Level Caching:**
+* Cache expensive aggregations
+* Avoid recreating computed values
+* Reduces need for denormalization
+* Smaller database storage
+
+## Monitoring Strategy
+
+### Daily Monitoring
+
+**Quick Checks:**
+* Review store size percentage
+* Note any unusual jumps
+* Compare to expected growth
+* Verify within capacity
+
+**Red Flags:**
+* Sudden large increase (unexpected import?)
+* Growing gap between allocated and used
+* Approaching 70% of capacity
+* Accelerating growth rate
+
+### Weekly Review
+
+**Trend Analysis:**
+* Calculate weekly growth rate
+* Compare to previous weeks
+* Identify acceleration or deceleration
+* Update capacity projections
+
+**Documentation:**
+* Normal growth for your workload
+* Seasonal variations
+* Expected bulk operations
+* Share with team
+
+### Monthly Planning
+
+**Capacity Forecast:**
+* Project 3-6 months ahead
+* Account for known changes
+* Plan for seasonal peaks
+* Budget for scaling
+
+**Optimization Review:**
+* Evaluate data retention
+* Review index necessity
+* Assess data model efficiency
+* Implement improvements
+
+## Alert Configuration
+
+**Warning: 70% Capacity**
+* **Trigger**: Sustained above 70% for 24 hours
+* **Action**: Begin capacity planning
+* **Timeline**: 30-60 days to scale
+* **Notification**: Email to admin team
+
+**High: 80% Capacity**
+* **Trigger**: Sustained above 80% for 12 hours
+* **Action**: Schedule scaling
+* **Timeline**: Complete within 30 days
+* **Notification**: Email + Slack
+
+**Critical: 90% Capacity**
+* **Trigger**: Reaches 90% at any time
+* **Action**: Scale immediately
+* **Timeline**: Within 7 days
+* **Notification**: Page on-call, escalate
+
+**Accelerating Growth Alert**
+* **Trigger**: Growth rate increases >50%
+* **Action**: Investigate cause
+* **Timeline**: Immediate review
+* **Notification**: Email to DBA team
+
+[Reference: Monitoring Database Health Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/)
+

@@ -1,0 +1,460 @@
+# Security Logs
+
+Monitoring authentication, authorization, and session events for security and compliance.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/5-security-logs)
+
+## Concepts
+
+* **Security Logs** - Audit trail of authentication, authorization, and session events
+* **Authentication Events** - Login attempts (successful and failed)
+* **Authorization Events** - Permission checks and access denials
+* **Session Events** - Session lifecycle (logged in, logged out)
+* **Authenticated User** - User whose credentials were used to authenticate
+* **Executing User** - User who performed action (may differ if impersonation used)
+* **Impersonation** - Executing actions as another user while authenticated as different user
+* **Audit Trail** - Complete record of security events for compliance
+
+## Accessing Security Logs
+
+### Step-by-Step Process
+
+1. **Navigate to Logs** - Operations → Logs
+2. **Select Security Tab** - Click "Security" at top of interface
+3. **Set Time Period** - Choose relevant time range (up to 24 hours per request)
+4. **Apply Filters** - Narrow results using available filters
+5. **Choose View** - Summary for patterns, Details for specific events
+
+### Retention and Limits
+
+**Retention Period:**
+* 30 days of security logs available
+* Same as query logs retention
+* Export logs for longer retention if required
+
+**Request Limits:**
+* Maximum 24 hours per request
+* Multiple requests needed for longer periods
+* Plan requests to cover investigation timeframe
+
+## Security Log Filters
+
+### Status Filter
+
+**Options:**
+* Info - Normal operations (successful logins, logouts)
+* Warning - Potential issues (failed authentication)
+* Error - Problems requiring attention (permission errors)
+
+**When to Use:**
+* **Info Only** - Establishing baseline normal activity
+* **Warning/Error** - Investigating security incidents
+* **All** - Complete audit for compliance reporting
+
+### Executing User Filter
+
+**Purpose:**
+* Identify which user performed actions
+* May differ from authenticated user if impersonation used
+* Useful for tracking specific user activity
+
+**Use Cases:**
+* Investigate actions by specific service account
+* Track administrator activities
+* Correlate user actions with security events
+* Compliance audit of user access
+
+### Authenticated User Filter
+
+**Purpose:**
+* Show whose credentials were used
+* Identifies account used for authentication
+* Important for access tracking
+
+**Use Cases:**
+* Track which accounts are actively used
+* Identify shared account usage
+* Verify service account authentication
+* Audit credential usage patterns
+
+### Driver Filter
+
+**Purpose:**
+* Identify client driver used for connection
+* Shows application type and version
+
+**Options:**
+* neo4j-python/5.9.0
+* neo4j-javascript/5.14.0
+* neo4j-java/5.x.x
+* neo4j-dotnet/5.x.x
+* neo4j-browser
+
+**When to Use:**
+* Identify which applications accessing database
+* Correlate issues with driver versions
+* Track deprecated driver usage
+* Verify expected application connections
+
+### Message Text Filter
+
+**Purpose:**
+* Search within log messages
+* Case-insensitive partial matching
+
+**Common Searches:**
+* "authentication failed" - Failed login attempts
+* "permission" or "denied" - Authorization problems
+* "logged in" - Successful authentication
+* "logged out" - Session terminations
+
+## Security Event Types
+
+### Authentication Events
+
+**Successful Authentication:**
+* **Status**: Info
+* **Message**: "Successful authentication"
+* **Indicates**: Normal login activity
+* **Action**: None required for normal patterns
+
+**Failed Authentication:**
+* **Status**: Warning or Error
+* **Message**: "Authentication failed"
+* **Indicates**:
+  - Incorrect credentials
+  - Expired passwords
+  - Non-existent users
+  - Potential attack attempts
+* **Action**: Investigate pattern and frequency
+
+**Analysis Process:**
+1. Count failed attempts per user
+2. Check if failed attempts for valid users
+3. Look for brute force patterns (many rapid attempts)
+4. Verify attempts from expected drivers/applications
+5. Investigate non-existent user attempts
+
+### Authorization Events
+
+**Permission Denied:**
+* **Status**: Warning
+* **Message**: Contains "permission" or "denied"
+* **Indicates**: User attempted unauthorized operation
+* **Causes**:
+  - Insufficient role permissions
+  - Application misconfiguration
+  - User account setup issues
+  - Attempted privilege escalation
+
+**Role Changes:**
+* **Status**: Info
+* **Message**: Role modification events
+* **Indicates**: Administrative permission changes
+* **Action**: Verify changes were authorized
+
+**Analysis Process:**
+1. Identify which operations were denied
+2. Check if user role appropriate for operation
+3. Verify application using correct credentials
+4. Review if recent permission changes caused issues
+5. Determine if legitimate need or security concern
+
+### Session Events
+
+**Logged In:**
+* **Status**: Info
+* **Indicates**: Session successfully established
+* **Useful For**: Tracking connection patterns
+
+**Logged Out:**
+* **Status**: Info
+* **Indicates**: Session properly terminated
+* **Useful For**: Understanding session lifecycle
+
+**Analysis Use Cases:**
+* Calculate session durations
+* Identify long-running sessions
+* Track connection frequency by time of day
+* Verify applications closing connections properly
+* Detect connection leaks (no logout events)
+
+## Common Security Monitoring Scenarios
+
+### Scenario 1: Monitoring Failed Logins
+
+**Objective:**
+* Detect potential security threats
+* Identify credential issues
+* Spot brute force attempts
+
+**Process:**
+1. **Set Filters**:
+   * Status: Error or Warning
+   * Message text: "authentication failed"
+   * Time period: Last 24 hours
+
+2. **Analyze Patterns**:
+   * Count failures per user
+   * Check for rapid repeated attempts
+   * Identify attempts for non-existent users
+   * Note driver/source of attempts
+
+3. **Categorize Threats**:
+   * **High Risk**: Many failures for non-existent users
+   * **Medium Risk**: Repeated failures for valid users from unknown drivers
+   * **Low Risk**: Occasional failures for known users from known applications
+
+4. **Take Action**:
+   * High risk: Investigate immediately, consider IP blocking
+   * Medium risk: Verify application configuration
+   * Low risk: Monitor, may be password typos
+
+### Scenario 2: Debugging Permission Issues
+
+**Objective:**
+* Identify why users cannot perform operations
+* Correct role/permission configuration
+* Resolve application access issues
+
+**Process:**
+1. **Set Filters**:
+   * Status: Warning
+   * Message text: "permission" or "denied"
+   * Executing user: [affected user]
+
+2. **Identify Operations**:
+   * What operation was attempted?
+   * Which database or resource?
+   * Is this expected functionality?
+
+3. **Check Permissions**:
+   * Review user's assigned roles
+   * Verify required permissions for operation
+   * Check if recent permission changes
+
+4. **Resolve Issue**:
+   * Grant necessary permissions if appropriate
+   * Update application credentials if misconfigured
+   * Document decision and reasoning
+
+### Scenario 3: Audit Compliance
+
+**Objective:**
+* Track all database access for compliance
+* Provide audit reports for regulators
+* Demonstrate access controls working
+
+**Process:**
+1. **Set Time Period**:
+   * Coverage period for audit (e.g., last 30 days)
+   * May need multiple requests for long periods
+
+2. **Export All Events**:
+   * Do not apply status filters initially
+   * Include all authentication and authorization events
+   * Download complete log data
+
+3. **Organize by Categories**:
+   * Successful authentications by user
+   * Failed authentication attempts
+   * Permission denials
+   * Role changes
+
+4. **Generate Reports**:
+   * Summary of users accessing database
+   * Frequency of access by user
+   * Any security violations or attempts
+   * Actions taken in response
+
+### Scenario 4: Investigating Suspicious Activity
+
+**Objective:**
+* Detect unusual access patterns
+* Identify potential security breaches
+* Respond to security incidents
+
+**Warning Signs:**
+* Logins at unusual times (outside business hours)
+* Access from unexpected drivers
+* Privilege escalation attempts
+* Unusual spike in activity from account
+* Failed authentications followed by successful ones
+
+**Investigation Process:**
+1. **Establish Baseline**:
+   * What is normal for this user/application?
+   * Typical access times and patterns
+   * Expected drivers and operations
+
+2. **Identify Anomalies**:
+   * Compare current activity to baseline
+   * Note deviations from normal patterns
+   * Check timing against recent events
+
+3. **Correlate with Query Logs**:
+   * What queries were executed during suspicious period?
+   * Any unusual data access or modifications?
+   * Pattern matching with known attack signatures
+
+4. **Take Action**:
+   * Immediate: Disable compromised accounts if confirmed
+   * Short-term: Change credentials, review permissions
+   * Long-term: Implement additional monitoring, update security policies
+
+## Correlating Security and Query Logs
+
+### Why Correlate
+
+**Complete Picture:**
+* Security logs show who authenticated
+* Query logs show what they did
+* Together reveal full activity scope
+
+**Investigation Scenarios:**
+* Failed authentication followed by queries: Shared credentials?
+* Permission denial with query attempts: Application misconfiguration?
+* Unusual login with data export queries: Potential breach?
+* Service account with unexpected queries: Application compromise?
+
+### Correlation Process
+
+1. **Identify Event in Security Logs**:
+   * Note timestamp of security event
+   * Record user and driver information
+
+2. **Switch to Query Logs**:
+   * Set time period around security event
+   * Filter by same user
+   * Filter by same application/driver
+
+3. **Analyze Query Activity**:
+   * What queries executed after authentication?
+   * Any unusual patterns or operations?
+   * Expected behavior for that user/application?
+
+4. **Document Correlation**:
+   * Timeline of events
+   * Relationship between authentication and queries
+   * Assessment of normal vs suspicious activity
+
+## Security Log Best Practices
+
+### Regular Monitoring Schedule
+
+**Daily (Production Systems):**
+* Review failed authentication attempts
+* Check for permission denied events
+* Verify no unexpected warnings/errors
+* Quick scan for anomalies
+
+**Weekly:**
+* Analyze authentication patterns
+* Review all permission changes
+* Export logs for compliance retention
+* Update baseline normal behavior
+
+**Monthly:**
+* Comprehensive security audit
+* Review all access by user
+* Analyze trends over time
+* Update security monitoring procedures
+
+### Alerting Strategy
+
+**Immediate Alerts (Critical):**
+* Multiple failed authentications in short period
+* Authentication from unexpected driver types
+* Permission escalation attempts
+* Access during maintenance windows
+
+**Daily Digest (Important):**
+* All failed authentication attempts
+* Any permission denied events
+* New users or roles added
+* Unusual access patterns
+
+**Weekly Summary (Informational):**
+* Total authentication count
+* Most active users
+* Driver usage statistics
+* Session duration averages
+
+### Documentation Requirements
+
+**For Compliance:**
+* Regular export of security logs
+* Retention beyond Aura's 30 days
+* Classification of events by severity
+* Action taken for each incident
+
+**For Operations:**
+* Baseline normal activity documented
+* Escalation procedures defined
+* Response playbooks for incidents
+* Contact information for security team
+
+### Integration with Incident Response
+
+**When Security Event Detected:**
+1. **Document Event**:
+   * Screenshot or export relevant logs
+   * Record exact timestamps
+   * Note all users/systems involved
+
+2. **Assess Severity**:
+   * Is this ongoing or historical?
+   * What's the potential impact?
+   * Are credentials compromised?
+
+3. **Contain If Necessary**:
+   * Disable accounts if confirmed breach
+   * Revoke suspicious sessions
+   * Block problematic access sources
+
+4. **Investigate Root Cause**:
+   * How did incident occur?
+   * What vulnerabilities existed?
+   * Were any data accessed/modified?
+
+5. **Prevent Recurrence**:
+   * Update access controls
+   * Enhance monitoring
+   * Train users on security
+   * Document lessons learned
+
+## Advanced Security Monitoring
+
+### Behavioral Analysis
+
+**Establish Patterns:**
+* Normal login times for each user/application
+* Typical session durations
+* Expected driver types
+* Usual operation frequency
+
+**Detect Anomalies:**
+* Access outside normal hours
+* Longer/shorter session than typical
+* Unexpected driver or version
+* Unusual query frequency or type
+
+### Cross-Reference with External Systems
+
+**Application Logs:**
+* Correlate database access with application requests
+* Verify expected behavior matches actual
+* Identify discrepancies requiring investigation
+
+**Network Logs:**
+* Verify source IPs match expected locations
+* Check for access from VPN vs direct
+* Identify unusual network patterns
+
+**CI/CD Systems:**
+* Correlate database changes with deployments
+* Verify service account usage during deploy windows
+* Track configuration changes
+
+[Reference: Logs and Query Optimization Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/)
+

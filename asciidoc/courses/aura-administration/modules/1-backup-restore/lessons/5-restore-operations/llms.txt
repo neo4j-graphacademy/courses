@@ -1,0 +1,370 @@
+# Restore Operations
+
+Understanding restore procedures, recovery scenarios, and data migration strategies for Neo4j Aura.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/1-backup-restore/5-restore-operations)
+
+## Concepts
+
+* **Restore Operation** - Process of reverting database to a previous snapshot state
+* **Data Overwrite** - Complete replacement of current data with snapshot data
+* **Recovery Point Objective (RPO)** - Maximum acceptable data loss measured in time
+* **Recovery Time Objective (RTO)** - Maximum acceptable time to restore service
+* **Backup File** - Exported snapshot stored as `.backup`, `.dump`, or `.tar` file
+* **neo4j-admin upload** - Command-line tool for uploading local backups to Aura
+* **Data Migration** - Moving database between environments using backup files
+
+## When to Restore from Backup
+
+### Common Restoration Scenarios
+
+**Accidental Data Deletion:**
+* User error deleted critical data
+* Bulk delete operation removed wrong records
+* Missing WHERE clause affected entire dataset
+* Action: Restore to last known good state before deletion
+
+**Corrupted Data:**
+* Data integrity issues from failed operations
+* Inconsistent state from interrupted processes
+* Data quality problems from bad imports
+* Action: Restore to pre-corruption snapshot
+
+**Failed Migration:**
+* Data migration caused unexpected problems
+* Schema changes broke application functionality
+* Performance degraded after model changes
+* Action: Restore to pre-migration state and redesign approach
+
+**Security Incident:**
+* Malicious activity compromised data integrity
+* Unauthorized access made unwanted changes
+* Ransomware or data tampering detected
+* Action: Restore to snapshot before incident, investigate breach
+
+**Testing Rollback Procedures:**
+* Validating disaster recovery plan
+* Training team on restore operations
+* Compliance requirement for recovery testing
+* Action: Restore in test environment, document process
+
+## Restore Options
+
+###Option 1: Restore from Snapshot in Aura Console
+
+**When to Use:**
+* Snapshot within retention period
+* Need fastest restore time
+* Data loss is acceptable to snapshot time
+* No need to preserve current state
+
+**Step-by-Step Process:**
+1. **Access Snapshots** - Navigate to instance → More menu → Snapshots
+2. **Select Snapshot** - Find snapshot with desired recovery point
+3. **Initiate Restore** - Click restore icon (arrow) next to snapshot
+4. **Review Warning** - Understand all current data will be overwritten
+5. **Confirm Operation** - Type "RESTORE" to confirm
+6. **Monitor Progress** - Wait for restore to complete
+7. **Validate Results** - Verify data integrity and application functionality
+
+**Time to Restore:**
+* Depends on database size
+* Typically minutes to hours for large databases
+* Instance remains online but may be unavailable during restore
+
+**Best Practices:**
+**DO:**
+* Verify snapshot timestamp before restoring
+* Communicate downtime window to stakeholders
+* Document restore reason and expected data loss
+* Test application connections after restore
+* Monitor metrics for normal operation resumption
+
+**DON'T:**
+* Restore without verifying snapshot contents
+* Skip stakeholder notification in production
+* Assume integrations automatically recover
+* Forget to update documentation with restore event
+
+### Option 2: Restore from Backup File
+
+**When to Use:**
+* Snapshot expired from Aura retention
+* Migrating from external Neo4j instance
+* Restoring from offline backup storage
+* Compliance requires using archived backups
+
+**Step-by-Step Process:**
+1. **Access Restore Tab** - Navigate to instance → More menu → Snapshots → "Restore from backup file"
+2. **Select Backup File** - Drag and drop or browse for file
+   * AuraDB: `.backup` (latest) or `.dump` (v4.x)
+   * AuraDS: `.tar` file
+3. **Upload File** - Wait for upload to complete
+4. **Wait for Loading** - Instance shows "Loading" status
+5. **Validate Completion** - Verify instance status returns to "Running"
+6. **Test Functionality** - Confirm data and application work correctly
+
+**Time to Restore:**
+* Upload time depends on file size and network speed
+* Load time depends on database size
+* Can take hours for multi-gigabyte databases
+
+**Best Practices:**
+**DO:**
+* Verify backup file integrity before upload
+* Check network stability for large uploads
+* Plan for extended downtime
+* Have rollback plan if restore fails
+* Test in non-production first if possible
+
+**DON'T:**
+* Upload corrupted or incomplete backup files
+* Start upload during peak usage without planning
+* Assume upload will complete quickly
+* Skip validation after restore
+
+## Uploading Local Backups with neo4j-admin
+
+### When to Use neo4j-admin Upload
+
+* Migrating from self-hosted Neo4j to Aura
+* Uploading large databases efficiently
+* Automating backup uploads via scripts
+* Working with databases of any size
+
+### Creating a Database Dump
+
+**Process:**
+1. **Stop writes** to source database (optional but recommended)
+2. **Create dump** using neo4j-admin:
+   ```bash
+   bin/neo4j-admin database dump --to-path=./backups neo4j
+   ```
+3. **Verify dump** created successfully
+4. **Check file size** to estimate upload time
+
+**Expected Output:**
+```
+Starting dump of database 'neo4j'
+Done: 68 files, 384.2MiB processed in 0.522 seconds
+Dump completed successfully
+```
+
+### Uploading to Aura
+
+**Process:**
+1. **Prepare credentials** - Have Aura URI and password ready
+2. **Run upload command**:
+   ```bash
+   bin/neo4j-admin database upload \
+     --from-path=./backups/ \
+     --to-uri=neo4j+s://<instanceid>.databases.neo4j.io \
+     --to-user=neo4j \
+     --to-password=<your-password> \
+     neo4j
+   ```
+3. **Monitor progress** - Watch upload percentage and estimated time
+4. **Wait for import** - Database loads after upload completes
+5. **Verify success** - Check instance status in Aura console
+
+**Best Practices:**
+**DO:**
+* Test upload with small database first
+* Use stable network connection
+* Run with --verbose flag for troubleshooting
+* Keep terminal session alive during upload
+* Verify authentication before large uploads
+
+**DON'T:**
+* Upload during production hours without planning
+* Interrupt upload process
+* Use weak or default passwords
+* Skip verification of upload success
+* Delete source backup immediately after upload
+
+## Decision Framework: Which Restore Method to Use
+
+### Restore from Snapshot (Console)
+**Choose When:**
+* Snapshot available within retention period
+* Need fastest possible restore
+* Simple rollback to recent state
+* Standard operational restore
+
+**Benefits:**
+* Fastest restore time
+* No file downloads/uploads needed
+* Built into Aura console workflow
+* Straightforward process
+
+**Limitations:**
+* Limited to retention period
+* Must use Aura snapshots only
+* Cannot restore partial data
+
+### Restore from Backup File (Upload)
+**Choose When:**
+* Snapshot outside retention period
+* Migrating from external system
+* Using archived/exported backups
+* Compliance requires specific backup
+
+**Benefits:**
+* Works with any compatible backup
+* Supports long-term archives
+* Enables cross-environment migration
+* Satisfies compliance requirements
+
+**Limitations:**
+* Longer restore time
+* Requires file management
+* Network dependent
+* More complex process
+
+### neo4j-admin Upload
+**Choose When:**
+* Migrating from self-hosted Neo4j
+* Very large databases (multi-GB)
+* Need automated/scripted process
+* Working from command line
+
+**Benefits:**
+* Handles any database size
+* Provides progress monitoring
+* Scriptable and automatable
+* Detailed logging available
+
+**Limitations:**
+* Requires Neo4j tools installation
+* Command-line expertise needed
+* Must manage credentials securely
+* Longer overall process
+
+## Restore Impact Assessment
+
+### Data Loss Implications
+
+**RPO Considerations:**
+* All changes after snapshot timestamp are lost
+* Transactions in progress at snapshot time may be incomplete
+* Application state may be inconsistent with database state
+* Integrations may have processed events not in snapshot
+
+**Calculating Data Loss:**
+```
+Data Loss = Current Time - Snapshot Timestamp
+```
+
+**Example:**
+* Current time: 3:00 PM
+* Snapshot time: 11:00 AM (last automated snapshot)
+* Data loss: 4 hours of transactions
+* Impact: All orders, updates, user activity since 11 AM lost
+
+### Application Impact
+
+**Immediate Effects:**
+* Database URI and credentials remain unchanged
+* Application connections may need restart
+* Cached data becomes stale
+* Session state may be invalid
+
+**Recovery Steps:**
+1. **Restart Applications** - Clear caches and reconnect
+2. **Invalidate Sessions** - Force users to re-login if needed
+3. **Verify Integrations** - Check external systems still synchronized
+4. **Test Functionality** - Validate critical paths work correctly
+5. **Monitor Errors** - Watch for unexpected issues
+
+## Restore Operation Phases
+
+### Pre-Restore Phase
+1. Identify correct restore point and verify timestamp
+2. Calculate data loss window and document
+3. Notify stakeholders with expected downtime
+4. Identify impacted applications and integrations
+5. Document current state or create snapshot if time permits
+6. Select restore procedure (snapshot vs backup file vs upload)
+7. Prepare rollback plan if restore fails
+
+### During Restore Phase
+1. Initiate restore operation
+2. Monitor progress for errors or stalls
+3. Provide status updates to stakeholders
+4. Capture confirmation and logs
+
+### Post-Restore Phase
+1. Verify instance status shows "Running"
+2. Test database connectivity
+3. Run critical data queries to verify results
+4. Test application functionality
+5. Verify integration endpoints responding
+6. Monitor metrics for normal operation
+7. Test user access
+8. Document incident with lessons learned
+
+## Communication Template for Production Restores
+
+**Pre-Restore Notification:**
+```
+PLANNED MAINTENANCE: Database Restore Operation
+
+When: [Date and Time]
+Duration: Estimated [X] hours
+Impact: Database unavailable, [Y] hours of data will be rolled back
+Reason: [Brief explanation]
+Last Data Point: [Snapshot timestamp]
+Data Loss: All changes after [timestamp] will be lost
+
+Please:
+- Save work before [time]
+- Plan for service interruption
+- Contact [admin] with concerns
+```
+
+**Post-Restore Notification:**
+```
+MAINTENANCE COMPLETE: Database Restore Finished
+
+Completion Time: [Actual completion time]
+Status: Service restored
+Data State: Restored to [snapshot timestamp]
+Action Required: [Any user actions needed]
+
+Please verify your data and report any issues to [admin]
+```
+
+## Testing Restore Procedures
+
+### Regular Testing Schedule
+
+**Quarterly Tests:**
+* Restore snapshot to test instance
+* Verify data integrity
+* Measure actual restore time
+* Document any issues
+* Update procedures based on findings
+
+**Annual Tests:**
+* Full disaster recovery simulation
+* Restore from exported backup files
+* Test neo4j-admin upload process
+* Involve all stakeholders
+* Update disaster recovery plan
+
+**Best Practices:**
+**DO:**
+* Schedule tests during low-activity periods
+* Use realistic test scenarios
+* Document actual vs expected times
+* Train team members on procedures
+* Update runbooks after each test
+
+**DON'T:**
+* Test only when incident occurs
+* Skip documentation of test results
+* Assume process works without testing
+* Test in production without safeguards
+
+[Reference: Backup and Restore Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/1-backup-restore/)
+

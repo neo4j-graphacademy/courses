@@ -1,0 +1,470 @@
+# Monitoring Out of Memory Errors
+
+Understanding OOM error causes, mitigation strategies, and prevention for Neo4j Aura instances.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/7-oom-errors)
+
+## Concepts
+
+* **Out of Memory Error (OOM)** - JVM unable to allocate memory even after garbage collection
+* **Heap Exhaustion** - All available heap memory consumed
+* **GQL Status Code** - ISO standard codes indicating error type
+* **Memory Allocation** - Process of reserving memory for query operations
+* **Query Termination** - Forced stopping of query due to resource constraints
+* **Transaction Memory Limit** - Maximum memory a single transaction can use
+* **Batch Processing** - Breaking operations into smaller chunks to manage memory
+
+## Understanding Out of Memory Errors
+
+### What Happens During OOM
+
+**Sequence of Events:**
+1. Query or operation requests memory allocation
+2. JVM checks available heap space
+3. Insufficient space available
+4. Garbage collector runs to free memory
+5. If still insufficient space after GC
+6. JVM throws OutOfMemoryError
+7. Query/transaction fails immediately
+
+**Immediate Consequences:**
+* Query executing fails with error
+* Transaction rolls back
+* User sees failure in application
+* Connection may be terminated
+* Application must handle error
+
+**System Impact:**
+* Performance degrades significantly
+* Other queries may also fail
+* Database remains operational but degraded
+* Cascading failures possible if widespread
+
+### How OOM Errors Appear in Applications
+
+**GQL Status Codes for OOM:**
+
+**25N16 - Transaction Termination:**
+* Message: "Transaction terminated due to transient error"
+* Cause: Memory exhaustion during transaction
+* Action: Retry in new transaction after pause
+
+**51N36 - Out of Memory:**
+* Message: "Not enough memory to perform current task"
+* Cause: Operation exceeded available memory
+* Action: Optimize query or scale instance
+
+**51N73 - Transaction Memory Limit:**
+* Message: "Transaction uses more memory than allowed"
+* Cause: Single transaction too large
+* Action: Break into smaller transactions or use batching
+
+**Application Error Handling:**
+```python
+try:
+    result = session.run(query, parameters)
+except Neo4jError as error:
+    if error.code in ["25N16", "51N36", "51N73"]:
+        # Handle OOM error
+        log_error("Query failed due to memory constraints")
+        # Implement retry logic or alert
+```
+
+## Common Causes of OOM Errors
+
+### Query-Level Issues
+
+**Unbounded Result Sets:**
+* Query returns millions of nodes/relationships
+* No LIMIT clause restricting results
+* Collecting entire result in memory
+* Example:
+  ```cypher
+  MATCH (n:User)-[r:RATED]->(m:Movie)
+  RETURN n, r, m
+  // Could return millions of results
+  ```
+
+**Solution:**
+```cypher
+MATCH (n:User)-[r:RATED]->(m:Movie)
+RETURN n.name, m.title, r.rating
+LIMIT 1000
+// Returns only needed data, limited quantity
+```
+
+**Graph Traversal Collection:**
+* Collecting entire traversal results in memory
+* Variable-length paths without limits
+* Pattern: `collect(path)` on large graphs
+
+**Example Problem:**
+```cypher
+MATCH path = (a:Person)-[*]-(b:Person)
+WHERE a.name = 'Alice'
+RETURN collect(path)
+// Collects potentially millions of paths
+```
+
+**Solution:**
+```cypher
+MATCH path = (a:Person)-[*1..3]-(b:Person)
+WHERE a.name = 'Alice'
+RETURN path
+LIMIT 100
+// Limited depth and result count
+```
+
+### Memory-Intensive Operations
+
+**Cartesian Products:**
+* Missing join conditions
+* Multiple MATCH clauses without relationships
+* Generates all combinations
+* Memory grows exponentially
+
+**Example Problem:**
+```cypher
+MATCH (u:User)
+MATCH (m:Movie)
+RETURN u.name, m.title
+// Returns every user × every movie combination
+```
+
+**Solution:**
+```cypher
+MATCH (u:User)-[:RATED]->(m:Movie)
+RETURN u.name, m.title
+// Only returns actual relationships
+```
+
+**Complex Aggregations:**
+* Aggregating over large datasets
+* Multiple grouping dimensions
+* Large intermediate result sets
+
+**Path Finding Without Constraints:**
+* Variable-length paths unlimited
+* All paths algorithms on large graphs
+* Shortest path on dense areas
+
+### Long-Running Transactions
+
+**Accumulating Changes:**
+* Transaction holds all changes in memory until commit
+* Large bulk operations in single transaction
+* Creates, updates, deletes accumulate
+* Memory grows throughout transaction
+
+**Example Problem:**
+```cypher
+UNWIND range(1, 1000000) AS id
+CREATE (n:Node {id: id})
+// All 1M nodes held in memory until commit
+```
+
+**Solution:**
+```cypher
+UNWIND range(1, 1000000) AS id
+CALL {
+  WITH id
+  CREATE (n:Node {id: id})
+} IN TRANSACTIONS OF 1000 ROWS
+// Commits every 1000 rows, freeing memory
+```
+
+**Open Transactions:**
+* Transaction not committed/rolled back
+* Holds memory indefinitely
+* Prevents garbage collection
+* Eventually causes OOM
+
+### Concurrent Query Load
+
+**Memory Multiplication:**
+* Each concurrent query allocates memory
+* 100 queries × 50MB each = 5GB total
+* Heap exhausted by simultaneous operations
+* Normal individually, problematic collectively
+
+**Spike Scenarios:**
+* Traffic surge from marketing campaign
+* Batch job running during peak hours
+* DDoS or automated scraping
+* Application retry storms
+
+## Monitoring Out of Memory Errors
+
+### OOM Metric Interpretation
+
+**Expected Value:** 0 errors
+
+**Any Non-Zero Count Requires Investigation:**
+* Single OOM: Investigate specific query
+* Multiple OOMs: Systemic issue
+* Regular OOMs: Urgent - scale or fix immediately
+* OOMs during specific times: Correlate with operations
+
+### Correlating with Other Metrics
+
+**Check Simultaneously:**
+* **Heap Memory** - Was it >80% when OOM occurred?
+* **Garbage Collection** - High GC % indicates memory pressure
+* **Query Rate** - Spike in concurrent queries?
+* **Active Transactions** - Many long-running transactions?
+* **CPU Usage** - Often elevated during memory pressure
+
+**Pattern Analysis:**
+* OOM + High Heap + High GC = Memory pressure, need scaling
+* OOM + Normal Heap + Specific time = Problematic query at that time
+* OOM + Spike in queries = Traffic surge exceeded capacity
+* OOM + High active transactions = Transaction not closing properly
+
+## Mitigation Strategies
+
+### For Scheduled/Periodic OOM Errors
+
+**Symptoms:**
+* OOM errors at predictable times
+* Correlates with batch jobs or scheduled tasks
+* Specific queries identified in logs
+* Doesn't occur during normal operations
+
+**Root Cause:**
+* Batch operations process too much data at once
+* Scheduled reports or analytics queries
+* Background maintenance tasks
+* Data exports or backups
+
+**Resolution - Optimize Queries:**
+
+**For Read Queries:**
+1. Use EXPLAIN/PROFILE to analyze query
+2. Check for expensive operations:
+   - NodeByLabelScan on large labels
+   - Missing indexes
+   - Unbounded traversals
+   - Collecting large result sets
+
+3. Add LIMIT clauses:
+```cypher
+// Before
+MATCH (n:User)-[:PURCHASED]->(p:Product)
+RETURN n, p
+
+// After
+MATCH (n:User)-[:PURCHASED]->(p:Product)
+RETURN n.id, p.name
+LIMIT 10000
+```
+
+4. Process in batches at application layer:
+```python
+offset = 0
+batch_size = 1000
+while True:
+    result = session.run("""
+        MATCH (n:User)
+        RETURN n
+        SKIP $offset LIMIT $batch
+    """, offset=offset, batch=batch_size)
+    
+    records = list(result)
+    if not records:
+        break
+    process_batch(records)
+    offset += batch_size
+```
+
+**For Write Queries:**
+
+Use IN TRANSACTIONS OF for batch operations:
+```cypher
+LOAD CSV FROM 'file.csv' AS row
+CALL {
+  WITH row
+  CREATE (n:Node {data: row})
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+**Reschedule to Off-Peak:**
+* Move batch jobs to 2-6 AM
+* Reduce concurrent load during peak hours
+* Stagger multiple batch operations
+* Monitor to ensure no user impact
+
+### For Intermittent OOM Errors
+
+**Symptoms:**
+* OOM errors at unpredictable times
+* No clear pattern or schedule
+* Occurs during normal operations
+* Cannot isolate to specific query
+
+**Root Cause:**
+* Instance undersized for workload
+* Traffic variability exceeds capacity
+* Memory headroom insufficient
+* Concurrent query spikes
+
+**Resolution - Scale Instance:**
+
+**Immediate Action:**
+1. Navigate to instance configuration
+2. Select larger Memory & CPU tier
+3. Schedule scaling during low-traffic period
+4. Execute scaling operation
+
+**Verification:**
+1. Monitor OOM metric after scaling
+2. Should drop to zero
+3. Check heap memory utilization
+4. Verify performance improvement
+5. Monitor for recurrence
+
+**Capacity Planning:**
+* Calculate peak concurrent query load
+* Estimate memory per query (use PROFILE)
+* Add 30% buffer for headroom
+* Select tier with sufficient heap memory
+
+**Long-Term Monitoring:**
+* Track heap memory trends
+* Set alerts at 70-80% heap utilization
+* Proactively scale before OOM recurrence
+* Document normal vs peak patterns
+
+## Prevention Strategies
+
+### Query Development Best Practices
+
+**Always Use LIMIT:**
+```cypher
+// Never do this in production
+MATCH (n:User) RETURN n
+
+// Always include LIMIT
+MATCH (n:User) RETURN n LIMIT 100
+```
+
+**Use Parameters:**
+```cypher
+// Prevents plan cache exhaustion
+MATCH (u:User {id: $userId})
+RETURN u
+```
+
+**Return Only Needed Properties:**
+```cypher
+// Don't return entire nodes
+MATCH (u:User)
+RETURN u.id, u.name, u.email
+// Not: RETURN u
+```
+
+**Batch Large Write Operations:**
+```cypher
+// Use IN TRANSACTIONS OF for bulk operations
+UNWIND $data AS row
+CALL {
+  WITH row
+  CREATE (n:Node {data: row})
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+**Constrain Variable-Length Paths:**
+```cypher
+// Always set maximum depth
+MATCH path = (a)-[*1..5]-(b)
+RETURN path
+// Not: MATCH path = (a)-[*]-(b)
+```
+
+### Application-Level Prevention
+
+**Connection Pool Configuration:**
+```python
+# Limit concurrent queries
+driver = GraphDatabase.driver(
+    uri, auth=auth,
+    max_connection_pool_size=50  # Adjust based on capacity
+)
+```
+
+**Query Timeouts:**
+```python
+# Prevent runaway queries
+session.run(query, timeout=30)  # 30 second timeout
+```
+
+**Retry Logic with Backoff:**
+```python
+def execute_with_retry(query, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return session.run(query)
+        except Neo4jError as e:
+            if e.code in ["25N16", "51N36", "51N73"]:
+                if attempt < max_retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                    continue
+            raise
+```
+
+**Result Streaming:**
+```python
+# Stream results instead of collecting all
+result = session.run(query)
+for record in result:
+    process_record(record)  # Process one at a time
+# Not: records = list(result)  # Loads all into memory
+```
+
+### Monitoring and Alerting
+
+**Proactive Alerts:**
+
+**Heap Memory Warning (70%):**
+* Before OOM errors occur
+* Time to review queries
+* Consider optimization or scaling
+
+**Heap Memory Critical (85%):**
+* OOM errors imminent
+* Immediate action required
+* Scale or optimize urgently
+
+**OOM Error Alert:**
+* Any OOM triggers immediate notification
+* Page on-call team
+* Investigate root cause
+* Implement fix quickly
+
+**Query Duration Alert:**
+* Queries >30 seconds
+* May indicate memory-intensive operations
+* Review and optimize proactively
+
+### Regular Reviews
+
+**Weekly:**
+* Review heap memory trends
+* Check for any OOM errors
+* Analyze slow query patterns
+* Identify optimization opportunities
+
+**Monthly:**
+* Comprehensive query audit
+* Review all queries >5 seconds
+* Validate LIMIT clauses present
+* Check transaction patterns
+* Update capacity plans
+
+**Quarterly:**
+* Full performance review
+* Load testing with production-like data
+* Capacity planning updates
+* Query optimization sprint
+
+[Reference: Monitoring Resources Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/)
+

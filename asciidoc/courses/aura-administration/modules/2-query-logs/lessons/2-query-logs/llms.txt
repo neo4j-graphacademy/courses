@@ -1,0 +1,391 @@
+# Working with Query Logs
+
+Finding slow queries, analyzing patterns, and using filters to identify performance issues.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/2-query-logs)
+
+## Concepts
+
+* **Query Timeline** - Visual chart showing query rates and latency over time
+* **Query Latency 99th Percentile** - Time taken by slowest 1% of queries
+* **Total Time Spent** - Cumulative execution time (frequency × duration)
+* **Page Hits** - Number of times data was accessed from page cache
+* **Page Faults** - Number of times data had to be read from disk
+* **Planning Time** - Time spent creating query execution plan
+* **Filter Criteria** - Conditions to narrow log results (time, status, duration, user, etc.)
+
+## What Query Logs Capture
+
+### Information Per Query Execution
+
+**Timing Data:**
+* Execution timestamp (when query ran)
+* Duration in milliseconds
+* Planning time (indicates if parameterized)
+* Queue time (if applicable)
+
+**Execution Context:**
+* User who executed query
+* Application or driver that sent it
+* Database accessed
+* Connection details
+
+**Performance Metrics:**
+* Page hits (cache accesses)
+* Page faults (disk reads)
+* Allocated bytes (memory used)
+* Rows returned
+
+**Status Information:**
+* Success or failure
+* GQL status code
+* Error message if failed
+* Stack trace if applicable
+
+## Understanding the Query Timeline
+
+### Timeline Chart Components
+
+**Total Queries Per Minute:**
+* Line showing query volume over time
+* Helps identify traffic patterns
+* Correlate spikes with application activity
+
+**Failed Queries Per Minute:**
+* Line showing failure rate
+* Should be minimal in healthy systems
+* Spikes indicate problems requiring investigation
+
+**Query Latency (99th Percentile):**
+* Shows slowest 1% of queries
+* Most sensitive indicator of problems
+* Typical queries not affected by outliers
+
+### Using the Timeline for Investigation
+
+**Identifying Anomalies:**
+1. Look for sudden spikes in latency
+2. Check if query volume increased simultaneously
+3. Note time of spike for correlation with deployments/changes
+4. Zoom in by dragging to highlight time period
+
+**Correlation Patterns:**
+* High queries + high latency = system under load
+* Normal queries + high latency = inefficient queries introduced
+* Low queries + high latency = expensive operation running
+* Spikes in failed queries = application errors or permission issues
+
+## Comparing Summary vs Details Views
+
+### Summary View Use Cases
+
+**When to Use:**
+* Starting performance investigation
+* Identifying most frequently run queries
+* Finding highest total impact (frequency × duration)
+* Spotting consistent slow queries
+* Prioritizing optimization efforts
+
+**Key Metrics to Review:**
+* **Total time spent** - Highest impact on database
+* **Count** - How often query runs
+* **Average time** - Typical performance
+* **Min/Max time** - Performance variability
+
+**Interpretation:**
+* High count + high average = Top optimization priority
+* Low count + very high max = Occasional expensive operation
+* Large min/max difference = Variable performance (data-dependent)
+* High total time with low average = Frequency problem, not query problem
+
+### Details View Use Cases
+
+**When to Use:**
+* Debugging specific query failures
+* Understanding why query performance varies
+* Correlating queries with application logs
+* Investigating specific time periods
+* Tracking individual user activity
+
+**Additional Information:**
+* Exact timestamp for each execution
+* Specific user and application per execution
+* Individual page hits/faults
+* Error details for failures
+* Parameter values (if query parameterized)
+
+## Query Log Filtering
+
+### Essential Filters
+
+**Time Period:**
+* **When to use**: Always set appropriately
+* **Options**: Last hour, Last 24 hours, Last 7 days, Custom range
+* **Best practice**: Start narrow (last hour), expand if needed
+* **Tip**: Align with incident timeframe
+
+**Status:**
+* **When to use**: Debugging failures or isolating successful queries
+* **Options**: Completed, Failed
+* **Best practice**: Filter "Failed" first when troubleshooting errors
+* **Tip**: Zero failures is normal and expected
+
+**Minimum Duration:**
+* **When to use**: Finding slow queries
+* **Common thresholds**: 1000ms (1 second), 5000ms (5 seconds)
+* **Best practice**: Start at 1000ms, adjust based on workload
+* **Tip**: User-facing queries should be <100ms ideally
+
+**Query Text:**
+* **When to use**: Searching for specific operations
+* **Examples**: "Product", "CREATE", "DELETE", "MATCH (u:User)"
+* **Best practice**: Use key terms from query structure
+* **Tip**: Case-insensitive partial matches
+
+**User:**
+* **When to use**: Isolating queries from specific account
+* **Options**: neo4j, app_user, service_account
+* **Best practice**: Separate application vs admin queries
+* **Tip**: Application users indicate production queries
+
+**Driver:**
+* **When to use**: Identifying queries from specific applications
+* **Options**: neo4j-python/5.9.0, neo4j-javascript/5.14.0
+* **Best practice**: Track which apps send which queries
+* **Tip**: Version numbers help correlate with deployments
+
+**Application Name:**
+* **When to use**: Custom names set in driver configuration
+* **Options**: inventory-service, browser, my-app
+* **Best practice**: Require teams to set meaningful names
+* **Tip**: Makes troubleshooting much easier
+
+**GQL Status Code:**
+* **When to use**: Filtering specific error types
+* **Common codes**: 00000 (Success), 42000 (Syntax), 22000 (Constraint)
+* **Best practice**: Group similar errors together
+* **Tip**: Reference status code documentation for meanings
+
+**Error Text:**
+* **When to use**: Searching for specific error messages
+* **Examples**: "terminated", "constraint", "memory", "locked"
+* **Best practice**: Use key words from error messages
+* **Tip**: Common errors indicate systemic issues
+
+## Finding Slow Queries Workflow
+
+### Step-by-Step Process
+
+**1. Set Initial Filters:**
+* Time period: Last 24 hours (or since issue started)
+* Status: Completed (focus on successful queries first)
+* Minimum duration: 1000ms
+* Switch to: Summary view
+
+**2. Sort by Total Time Spent (Descending):**
+* Highest total time = highest impact on database
+* These queries consume most resources overall
+* Even small improvements have big impact
+
+**3. Identify High-Impact Queries:**
+* Look for patterns in query structure
+* Note if queries are similar (should use parameters)
+* Check count vs average time balance
+* Document query text for analysis
+
+**4. Investigate in Details View:**
+* Click specific query from Summary
+* Check if all executions are slow or just some
+* Look for patterns in slow executions
+* Note page hits and page faults
+* Check planning time (high = not parameterized)
+
+**5. Combine Filters for Deep Dive:**
+* Add driver filter to isolate application
+* Add application name if available
+* Add user to separate service accounts
+* Narrow time window around specific incidents
+
+**6. Document Findings:**
+* List top 5-10 slow queries
+* Note their frequency and impact
+* Identify optimization candidates
+* Prepare for query analysis phase
+
+## Common Query Patterns to Identify
+
+### High Count Queries
+
+**Characteristics:**
+* Run very frequently (thousands/millions of times)
+* May have reasonable duration individually
+* High total time spent due to frequency
+
+**Action:**
+* Ensure query is parameterized (low planning time)
+* Verify indexes exist for lookups
+* Consider caching results at application layer
+* Even small improvements have massive impact
+
+### High Duration Queries
+
+**Characteristics:**
+* Take seconds or minutes to complete
+* May run infrequently
+* Still have high total time spent
+
+**Action:**
+* Profile query to identify expensive operations
+* Check for missing indexes
+* Look for full label scans or all node scans
+* Consider query restructuring
+* May need to batch or break into smaller operations
+
+### Variable Performance Queries
+
+**Characteristics:**
+* Large difference between min and max time
+* Same query text, different performance
+* Indicates data-dependent performance
+
+**Action:**
+* Check if hitting dense nodes (high relationship count)
+* Review data distribution in graph
+* May need data model refactoring
+* Consider adding constraints or limits
+
+### High Page Fault Queries
+
+**Characteristics:**
+* Many page faults relative to page hits
+* Data not in cache, reading from disk
+* Slows query execution significantly
+
+**Action:**
+* Check if query scans large portions of graph
+* Verify indexes exist and are being used
+* Consider if data model can be optimized
+* May indicate insufficient memory for working set
+
+### High Planning Time Queries
+
+**Characteristics:**
+* Planning time >100ms
+* Indicates query not parameterized
+* Cannot reuse cached execution plans
+
+**Action:**
+* Convert literal values to parameters
+* Use $param instead of hardcoded values
+* Dramatically improves performance
+* Reduces planning overhead
+
+## Setting Custom Application Name
+
+### Configuration by Driver
+
+**Python:**
+```python
+driver = GraphDatabase.driver(
+    uri,
+    auth=(user, password),
+    user_agent="inventory-service"
+)
+```
+
+**JavaScript:**
+```javascript
+const driver = neo4j.driver(
+    uri,
+    neo4j.auth.basic(user, password),
+    { userAgent: 'inventory-service' }
+)
+```
+
+**Java:**
+```java
+Config config = Config.builder()
+    .withUserAgent("inventory-service")
+    .build();
+Driver driver = GraphDatabase.driver(uri, auth, config);
+```
+
+**Benefits:**
+* Easily identify which application sent query
+* Filter logs by application
+* Track application-specific performance
+* Correlate with application deployments
+
+## Interpreting Query Patterns
+
+### Normal Patterns (Healthy)
+
+* Most queries complete in <100ms
+* Low failure rate (<1%)
+* Consistent performance (small min/max difference)
+* Low page fault ratio
+* Planning time <10ms for most queries
+
+### Warning Patterns (Investigate)
+
+* Growing number of slow queries over time
+* Increasing page faults
+* Rising 99th percentile latency
+* Some queries with high variability
+* Occasional spikes in duration
+
+### Critical Patterns (Action Required)
+
+* Many queries >1 second
+* High failure rate (>5%)
+* Consistently high 99th percentile
+* Frequent page faults
+* High planning times (not parameterized)
+* Memory errors in logs
+
+## Decision Framework: Priority for Optimization
+
+### Highest Priority (Fix First)
+
+**High Total Time Spent Queries:**
+* Frequency × Duration is highest
+* Impacts database most significantly
+* Small improvements = big gains
+* Usually quick wins with indexes or parameters
+
+**User-Facing Slow Queries:**
+* Directly impact user experience
+* Even if infrequent, cause frustration
+* Should complete in <100ms
+* Higher business priority than batch jobs
+
+### Medium Priority (Schedule Soon)
+
+**High Frequency Unparameterized Queries:**
+* Planning time indicates literal values
+* Wasting resources on repeated planning
+* Easy fix with big impact
+* Reduces CPU and planning overhead
+
+**Variable Performance Queries:**
+* Sometimes fast, sometimes slow
+* Indicates data model or query issues
+* May require deeper investigation
+* Could affect more users over time
+
+### Lower Priority (Monitor)
+
+**Infrequent Slow Background Jobs:**
+* Run during off-hours
+* Don't impact users directly
+* Still consume resources
+* Optimize if capacity becomes issue
+
+**Queries with Acceptable Performance:**
+* Complete within SLA timeframes
+* No user complaints
+* Stable performance over time
+* Keep monitoring for degradation
+
+[Reference: Logs and Query Optimization Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/2-query-logs/)
+

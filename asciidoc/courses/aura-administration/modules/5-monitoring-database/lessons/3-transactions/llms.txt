@@ -1,0 +1,413 @@
+# Transaction Monitoring
+
+Understanding transaction patterns, identifying rollback issues, and implementing best practices.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/3-transactions)
+
+## Concepts
+
+* **Transaction** - Atomic unit of work ensuring ACID guarantees
+* **Write Transaction** - Modifies data (CREATE, UPDATE, DELETE)
+* **Read Transaction** - Only queries data, no modifications
+* **Active Transactions** - Currently executing transactions
+* **Committed Transaction** - Successfully completed transaction
+* **Rolled Back Transaction** - Failed or explicitly aborted transaction
+* **Transaction Leak** - Transactions not properly closed, holding resources
+
+## How Transactions Work
+
+### Transaction Types
+
+**Write Transactions:**
+* Modify graph data
+* Create, update, delete nodes/relationships
+* Must execute on primary instance
+* Hold exclusive locks on modified data
+* Require more resources than reads
+
+**Read Transactions:**
+* Query data only
+* No modifications allowed
+* Can run on read replicas
+* Can execute concurrently
+* Lower resource requirements
+
+### Transaction Lifecycle
+
+**1. Begin:**
+* Transaction started explicitly or automatically
+* Acquires resources (memory, locks)
+* Begins tracking changes (writes) or reads
+
+**2. Execute:**
+* Runs queries within transaction
+* Accumulates changes in memory (writes)
+* Holds locks for consistency
+
+**3. Complete:**
+* **Commit** - Changes permanently written
+* **Rollback** - Changes discarded
+* Resources released
+* Locks freed
+
+### ACID Properties
+
+**Atomicity:**
+* All operations succeed or all fail
+* No partial transactions
+* Rollback reverts all changes
+
+**Consistency:**
+* Database structurally sound after transaction
+* Constraints enforced
+* Integrity maintained
+
+**Isolation:**
+* Transactions don't interfere with each other
+* Appears sequential even if concurrent
+* Locks manage contention
+
+**Durability:**
+* Committed changes are permanent
+* Survive system failures
+* Written to transaction log
+
+## Monitoring Transaction Metrics
+
+### Active Transactions
+
+**What It Shows:**
+* Read transactions currently active
+* Write transactions currently active
+* Total transactions per minute
+
+**Healthy Pattern:**
+* Fluctuates with workload
+* Returns to low baseline between operations
+* More reads than writes (typically)
+* Proportional to query rate
+
+**Problematic Pattern:**
+* Continuously growing count
+* Doesn't return to baseline
+* May indicate transaction leaks
+* Eventually causes memory pressure
+
+### Committed Transactions
+
+**Total Count Since Startup:**
+* Cumulative committed transactions
+* Shows overall workload volume
+* May drop during Aura maintenance
+
+**Rate Per Minute:**
+* Transaction throughput
+* Should match application activity
+* Scales with business operations
+* Indicator of database utilization
+
+**Interpretation:**
+* Steady rate = consistent workload
+* Increasing rate = growth
+* Decreasing rate = reduced activity or issues
+
+### Rolled Back Transactions
+
+**Total Rollback Count:**
+* Cumulative since startup
+* Includes explicit and error rollbacks
+* May drop during maintenance
+
+**Rollback Rate Per Minute:**
+* How often transactions fail
+* Should be very low
+* High rate indicates problems
+
+**Expected Rate:** <1% of committed transactions
+
+**High Rollback Rates Indicate:**
+* Application errors
+* Constraint violations
+* Concurrent write conflicts
+* Query timeouts
+* Connection issues
+
+### Peak Concurrent Transactions
+
+**What It Shows:**
+* Maximum concurrent transactions detected
+* Highest load point
+* Capacity planning indicator
+
+**Use Cases:**
+* Understanding maximum concurrency
+* Capacity planning
+* Identifying load spikes
+* Baseline for scaling decisions
+
+### Last Committed Transaction ID (Clustered Instances)
+
+**What It Shows:**
+* ID of last committed transaction
+* For Business Critical with clustering
+* Track for each cluster member
+
+**Healthy Pattern:**
+* All members show overlapping, increasing lines
+* Members stay synchronized
+* Continuous progression
+
+**Problem Pattern:**
+* One line levels off or falls behind
+* Member not replicating
+* Cluster synchronization issue
+* Requires immediate attention
+
+## Identifying Transaction Issues
+
+### Issue 1: High Rollback Rate
+
+**Symptoms:**
+* Rollbacks >5% of commits (guideline)
+* Failed queries in logs
+* Application errors
+* User complaints
+
+**Common Causes:**
+
+**Connectivity Issues:**
+* Network instability
+* Connection timeouts
+* Application restart during transactions
+
+**Constraint Violations:**
+* Duplicate unique properties
+* Missing required properties
+* Schema validation failures
+
+**Concurrent Update Conflicts:**
+* Multiple transactions modifying same data
+* Optimistic locking failures
+* Write contention
+
+**Diagnostic Process:**
+1. Filter query logs for Status: Failed
+2. Review GQL status codes
+3. Identify error patterns
+4. Correlate with application logs
+5. Determine root cause
+
+**Resolution:**
+
+**For Connectivity:**
+* Implement retry logic with backoff
+* Increase connection timeouts
+* Check network stability
+* Review connection pool settings
+
+**For Constraints:**
+* Review data validation logic
+* Handle duplicate key scenarios
+* Pre-check existence before creating
+* Use MERGE instead of CREATE when appropriate
+
+**For Conflicts:**
+* Reduce transaction scope
+* Implement optimistic locking properly
+* Separate read/write operations
+* Queue writes if high contention
+
+### Issue 2: Growing Active Transaction Count
+
+**Symptoms:**
+* Active transactions continuously growing
+* Doesn't return to baseline during low activity
+* Memory usage increasing
+* Eventually Out of Memory errors
+
+**Root Cause: Transaction Leaks**
+
+**Where Leaks Occur:**
+```python
+# Bad - transaction not closed
+def process_data():
+    session = driver.session()
+    tx = session.begin_transaction()
+    tx.run("CREATE (n:Node)")
+    # Missing tx.commit() or tx.rollback()
+    # Missing session.close()
+
+# Good - guaranteed cleanup
+def process_data():
+    with driver.session() as session:
+        with session.begin_transaction() as tx:
+            tx.run("CREATE (n:Node)")
+            tx.commit()
+```
+
+**Diagnostic Process:**
+1. Use `SHOW TRANSACTIONS` to list active
+2. Identify long-running transactions
+3. Note which user/application
+4. Review application code for that service
+5. Look for missing close/commit/rollback
+
+**Resolution:**
+* Add try-finally blocks or context managers
+* Ensure all code paths close resources
+* Implement transaction timeouts
+* Monitor after deployment
+* Kill stuck transactions as emergency measure
+
+### Issue 3: Transaction Timeouts
+
+**Symptoms:**
+* Transactions timing out
+* Error codes for transaction terminated
+* User complaints of failures
+* High rollback rate
+
+**Common Causes:**
+
+**Long-Running Queries:**
+* Queries taking too long
+* Holding transaction open
+* Eventually timeout
+
+**Large Transactions:**
+* Too many operations in one transaction
+* Accumulating changes exhaust memory
+* Need to batch smaller
+
+**High Memory Usage:**
+* Heap pressure affects transaction processing
+* Out of Memory errors cause termination
+
+**Resolution:**
+* Profile and optimize slow queries
+* Break large operations into batches
+* Use IN TRANSACTIONS OF for bulk operations
+* Scale instance if legitimate workload
+* Set appropriate query timeouts
+
+## Transaction Best Practices
+
+### Keep Transactions Short
+
+**Why:**
+* Holds locks shorter
+* Uses less memory
+* Reduces conflict chances
+* Faster overall throughput
+
+**How:**
+```cypher
+// Bad - large transaction
+UNWIND range(1, 100000) AS id
+CREATE (n:Node {id: id})
+// Holds all 100K creates in memory
+
+// Good - batched
+UNWIND range(1, 100000) AS id
+CALL {
+  WITH id
+  CREATE (n:Node {id: id})
+} IN TRANSACTIONS OF 1000 ROWS
+// Commits every 1000, freeing memory
+```
+
+### Always Close Resources
+
+**Context Managers (Python):**
+```python
+# Automatic cleanup
+with driver.session() as session:
+    with session.begin_transaction() as tx:
+        tx.run(query)
+        tx.commit()
+    # Transaction automatically closed
+# Session automatically closed
+```
+
+**Try-Finally (Java):**
+```java
+Session session = driver.session();
+try {
+    Transaction tx = session.beginTransaction();
+    try {
+        tx.run(query);
+        tx.commit();
+    } finally {
+        tx.close();
+    }
+} finally {
+    session.close();
+}
+```
+
+### Use Appropriate Transaction Type
+
+**Explicitly Specify:**
+```python
+# Read transaction (can use replicas)
+with driver.session() as session:
+    result = session.execute_read(lambda tx: tx.run(query))
+
+# Write transaction (uses primary)
+with driver.session() as session:
+    result = session.execute_write(lambda tx: tx.run(query))
+```
+
+**Benefits:**
+* Proper routing to primary/replicas
+* Clear intent in code
+* Better resource utilization
+* Improved scalability
+
+### Monitor and Alert
+
+**Rollback Rate Monitoring:**
+* Alert if >5% for 10 minutes
+* Investigate immediately
+* May indicate application issues
+
+**Active Transaction Growth:**
+* Alert if growing >10% per hour
+* Indicates transaction leak
+* Code review required
+
+**Transaction Duration:**
+* Alert if >30 seconds typical
+* Long transactions problematic
+* Optimize or batch
+
+## When to Scale
+
+### Don't Scale For
+
+**High Rollback Rate:**
+* Application issue, not capacity
+* Fix bugs, don't add resources
+* Scaling won't help
+
+**Transaction Leaks:**
+* Code issue, not capacity
+* Fix resource management
+* Scaling delays problem
+
+### Scale When
+
+**High Legitimate Transaction Rate:**
+* Committed rate approaching capacity
+* After optimization
+* Business growth justifies
+* CPU/memory also elevated
+
+**Combined Pressure:**
+* High transaction rate
+* High CPU usage
+* High memory usage
+* All optimizations applied
+
+[Reference: Monitoring Database Health Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/)
+

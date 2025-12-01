@@ -1,0 +1,422 @@
+# Monitoring CPU Usage
+
+Understanding CPU consumption patterns, identifying bottlenecks, and determining when to optimize vs scale.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/2-cpu-usage)
+
+## Concepts
+
+* **CPU Usage** - Percentage of allocated CPU capacity being used
+* **Query Planning** - Process of analyzing Cypher and creating execution plan (CPU intensive)
+* **Query Execution** - Running query operations (CPU intensive)
+* **Index Seeks** - Most efficient lookup operation (low CPU)
+* **Label Scans** - Scanning all nodes with label (moderate CPU)
+* **Full Node Scans** - Scanning entire database (high CPU)
+* **Thread Pool** - Worker threads executing queries and managing connections
+* **Checkpointing** - Background operation flushing data to disk (CPU consuming)
+* **Garbage Collection** - JVM memory cleanup (CPU intensive, causes pauses)
+
+## What Consumes CPU in Neo4j
+
+### Query Planning and Execution
+
+**Query Planner:**
+* Analyzes Cypher statements
+* Creates execution plan
+* Planning time high if query not parameterized
+* Complex queries require more planning CPU
+
+**Execution Operators (CPU Cost):**
+* **Index Seeks** - Lowest cost, direct node access
+* **Label Scans** - Moderate cost, scan nodes with label
+* **Full Node Scans** - Highest cost, scan all nodes
+* **Relationship Traversals** - Cost proportional to relationships expanded
+* **Filtering** - Apply WHERE clauses to data in memory
+* **Sorting/Aggregations** - CPU intensive for large datasets
+
+### Connection and Thread Management
+
+**Bolt Protocol:**
+* Each connection consumes CPU
+* Worker threads execute queries
+* I/O threads handle network communication
+* Transaction threads manage lifecycle
+
+**Thread Pool Pressure:**
+* Hundreds of concurrent connections = significant CPU
+* Each active query holds thread
+* Queries waiting for threads = queuing
+* Can cause performance issues despite available CPU
+
+### Background Operations
+
+**Maintenance Tasks:**
+* **Checkpointing** - Writes modified data from memory to disk
+* **Index Updates** - Keep indexes synchronized with changes
+* **Statistics Collection** - Gathers data for query planner
+* **Garbage Collection** - Reclaims memory (blocks all operations)
+* **Transaction Log Management** - Processes and rotates logs
+
+## Reading the CPU Usage Chart
+
+### Chart Components
+
+**Min, Max, Average Lines:**
+* Shows range of CPU usage over time
+* Average indicates typical load
+* Max shows peak consumption
+* Min shows baseline during quiet periods
+
+### Healthy CPU Patterns
+
+**Expected Baseline:**
+* 10-40% average during normal operations
+* Background operations and regular queries
+* Room for traffic spikes
+
+**Periodic Peaks:**
+* Batch jobs or scheduled tasks
+* Expected based on workload schedule
+* Return to baseline after completion
+
+**Gradual Increases:**
+* Workload growing over time
+* Predictable and manageable
+* Allows proactive capacity planning
+
+### Problematic CPU Patterns
+
+**Sudden Spikes:**
+* From ~10% to 80%+ rapidly
+* May indicate:
+  - Large query introduced
+  - Increase in concurrent load
+  - Application issue causing traffic spike
+  - Missing index after schema change
+
+**Sustained High Usage (70-90%):**
+* Consistently elevated CPU
+* Queries queuing for execution
+* User-visible slowdowns
+* Indicates need for optimization or scaling
+
+**Maxed Out (100%):**
+* Critical situation
+* Queries timing out
+* Users experiencing failures
+* Immediate action required
+
+## CPU Issue Patterns and Responses
+
+### Pattern 1: Consistently High CPU (70-90%)
+
+**Symptoms:**
+* CPU sustained at 70-90%
+* Queries showing increased latency
+* Users reporting slower performance
+* No single spike, just elevated baseline
+
+**Likely Causes:**
+* Inefficient queries running frequently
+* Too many concurrent connections for capacity
+* Missing indexes on frequently queried properties
+* Application sending more traffic than capacity handles
+
+**Diagnostic Steps:**
+1. Check query logs filtered for slow queries (>1000ms)
+2. Sort by "total time spent" to find highest impact
+3. Use PROFILE on top queries to identify expensive operations
+4. Review connection metrics for excessive connections
+5. Check for recent deployments or traffic changes
+
+**Resolution Approach:**
+
+**Optimize Queries First:**
+* Add missing indexes for frequently filtered properties
+* Ensure queries use parameters not literals
+* Add LIMIT clauses to unbounded queries
+* Optimize expensive operations identified in PROFILE
+
+**Review Connection Pools:**
+* Check active connection count vs CPU cores
+* Guideline: <15 connections per CPU core
+* Reduce pool sizes if excessive
+* Verify connections closing properly
+
+**Consider Workload Changes:**
+* Has traffic increased significantly?
+* New features added recently?
+* Background jobs competing with user queries?
+* Schedule heavy operations during off-peak hours
+
+**Scale If Optimizations Exhausted:**
+* After query optimization, if still >70%
+* Growing workload legitimately needs more capacity
+* Scale vertically (more CPU cores)
+
+### Pattern 2: Frequent CPU Spikes
+
+**Symptoms:**
+* Regular spikes to 80-100%
+* All queries affected simultaneously (not just specific queries)
+* Correlates with memory pressure indicators
+* Performance degrades across the board during spikes
+
+**Likely Causes:**
+* Memory pressure causing garbage collection
+* Batch operations processing large datasets
+* Scheduled jobs running during peak traffic
+* Long-running queries holding memory
+
+**Diagnostic Steps:**
+1. Check garbage collection metrics on Instance tab
+2. Look for correlation between CPU spikes and GC events
+3. Review heap memory utilization patterns
+4. Check for scheduled jobs or batch operations
+5. Identify long-running transactions
+
+**Resolution Approach:**
+
+**If GC-Related (GC time >5%):**
+* Check heap memory sustained >80%
+* Issue is memory pressure, not CPU directly
+* Optimize memory-intensive queries
+* Add LIMIT clauses to reduce result sets
+* Batch large operations with IN TRANSACTIONS OF
+* **Consider scaling instance for more memory**
+
+**If Batch Operations:**
+* Identify jobs running during spikes
+* Reschedule to off-peak hours
+* Break into smaller batches
+* Add delays between batch operations
+* Run batch jobs during maintenance windows
+
+**If Long-Running Queries:**
+* Find queries with high max duration in logs
+* Use PROFILE to identify bottlenecks
+* Optimize or break into smaller operations
+* Set query timeouts to prevent runaway queries
+* Add indexes or restructure queries
+
+### Pattern 3: Sustained 100% CPU
+
+**Symptoms:**
+* CPU maxed at 100%
+* Queries timing out and failing
+* Users cannot complete operations
+* Database effectively unresponsive
+
+**This is Emergency - Immediate Action Required**
+
+**Immediate Actions:**
+
+**Step 1: Check Query Monitor**
+* Look for long-running queries
+* Identify if specific query causing issue
+* Note query IDs for termination if needed
+
+**Step 2: Terminate Runaway Queries (if found)**
+* Use query monitoring to kill specific queries
+* Stop processes consuming excessive CPU
+* Should see immediate CPU drop
+
+**Step 3: Check Recent Changes**
+* New deployment in last hour?
+* Schema changes recently?
+* Traffic spike from external source?
+* Application behavior change?
+
+**Step 4: Scale Immediately (if no single query)**
+* Cannot wait for optimization
+* Users experiencing outage
+* Increase instance size now
+* Optimize after service restored
+
+**Step 5: Root Cause Analysis After Service Restored**
+* Review query logs during incident
+* Identify what triggered 100% CPU
+* Implement prevention measures
+* Document incident and resolution
+
+**Prevention Measures:**
+* Implement query timeouts
+* Set up CPU alerting at 70-80%
+* Regular query optimization reviews
+* Load testing before production deployments
+* Connection pooling limits enforced
+* Monitoring alerts for runaway queries
+
+## CPU Monitoring by Workload Type
+
+### Read-Heavy Workloads
+
+**Characteristics:**
+* Regular spikes during complex queries or aggregations
+* Baseline CPU generally lower than write workloads
+* Simple indexed lookups = minimal CPU
+* Analytics queries scanning graph = high CPU
+* Page cache misses add overhead
+
+**Optimization Strategy:**
+* Cache frequently accessed data at application layer
+* Ensure hot data fits in page cache
+* Add indexes for common query patterns
+* Use query parameters for plan caching
+* Profile expensive analytics queries
+* Consider materialized views for common aggregations
+
+**Scaling Strategy:**
+* Scale horizontally with read replicas
+* Distribute read queries across instances
+* Effective for both spikes and sustained high reads
+* Primary handles writes, replicas handle reads
+
+### Write-Heavy Workloads
+
+**Characteristics:**
+* Sustained high CPU during peak write periods
+* More consistent patterns than read workloads
+* Every write updates indexes (CPU cost)
+* Transaction log writes consume CPU
+* Statistics collection runs frequently
+* Consistency checks during writes
+
+**Optimization Strategy:**
+* Batch write operations (1000+ in single transaction)
+* Review indexed properties - each adds write overhead
+* Unindex rarely-queried properties
+* Schedule bulk operations during off-peak hours
+* Use UNWIND for bulk inserts
+* Monitor transaction log performance
+
+**Scaling Strategy:**
+* Scale vertically (increase primary instance size)
+* Writes must go through primary for consistency
+* Read replicas don't reduce write-related CPU
+* More CPU cores = more write throughput
+
+### Mixed Workloads (OLTP + OLAP)
+
+**Characteristics:**
+* High CPU with many connections but low throughput
+* Queries waiting despite available CPU
+* Background writes hold locks blocking reads
+* Long-running analytics occupy threads
+* Short transactions queuing for thread pool
+
+**Optimization Strategy:**
+* **Separate Workloads:**
+  - Schedule heavy analytics during off-peak
+  - Create dedicated maintenance windows
+  - Use read replicas for analytics if possible
+  
+* **Implement Timeouts:**
+  - Prevent long queries monopolizing threads
+  - Short transactional queries complete quickly
+  - Kill queries exceeding reasonable time
+
+* **Connection Management:**
+  - Separate pools for OLTP vs OLAP
+  - Limit concurrent analytics queries
+  - Priority queuing for user-facing operations
+
+**Scaling Strategy:**
+* If writes dominate: Scale primary vertically
+* If reads dominate: Add read replicas horizontally
+* Mixed load: Both vertical and horizontal scaling
+* Consider separating OLTP and OLAP workloads entirely
+
+## CPU Optimization Decision Tree
+
+### High CPU Diagnosis Process
+
+**1. Identify Pattern:**
+* Consistently high (70-90%)?
+* Frequent spikes?
+* Sustained 100%?
+
+**2. Check Related Metrics:**
+* Garbage collection percentage
+* Heap memory utilization
+* Active connection count
+* Query latency percentiles
+
+**3. Review Query Logs:**
+* Filter for minimum duration >1000ms
+* Sort by total time spent
+* Identify top 5-10 queries
+
+**4. Profile Top Queries:**
+* Run PROFILE on expensive queries
+* Look for NodeByLabelScan (should be NodeIndexSeek)
+* Check for missing indexes
+* Identify cartesian products
+
+**5. Implement Fixes:**
+* Add indexes where missing
+* Parameterize unparameterized queries
+* Add LIMIT to unbounded queries
+* Optimize query structure
+
+**6. Validate Improvement:**
+* Monitor CPU after changes
+* Check query logs for performance improvement
+* Verify user experience improved
+
+**7. Scale if Necessary:**
+* After optimizations, if CPU still >70%
+* Workload legitimately requires more capacity
+* Scale during low-traffic period
+* Continue monitoring after scaling
+
+## Proactive CPU Management
+
+### Daily Monitoring
+
+**Quick Checks:**
+* Review CPU average for last 24 hours
+* Check for unexpected spikes
+* Verify consistent with workload expectations
+* Note any unusual patterns
+
+**Action if Elevated:**
+* Review query logs from high-CPU period
+* Check for new queries or increased frequency
+* Correlate with application deployments
+* Investigate before becomes critical
+
+### Weekly Analysis
+
+**Trend Review:**
+* Compare weekly average CPU to previous weeks
+* Calculate growth rate
+* Project when will reach 70% sustained
+* Plan optimizations or scaling accordingly
+
+**Pattern Identification:**
+* Daily cycles (higher during business hours)?
+* Weekly patterns (higher certain days)?
+* Batch job schedules causing predictable spikes?
+* Document normal patterns for anomaly detection
+
+### Alerting Strategy
+
+**Warning Alert (70% sustained for 10 minutes):**
+* Indicates approaching capacity
+* Time to investigate and optimize
+* Not immediate crisis but needs attention
+
+**Critical Alert (85% sustained for 5 minutes):**
+* Service degradation likely
+* Immediate investigation required
+* Prepare to scale if optimization insufficient
+
+**Emergency Alert (100% for 2 minutes):**
+* Service outage imminent or occurring
+* Page on-call team
+* Immediate action required
+* Scale or kill runaway queries
+
+[Reference: Monitoring Resources Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/)
+
