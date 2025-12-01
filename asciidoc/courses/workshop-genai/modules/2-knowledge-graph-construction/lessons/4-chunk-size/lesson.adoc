@@ -1,0 +1,108 @@
+= Chunk size
+:type: lesson
+:order: 4
+:branch: new-workshop
+
+[.slide.discrete]
+== Overview
+
+The graph created by the `SimpleKGPipeline` is based on chunks of text extracted from the documents. 
+
+By default, the chunk size is quite large, which may result in fewer, larger chunks. 
+
+The larger the chunk size, the more context the LLM has when extracting entities and relationships, but it may also lead to less granular data.
+
+In this lesson, you will modify the `SimpleKGPipeline` to use a different chunk size.
+
+[.slide]
+== Delete the existing graph
+
+You will be re-importing the data and modifying the existing graph. To ensure a clean state, you can delete the graph at any time using:
+
+[source, cypher]
+.Delete the existing graph
+----
+MATCH (n) DETACH DELETE n
+----
+
+[.slide-only]
+====
+**Continue with the lesson to modify the chunk size.**
+====
+
+[.transcript-only]
+=== Text Splitter Chunk Size
+
+To modify the chunk size you will need to create a `FixedSizeSplitter` object and pass it to the `SimpleKGPipeline` when creating the pipeline instance:
+
+. Modify the `workshop-genai/kg_builder.py` file to import the `FixedSizeSplitter` class and create an instance with a chunk size of 500 characters:
++
+[source, python]
+----
+include::{repository-raw}/{branch}/workshop-genai/solutions/kg_builder_split.py[tag=import_text_splitter]
+
+include::{repository-raw}/{branch}/workshop-genai/solutions/kg_builder_split.py[tag=text_splitter]
+----
++
+[NOTE]
+.Chunk size and overlap
+The `chunk_size` parameter defines the maximum number of characters in each text chunk. The `chunk_overlap` parameter ensures that there is some overlap between consecutive chunks, which can help maintain context.
+. Update the `SimpleKGPipeline` instantiation to use the custom text splitter:
++
+[source, python]
+----
+include::{repository-raw}/{branch}/workshop-genai/solutions/kg_builder_split.py[tag=kg_builder]
+----
+
+[%collapsible]
+.Reveal the complete code
+====
+[source, python]
+----
+include::{repository-raw}/{branch}/workshop-genai/solutions/kg_builder_split.py[tag=**]
+----
+====
+
+Run the modified pipeline to recreate the knowledge graph with the new chunk size.
+
+[slide.discrete]
+== Explore
+
+You can view the documents and the associated chunk using the following Cypher query:
+
+[source, cypher]
+.View the documents and chunks
+----
+MATCH (d:Document)<-[:FROM_DOCUMENT]-(c:Chunk)
+RETURN d.path, c.index, c.text, size(c.text)
+ORDER BY d.path, c.index
+----
+
+View the entities extracted from each chunk using the following Cypher query:
+
+[source, cypher]
+.View the entities extracted from each chunk
+----
+MATCH p = (c:Chunk)-[*..3]-(e:__Entity__)
+RETURN p
+----
+
+[.transcript-only]
+====
+[TIP]
+=====
+You can experiment with different chunk sizes to see how it affects the entities extracted and the structure of the knowledge graph.
+=====
+====
+
+read::Continue[]
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you:
+
+* Learned about the impact of chunk size on entity extraction
+* Modified the `SimpleKGPipeline` to use a custom chunk size with the `FixedSizeSplitter`
+
+In the next lesson, you will define a custom schema for the knowledge graph.
