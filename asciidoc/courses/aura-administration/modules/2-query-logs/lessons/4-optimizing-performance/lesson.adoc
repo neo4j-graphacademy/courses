@@ -2,437 +2,276 @@
 :type: lesson
 :order: 4
 
-// TODO: Content from Martin?
 
-[.discrete]
+[.slide.discrete]
 == Introduction
 
-Query logs provide the data you need to identify and fix performance issues.
+So far in this module, you have learned how to access and interpret query logs to identify slow queries. Query logs become most valuable when you use them to systematically improve your database performance.
 
-In this lesson, you will learn how to use query logs to optimize slow queries and improve overall database performance.
-
-
-== The Optimization Process
-
-A systematic approach to query optimization:
-
-. **Identify** slow or problematic queries
-. **Analyze** what makes them slow
-. **Optimize** the query or data model
-. **Measure** the improvement
-. **Monitor** for regression
+In this lesson, you will learn how to use query logs to identify problematic queries, and tips on how to optimize them.
 
 
+[.slide]
+== Understanding Query Optimization
+
+**Query optimization** is the process of improving query performance by identifying slow queries and applying specific techniques to make them faster. Slow queries impact user experience and consume valuable database resources.
+
+The most important metric for prioritization is **total time spent**, calculated as frequency multiplied by duration. A query running 1,000 times at 500ms has more total impact than a query running once at 60 seconds, despite being individually faster.
+
+
+[.slide.col-2]
+== How Cypher Queries Work
+
+[.col]
+====
+Cypher queries execute in two phases: finding **anchor nodes** then expanding **relationships**.
+
+**Anchor nodes** are the starting points. Neo4j locates these nodes first, then expands outward by _traversing_ relationships.
+
+====
+
+[.col]
+====
+image::images/index-free-adjacency.gif[Index-free adjacency]
+====
+
+[.slide.discrete]
+=== Quick tips
+
+* The fewer anchor nodes you have, the faster your query will run.
+* Filter data as early as possible to reduce work in later stages.
+* The fewer relationships you traverse, the faster your query will run.
+* The more specific the relationship types you use, the faster your query will run.
+* Using indexes helps Neo4j quickly find anchor nodes.
+
+
+
+[.slide]
 == Identifying Queries to Optimize
 
+Query logs help you find queries that need optimization. Use the filter to show queries with a minimum duration above 1000ms to focus on slow queries.
 
-=== Prioritization Criteria
+The **Summary tab** shows aggregated data for each unique query. Sort by total time spent to identify queries with the highest overall impact on your database. Look for queries that appear frequently and calculate their total impact by multiplying frequency by average duration.
 
-Not all slow queries are equal. Prioritize based on:
-
-
-**Total time spent** (Frequency × Duration):
-* A query running 1,000 times/day at 500ms = 500 seconds/day
-* A query running once/day at 60 seconds = 60 seconds/day
-* First query has bigger impact despite being faster
+User-facing queries should be prioritized over background jobs. A slow query in your application's main workflow directly hurts user experience. Background processing jobs can often tolerate longer execution times.
 
 
-**User-facing vs. background**:
-
-* User-facing slow queries hurt UX immediately
-* Background jobs can often tolerate longer duration
-
-
-**Business criticality**:
-
-* Core business operations take priority
-* Nice-to-have features can wait
-
-
-=== Finding High-Impact Queries
-
-Using query logs:
-
-. **Filter for slow queries**: Minimum duration > 1000ms
-. **Review Summary tab**: Sort by "Total time spent"
-. **Identify patterns**: Look for queries that appear frequently
-. **Calculate impact**: Frequency × Average Duration
-
-
+[.slide]
 == Analyzing Query Performance
 
+For each slow query, examine the key metrics in the query logs. The **duration** tells you how long the query takes and whether it's consistently slow or variable. The **planning time** reveals whether the query is parameterized.
 
-=== Key Metrics to Review
+High planning time above 100ms often indicates non-parameterized queries that cannot reuse execution plans.
 
-For each slow query, examine:
-
-
-**Duration**:
-
-* How long does it take?
-* Is it consistently slow or variable?
+**Page faults** indicate that data is not in cache and must be read from disk. High page faults suggest missing indexes or insufficient memory. Review the execution pattern to understand when the query runs, how often, and what triggers it.
 
 
-**Planning time**:
+[.slide]
+== Optimizing Queries
 
-* High planning (>100ms) suggests non-parameterized query
-* First-time queries show higher planning
+You can prefix your queries with **EXPLAIN** and **PROFILE** to understand query execution. `EXPLAIN` shows the planned execution steps without running the query. `PROFILE` executes the query and returns detailed statistics about actual performance.
 
+[.slide.col-2]
+=== Explain
 
-**Page faults**:
+`EXPLAIN` shows the planned execution steps without running the query.
 
-* High page faults mean data not in cache
-* May need indexes or more memory
-
-
-**Execution pattern**:
-
-* When does it run?
-* How often?
-* Who/what triggers it?
-
-
-=== Common Slow Query Patterns
-
-
-==== Full Graph Scans
-
-**Symptom**: Query examines many nodes/relationships
-
-**Example**:
+[.col]
+====
 
 [source,cypher]
-----
-MATCH (n:User)
-WHERE n.email = 'user@example.com'
-RETURN n
-----
-
-**Problem**: No index on email property
-
-**Fix**: Create index
-
-[source,cypher]
-----
-CREATE INDEX user_email FOR (n:User) ON (n.email)
-----
-
-
-==== Cartesian Products
-
-**Symptom**: Intermediate result set explodes
-
-**Example**:
-
-[source,cypher]
-----
-MATCH (u:User)
-MATCH (p:Product)
-WHERE u.region = p.region
-RETURN u, p
-----
-
-**Problem**: Creates all combinations before filtering
-
-**Fix**: Add relationship or use WITH
-
-[source,cypher]
-----
-MATCH (u:User)
-WITH u
-MATCH (p:Product)
-WHERE u.region = p.region
-RETURN u, p
-----
-
-
-==== Returning Too Much Data
-
-**Symptom**: High duration, high memory
-
-**Example**:
-
-[source,cypher]
-----
-MATCH (u:User)-[:PURCHASED]->(p:Product)
-RETURN u, p
-// Returns 100,000+ rows
-----
-
-**Problem**: Returns massive result set
-
-**Fix**: Add pagination
-
-[source,cypher]
-----
-MATCH (u:User)-[:PURCHASED]->(p:Product)
-RETURN u, p
-SKIP $offset LIMIT $limit
-----
-
-
-==== Missing Indexes
-
-**Symptom**: High page faults, slow lookups
-
-**Example**:
-
-[source,cypher]
-----
-MATCH (p:Product)
-WHERE p.sku = $sku
-RETURN p
-----
-
-**Problem**: No index on frequently queried property
-
-**Fix**: Create appropriate index
-
-[source,cypher]
-----
-CREATE INDEX product_sku FOR (n:Product) ON (n.sku)
-----
-
-
-==== Deep Traversals
-
-**Symptom**: Long duration, many page faults
-
-**Example**:
-
-[source,cypher]
-----
-MATCH path = (u:User)-[*5..10]->(p:Product)
-RETURN path
-----
-
-**Problem**: Variable length path with wide range
-
-**Fix**: Narrow range, add direction, use specific relationship types
-
-[source,cypher]
-----
-MATCH path = (u:User)-[:FRIEND*2..3]->(friend)-[:PURCHASED]->(p:Product)
-RETURN path
-----
-
-
-## Optimization Techniques
-
-
-=== Add Indexes
-
-Indexes dramatically speed up property lookups.
-Consider the following example:
-
-[source,cypher]
-.Lookup users by email
-----
-// Before: Scans all User nodes
-MATCH (u:User {email: $email});
-----
-
-Without an index on the `email` property, the query will scan all nodes with a User label and check the `email` property of each individually.
-
-Creating an index on the `email` property will allow the query engine to quickly find the user by email address.
-
-[source,cypher]
-.Creating an index
-----
-CREATE INDEX user_email FOR (n:User) ON (n.email)
-----
-
-When the property is expected to be unique, you should create a unique constraint.  Creating a unique constraint will also create an index on the property.
-
-[source,cypher]
-.Creating a unique constraint
-----
-CREATE CONSTRAINT user_email_unique FOR (n:User) REQUIRE n.email IS UNIQUE
-----
-
-=== Use Parameters
-
-Parameters enable query plan caching:
-
-[source,cypher]
-----
-// Bad - new plan each time
-MATCH (u:User) WHERE u.age > 25 RETURN u;
-
-// Good - plan reused
-MATCH (u:User) WHERE u.age > $minAge RETURN u;
-----
-
-
-=== Limit Result Sets
-
-Don't return more data than needed:
-
-[source,cypher]
-----
-// Add LIMIT
-MATCH (u:User) RETURN u LIMIT 100;
-
-// Use aggregation instead of collecting
-MATCH (u:User) RETURN count(u)  // Not: RETURN collect(u)
-----
-
-
-=== Optimize Traversals
-
-Be specific about relationships and direction:
-
-[source,cypher]
-----
-// Vague - slow
-MATCH (u:User)-[*]-(p:Product) RETURN u, p;
-
-// Specific - fast
-MATCH (u:User)-[:PURCHASED]->(p:Product) RETURN u, p;
-----
-
-
-=== Use EXPLAIN and PROFILE
-
-Before changing production, test optimizations:
-
-[source,cypher]
-.See planned execution
 ----
 EXPLAIN
-MATCH (u:User {email: $email}) RETURN u;
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'Toy Story'
+RETURN u.name, r.rating
 ----
+====
+
+[.col]
+====
+image::images/explain-index-range-movie-title.svg[Explain Index Range Movie Title]
+====
+
+[.slide.col-2]
+=== Profile
+
+[.col]
+====
+`PROFILE` shows the actual number of database hits, rows returned, and time spent in each operation. Look for operations with high database hits or rows to identify bottlenecks.
 
 [source,cypher]
-.See actual execution statistics
-//
+----
 PROFILE
-MATCH (u:User {email: $email}) RETURN u;
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'Toy Story'
+RETURN u.name, r.rating
 ----
 
+// When reading execution plans, start from the bottom operator and read upward. The bottom operators show how Neo4j finds anchor nodes, and operators higher up show how relationships are expanded and filtered.
 
-## Measuring Improvement
+====
 
-
-=== Before and After Comparison
-
-. **Record baseline**: Average duration from query logs
-. **Implement optimization**: Apply fixes in test environment
-. **Test thoroughly**: Verify results are correct
-. **Deploy to production**: Apply changes
-. **Monitor query logs**: Check new average duration
-
-**Calculate improvement**:
-
-----
-Improvement % = ((Old Duration - New Duration) / Old Duration) × 100
-----
-
-Example: 5000ms → 50ms = 99% improvement
+[.col]
+====
+image::images/profile-index-range-movie-title.png[Profile Index Range Movie Title]
+====
 
 
-=== Validate with Query Logs
+[.slide.col-2]
+== Example 1: Missing Index
 
-After optimization:
+[.col]
+====
 
-. Filter for the optimized query
-. Check Details tab for recent executions
-. Verify duration is improved
-. Check page faults are reduced
-. Confirm planning time is normal
-
-
-## Monitoring for Regression
-
-
-=== Set Up Ongoing Monitoring
-
-* Review query logs weekly for new slow queries
-* Alert on queries exceeding duration thresholds
-* Track trends in average query latency
-* Monitor Total time spent for top queries
-
-
-=== Common Causes of Regression
-
-**Data growth**:
-
-* Queries slow down as data grows
-* May need additional indexes
-* May need data archival
-
-
-**Schema changes**:
-
-* New properties or relationships
-* Changed data model
-* Index modifications
-
-
-**Application changes**:
-
-* New queries introduced
-* Changed query patterns
-* Removed parameters (accidental)
-
-
-## Real-World Example
-
-**Scenario**: Dashboard report slow
-
-**Investigation**:
-
-1. Query logs filtered for duration > 5000ms
-2. Found: `MATCH (u:User)-[:PURCHASED]->(p:Product) RETURN u.name, p.name`
-3. Frequency: 100 times/day
-4. Average duration: 7,500ms
-5. Total impact: 750 seconds/day (12.5 minutes)
-
-**Analysis**:
-
-* High page faults: 50,000
-* Returns 10,000+ rows
-* No pagination
-
-**Optimization**:
+Consider this query that appears frequently in your query logs with high duration and page faults:
 
 [source,cypher]
-.Before - Returns all rows
 ----
-MATCH (u:User)-[:PURCHASED]->(p:Product)
-RETURN u.name, p.name;
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE m.title = 'The Matrix'
+RETURN u.name, r.rating
 ----
+
+Running `PROFILE` on this query shows high database hits because Neo4j must scan all `Movie` nodes and check the `title` property of each one.
+
+====
+
+[.col]
+====
+image::images/profile-node-by-label-scan.svg[Query starting with a NodeByLabelScan operator]
+====
+
+[.slide]
+=== Solution
+
+Create an index on the `title` property to enable fast lookups:
 
 [source,cypher]
-.After - added pagination and sorting
 ----
-MATCH (u:User)-[:PURCHASED]->(p:Product)
-RETURN u.name, p.name
-ORDER BY p.purchaseDate DESC
-SKIP $offset LIMIT 100
+CREATE INDEX movie_title FOR (m:Movie) ON (m.title)
 ----
 
-**Results**:
+[.slide.col-2]
+=== Affect
 
-* Duration: 7,500ms → 150ms (98% improvement)
-* Page faults: 50,000 → 500
-* Returns: 10,000 rows → 100 rows per request
-* Total impact: Saved 12 minutes/day
+[.col]
+====
+After creating the index, you will now see the NodeByLabelScan operator replaced with the NodeIndexSeek operator.
+====
 
 
-read::Continue to next lesson[]
+[.col]
+====
+image::images/profile-index-range-movie-title.png[Profile Index Range Movie Title]
+====
+
+// After creating the index, the same query now takes only 5ms. The optimized version should also use parameters and return only needed properties instead of the entire node:
+
+// [source,cypher]
+// ----
+// MATCH (m:Movie)
+// WHERE m.title = $title
+// RETURN m.title, m.released, m.tagline
+// ----
+
+
+////
+[.slide]
+== Example 2: Multiple MATCH Clauses
+
+This query uses two separate MATCH clauses to find actors and directors:
+
+[source,cypher]
+----
+MATCH (m:Movie {title: 'The Matrix'})
+MATCH (m)<-[:ACTED_IN]-(actor:Person)
+MATCH (m)<-[:DIRECTED]-(director:Person)
+RETURN m.title, collect(actor.name) AS actors, collect(director.name) AS directors
+----
+
+The second and third MATCH clauses create a cartesian product, causing Neo4j to process all combinations of actors and directors. Use a **list comprehension** to collect each relationship type separately:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.title = $title
+RETURN m.title,
+  [(m)<-[:ACTED_IN]-(actor:Person) | actor.name] AS actors,
+  [(m)<-[:DIRECTED]-(director:Person) | director.name] AS directors
+----
+
+The optimized query eliminates the cartesian product, uses a parameter, and processes each relationship type independently. This reduces duration from 2000ms to 50ms.
+
+
+[.slide]
+== Example 3: Filtering on Relationship Properties
+
+This query finds users who gave 5-star ratings by filtering on a relationship property:
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE r.rating = 5
+RETURN u.name, m.title
+----
+
+This query must traverse all `RATED` relationships and check each rating property. When this pattern appears frequently in your query logs, consider modeling the rating as a **specific relationship type** instead.
+
+Create new `RATED_5` relationships for highly-rated movies:
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE r.rating = 5
+MERGE (u)-[:RATED_5]->(m)
+----
+
+Now the optimized query can match the specific relationship type directly:
+
+[source,cypher]
+----
+MATCH (u:User)-[:RATED_5]->(m:Movie)
+RETURN u.name, m.title
+----
+
+////
+
+[TIP,role="hint transcript-only"]
+.Modeling for performance
+====
+You can learn more about effective graph modeling in link:/courses/modeling-fundamentals[Graph Data Modeling Fundamentals^].
+====
+
+
+[.slide]
+== Query Optimization Checklist
+
+When analyzing slow queries, check for these common issues:
+
+* **Variable length paths have upper limits**: Use `[\*1..5]` instead of `[*]` to prevent excessive traversals
+* **Node labels are specified**: Use `MATCH (u:User)` instead of `MATCH (u)` to avoid scanning all nodes
+* **Properties have indexes**: Create indexes on properties used in `WHERE` clauses and lookups
+* **Relationship types are specified**: Always provide relationship types to narrow traversals
+* **Relationship directions are specified**: Always specify the direction of the relationship when it is known
+* **Queries use parameters**: Replace literal values with `$parameter` to enable plan caching
+* **Return only needed properties**: Use `RETURN u.name, m.title` instead of `RETURN u, m` to reduce data transfer
+* **Result sets are limited**: Add `LIMIT` clauses to prevent returning excessive data
+
+
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-query-prioritization.adoc[leveloffset=+1]
+
+include::questions/3-profile-vs-explain.adoc[leveloffset=+1]
 
 
 [.summary]
 == Summary
 
-You learned how to use query logs to optimize database performance.
+Query optimization uses query logs to identify and fix performance problems. Prioritize queries by total time spent, which is frequency multiplied by duration, to find queries with the highest overall impact.
 
-The optimization process involves identifying high-impact queries (by total time spent), analyzing what makes them slow, applying appropriate optimizations, and measuring improvement.
-
-Common optimization techniques include adding indexes, using parameters, limiting result sets, and optimizing traversals.
-
-Always measure before and after performance using query logs to validate improvements.
-
-In the next lesson, you will learn how to use security logs to monitor database access and investigate security incidents.
-
+Use `EXPLAIN` and `PROFILE` to understand query execution before making changes. Common optimizations include adding indexes for property lookups, using list comprehensions instead of multiple MATCH clauses to avoid cartesian products, and modeling frequently filtered relationship properties as specific relationship types. Always measure baseline performance before optimizing and validate improvements in query logs after deployment.
