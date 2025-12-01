@@ -1,0 +1,202 @@
+= Configure your algorithms
+:type: lesson
+:order: 5
+
+[.transcript]
+== Introduction
+
+Every GDS algorithm comes with configuration options that control how it behaves. Understanding these settings is crucial because the same algorithm with different configurations can produce vastly different results.
+
+In Module 2, you ran algorithms with their default settings. Now you'll learn how to customize them for your specific needs.
+
+By the end of this lesson, you will understand:
+
+* Common configuration parameters across all algorithms
+* How configuration affects algorithm behavior
+* When to use default settings vs. custom configuration
+* How to tune algorithms for your use case
+
+
+== Recap: Running PageRank with configuration
+
+In the previous lesson, you ran algorithms with empty configuration maps. Let's see what it looks like to add configuration.
+
+Here's PageRank with its default settings (empty config):
+
+[source,cypher]
+.PageRank with default configuration
+----
+CALL gds.pageRank.stream('actor-network', {}) // <1>
+YIELD nodeId, score // <2>
+RETURN gds.util.asNode(nodeId).name AS actor, score // <3>
+ORDER BY score DESC // <4>
+LIMIT 5 // <5>
+----
+
+1. Call PageRank in stream mode with default configuration (empty map)
+2. Yield node IDs and PageRank scores
+3. Convert node IDs to actor names and return with scores
+4. Sort by score in descending order
+5. Limit to top 5 actors
+
+Now let's add configuration to change how PageRank behaves:
+
+[source,cypher]
+.PageRank with custom configuration
+----
+CALL gds.pageRank.stream('actor-network', { // <1>
+  maxIterations: 40, // <2>
+  dampingFactor: 0.95 // <3>
+})
+YIELD nodeId, score // <4>
+RETURN gds.util.asNode(nodeId).name AS actor, score // <5>
+ORDER BY score DESC // <6>
+LIMIT 5 // <7>
+----
+
+1. Call PageRank in stream mode with custom configuration
+2. Set maximum iterations to 40 (default is 20)
+3. Set damping factor to 0.95 (default is 0.85)
+4. Yield node IDs and PageRank scores
+5. Convert node IDs to actor names and return with scores
+6. Sort by score in descending order
+7. Limit to top 5 actors
+
+Compare the two tables you returned. In both cases, Robert De Niro and Bruce Willis appear in the first two positions. 
+
+After that, some actors begin to rise up the ranks, while others fall.
+
+Notice what changed:
+
+- `maxIterations: 40`: lets PageRank run longer to find more precise scores
+- `dampingFactor: 0.95`: Weights relationship quality more heavily
+
+The configuration map is where you control algorithm behavior. Every parameter you add customizes how the algorithm processes your graph.
+
+Now let's explore what configuration options are available and how to use them effectively.
+
+
+== Universal configuration options
+
+Some configuration options are available across all or most GDS algorithms:
+
+**Node and relationship filtering:**
+
+- `nodeLabels`: Run the algorithm on specific node types only
+- `relationshipTypes`: Consider only certain relationship types
+
+**Concurrency:**
+
+- `concurrency`: Number of parallel threads (default: 4). Higher values = faster execution but more memory
+
+**Execution control:**
+
+- `writeConcurrency`: Threads used for writing results (write mode only)
+- `writeProperty`: Property name for storing results to the main graph (write mode only)
+- `mutateProperty`: Property name for storing results to the projection (mutate mode only)
+
+
+== Algorithm-specific configuration
+
+Each algorithm has unique parameters that control its behavior.
+
+**PageRank example:**
+
+- `maxIterations`: How many times to recalculate scores (default: 20)
+- `dampingFactor`: Probability of following relationships (default: 0.85)
+- `tolerance`: Convergence threshold (default: 0.0000001)
+
+**Louvain example:**
+
+- `maxLevels`: Maximum hierarchy depth (default: 10)
+- `maxIterations`: Iterations per level (default: 10)
+- `tolerance`: Convergence threshold (default: 0.0001)
+- `seedProperty`: Starting community assignments
+
+
+== How configuration affects results
+
+Let's see how changing PageRank's dampingFactor affects results:
+
+**Low dampingFactor (0.15):**
+
+```cypher
+CALL gds.pageRank.stream('actor-network', {
+  dampingFactor: 0.15
+}) YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 20
+```
+
+Results emphasize direct connections. Nodes with many incoming relationships score higher, regardless of those relationships' quality.
+
+It shouldn't surprise us then that Jackie Chan tops this list with 153 previous credits. Robert De Niro slides down, with 123 credits to his name.
+
+**High dampingFactor (0.95):**
+
+```cypher
+CALL gds.pageRank.stream('actor-network', {
+  dampingFactor: 0.99
+}) YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score
+ORDER BY score DESC
+LIMIT 20
+```
+
+Results emphasize relationship quality. Nodes connected to important nodes score higher, even with fewer direct connections.
+
+In this run, Robert De Niro returns to the top, despite having fewer credits than many of those below him. 
+
+It's fair to say, this is an accurate reflection of his importance within the movie industry.
+
+**Default dampingFactor (0.85):**
+
+Balances both factors—a good starting point for most analyses.
+
+
+== When to use custom configuration
+
+**Use defaults when:**
+
+- You're exploring and don't know what you need yet
+- The algorithm is well-established for your use case (e.g., PageRank for web pages)
+- You're comparing results with published research
+
+**Customize when:**
+
+- Defaults produce poor results for your data
+- You need to filter by node or relationship type
+- Performance is critical (adjust concurrency)
+- You're tuning for a specific business outcome
+
+
+== Configuration strategy
+
+1. **Start with defaults:** Run the algorithm without configuration.
+2. **Identify issues:** Clearly establish what isn't working with your output.
+3. **Research parameters:** Read the docs to find out which settings might address those issues.
+4. **Experiment:** Try different values and compare results.
+5. **Validate:** Check if the new results better serve your analytical goals.
+
+
+== What's next
+
+You now understand how to configure GDS algorithms using both universal and algorithm-specific parameters. You know when to use defaults and when to customize, and you have a strategy for tuning algorithms to your needs.
+
+In the next lesson, you'll practice running degree centrality in all four execution modes with different configurations.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-when-to-configure.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Every algorithm has configuration options that control its behavior. Universal options like `nodeLabels`, `relationshipTypes`, and `concurrency` work across all algorithms. Algorithm-specific options like `dampingFactor` or `maxIterations` control unique behaviors.
+
+Start with defaults, then customize based on results. Use configuration to filter data, tune performance, and adjust algorithm behavior for your specific analytical goals.
+

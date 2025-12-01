@@ -1,0 +1,269 @@
+= Practice relationship aggreagation
+:type: lesson
+:order: 2
+
+[.transcript]
+== Introduction
+
+In the previous lesson, you learned the theory behind relationship aggregation. Now you'll practice building aggregated projections using `count(r)` to count relationships between node pairs.
+
+
+== Example 1: Counting Actor Collaborations
+
+**Here's how it's done:**
+
+Let's create a monopartite actor network where the weight represents how many movies two actors worked on together.
+
+First, drop any existing graphs:
+
+[source,cypher]
+.Drop existing actor-network
+----
+CALL gds.graph.drop('actor-network', false)
+----
+
+Now project the aggregated graph:
+
+[source,cypher]
+.Project aggregated actor collaboration network
+----
+MATCH (source:Actor)-[r:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor)
+WITH source, target, count(r) AS rels
+WITH gds.graph.project(
+  'actor-network',
+  source,
+  target,
+  {
+    relationshipProperties: {rels: rels}
+  },
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+== Example 2: Counting Actor-Director Collaborations
+
+**Now you try:**
+
+Create an actor-director bipartite graph where the weight represents how many movies an actor appeared in that were directed by each director.
+
+The pattern: An `Actor` acts in a `Movie` that's directed by a `Director`. You'll count the ACTED_IN relationships for each actor-director pair.
+
+Here's most of the query—fill in the blanks:
+
+[source,cypher,role=nocopy noplay]
+.Project Actor-Director collaborations (replace ????)
+----
+MATCH (source:Actor)-[r:ACTED_IN]->
+  (:Movie)
+    <-[:DIRECTED]-(target:Director)
+WITH source, target, count(????) AS numberOfRels
+WITH gds.graph.project(
+  'actor-director-collabs',
+  ????,
+  ????,
+  {
+    relationshipProperties: {rels: ????}
+  },
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS graph
+RETURN graph.graphName, graph.nodeCount, graph.relationshipCount
+----
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+.Solution: Project Actor-Director collaborations
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(:Movie)<-[:DIRECTED]-(target:Director)
+WITH source, target, count(r) AS numberOfRels
+WITH gds.graph.project(
+  'actor-director-collabs',
+  source,
+  target,
+  {
+    relationshipProperties: {rels: numberOfRels}
+  },
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS graph
+RETURN graph.graphName, graph.nodeCount, graph.relationshipCount
+----
+
+**Key points:**
+
+- `count(r)` counts the number of ACTED_IN relationships (movies) connecting each actor-director pair
+- Source node: `source` (Actor)
+- Target node: `target` (Director)
+- Weight represents how many times an actor worked with a director
+====
+
+Verify your projection:
+
+[source,cypher]
+.Verify Actor-Director projection
+----
+CALL gds.graph.list('actor-director-collabs')
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName, nodeCount, relationshipCount
+----
+
+
+== Example 3: Counting User-Genre Ratings
+
+Create a user-genre bipartite network where the weight represents how many times a user rated movies in each genre.
+
+Pattern: `(User)-[r:RATED]->(Movie)-[:IN_GENRE]->(Genre)`
+
+Build the complete query yourself. Remember:
+
+1. Drop the graph if it exists (`'user-genre-ratings'`)
+2. Match the pattern with the RATED relationship variable
+3. Aggregate with `count(r)` to count ratings
+4. Project with source, target, and relationship properties
+5. Make it undirected
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+.Solution: Drop existing user-genre-ratings graph
+----
+CALL gds.graph.drop('user-genre-ratings', false)
+----
+
+[source,cypher]
+.Solution: Project User-Genre ratings
+----
+MATCH (source:User)-[r:RATED]->(:Movie)-[:IN_GENRE]->(target:Genre)
+WITH source, target, count(r) AS numRatings
+WITH gds.graph.project(
+  'user-genre-ratings',
+  source,
+  target,
+  {
+    relationshipProperties: {rels: numRatings}
+  },
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS graph
+RETURN graph.graphName, graph.nodeCount, graph.relationshipCount
+----
+
+**Key points:**
+
+- `count(r)` counts the number of RATED relationships (movies rated) for each user-genre pair
+- This reveals which genres each user engages with most frequently
+====
+
+Test your projection by running Leiden:
+
+[source,cypher]
+.Run Leiden on User-Genre projection
+----
+CALL gds.leiden.stats('user-genre-ratings', {
+  relationshipWeightProperty: 'rels'
+})
+YIELD communityCount, modularity
+RETURN communityCount, modularity
+----
+
+
+== Example 4: Director collaborations
+
+Build a director-director monopartite network where directors connect through shared actors. The weight should be the **count of ACTED_IN relationships** from actors who have worked with both directors.
+
+Pattern: `(Director)<-[:DIRECTED]-(:Movie)<-[r:ACTED_IN]-(Actor)-[:ACTED_IN]->(:Movie)-[:DIRECTED]->(Director2)`
+
+Requirements:
+
+- Graph name: `'director-collaborations'`
+- Weight property: `rels` (count of ACTED_IN relationships)
+- Undirected relationships
+
+Try to write the complete projection query yourself. If you get stuck, you can check the solution below.
+
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+.Solution: Drop existing director-collaborations graph
+----
+CALL gds.graph.drop('director-collaborations', false)
+----
+
+[source,cypher]
+.Solution: Project Director collaborations
+----
+MATCH (source:Director)<-[:DIRECTED]-(:Movie)<-[r:ACTED_IN]-(:Actor)
+      -[:ACTED_IN]->(:Movie)-[:DIRECTED]->(target:Director)
+WITH source, target, count(r) AS numCollaborations
+WITH gds.graph.project(
+  'director-collaborations',
+  source,
+  target,
+  {
+    relationshipProperties: {rels: numCollaborations}
+  },
+  {
+    undirectedRelationshipTypes: ['*']
+  }
+) AS graph
+RETURN graph.graphName, graph.nodeCount, graph.relationshipCount
+----
+
+**Key points:**
+
+- `count(r)` counts the ACTED_IN relationships from actors who worked with both directors
+- This reveals which directors share a talent pool
+====
+
+Analyze your projection:
+
+[source,cypher]
+.Run Louvain on Director collaborations
+----
+CALL gds.louvain.stream('director-collaborations', {
+  relationshipWeightProperty: 'rels'
+})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).name) AS directors, count(*) AS size
+RETURN communityId, directors, size
+ORDER BY size DESC
+----
+
+This shows which directors cluster together based on shared actors.
+
+
+== What's Next
+
+You've practiced aggregating relationships using `count(r)` to count relationships between node pairs and assign a weight.
+
+In the next lesson, you'll face a challenge that requires you to design and build an aggregated projection completely independently.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-avoiding-duplicates.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Relationship aggregation uses `count(r)` in a `WITH` clause before projection to count relationships between node pairs. The pattern is: match relationships with a variable `r`, aggregate with `WITH source, target, count(r) AS numberOfRels`, then project with the count as a weight property.
+
+This technique collapses multiple parallel relationships into single weighted relationships, dramatically reducing graph size while preserving connection frequency information.
+

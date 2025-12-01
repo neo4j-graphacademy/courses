@@ -1,0 +1,139 @@
+#!/bin/sh
+
+# Get the current branch name
+LOCAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Get the remote URL to construct the PR URL
+REMOTE_URL=$(git config --get remote.origin.url)
+
+# Extract repo owner and name from remote URL
+# Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
+if echo "$REMOTE_URL" | grep -q "github.com"; then
+  REPO=$(echo "$REMOTE_URL" | sed -E 's|.*github.com[:/]([^/]+/[^/]+)|\1|' | sed 's|\.git||')
+else
+  # If not a GitHub repo, exit silently
+  exit 0
+fi
+
+# Determine the base branch (main or master)
+BASE_BRANCH="main"
+if ! git rev-parse --verify "origin/$BASE_BRANCH" >/dev/null 2>&1; then
+  BASE_BRANCH="master"
+fi
+
+# Get the range of commits being pushed
+# Pre-push hook receives: $1 = remote name, $2 = remote URL
+# For testing and PR purposes, always compare against base branch to see what would be in the PR
+REMOTE_REF="origin/$LOCAL_BRANCH"
+if git rev-parse --verify "$REMOTE_REF" >/dev/null 2>&1; then
+  # Remote branch exists, compare what's new (not yet on remote) with base
+  # This shows what would be in the PR
+  COMMIT_RANGE="origin/$BASE_BRANCH..HEAD"
+else
+  # No remote branch yet, compare with base branch
+  COMMIT_RANGE="origin/$BASE_BRANCH..HEAD"
+fi
+
+# Check if we have any commits to push
+if ! git rev-list --count "$COMMIT_RANGE" >/dev/null 2>&1; then
+  # No commits to compare, exit silently
+  exit 0
+fi
+
+# Get course.adoc files that were added or modified
+# Separate newly added files from modified files
+NEW_COURSE_FILES=$(git diff --name-only --diff-filter=A "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+MODIFIED_COURSE_FILES=$(git diff --name-only --diff-filter=M "$COMMIT_RANGE" | grep "course\.adoc$" || true)
+COURSE_FILES="$NEW_COURSE_FILES $MODIFIED_COURSE_FILES"
+COURSE_FILES=$(echo "$COURSE_FILES" | tr -s ' ' | sed 's/^ *//;s/ *$//')
+
+if [ -z "$COURSE_FILES" ]; then
+  # No course.adoc files modified, exit silently
+  exit 0
+fi
+
+# Check each course.adoc file for status changes
+FOUND_DRAFT=false
+FOUND_RELEASE=false
+FOUND_FIX=false
+
+for COURSE_FILE in $COURSE_FILES; do
+  # Check if file exists (might be deleted in some commits)
+  if [ ! -f "$COURSE_FILE" ]; then
+    continue
+  fi
+
+  # Extract the base commit from the commit range (everything before ..)
+  BASE_REF=$(echo "$COMMIT_RANGE" | sed 's/\.\..*//')
+  BASE_COMMIT=$(git rev-parse "$BASE_REF" 2>/dev/null || echo "")
+
+  # Check if this is a newly created file
+  IS_NEW_FILE=false
+  if echo "$NEW_COURSE_FILES" | grep -q "^$COURSE_FILE$"; then
+    IS_NEW_FILE=true
+  elif [ -z "$BASE_COMMIT" ] || ! git cat-file -e "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null; then
+    # File doesn't exist in base, it's new
+    IS_NEW_FILE=true
+  fi
+
+  # Check if :status: active was ADDED in the changes (release)
+  # Look for additions of ":status: active" in the diff
+  if git diff "$COMMIT_RANGE" -- "$COURSE_FILE" 2>/dev/null | grep -q "^+.*:status:[[:space:]]*active"; then
+    # Status active was added in this change - it's a release
+    FOUND_RELEASE=true
+  elif [ "$IS_NEW_FILE" = true ]; then
+    # File is newly created
+    if grep -q "^:status:[[:space:]]*active" "$COURSE_FILE"; then
+      # New file with active status - treat as release
+      FOUND_RELEASE=true
+    else
+      # New file without active status - it's a draft
+      FOUND_DRAFT=true
+    fi
+  elif [ -n "$BASE_COMMIT" ] && git cat-file -e "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null; then
+    # File existed before, check if it had active status
+    BASE_HAS_ACTIVE=$(git show "$BASE_COMMIT:$COURSE_FILE" 2>/dev/null | grep -q "^:status:[[:space:]]*active" && echo "yes" || echo "no")
+    CURRENT_HAS_ACTIVE=$(grep -q "^:status:[[:space:]]*active" "$COURSE_FILE" && echo "yes" || echo "no")
+
+    if [ "$BASE_HAS_ACTIVE" = "yes" ] && [ "$CURRENT_HAS_ACTIVE" = "yes" ]; then
+      # Status was already active and still is - this is a fix
+      FOUND_FIX=true
+    fi
+    # If file existed but doesn't have active status, don't suggest anything
+    # (it's a modification to a draft course, but not a new draft)
+  fi
+done
+
+# Construct the PR URL
+PR_URL="https://github.com/$REPO/compare/$BASE_BRANCH...$LOCAL_BRANCH"
+
+# Display appropriate message (this will show before push, but is informational)
+if [ "$FOUND_RELEASE" = true ]; then
+  echo ""
+  echo "✅ Course(s) updated with :status: active added - this looks like a release"
+  echo ""
+  echo "💡 Open a PR with the Course Release Template:"
+  echo ""
+  echo "   $PR_URL?template=course_release.md"
+  echo ""
+elif [ "$FOUND_DRAFT" = true ]; then
+  echo ""
+  echo "📝 Course draft(s) detected"
+  echo ""
+  echo "💡 Open a PR with the Course Draft Template:"
+  echo ""
+  echo "   $PR_URL?template=course_draft.md"
+  echo ""
+elif [ "$FOUND_FIX" = true ]; then
+  echo ""
+  echo "🔧 Course fix detected"
+  echo ""
+  echo "💡 Open a PR with the Course Fix Template:"
+  echo ""
+  echo "   $PR_URL?template=course_fix.md"
+  echo ""
+fi
+
+# Always exit 0 to allow the push to proceed (this is informational only)
+exit 0
+
