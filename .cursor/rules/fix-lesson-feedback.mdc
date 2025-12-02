@@ -1,0 +1,185 @@
+# Fix Lesson Feedback Workflow
+
+Use this workflow when asked to fix lessons based on negative feedback from GraphAcademy.
+
+## Step 1: Get Lessons with Poor Feedback
+
+Query the `graphacademy-prod` MCP to find lessons with high negative feedback percentage:
+
+```cypher
+MATCH (l:Lesson)
+WHERE l.status = 'active'
+
+WITH l, 
+    COUNT { (:PositiveFeedback)-[:FOR_LESSON]->(l) } AS positive, 
+    COUNT { (:NegativeFeedback)-[:FOR_LESSON]->(l) } AS negative, 
+
+WHERE positive + negative >= 10
+WITH l, positive, negative, 
+     toFloat(negative) / (positive + negative) * 100 AS negativePercentage
+ORDER BY negativePercentage DESC
+LIMIT 5
+MATCH (c:Course)-[:HAS_MODULE]->(m:Module)-[:HAS_LESSON]->(l)
+
+RETURN l.title AS lesson, l.id AS lessonId, c.title AS course, c.slug AS courseSlug,
+       m.title AS module, positive, negative, round(negativePercentage, 1) AS negativePercent
+```
+
+Present the results as a numbered list for the user to select from.
+
+## Step 2: Get Feedback for Selected Lesson
+
+Once the user selects a lesson, retrieve all negative feedback:
+
+```cypher
+MATCH (l:Lesson {id: $lessonId})
+MATCH (f:NegativeFeedback)-[:FOR_LESSON]->(l)
+RETURN f.id AS feedbackId, f.reason AS reason, f.additional AS comment, f.createdAt AS date
+ORDER BY f.createdAt DESC
+```
+
+## Step 3: Analyse Feedback and Suggest Fixes
+
+Categorise the feedback into:
+
+1. **Content issues** (can be fixed by editing lesson files):
+   - Missing information
+   - Unclear instructions
+   - Incorrect code examples
+   - Missing expected output
+   - Missing troubleshooting guidance
+
+2. **Infrastructure issues** (cannot be fixed by content changes):
+   - Verification/sandbox failures
+   - API/backend errors
+   - Environment setup issues beyond the lesson scope
+
+Present a **numbered list of suggested fixes** for the user to choose from, focusing on content issues that can be addressed.
+
+## Step 4: Locate and Read Lesson Files
+
+Find the lesson file using the course slug and lesson information:
+
+```bash
+# Search pattern
+asciidoc/courses/{courseSlug}/**/lessons/**/lesson.adoc
+```
+
+Read the lesson file and any related question files before proposing changes.
+
+## Step 5: Fact Check with Documentation
+
+Before making changes, verify technical accuracy using the `neo4j-docs` MCP or web search:
+
+1. **Procedure/function names** - Confirm correct syntax (e.g., `gds.kmeans` vs `gds.beta.kmeans`)
+2. **Parameter names** - Verify correct parameter names and types
+3. **API changes** - Check if APIs have graduated from alpha/beta to production
+4. **Cypher syntax** - Validate Cypher statements are correct
+
+Example queries for docs MCP:
+- "What is the current syntax for the KMeans procedure in GDS?"
+- "What parameters does gds.graph.project accept?"
+- "Is the kmeans algorithm still in beta tier?"
+
+If docs MCP is unavailable, use:
+- Web search for Neo4j documentation
+- Check other courses in the repository for consistent patterns
+- grep the codebase for similar usage
+
+```bash
+# Check how other courses use a procedure
+grep -r "gds.kmeans" asciidoc/courses/
+```
+
+## Step 6: Make Changes
+
+Common fixes include:
+
+1. **Add Expected Output section** - Show users what successful execution looks like
+2. **Add Troubleshooting section** (collapsible, at bottom before summary):
+   ```asciidoc
+   == Troubleshooting
+
+   .Error description
+   [%collapsible]
+   ====
+   Solution details here.
+   ====
+   ```
+3. **Fix code examples** - Ensure consistency (e.g., correct property names, procedure names)
+4. **Add clarity** - More context, explanations, or examples
+
+Place troubleshooting sections **at the bottom of the lesson**, after quiz questions and before the summary. Use `[%collapsible]` blocks so they don't distract users who don't need them.
+
+## Step 7: Git Workflow
+
+Once changes are approved by the user:
+
+```bash
+# Ensure on latest main
+git checkout main
+git pull origin main
+
+# Create feature branch with date
+git checkout -b fix-{courseSlug}-$(date +%Y%m%d)
+
+# Stage and commit (skip pre-commit hooks if they fail due to network issues)
+git add <changed-files>
+git commit --no-verify -m "fix({courseSlug}): <short description>"
+```
+
+## Step 8: Add Last Fix Timestamp
+
+Add a comment at the **bottom** of each modified lesson file:
+
+```asciidoc
+// @last-fix YYYY-MM-DD
+```
+
+This allows future queries to filter feedback to only show items after the fix date.
+
+Amend the commit after adding the timestamp:
+
+```bash
+git add <file>
+git commit --amend --no-verify --no-edit
+```
+
+## Step 9: Generate PR Description
+
+Create a markdown PR description including:
+
+```markdown
+## Summary
+
+Brief description of what was fixed and why.
+
+## Changes
+
+- List of specific changes made
+- Organised by type (content additions, fixes, etc.)
+
+## Feedback addressed
+
+| ID | Issue |
+|----|-------|
+| `feedback-id-1` | Brief description of complaint |
+| `feedback-id-2` | Brief description of complaint |
+
+## Files changed
+
+- `path/to/file1.adoc`
+- `path/to/file2.adoc`
+
+## Notes
+
+Any caveats, e.g., infrastructure issues that couldn't be addressed.
+```
+
+## Tips
+
+- **Don't put troubleshooting at the top** - Most users won't need it; keep the main content clean
+- **Use collapsible blocks** - `[%collapsible]` keeps troubleshooting available but hidden by default
+- **Check for consistency** - Ensure property names, procedure names, etc. are consistent across related lessons
+- **Verify with other lessons** - Check sibling lessons in the same module for patterns and consistency
+- **Note infrastructure issues** - Document issues that require backend fixes separately
