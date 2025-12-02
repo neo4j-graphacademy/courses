@@ -1,0 +1,546 @@
+# Metrics Integration
+
+Configuring external monitoring platforms, implementing alerting strategies, and creating custom dashboards for Neo4j Aura.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/6-advanced-monitoring/1-metrics-integration)
+
+## Concepts
+
+* **Metrics Integration** - Exporting Aura metrics to external monitoring platforms
+* **Prometheus** - Open-source monitoring and alerting system
+* **Scrape** - Process of collecting metrics from an endpoint
+* **OAuth2 Authentication** - Secure authentication method for API access
+* **Metrics Endpoint** - URL exposing Prometheus-compatible metrics
+* **Scrape Interval** - Frequency of metric collection
+* **Alerting Rules** - Conditions triggering notifications
+* **Custom Dashboards** - Visualizations tailored to specific needs
+
+## Why External Monitoring
+
+### Beyond Aura Console
+
+**Limitations of Aura Console:**
+* Short retention period (30 days metrics)
+* Basic alerting capabilities
+* Single instance view
+* No correlation with other infrastructure
+* Limited customization
+
+**External Monitoring Benefits:**
+* Longer retention (months to years)
+* Advanced alerting with routing
+* Multiple instances in one view
+* Correlation with application metrics
+* Custom dashboards and visualizations
+* Integration with incident management
+* Team collaboration features
+
+### Use Cases
+
+**Multi-Instance Management:**
+* View all instances together
+* Compare performance across environments
+* Identify patterns across fleet
+* Unified operational view
+
+**Advanced Alerting:**
+* Complex alert conditions
+* Alert routing by severity/team
+* Integration with PagerDuty, Slack, etc.
+* Escalation policies
+* Alert suppression and grouping
+
+**Long-Term Analysis:**
+* Historical trend analysis
+* Capacity planning over months
+* Cost optimization opportunities
+* Performance regression detection
+
+**Infrastructure Correlation:**
+* Database + application + infrastructure in one place
+* Understand complete system behavior
+* Root cause analysis across stack
+* Holistic performance view
+
+## Accessing Metrics Integration
+
+### Configuration Steps
+
+**1. Navigate to Settings:**
+* Open your Aura project
+* Click "Settings" in project menu
+* Select "Metrics Integration"
+
+**2. Obtain Credentials:**
+* Client ID (provided)
+* Client Secret (provided, keep secure)
+* Metrics Endpoint URL
+* Token URL for authentication
+
+**3. Configure Monitoring Tool:**
+* Add Aura metrics job
+* Configure OAuth2 authentication
+* Set scrape interval
+* Validate connection
+
+## Understanding the Metrics Endpoint
+
+### Endpoint URL Structure
+
+**Format:**
+```
+https://customer-metrics-api.neo4j.io/api/v1/<project-id>/<metrics-id>/metrics
+```
+
+**Example:**
+```
+https://customer-metrics-api.neo4j.io/api/v1/cb50b84c-0a53-565c-ba05-008e104efee0/6b0c65e8/metrics
+```
+
+**Components:**
+* Base URL: customer-metrics-api.neo4j.io
+* API version: v1
+* Project ID: Your unique project identifier
+* Metrics ID: Unique metrics endpoint identifier
+* Path: /metrics (Prometheus format)
+
+### Authentication Required
+
+**OAuth2 Flow:**
+1. Client requests token from token URL
+2. Provides client ID and secret
+3. Receives access token
+4. Uses token in metrics requests
+5. Token expires, automatically refreshes
+
+**Token URL:**
+```
+https://api.neo4j.io/oauth/token
+```
+
+**Security:**
+* Keep client secret secure
+* Never commit to version control
+* Rotate regularly
+* Limit access to credentials
+* Monitor for unauthorized use
+
+## Prometheus Configuration
+
+### Basic Prometheus Setup
+
+**Job Configuration:**
+```yaml
+- job_name: 'aura-metrics'
+  scrape_timeout: 30s
+  metrics_path: '/api/v1/<your-project-id>/<your-metrics-id>/metrics'
+  scheme: 'https'
+  static_configs:
+    - targets: ['customer-metrics-api.neo4j.io']
+  oauth2:
+    client_id: '<AURA_CLIENT_ID>'
+    client_secret: '<AURA_CLIENT_SECRET>'
+    token_url: 'https://api.neo4j.io/oauth/token'
+```
+
+**Configuration Steps:**
+1. Add to prometheus.yml
+2. Replace placeholders with your values
+3. Reload Prometheus configuration
+4. Verify scrape succeeds in Prometheus UI
+5. Query metrics to confirm data flowing
+
+### Scrape Interval Configuration
+
+**Recommended Intervals:**
+
+**Real-Time Monitoring (30 seconds):**
+* Use Case: Production critical systems
+* Benefit: Fastest problem detection
+* Consideration: Higher load on metrics API
+
+**Standard Monitoring (60 seconds):**
+* Use Case: Most production systems
+* Benefit: Balance of timeliness and efficiency
+* Consideration: Good for most use cases
+
+**Resource-Efficient (120 seconds):**
+* Use Case: Development, non-critical systems
+* Benefit: Lower load, sufficient for trending
+* Consideration: 2-minute delay acceptable
+
+**Cache Consideration:**
+* Metrics endpoint caches for 30 seconds
+* Scraping faster than 30s provides no additional data
+* Minimum recommended: 30 seconds
+* Typical production: 60 seconds
+
+### Available Metrics
+
+**Resource Metrics:**
+* CPU usage (min, max, avg)
+* Storage (allocated, used)
+* Out of Memory error count
+
+**Instance Metrics:**
+* Heap memory usage
+* Page cache hit ratio and evictions
+* Bolt connections (running, idle, opened, closed)
+* Garbage collection times
+
+**Database Metrics:**
+* Store size (allocated, used)
+* Query rate (successful, failed)
+* Query latency percentiles (50th, 75th, 99th)
+* Entity counts (nodes, relationships)
+* Active transactions (read, write)
+* Transaction rates (committed, rolled back)
+* Checkpoint events
+* Replan events
+
+**Complete List:**
+* All metrics visible in Aura console
+* Plus additional detailed metrics
+* Prometheus format with labels
+* Time-series data
+
+## Grafana Dashboard Setup
+
+### Connecting Grafana to Prometheus
+
+**1. Add Prometheus Data Source:**
+* Navigate to Configuration → Data Sources
+* Click "Add data source"
+* Select Prometheus
+* Enter Prometheus server URL
+* Test connection
+* Save
+
+**2. Create Dashboard:**
+* Click "Create" → Dashboard
+* Add panels for each metric
+* Configure queries
+* Arrange and style
+
+### Example Dashboard Panels
+
+**CPU Usage Panel:**
+```promql
+# CPU usage in cores
+neo4j_aura_cpu_usage{instance="my-instance"}
+```
+
+**Page Cache Hit Ratio:**
+```promql
+# Hit ratio percentage
+neo4j_dbms_page_cache_hit_ratio_per_minute{instance="my-instance"}
+```
+
+**Query Rate:**
+```promql
+# Queries per second
+rate(neo4j_db_query_execution_success_total{instance="my-instance"}[5m])
+```
+
+**Heap Memory Usage:**
+```promql
+# Heap percentage
+neo4j_dbms_vm_heap_used_ratio{instance="my-instance"} * 100
+```
+
+**Active Transactions:**
+```promql
+# Current active transactions
+neo4j_db_transaction_active{instance="my-instance"}
+```
+
+### Dashboard Best Practices
+
+**Organization:**
+* Group related metrics together
+* Resource metrics in one section
+* Instance metrics in another
+* Database metrics in third section
+* Logical flow top to bottom
+
+**Visualization:**
+* Use appropriate chart types
+* Line charts for trends
+* Gauges for percentages
+* Bar charts for comparisons
+* Color code by severity
+
+**Time Ranges:**
+* Consistent across panels
+* Quick links (1h, 6h, 24h, 7d)
+* Ability to zoom into incidents
+* Correlation easier with aligned time
+
+**Annotations:**
+* Mark deployments
+* Indicate scaling events
+* Note incidents
+* Track changes over time
+
+## Creating Alerts
+
+### Alert Design Principles
+
+**Actionable:**
+* Alert means something needs doing
+* Clear what action to take
+* Includes context for resolution
+
+**Appropriate Severity:**
+* Warning: investigate soon
+* Critical: immediate attention
+* Emergency: wake someone up
+* Don't over-alert
+
+**Low False Positives:**
+* Tune thresholds carefully
+* Use sustained conditions (for 5min)
+* Avoid flapping
+* Test before enabling
+
+### Example Alert Rules
+
+**High CPU Usage:**
+```yaml
+- alert: HighCPUUsage
+  expr: neo4j_aura_cpu_usage / neo4j_aura_cpu_limit > 0.85
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Aura instance {{ $labels.instance }} CPU usage high"
+    description: "CPU usage above 85% for 5 minutes"
+```
+
+**Low Page Cache Hit Ratio:**
+```yaml
+- alert: LowPageCacheHitRatio
+  expr: neo4j_dbms_page_cache_hit_ratio_per_minute < 0.98
+  for: 10m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Page cache hit ratio below 98% on {{ $labels.instance }}"
+    description: "Database may not fit in memory. Current: {{ $value | humanizePercentage }}"
+```
+
+**High Heap Memory Usage:**
+```yaml
+- alert: HighHeapUsage
+  expr: neo4j_dbms_vm_heap_used_ratio > 0.80
+  for: 15m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Heap memory usage above 80% on {{ $labels.instance }}"
+    description: "Instance may need scaling. Current: {{ $value | humanizePercentage }}"
+```
+
+**Out of Memory Errors:**
+```yaml
+- alert: OutOfMemoryErrors
+  expr: increase(neo4j_aura_oom_errors_total[5m]) > 0
+  labels:
+    severity: critical
+  annotations:
+    summary: "Out of Memory errors detected on {{ $labels.instance }}"
+    description: "{{ $value }} OOM errors in last 5 minutes"
+```
+
+**High Transaction Rollback Rate:**
+```yaml
+- alert: HighRollbackRate
+  expr: |
+    rate(neo4j_db_transaction_rollbacks_total[10m]) /
+    rate(neo4j_db_transaction_commits_total[10m]) > 0.05
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High transaction rollback rate on {{ $labels.instance }}"
+    description: "Rollback rate: {{ $value | humanizePercentage }}"
+```
+
+## Other Monitoring Platforms
+
+### Datadog Integration
+
+**Setup:**
+* Use Datadog's Prometheus integration
+* Configure OpenMetrics check
+* Point to Aura metrics endpoint
+* Add OAuth2 authentication
+* Create Datadog dashboards
+
+**Benefits:**
+* APM integration
+* Log correlation
+* Full-stack visibility
+* ML-based anomaly detection
+
+### New Relic Integration
+
+**Setup:**
+* Use Prometheus OpenMetrics integration
+* Configure remote write to New Relic
+* Add authentication details
+* Import Neo4j dashboard templates
+
+**Benefits:**
+* Distributed tracing
+* Alert policies
+* Incident intelligence
+* Entity synthesis
+
+### AWS CloudWatch
+
+**Setup:**
+* Use Prometheus CloudWatch exporter
+* Forward metrics to CloudWatch
+* Create CloudWatch alarms
+* Dashboard in AWS console
+
+**Benefits:**
+* Native AWS integration
+* SNS alert routing
+* Lambda automation
+* AWS cost correlation
+
+## Best Practices
+
+### Performance Optimization
+
+**Scrape Configuration:**
+* Don't scrape faster than 30 seconds (cache limitation)
+* 60 seconds optimal for most use cases
+* Use appropriate timeout (30s recommended)
+* Monitor your monitoring system's resources
+
+**Query Optimization:**
+* Use recording rules for expensive queries
+* Pre-calculate common aggregations
+* Cache dashboard results
+* Limit time range for heavy queries
+
+### Alerting Strategy
+
+**Start with Critical Only:**
+* Avoid alert fatigue
+* Only alert on actionable items
+* Tune before adding more alerts
+* Escalate gradually
+
+**Use Alert Grouping:**
+* Group related alerts
+* Reduce notification noise
+* Easier incident correlation
+* Better for on-call experience
+
+**Include Runbooks:**
+* Link to resolution procedures
+* Clear steps to investigate
+* Known fixes documented
+* Escalation paths defined
+
+### Dashboard Design
+
+**Progressive Disclosure:**
+* Overview dashboard (high-level)
+* Detailed dashboards (deep-dive)
+* Links between related dashboards
+* Easy navigation structure
+
+**Context and Annotations:**
+* Mark deployments and changes
+* Add threshold lines
+* Color coding by status
+* Descriptive panel titles
+
+**Consistent Styling:**
+* Same time ranges
+* Similar color schemes
+* Standard layouts
+* Professional appearance
+
+## Troubleshooting Integration
+
+### Issue: 401 Unauthorized
+
+**Causes:**
+* Incorrect client ID or secret
+* Wrong token URL
+* OAuth2 misconfigured
+
+**Resolution:**
+1. Verify credentials in Aura settings
+2. Check prometheus.yml syntax
+3. Ensure token URL correct
+4. Test authentication separately
+5. Check Prometheus logs for details
+
+### Issue: No Data/Empty Response
+
+**Causes:**
+* Wrong metrics endpoint URL
+* Scrape timeout too short
+* Instance not running
+* Network connectivity issues
+
+**Resolution:**
+1. Verify endpoint URL matches Aura settings exactly
+2. Increase scrape_timeout to 30s
+3. Check instance status in Aura
+4. Test endpoint with curl
+5. Check network/firewall rules
+
+### Issue: Intermittent Scrape Failures
+
+**Causes:**
+* Network instability
+* Rate limiting
+* Timeout too aggressive
+* OAuth token refresh issues
+
+**Resolution:**
+1. Increase scrape_timeout
+2. Check network stability
+3. Review rate limits
+4. Monitor Prometheus logs
+5. Verify OAuth2 flow working
+
+## Validation Process
+
+### Confirm Integration Working
+
+**1. Prometheus UI Check:**
+* Navigate to Prometheus targets
+* Verify aura-metrics job status UP
+* Check last scrape time recent
+* Review any error messages
+
+**2. Query Metrics:**
+* Use Prometheus query interface
+* Try simple query: `neo4j_aura_cpu_usage`
+* Verify data returned
+* Check timestamp is current
+
+**3. Grafana Visualization:**
+* Create test panel
+* Query any Neo4j metric
+* Verify graph displays data
+* Check time range appropriate
+
+**4. Alert Testing:**
+* Temporarily lower alert threshold
+* Wait for alert to fire
+* Verify notification received
+* Reset threshold
+* Confirm alert resolves
+
+[Reference: Advanced Monitoring Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/6-advanced-monitoring/)
+

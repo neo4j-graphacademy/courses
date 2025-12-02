@@ -1,0 +1,388 @@
+# Monitoring Storage Consumption
+
+Understanding storage growth, planning capacity, and making scaling decisions for Neo4j Aura instances.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/5-storage)
+
+## Concepts
+
+* **Storage** - Total disk space used for database data
+* **Allocated Space** - Disk space reserved for database
+* **Used Space** - Portion actively containing data
+* **Page Cache** - In-memory copy of graph data for query performance
+* **Storage Growth Rate** - Speed at which storage consumption increases
+* **Capacity Planning** - Predicting future storage needs based on trends
+* **Scaling Threshold** - Point at which instance upgrade needed
+
+## What Consumes Storage
+
+### Primary Storage Components
+
+**Node and Relationship Data:**
+* Core graph structure
+* Node properties and values
+* Relationship properties
+* Most significant storage consumer
+
+**Property Values:**
+* String properties (variable length)
+* Array properties
+* Large text fields
+* Embedded documents or JSON
+
+**Indexes:**
+* Standard property indexes (moderate size)
+* Full-text indexes (significant size)
+* Vector indexes (very storage intensive)
+* Each indexed property adds storage overhead
+
+**Transaction Logs:**
+* Record of all changes
+* Enables recovery and backup
+* Rotated and managed automatically
+* Temporary storage overhead
+
+## Understanding Storage Growth
+
+### Normal Growth Patterns
+
+**Linear Growth:**
+* Steady data addition over time
+* Predictable and manageable
+* Typical for production applications
+* Allows accurate capacity planning
+
+**Seasonal Growth:**
+* Predictable increases during peak periods
+* E.g., retail surge during holidays
+* Plan capacity for peak, not average
+* May see temporary growth spurts
+
+**Plateau Patterns:**
+* Growth then stabilization
+* Indicates mature dataset
+* Ongoing updates but not net growth
+* Easiest to manage long-term
+
+### Problematic Growth Patterns
+
+**Exponential Growth:**
+* Accelerating storage consumption
+* May indicate data model issues
+* Unsustainable without intervention
+* Requires investigation of root cause
+
+**Sudden Jumps:**
+* Large increase in short time
+* Usually from:
+  - Bulk data import
+  - New feature adding lots of data
+  - Data retention policy not working
+  - Backup or snapshot created
+* Verify cause is expected
+
+## Storage and Page Cache Relationship
+
+### Why Page Cache Matters for Storage
+
+**Performance Impact:**
+* Page cache holds in-memory copy of graph
+* Queries fast when data in cache
+* Queries slow when reading from disk
+* Ideal: entire graph fits in page cache
+
+**Monitoring Correlation:**
+* As storage grows, page cache percentage of total decreases
+* When graph exceeds page cache size, performance degrades
+* Page cache hit ratio drops below 98%
+* Page cache evictions increase
+
+**Decision Point:**
+* Storage growth approaching page cache limit
+* Performance starting to degrade
+* Options:
+  1. Scale instance (more memory for page cache)
+  2. Optimize data model (reduce storage)
+  3. Archive old data (maintain size)
+
+## Deciding When to Scale
+
+### Action Thresholds
+
+**70-80% of Capacity:**
+* **Action**: Plan scaling
+* **Urgency**: Medium
+* **Time Frame**: 30-60 days
+* **Reason**: Gives time for approval, planning, scheduling
+
+**80-90% of Capacity:**
+* **Action**: Schedule scaling soon
+* **Urgency**: High
+* **Time Frame**: 7-30 days
+* **Reason**: Little buffer remaining for unexpected growth
+
+**>90% of Capacity:**
+* **Action**: Scale immediately
+* **Urgency**: Critical
+* **Time Frame**: 1-7 days
+* **Reason**: Risk of running out of space, service disruption
+
+### Growth Rate Calculation
+
+**Formula:**
+```
+Daily Growth Rate = (Current Size - Size 7 Days Ago) / 7
+Weekly Growth Rate = (Current Size - Size 30 Days Ago) / 4
+```
+
+**Projection:**
+```
+Days Until Full = (Total Capacity - Current Size) / Daily Growth Rate
+```
+
+**Example:**
+```
+Current: 700 GB
+Capacity: 1000 GB
+Growth: 10 GB/day
+Days until full: (1000 - 700) / 10 = 30 days
+```
+
+**Action:** Should scale within 2-3 weeks to maintain 20% buffer
+
+### Factors Affecting Decision
+
+**Growth Predictability:**
+* Consistent growth = easier planning
+* Variable growth = need larger buffer
+* Seasonal patterns = plan for peak
+
+**Scaling Lead Time:**
+* Approval process time
+* Budget availability
+* Scheduled maintenance windows
+* Migration complexity
+
+**Business Context:**
+* Critical production system = scale proactively
+* Development environment = can cut closer
+* Compliance requirements may mandate buffer
+* Cost considerations vs risk tolerance
+
+## Scaling Your Aura Instance
+
+### Scaling Process
+
+**1. Access Instance Configuration:**
+* Navigate to Instances page
+* Locate instance needing scaling
+* Click "Configure" button
+
+**2. Review Current Configuration:**
+* Current Memory & CPU tier
+* Current Storage allocation
+* Usage percentages
+* Growth trends
+
+**3. Select New Configuration:**
+* Choose Memory & CPU tier
+* Select Storage size
+* Verify pricing changes
+* Note minimum requirements
+
+**4. Plan Timing:**
+* Schedule during low-traffic period
+* Notify stakeholders of brief disruption
+* Prepare rollback plan (if possible)
+
+**5. Execute Scaling:**
+* Confirm configuration changes
+* Monitor scaling progress
+* Verify successful completion
+* Test functionality
+
+**6. Validate Results:**
+* Check new capacity reflected in metrics
+* Verify performance improvement (if applicable)
+* Monitor for any issues
+* Document change
+
+### Tier and Storage Considerations
+
+**Storage Scaling Rules:**
+* Storage size depends on Memory & CPU tier
+* Cannot select storage smaller than tier minimum
+* May need to increase tier to get more storage
+* Higher tiers unlock larger storage options
+
+**Capacity Planning:**
+* Plan for 20-30% headroom above current usage
+* Consider growth rate over next 6-12 months
+* Balance cost vs performance requirements
+* Easier to scale up than down
+
+## Storage Optimization Strategies
+
+### Before Scaling: Optimization Options
+
+**Data Model Review:**
+* Are all properties necessary?
+* Can large properties be externalized?
+* Are relationships appropriately modeled?
+* Can denormalization reduce node count?
+
+**Index Optimization:**
+* Review all indexes for necessity
+* Remove unused indexes
+* Full-text indexes are large - truly needed?
+* Vector indexes are huge - optimize dimensions?
+
+**Data Retention Policies:**
+* Archive or delete old data
+* Implement time-based retention
+* Summarize historical data
+* Keep only active dataset in production
+
+**Property Optimization:**
+* Avoid storing large texts in properties
+* Use external storage for binaries/documents
+* Normalize large repeated strings
+* Compress data at application layer if needed
+
+**Query Result Caching:**
+* Cache expensive aggregations at application layer
+* Avoid recreating computed values
+* Reduces need for denormalization
+* Can significantly reduce storage growth
+
+### When Optimization Isn't Enough
+
+**Legitimate Growth:**
+* Business naturally generating more data
+* New features requiring additional storage
+* User base growing
+* Optimization exhausted
+
+**Time to Scale:**
+* Growth rate sustainable only with more capacity
+* Performance degrading due to size
+* Business value justifies infrastructure cost
+* Prevention of service disruption
+
+## Proactive Storage Management
+
+### Daily Monitoring
+
+**Quick Checks:**
+* Review storage percentage
+* Compare to yesterday
+* Note any unusual jumps
+* Verify growth consistent with expectations
+
+**Actions:**
+* If >70%: Begin capacity planning
+* If large jump: Investigate cause
+* If accelerating: Deep analysis needed
+
+### Weekly Review
+
+**Trend Analysis:**
+* Calculate weekly growth rate
+* Compare to previous weeks
+* Identify acceleration or deceleration
+* Project time to threshold (70%, 80%, 90%)
+
+**Pattern Documentation:**
+* Normal growth for your workload
+* Seasonal variations
+* Expected bulk operations
+* Baseline for anomaly detection
+
+### Monthly Planning
+
+**Capacity Forecast:**
+* Project storage needs 3-6 months ahead
+* Consider planned features or changes
+* Account for seasonal variations
+* Budget for scaling if needed
+
+**Optimization Review:**
+* Evaluate data retention policies
+* Review index necessity
+* Assess data model efficiency
+* Implement improvements
+
+## Storage Alerts Configuration
+
+### Alert Thresholds
+
+**Warning (70% capacity):**
+* **When**: Sustained above 70% for 24 hours
+* **Action**: Begin capacity planning
+* **Urgency**: Plan within 30-60 days
+* **Notification**: Email to admin team
+
+**High (80% capacity):**
+* **When**: Sustained above 80% for 12 hours
+* **Action**: Schedule scaling
+* **Urgency**: Complete within 30 days
+* **Notification**: Email + Slack notification
+
+**Critical (90% capacity):**
+* **When**: Reaches 90% at any time
+* **Action**: Scale immediately
+* **Urgency**: Within 7 days
+* **Notification**: Page on-call, email leadership
+
+### Growth Rate Alerts
+
+**Accelerating Growth:**
+* Daily growth rate increases by 50% or more
+* May indicate issue or new pattern
+* Investigate cause immediately
+* Adjust capacity plans accordingly
+
+**Unexpected Jump:**
+* Single-day increase >10% of total
+* Verify intentional (bulk import) or investigate
+* Could indicate data issue or attack
+* Review recent changes and operations
+
+## Integration with Capacity Planning
+
+### Regular Capacity Reviews
+
+**Quarterly Reviews:**
+* Historical growth analysis
+* Projection updates
+* Budget planning
+* Optimization opportunities
+
+**Information to Gather:**
+* Storage growth rates
+* Correlation with business metrics (users, transactions)
+* Planned feature impacts
+* Cost of current vs next tier
+
+### Stakeholder Communication
+
+**Regular Updates:**
+* Current storage utilization
+* Growth rate and projections
+* When scaling will be needed
+* Cost implications
+
+**Before Scaling:**
+* Notification of planned changes
+* Expected brief disruption
+* Business justification
+* Timeline and process
+
+**After Scaling:**
+* Confirmation of completion
+* New capacity available
+* Time until next scaling needed
+* Lessons learned
+
+[Reference: Monitoring Resources Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/3-monitoring-resources/)
+

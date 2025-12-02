@@ -1,0 +1,89 @@
+= Monitoring database store size
+:type: lesson
+:order: 1
+
+
+[.slide.discrete]
+== Introduction
+
+You have learned how to monitor instance-level metrics like heap memory and garbage collection. Storage metrics are equally critical—they reveal whether your database can handle your data volume and help you manage costs.
+
+In this lesson, you will learn how to monitor database store size and identify when compaction is required.
+
+
+[.slide]
+== Understanding store size
+
+Aura tracks two storage metrics that help you monitor database growth.
+
+**Allocated space** is the total disk space reserved for your database. This includes active data, deleted data not yet reclaimed, and internal database structures. Neo4j allocates space in chunks for efficiency, so this value may be larger than your actual data.
+
+**Used space** is the portion of allocated space that contains active data. This represents the actual size of your graph data.
+
+// UI Description: Used space is the portion of the allocated space that the database is actively utilizing,
+// also measured in bytes. It is calculated by subtracting the available allocated space from the total
+// allocated space.
+
+The expected pattern is for allocated space to be slightly larger than used space due to how Neo4j manages storage allocation.
+
+// UI Description: Allocated space refers to the total amount of space currently allocated to the database,
+// measured in bytes.
+
+[.slide]
+== Monitoring store size
+
+Monitor the **allocated space** and **used space** metrics to understand your storage usage.
+
+// UI Description: Please note that these metrics are updated every 10 minutes due to the cost of measurement.
+// Consequently, there might be a delay between data additions or deletions and their reflection in this chart.
+
+A small difference between allocated and used space is normal. When you delete data, space is marked as available but not immediately reclaimed. Neo4j also allocates space in advance for efficiency.
+
+A large difference indicates significant storage waste. This typically occurs after major data deletions where properties, nodes, or relationships have been removed. The space remains allocated but unused.
+
+If allocated space grows while used space stays stable, many deletions are occurring without new data additions. This pattern indicates **compaction** would be beneficial.
+
+
+[.slide]
+== Performing database compaction
+
+**Database compaction** reclaims unused space after deletions. Compaction creates a new copy of your data, leaving behind unused allocated space.
+
+Consider compaction when you notice a significant difference between allocated and used space. This commonly happens after large data cleanup operations or when storage costs are a concern.
+
+To compact your Aura database, export a snapshot and restore it to a new instance, or link:https://support.neo4j.com/s/article/23560594934419-How-to-use-Neo4j-Desktop-to-compact-your-Aura-instance-s-database-store[use Neo4j Desktop following the compaction guide^].
+
+After compaction, used space remains the same while allocated space reduces to match. This reclaims wasted storage and may reduce costs.
+
+[WARNING]
+.Compaction requires downtime
+====
+Plan compaction during maintenance windows as it requires taking the database offline.
+====
+
+
+[.slide]
+== Planning for storage growth
+
+Monitor storage growth over time to plan capacity. Calculate your growth rate by comparing store size at two time points and dividing by the time difference.
+
+Upgrade your instance before reaching storage limits. Leave a buffer of up to 30% for unexpected growth and operational overhead.
+
+Consider optimizing your data model before scaling. Review whether you can archive old data, remove unnecessary properties, or use more efficient data types.
+
+**Vector embeddings** and **vector indexes** are particularly storage-intensive and may warrant evaluation.
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-store-compaction.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+Aura tracks allocated space and used space to help you monitor storage. A small difference is normal due to how Neo4j allocates space, but a large difference after deletions indicates compaction would reclaim wasted storage. Monitor growth patterns to plan capacity and upgrade before reaching limits.
+
+In the next lesson, you will learn about query rate and latency metrics at the database level.
+

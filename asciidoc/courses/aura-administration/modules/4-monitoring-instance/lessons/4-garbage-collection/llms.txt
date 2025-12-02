@@ -1,0 +1,402 @@
+# Monitoring Garbage Collection
+
+Understanding GC metrics, their impact on performance, and when memory pressure requires scaling.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/4-garbage-collection)
+
+## Concepts
+
+* **Garbage Collection (GC)** - JVM process of reclaiming unused memory
+* **Stop-the-World Pause** - All query execution paused during GC
+* **Young Generation** - Memory for short-lived objects (temporary query results)
+* **Old Generation** - Memory for long-lived objects (cached data, transaction state)
+* **GC Time Percentage** - Portion of time spent in garbage collection
+* **Memory Pressure** - Sustained high memory usage triggering frequent GC
+
+## Understanding Garbage Collection
+
+### How GC Works in Neo4j
+
+**Purpose:**
+* Reclaim memory from objects no longer needed
+* Prevent memory leaks
+* Automatic memory management
+* Essential JVM feature
+
+**The Trade-off:**
+* Frees memory automatically
+* But pauses query execution
+* Short pauses acceptable
+* Long/frequent pauses = performance problem
+
+### Generation-Based GC
+
+**Young Generation:**
+* Handles short-lived objects
+* Query temporary results
+* Intermediate calculations
+* Garbage collected frequently (milliseconds)
+* Minor impact on performance
+
+**Old Generation:**
+* Handles long-lived objects
+* Cached query plans
+* Transaction state
+* Long-running operation data
+* Garbage collected less frequently but longer duration (seconds)
+* Major impact when it runs
+
+### When GC Becomes Problematic
+
+**High Frequency:**
+* GC running very often
+* Indicates memory pressure
+* Heap filling quickly
+* Constant cleanup needed
+
+**Long Duration:**
+* Old generation GC takes seconds
+* All queries pause
+* Noticeable performance impact
+* Users experience timeouts
+
+**High Percentage:**
+* Spending too much time in GC
+* Less time executing queries
+* System spends more time cleaning than working
+* Critical performance issue
+
+## Monitoring GC Metrics
+
+### Young Generation GC
+
+**Young Gen (% of time):**
+* Time spent in young generation GC
+* Expected: <1% typically
+* Warning: >2%
+* Critical: >5%
+
+**Young Gen (Cumulative):**
+* Total time since startup
+* Monitor rate of increase not absolute value
+* Faster increase = more frequent GC
+* Indicates memory usage patterns
+
+**Healthy Pattern:**
+* Low percentage (<1%)
+* Steady, slow cumulative increase
+* Brief pauses (milliseconds)
+* No user impact
+
+**Problem Pattern:**
+* High percentage (>2%)
+* Rapid cumulative increase
+* Frequent pauses
+* Correlated with performance complaints
+
+### Old Generation GC
+
+**Old Gen (% of time):**
+* Time spent in old generation GC
+* Expected: <0.5% typically
+* Warning: >1%
+* Critical: >5%
+
+**Old Gen (Cumulative):**
+* Total time since startup in old gen GC
+* Large increases indicate problems
+* Frequent old gen GC = serious issue
+* Causes noticeable query pauses
+
+**Healthy Pattern:**
+* Very low percentage (<0.5%)
+* Infrequent old gen GC
+* Cumulative increases slowly
+* Minimal user impact
+
+**Problem Pattern:**
+* High percentage (>1%)
+* Frequent old gen GC events
+* Rapidly increasing cumulative time
+* Queries experiencing pauses/timeouts
+
+### Total GC Time
+
+**What It Shows:**
+* Overall time in all GC activity
+* Combined young + old generation
+* Primary indicator of GC health
+
+**Interpretation:**
+* <1%: Healthy
+* 1-3%: Monitor, investigate causes
+* 3-5%: Warning - action needed soon
+* >5%: Critical - immediate action required
+
+## Root Causes of High GC
+
+### Query-Level Issues
+
+**Memory-Intensive Queries:**
+* Creating many temporary objects
+* Large result sets collected in memory
+* Complex aggregations
+* Cartesian products
+
+**Resolution:**
+```cypher
+// Bad - creates many temporary objects
+MATCH (n:User)
+WITH collect(n) AS users
+UNWIND users AS u
+RETURN u
+
+// Good - stream results
+MATCH (n:User)
+RETURN n
+LIMIT 1000
+```
+
+**Add LIMIT Clauses:**
+* Reduces object creation
+* Less memory allocated
+* Less GC pressure
+* Faster queries
+
+**Use Aggregations Wisely:**
+* Aggregate in database, not application
+* But be aware of memory for large aggregations
+* Consider batching large aggregations
+
+### Transaction Issues
+
+**Long-Running Transactions:**
+* Hold objects in old generation
+* Prevent GC from reclaiming memory
+* Accumulate changes in memory
+* Eventually trigger old gen GC
+
+**Resolution:**
+* Keep transactions short
+* Commit/rollback promptly
+* Use batching for bulk operations
+```cypher
+CALL { ... } IN TRANSACTIONS OF 1000 ROWS
+```
+
+### Memory-Intensive Workloads
+
+**Heavy Write Workloads:**
+* Creating many objects
+* Index updates
+* Transaction log writes
+* All consume memory
+
+**Analytics Queries:**
+* Processing large portions of graph
+* Computing complex aggregations
+* Path finding algorithms
+* May need significant memory
+
+**Resolution:**
+* Schedule heavy operations off-peak
+* Break into smaller operations
+* Consider read replicas for analytics
+* Scale instance if legitimate business need
+
+## Correlation with Other Metrics
+
+### GC and Heap Memory
+
+**Check Together:**
+1. High GC time
+2. Heap memory >80%
+3. Out of Memory errors
+
+**All Three Present:**
+* Clear memory pressure
+* Heap too small for workload
+* GC cannot keep up
+* Need to optimize or scale
+
+**High GC, Normal Heap:**
+* May be churn, not pressure
+* Many short-lived objects
+* Optimize query patterns
+* May not need scaling
+
+### GC and CPU
+
+**GC Consumes CPU:**
+* Garbage collection is CPU-intensive
+* High GC time = elevated CPU
+* Check both metrics together
+* Don't assume CPU issue is query load
+
+**Pattern:**
+* CPU spikes during GC events
+* All queries slow simultaneously
+* Returns to normal after GC
+* Indicates memory issue, not CPU issue
+
+### GC and Query Latency
+
+**GC Pauses Affect Latency:**
+* During GC, all queries pause
+* Query latency increases
+* Especially 99th percentile
+* Users experience slowdowns
+
+**Correlation:**
+* High GC time
+* Increased query latency
+* Latency spikes match GC events
+* Performance complaints from users
+
+## Mitigation Strategies
+
+### Optimization First
+
+**Before Scaling, Optimize:**
+
+**1. Review Query Memory Usage:**
+* Use PROFILE to check memory allocation
+* Identify queries creating many objects
+* Add LIMIT clauses
+* Stream instead of collect
+
+**2. Optimize Transactions:**
+* Ensure short-lived transactions
+* Use IN TRANSACTIONS OF for batching
+* Commit/rollback promptly
+* Don't hold transactions unnecessarily
+
+**3. Schedule Heavy Operations:**
+* Move analytics to off-peak hours
+* Batch operations during maintenance windows
+* Reduce concurrent heavy queries
+* Distribute load over time
+
+**4. Application-Level Caching:**
+* Cache frequently accessed data
+* Reduce database query frequency
+* Less memory pressure on database
+* Better overall system performance
+
+### When Optimization Isn't Enough
+
+**Scale When:**
+* All optimizations applied
+* GC time still >3% sustained
+* Heap memory consistently >80%
+* Workload legitimately memory-intensive
+* Business value justifies cost
+
+**Scaling Process:**
+1. Choose tier with more heap memory
+2. Schedule during low-traffic period
+3. Monitor GC metrics after scaling
+4. Should see GC time decrease significantly
+5. Heap pressure should reduce
+
+## Preventive Monitoring
+
+### Daily Checks
+
+**Quick Review:**
+* Check total GC time percentage
+* Verify <1% sustained
+* Note any spikes
+* Correlate with known operations
+
+**Action Thresholds:**
+* <1%: Healthy
+* 1-3%: Monitor
+* 3-5%: Investigate
+* >5%: Act immediately
+
+### Weekly Analysis
+
+**Trend Monitoring:**
+* Compare GC time week-over-week
+* Is it increasing?
+* Correlation with workload growth?
+* Project when will reach warning levels
+
+**Pattern Documentation:**
+* Normal GC patterns for your workload
+* Expected spikes (batch jobs, etc.)
+* Baseline for anomaly detection
+* Share with team
+
+### Alert Configuration
+
+**Warning: GC Time >3% for 15 minutes**
+* Sustained elevated GC
+* Investigate queries and heap
+* Not immediate crisis
+* Plan optimization or scaling
+
+**Critical: GC Time >5% for 10 minutes**
+* Performance impacted
+* Users likely experiencing issues
+* Immediate action required
+* Page on-call team
+
+**Old Gen GC Alert: >1% for 10 minutes**
+* Serious performance issue
+* Long pauses affecting users
+* Heap pressure confirmed
+* Urgent investigation needed
+
+## Best Practices
+
+### Query Development
+
+**Memory-Efficient Patterns:**
+```cypher
+// Efficient - streams results
+MATCH (n:User)
+WHERE n.active = true
+RETURN n.id, n.name
+LIMIT 1000
+
+// Inefficient - collects all
+MATCH (n:User)
+WHERE n.active = true
+WITH collect(n) AS users
+RETURN users
+```
+
+**Use Parameters:**
+* Cached query plans = less object creation
+* Reduced planning overhead
+* Less memory churn
+* Better GC performance
+
+**Batch Operations:**
+```cypher
+// Efficient batching
+UNWIND $data AS row
+CALL {
+  WITH row
+  CREATE (n:Node {data: row})
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+### Capacity Planning
+
+**Include GC in Planning:**
+* Monitor GC trends over time
+* Project when will exceed thresholds
+* Plan scaling before crisis
+* Budget for memory needs
+
+**Load Testing:**
+* Include GC monitoring in tests
+* Simulate production concurrency
+* Identify breaking points
+* Adjust before production deployment
+
+[Reference: Monitoring Instance Performance Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/)
+

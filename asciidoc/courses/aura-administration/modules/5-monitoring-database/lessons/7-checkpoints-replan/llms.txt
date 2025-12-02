@@ -1,0 +1,407 @@
+# Checkpoint and Replan Events
+
+Monitoring internal database operations and troubleshooting performance issues related to checkpoints and query replanning.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/7-checkpoints-replan)
+
+## Concepts
+
+* **Checkpoint** - Process of flushing pending updates from memory to disk
+* **Transaction Log** - Record of all database changes for durability
+* **Recovery Point** - State database can recover to after restart
+* **Replan Event** - Query execution plan recreation when statistics change
+* **Query Plan Cache** - Stored execution plans for parameterized queries
+* **Database Statistics** - Counts and distributions used by query planner
+
+## Understanding Checkpoints
+
+### What Checkpoints Do
+
+**Purpose:**
+* Flush pending updates from memory to disk
+* Create recovery points for crash recovery
+* Enable faster database restart
+* Ensure data durability
+
+**Process:**
+1. Collect pending changes in memory
+2. Write changes to disk in coordinated fashion
+3. Update checkpoint marker
+4. Free transaction log space
+
+**Frequency:**
+* Automatic based on activity
+* More frequent during heavy writes
+* Less frequent during read-only periods
+* Configurable thresholds
+
+### Why Checkpoints Matter
+
+**Data Safety:**
+* Ensures changes persisted to disk
+* Enables recovery after crashes
+* Maintains ACID durability guarantee
+
+**Performance:**
+* Faster database startup/recovery
+* Manages transaction log size
+* Prevents log growth issues
+
+**Resource Management:**
+* Uses CPU and I/O
+* May cause temporary slowdowns
+* Normal operational overhead
+
+## Monitoring Checkpoint Metrics
+
+### Checkpoint Events - Total Count
+
+**What It Shows:**
+* Total checkpoints since server started
+* Cumulative counter
+* May drop during Aura maintenance
+
+**Interpretation:**
+* Higher count = more write activity
+* Frequency depends on workload
+* Not inherently good or bad
+
+### Checkpoint Events - Rate
+
+**What It Shows:**
+* Checkpoints per minute
+* Current checkpoint frequency
+* Workload activity indicator
+
+**Healthy Pattern:**
+* Consistent, moderate rate
+* Correlates with write transaction volume
+* Steady during normal operations
+
+**Warning Pattern:**
+* Unusually high frequency
+* May indicate heavy write load
+* Check if intentional (bulk import) or issue
+
+### Checkpoint Cumulative Time
+
+**What It Shows:**
+* Total time spent checkpointing since startup
+* Accumulates over lifetime
+* May drop during maintenance
+
+**Use Case:**
+* Understanding overall checkpoint overhead
+* Long-term performance analysis
+* Capacity planning consideration
+
+### Last Checkpoint Duration
+
+**What It Shows:**
+* Duration of most recent checkpoint in milliseconds
+* Most actionable checkpoint metric
+
+**Typical Duration:** Several seconds to several minutes
+
+**Healthy:**
+* Seconds to few minutes
+* Consistent with previous checkpoints
+* Correlates with write volume
+
+**Warning:**
+* Duration consistently >30 minutes (guideline)
+* May indicate storage I/O limitations
+* Heavy write load stress
+* Requires investigation
+
+## Troubleshooting Checkpoint Issues
+
+### Long Checkpoint Duration
+
+**Symptoms:**
+* Checkpoints taking >30 minutes consistently
+* Slow write operations
+* I/O wait times elevated
+
+**Possible Causes:**
+
+**Heavy Write Load:**
+* Many concurrent writes
+* Large batch operations
+* Bulk data imports
+* High transaction volume
+
+**Storage I/O Limitations:**
+* Disk I/O saturated
+* Storage tier insufficient
+* I/O contention with other operations
+
+**Large Transaction Logs:**
+* Accumulated many changes
+* Large amount of data to flush
+* Need to process backlog
+
+**Diagnostic Process:**
+1. Check write transaction rate during long checkpoints
+2. Review for bulk operations or imports
+3. Correlate with application deployments
+4. Check if pattern (times of day) or random
+
+**Resolution:**
+
+**If Heavy Writes:**
+* Schedule bulk operations during off-peak
+* Break large imports into smaller batches
+* Distribute write load over time
+* May be normal for your workload
+
+**If Persistent Issue:**
+* Contact Neo4j support
+* May indicate storage configuration issue
+* Could require Aura support investigation
+* Document patterns and durations
+
+## Understanding Replan Events
+
+### What Query Replanning Does
+
+**Purpose:**
+* Recreate query execution plans
+* Adapt to changing database statistics
+* Optimize for current data distribution
+* Maintain query performance as data evolves
+
+**When Replanning Occurs:**
+* Database statistics change significantly
+* Node/relationship counts change substantially
+* Index characteristics evolve
+* First execution of new query
+* Schema changes (indexes added/removed)
+
+**Why It's Normal:**
+* Database adapts to data changes
+* Ensures optimal plans for current state
+* Expected as graph grows
+* Part of normal operations
+
+### Normal vs Problematic Replanning
+
+**Normal Replanning:**
+* Low count with occasional spikes
+* After schema changes (expected)
+* As data volumes grow (expected)
+* First execution of queries (expected)
+
+**Problematic Replanning:**
+* Consistently high replan rate
+* Frequent replanning of same queries
+* High planning time in query logs
+* Usually indicates queries not parameterized
+
+## Monitoring Replan Metrics
+
+### Replan Events - Total Count
+
+**What It Shows:**
+* Total query replans since server started
+* Cumulative counter
+* May drop during maintenance
+
+**Healthy Pattern:**
+* Low count, grows slowly
+* Occasional spikes during:
+  - New query deployments
+  - Schema changes
+  - Significant data growth
+  - Normal adaptive behavior
+
+### Replan Events - Rate
+
+**What It Shows:**
+* Replanning events per minute
+* Current replan frequency
+
+**Low Rate (Good):**
+* Occasional replanning
+* Queries using parameters
+* Plan cache effective
+* Efficient query processing
+
+**High Rate (Warning):**
+* Frequent replanning
+* May indicate unparameterized queries
+* Optimization opportunity
+* Wasted CPU on planning
+
+## Troubleshooting High Replan Rates
+
+### Identifying the Problem
+
+**Symptoms:**
+* Replan rate consistently high
+* High planning time in query logs
+* CPU elevated during planning
+* Performance impact
+
+**Root Cause: Unparameterized Queries**
+
+**Problem Queries:**
+```cypher
+// Bad - literal values
+MATCH (u:User {id: 123})
+RETURN u
+
+MATCH (m:Movie {title: 'The Matrix'})
+RETURN m
+
+// Each variation creates new plan
+// Cannot reuse cached plans
+```
+
+**Correct Queries:**
+```cypher
+// Good - parameterized
+MATCH (u:User {id: $userId})
+RETURN u
+
+MATCH (m:Movie {title: $movieTitle})
+RETURN m
+
+// Plans cached and reused
+// No replanning needed
+```
+
+### Diagnostic Process
+
+1. **Check Replan Rate:**
+   * Is it consistently high?
+   * Or occasional expected spikes?
+
+2. **Review Query Logs:**
+   * Filter for queries with high planning time (>100ms)
+   * Look for similar query structures with literal values
+   * Identify applications sending unparameterized queries
+
+3. **Analyze Query Patterns:**
+   * Same query structure, different values?
+   * Indicates missing parameterization
+   * Count instances of similar queries
+
+4. **Identify Source:**
+   * Which application/service?
+   * Which driver?
+   * Which team owns the code?
+
+### Resolution
+
+**Application Code Fix:**
+
+**Python Example:**
+```python
+# Bad - literals
+session.run(f"MATCH (n:User {{id: {user_id}}}) RETURN n")
+
+# Good - parameters
+session.run("MATCH (n:User {id: $id}) RETURN n", id=user_id)
+```
+
+**JavaScript Example:**
+```javascript
+// Bad - literals
+session.run(`MATCH (n:User {id: ${userId}}) RETURN n`)
+
+// Good - parameters
+session.run("MATCH (n:User {id: $id}) RETURN n", {id: userId})
+```
+
+**Benefits of Fix:**
+* Dramatic reduction in replan events
+* Lower CPU usage (no repeated planning)
+* Better query performance
+* Plan cache effective
+
+### Validation
+
+**After Deploying Fix:**
+1. Monitor replan rate - should decrease significantly
+2. Check query logs - planning time should drop
+3. Verify CPU usage reduced
+4. Measure query performance improvement
+
+## Normal Replan Scenarios
+
+### After Schema Changes
+
+**Expected:**
+* Replan spike after creating indexes
+* Plans adapt to new access paths
+* Database optimizing for new structure
+* Short-lived spike, then stabilizes
+
+**Action:** None - this is expected and beneficial
+
+### During Data Growth
+
+**Expected:**
+* Occasional replanning as statistics change
+* Node/relationship counts cross thresholds
+* Distribution changes significantly
+* Database adapting to scale
+
+**Action:** None - adaptive behavior working correctly
+
+### New Query Deployment
+
+**Expected:**
+* First execution triggers plan creation
+* Plans cached for subsequent executions
+* Spike during initial deployment
+* Stabilizes quickly
+
+**Action:** None - normal part of deployment
+
+## Monitoring Strategy
+
+### Daily Checks
+
+**Quick Review:**
+* Check checkpoint duration - within normal range?
+* Review replan rate - consistent with baseline?
+* Note any unusual spikes
+
+**Action Thresholds:**
+
+**Checkpoint Duration:**
+* <10 minutes: Normal
+* 10-30 minutes: Monitor
+* >30 minutes: Investigate
+
+**Replan Rate:**
+* Low, occasional: Normal
+* Consistently elevated: Investigate
+* Correlated with deployments: Expected
+
+### Weekly Analysis
+
+**Trend Monitoring:**
+* Compare checkpoint patterns week-over-week
+* Track replan rate changes
+* Document normal vs abnormal
+* Correlate with workload changes
+
+### Alert Configuration
+
+**Checkpoint Duration Alert:**
+* **Trigger**: Duration >30 minutes
+* **Action**: Review write workload
+* **Escalation**: If persistent, contact support
+* **Notification**: Email to DBA team
+
+**High Replan Rate Alert:**
+* **Trigger**: Sustained high rate (define threshold for your workload)
+* **Action**: Review query logs for unparameterized queries
+* **Resolution**: Fix application code
+* **Notification**: Email to development team
+
+[Reference: Monitoring Database Health Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/)
+

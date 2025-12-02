@@ -418,25 +418,32 @@ describe("QA Tests", () => {
                       expect(await explainCypherError(cypher)).toBeUndefined();
                     }
                   }
-                });
 
-                if (!optional && !hasReadButton) {
-                  for (const questionPath of questionPaths) {
-                    const questionSlug = questionPath.split(sep).reverse()[0];
-                    const asciidoc = readFileSync(questionPath).toString();
-                    const isVerificationQuestion =
-                      asciidoc.includes("verify::");
+                  it("should contain valid [source,cypher] blocks", async () => {
+                    if (!skipCypherChecks) {
+                      for (const cypher of findCypherStatements(lessonAdoc)) {
+                        expect(await explainCypherError(cypher)).toBeUndefined();
+                      }
+                    }
+                  });
 
-                    describe(questionSlug, () => {
-                      it("should have [.question] or [.verify] marker", () => {
-                        expect(asciidoc).toMatch(/^\[\.question|\[\.verify/m);
-                      });
+                  if (!optional && !hasReadButton) {
+                    for (const questionPath of questionPaths) {
+                      const questionSlug = questionPath.split(sep).reverse()[0];
+                      const asciidoc = readFileSync(questionPath).toString();
+                      const isVerificationQuestion =
+                        asciidoc.includes("verify::");
 
-                      it("should have a title", () => {
-                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
-                        expect(titleMatch).toBeTruthy();
-                        expect(titleMatch[1].trim().length).toBeGreaterThan(0);
-                      });
+                      describe(questionSlug, () => {
+                        it("should have [.question] or [.verify] marker", () => {
+                          expect(asciidoc).toMatch(/^\[\.question|\[\.verify/m);
+                        });
+
+                        it("should have a title", () => {
+                          const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
+                          expect(titleMatch).toBeTruthy();
+                          expect(titleMatch[1].trim().length).toBeGreaterThan(0);
+                        });
 
                       it("should not have its title appear in the lesson content", () => {
                         const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
@@ -456,9 +463,9 @@ describe("QA Tests", () => {
                         expect(asciidoc).toContain("\n[TIP,role=hint]");
                       });
 
-                      it(`should have a solution`, () => {
-                        expect(asciidoc).toContain("\n[TIP,role=solution]");
-                      });
+                        it(`should have a solution`, () => {
+                          expect(asciidoc).toContain("\n[TIP,role=solution]");
+                        });
 
                       it("should end with a newline", () => {
                         expect(asciidoc.endsWith("\n")).toBe(true);
@@ -481,80 +488,80 @@ describe("QA Tests", () => {
                                   lessonSlug,
                                   "verify.cypher"
                                 )
-                              )
-                            ).toBe(true);
+                              ).toBe(true);
 
-                            if (!skipCypherChecks) {
-                              const contents = readFileSync(
-                                join(lessonPath, "verify.cypher")
-                              ).toString();
+                              if (!skipCypherChecks) {
+                                const contents = readFileSync(
+                                  join(lessonPath, "verify.cypher")
+                                ).toString();
 
-                              for (const cypher of contents
-                                .split(";")
-                                .filter((e) => e.trim() != "")) {
-                                expect(
-                                  await explainCypherError(cypher)
-                                ).toBeUndefined();
+                                for (const cypher of contents
+                                  .split(";")
+                                  .filter((e) => e.trim() != "")) {
+                                  expect(
+                                    await explainCypherError(cypher)
+                                  ).toBeUndefined();
+                                }
                               }
-                            }
-                          });
+                            });
 
-                          it("should have a valid solution.cypher", async () => {
-                            expect(
-                              existsSync(
-                                join(
-                                  __dirname,
-                                  "..",
-                                  "asciidoc",
-                                  "courses",
-                                  slug,
-                                  "modules",
-                                  moduleSlug,
-                                  "lessons",
-                                  lessonSlug,
-                                  "solution.cypher"
+                            it("should have a valid solution.cypher", async () => {
+                              expect(
+                                existsSync(
+                                  join(
+                                    __dirname,
+                                    "..",
+                                    "asciidoc",
+                                    "courses",
+                                    slug,
+                                    "modules",
+                                    moduleSlug,
+                                    "lessons",
+                                    lessonSlug,
+                                    "solution.cypher"
+                                  )
                                 )
-                              )
-                            ).toBe(true);
+                              ).toBe(true);
 
-                            if (!skipCypherChecks) {
-                              const contents = readFileSync(
-                                join(lessonPath, "solution.cypher")
-                              ).toString();
+                              if (!skipCypherChecks) {
+                                const contents = readFileSync(
+                                  join(lessonPath, "solution.cypher")
+                                ).toString();
 
-                              for (const cypher of contents
-                                .split(";")
-                                .filter((e) => e.trim() != "")) {
-                                expect(
-                                  await explainCypherError(cypher)
-                                ).toBeUndefined();
+                                for (const cypher of contents
+                                  .split(";")
+                                  .filter((e) => e.trim() != "")) {
+                                  expect(
+                                    await explainCypherError(cypher)
+                                  ).toBeUndefined();
+                                }
                               }
-                            }
+                            });
                           });
-                        });
-                      } else {
-                        describe("Multiple Choice Question", () => {
-                          it("should have at least 1 answer option", () => {
-                            const answerMatches = asciidoc.match(
-                              /^[\*\-]\s*\[[\sxX\*]\]/gm
-                            );
-                            expect(answerMatches).toBeTruthy();
-                            expect(answerMatches.length).toBeGreaterThanOrEqual(
-                              1
-                            );
-                          });
+                        } else {
+                          describe("Multiple Choice Question", () => {
+                            it("should have at least 1 answer option", () => {
+                              const answerMatches = asciidoc.match(
+                                /^[\*\-]\s*\[[\sxX\*]\]/gm
+                              );
+                              expect(answerMatches).toBeTruthy();
+                              expect(answerMatches.length).toBeGreaterThanOrEqual(
+                                1
+                              );
+                            });
 
-                          it("should have a correct answer", () => {
-                            const hasCorrectAnswer =
-                              asciidoc.includes("* [x] ") ||
-                              asciidoc.includes("* [*] ") ||
-                              asciidoc.includes("- [x] ") ||
-                              asciidoc.includes("- [*] ");
-                            expect(hasCorrectAnswer).toBe(true);
+                            it("should have a correct answer", () => {
+                              const hasCorrectAnswer =
+                                asciidoc.includes("* [x] ") ||
+                                asciidoc.includes("* [*] ") ||
+                                asciidoc.includes("- [x] ") ||
+                                asciidoc.includes("- [*] ");
+                              expect(hasCorrectAnswer).toBe(true);
+                            });
                           });
-                        });
-                      }
-                    });
+                        }
+                      });
+                    }
                   }
                 }
               });

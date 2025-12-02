@@ -1,0 +1,345 @@
+# Page Cache Performance and Evictions
+
+Monitoring page cache hit ratios, eviction patterns, and optimizing memory for query performance.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/2-page-cache)
+
+## Concepts
+
+* **Page Cache** - In-memory storage of frequently accessed graph data
+* **Cache Hit** - Data found in memory (fast)
+* **Cache Miss** - Data must be read from disk (slow)
+* **Hit Ratio** - Percentage of times data found in cache
+* **Usage Ratio** - Percentage of allocated cache currently in use
+* **Eviction** - Data removed from cache to make room for new data
+* **Working Set** - Portion of graph actively queried
+
+## Understanding the Page Cache
+
+### What Page Cache Stores
+
+**Graph Data:**
+* Nodes and their properties
+* Relationships and their properties
+* Property values
+* Index data
+
+**Why It Matters:**
+* Memory access = microseconds
+* Disk access = milliseconds
+* 1000x performance difference
+* Ideal: entire graph fits in cache
+
+### Relationship to Storage
+
+**Storage Size vs Page Cache:**
+* Storage shows total graph size on disk
+* Page Cache size is portion held in memory
+* When storage > page cache, not everything fits
+* Performance degrades when cache insufficient
+
+**Example:**
+* Storage: 500 GB total graph
+* Page Cache: 100 GB allocated
+* Only 20% of graph fits in memory
+* 80% requires disk reads
+
+## Monitoring Page Cache Metrics
+
+### Page Cache Hit Ratio
+
+**What It Shows:**
+* Percentage of data requests satisfied from memory
+* Most important page cache metric
+* Direct indicator of query performance
+
+**Expected Value: 98-100%**
+* Optimal performance range
+* Most data in memory
+* Minimal disk reads
+* Queries run at full speed
+
+**Below 98% Indicates:**
+* Working set exceeds page cache
+* Frequent disk reads
+* Degraded query performance
+* May need optimization or scaling
+
+### Page Cache Usage Ratio
+
+**What It Shows:**
+* Percentage of allocated cache currently in use
+* How full the cache is
+* Indicates if cache saturated
+
+**Typical Pattern:**
+* Starts low after startup
+* Gradually fills as queries run
+* Eventually reaches steady state
+* 100% means cache full
+
+**At 100% Usage:**
+* Cache completely full
+* New data causes evictions
+* Hit ratio may start declining
+* Normal if hit ratio still >98%
+
+### Page Cache Evictions Per Minute
+
+**What It Shows:**
+* How often data swapped out of memory
+* Rate of cache turnover
+* Indicates cache pressure
+
+**Low Evictions (Good):**
+* Working set fits in cache
+* Data remains in memory
+* Queries consistently fast
+* Healthy pattern
+
+**High Evictions (Warning):**
+* Working set exceeds cache
+* Frequent data turnover
+* Performance likely degraded
+* May need more memory
+
+## Interpreting Cache Performance
+
+### Scenario 1: High Hit Ratio + High Usage
+
+**Metrics:**
+* Hit Ratio: 99%
+* Usage Ratio: 95-100%
+* Evictions: Low to moderate
+
+**Interpretation:**
+* Working set fits in cache
+* Cache is full but effective
+* Performance is good
+* No action needed
+
+**Status:** Healthy
+
+### Scenario 2: Declining Hit Ratio + High Usage
+
+**Metrics:**
+* Hit Ratio: Dropping below 98%
+* Usage Ratio: 100%
+* Evictions: Increasing
+
+**Interpretation:**
+* Working set exceeds cache
+* Data churning in/out of memory
+* Performance degrading
+* Action required
+
+**Actions:**
+1. Review query patterns - accessing too much data?
+2. Check for full graph scans
+3. Consider scaling for more memory
+4. Optimize queries to access less data
+
+### Scenario 3: High Hit Ratio + Low Usage
+
+**Metrics:**
+* Hit Ratio: 99%
+* Usage Ratio: 40-60%
+* Evictions: Very low
+
+**Interpretation:**
+* Working set smaller than cache
+* Over-provisioned memory
+* Performance excellent
+* Potentially could downsize (cost optimization)
+
+**Status:** Over-capacity (good problem)
+
+### Scenario 4: Low Hit Ratio + High Evictions
+
+**Metrics:**
+* Hit Ratio: <95%
+* Usage Ratio: 100%
+* Evictions: High and frequent
+
+**Interpretation:**
+* Serious performance issue
+* Working set much larger than cache
+* Constant disk I/O
+* Immediate action required
+
+**Actions:**
+1. Scale instance for more memory (urgent)
+2. Review queries for full scans
+3. Check for recent data growth
+4. Optimize data access patterns
+
+## Impact of Write Activity
+
+### Write Operations and Cache
+
+**During Heavy Writes:**
+* New data loads into cache
+* May evict existing cached data
+* Hit ratio can fluctuate
+* Temporary, not necessarily problem
+
+**Data Imports:**
+* Bulk loading new data
+* Cache fills with new data
+* Old frequently-accessed data evicted
+* Hit ratio may drop temporarily
+* Returns to normal after import completes
+
+**When It's Not a Problem:**
+* Hit ratio recovers after write activity
+* Temporary dip during known operations
+* Performance returns to baseline
+* Evictions decrease after writes complete
+
+**When It Is a Problem:**
+* Hit ratio doesn't recover
+* Sustained low hit ratio after imports
+* Graph grew too large for cache
+* Need to scale for more memory
+
+## Managing Page Cache Performance
+
+### Decision Framework
+
+**If Hit Ratio <98% and Usage 100%:**
+
+**Step 1: Identify Cause**
+* Recent data growth?
+* New query patterns?
+* Full graph scans introduced?
+* Working set increased?
+
+**Step 2: Check Evictions**
+* High evictions = cache too small
+* Low evictions = query pattern issue
+
+**Step 3: Review Queries**
+* Use query logs
+* Look for queries with high page faults
+* Profile expensive queries
+* Check for missing indexes
+
+**Step 4: Decide Action**
+* Query optimization possible? → Optimize first
+* Working set legitimately grew? → Scale
+* Temporary due to import? → Monitor, may resolve
+* Sustained performance issue? → Scale
+
+### Query Optimization for Cache
+
+**Reduce Data Accessed:**
+```cypher
+// Bad - scans all users
+MATCH (u:User)
+WHERE u.age > 21
+RETURN u
+
+// Good - uses index
+MATCH (u:User)
+WHERE u.age > 21
+RETURN u.name, u.email
+LIMIT 100
+```
+
+**Avoid Full Scans:**
+* Always specify labels
+* Use indexes for lookups
+* Don't traverse entire graph
+* LIMIT results appropriately
+
+**Access Patterns:**
+* Frequently accessed data stays cached
+* Rarely accessed data gets evicted
+* Design queries for cache-friendly patterns
+* Batch similar operations together
+
+## Scaling Considerations
+
+### When to Scale for Page Cache
+
+**Clear Indicators:**
+* Hit ratio sustained below 98%
+* High evictions continuously
+* Query performance degraded
+* Working set grew legitimately
+
+**Before Scaling:**
+* Verify queries optimized
+* Check for unnecessary full scans
+* Confirm working set size increased
+* Understand cost implications
+
+**Scaling Process:**
+1. Choose tier with larger page cache
+2. Monitor hit ratio after scaling
+3. Should improve to 98%+
+4. Evictions should decrease
+5. Query performance should improve
+
+### Scaling vs Optimization Trade-off
+
+**Optimize When:**
+* Queries have obvious inefficiencies
+* Full label/node scans present
+* Missing indexes identified
+* Query restructuring possible
+* Quick wins available
+
+**Scale When:**
+* Queries already optimized
+* Working set legitimately large
+* Business value justifies cost
+* Performance SLA not met
+* Graph size grew organically
+
+## Monitoring Strategy
+
+### Daily Checks
+
+**Quick Review:**
+* Check hit ratio - still >98%?
+* Note any unusual dips
+* Correlate with known activities
+* Verify evictions reasonable
+
+**Red Flags:**
+* Hit ratio trending downward
+* Sustained below 98%
+* Increasing evictions
+* Query performance complaints
+
+### Weekly Analysis
+
+**Trend Monitoring:**
+* Compare hit ratios week-over-week
+* Track correlation with data growth
+* Note query pattern changes
+* Document normal vs abnormal
+
+**Capacity Planning:**
+* As storage grows, will page cache be sufficient?
+* Project when hit ratio might decline
+* Plan scaling proactively
+* Budget for future needs
+
+### Alert Configuration
+
+**Warning: Hit Ratio <98% for 30 minutes**
+* Indicates potential issue
+* Time to investigate
+* Not immediate crisis
+* Email notification
+
+**Critical: Hit Ratio <95% for 15 minutes**
+* Performance likely impacted
+* Immediate investigation required
+* Users may be complaining
+* Page on-call team
+
+[Reference: Monitoring Instance Performance Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/)
+

@@ -1,0 +1,245 @@
+# Managing Snapshots
+
+Understanding snapshot types, retention policies, and backup strategies for Neo4j Aura instances.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/1-backup-restore/1-snapshot-management)
+
+## Concepts
+
+* **Snapshot** - Point-in-time copy of your database for backup and recovery
+* **Full Snapshot** - Complete database backup at a specific point in time; self-contained and exportable
+* **Differential Snapshot** - Records only changes since the last full snapshot; more efficient but dependent on the full snapshot
+* **Scheduled Snapshots** - Automated snapshots that run according to your tier's schedule
+* **On-Demand Snapshots** - Manual snapshots created before major changes or migrations
+* **Retention Policy** - How long snapshots are kept available for restore and export operations
+* **Exportable Snapshot** - Full snapshots that can be downloaded as backup files for offline storage
+
+## Snapshot Scheduling by Tier
+
+### When to Use Each Tier
+
+**AuraDB Professional / AuraDS Professional:**
+* Daily snapshots (once per 24 hours)
+* 7-day retention for both restore and export
+* Best for: Development, testing, small production workloads
+* Consider upgrading when: Need more frequent backups or longer retention
+
+**AuraDB Business Critical:**
+* Hourly snapshots (24 per day)
+* 30-day retention (full snapshots only exportable)
+* Best for: Production workloads requiring minimal data loss risk
+* Consider upgrading when: Need point-in-time recovery within the hour
+
+**AuraDB Virtual Dedicated Cloud (latest):**
+* Daily full snapshots + hourly differential snapshots
+* 60-day retention for full snapshots (restorable and exportable)
+* 90-day total retention including differentials
+* Best for: Enterprise workloads with compliance requirements
+* Maximum protection with flexible recovery points
+
+**AuraDS Enterprise:**
+* Daily snapshots
+* 14-day retention (restorable), 7-day retention (exportable)
+* 90-day total retention
+* Best for: Data science workloads requiring stable snapshots
+
+## Accessing Snapshots
+
+### Step-by-Step Process
+1. **Navigate to instance** - Find your instance card in the Aura console
+2. **Open actions menu** - Click the More menu icon (…) on the instance card
+3. **Select Snapshots** - Choose "Snapshots" from the dropdown menu
+4. **View snapshot list** - See all available snapshots with creation time, type, and actions
+
+### What You'll See
+* Creation timestamp for each snapshot
+* Snapshot type (Full or Differential)
+* Available actions (Export, Create instance, Restore)
+* Restore icon for quick restore access
+
+## Snapshot Actions
+
+### Export Snapshot
+
+**When to Use:**
+* Need offline backup storage for disaster recovery
+* Migrating to different Neo4j environment (on-premises, different cloud)
+* Compliance requirements for external backup retention
+* Creating long-term archives beyond Aura retention
+
+**Process:**
+1. Click More menu (…) next to full snapshot
+2. Select "Export"
+3. Wait for export generation (time depends on database size)
+4. Download backup file when ready
+
+**File Formats:**
+* AuraDB instances: `.backup` (latest) or `.dump` (version 4.x)
+* AuraDS instances: `.tar` files
+
+**Best Practices:**
+**DO:**
+* Export critical snapshots before major changes
+* Store exports in multiple locations for redundancy
+* Document what each export contains and when it was created
+* Test restore procedures with exported files periodically
+
+**DON'T:**
+* Rely solely on Aura retention for critical data
+* Wait until emergency to test export/restore procedures
+* Store exports only in same cloud region as your instance
+* Forget to track which database version created the export
+
+### Create Instance from Snapshot
+
+**When to Use:**
+* Testing changes without affecting production
+* Debugging production issues with real data
+* Providing realistic test data for development
+* Creating training or demo environments
+
+**Process:**
+1. Click More menu (…) next to snapshot
+2. Select "Create instance from snapshot"
+3. Configure new instance settings
+4. Confirm creation
+
+**Key Benefits:**
+* Original instance remains unchanged
+* New instance gets its own URI and credentials
+* Can create multiple test instances from same snapshot
+* Snapshot data is at exact point in time
+
+**Best Practices:**
+**DO:**
+* Use snapshot-created instances for testing changes
+* Create separate instances for different testing purposes
+* Clean up test instances when no longer needed
+* Document which snapshot was used to create instance
+
+**DON'T:**
+* Test destructive operations on production instance
+* Leave test instances running indefinitely (costs money)
+* Share production credentials with test instances
+* Assume test instance performance matches production
+
+### Restore from Snapshot
+
+**When to Use:**
+* Accidental data deletion or corruption
+* Failed migration or schema changes
+* Security incident compromised data integrity
+* Need to roll back to known good state
+
+**Process:**
+1. Click restore icon next to snapshot
+2. Review warning about data overwrite
+3. Type "RESTORE" to confirm operation
+4. Wait for restore to complete
+
+**Critical Warning:**
+Restoring **overwrites all current data** in your instance. Any updates made between the snapshot time and restore operation will be lost permanently.
+
+**Best Practices:**
+**DO:**
+* Create on-demand snapshot of current state before restoring (if time permits)
+* Verify restore point timestamp is correct
+* Communicate with stakeholders before restoring production
+* Document reason for restore and data loss implications
+* Verify application functionality after restore
+
+**DON'T:**
+* Restore in panic without checking snapshot timestamp
+* Skip creating current state snapshot when possible
+* Restore production during peak usage without notice
+* Forget to notify application teams of data rollback
+* Assume all integrations will work after restore
+
+### Validation Checklist for Restore Operations
+- [ ] Correct snapshot identified and timestamp verified
+- [ ] Stakeholders notified of impending restore
+- [ ] Data loss implications documented and accepted
+- [ ] Current state snapshot created (if not emergency)
+- [ ] Application teams prepared for data rollback
+- [ ] Monitoring and alerting temporarily adjusted
+- [ ] Post-restore validation plan prepared
+
+## On-Demand Snapshot Strategy
+
+### When to Create On-Demand Snapshots
+
+**Before Major Changes:**
+* Application deployments with database schema changes
+* Data migration or transformation operations
+* Bulk delete or update operations
+* Index creation on large datasets
+
+**Before Maintenance:**
+* Neo4j version upgrades
+* Configuration changes
+* Performance tuning experiments
+* Security policy updates
+
+**For Special Events:**
+* End of month/quarter for reporting consistency
+* Before load testing or stress testing
+* Prior to compliance audits
+* When handing off to another administrator
+
+### Process for On-Demand Snapshots
+1. Navigate to Snapshots tab
+2. Click "Take snapshot" button
+3. Optionally add descriptive label/note
+4. Wait for snapshot completion
+5. Verify snapshot appears in list
+
+**Best Practices:**
+**DO:**
+* Create on-demand snapshot before risky operations
+* Document why snapshot was created
+* Verify snapshot completed successfully
+* Use consistent naming conventions if labels supported
+* Keep on-demand snapshots within retention period in mind
+
+**DON'T:**
+* Skip on-demand snapshots to save time
+* Create dozens of snapshots without purpose
+* Assume on-demand snapshots have longer retention
+* Forget to verify snapshot before proceeding with changes
+
+## Retention Policy Planning
+
+### Understanding Retention Periods
+
+**Restorable Period:**
+* How long you can restore snapshot to overwrite current instance
+* Varies by tier (7 to 60 days)
+* Both full and differential snapshots
+
+**Exportable Period:**
+* How long you can download snapshot as backup file
+* Only applies to full snapshots
+* May be shorter than restorable period
+
+**Total Retention:**
+* Maximum time snapshot exists in Aura
+* After this period, snapshot is permanently deleted
+* May be longer than exportable period for some tiers
+
+### Decision Framework: When to Export vs Rely on Snapshots
+
+**Rely on Automatic Snapshots When:**
+* Recovery needs are within retention period
+* No external compliance requirements
+* Changes can be recovered from application logs
+* Data loss tolerance matches snapshot frequency
+
+**Export Snapshots When:**
+* Need longer retention than tier provides
+* Compliance requires external backup storage
+* Planning major architectural changes
+* Want backup independent of Aura service
+* Creating baseline for testing environments
+
+[Reference: Backup and Restore Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/1-backup-restore/)
+

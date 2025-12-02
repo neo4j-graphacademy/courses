@@ -1,0 +1,346 @@
+# Monitoring Query Rate and Latency
+
+Understanding query performance patterns, latency analysis, and optimization vs scaling decisions.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/2-query-metrics)
+
+## Concepts
+
+* **Query Rate** - Number of queries executed per minute
+* **Failed Queries** - Queries that did not complete successfully
+* **Query Latency** - Time taken to execute queries
+* **Percentiles** - Statistical distribution of query execution times
+* **50th Percentile (Median)** - Typical query performance
+* **75th Percentile** - Most queries perform at or below this time
+* **99th Percentile** - Slowest 1% of queries
+
+## Query Rate Metrics
+
+### Successful Queries Per Minute
+
+**What It Shows:**
+* Workload volume
+* Traffic patterns
+* Application activity level
+* Database utilization
+
+**Healthy Patterns:**
+* Consistent with application traffic
+* Daily/weekly cycles (business hours vs off-hours)
+* Gradual growth over time
+* Predictable spikes (batch jobs)
+
+**Problematic Patterns:**
+* Sudden unexplained spikes
+* Sudden drops (application issues?)
+* Sustained high rates approaching capacity
+* Erratic, unpredictable variations
+
+### Failed Queries Per Minute
+
+**What It Shows:**
+* Query errors and failures
+* Application or database issues
+* Permission problems
+* Resource constraints
+
+**Expected Value:** <1% of total queries
+
+**High Failure Rates Indicate:**
+* Application sending bad queries
+* Permission/authorization issues
+* Resource exhaustion (timeouts)
+* Schema mismatches after deployments
+
+## Query Latency Percentiles
+
+### Understanding Percentiles
+
+**50th Percentile (Median):**
+* Half of queries faster, half slower
+* Represents typical query performance
+* Most important for general health
+* Target: <100ms for user-facing queries
+
+**75th Percentile:**
+* 75% of queries complete at or below this time
+* Shows how most queries perform
+* Useful for SLA definitions
+* Should be reasonably close to median
+
+**99th Percentile:**
+* Slowest 1% of queries
+* Outlier performance
+* Often reveals specific slow queries
+* Most sensitive to problems
+
+### Interpreting Latency Patterns
+
+**Healthy Pattern:**
+* 50th percentile low (<100ms)
+* Small spread between 50th and 75th
+* 99th percentile reasonable (<10× median)
+* Stable over time
+
+**Warning Pattern:**
+* 50th percentile creeping upward
+* Widening spread between percentiles
+* 99th percentile very high (>10× median)
+* Indicates specific slow queries
+
+**Critical Pattern:**
+* All percentiles high
+* 50th percentile >500ms
+* Wide spread (99th >>10× median)
+* Systemic performance issues
+
+## Query Performance Analysis
+
+### Scenario 1: Low Median, High 99th Percentile
+
+**Metrics:**
+* 50th: 20ms
+* 75th: 50ms
+* 99th: 5000ms
+
+**Interpretation:**
+* Most queries fast
+* Specific queries very slow
+* Outlier optimization needed
+* Not systemic issue
+
+**Action:**
+* Use query logs to identify slow queries
+* Filter by duration >1000ms
+* Profile identified queries
+* Optimize specific queries
+* No scaling needed
+
+### Scenario 2: All Percentiles High
+
+**Metrics:**
+* 50th: 500ms
+* 75th: 1000ms
+* 99th: 5000ms
+
+**Interpretation:**
+* System-wide performance issue
+* All queries slow
+* Resource pressure or inefficiency
+* Scaling may be needed
+
+**Action:**
+1. Check CPU, heap, page cache metrics
+2. Review for missing indexes
+3. Check for full scans in common queries
+4. Verify no recent schema changes
+5. Consider scaling if optimized
+
+### Scenario 3: Increasing Latency Over Time
+
+**Metrics:**
+* Percentiles gradually increasing
+* Week-over-week growth
+* No single cause identified
+
+**Interpretation:**
+* Data growth affecting performance
+* Queries not scaling with data size
+* May need optimization or scaling
+* Proactive action needed
+
+**Action:**
+1. Review data growth correlation
+2. Check if indexes still effective
+3. Profile queries on larger dataset
+4. Optimize for data size
+5. Plan scaling if needed
+
+## Correlating Query Metrics
+
+### Query Rate and Latency
+
+**High Rate + High Latency:**
+* System under load
+* Resource pressure
+* May need optimization or scaling
+* Check CPU, memory metrics
+
+**Normal Rate + High Latency:**
+* Inefficient queries introduced
+* Not load issue
+* Optimize queries
+* Scaling won't help
+
+**Low Rate + High Latency:**
+* Expensive operations running
+* Background jobs?
+* Large analytical queries?
+* Isolate and optimize
+
+### Failed Queries Analysis
+
+**Correlation with Deployments:**
+* Failed queries spike after deploy?
+* New queries have errors?
+* Schema mismatch?
+* Quick rollback may be needed
+
+**Correlation with Load:**
+* Failures during peak traffic?
+* Timeout errors?
+* Resource exhaustion?
+* May need scaling
+
+**Isolated Failures:**
+* Specific query patterns failing?
+* Permission issues?
+* Check query logs for error details
+* Fix specific issues
+
+## Decision Framework: Optimize vs Scale
+
+### Optimize First When
+
+**Indicators:**
+* 99th percentile much higher than median (>10×)
+* Query logs show specific slow queries
+* Missing indexes identified
+* Inefficient query patterns found
+* CPU/memory normal during slow queries
+
+**Actions:**
+1. Profile slow queries
+2. Add missing indexes
+3. Rewrite inefficient queries
+4. Add LIMIT clauses
+5. Use parameters for plan caching
+6. Measure improvement
+
+### Scale When
+
+**Indicators:**
+* All percentiles high
+* Queries already optimized
+* Resource metrics elevated (CPU, heap)
+* Workload legitimately high
+* Growth trajectory unsustainable
+
+**Actions:**
+1. Document optimization efforts
+2. Show business justification
+3. Calculate capacity needs
+4. Plan scaling timeline
+5. Execute during low-traffic
+6. Validate improvement
+
+### Monitor When
+
+**Indicators:**
+* Latency acceptable but trending up
+* No immediate issues
+* Growth manageable
+* Optimization opportunities unclear
+
+**Actions:**
+1. Set up alerts for thresholds
+2. Regular weekly reviews
+3. Track trends
+4. Plan proactively
+5. Optimize opportunistically
+
+## Setting Latency Targets
+
+### User-Facing Queries
+
+**Interactive Operations:**
+* Target: <100ms (50th percentile)
+* Max acceptable: 500ms (99th percentile)
+* Users expect instant response
+* Optimize aggressively
+
+**Search/Browse:**
+* Target: <200ms (50th percentile)
+* Max acceptable: 1000ms (99th percentile)
+* Users tolerate slight delay
+* Balance thoroughness vs speed
+
+### Background Operations
+
+**Reports:**
+* Target: <5 seconds (50th percentile)
+* Max acceptable: 30 seconds (99th percentile)
+* Users expect wait
+* Optimize for accuracy over speed
+
+**Batch Jobs:**
+* Target: Variable by job
+* Focus on throughput, not latency
+* Can run during off-hours
+* Optimize for efficiency
+
+### API Responses
+
+**External APIs:**
+* Target: <500ms (50th percentile)
+* Max acceptable: 2000ms (99th percentile)
+* Network latency included
+* SLA-driven targets
+
+**Internal Services:**
+* Target: <100ms (50th percentile)
+* Max acceptable: 500ms (99th percentile)
+* Critical for user experience
+* Tight performance requirements
+
+## Monitoring Strategy
+
+### Daily Review
+
+**Quick Checks:**
+* Review latency percentiles
+* Check failed query count
+* Note any unusual patterns
+* Correlate with known events
+
+**Action Thresholds:**
+* 50th >200ms: Investigate
+* 99th >2000ms: Review logs
+* Failed >5%: Urgent investigation
+
+### Weekly Analysis
+
+**Trend Monitoring:**
+* Compare to previous weeks
+* Calculate growth rates
+* Identify degradation
+* Project future performance
+
+**Pattern Documentation:**
+* Normal latency for workload
+* Expected variations
+* Seasonal patterns
+* Baseline for alerts
+
+### Alert Configuration
+
+**Warning: 50th Percentile >200ms**
+* **Duration**: Sustained 15 minutes
+* **Action**: Review query logs
+* **Urgency**: Medium
+* **Notification**: Email
+
+**Critical: 99th Percentile >5000ms**
+* **Duration**: Sustained 10 minutes
+* **Action**: Immediate investigation
+* **Urgency**: High
+* **Notification**: Page on-call
+
+**Failed Queries >10%**
+* **Duration**: 5 minutes
+* **Action**: Check logs immediately
+* **Urgency**: Critical
+* **Notification**: Page + escalate
+
+[Reference: Monitoring Database Health Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/5-monitoring-database/)
+

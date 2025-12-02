@@ -1,0 +1,424 @@
+# Heap Memory Usage
+
+Monitoring JVM heap memory, identifying memory pressure, and determining optimization vs scaling decisions.
+
+[View lesson](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/1-heap-memory)
+
+## Concepts
+
+* **Heap Memory** - JVM memory area for query execution and transaction processing
+* **Memory Pressure** - Sustained high memory usage indicating insufficient capacity
+* **ACID Compliance** - Atomicity, Consistency, Isolation, Durability guarantees
+* **Query Execution State** - Intermediate results held in memory during processing
+* **Transaction State** - Changes held in memory until commit or rollback
+* **Cached Query Plans** - Stored execution plans for parameterized queries
+* **Working Set** - Amount of memory needed for normal operations
+
+## Understanding Heap Memory
+
+### What Heap Memory Stores
+
+**Query Execution:**
+* Intermediate results during processing
+* Data being filtered, sorted, or aggregated
+* Complex queries with many operators = more memory
+* Results accumulate until ready to stream to client
+
+**Transaction Processing:**
+* All changes held in memory before commit
+* ACID guarantees require complete transaction in memory
+* Large transactions = high memory usage
+* Prevents partial commits or inconsistent state
+
+**Internal Operations:**
+* Transaction state tracking
+* Cached query plans for parameterized queries
+* Internal data structures
+* Thread management overhead
+
+### Memory Usage Factors
+
+**Query Complexity:**
+* Simple indexed lookups = minimal memory
+* Complex multi-hop traversals = moderate memory
+* Large aggregations = high memory
+* Cartesian products = very high memory
+
+**Concurrency:**
+* Each concurrent query uses heap
+* 100 queries × 10MB each = 1GB total
+* More concurrent users = more heap needed
+
+**Transaction Size:**
+* Small transactions = minimal impact
+* Large batch operations = high heap usage
+* Long-running transactions hold memory longer
+
+**Working Set:**
+* Baseline memory for operations
+* Varies by workload characteristics
+* Needs buffer for spikes
+
+## Monitoring Heap Memory
+
+### Reading the Heap Metric
+
+**Percentage of Configured Heap in Use:**
+* Shows memory utilization over time
+* Min, max, average lines
+* Patterns indicate health
+
+**Expected Baseline: 20-50%**
+* Normal operations
+* Room for query spikes
+* Healthy memory headroom
+
+**Temporary Spikes: 60-80%**
+* During complex queries
+* Normal and healthy
+* Should return to baseline
+* Concern only if sustained
+
+**Sustained High Usage: >80%**
+* Memory pressure situation
+* Increased garbage collection
+* Slower query performance
+* Risk of Out of Memory errors
+
+### Healthy vs Problematic Patterns
+
+**Healthy Pattern:**
+* Baseline 20-50% average
+* Occasional spikes to 60-70%
+* Rapid return to baseline
+* Predictable pattern based on workload
+
+**Warning Pattern:**
+* Baseline creeping upward over time
+* Spikes lasting longer
+* Peak values reaching 80-85%
+* More frequent garbage collection
+
+**Critical Pattern:**
+* Sustained >80% for extended periods
+* Spikes to 90-95%
+* Slow return to baseline
+* Frequent Out of Memory errors
+
+## When Heap Usage Becomes Problematic
+
+### Memory Pressure Indicators
+
+**Sustained >80% Heap Usage:**
+* Primary indicator of pressure
+* Not enough headroom for spikes
+* Garbage collector runs more frequently
+* Performance degrades
+
+**Increasing Garbage Collection Time:**
+* JVM spending more time cleaning memory
+* Check GC metrics on Instance tab
+* GC >5% indicates serious pressure
+* Queries paused during GC
+
+**Out of Memory Errors:**
+* Ultimate symptom of pressure
+* Queries failing due to lack of memory
+* Check OOM metric on Resources tab
+* Any OOM requires immediate action
+
+**Slower Query Performance:**
+* Queries taking longer
+* Check query latency percentiles
+* 99th percentile increasing
+* Correlation with heap spikes
+
+### Correlation Analysis
+
+**Check Multiple Metrics Together:**
+1. Heap Memory >80%
+2. Garbage Collection >5%
+3. CPU elevated (GC consumes CPU)
+4. Query latency increasing
+5. Out of Memory errors present
+
+**All Present = Memory Pressure Confirmed**
+
+## Mitigation Strategies
+
+### Optimize Queries First
+
+**Before scaling, optimize memory usage:**
+
+**Add LIMIT Clauses:**
+```cypher
+// Before (bad)
+MATCH (n:User)-[:PURCHASED]->(p:Product)
+RETURN n, p
+
+// After (good)
+MATCH (n:User)-[:PURCHASED]->(p:Product)
+RETURN n, p
+LIMIT 1000
+```
+
+**Avoid Collecting Large Result Sets:**
+```cypher
+// Before (bad)
+MATCH (n:User)
+WITH collect(n) AS users
+RETURN users
+
+// After (good)
+MATCH (n:User)
+RETURN n
+LIMIT 1000
+```
+
+**Use Streaming Instead of Collection:**
+```python
+# Bad - loads all into memory
+result = session.run(query)
+all_records = list(result)
+
+# Good - processes one at a time
+result = session.run(query)
+for record in result:
+    process(record)
+```
+
+### Break Large Transactions into Smaller Ones
+
+**Use IN TRANSACTIONS OF:**
+```cypher
+UNWIND range(1, 100000) AS id
+CALL {
+  WITH id
+  CREATE (n:Node {id: id})
+} IN TRANSACTIONS OF 1000 ROWS
+```
+
+**Benefits:**
+* Commits every 1000 rows
+* Frees memory after each batch
+* Prevents memory exhaustion
+* Still efficient bulk operation
+
+### Transaction Management
+
+**Keep Transactions Short-Lived:**
+* Commit or rollback promptly
+* Don't hold transactions during user input
+* Don't hold transactions during external API calls
+* Long transactions hold memory unnecessarily
+
+**Application Pattern (Python):**
+```python
+# Bad - holds transaction too long
+with driver.session() as session:
+    tx = session.begin_transaction()
+    tx.run("CREATE (n:Node {id: 1})")
+    time.sleep(60)  # BAD - holding transaction
+    tx.commit()
+
+# Good - commit quickly
+with driver.session() as session:
+    tx = session.begin_transaction()
+    tx.run("CREATE (n:Node {id: 1})")
+    tx.commit()  # Immediate commit
+```
+
+**Use Auto-Commit for Simple Queries:**
+```python
+# Simple queries don't need explicit transactions
+session.run("MATCH (n:User {id: $id}) RETURN n", id=123)
+```
+
+### Close Sessions and Transactions Properly
+
+**Use Context Managers (Python):**
+```python
+# Ensures automatic cleanup
+with driver.session() as session:
+    result = session.run(query)
+    # Session automatically closed
+```
+
+**Try-Finally Pattern (Java):**
+```java
+Session session = driver.session();
+try {
+    Transaction tx = session.beginTransaction();
+    try {
+        tx.run("CREATE (n:Node)");
+        tx.commit();
+    } finally {
+        tx.close();
+    }
+} finally {
+    session.close();
+}
+```
+
+**Why This Matters:**
+* Unclosed sessions/transactions hold memory
+* Memory leak over time
+* Eventually causes OOM
+* Always ensure cleanup
+
+## When to Scale Your Instance
+
+### Optimization Exhausted Checklist
+
+Before scaling, verify you've:
+1. Added LIMIT to all queries that could return large sets
+2. Broken large batch operations into smaller transactions
+3. Ensured all queries use parameters
+4. Verified transactions commit/rollback promptly
+5. Confirmed sessions and connections close properly
+6. Profiled queries for expensive operations
+7. Added indexes where appropriate
+
+### Scale When
+
+**After Optimization, Heap Still >80%:**
+* You've done all optimizations
+* Workload legitimately needs more memory
+* Sustained usage despite best practices
+* Growing business/user base
+
+**Queries Fail with OOM Despite Optimization:**
+* Queries are as efficient as possible
+* Still fail during normal operations
+* Not edge cases or rare operations
+* Required for business functionality
+
+**Performance Degraded After Optimization:**
+* Applied all best practices
+* Performance still below SLA
+* Heap pressure confirmed root cause
+* Business impact justifies cost
+
+### Scaling Process
+
+**1. Document Current State:**
+* Current heap usage patterns
+* Optimizations already applied
+* Business justification
+* Expected improvement
+
+**2. Select New Tier:**
+* Review available tiers
+* Choose next size up for more heap
+* Consider growth runway
+* Balance cost vs performance
+
+**3. Schedule Scaling:**
+* Plan during low-traffic period
+* Notify stakeholders
+* Prepare rollback plan
+* Monitor during and after
+
+**4. Validate Results:**
+* Heap usage should decrease
+* OOM errors should stop
+* Performance should improve
+* Monitor for sustained improvement
+
+## Proactive Heap Management
+
+### Daily Monitoring
+
+**Quick Checks:**
+* Review heap percentage last 24 hours
+* Check for sustained high usage
+* Verify no upward trend
+* Note any unusual spikes
+
+**Action Thresholds:**
+* <60%: Healthy
+* 60-80%: Monitor closely
+* >80%: Investigate immediately
+* >90%: Critical - act now
+
+### Weekly Analysis
+
+**Trend Review:**
+* Compare weekly average to previous weeks
+* Calculate if trending upward
+* Project when will reach 80%
+* Plan optimization or scaling
+
+**Pattern Documentation:**
+* Normal range for your workload
+* Expected spike times
+* Correlation with business cycles
+* Baseline for anomaly detection
+
+### Alert Configuration
+
+**Warning Alert (70% sustained 15 min):**
+* Approaching pressure threshold
+* Time to review queries
+* Not critical but needs attention
+* Email notification
+
+**Critical Alert (85% sustained 5 min):**
+* Memory pressure imminent
+* Immediate investigation required
+* Likely performance impact
+* Page on-call team
+
+**Emergency Alert (OOM error):**
+* Memory exhaustion occurred
+* Service impacted
+* Immediate action required
+* Page senior engineers
+
+## Integration with Development Workflow
+
+### Pre-Production Query Review
+
+**Before Deploying New Queries:**
+1. Profile in staging with production-like data
+2. Check memory usage with PROFILE
+3. Verify LIMIT clauses present
+4. Test under concurrent load
+5. Monitor heap in staging
+
+**Red Flags:**
+* Query uses >100MB memory
+* No LIMIT on potentially large results
+* Collects instead of streams
+* Long transaction times
+
+### Load Testing
+
+**Include Heap Monitoring:**
+* Simulate production concurrency
+* Monitor heap during test
+* Identify breaking points
+* Adjust queries or capacity before production
+
+**Test Scenarios:**
+* Normal load (baseline heap)
+* Peak load (max heap usage)
+* Sustained peak (memory pressure?)
+* Spike recovery (returns to baseline?)
+
+### Post-Deployment Monitoring
+
+**After New Features Deploy:**
+* Monitor heap closely for 24-48 hours
+* Compare to pre-deployment baseline
+* Check for new memory patterns
+* Quick rollback if heap issues
+
+**Watch For:**
+* Sustained increase in heap usage
+* New OOM errors
+* Increased GC time
+* Performance degradation
+
+[Reference: Monitoring Instance Performance Module](mdc:https://graphacademy.neo4j.com/courses/aura-administration/4-monitoring-instance/)
+
