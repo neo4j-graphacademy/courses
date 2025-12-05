@@ -1,52 +1,187 @@
 = Challenge: Weighted graph projection and analysis
 :type: challenge
 :order: 9
+:sandbox: true
 
 [.transcript]
 == Introduction
 
-You've learned how to project graphs with undirected relationships and weights. You've also explored several community detection algorithms and learned how to read the GDS documentation.
+You've learned how to project graphs with undirected relationships and weights. You've used Node Similarity in the previous lesson to find similar movies and write relationships back to the database.
 
-Now it's time to put those skills together by applying Label Propagation—a community detection algorithm you haven't used yet—to a weighted, undirected, bipartite graph.
+Now it's time to take Node Similarity further by using it in **stream mode** on a **directed**, weighted, bipartite graph to analyze user similarity without writing back to the database.
 
 In this challenge, you'll:
 
-1. Project an actor-movie bipartite graph with undirected relationships and IMDb ratings as weights
-2. Use Label Propagation to detect communities in the weighted graph
-3. Analyze the results
+. Project a user-movie bipartite graph with weighted relationships
+. Use Node Similarity in stream mode to find users with similar taste profiles
+. Analyze the results to understand rating patterns
 
 
 == Your task
 
 === Step 1: Project the graph
 
-Project a graph called `'actor-movie-quality'` that captures the actor-movie network weighted by IMDb film ratings.
+First, open the sandbox panel to get started.
+
+Project a graph called `'user-movie-ratings'` that connects users to movies through their ratings, using rating scores as relationship weights.
 
 Your projection should:
 
-- Include `Actor` and `Movie` nodes connected via `ACTED_IN`
-- Use the `imdbRating` property as the relationship weight
-- Make relationships **undirected**
+- Include both `User` and `Movie` nodes
+- Preserve node labels (User and Movie)
+- Use the `rating` property as the relationship weight
 
-You've done this before—write the complete projection query.
+Think about the pattern: User → RATED → Movie
+
+Write the complete projection query, including:
+
+- The correct MATCH pattern
+- Configuration to preserve both User and Movie labels
+- Relationship properties configuration for the `rating` weight
 
 Verify your projection was created successfully using `gds.graph.list()`.
 
 
-=== Step 2: Review label propagation
+=== Step 2: Review node similarity
 
-Visit the link:https://neo4j.com/docs/graph-data-science/current/algorithms/label-propagation/[Label Propagation documentation^].
+Visit the link:https://neo4j.com/docs/graph-data-science/current/algorithms/node-similarity/[Node Similarity documentation^].
 
-Understand what configuration parameters are available and how weights affect the algorithm.
+Review the configuration parameters, especially:
+
+- How to use weights with `relationshipWeightProperty`
+- How `topK` controls the number of similar nodes returned
+- The difference between stream, mutate, and write modes
 
 
-=== Step 3: Run label propagation
+=== Step 3: Run node similarity
 
-Run Label Propagation on your projected graph in `stream` mode using IMDb ratings as weights.
+Run Node Similarity on your projected graph in `stream` mode using the `rating` weights to find users with similar taste profiles.
 
-Return the top 10 communities by size with sample member names.
+Return the top 20 most similar user pairs with their similarity scores and the movies they've both rated.
+
+**Hints:**
+
+- Use `relationshipWeightProperty: 'rating'` to tell Node Similarity to consider rating weights
+- Set `topK: 3` to limit to the top 3 most similar users for each user
+- Convert node IDs to user names using `gds.util.asNode(nodeId).name`
+- Order by similarity score to see the strongest matches
+- To find shared movies, you can query the database using the user names
 
 When you've completed your analysis, answer the questions below. 
+
+
+== Solution approach
+
+[%collapsible]
+====
+**Step 1: Project the user-movie graph**
+
+[source,cypher]
+.Solution: Project weighted user-movie bipartite graph
+----
+MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'user-movie-ratings', // <3>
+  source, // <4>
+  target, // <5>
+  {
+    sourceNodeLabels: labels(source), // <6>
+    targetNodeLabels: labels(target), // <7>
+    relationshipProperties: r { .rating } // <8>
+  }
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <9>
+----
+
+**Projection breakdown**
+
+1. Match User nodes connected to Movie nodes through RATED relationships
+2. Call the GDS projection function
+3. Name the projection 'user-movie-ratings'
+4. Include source (User) nodes
+5. Include target (Movie) nodes
+6. Preserve User labels
+7. Preserve Movie labels
+8. Include the rating property from relationships as weight
+9. Return projection statistics
+
+**Key components:**
+
+- The MATCH pattern connects users directly to movies they rated
+- `sourceNodeLabels` and `targetNodeLabels` preserve the bipartite structure
+- `relationshipProperties: r { .rating }` captures the rating weight (1-5 stars)
+- The directed relationships ensure Node Similarity only compares users (not users to movies)
+- The result is a weighted, directed bipartite user-movie network
+
+---
+
+**Step 2: Run Node Similarity**
+
+[source,cypher]
+.Solution: Run weighted Node Similarity and analyze user pairs
+----
+CALL gds.nodeSimilarity.stream( // <1>
+  'user-movie-ratings', // <2>
+  {
+    relationshipWeightProperty: 'rating', // <3>
+    topK: 3 // <4>
+  }
+)
+YIELD node1, node2, similarity // <5>
+RETURN 
+  gds.util.asNode(node1).name AS user1, // <6>
+  gds.util.asNode(node2).name AS user2, // <7>
+  similarity // <8>
+ORDER BY similarity DESC // <9>
+LIMIT 20 // <10>
+----
+
+**Algorithm breakdown**
+
+1. Call Node Similarity in stream mode
+2. Run on 'user-movie-ratings' projection
+3. Configure algorithm to use rating weights when calculating similarity
+4. Limit to top 3 most similar users for each user
+5. Yield pairs of similar node IDs and their similarity scores
+6. Convert first node ID to user name
+7. Convert second node ID to user name
+8. Return the similarity score
+9. Sort by similarity in descending order to see strongest matches
+10. Limit results to top 20 user pairs
+
+**Optional: Find shared movies**
+
+You can extend the analysis to see which movies similar users both rated:
+
+[source,cypher]
+.Find movies that similar users both rated highly
+----
+CALL gds.nodeSimilarity.stream( // <1>
+  'user-movie-ratings',
+  {
+    relationshipWeightProperty: 'rating',
+    topK: 3
+  }
+)
+YIELD node1, node2, similarity // <2>
+WITH gds.util.asNode(node1).name AS user1, 
+     gds.util.asNode(node2).name AS user2, 
+     similarity
+ORDER BY similarity DESC
+LIMIT 5 // <3>
+MATCH (u1:User {name: user1})-[r1:RATED]->(m:Movie)<-[r2:RATED]-(u2:User {name: user2}) // <4>
+WHERE r1.rating >= 4 AND r2.rating >= 4 // <5>
+RETURN user1, user2, similarity, collect(m.title)[0..5] AS shared_high_rated_movies // <6>
+----
+
+**What the results mean:**
+
+- High similarity scores (close to 1.0) indicate users with very similar rating patterns
+- The `rating` weights ensure that higher ratings (4-5 stars) contribute more to similarity
+- Similar users can be used for personalized recommendations
+- Shared highly-rated movies reveal common taste profiles
+- This is the foundation of collaborative filtering
+====
 
 
 [.quiz]
@@ -66,9 +201,11 @@ include::questions/5-weights-impact.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You've successfully projected a weighted, undirected bipartite graph and applied Label Propagation to detect communities based on IMDb film ratings.
+You've successfully projected a weighted bipartite graph connecting users and movies through ratings and applied Node Similarity in stream mode to find users with similar taste profiles.
 
-This challenge demonstrates a core GDS workflow: understanding your data model, designing the right projection, and applying algorithms that leverage weighted relationships to reveal meaningful patterns.
+This challenge demonstrates a core GDS workflow: understanding your data model, designing the right projection, configuring relationship weights, and applying algorithms in stream mode to analyze patterns without modifying the database.
 
-In the next lesson, you'll learn about relationship aggregation—how to create weights by combining multiple relationships during projection.
+Node Similarity on weighted bipartite graphs is the foundation of collaborative filtering—finding users with similar preferences to make personalized recommendations. By using rating weights, you ensured that highly-rated movies contribute more to similarity calculations. The directed relationships ensured the algorithm only compared users based on their movie ratings.
+
+You've now completed Module 3. In the next module, you'll learn advanced projection techniques including relationship aggregation.
 

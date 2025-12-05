@@ -1,6 +1,7 @@
 = Projecting monopartite graphs
 :type: lesson
 :order: 3
+:sandbox: true
 
 [.transcript]
 == Introduction
@@ -11,7 +12,7 @@ Now let's understand what type of graph you actually created—and why it matter
 
 **Here's a critical detail:** the projection you created likely isn't what you might think it is.
 
-When you ran this projection:
+Run this projection now:
 
 [source,cypher]
 .The actors-graph projection
@@ -25,12 +26,16 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
 2. Call the GDS projection function
 3. Name the projection 'actors-graph'
 4. Include source (Actor) nodes
 5. Include target (Movie) nodes
 6. Return projection statistics
+====
 
 Intuitively, you may think you projected a data model that looks like this:
 
@@ -61,7 +66,7 @@ You could also refer to this graph as a 'homogeneous graph' because it has only 
 
 You could project that network with the following command:
 
-[source,cypher]
+[source,cypher,role=noplay]
 .Project a social network
 ----
 MATCH (source:Person)-[r:FRIENDS_WITH]->(target:Person) // <1>
@@ -75,6 +80,9 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Person nodes connected to other Person nodes via FRIENDS_WITH relationships
 2. Call the GDS projection function
 3. Name the projection 'social-network'
@@ -83,6 +91,7 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 6. First configuration map (empty - using defaults)
 7. Second configuration map (empty - using defaults)
 8. Return projection statistics
+====
 
 This command would create an in-memory projection that looks something like this:
 
@@ -97,7 +106,7 @@ Running an algorithm on this non-specific graph will not change its output.
 
 However, let's return now to our Movies dataset. When we projected it using this command:
 
-[source,cypher]
+[source,cypher,role=noplay]
 .Default projection behavior
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
@@ -109,12 +118,16 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
 2. Call the GDS projection function
 3. Name the projection 'actors-graph'
 4. Include source (Actor) nodes
 5. Include target (Movie) nodes
 6. Return projection statistics
+====
 
 We projected a graph that looks very similar to our social media graph.
 
@@ -151,23 +164,25 @@ Let's run PageRank on our current graph projection, and see what happens:
 [source,cypher]
 .Run PageRank on actors-graph
 ----
-CALL gds.pageRank.stream( // <1>
-  'actors-graph', // <2>
-  {}, // <3>
-  {} // <4>
+CALL gds.pageRank.stream( // (1)
+  'actors-graph',         // (2)
+  {}                      // (3)
 )
-YIELD nodeId, score // <5>
-RETURN gds.util.asNode(nodeId).name, score // <6>
-ORDER BY score DESC // <7>
+YIELD nodeId, score       // (4)
+RETURN gds.util.asNode(nodeId).title, score // (5)
+ORDER BY score DESC // (6)
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call PageRank algorithm in stream mode
 2. Run on the 'actors-graph' projection
-3. First configuration map (empty - using defaults)
-4. Second configuration map (empty - using defaults)
-5. Yield node IDs and PageRank scores
-6. Convert node IDs to names and return with scores
-7. Sort by score in descending order
+3. Configuration map (empty - using defaults)
+4. Yield node IDs and PageRank scores
+5. Convert node IDs to names and return with scores
+6. Sort by score in descending order
+====
 
 The returned table shows you the nodeId of each node in one column and the PageRank score they received in the next.
 
@@ -214,6 +229,9 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <8>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Actor nodes connected through Movie nodes (Movies are not captured)
 2. Call the GDS projection function
 3. Name the projection 'actors-only'
@@ -222,6 +240,7 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 6. First configuration map (empty - using defaults)
 7. Second configuration map (empty - using defaults)
 8. Return projection statistics
+====
 
 This gives us a new graph that, in theory, looks like this:
 
@@ -235,7 +254,6 @@ image::images/kevin_and_ryan_acting_relationships_without_labels.png[A graph of 
 
 However, let's see what happens when we run PageRank on __this__ graph.
 
-NOTE: In the examples below, we're illustrating the impact of projections on algorithms with `.stream()` mode—this runs the algorithm and shows results without writing them. You'll learn to use all five execution modes in detail in Module 3.
 
 [source,cypher]
 .Run PageRank on actors-only projection
@@ -249,12 +267,22 @@ RETURN gds.util.asNode(nodeId).name, score // <5>
 ORDER BY score DESC // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call PageRank algorithm in stream mode
 2. Run on the 'actors-only' projection
 3. Configuration map (empty - using defaults)
 4. Yield node IDs and PageRank scores
 5. Convert node IDs to names and return with scores
 6. Sort by score in descending order
+====
+
+[NOTE]
+.stream() mode
+====
+In this example, we're illustrating the impact of projections on algorithms with `.stream()` mode—this runs the algorithm and shows results without writing them. You'll learn to use all five execution modes in detail in Module 3.
+====
 
 Now, PageRank returns Robert De Niro as the most important actor in the graph, and other actors have received descending values based on their relative 'importance'.
 
