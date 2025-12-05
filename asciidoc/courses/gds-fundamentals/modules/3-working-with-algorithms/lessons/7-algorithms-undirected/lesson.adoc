@@ -40,16 +40,26 @@ To compare how relationship orientation affects results, let's create both proje
 First, drop any existing graphs:
 
 [source,cypher]
-.Drop existing actor-network
+.Drop all graphs
 ----
-CALL gds.graph.drop('actor-network', false) YIELD graphName // <1>
-RETURN graphName // <2>
+CALL gds.graph.list() // (1)
+YIELD graphName // (2)
+CALL gds.graph.drop(graphName) // (3)
+YIELD graphName AS droppedGraph // (4)
+RETURN droppedGraph // (5)
 ----
 
-1. Drop 'actor-network' with error suppression (won't fail if missing)
-2. Return the dropped graph name
+[TIP]
+.Query breakdown
+====
+1. Call the graph list procedure
+2. Yield each graph name
+3. Drop each graph by piping the name to the drop procedure
+4. Yield the dropped graph name
+5. Return the list of all dropped graphs
+====
 
-Create a **directed** actor collaboration network called `'actor-network-directed'`.
+Move over to the sandbox and create an actor collaboration network called `'actor-network-directed'`.
 
 You've created this type of projection many times—actors connected through shared movies.
 
@@ -57,10 +67,12 @@ You've created this type of projection many times—actors connected through sha
 
 [%collapsible]
 ====
-[source,cypher]
+[source,cypher,role=noplay]
 .Solution: Create directed actor network
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor) // <1>
 WITH gds.graph.project( // <2>
   'actor-network-directed', // <3>
   source, // <4>
@@ -70,6 +82,8 @@ WITH gds.graph.project( // <2>
 ) AS g
 RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
+
+**Projection breakdown**
 
 1. Match Actor nodes connected through Movie nodes
 2. Call the GDS projection function
@@ -83,14 +97,16 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 
 Now let's create an **undirected** version of the same projection called `'actor-network-undirected'`.
 
-We use the exact same Cypher pattern but add this configuration to the second set of curly brackets:
+You'll use the exact same Cypher pattern but add this configuration to the second set of curly brackets:
 
 `undirectedRelationshipTypes: ['*']`
 
 [source,cypher]
 .Create undirected actor network
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)
+    <-[:ACTED_IN]-(target:Actor) // <1>
 WITH gds.graph.project( // <2>
   'actor-network-undirected', // <3>
   source, // <4>
@@ -103,6 +119,9 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Actor nodes connected through Movie nodes
 2. Call the GDS projection function
 3. Name the projection 'actor-network-undirected'
@@ -111,12 +130,13 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 6. First configuration map (empty - using defaults)
 7. Configure all relationships as undirected
 8. Return projection statistics
+====
 
 **Understanding the configuration:**
 
 - `undirectedRelationshipTypes: ['*']` tells GDS to treat __all__ relationships as undirected
 - To redirect only specific types, replace `'*'` with the relationship type: `['ACTED_IN']`
-- This configuration goes in the **second** set of brackets (projection config, not relationship config)
+- This configuration goes in the **second** set of brackets
 - You must include both sets of curly brackets—even if the first set remains empty
 
 Both projections have the same nodes and relationships—only the **orientation** differs.
@@ -151,6 +171,8 @@ ORDER BY score DESC // <4>
 LIMIT 10 // <5>
 ----
 
+**Algorithm breakdown**
+
 1. Call PageRank in stream mode on directed graph with default configuration
 2. Yield node IDs and PageRank scores
 3. Convert node IDs to actor names and return with scores
@@ -174,6 +196,8 @@ ORDER BY score DESC // <4>
 LIMIT 10 // <5>
 ----
 
+**Algorithm breakdown**
+
 1. Call PageRank in stream mode on undirected graph with default configuration
 2. Yield node IDs and PageRank scores
 3. Convert node IDs to actor names and return with scores
@@ -191,23 +215,50 @@ In this case, Robert De Niro gets the highest score because he has the most auth
 
 
 === PageRank: Experimenting with dampingFactor
-We can test this by playing around with the dampingFactor. 
+We can test this difference by playing around with the dampingFactor. 
 
 The `dampingFactor` controls how randomly the algorithm will jump around the graph vs how strictly it will follow links.
 
 - **Low:** The algorithm will follow some links but will also 'teleport' around the graph more often
 - **High:** The algorithm will follow most links but will occasionally 'teleport' around the graph
 
-The `dampingFactor` provides a few benefits:
+The `dampingFactor` provides a couple of benefits:
 
-1. Stops the algorithm from getting stuck inside a dead-end or cyclical relationship structure
-2. Helps to avoid one high-degree node overly dominating the results
+. Stops the algorithm from getting stuck inside a dead-end or cyclical relationship structure
+. Helps to avoid one high-degree node overly dominating the results
 
-Move to the sandbox and run PageRank with different `dampingFactor` values on both graphs. Try values like 0.15, 0.50, 0.85, and 0.99.
+Move to the sandbox and run PageRank with `dampingFactor: float` in the algorithm's configuration brackets. Experiment with different `dampingFactor` values on both graphs. Try values like 0.15, 0.50, 0.85, and 0.99.
 
 Track how specific actors like Robert De Niro, Jackie Chan and Vincent Price move up and down the rankings as you change the configuration.
 
+=== Solution
+
+[%collapsible]
+====
+[source,cypher]
+.Solution: PageRank on directed graph
+----
+CALL gds.pageRank.stream('actor-network-directed', // <1>
+  {
+    dampingFactor: 0.85 // <2> Specify the dampingFactor
+  }) 
+YIELD nodeId, score // <3>
+RETURN gds.util.asNode(nodeId).name AS actor, score // <4>
+ORDER BY score DESC // <5>
+LIMIT 10 // <6>
+----
+
+1. Call PageRank in stream mode on directed graph with default configuration
+2. Include `dampingFactor` in the configuration brackets
+3. Yield node IDs and PageRank scores
+4. Convert node IDs to actor names and return with scores
+5. Sort by score in descending order
+6. Limit to top 10 actors
+====
+
 The default `dampingFactor` is 0.85. Normally, this provides a good mix of link-following vs random teleportation.
+
+However, when you run with higher or lower `dampingFactor` you should notice actors moving up or down the list.
 
 You can review all of the available config settings on the link:https://neo4j.com/docs/graph-data-science/current/algorithms/page-rank/[PageRank docs].
 
@@ -234,6 +285,8 @@ ORDER BY score DESC // <5>
 LIMIT 10 // <6>
 ----
 
+**Algorithm breakdown**
+
 1. Call PageRank in stream mode on directed graph
 2. Set damping factor to 0.95 (higher than default 0.85)
 3. Yield node IDs and PageRank scores
@@ -253,6 +306,8 @@ ORDER BY score DESC // <5>
 LIMIT 10 // <6>
 ----
 
+**Algorithm breakdown**
+
 1. Call PageRank in stream mode on undirected graph
 2. Set damping factor to 0.95 (higher than default 0.85)
 3. Yield node IDs and PageRank scores
@@ -263,12 +318,11 @@ LIMIT 10 // <6>
 
 Compare the two result sets, and they should be identical. 
 
-**Key takeaway:** Directionality did not affect the output, because our graph is already symetrical.
+**Key takeaway:** Directionality did not affect the output, because our graph is already symmetrical.
 
 image::images/jim_tim.png[Two nodes connected by bidirectional relationships.]
 
 When we switch to undirected, we do not change the balance of the relationships.
-
 
 == Leiden: Comparing directed vs undirected
 
@@ -283,18 +337,22 @@ Try running Leiden on the **directed** graph (`'actor-network-directed'`):
 ----
 CALL gds.leiden.stream('actor-network-directed', {}) // <1>
 YIELD nodeId, communityId // <2>
-WITH communityId, COUNT(*) AS size // <3>
+WITH communityId, count(*) AS size // <3>
 RETURN communityId, size // <4>
 ORDER BY size DESC // <5>
 LIMIT 10 // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Attempt to call Leiden on directed graph (will produce error)
 2. Yield node IDs and community assignments
 3. Group by community and count members
 4. Return community ID and size
 5. Sort by size in descending order
 6. Limit to top 10 communities
+====
 
 === What happened?
 
@@ -315,18 +373,22 @@ Now run Leiden on the **undirected** graph (`'actor-network-undirected'`):
 ----
 CALL gds.leiden.stream('actor-network-undirected', {}) // <1>
 YIELD nodeId, communityId // <2>
-WITH communityId, COUNT(*) AS size // <3>
+WITH communityId, count(*) AS size // <3>
 RETURN communityId, size // <4>
 ORDER BY size DESC // <5>
 LIMIT 10 // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call Leiden in stream mode on undirected graph
 2. Yield node IDs and community assignments
 3. Group by community and count members
 4. Return community ID and size
 5. Sort by size in descending order
 6. Limit to top 10 communities
+====
 
 
 Like Louvain, this shows community sizes. But Leiden tweaks the Louvain algorithm to produce more balanced, granular communities.
@@ -344,7 +406,7 @@ Let's look at actors in the largest Leiden community.
 
 Complete the query to stream Leiden results and return sample actors from the largest community:
 
-[source,cypher,role=nocopy noplay]
+[source,cypher,role=noplay]
 .View sample actors from largest Leiden community (replace ????)
 ----
 CALL gds.leiden.stream('actor-network-undirected', {}) // <1>
@@ -355,12 +417,16 @@ LIMIT 1 // <5>
 RETURN communityId, size, actors[0..10] AS sampleActors // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call Leiden in stream mode on undirected graph
 2. Yield node IDs and community assignments
 3. Group by community, collect actor nodes (fill in conversion to names), and count members
 4. Sort by size in descending order
 5. Limit to the largest community only
 6. Return community ID, size, and first 10 actors as sample
+====
 
 === Solution
 
@@ -377,12 +443,16 @@ LIMIT 1 // <5>
 RETURN communityId, size, actors[0..10] AS sampleActors // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call Leiden in stream mode on undirected graph
 2. Yield node IDs and community assignments
 3. Group by community, collect actor names, and count members
 4. Sort by size in descending order
 5. Limit to the largest community only
 6. Return community ID, size, and first 10 actor names as sample
+====
 
 These actors form a tightly-knit collaboration group based on shared movie appearances.
 ====
@@ -404,10 +474,14 @@ YIELD communityCount, modularity, ranLevels // <3>
 RETURN communityCount, modularity, ranLevels // <4>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call Leiden in stats mode on undirected graph
 2. Set maximum hierarchy levels to 1
 3. Yield community statistics
 4. Return community count, modularity, and levels run
+====
 
 Review the results for `communityCount` and `ranLevels`.
 
@@ -423,10 +497,14 @@ YIELD communityCount, modularity, ranLevels // <3>
 RETURN communityCount, modularity, ranLevels // <4>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call Leiden in stats mode on undirected graph
 2. Set maximum hierarchy levels to 20
 3. Yield community statistics
 4. Return community count, modularity, and levels run
+====
 
 The second run is unlikely to run to the full 20 levels.
 
