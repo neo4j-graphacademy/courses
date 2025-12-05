@@ -1,6 +1,7 @@
 = Challenge: Projection modeling and analysis
 :type: challenge
 :order: 5
+:sandbox: true
 
 [.transcript]
 == Introduction
@@ -9,10 +10,10 @@ In the previous lesson, you learned how to design projections based on analytica
 
 You'll be given an analytical question, and you need to:
 
-1. Design an appropriate projection
-2. Choose a suitable algorithm
-3. Run the analysis
-4. Interpret the results
+. Design an appropriate projection
+. Choose a suitable algorithm
+. Run the analysis
+. Interpret the results
 
 
 == Your analytical question
@@ -77,6 +78,98 @@ Think about whether you want to measure:
 - Direct connections (how many actors a director has worked with)
 - Network position (how "central" a director is in the collaboration network)
 - Bridge positions (directors who connect or 'control' the flow of information between different communities)
+
+
+== Solution approach
+
+[%collapsible]
+====
+**Step 1: Design the projection**
+
+For measuring director influence through actor collaborations, a **monopartite Director-Director projection** works best. Directors who share actors are connected, and we can use centrality algorithms to measure influence.
+
+**Step 2: Build the projection**
+
+[source,cypher]
+.Solution: Project director-director network through shared actors
+----
+MATCH (source:Person)-[:DIRECTED]->(:Movie)<-[:ACTED_IN]-(a:Actor)
+      -[:ACTED_IN]->(:Movie)<-[:DIRECTED]-(target:Person)
+WHERE source <> target
+WITH gds.graph.project(
+  'director-influence',
+  source,
+  target
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels
+----
+
+**Projection breakdown**
+
+1. Match Person nodes (directors) connected through Movies with shared Actors
+2. Filter out self-connections
+3. Call the GDS projection function
+4. Name the projection 'director-influence'
+5. Include source (Person/Director) nodes
+6. Include target (Person/Director) nodes
+7. Return projection statistics
+
+**Key components:**
+
+- The pattern `Director -> Movie <- Actor -> Movie <- Director` connects directors who worked with the same actors
+- This creates a monopartite director network
+- The more actors two directors share, the more relationships connect them
+
+**Step 3: Run PageRank**
+
+[source,cypher]
+.Solution: Run PageRank to measure director influence
+----
+CALL gds.pageRank.stream(
+  'director-influence'
+)
+YIELD nodeId, score
+RETURN 
+  gds.util.asNode(nodeId).name AS director,
+  score AS influence
+ORDER BY influence DESC
+LIMIT 10
+----
+
+**Algorithm breakdown**
+
+1. Call PageRank in stream mode
+2. Run on 'director-influence' projection
+3. Yield node IDs and PageRank scores
+4. Convert node IDs to director names
+5. Return director name and influence score
+6. Sort by influence in descending order
+7. Limit to top 10 directors
+
+**Alternative: Degree Centrality**
+
+You could also use Degree Centrality for a simpler measure of influence:
+
+[source,cypher]
+.Alternative: Use Degree Centrality
+----
+CALL gds.degree.stream(
+  'director-influence'
+)
+YIELD nodeId, score
+RETURN 
+  gds.util.asNode(nodeId).name AS director,
+  score AS actor_connections
+ORDER BY actor_connections DESC
+LIMIT 10
+----
+
+**What the results mean:**
+
+- **PageRank**: Directors with high scores are influential because they're connected to other influential directors (those who work with many actors)
+- **Degree Centrality**: Directors with high scores have worked with many actors who also worked with other directors
+- Both metrics reveal directors who are well-connected in the Hollywood collaboration network
+====
 
 
 [.quiz]

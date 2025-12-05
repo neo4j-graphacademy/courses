@@ -25,9 +25,9 @@ This projection would be useful for:
 
 Your projection should:
 
-1. Include only `Actor` nodes
-2. Connect `Actor` nodes who have worked with the same `Director` nodes
-3. Name the projection `'actor-director-network'`
+. Include only `Actor` nodes
+. Connect `Actor` nodes who have worked with the same `Director` nodes
+. Name the projection `'actor-director-network'`
 
 
 == Hints
@@ -47,10 +47,13 @@ Think about the pattern:
 ====
 The pattern requires tracing through movies and directors to connect actors:
 
-[source,cypher]
+[source,cypher,role=nocopy noplay]
 .Solution: Project actors connected through directors
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:DIRECTED]-(:Person)-[:DIRECTED]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+MATCH (source:Actor)-[:ACTED_IN]->
+  (:Movie)<-[:DIRECTED]-
+    (:Director)-[:DIRECTED]->
+      (:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
 WITH gds.graph.project( // <2>
   'actor-director-network', // <3>
   source, // <4>
@@ -61,6 +64,9 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <8>
 ----
 
+[TIP]
+.Projection breakdown
+====
 1. Match Actor nodes connected through Movie, Person (director), and Movie nodes
 2. Call the GDS projection function
 3. Name the projection 'actor-director-network'
@@ -69,11 +75,11 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 6. First configuration map (empty - using defaults)
 7. Second configuration map (empty - using defaults)
 8. Return projection statistics
+====
 
 **Key components:**
 
 - The MATCH pattern traces through both movies and directors
-- `source.name < target.name` prevents duplicates
 - The projection connects actors who share directors
 - This is different from direct collaboration (sharing movies)—it reveals directorial networks
 ====
@@ -95,18 +101,22 @@ ORDER BY score DESC // <5>
 LIMIT 10 // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call degree centrality in stream mode
 2. Run on 'actor-director-network' projection
 3. Yield node IDs and degree scores
 4. Convert node IDs to actor names and return with scores
 5. Sort by score in descending order
 6. Limit results to top 10 actors
+====
 
 Actors with high scores are central to directorial networks—they've worked with directors who have also directed many other actors.
 
 Finally, try running PageRank on the same network. Replace the graph name to complete the query:
 
-[source,cypher,role=nocopy noplay]
+[source,cypher,role=nocopy]
 .Run PageRank on actor-director network (replace ?????)
 ----
 CALL gds.pageRank.stream( // <1>
@@ -118,12 +128,16 @@ ORDER BY score DESC // <5>
 LIMIT 10 // <6>
 ----
 
+[TIP]
+.Algorithm breakdown
+====
 1. Call PageRank in stream mode
 2. Specify the projection name (fill in 'actor-director-network')
 3. Yield node IDs and PageRank scores
 4. Convert node IDs to actor names and return with scores
 5. Sort by score in descending order
 6. Limit results to top 10 actors
+====
 
 
 [.quiz]
