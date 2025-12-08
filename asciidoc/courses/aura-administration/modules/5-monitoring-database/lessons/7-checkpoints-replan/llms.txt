@@ -101,6 +101,8 @@ Monitoring internal database operations and troubleshooting performance issues r
 * Duration of most recent checkpoint in milliseconds
 * Most actionable checkpoint metric
 
+**Frequency:** Checkpoints typically run every 15 minutes or every 100,000 transactions (whichever comes first)
+
 **Typical Duration:** Several seconds to several minutes
 
 **Healthy:**
@@ -109,7 +111,7 @@ Monitoring internal database operations and troubleshooting performance issues r
 * Correlates with write volume
 
 **Warning:**
-* Duration consistently >30 minutes (guideline)
+* Duration consistently >10 minutes in Aura (>30 minutes for self-managed)
 * May indicate storage I/O limitations
 * Heavy write load stress
 * Requires investigation
@@ -119,7 +121,7 @@ Monitoring internal database operations and troubleshooting performance issues r
 ### Long Checkpoint Duration
 
 **Symptoms:**
-* Checkpoints taking >30 minutes consistently
+* Checkpoints taking >10 minutes consistently in Aura (>30 minutes for self-managed)
 * Slow write operations
 * I/O wait times elevated
 
@@ -131,11 +133,6 @@ Monitoring internal database operations and troubleshooting performance issues r
 * Bulk data imports
 * High transaction volume
 
-**Storage I/O Limitations:**
-* Disk I/O saturated
-* Storage tier insufficient
-* I/O contention with other operations
-
 **Large Transaction Logs:**
 * Accumulated many changes
 * Large amount of data to flush
@@ -144,22 +141,26 @@ Monitoring internal database operations and troubleshooting performance issues r
 **Diagnostic Process:**
 1. Check write transaction rate during long checkpoints
 2. Review for bulk operations or imports
-3. Correlate with application deployments
-4. Check if pattern (times of day) or random
+3. Check if long checkpoints correlate with specific operations
+4. Determine if pattern (times of day) or random
 
 **Resolution:**
 
 **If Heavy Writes:**
 * Schedule bulk operations during off-peak
-* Break large imports into smaller batches
+* Break large imports into smaller batches using `CALL { } IN TRANSACTIONS`
 * Distribute write load over time
-* May be normal for your workload
+* May be normal for your workload during batch processing
 
-**If Persistent Issue:**
-* Contact Neo4j support
-* May indicate storage configuration issue
-* Could require Aura support investigation
-* Document patterns and durations
+**If Persistent During Normal Activity:**
+
+Gather the following information before contacting support:
+* Time range when slow checkpoints occur
+* Typical write transaction patterns
+* Recent changes to data model or query patterns
+* Whether issue correlates with specific operations
+
+Support has access to infrastructure-level metrics not available in your dashboard—storage I/O performance, disk throughput, and system-level diagnostics. They can determine whether the issue requires write pattern optimization on your side or infrastructure-level tuning.
 
 ## Understanding Replan Events
 
@@ -369,12 +370,12 @@ session.run("MATCH (n:User {id: $id}) RETURN n", {id: userId})
 * Review replan rate - consistent with baseline?
 * Note any unusual spikes
 
-**Action Thresholds:**
+**Action Thresholds (Aura):**
 
 **Checkpoint Duration:**
-* <10 minutes: Normal
-* 10-30 minutes: Monitor
-* >30 minutes: Investigate
+* <5 minutes: Normal
+* 5-10 minutes: Monitor
+* >10 minutes: Investigate (threshold is 30 minutes for self-managed Neo4j)
 
 **Replan Rate:**
 * Low, occasional: Normal
@@ -392,9 +393,9 @@ session.run("MATCH (n:User {id: $id}) RETURN n", {id: userId})
 ### Alert Configuration
 
 **Checkpoint Duration Alert:**
-* **Trigger**: Duration >30 minutes
-* **Action**: Review write workload
-* **Escalation**: If persistent, contact support
+* **Trigger**: Duration >10 minutes in Aura (>30 minutes for self-managed)
+* **Action**: Review write workload, gather diagnostic information
+* **Escalation**: If persistent during normal activity, contact support with gathered information
 * **Notification**: Email to DBA team
 
 **High Replan Rate Alert:**
