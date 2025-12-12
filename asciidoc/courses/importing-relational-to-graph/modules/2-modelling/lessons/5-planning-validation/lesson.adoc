@@ -1,0 +1,356 @@
+= Planning Constraints and Indexes
+:order: 5
+:type: lesson
+
+In this lesson, you will plan constraints and indexes for your graph model. Constraints and indexes serve two purposes: they maintain data integrity by preventing duplicates, and they improve query performance by enabling efficient lookups.
+
+
+== Why Constraints and Indexes Matter
+
+In relational databases, primary keys and foreign keys enforce data integrity. In Neo4j:
+
+* **Constraints** ensure data uniqueness and existence
+* **Indexes** improve query performance for property lookups
+
+Planning these before import helps you:
+
+* Prevent duplicate nodes during import
+* Enable efficient MERGE operations
+* Optimize common query patterns
+
+
+== Types of Constraints
+
+Neo4j supports several constraint types:
+
+
+=== Unique Node Property Constraints
+
+Ensures a property value is unique across all nodes with a specific label.
+
+[source,cypher]
+----
+CREATE CONSTRAINT customer_id_unique IF NOT EXISTS
+FOR (c:Customer) REQUIRE c.customerID IS UNIQUE
+----
+
+This is equivalent to a primary key in relational databases.
+
+
+=== Node Property Existence Constraints
+
+Ensures all nodes with a label have a specific property (Enterprise Edition only).
+
+[source,cypher]
+----
+CREATE CONSTRAINT customer_name_exists IF NOT EXISTS
+FOR (c:Customer) REQUIRE c.companyName IS NOT NULL
+----
+
+
+=== Node Key Constraints
+
+Combines uniqueness and existence - the property must exist and be unique (Enterprise Edition only).
+
+[source,cypher]
+----
+CREATE CONSTRAINT customer_key IF NOT EXISTS
+FOR (c:Customer) REQUIRE c.customerID IS NODE KEY
+----
+
+
+== Planning Constraints for Northwind
+
+Based on the relational primary keys, create these unique constraints:
+
+[cols="1,1,2"]
+|===
+| Node Label | Property | Constraint Purpose
+
+| `Customer`
+| `customerID`
+| Unique identifier for customers
+
+| `Order`
+| `orderID`
+| Unique identifier for orders
+
+| `Product`
+| `productID`
+| Unique identifier for products
+
+| `Category`
+| `categoryID`
+| Unique identifier for categories
+
+| `Supplier`
+| `supplierID`
+| Unique identifier for suppliers
+
+| `Employee`
+| `employeeID`
+| Unique identifier for employees
+
+| `Shipper`
+| `shipperID`
+| Unique identifier for shippers
+
+|===
+
+
+=== Constraint Creation Script
+
+Run these Cypher statements to create the constraints:
+
+[source,cypher]
+----
+// Customer constraint
+CREATE CONSTRAINT customer_id_unique IF NOT EXISTS
+FOR (c:Customer) REQUIRE c.customerID IS UNIQUE;
+
+// Order constraint
+CREATE CONSTRAINT order_id_unique IF NOT EXISTS
+FOR (o:Order) REQUIRE o.orderID IS UNIQUE;
+
+// Product constraint
+CREATE CONSTRAINT product_id_unique IF NOT EXISTS
+FOR (p:Product) REQUIRE p.productID IS UNIQUE;
+
+// Category constraint
+CREATE CONSTRAINT category_id_unique IF NOT EXISTS
+FOR (cat:Category) REQUIRE cat.categoryID IS UNIQUE;
+
+// Supplier constraint
+CREATE CONSTRAINT supplier_id_unique IF NOT EXISTS
+FOR (s:Supplier) REQUIRE s.supplierID IS UNIQUE;
+
+// Employee constraint
+CREATE CONSTRAINT employee_id_unique IF NOT EXISTS
+FOR (e:Employee) REQUIRE e.employeeID IS UNIQUE;
+
+// Shipper constraint
+CREATE CONSTRAINT shipper_id_unique IF NOT EXISTS
+FOR (sh:Shipper) REQUIRE sh.shipperID IS UNIQUE;
+----
+
+
+== Types of Indexes
+
+Neo4j supports several index types:
+
+
+=== Range Indexes
+
+The default index type, good for equality and range queries:
+
+[source,cypher]
+----
+CREATE INDEX customer_country IF NOT EXISTS
+FOR (c:Customer) ON (c.country)
+----
+
+
+=== Text Indexes
+
+Optimized for text search operations:
+
+[source,cypher]
+----
+CREATE TEXT INDEX product_name_text IF NOT EXISTS
+FOR (p:Product) ON (p.productName)
+----
+
+
+=== Composite Indexes
+
+Index on multiple properties:
+
+[source,cypher]
+----
+CREATE INDEX customer_city_country IF NOT EXISTS
+FOR (c:Customer) ON (c.city, c.country)
+----
+
+
+== Planning Indexes for Northwind
+
+Consider your query patterns when planning indexes. Common Northwind queries might include:
+
+
+=== Customer Queries
+
+* Find customers by country
+* Find customers by city
+* Search customers by company name
+
+[source,cypher]
+----
+// Index for country-based queries
+CREATE INDEX customer_country IF NOT EXISTS
+FOR (c:Customer) ON (c.country);
+
+// Index for city-based queries
+CREATE INDEX customer_city IF NOT EXISTS
+FOR (c:Customer) ON (c.city);
+
+// Text index for company name search
+CREATE TEXT INDEX customer_company_text IF NOT EXISTS
+FOR (c:Customer) ON (c.companyName);
+----
+
+
+=== Product Queries
+
+* Find products by name
+* Find discontinued products
+* Find products by price range
+
+[source,cypher]
+----
+// Text index for product name search
+CREATE TEXT INDEX product_name_text IF NOT EXISTS
+FOR (p:Product) ON (p.productName);
+
+// Index for discontinued filter
+CREATE INDEX product_discontinued IF NOT EXISTS
+FOR (p:Product) ON (p.discontinued);
+
+// Index for price queries
+CREATE INDEX product_price IF NOT EXISTS
+FOR (p:Product) ON (p.unitPrice);
+----
+
+
+=== Order Queries
+
+* Find orders by date
+* Find orders by ship country
+
+[source,cypher]
+----
+// Index for date-based queries
+CREATE INDEX order_date IF NOT EXISTS
+FOR (o:Order) ON (o.orderDate);
+
+// Index for shipping queries
+CREATE INDEX order_ship_country IF NOT EXISTS
+FOR (o:Order) ON (o.shipCountry);
+----
+
+
+=== Employee Queries
+
+* Find employees by name
+
+[source,cypher]
+----
+// Index for employee name lookup
+CREATE INDEX employee_lastname IF NOT EXISTS
+FOR (e:Employee) ON (e.lastName);
+----
+
+
+== Complete Index Creation Script
+
+[source,cypher]
+----
+// Customer indexes
+CREATE INDEX customer_country IF NOT EXISTS
+FOR (c:Customer) ON (c.country);
+
+CREATE INDEX customer_city IF NOT EXISTS
+FOR (c:Customer) ON (c.city);
+
+CREATE TEXT INDEX customer_company_text IF NOT EXISTS
+FOR (c:Customer) ON (c.companyName);
+
+// Product indexes
+CREATE TEXT INDEX product_name_text IF NOT EXISTS
+FOR (p:Product) ON (p.productName);
+
+CREATE INDEX product_discontinued IF NOT EXISTS
+FOR (p:Product) ON (p.discontinued);
+
+CREATE INDEX product_price IF NOT EXISTS
+FOR (p:Product) ON (p.unitPrice);
+
+// Order indexes
+CREATE INDEX order_date IF NOT EXISTS
+FOR (o:Order) ON (o.orderDate);
+
+CREATE INDEX order_ship_country IF NOT EXISTS
+FOR (o:Order) ON (o.shipCountry);
+
+// Employee indexes
+CREATE INDEX employee_lastname IF NOT EXISTS
+FOR (e:Employee) ON (e.lastName);
+
+// Category indexes
+CREATE TEXT INDEX category_name_text IF NOT EXISTS
+FOR (cat:Category) ON (cat.categoryName);
+----
+
+
+== Viewing Constraints and Indexes
+
+After creating constraints and indexes, verify them:
+
+[source,cypher]
+----
+// Show all constraints
+SHOW CONSTRAINTS;
+
+// Show all indexes
+SHOW INDEXES;
+----
+
+// TODO: Add screenshot of SHOW CONSTRAINTS output
+
+// TODO: Add screenshot of SHOW INDEXES output
+
+
+== Best Practices
+
+. **Create constraints before importing data** - This ensures uniqueness from the start and enables efficient MERGE operations
+
+. **Create indexes after importing data** - For large imports, creating indexes afterward can be faster
+
+. **Index properties used in WHERE clauses** - Focus on properties you filter by frequently
+
+. **Avoid over-indexing** - Each index adds storage and maintenance overhead
+
+. **Use composite indexes for multi-property queries** - When you frequently query by multiple properties together
+
+
+== Organizing Your Queries in Neo4j Aura
+
+In Neo4j Aura, you can create folders to organize saved queries. For the constraint and index scripts in this lesson, create the following folder structure:
+
+* **Folder: `01-Setup-Constraints`** - Save the constraint creation script here. These queries run first, before any data import.
+* **Folder: `02-Setup-Indexes`** - Save the index creation script here. Run these after importing data.
+* **Folder: `Admin-Verification`** - Save the `SHOW CONSTRAINTS` and `SHOW INDEXES` queries here for ongoing maintenance.
+
+[TIP]
+.Bookmark the constraint and index scripts
+====
+Bookmark this lesson. The constraint and index scripts are reference material you will return to when setting up new Neo4j databases or troubleshooting import issues.
+====
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-unique-id.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned:
+
+* The types of constraints available in Neo4j
+* How to plan unique constraints based on relational primary keys
+* How to design indexes for common query patterns
+* Best practices for constraint and index creation
+
+In the next lesson, you will have the opportunity to practice designing a graph model in an optional hands-on workshop.
