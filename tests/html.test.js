@@ -3,9 +3,7 @@ const { globSync } = require("glob");
 const { globJoin } = require("./utils");
 
 describe("html generation", () => {
-  const files = globSync(
-    globJoin(__dirname, "..", "build", "**", "gds-fundamentals", "**", "*.html")
-  );
+  const files = globSync(globJoin(__dirname, "..", "build", "**", "*.html"));
 
   for (const file of files) {
     describe(file, () => {
