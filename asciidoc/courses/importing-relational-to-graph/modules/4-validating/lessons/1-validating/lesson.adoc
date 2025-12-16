@@ -1,0 +1,506 @@
+= Validating Imported Data
+:order: 1
+:type: lesson
+
+After importing data from a relational database into Neo4j, you must verify that all data was transferred correctly. This lesson provides a test plan and test cases for validating your Northwind import. Systematic validation is necessary because visual inspection alone cannot detect missing records, broken relationships, or data type errors.
+
+
+== Validation Test Plan
+
+A thorough validation process should cover these areas:
+
+[cols="1,2,2"]
+|===
+| Category | What to Test | Why It Matters
+
+| Node Counts
+| Number of nodes matches source row counts
+| Ensures no data was lost or duplicated during import
+
+| Relationship Counts
+| Number of relationships matches expected connections
+| Verifies foreign key relationships were correctly converted
+
+| Property Integrity
+| Properties have correct values and data types
+| Confirms data transformation was accurate
+
+| Referential Integrity
+| All relationships connect to existing nodes
+| Ensures no orphan relationships or missing nodes
+
+| Constraint Verification
+| Unique constraints are enforced
+| Prevents duplicate data issues
+
+| Sample Data Validation
+| Spot-check specific records against source
+| Catches subtle transformation errors
+
+|===
+
+
+== Test Case 1: Node Count Validation
+
+Verify that the number of nodes in Neo4j matches the row counts in the source PostgreSQL tables.
+
+
+=== PostgreSQL Source Counts
+
+Run these queries in PostgreSQL to get expected counts:
+
+[source,sql]
+----
+SELECT 'customers' as table_name, COUNT(*) as row_count FROM customers
+UNION ALL SELECT 'orders', COUNT(*) FROM orders
+UNION ALL SELECT 'products', COUNT(*) FROM products
+UNION ALL SELECT 'categories', COUNT(*) FROM categories
+UNION ALL SELECT 'suppliers', COUNT(*) FROM suppliers
+UNION ALL SELECT 'employees', COUNT(*) FROM employees
+UNION ALL SELECT 'shippers', COUNT(*) FROM shippers;
+----
+
+Expected results for Northwind:
+
+[cols="1,1"]
+|===
+| Table | Expected Count
+
+| customers | 91
+| orders | 830
+| products | 77
+| categories | 8
+| suppliers | 29
+| employees | 9
+| shippers | 3
+
+|===
+
+
+=== Neo4j Validation Queries
+
+Run these queries in Neo4j to verify node counts:
+
+[source,cypher]
+----
+// Count all node types
+MATCH (n)
+RETURN labels(n)[0] AS label, COUNT(*) AS count
+ORDER BY label
+----
+
+Or check each label individually:
+
+[source,cypher]
+----
+// Verify Customer count (Expected: 91)
+MATCH (c:Customer) RETURN COUNT(c) AS customerCount
+----
+
+[source,cypher]
+----
+// Verify Order count (Expected: 830)
+MATCH (o:Order) RETURN COUNT(o) AS orderCount
+----
+
+[source,cypher]
+----
+// Verify Product count (Expected: 77)
+MATCH (p:Product) RETURN COUNT(p) AS productCount
+----
+
+[NOTE]
+.Test Result
+====
+**PASS** if counts match exactly.
+**FAIL** if counts differ - investigate missing or duplicate records.
+====
+
+
+== Test Case 2: Relationship Count Validation
+
+Verify that relationships were created correctly from foreign keys.
+
+
+=== Expected Relationship Counts
+
+Calculate expected counts from PostgreSQL:
+
+[source,sql]
+----
+-- PLACED relationships (orders.customer_id -> customers)
+SELECT 'PLACED' as relationship, COUNT(*) as expected_count
+FROM orders WHERE customer_id IS NOT NULL
+UNION ALL
+-- PROCESSED relationships (orders.employee_id -> employees)
+SELECT 'PROCESSED', COUNT(*)
+FROM orders WHERE employee_id IS NOT NULL
+UNION ALL
+-- CONTAINS relationships (order_details)
+SELECT 'CONTAINS', COUNT(*)
+FROM order_details
+UNION ALL
+-- IN_CATEGORY relationships (products.category_id -> categories)
+SELECT 'IN_CATEGORY', COUNT(*)
+FROM products WHERE category_id IS NOT NULL
+UNION ALL
+-- SUPPLIES relationships (products.supplier_id -> suppliers)
+SELECT 'SUPPLIES', COUNT(*)
+FROM products WHERE supplier_id IS NOT NULL
+UNION ALL
+-- REPORTS_TO relationships (employees.reports_to -> employees)
+SELECT 'REPORTS_TO', COUNT(*)
+FROM employees WHERE reports_to IS NOT NULL;
+----
+
+
+=== Neo4j Validation Queries
+
+[source,cypher]
+----
+// Count all relationship types
+MATCH ()-[r]->()
+RETURN type(r) AS relationshipType, COUNT(*) AS count
+ORDER BY relationshipType
+----
+
+Verify specific relationships:
+
+[source,cypher]
+----
+// PLACED relationships (Expected: 830, one per order)
+MATCH (:Customer)-[r:PLACED]->(:Order)
+RETURN COUNT(r) AS placedCount
+----
+
+[source,cypher]
+----
+// CONTAINS relationships (Expected: 2155, from order_details)
+MATCH (:Order)-[r:CONTAINS]->(:Product)
+RETURN COUNT(r) AS containsCount
+----
+
+[source,cypher]
+----
+// REPORTS_TO relationships (Expected: 8, all employees except the CEO)
+MATCH (:Employee)-[r:REPORTS_TO]->(:Employee)
+RETURN COUNT(r) AS reportsToCount
+----
+
+
+== Test Case 3: Referential Integrity
+
+Verify that all relationships connect to existing nodes (no orphan relationships).
+
+
+=== Check for Orphan Orders
+
+[source,cypher]
+----
+// Find orders without a customer relationship
+MATCH (o:Order)
+WHERE NOT (:Customer)-[:PLACED]->(o)
+RETURN o.orderID AS orphanOrder
+LIMIT 10
+----
+
+**Expected:** No results (all orders should have a customer).
+
+
+=== Check for Products Without Categories
+
+[source,cypher]
+----
+// Find products without a category
+MATCH (p:Product)
+WHERE NOT (p)-[:IN_CATEGORY]->(:Category)
+RETURN p.productID, p.productName AS orphanProduct
+----
+
+**Expected:** No results (all products should have a category).
+
+
+=== Check for Employees Without Manager (except CEO)
+
+[source,cypher]
+----
+// Find employees without a manager (should only be the CEO)
+MATCH (e:Employee)
+WHERE NOT (e)-[:REPORTS_TO]->(:Employee)
+RETURN e.employeeID, e.firstName, e.lastName, e.title
+----
+
+**Expected:** One result - the CEO (Andrew Fuller, Vice President Sales).
+
+
+== Test Case 4: Property Validation
+
+Verify that properties have correct values and data types.
+
+
+=== Check Data Types
+
+[source,cypher,role=noplay]
+----
+// Verify orderDate is a date type, not a string
+MATCH (o:Order)
+WHERE o.orderDate IS NOT NULL
+RETURN 
+    o.orderID,
+    o.orderDate,
+    apoc.meta.type(o.orderDate) AS dateType
+LIMIT 5;
+----
+
+**Expected:** `dateType` should be `DATE` or `LOCAL_DATE`, not `STRING`.
+
+[NOTE]
+====
+The `apoc.meta.type()` function requires the APOC library. If APOC is not installed, you can check data types by examining the values - dates will display in ISO format (e.g., `2024-01-15`), while strings will show as quoted text.
+====
+
+
+=== Check for Empty Strings vs Missing Properties
+
+[source,cypher]
+----
+// Find customers where region might be empty string instead of missing
+MATCH (c:Customer)
+WHERE c.region = '' OR c.region = ' '
+RETURN c.customerID, c.companyName, c.region
+----
+
+**Expected:** No results - empty values should be omitted, not stored as empty strings.
+
+
+=== Verify Numeric Properties
+
+[source,cypher,role=noplay]
+----
+// Check that unitPrice is numeric
+MATCH (p:Product)
+RETURN 
+    p.productID,
+    p.productName,
+    p.unitPrice,
+    apoc.meta.type(p.unitPrice) AS priceType
+LIMIT 5;
+----
+
+**Expected:** `priceType` should be `FLOAT` or `DOUBLE`, not `STRING`.
+
+
+== Test Case 5: Sample Data Validation
+
+Spot-check specific records to verify data accuracy.
+
+
+=== Validate a Specific Customer
+
+PostgreSQL:
+[source,sql]
+----
+SELECT * FROM customers WHERE customer_id = 'ALFKI';
+----
+
+Neo4j:
+[source,cypher]
+----
+MATCH (c:Customer {customerID: 'ALFKI'})
+RETURN c.companyName, c.contactName, c.city, c.country
+----
+
+**Expected:** 
+* companyName: "Alfreds Futterkiste"
+* contactName: "Maria Anders"
+* city: "Berlin"
+* country: "Germany"
+
+
+=== Validate an Order with Details
+
+PostgreSQL:
+[source,sql]
+----
+SELECT o.order_id, c.company_name, COUNT(od.product_id) as item_count
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+JOIN order_details od ON o.order_id = od.order_id
+WHERE o.order_id = 10248
+GROUP BY o.order_id, c.company_name;
+----
+
+Neo4j:
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order {orderID: 10248})-[:CONTAINS]->(p:Product)
+RETURN c.companyName, o.orderID, COUNT(p) AS itemCount
+----
+
+**Expected:**
+* companyName: "Vins et alcools Chevalier"
+* orderID: 10248
+* itemCount: 3
+
+
+== Test Case 6: Constraint Verification
+
+Verify that unique constraints are in place and working.
+
+
+=== List All Constraints
+
+[source,cypher,role=noplay]
+----
+SHOW CONSTRAINTS
+----
+
+**Expected:** Unique constraints for all node ID properties:
+* Customer.customerID
+* Order.orderID
+* Product.productID
+* Category.categoryID
+* Supplier.supplierID
+* Employee.employeeID
+* Shipper.shipperID
+
+
+=== Test Constraint Enforcement
+
+[source,cypher,role=noplay]
+----
+// This should fail if constraint is working
+CREATE (c:Customer {customerID: 'ALFKI', companyName: 'Duplicate Test'});
+----
+
+**Expected:** Error - constraint violation for duplicate customerID.
+
+
+== Organizing Validation Queries in Neo4j Aura
+
+In Neo4j Aura, create a folder structure to organize validation queries. These queries are reusable for any import project.
+
+
+=== Folder: Validation-01-Node-Counts
+
+Save these queries from Test Case 1:
+
+* `count-all-nodes.cypher` - The query that counts all node types at once
+* `count-customers.cypher` - Individual Customer count verification
+* `count-orders.cypher` - Individual Order count verification
+* `count-products.cypher` - Individual Product count verification
+
+
+=== Folder: Validation-02-Relationship-Counts
+
+Save these queries from Test Case 2:
+
+* `count-all-relationships.cypher` - The query that counts all relationship types
+* `count-placed.cypher` - PLACED relationship count
+* `count-contains.cypher` - CONTAINS relationship count
+* `count-reports-to.cypher` - REPORTS_TO relationship count
+
+
+=== Folder: Validation-03-Referential-Integrity
+
+Save these queries from Test Case 3:
+
+* `find-orphan-orders.cypher` - Orders without a customer relationship
+* `find-orphan-products.cypher` - Products without a category
+* `find-employees-without-manager.cypher` - Employees without REPORTS_TO (should only return CEO)
+
+
+=== Folder: Validation-04-Property-Checks
+
+Save these queries from Test Case 4:
+
+* `check-date-types.cypher` - Verify orderDate is a date type
+* `check-empty-strings.cypher` - Find empty strings that should be NULL
+* `check-numeric-types.cypher` - Verify unitPrice is numeric
+
+
+=== Folder: Validation-05-Sample-Data
+
+Save these queries from Test Case 5:
+
+* `validate-customer-alfki.cypher` - Spot-check specific customer data
+* `validate-order-10248.cypher` - Spot-check order with details
+
+
+=== Folder: Validation-06-Constraints
+
+Save these queries from Test Case 6:
+
+* `show-constraints.cypher` - List all constraints
+* `test-constraint-enforcement.cypher` - Test that duplicate creation fails
+
+[TIP]
+.Bookmark the validation test plan
+====
+Bookmark this lesson. The validation test plan and queries apply to any relational-to-graph migration, not just Northwind. Adapt the specific counts and property names for your source data.
+====
+
+
+== Validation Checklist
+
+Use this checklist to track your validation progress:
+
+[%interactive]
+* [ ] Node counts match source table row counts
+* [ ] Relationship counts match expected foreign key connections
+* [ ] No orphan nodes (nodes missing expected relationships)
+* [ ] No orphan relationships (relationships to non-existent nodes)
+* [ ] Data types are correct (dates, numbers, booleans)
+* [ ] No empty strings where NULL was expected
+* [ ] Sample records match source data exactly
+* [ ] All unique constraints are in place
+* [ ] Constraints prevent duplicate creation
+
+
+== Common Validation Issues and Solutions
+
+[cols="1,2,2"]
+|===
+| Issue | Cause | Solution
+
+| Missing relationships
+| Foreign key values did not match during import
+| Check for case sensitivity, data type mismatches, or trimming issues
+
+| Duplicate nodes
+| Constraint not created before import
+| Delete duplicates, add constraint, re-import
+
+| Wrong data types
+| Automatic type inference was incorrect
+| Explicitly set types during import or convert after
+
+| Missing properties
+| NULL values in source not handled
+| Verify this is expected behavior; add defaults if needed
+
+| Count mismatch
+| Filtering during import or duplicate handling
+| Review import queries for WHERE clauses or MERGE behavior
+
+|===
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-data-quality.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned:
+
+* How to create a validation test plan
+* Test cases for verifying node counts, relationship counts, and referential integrity
+* How to validate property values and data types
+* Techniques for spot-checking sample data
+* How to verify constraints are working correctly
+
+In the next lesson, you will compare SQL and Cypher query performance.
