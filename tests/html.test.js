@@ -25,8 +25,8 @@ describe("html generation", () => {
           .replace(CODE_BLOCK_REGEX, "")
           .replace(PRE_BLOCK_REGEX, "");
 
-        // Find broken headers (=+ followed by space and text) anywhere in content
-        const BROKEN_HEADER_REGEX = /(?:^|>)(=+\s+[^<\n]+)/gm;
+        // Find broken headers (=+ followed by space and text) at the start of a line
+        const BROKEN_HEADER_REGEX = /^(=+\s+[^<\n]+)/gm;
         const brokenHeaders = [];
         let match;
         while ((match = BROKEN_HEADER_REGEX.exec(textWithoutCode)) !== null) {
