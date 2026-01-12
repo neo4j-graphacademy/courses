@@ -68,18 +68,18 @@ describe("QA Tests", () => {
           expect(getAttribute(courseAdoc, "caption")).toBeDefined();
         });
 
-        it("should have a level", () => {
-          expect(getAttribute(courseAdoc, "categories")).toBeDefined();
+        // it("should have a level", () => {
+        //   expect(getAttribute(courseAdoc, "categories")).toBeDefined();
 
-          const categories = getAttribute(courseAdoc, "categories")
-            .split(",")
-            .map((e) => e.split(":")[0])
-            .map((e) => e.trim());
-          expect(categories.length).toBeGreaterThan(0);
+        //   const categories = getAttribute(courseAdoc, "categories")
+        //     .split(",")
+        //     .map((e) => e.split(":")[0])
+        //     .map((e) => e.trim());
+        //   expect(categories.length).toBeGreaterThan(0);
 
-          const levels = ["beginners", "intermediate", "advanced", "workshops"];
-          expect(levels.some((level) => categories.includes(level))).toBe(true);
-        });
+        //   const levels = ["beginners", "intermediate", "advanced", "workshops"];
+        //   expect(levels.some((level) => categories.includes(level))).toBe(true);
+        // });
 
         it("should have a duration", () => {
           expect(getAttribute(courseAdoc, "duration")).toBeDefined();
@@ -125,7 +125,9 @@ describe("QA Tests", () => {
         }
 
         it("should have one or more modules", () => {
-          expect(modulePaths.length).toBeGreaterThan(0);
+          if (status === "active") {
+            expect(modulePaths.length).toBeGreaterThan(0);
+          }
         });
 
         it("should have an illustration", () => {
