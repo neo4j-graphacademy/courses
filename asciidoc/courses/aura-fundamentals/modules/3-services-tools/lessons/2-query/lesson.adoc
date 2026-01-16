@@ -1,127 +1,175 @@
 = Query tool
 :type: lesson
-:order: 2
+:order: 4
 :slides: true
 
 [.slide.discrete]
-== Querying data
+== Querying data for recommendations
 
-In the previous lesson, you imported data into your Aura instance.
+In the previous lesson, you ran the import and verified your movie data was loaded into your Aura instance, creating a graph with Person and Movie nodes connected by ACTED_IN relationships.
+
+**Your mission in this lesson:** Write Cypher queries that find movie recommendations by traversing relationships. You'll learn the query patterns that power recommendation engines—finding movies with the same actors, discovering co-actors, and identifying similar films.
 
 In this lesson, you will learn how to:
 
 * Connect to your Aura instance using the Query tool
-* Execute Cypher queries to explore your data
-* Visualize query results in different formats
+* Write Cypher queries that traverse relationships to find recommendations
+* Visualize query results to understand actor-movie connections
+* Use query patterns that power recommendation systems
 
 
 [.slide]
-== Prerequisites
+== Step 1: Access the Query tool
 
-Before starting, complete the previous lesson and import the sample data into your Aura instance.
+**Prerequisites:** Complete the previous lesson and import the movie data into your Aura instance. You need Movie and Person nodes with ACTED_IN relationships to write recommendation queries.
 
-Open the Aura console and select your instance.
+**How to do it:**
 
-[.slide]
-== Accessing the Query tool
+1. Open the Aura Console and select your instance
+2. In the left sidebar, click **Query**
+3. The Query tool interface opens with:
+   * **Sidebar**: Database information showing your node labels (Movie, Person) and relationship types (ACTED_IN)
+   * **Cypher editor**: Where you'll write recommendation queries
+   * **Result frame**: Where query results appear (graph, table, or text format)
+
+**Why the Query tool:** Cypher is the language for traversing relationships in your graph. The Query tool lets you write and test recommendation queries interactively.
+
 image::images/02_query_tool_connect.jpg[querytool_connect,width=500,align=center]
 
-Before you select **Query**, check that you've loaded the data from the previous lesson.
-
-[.slide]
-== Query Tool interface
 image::images/02_query_tool_start.jpg[querytool_start,width=500,align=center]
 
-The Query UI consists of the sidebar, the Cypher editor, and the result frame(s).
+**Verify your data:** Click on **Movie** and **Person** labels in the sidebar to see how many nodes you have. Click on **ACTED_IN** to see the relationship count. This confirms your data is ready for recommendation queries.
 
 
 [.slide]
+== Step 2: Your first recommendation query
 
-== AI generated queries
+**What you'll build:** A query that finds all movies an actor appeared in—the foundation of actor-based recommendations.
 
-Generate queries from a prompt using the **Generate with AI** button.
+**How to do it:**
 
-Enter a description of what you want to query and the Cypher will be created for you. For example, "Find all movies".
+1. In the Cypher editor, type or paste this query:
++
+[source,cypher]
+----
+MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN p, r, m
+----
+
+2. Click **Run** (or press `Ctrl+Enter`)
+
+**How it works in the background:**
+* `MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)` - Finds all paths where a Person node connects to a Movie node via an ACTED_IN relationship
+* `WHERE p.name = 'Tom Hanks'` - Filters to only Tom Hanks
+* `RETURN p, r, m` - Returns the Person node, relationship, and Movie nodes
+
+**Why this matters for recommendations:** This query pattern (find all movies for an actor) is the first step in recommendation logic. Once you know a user likes Tom Hanks movies, you can find all his films.
+
+image::images/02_query_tool_command.jpg[querytool_command,width=600,align=center]
+
+**Alternative: Use AI to generate queries**
+
+Click **Generate with AI** and describe what you want: "Find all movies Tom Hanks acted in". The AI generates the Cypher query for you.
 
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/generate-query-ai.mp4["Generate Query AI",role="cdn", width=100%]
 
 [.slide]
+== Step 3: Understand your query results
 
-== Querying
-Start by exploring the database details.
+**What you're seeing:** The query returns a graph visualization showing Tom Hanks (Person node) connected to multiple Movie nodes via ACTED_IN relationships. Each connection represents a movie he acted in.
 
-Click on the labels and relationship types under **Database Information** to see the number of nodes and relationships in the database.
-
-// Copy the following Cypher query into the query editor:
-
-
-// ----
-// MATCH (p:Person)-[r:ACTED_IN]->(m:Movie)
-// WHERE p.name = 'Tom Hanks'
-// RETURN p,r,m
-// ----
-
-[.slide]
-== Running a query
-image::images/02_query_tool_command.jpg[querytool_command,width=600,align=center]
-
-Use the **Run** button or press `Ctrl+Enter` to execute the query.
-
-[.slide]
-== Query results
+**Why graph visualization matters:** Seeing the connections visually helps you understand recommendation patterns. You can see how many movies an actor appeared in and identify clusters of related films.
 
 image::images/02_query_tool_result.jpg[querytool_result,width=600,align=center]
 
-To customize the result styling, click on the labels in the **Results overview** and adjust the appearance.
+**Customize the visualization:** Click on the labels in the **Results overview** panel to style your graph:
 
-[.slide]
-== Styling results
+* **Colors** - Make Person nodes blue and Movie nodes green for quick distinction
+* **Size** - Make Movie nodes larger to emphasize them in recommendations
+* **Captions** - Display `title` for Movie nodes and `name` for Person nodes
+* **Icons** - Add movie icons to Movie nodes for visual clarity
+
+**How it helps recommendations:** Styled visualizations make it easier to spot patterns—like which actors appear in multiple movies together, or which movies share the most actors.
 
 image::images/02_query_tool_styling.jpg[querytool_styling,width=600,align=center]
 
-Customize how nodes and relationships appear in the graph view:
 
-* **Colors** - Assign different colors to node labels for visual distinction
-* **Size** - Adjust node size based on importance or a property value
-* **Captions** - Choose which property to display as the node label (e.g., name, title)
-* **Icons** - Add icons to nodes for quick visual identification
+[.slide]
+== Step 4: Build recommendation query patterns
 
-These styling choices help you quickly identify patterns and distinguish between different types of nodes in your results.
+**Pattern 1: Find movies with the same actor**
 
+You already wrote this—finding all movies for an actor. This is the foundation of actor-based recommendations.
+
+**Pattern 2: Find actors who worked together**
+
+This query finds actors who appeared in the same movies—useful for "People who liked this actor also liked..." recommendations:
+
+[source,cypher]
+----
+MATCH (p1:Person)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person)
+WHERE p1.name = 'Tom Hanks' AND p2.name <> 'Tom Hanks'
+RETURN DISTINCT p2.name AS co_actor, m.title AS movie
+ORDER BY co_actor
+----
+
+**How it works:** The pattern `(p1)-[:ACTED_IN]->(m)<-[:ACTED_IN]-(p2)` finds two actors connected through the same movie. This is relationship traversal—the core of graph-based recommendations.
+
+**Pattern 3: Find similar movies (movies with shared actors)**
+
+This finds movies that share actors—the core recommendation logic:
+
+[source,cypher]
+----
+MATCH (m1:Movie)<-[:ACTED_IN]-(p:Person)-[:ACTED_IN]->(m2:Movie)
+WHERE m1.title = 'The Matrix'
+RETURN DISTINCT m2.title AS similar_movie, 
+       COUNT(p) AS shared_actors
+ORDER BY shared_actors DESC
+LIMIT 10
+----
+
+**How it works:** This traverses from a movie through actors to other movies. Movies with more shared actors are more similar—exactly what recommendation engines need.
+
+**Why these patterns matter:** These three query patterns form the foundation of recommendation systems:
+1. Actor → Movies (what did this actor star in?)
+2. Actor → Co-actors → Movies (what did their co-stars appear in?)
+3. Movie → Actors → Similar Movies (what movies share actors?)
 
 [.slide]
 == Query tool capabilities
 
 The Query tool provides an interface for database interaction through Cypher:
 
-* Run Cypher queries and view results in multiple formats
-* Execute administrative commands (schema, indexes, constraints)
-* Develop, test, and troubleshoot queries
-* Generate queries using AI assistance
+* **Run recommendation queries**: Write and test Cypher queries that traverse relationships
+* **Visualize results**: See actor-movie connections in graph format
+* **Develop and test**: Iterate on recommendation algorithms
+* **Generate with AI**: Use natural language to create queries
+* **Administrative tasks**: Create indexes to speed up recommendation queries
 
 
 [.slide]
-== Result visualization formats
+== Step 5: Choose the right visualization format
 
-The Query tool displays results in multiple formats depending on your data:
+The Query tool displays results in multiple formats. Choose the format that best supports your recommendation use case:
 
-**Graph view** displays nodes and relationships visually:
+**Graph view** - Ideal for understanding relationships:
 
-* Visualizes relationships between nodes
-* Reveals connection patterns
-* Works well with small to medium result sets (up to a few hundred nodes)
+* **Use for**: Seeing how actors connect to movies, identifying clusters of related films
+* **Why it helps recommendations**: Visual patterns reveal which movies share actors, making it easy to spot recommendation opportunities
+* **Limitation**: Works well with small to medium result sets (up to a few hundred nodes)
 
-**Table view** organizes results in rows and columns:
+**Table view** - Use for aggregated recommendations:
 
-* Displays aggregated results (counts, sums, averages)
-* Enables property comparisons across nodes
-* Supports exporting data for further analysis
+* **Use for**: Lists of recommended movies with counts (e.g., "Movies with 5+ shared actors")
+* **Why it helps recommendations**: Shows ranked results—movies with more shared actors are better recommendations
+* **Example**: A table showing "Similar Movie | Shared Actors Count" helps you prioritize recommendations
 
-**Text/JSON view** shows raw output:
+**Text/JSON view** - Use for debugging and integration:
 
-* Useful for debugging query results
-* Allows copying data programmatically
-* Displays raw property values
+* **Use for**: Debugging why a recommendation query isn't working, or copying results for your application
+* **Why it helps recommendations**: Raw data helps you understand query results before building recommendation APIs
 
 
 [.slide]
@@ -157,10 +205,20 @@ include::questions/1-purpose.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, you learned how to use the Query tool to connect to your database, execute Cypher queries, and visualize results.
+In this lesson, you learned how to write Cypher queries that power your recommendation engine. You:
 
-Key capabilities include running queries, managing schema, and customizing result visualization.
+* **Connected to your database**: Used the Query tool to access your movie graph
+* **Wrote recommendation queries**: Learned three core patterns:
+  * Finding movies for an actor
+  * Finding actors who worked together
+  * Finding similar movies based on shared actors
+* **Visualized results**: Used graph, table, and text views to understand recommendation patterns
+* **Understood relationship traversal**: Learned how Cypher traverses ACTED_IN relationships to find connections
+
+**Why this matters:** These query patterns form the foundation of recommendation systems. By traversing relationships (Person -[:ACTED_IN]-> Movie), you can find movies with shared actors, discover co-actor networks, and identify similar films—exactly what recommendation engines need.
+
+**How it works in the background:** Cypher's `MATCH` clause finds paths through your graph by following relationships. When you write `(p:Person)-[:ACTED_IN]->(m:Movie)`, Neo4j's query engine efficiently traverses all ACTED_IN relationships to find matching patterns. This is why graph databases excel at recommendations—they're optimized for relationship traversal.
 
 For more information on the Query tool and Cypher syntax, see the link:https://neo4j.com/docs/aura/query/introduction/[Neo4j Aura Query documentation^] and the link:https://neo4j.com/docs/cypher-manual/current/[Cypher Manual^].
 
-In the next lesson, you will learn to explore your data visually without writing Cypher.
+In the next lesson, you'll explore your movie graph visually using the Explore tool, which lets you navigate actor-movie connections without writing Cypher.

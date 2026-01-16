@@ -26,8 +26,33 @@ async function renderMermaidToSvgAndPng(mmdPath: string, browser: any): Promise<
     // Set a larger viewport for better quality
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 2 })
 
-    // Use the code as-is - Mermaid should handle single quotes in init blocks
-    const processedCode = mermaidCode
+    // Reorder code: init block, then flowchart, then classDef/linkStyle
+    let processedCode = mermaidCode
+
+    // Extract init block
+    const initBlockMatch = mermaidCode.match(/%%\{init:[\s\S]*?\}%%/)
+    const initBlock = initBlockMatch ? initBlockMatch[0] : ''
+
+    // Remove init block from code
+    let codeWithoutInit = mermaidCode.replace(/%%\{init:[\s\S]*?\}%%\s*\n?/, '')
+
+    // Extract flowchart/graph declaration (must come first after init)
+    const diagramTypeMatch = codeWithoutInit.match(/^(flowchart|graph|sequenceDiagram|stateDiagram|classDiagram|erDiagram|gantt|pie|gitgraph|journey|requirement)\s+[A-Z]{2}/m)
+    const diagramType = diagramTypeMatch ? diagramTypeMatch[0] : ''
+
+    // Extract classDef and linkStyle (must come after diagram type)
+    const classDefMatch = codeWithoutInit.match(/%%\s*Classes[\s\S]*?(?=flowchart|graph|sequenceDiagram|stateDiagram|classDiagram|erDiagram|gantt|pie|gitgraph|journey|requirement|$)/i)
+    const classDefBlock = classDefMatch ? classDefMatch[0].replace(/%%\s*Classes.*?\n/i, '').trim() : ''
+
+    // Remove classDef block from code
+    codeWithoutInit = codeWithoutInit.replace(/%%\s*Classes[\s\S]*?(?=flowchart|graph|sequenceDiagram|stateDiagram|classDiagram|erDiagram|gantt|pie|gitgraph|journey|requirement|$)/i, '')
+
+    // Reconstruct: init block, diagram type, classDef, rest of code
+    if (initBlock && diagramType) {
+        processedCode = `${initBlock}\n\n${diagramType}\n${classDefBlock ? classDefBlock + '\n' : ''}${codeWithoutInit.replace(/^(flowchart|graph|sequenceDiagram|stateDiagram|classDiagram|erDiagram|gantt|pie|gitgraph|journey|requirement)\s+[A-Z]{2}\s*/m, '')}`
+    } else {
+        processedCode = mermaidCode
+    }
 
     const html = `
     <!DOCTYPE html>
@@ -63,7 +88,7 @@ ${processedCode}
         </div>
         <script>
             mermaid.initialize({ 
-                startOnLoad: true,
+                startOnLoad: false,
                 securityLevel: 'loose',
                 theme: 'base'
             });
@@ -86,13 +111,29 @@ ${processedCode}
         }
     })
 
-    // Wait for Mermaid library to load and render
+    // Wait for Mermaid library to load
     await page.waitForFunction(() => {
         return typeof (window as any).mermaid !== 'undefined'
     }, { timeout: 10000 })
 
-    // Wait a bit for Mermaid to process
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // Trigger Mermaid rendering explicitly
+    await page.evaluate(() => {
+        return new Promise((resolve, reject) => {
+            try {
+                const result = (window as any).mermaid.run();
+                if (result && result.then) {
+                    result.then(() => resolve(undefined)).catch(reject);
+                } else {
+                    resolve(undefined);
+                }
+            } catch (error) {
+                reject(error);
+            }
+        });
+    })
+
+    // Wait a bit for Mermaid to process and render
+    await new Promise(resolve => setTimeout(resolve, 3000))
 
     // Wait for Mermaid to render SVG
     try {

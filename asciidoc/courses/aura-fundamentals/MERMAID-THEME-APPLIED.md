@@ -85,34 +85,43 @@ All Mermaid diagrams in the `aura-fundamentals` course now use the standardized 
 
 ## Theme Features
 
-### Color Palette
-- **Primary Text**: `#014063` (Mid Baltic)
-- **Primary Background**: `#E7FAFB` (Light Cyan)
-- **Primary Border**: `#57C7E3` (Cyan)
-- **Highlight**: `#00CC52` (Lime Green)
-- **Teal**: `#006E58` (Teal)
-- **Warning**: `#F79767` (Orange)
-- **Muted**: `#485662` (Slate Gray)
+### Color Palette (Solid Colors Only)
+- **Primary Text**: `#0f172a` (Dark Slate)
+- **Primary Background**: `#eef6f9` (Light Cyan)
+- **Primary Border**: `#c7e0ec` (Cyan)
+- **Highlight Background**: `#f4f5ff` (Light Purple)
+- **Highlight Border**: `#c7d2fe` (Purple)
+- **Forest Background**: `#edf6e8` (Light Green)
+- **Forest Border**: `#b7df9c` (Green)
+- **Earth Background**: `#f4ebe3` (Light Brown)
+- **Earth Border**: `#dcc4a2` (Brown)
+- **Muted Background**: `#ffffff` (White)
+- **Muted Border**: `#e5e7eb` (Light Gray)
+- **Line Color**: `#94a3b8` (Slate)
 - **Background**: `#FFFFFF` (White)
-- **Secondary Background**: `#F5F7FA` (Light Gray)
 
 ### Typography
-- **Font Family**: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif
-- **Font Size**: 14px
-- **Primary Text Color**: `#014063`
+- **Font Family**: Public Sans, Arial, Helvetica, sans-serif
+- **Font Size**: 16px
+- **Primary Text Color**: `#0f172a`
 
 ### Layout
-- **Node Spacing**: 56px
-- **Rank Spacing**: 76px
-- **Padding**: 12px
+- **Node Spacing**: 72px
+- **Rank Spacing**: 86px
+- **Padding**: 16px
 - **Curve**: basis
 
+### Important Notes
+- **Font**: All diagrams use Public Sans as the primary font
+- **Solid Colors Only**: All colors are solid hex values (no gradients)
+- **Theme**: Using `base` theme to prevent default gradient rendering
+
 ### CSS Classes Available
-- `primary` - Main containers (Light Cyan background, Cyan border)
-- `highlight` - Success states (Light Cyan background, Lime Green border)
-- `teal` - Data layers (Light Cyan background, Teal border)
-- `warning` - Warnings (Light Gray background, Orange border)
-- `muted` - Secondary info (Light Gray background, Slate border)
+- `primary` - Main containers (`#eef6f9` background, `#c7e0ec` border, `#0b5c7a` text)
+- `highlight` - Success states, key actions (`#f4f5ff` background, `#c7d2fe` border, `#3730a3` text)
+- `forest` - Data layers, database instances (`#edf6e8` background, `#b7df9c` border, `#2f5d1e` text)
+- `earth` - Backups, storage, warnings (`#f4ebe3` background, `#dcc4a2` border, `#5c3a1e` text)
+- `muted` - Secondary info (`#ffffff` background, `#e5e7eb` border, `#334155` text)
 
 ## Usage for New Diagrams
 
