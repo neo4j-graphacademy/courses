@@ -1,0 +1,156 @@
+= Understanding the deployment pipeline
+:type: lesson
+:order: 3
+
+Your pull request has been approved and merged. Behind the scenes, an automated deployment pipeline publishes your course to GraphAcademy.
+
+In this lesson, you will learn how the GitHub Actions workflow deploys course content to production.
+
+
+== Deployment triggers
+
+The deployment pipeline runs automatically when:
+
+* A **version tag** is pushed (e.g., `v1.41.10`) - deploys to **production**
+* A commit is pushed to the **development** branch - deploys to **development environment**
+
+
+== Deployment workflow
+
+The GitHub Actions workflow (`.github/workflows/release.yml`) runs through several stages:
+
+
+=== 1. Determine environment
+
+The workflow checks if the trigger is a version tag or branch push:
+
+* Tags starting with `v*` deploy to **production**
+* Commits to `development` deploy to **development**
+
+
+=== 2. Run tests
+
+The workflow installs dependencies, builds the course content, and runs HTML tests.
+
+If tests fail, the deployment stops.
+
+Build artifacts (`html.zip` and `courses.zip`) are saved for later stages.
+
+
+=== 3. Update database (production only)
+
+For production deployments, the workflow syncs course metadata to the Neo4j database.
+
+This updates:
+
+* Course information
+* Module structure
+* Lesson content and metadata
+* Question data
+* Relationships between courses, modules, and lessons
+
+
+After syncing, database tests verify the sync was successful.
+
+
+=== 4. Sync assets
+
+The workflow uploads static assets to the CDN (S3):
+
+* `public/` directory - fonts, images, slides
+* Course images from `asciidoc/courses/**/images/`
+
+
+=== 5. Upload archives
+
+Build artifacts are uploaded to S3:
+
+* `html.zip` - HTML files used by the website
+* `courses.zip` - Source AsciiDoc files for archival
+
+
+=== 6. Restart cluster
+
+The ECS cluster running GraphAcademy is restarted to pick up the new content:
+
+* Containers pull the latest `html.zip` file
+* Course content is refreshed
+* New courses become available
+
+
+=== 7. Invalidate cache
+
+CloudFront cache is invalidated so users see the latest content immediately.
+
+
+== Monitoring deployments
+
+You can monitor deployment progress in the GitHub Actions tab:
+
+link:https://github.com/neo4j-graphacademy/courses/actions[View GitHub Actions^]
+
+Each stage shows:
+
+* ✅ Success - Stage completed
+* ⏳ In progress - Stage running
+* ❌ Failure - Stage failed (deployment stops)
+
+
+If a deployment fails, check the logs for the failing stage to understand the issue.
+
+
+== Deployment environments
+
+**Development:**
+
+* URL: link:https://dev.graphacademy.neo4j.com[dev.graphacademy.neo4j.com^]
+* Purpose: Test changes before production
+* Trigger: Commits to `development` branch
+* **Note:** This URL normally responds with a `50x` error, because the AuraDB free instance that backs it is not running or has been terminated.  Contact Adam.
+
+
+**Production:**
+
+* URL: link:https://graphacademy.neo4j.com[graphacademy.neo4j.com^]
+* Purpose: Live courses available to all users
+* Trigger: Version tags (e.g., `v1.41.10`)
+* Includes: Database sync, full CDN sync, cluster restart
+
+
+== Rollback process
+
+If a deployment introduces issues:
+
+1. **Identify the problem** - Review error reports or monitoring
+2. **Create a fix** - Make necessary changes in a new branch
+3. **Test thoroughly** - Ensure the fix resolves the issue
+4. **Fast-track PR** - Get urgent approval for critical fixes
+5. **Deploy fix** - Tag a new version to deploy
+
+
+For critical issues, you can also:
+
+* Revert the problematic commit
+* Re-deploy the previous working version
+
+
+== Best practices
+
+* Monitor deployments in GitHub Actions
+* Test in development environment before production
+* Review deployment logs for warnings
+* Coordinate releases with the team
+* Document any deployment issues for future reference
+
+
+read::Continue[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about the automated deployment pipeline that publishes courses to GraphAcademy.
+
+The pipeline runs tests, syncs databases, uploads assets, restarts the cluster, and invalidates caches to make your course available to users.
+
+You now understand the complete process of creating, testing, and deploying GraphAcademy courses.
