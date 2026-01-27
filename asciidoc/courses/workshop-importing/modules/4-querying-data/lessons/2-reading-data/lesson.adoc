@@ -1,0 +1,335 @@
+= Reading Data from Northwind
+:type: lesson
+:order: 2
+
+Now that you understand Cypher basics, let's query the Northwind graph to explore the data you imported.
+
+== Finding Nodes
+
+The simplest query returns all nodes of a specific label.
+
+### All Customers
+
+```cypher
+MATCH (c:Customer)
+RETURN c
+LIMIT 10;
+```
+
+```mermaid
+flowchart LR
+    A[MATCH] --> B[Find all Customer nodes]
+    B --> C[RETURN]
+    C --> D[Return first 10]
+```
+
+This finds all Customer nodes and returns the first 10.
+
+[NOTE]
+====
+Always use `LIMIT` when exploring data to avoid returning too many results.
+====
+
+### All Products
+
+```cypher
+MATCH (p:Product)
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC
+LIMIT 10;
+```
+
+Returns the 10 most expensive products.
+
+**Result:**
+```
+productName                    unitPrice
+"Côte de Blaye"                263.50
+"Thüringer Rostbratwurst"      123.79
+"Mishi Kobe Niku"              97.00
+...
+```
+
+## Finding Specific Nodes
+
+Use properties to find specific nodes.
+
+### Find Customer by ID
+
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})
+RETURN c.companyName, c.city, c.country;
+```
+
+```mermaid
+graph LR
+    A[Find] --> B["Customer<br/>customerId: ALFKI"]
+    B --> C[Return properties]
+```
+
+**Result:**
+```
+companyName            city     country
+"Alfreds Futterkiste"  "Berlin" "Germany"
+```
+
+### Find Products by Category Name
+
+```cypher
+MATCH (cat:Category {categoryName: 'Beverages'})<-[:PART_OF]-(p:Product)
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+```
+
+```mermaid
+graph LR
+    A[Beverages Category] <--> B[PART_OF] <--> C[Products]
+```
+
+Returns all beverage products with prices.
+
+== Exploring Relationships
+
+### Customer's Orders
+
+Find all orders for a specific customer:
+
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.companyName, o.orderId, o.orderDate
+ORDER BY o.orderDate;
+```
+
+```mermaid
+graph LR
+    A[Customer ALFKI] -->|PLACED| B[Orders]
+```
+
+**Result:**
+```
+companyName            orderId  orderDate
+"Alfreds Futterkiste"  10643    1996-08-25
+"Alfreds Futterkiste"  10692    1996-10-03
+"Alfreds Futterkiste"  10702    1996-10-13
+...
+```
+
+### Products in an Order
+
+Find what products were in a specific order:
+
+```cypher
+MATCH (o:Order {orderId: 10248})-[rel:ORDERS]->(p:Product)
+RETURN p.productName, rel.quantity, rel.unitPrice, 
+       rel.quantity * rel.unitPrice AS lineTotal
+ORDER BY lineTotal DESC;
+```
+
+```mermaid
+graph LR
+    A[Order 10248] -->|ORDERS<br/>quantity, price| B[Products]
+```
+
+**Result:**
+```
+productName        quantity  unitPrice  lineTotal
+"Queso Cabrales"   12        14.00      168.00
+"Singaporean..."   10        9.80       98.00
+"Mozzarella..."    5         34.80      174.00
+```
+
+### Employee's Orders
+
+Find orders processed by an employee:
+
+```cypher
+MATCH (e:Employee {lastName: 'Davolio'})-[:SOLD]->(o:Order)
+RETURN e.firstName + ' ' + e.lastName AS employee,
+       count(o) AS orderCount;
+```
+
+```mermaid
+graph LR
+    A[Employee Davolio] -->|SOLD| B[Orders]
+```
+
+**Result:**
+```
+employee          orderCount
+"Nancy Davolio"   123
+```
+
+== Multi-Hop Traversals
+
+### Customer's Product Purchases
+
+Find all products a customer has ever purchased:
+
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
+RETURN DISTINCT p.productName
+ORDER BY p.productName;
+```
+
+```mermaid
+graph LR
+    A[Customer] -->|PLACED| B[Order]
+    B -->|ORDERS| C[Product]
+```
+
+This traverses two relationships:
+1. Customer PLACED Order
+2. Order ORDERS Product
+
+**Result:**
+```
+productName
+"Aniseed Syrup"
+"Chartreuse verte"
+"Flotemysost"
+...
+```
+
+### Products from a Supplier
+
+Find all products from a specific supplier:
+
+```cypher
+MATCH (s:Supplier {companyName: 'Exotic Liquids'})<-[:SUPPLIED_BY]-(p:Product)
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+```
+
+```mermaid
+graph LR
+    A[Supplier:<br/>Exotic Liquids] <-- B[SUPPLIED_BY] <-- C[Products]
+```
+
+## Counting Results
+
+### Count All Nodes
+
+```cypher
+MATCH (n)
+RETURN labels(n) AS label, count(*) AS count
+ORDER BY count DESC;
+```
+
+Returns node counts by label.
+
+### Count Customer Orders
+
+```cypher
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+RETURN c.companyName, count(o) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10;
+```
+
+```mermaid
+flowchart LR
+    A[Customers] -->|PLACED| B[Orders]
+    B --> C[Count per customer]
+    C --> D[Top 10]
+```
+
+**Result:**
+```
+companyName               orderCount
+"Ernst Handel"            30
+"QUICK-Stop"              28
+"Save-a-lot Markets"      31
+...
+```
+
+== Returning Different Data Types
+
+### Return Nodes
+
+```cypher
+MATCH (c:Customer)
+RETURN c
+LIMIT 5;
+```
+
+Returns entire Customer nodes (visualized as graph).
+
+### Return Properties
+
+```cypher
+MATCH (c:Customer)
+RETURN c.companyName, c.city
+LIMIT 5;
+```
+
+Returns specific properties (displayed as table).
+
+### Return Paths
+
+```cypher
+MATCH path = (c:Customer)-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
+WHERE c.customerId = 'ALFKI'
+RETURN path
+LIMIT 10;
+```
+
+Returns entire paths (visualized as connected graph).
+
+### Return Computed Values
+
+```cypher
+MATCH (p:Product)
+RETURN p.productName, 
+       p.unitPrice,
+       p.unitPrice * 1.2 AS priceWithTax
+LIMIT 5;
+```
+
+```mermaid
+flowchart LR
+    A[Product Price] --> B[Calculate]
+    B --> C[Price + 20% Tax]
+```
+
+Returns calculated values.
+
+## Exploring the Employee Hierarchy
+
+Find the reporting structure:
+
+```cypher
+MATCH (e:Employee)-[:REPORTS_TO]->(manager:Employee)
+RETURN e.firstName + ' ' + e.lastName AS employee,
+       manager.firstName + ' ' + manager.lastName AS reportsTo
+ORDER BY reportsTo, employee;
+```
+
+```mermaid
+graph TB
+    A[Employees] -->|REPORTS_TO| B[Managers]
+```
+
+**Result:**
+```
+employee              reportsTo
+"Steven Buchanan"     "Andrew Fuller"
+"Laura Callahan"      "Andrew Fuller"
+"Nancy Davolio"       "Andrew Fuller"
+...
+```
+
+== Summary
+
+In this lesson, you learned how to:
+
+* Find nodes by label: `MATCH (c:Customer)`
+* Find specific nodes by property: `{customerId: 'ALFKI'}`
+* Return properties: `RETURN c.companyName`
+* Traverse relationships: `-[:PLACED]->`
+* Perform multi-hop traversals through multiple relationships
+* Count results: `count()`
+* Order results: `ORDER BY`
+* Limit results: `LIMIT`
+* Return different data types (nodes, properties, paths)
+
+In the next lesson, you will learn more advanced pattern matching techniques.

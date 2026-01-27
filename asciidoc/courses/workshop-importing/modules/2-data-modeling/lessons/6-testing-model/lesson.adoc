@@ -1,0 +1,239 @@
+= Testing Your Data Model
+:type: lesson
+:order: 6
+
+== Why Test Your Model?
+
+Before importing large amounts of data, you should test your data model with sample data to verify it:
+
+* Answers all use cases efficiently
+* Performs well with realistic queries
+* Is intuitive and easy to work with
+* Scales appropriately
+
+```mermaid
+flowchart TD
+    A[Design Model] --> B[Create Sample Data]
+    B --> C[Write Test Queries]
+    C --> D{Does it work?}
+    D -->|Yes| E[Proceed with Full Import]
+    D -->|No| F[Refactor Model]
+    F --> B
+```
+
+== Testing with Sample Data
+
+Create a small instance model with representative data:
+
+```mermaid
+graph TB
+    C1[Customer: ALFKI<br/>Alfreds] -->|PLACED| O1[Order: 10248<br/>1996-07-04]
+    C2[Customer: BONAP<br/>Bon app] -->|PLACED| O2[Order: 10249<br/>1996-07-05]
+    
+    O1 -->|ORDERS<br/>qty: 12<br/>price: 18.00| P1[Product: Chai<br/>Beverages]
+    O1 -->|ORDERS<br/>qty: 10<br/>price: 9.80| P2[Product: Chang<br/>Beverages]
+    O2 -->|ORDERS<br/>qty: 9<br/>price: 18.60| P3[Product: Aniseed<br/>Condiments]
+    
+    P1 -->|PART_OF| Cat1[Category:<br/>Beverages]
+    P2 -->|PART_OF| Cat1
+    P3 -->|PART_OF| Cat2[Category:<br/>Condiments]
+    
+    E1[Employee: Nancy<br/>Sales Rep] -->|SOLD| O1
+    E1 -->|SOLD| O2
+    E1 -->|REPORTS_TO| E2[Employee: Andrew<br/>Sales Manager]
+```
+
+This sample includes:
+* 2 customers with different countries
+* 2 orders with different dates
+* 3 products in 2 categories
+* 2 employees with reporting relationship
+
+== Testing Use Cases
+
+Now test each use case with Cypher queries:
+
+### Use Case 1: Orders by Customer
+
+**Question:** What orders did customer 'ALFKI' place?
+
+```mermaid
+flowchart LR
+    A[Start: Customer] -->|PLACED| B[Order]
+    B --> C[Return: Order details]
+```
+
+**Cypher Pattern:**
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.companyName, o.orderId, o.orderDate
+```
+
+✓ Model supports this efficiently
+
+### Use Case 2: Products in an Order
+
+**Question:** What products were in order 10248?
+
+```mermaid
+flowchart LR
+    A[Start: Order] -->|ORDERS| B[Product]
+    B --> C[Return: Products + quantities]
+```
+
+**Cypher Pattern:**
+```cypher
+MATCH (o:Order {orderId: 10248})-[rel:ORDERS]->(p:Product)
+RETURN p.productName, rel.quantity, rel.unitPrice
+```
+
+✓ Model supports this efficiently
+
+### Use Case 3: Products by Category
+
+**Question:** What products are in the Beverages category?
+
+```mermaid
+flowchart LR
+    A[Start: Category] <--|PART_OF| B[Product]
+    B --> C[Return: Product list]
+```
+
+**Cypher Pattern:**
+```cypher
+MATCH (cat:Category {categoryName: 'Beverages'})<-[:PART_OF]-(p:Product)
+RETURN p.productName, p.unitPrice
+```
+
+✓ Model supports this efficiently
+
+### Use Case 4: Employee Hierarchy
+
+**Question:** Who reports to Andrew?
+
+```mermaid
+flowchart LR
+    A[Employee] -->|REPORTS_TO| B[Start: Manager]
+    A --> C[Return: Subordinates]
+```
+
+**Cypher Pattern:**
+```cypher
+MATCH (e:Employee)-[:REPORTS_TO]->(m:Employee {firstName: 'Andrew'})
+RETURN e.firstName, e.lastName, e.title
+```
+
+✓ Model supports this efficiently
+
+### Use Case 5: Customer Purchase History
+
+**Question:** What products has customer 'ALFKI' purchased?
+
+```mermaid
+flowchart LR
+    A[Start: Customer] -->|PLACED| B[Order]
+    B -->|ORDERS| C[Product]
+    C --> D[Return: Products]
+```
+
+**Cypher Pattern:**
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
+RETURN DISTINCT p.productName
+```
+
+✓ Model supports this with one traversal
+
+## Performance Considerations
+
+When testing, consider:
+
+### Query Complexity
+
+```mermaid
+graph LR
+    A[Simple Query] --> B[1-2 hops]
+    C[Medium Query] --> D[3-4 hops]
+    E[Complex Query] --> F[5+ hops]
+```
+
+* Most queries should be 1-3 relationship hops
+* Deep traversals (5+hops) may need optimization
+* Consider adding direct relationships for common paths
+
+### Fanout
+
+How many relationships does a node have?
+
+```mermaid
+graph TB
+    A[High Fanout OK] --> B[Product: 1000+ orders]
+    C[Moderate Fanout OK] --> D[Customer: 100 orders]
+    E[Low Fanout Expected] --> F[Category: 10-50 products]
+```
+
+Neo4j handles high fanout well, but be aware of:
+* Popular products with thousands of orders
+* Active customers with hundreds of orders
+
+### Index Usage
+
+Ensure you're using indexed properties for lookups:
+
+```mermaid
+graph LR
+    A[Indexed Lookup] -->|Fast| B["customerId: 'ALFKI'"]
+    C[Non-indexed Lookup] -->|Slow| D["city: 'Berlin'"]
+```
+
+Always start queries with indexed properties (we'll add these during import).
+
+## Sample Test Results
+
+After testing with sample data:
+
+| Use Case | Supported? | Performance | Notes |
+|----------|------------|-------------|-------|
+| Orders by customer | ✓ | Fast | Direct relationship |
+| Products in order | ✓ | Fast | Direct relationship |
+| Products by category | ✓ | Fast | Direct relationship |
+| Employee hierarchy | ✓ | Fast | Direct relationship |
+| Customer purchase history | ✓ | Fast | 2-hop traversal |
+| Supplier products | ✓ | Fast | Direct relationship |
+| Order totals | ✓ | Fast | Aggregate relationship properties |
+
+All use cases are well-supported by the model!
+
+== When to Refactor
+
+You might need to refactor if:
+
+* Queries require 5+ relationship hops
+* Common queries are slow
+* The model is hard to understand
+* New use cases aren't supported
+* Data duplication causes inconsistencies
+
+```mermaid
+flowchart TD
+    A[Test Results] --> B{Issues Found?}
+    B -->|No| C[Proceed with Import]
+    B -->|Yes| D{What kind?}
+    D -->|Performance| E[Add Indexes or Direct Relationships]
+    D -->|Complexity| F[Simplify Model]
+    D -->|New Requirements| G[Add Node Labels or Relationships]
+```
+
+For Northwind, our model passes all tests!
+
+== Summary
+
+In this lesson, you learned:
+
+* How to test your data model with sample data
+* Testing use cases with Cypher queries
+* Performance considerations (hops, fanout, indexes)
+* When refactoring might be needed
+* That the Northwind model supports all use cases efficiently
+
+In the next lesson, you will learn about refactoring techniques for when you need to improve a model.

@@ -1,0 +1,258 @@
+= Refactoring Your Graph Model
+:type: lesson
+:order: 7
+
+== What is Refactoring?
+
+**Refactoring** means improving your graph data model while preserving its semantics (meaning). You might refactor to:
+
+* Improve query performance
+* Simplify the model
+* Support new use cases
+* Reduce data duplication
+* Improve maintainability
+
+```mermaid
+flowchart LR
+    A[Original Model] -->|Refactor| B[Improved Model]
+    
+    C[Same Data] -.->|Different Structure| D[Better Performance]
+```
+
+== Why Refactor?
+
+Unlike relational databases with rigid schemas, Neo4j makes refactoring easy:
+
+* Schema is optional and flexible
+* Cypher makes transformations straightforward
+* No complex migrations required
+* Can be done incrementally
+
+```mermaid
+graph TB
+    A[Reasons to Refactor] --> B[Performance Issues]
+    A --> C[New Requirements]
+    A --> D[Model Complexity]
+    A --> E[Data Duplication]
+```
+
+## Common Refactoring Patterns
+
+### 1. Adding Labels for Specialization
+
+**Before:** All employees have one label
+
+```mermaid
+graph LR
+    A[Employee<br/>Nancy<br/>Sales Rep]
+    B[Employee<br/>Andrew<br/>Sales Manager]
+```
+
+**After:** Managers get an additional label
+
+```mermaid
+graph LR
+    A[Employee<br/>Nancy<br/>Sales Rep]
+    B[Employee<br/>Manager<br/>Andrew<br/>Sales Manager]
+```
+
+**Why:** Faster queries for managers, better semantic meaning
+
+### 2. Property to Node
+
+**Before:** Country is a property
+
+```mermaid
+graph LR
+    A["Customer<br/>country: 'Germany'"]
+    B["Customer<br/>country: 'France'"]
+    C["Customer<br/>country: 'Germany'"]
+```
+
+**After:** Country is a node
+
+```mermaid
+graph TB
+    A[Customer<br/>ALFKI] -->|LOCATED_IN| D[Country<br/>Germany]
+    B[Customer<br/>BONAP] -->|LOCATED_IN| E[Country<br/>France]
+    C[Customer<br/>FRANK] -->|LOCATED_IN| D
+```
+
+**Why:** 
+* Deduplicate data
+* Add country properties (population, region)
+* Query by country more efficiently
+* Analyze geographic patterns
+
+### 3. Intermediate Node
+
+**Before:** Direct relationship with properties
+
+```mermaid
+graph LR
+    A[Order] -->|"ORDERS<br/>quantity: 12<br/>unitPrice: 18.00"| B[Product]
+```
+
+**After:** Intermediate node for line items
+
+```mermaid
+graph TB
+    A[Order] -->|CONTAINS| C[OrderDetail<br/>quantity: 12<br/>unitPrice: 18.00]
+    C -->|FOR| B[Product]
+```
+
+**Why:**
+* More flexible for complex scenarios
+* Can add line-item-specific logic
+* Clearer semantics
+
+### 4. Specific Relationship Types
+
+**Before:** Generic relationship type
+
+```mermaid
+graph LR
+    A[Person] -->|RELATED_TO| B[Movie]
+    C[Person] -->|RELATED_TO| B
+    D[Person] -->|RELATED_TO| B
+```
+
+**After:** Specific relationship types
+
+```mermaid
+graph TB
+    A[Person<br/>Tom Hanks] -->|ACTED_IN| B[Movie<br/>Forrest Gump]
+    C[Person<br/>Robert Zemeckis] -->|DIRECTED| B
+    D[Person<br/>Winston Groom] -->|WROTE| B
+```
+
+**Why:**
+* More semantic meaning
+* Faster specific queries
+* Self-documenting model
+
+### 5. Extracting Shared Properties
+
+**Before:** Duplicate properties on relationships
+
+```mermaid
+graph LR
+    A[Order] -->|"SHIPPED_BY<br/>shipperName: 'Federal'<br/>shipperPhone: '555-1234'"| B[Customer]
+```
+
+**After:** Shipper as separate node
+
+```mermaid
+graph TB
+    A[Order] -->|SHIPPED_BY| C[Shipper<br/>Federal Shipping<br/>555-1234]
+    C -->|SHIPS_TO| B[Customer]
+```
+
+**Why:**
+* No data duplication
+* Update shipper info in one place
+* Query shippers independently
+
+## Refactoring Example: Northwind Enhancement
+
+Our current Northwind model works well, but let's consider some potential refactorings:
+
+### Enhancement 1: Add Manager Label
+
+```mermaid
+graph TB
+    E1[Employee<br/>Manager<br/>Andrew] -->|MANAGES| E2[Employee<br/>Nancy]
+    E1 -->|MANAGES| E3[Employee<br/>Janet]
+```
+
+This makes finding all managers faster:
+```cypher
+MATCH (m:Manager)
+RETURN m.firstName, m.lastName
+```
+
+### Enhancement 2: Extract Shipper
+
+Currently, shipping info is stored on Order properties:
+* `shipName`
+* `shipAddress`
+* etc.
+
+We could extract a Shipper node:
+
+```mermaid
+graph LR
+    A[Order] -->|SHIPPED_BY| B[Shipper<br/>Federal Shipping]
+    B -->|HAS_ADDRESS| C[Address<br/>123 Main St]
+```
+
+### Enhancement 3: Time-based Segmentation
+
+For very large datasets, segment by time:
+
+```mermaid
+graph TB
+    A[Order 2023] -->|IN_YEAR| B[Year 2023]
+    C[Order 2024] -->|IN_YEAR| D[Year 2024]
+    E[Order 2025] -->|IN_YEAR| F[Year 2025]
+```
+
+This improves performance for time-range queries.
+
+## When NOT to Refactor
+
+Don't refactor just for the sake of it. Avoid refactoring when:
+
+* The model is working well
+* Performance is acceptable
+* No new requirements
+* The complexity doesn't justify the benefit
+
+```mermaid
+graph LR
+    A{Should I Refactor?} -->|Yes| B[Clear Performance Gain]
+    A -->|Yes| C[New Requirements]
+    A -->|Yes| D[Reduced Complexity]
+    A -->|No| E[Works Well Enough]
+```
+
+**Remember:** Premature optimization is wasteful. Start simple, refactor when needed.
+
+## Refactoring Process
+
+```mermaid
+flowchart TD
+    A[Identify Issue] --> B[Design Improvement]
+    B --> C[Test with Sample Data]
+    C --> D{Better?}
+    D -->|Yes| E[Apply to Full Dataset]
+    D -->|No| F[Try Different Approach]
+    F --> B
+    E --> G[Verify Results]
+```
+
+1. **Identify** the problem or opportunity
+2. **Design** the improved model
+3. **Test** with sample data
+4. **Measure** the improvement
+5. **Apply** to production data
+6. **Verify** the results
+
+## Summary
+
+In this lesson, you learned:
+
+* What refactoring is and why it's valuable
+* Neo4j makes refactoring easy compared to relational databases
+* Common refactoring patterns:
+  - Adding labels for specialization
+  - Converting properties to nodes
+  - Introducing intermediate nodes
+  - Using specific relationship types
+  - Extracting shared properties
+* When to refactor (and when not to)
+* The refactoring process
+
+Your Northwind data model is now complete and ready for import!
+
+In the next module, you will learn how to import the Northwind CSV data into your Neo4j Aura instance using the Data Importer tool.
