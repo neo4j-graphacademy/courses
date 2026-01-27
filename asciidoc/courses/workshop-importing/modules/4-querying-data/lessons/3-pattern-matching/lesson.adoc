@@ -2,34 +2,39 @@
 :type: lesson
 :order: 3
 
-Pattern matching is the heart of Cypher. In this lesson, you'll learn advanced techniques for finding patterns in the Northwind graph.
+Pattern matching is the heart of Cypher.
+In this lesson, you'll learn advanced techniques for finding patterns in the Northwind graph from the previous lesson.
 
 == Variable-Length Paths
 
 Sometimes you want to traverse multiple hops without knowing the exact depth.
 
-### Finding Indirect Reports
+=== Finding Indirect Reports
 
 Find all employees who report to a manager (directly or indirectly):
 
-```cypher
+[source,cypher]
+----
 MATCH (manager:Employee {lastName: 'Fuller'})<-[:REPORTS_TO*]-(employee:Employee)
 RETURN employee.firstName + ' ' + employee.lastName AS employee,
        length((manager)<-[:REPORTS_TO*]-(employee)) AS levels
 ORDER BY levels, employee;
-```
+----
 
-```mermaid
+[mermaid]
+....
 graph TB
     A[Andrew Fuller] <-- B[Direct Reports]
     B <-- C[Their Reports]
     B <-- D[And Their Reports]
-```
+....
 
-The `*` means "one or more hops". You can specify ranges: `*1..3` means 1 to 3 hops.
+The `*` means "one or more hops".
+You can specify ranges: `*1..3` means 1 to 3 hops.
 
-**Result:**
-```
+*Result:*
+
+----
 employee              levels
 "Steven Buchanan"     1
 "Laura Callahan"      1
@@ -37,104 +42,110 @@ employee              levels
 "Robert King"         2
 "Anne Dodsworth"      2
 ...
-```
+----
 
-## Optional Matches
+== Optional Matches
 
 Sometimes you want to return results even if part of the pattern doesn't match.
 
-### Products With or Without Orders
+=== Products With or Without Orders
 
-```cypher
+[source,cypher]
+----
 MATCH (p:Product)
 OPTIONAL MATCH (p)<-[:ORDERS]-(o:Order)
 RETURN p.productName, count(o) AS orderCount
 ORDER BY orderCount DESC
 LIMIT 10;
-```
+----
 
-```mermaid
-flowchart TD
-    A[Match ALL Products] --> B{Optional Match Orders}
-    B -->|Has Orders| C[Return with count]
-    B -->|No Orders| D[Return with count = 0]
-```
+// ```mermaid
+// flowchart TD
+//     A[Match ALL Products] --> B{Optional Match Orders}
+//     B -->|Has Orders| C[Return with count]
+//     B -->|No Orders| D[Return with count = 0]
+// ```
 
 `OPTIONAL MATCH` is like SQL's LEFT JOIN - it returns nulls if no match is found.
 
-**Result:**
-```
+*Result:*
+
+----
 productName               orderCount
 "Camembert Pierrot"       51
 "Raclette Courdavault"    54
 "Gorgonzola Telino"       51
 ...
-```
+----
 
 == Multiple Patterns
 
 You can match multiple patterns in one query.
 
-### Customer, Order, and Employee
+=== Customer, Order, and Employee
 
 Find customers, their orders, and the employees who sold them:
 
-```cypher
+[source,cypher]
+----
 MATCH (c:Customer)-[:PLACED]->(o:Order),
       (e:Employee)-[:SOLD]->(o)
 WHERE c.country = 'USA'
 RETURN c.companyName, o.orderId, e.firstName + ' ' + e.lastName AS employee
 LIMIT 10;
-```
+----
 
-```mermaid
+[mermaid]
+....
 graph LR
     A[Customer] -->|PLACED| B[Order]
     C[Employee] -->|SOLD| B
-```
+....
 
 Multiple patterns separated by commas are combined (like AND).
 
-## Pattern Predicates in WHERE
+== Pattern Predicates in WHERE
 
 You can use patterns in WHERE clauses to filter results.
 
-### Customers Who Ordered Specific Product
+=== Customers Who Ordered Specific Product
 
 Find customers who have ordered "Chai":
 
-```cypher
+[source,cypher]
+----
 MATCH (c:Customer)
 WHERE (c)-[:PLACED]->(:Order)-[:ORDERS]->(:Product {productName: 'Chai'})
 RETURN c.companyName, c.country
 ORDER BY c.country;
-```
+----
 
-```mermaid
-flowchart TD
-    A[Find all Customers] --> B{Filter}
-    B --> C[Where Customer has path to Chai]
-    C --> D[Return matching customers]
-```
+[mermaid]
+....
+graph LR
+    A[Customer] -->|PLACED| B[Order]
+    B -->|ORDERS| C[Product: Chai]
+....
 
 The pattern in WHERE acts as a filter condition.
 
-### Products Never Ordered
+=== Products Never Ordered
 
 Find products that have never been ordered:
 
-```cypher
+[source,cypher]
+----
 MATCH (p:Product)
 WHERE NOT (p)<-[:ORDERS]-()
 RETURN p.productName, p.unitPrice;
-```
+----
 
-```mermaid
-flowchart TD
-    A[All Products] --> B{Filter}
-    B --> C[Where NO order relationship exists]
-    C --> D[Return orphaned products]
-```
+// ```mermaid
+// flowchart TD
+//     A[All Products] --> B{Filter}
+//     B --> C[Where NO order relationship exists]
+//     C --> D[Return orphaned products]
+// ```
 
 `NOT` negates the pattern - returns products without any ORDERS relationships.
 
@@ -142,60 +153,65 @@ flowchart TD
 
 Find the shortest path between two nodes.
 
-### Path from Employee to Category
+=== Path from Employee to Category
 
-```cypher
+[source,cypher]
+----
 MATCH path = shortestPath(
   (e:Employee {lastName: 'Davolio'})-[*]-(cat:Category {categoryName: 'Beverages'})
 )
 RETURN path;
-```
+----
 
-```mermaid
+[mermaid]
+....
 graph LR
-    A[Employee] -->|*| B[Various nodes]
-    B -->|*| C[Category]
-    
-    D[Shortest path found]
-```
+    A[Employee] -->|SOLD| B[Order]
+    B -->|ORDERS| C[Product]
+    C -->|PART_OF| D[Category]
+....
 
 This finds the shortest path regardless of relationship directions or types.
 
-**Possible path:**
-```
+*Possible path:*
+
+----
 (Employee)-[:SOLD]->(Order)-[:ORDERS]->(Product)-[:PART_OF]->(Category)
-```
+----
 
 == Collecting Results
 
 The `collect()` function gathers multiple values into a list.
 
-### Customer's Product List
+=== Customer's Product List
 
-```cypher
+[source,cypher]
+----
 MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
 RETURN c.companyName, collect(DISTINCT p.productName) AS products;
-```
+----
 
-```mermaid
-flowchart LR
-    A[Customer] --> B[Multiple Products]
-    B --> C[Collect into List]
-    C --> D[Return as Array]
-```
+// ```mermaid
+// flowchart LR
+//     A[Customer] --> B[Multiple Products]
+//     B --> C[Collect into List]
+//     C --> D[Return as Array]
+// ```
 
-**Result:**
-```
+*Result:*
+
+----
 companyName            products
 "Alfreds Futterkiste"  ["Aniseed Syrup", "Chartreuse verte", "Flotemysost", ...]
-```
+----
 
-### Products by Category
+=== Products by Category
 
-```cypher
+[source,cypher]
+----
 MATCH (cat:Category)<-[:PART_OF]-(p:Product)
 RETURN cat.categoryName, collect(p.productName) AS products;
-```
+----
 
 Returns each category with an array of its products.
 
@@ -203,61 +219,65 @@ Returns each category with an array of its products.
 
 Create lists based on patterns inline.
 
-### Order Total with Line Items
+=== Order Total with Line Items
 
-```cypher
+[source,cypher]
+----
 MATCH (o:Order {orderId: 10248})
 RETURN o.orderId,
-       [(o)-[r:ORDERS]->(p:Product) | 
+       [(o)-[r:ORDERS]->(p:Product) |
         p.productName + ': ' + r.quantity] AS lineItems;
-```
+----
 
-```mermaid
-flowchart LR
-    A[Order] --> B[For each ORDERS relationship]
-    B --> C[Build string]
-    C --> D[Collect into list]
-```
+// ```mermaid
+// flowchart LR
+//     A[Order] --> B[For each ORDERS relationship]
+//     B --> C[Build string]
+//     C --> D[Collect into list]
+// ```
 
 Pattern comprehensions are like list comprehensions in Python.
 
-**Result:**
-```
+*Result:*
+
+----
 orderId  lineItems
 10248    ["Queso Cabrales: 12", "Singaporean...: 10", "Mozzarella...: 5"]
-```
+----
 
 == UNION Queries
 
 Combine results from multiple queries.
 
-### All Companies (Customers and Suppliers)
+=== All Companies (Customers and Suppliers)
 
-```cypher
+[source,cypher]
+----
 MATCH (c:Customer)
 RETURN c.companyName AS company, 'Customer' AS type
 UNION
 MATCH (s:Supplier)
 RETURN s.companyName AS company, 'Supplier' AS type
 ORDER BY company;
-```
+----
 
-```mermaid
-flowchart TD
-    A[Query 1: Customers] --> C[UNION]
-    B[Query 2: Suppliers] --> C
-    C --> D[Combined Results]
-```
+// ```mermaid
+// flowchart TD
+//     A[Query 1: Customers] --> C[UNION]
+//     B[Query 2: Suppliers] --> C
+//     C --> D[Combined Results]
+// ```
 
 `UNION` removes duplicates. Use `UNION ALL` to keep duplicates.
 
-## Exists Subqueries
+== Exists Subqueries
 
 Check if a pattern exists (Neo4j 5.0+).
 
-### Customers with Large Orders
+=== Customers with Large Orders
 
-```cypher
+[source,cypher]
+----
 MATCH (c:Customer)
 WHERE EXISTS {
   MATCH (c)-[:PLACED]->(o:Order)-[r:ORDERS]->(:Product)
@@ -265,15 +285,15 @@ WHERE EXISTS {
 }
 RETURN c.companyName, c.country
 LIMIT 10;
-```
+----
 
-```mermaid
-flowchart TD
-    A[For each Customer] --> B{Check}
-    B --> C[Do they have an order with qty > 50?]
-    C -->|Yes| D[Include]
-    C -->|No| E[Exclude]
-```
+// ```mermaid
+// flowchart TD
+//     A[For each Customer] --> B{Check}
+//     B --> C[Do they have an order with qty > 50?]
+//     C -->|Yes| D[Include]
+//     C -->|No| E[Exclude]
+// ```
 
 `EXISTS` checks if the subquery pattern matches.
 
