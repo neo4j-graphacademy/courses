@@ -1,0 +1,279 @@
+= Running the Import
+:type: lesson
+:order: 6
+
+You've designed the complete Northwind data model. Now it's time to import the data into your Neo4j Aura instance!
+
+== Final Model Review
+
+Your data model should include:
+
+**Nodes (6):**
+```mermaid
+graph TD
+    A[Customer]
+    B[Order]
+    C[Product]
+    D[Category]
+    E[Supplier]
+    F[Employee]
+```
+
+**Relationships (6):**
+```mermaid
+graph TB
+    Customer -->|PLACED| Order
+    Order -->|ORDERS| Product
+    Product -->|PART_OF| Category
+    Product -->|SUPPLIED_BY| Supplier
+    Employee -->|SOLD| Order
+    Employee -->|REPORTS_TO| Employee
+```
+
+== Step 1: Save Your Model
+
+Before importing, save your model:
+
+```mermaid
+flowchart LR
+    A[Click Save] --> B[Enter Model Name]
+    B --> C["Northwind Model"]
+    C --> D[Download JSON]
+```
+
+1. Click **Save** or **Export**
+2. Name it "Northwind Model"
+3. Download the JSON file
+
+This saves your work and lets you reuse the model later.
+
+== Step 2: Run Import
+
+```mermaid
+flowchart TD
+    A[Click Run Import] --> B[Connect to Database Dialog]
+    B --> C[Enter Connection Details]
+    C --> D[Credentials]
+    D --> E[Execute Import]
+```
+
+1. Click **Run Import** button
+2. Enter your database connection details:
+   * **URI**: `neo4j+s://xxxxx.databases.neo4j.io`
+   * **Username**: `neo4j`
+   * **Password**: Your saved password
+3. Click **Connect and Import**
+
+[NOTE]
+====
+If you don't have your password, you can reset it from the Aura console (Instance → Actions → Reset Password).
+====
+
+== Step 3: Import Progress
+
+The Data Importer will:
+
+```mermaid
+flowchart TD
+    A[Generate Cypher Statements] --> B[Create Constraints]
+    B --> C[Import Nodes]
+    C --> D[Import Relationships]
+    D --> E[Build Indexes]
+    E --> F[Show Summary]
+```
+
+1. **Generate Cypher** - Convert visual model to Cypher code
+2. **Create constraints** - Set up uniqueness constraints
+3. **Import nodes** - Create all Customer, Product, Order, etc. nodes
+4. **Import relationships** - Create PLACED, ORDERS, etc. relationships
+5. **Build indexes** - Index ID properties
+6. **Show results** - Display import summary
+
+The import typically takes 30-60 seconds for Northwind.
+
+== Step 4: Import Summary
+
+When complete, you'll see a summary:
+
+```mermaid
+graph TD
+    A[Import Results] --> B[Nodes Created]
+    A --> C[Relationships Created]
+    A --> D[Constraints Added]
+    A --> E[Time Taken]
+    
+    B --> F[~830 nodes]
+    C --> G[~3,000 relationships]
+    D --> H[6 constraints]
+    E --> I[~45 seconds]
+```
+
+**Expected numbers (approximate):**
+* **Customers**: 91 nodes
+* **Orders**: 830 nodes
+* **Products**: 77 nodes
+* **Categories**: 8 nodes
+* **Suppliers**: 29 nodes
+* **Employees**: 9 nodes
+* **Total nodes**: ~1,044
+
+**Relationships:**
+* **PLACED**: 830 relationships
+* **ORDERS**: 2,155 relationships
+* **PART_OF**: 77 relationships
+* **SUPPLIED_BY**: 77 relationships
+* **SOLD**: 830 relationships
+* **REPORTS_TO**: 8 relationships
+* **Total relationships**: ~3,977
+
+== Step 5: Verify the Import
+
+After import, verify the data loaded correctly by running these Cypher queries in the Query tool.
+
+### Count All Nodes
+
+```cypher
+// Count nodes by label
+MATCH (n)
+RETURN labels(n) AS label, count(n) AS count
+ORDER BY count DESC;
+```
+
+Expected output:
+```
+label          count
+["Order"]      830
+["Product"]    77
+["Customer"]   91
+["Supplier"]   29
+["Employee"]   9
+["Category"]   8
+```
+
+### Count All Relationships
+
+```cypher
+// Count relationships by type
+MATCH ()-[r]->()
+RETURN type(r) AS relationshipType, count(r) AS count
+ORDER BY count DESC;
+```
+
+Expected output:
+```
+relationshipType   count
+"ORDERS"           2155
+"PLACED"           830
+"SOLD"             830
+"PART_OF"          77
+"SUPPLIED_BY"      77
+"REPORTS_TO"       8
+```
+
+### Sample Data Verification
+
+```cypher
+// View a sample customer with orders
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.companyName, count(o) AS orderCount;
+```
+
+Should return:
+```
+companyName          orderCount
+"Alfreds Futterkiste"  6
+```
+
+### Visualize Sample Graph
+
+```cypher
+// Visualize a small portion of the graph
+MATCH path = (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
+RETURN path
+LIMIT 25;
+```
+
+This should show a graph visualization of customer ALFKI's orders and products.
+
+== Troubleshooting Import Issues
+
+If the import fails or produces unexpected results:
+
+```mermaid
+flowchart TD
+    A{Import Issue?} --> B[Missing Nodes]
+    A --> C[Missing Relationships]
+    A --> D[Duplicate Nodes]
+    A --> E[Wrong Properties]
+    
+    B --> F[Check CSV files uploaded]
+    C --> G[Verify ID mappings]
+    D --> H[Check uniqueness constraints]
+    E --> I[Review property mappings]
+```
+
+**Common issues:**
+
+1. **Wrong node counts**
+   * Check all CSV files uploaded correctly
+   * Verify no data corruption in files
+
+2. **Missing relationships**
+   * Verify ID mappings match between files
+   * Check source/target nodes exist
+
+3. **Duplicate nodes**
+   * Ensure ID properties marked correctly
+   * Check uniqueness constraints created
+
+4. **Error messages**
+   * Read error carefully
+   * Check CSV format (quotes, delimiters)
+   * Verify data types match
+
+**To fix issues:**
+1. Clear the database (delete all data)
+2. Fix the issue in Data Importer
+3. Re-run the import
+
+== Clear Database (If Needed)
+
+To start over, run:
+
+```cypher
+// WARNING: This deletes all data!
+MATCH (n) DETACH DELETE n;
+```
+
+Then return to Data Importer and import again.
+
+== Success!
+
+If your counts match the expected numbers and sample queries return data, congratulations! You've successfully imported the entire Northwind dataset into Neo4j!
+
+```mermaid
+graph TB
+    A[Northwind CSV Files] -->|Data Importer| B[Neo4j Graph Database]
+    
+    B --> C[91 Customers]
+    B --> D[830 Orders]
+    B --> E[77 Products]
+    B --> F[8 Categories]
+    B --> G[29 Suppliers]
+    B --> H[9 Employees]
+    
+    B --> I[~4,000 Relationships]
+```
+
+== Summary
+
+In this lesson, you:
+
+* Saved your data model for reuse
+* Ran the import from Data Importer
+* Connected to your Aura database
+* Imported ~1,044 nodes and ~3,977 relationships
+* Verified the data loaded correctly
+* Learned troubleshooting techniques
+
+In the next module, you will learn how to query the Northwind graph using Cypher to answer business questions!
