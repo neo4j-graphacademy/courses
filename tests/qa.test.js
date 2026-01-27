@@ -401,7 +401,7 @@ describe("QA Tests", () => {
                           ) {
                             const statusCode = await getStatusCode(link);
                             try {
-                              expect([200, 401, 402, 403, 408]).toContain(
+                              expect([200, 401, 402, 403, 408, 429]).toContain(
                                 statusCode
                               );
                             } catch (e) {

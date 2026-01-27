@@ -4,158 +4,329 @@
 :slides: true
 
 [.slide.discrete]
+== Importing data for your recommendation engine
 
-In the previous lesson, you learned how to connect to an Aura active database instance.
+You have learned how to create and connect to your Aura database instance.
+
+**Your mission in this lesson:** Load movie and actor data into your Aura instance to build recommendation queries. The data model you create here determines how effectively your recommendation engine finds connections between movies and actors.
 
 In this lesson, you will learn how to:
 
-* Use the integrated service  for importing data in the Aura console
-* Model your data for import
-* Import data into your Aura instance
+* Use the Data Importer to load movie data into your Aura instance
+* Create a data model that supports recommendation queries (nodes and relationships)
+* Run an import and verify your movie dataset is ready for recommendations
 
-[.slide]
+[.slide.col-2]
 == Data Importer service
-image::images/01_data_importer_main.jpg[importer_main,width=450,align=center]
+
+[.col]
+====
+The Data Importer provides a visual interface for loading CSV data into your Neo4j instance.
+
+Instead of writing complex import scripts, visually map your CSV data to graph nodes (Movie, Person) and relationships (ACTED_IN). This ensures your data model supports queries from the start.
+
+**How it works in the background:** The Data Importer:
+1. Reads your CSV file and analyzes its structure
+2. Lets you map CSV columns to node properties (e.g., `movieId` → Movie node ID, `title` → Movie property)
+3. Creates relationships between nodes based on your mappings (e.g., Person ACTED_IN Movie)
+4. Generates Cypher statements that insert your data efficiently
+5. Executes the import and verifies all nodes and relationships were created
+
+The diagram shows the complete import process from source files to your Neo4j database.
+====
+
+[.col]
+====
+image::images/import-process.png[Import process diagram showing the steps from CSV to Neo4j]
+====
 
 
 [.slide]
-   
-== Data Source
-Before you can add a **New data source** you need to have a data source file ready.
+== Step 1: Prepare your movie dataset
 
-For the purpose of this lesson, you can use the sample movie data available at this link:https://raw.githubusercontent.com/neo4j-contrib/training/refs/heads/master/advanced_cypher/data/movies.csv[movies.csv, movies.csv, download=movies.csv] on your local machine.
+Your data needs information about movies, actors, and their relationships. The CSV file contains this information in a tabular format that we'll transform into a graph. Proper data preparation ensures a smooth import and an effective graph model.
 
+**How to prepare your data before importing:**
 
-Once you have downloaded that, you can add it to your Aura instance with **New data source**.
+1. **Download the sample movie data**: link:https://raw.githubusercontent.com/neo4j-contrib/training/refs/heads/master/advanced_cypher/data/movies.csv[movies.csv, movies.csv, download=movies.csv]
+2. **Save it to your local machine** (e.g., Downloads folder)
+3. **Open the file to preview its structure**—you'll see columns like `movieId`, `title`, `personId`, `name`, and `characters`
+
+**Data preparation checklist:**
+
+Before importing, verify your CSV data:
+
+* **Unique identifiers exist**: Ensure each movie has a unique `movieId` and each person has a unique `personId`. Duplicate IDs will create duplicate nodes or cause import errors.
+
+* **Data types are consistent**: Check that `movieId` and `personId` are consistently formatted (all numbers or all strings). Mixed types can cause mapping issues.
+
+* **Missing values are handled**: Identify any empty cells. Decide whether to skip rows with missing data or use default values. For recommendations, missing actor names might break relationship creation.
+
+* **Special characters are properly encoded**: Ensure characters like quotes, commas, or newlines are properly escaped or use a different delimiter.
+
+* **Column headers are clear**: Verify column names are descriptive and don't contain spaces or special characters (use `movieId` not `Movie ID`).
+
+* **Relationships are identifiable**: Confirm which columns connect entities (e.g., `personId` and `movieId` together indicate an ACTED_IN relationship).
+
+**What's in the dataset:** This CSV contains information about movies and the actors who appeared in them. Each row represents an actor's role in a movie, which we'll model as a relationship in the graph. This structure enables recommendation queries like "Find all movies with Tom Hanks" or "Find actors who worked together."
+
+**Example data structure:**
+```
+movieId,title,personId,name,characters
+123,The Matrix,456,Keanu Reeves,"Neo"
+123,The Matrix,789,Laurence Fishburne,"Morpheus"
+```
+
+This structure shows that both Keanu Reeves and Laurence Fishburne acted in The Matrix, creating two ACTED_IN relationships in your graph.
 
 [.slide]
-== Adding a data source
+== Step 2: Add your data source to Aura
+
+**How to do it:**
+
+1. In the Aura Console, navigate to your instance
+2. Click on **Data Importer** in the left sidebar
+3. Click **New data source** button
+4. Select **CSV** as the data source type (since your movie data is in CSV format)
+5. Click **Upload CSV** to open the file dialog
+6. Select the **movies.csv** file from your local machine
+
+CSV files are easy to work with and commonly used for data imports. The Data Importer reads the CSV structure and helps you map it to graph nodes and relationships.
+
 image::images/01_data_importer_source.jpg[importer_source,width=450,align=center]
 
-The data file you have downloaded is a .CSV file, so select **CSV** as the data source type.
-[.slide]
-== Uploading the data file
 image::images/01_data_importer_drop.jpg[importer_drop,width=200,align=center]
 
-Drop in the **movies.csv** file. You can also use the **Upload CSV** button to browse and select the file from your local machine.
-
 [.slide]
-== Data Importer manual
-Once the file is uploaded, you will see the Data Importer manual.
+== Step 3: Review your data structure
+
+Once the file is uploaded, you'll see the Data Importer interface showing your CSV structure.
+
+The Data Importer displays your CSV columns (movieId, title, personId, name, characters) and sample data rows. This preview helps you understand what data you're working with before creating your graph model.
 
 image::images/01_data_importer_manual.jpg[importer_manual,width=450,align=center]
 
-      
 [.slide]
+== Step 4: Create your data model
 
-== Model
-You can **upload** a data model or create one **manually**.
-For the purpose of this example, you will create one manually.
+The data model defines how your CSV data becomes a graph. You need:
+* **Movie nodes** - Each movie becomes a node to query
+* **Person nodes** - Each actor becomes a node to traverse from
+* **ACTED_IN relationships** - These connections enable recommendation queries like "Find movies with the same actors"
 
+**How to do it:** Click **Create model manually** to start building your graph structure.
 
 image::images/01_data_importer_model_blank.jpg[importer_bank,width=600,align=center]
 
 [.slide]
-== Defining the data model
-First define the Movie nodes in the details panel:
+== Understanding nodes and relationships in context
+
+**How this relates to Neo4j Fundamentals:**
+
+If you've taken the link:/courses/neo4j-fundamentals/[Neo4j Fundamentals course^], you learned that graphs consist of:
+* **Nodes** (vertices) - Entities in your domain (like movies and actors)
+* **Relationships** (edges) - Connections between entities (like ACTED_IN)
+* **Properties** - Attributes stored on nodes and relationships (like `title` on Movie nodes, `characters` on ACTED_IN relationships)
+* **Labels** - Categories for nodes (like `Movie` and `Person`)
+
+In this import, you're creating these graph elements from your CSV data:
+* Each unique movie becomes a **Movie node** with a `title` property
+* Each unique actor becomes a **Person node** with a `name` property
+* Each actor-movie pair becomes an **ACTED_IN relationship** with a `characters` property
+
+**How this relates to Graph Data Modeling Fundamentals:**
+
+If you've taken the link:/courses/modeling-fundamentals/[Graph Data Modeling Fundamentals course^], you learned about:
+* **Instance models** - The actual nodes and relationships in your graph (what you're creating now)
+* **Domain models** - The conceptual design of your graph (Movie and Person connected by ACTED_IN)
+
+The Data Importer helps you create an instance model from your CSV. You're deciding:
+* Which entities become nodes (Movie, Person)
+* Which connections become relationships (ACTED_IN)
+* Which CSV columns become properties (`title`, `name`, `characters`)
+
+This modeling step is critical—a well-designed model makes recommendation queries fast and intuitive.
+
+**How this relates to Importing Data Fundamentals:**
+
+If you've taken the link:/courses/importing-fundamentals/[Importing Data Fundamentals course^], you learned about:
+* **Import methods** - Different ways to load data (Data Importer, LOAD CSV, neo4j-admin import)
+* **Data transformation** - Converting tabular data (CSV) into graph structures (nodes and relationships)
+* **Unique constraints** - Ensuring nodes aren't duplicated (using `movieId` and `personId` as unique identifiers)
+
+In this lesson, you're using the Data Importer (a visual, no-code tool) to transform your CSV into a graph. The Data Importer automatically handles:
+* Creating unique nodes (using `movieId` and `personId` as keys)
+* Mapping CSV columns to node and relationship properties
+* Generating efficient Cypher statements for the import
+
+**Key takeaway:** Nodes and relationships are the building blocks you learned about in Neo4j Fundamentals. The modeling principles from Modeling Fundamentals guide how you structure them. The import techniques from Importing Fundamentals show you how to create them from your data. This lesson combines all three—you're applying fundamentals to build your recommendation engine.
+
+[.slide]
+== Step 5: Define Movie nodes
+
+Movies are central to your data model. Each Movie node has properties (title, movieId) to use in queries like "Find movies similar to The Matrix."
+
+**How to do it:**
+
+1. Click the **Add node label** button (or the + icon)
+2. In the details panel on the right, set the label to **Movie**
+3. Click **Map from table** to connect CSV columns to node properties
+4. Map **movieId** → This becomes the unique identifier for each Movie node
+5. Map **title** → This becomes a property to search and display
+
+**How it works in the background:** When you map `movieId` and `title`, the Data Importer will create Cypher statements like:
+```
+CREATE (m:Movie {movieId: '123', title: 'The Matrix'})
+```
+
+This creates Movie nodes that your recommendation queries can traverse.
 
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/add-node-label.mp4["Add Node Label",role="cdn",  width=100%]
 
-* Use the Label **Movie**
-* Click on **Map from table** (csv file in this case), **movieId** and **title**
+After adding the label, you can edit the model structure to refine how your CSV data maps to graph elements.
 
-[.slide]
-== Edit data model
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/edit-data-model.mp4["Edit Data Model",role="cdn",  width=100%]
 
-// image::images/01_data_importer_model_movie.jpg[importer_movie,width=600,align=center]
 [.slide]
+== Step 6: Define Person nodes
 
-== Upload CSV file
-video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/upload-csv.mp4["Upload CSV",role="cdn",  width=100%]
+Actors are the connections between movies in your data model. When you query "Find movies with Tom Hanks," you're traversing from a Person node through ACTED_IN relationships to Movie nodes.
 
-Now add and define the Person nodes.
+**How to do it:**
 
-* Add a blank node using the **Add node label** button
+1. Click the **Add node label** button again to create a second node type
+2. Set the label to **Person**
+3. Click **Map from table**
+4. Map **personId** → Unique identifier for each Person node
+5. Map **name** → Property to search (e.g., "Tom Hanks")
 
+**Example for recommendations:** Once imported, you'll be able to query:
+```
+MATCH (p:Person {name: 'Tom Hanks'})-[:ACTED_IN]->(m:Movie)
+RETURN m.title
+```
 
-Upload the CSV file by using the Drag and Drop area or the **Upload CSV** button.
+This finds all movies Tom Hanks acted in—the foundation of actor-based recommendations.
 
-[.slide]
-== Define Person nodes
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/add-node-label.mp4["Add Node Label",role="cdn", width=100%]
 
-
-* Use the label **Person**
-* Click **Map from table** (csv file in this case), **personId** and **name**
-
-[.slide]
-== Person node properties
 image::images/01_data_importer_model_person.jpg[importer_person,width=600,align=center]
 
-[.slide]
-
-== Edit Person properties
-You can edit the properties of the nodes by clicking on the pencil icon next to each property: 
+**Optional:** Edit property types by clicking the pencil icon next to each property. For example, you might want to ensure `personId` is stored as an integer for better query performance.
 
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/edit-fields.mp4["Edit Fields",role="cdn",  width=100%]
 
 [.slide]
-== Define ACTED_IN relationship
-Create and define the ACTED_IN relationship.
+== Step 7: Define ACTED_IN relationships
 
-* Drag the relationship from the Person node to the Movie node using the plus-sign when you hover over the edge of the Person node.
-* Name the relationship type as **ACTED_IN**.
-* Node ID mapping should be automatic.
-* Click on **Map from table** (csv file in this case), **characters**.
+Relationships are the core of your graph. The ACTED_IN relationship connects Person nodes to Movie nodes, enabling queries like:
+* "Find all movies with the same actors" (traverse from Movie through ACTED_IN to Person, then back to other Movies)
+* "Find actors who worked together" (find two Person nodes connected to the same Movie)
 
-[.slide]
+**How to do it:**
 
-== ACTED_IN relationship properties
+1. Hover over the edge of the **Person** node—you'll see a plus-sign (+)
+2. Click and drag from Person to **Movie** node
+3. Name the relationship type **ACTED_IN**
+4. The Data Importer automatically maps `personId` and `movieId` to connect the right nodes
+5. Click **Map from table** and select **characters**—this stores the character name as a property on the relationship
+
+**How it works in the background:** The Data Importer creates Cypher statements like:
+```
+MATCH (p:Person {personId: '123'}), (m:Movie {movieId: '456'})
+CREATE (p)-[:ACTED_IN {characters: ['Neo']}]->(m)
+```
+
+This creates the connections your recommendation engine needs to traverse.
+
 image::images/01_data_importer_model_actedin.jpg[importer_actedin,width=600,align=center]
 
-Note the green checkmark that indicates that an element has been mapped correctly.
+**Verification:** The green checkmark indicates that the relationship mapping is correct. Your model now shows Person nodes connected to Movie nodes via ACTED_IN relationships—exactly what you need for recommendation queries.
 
 [.slide]
+== Step 8: Review and confirm your model
 
-== Analyse and confirm model parameters
+Before importing, verify that your model correctly maps CSV data to graph structure. Incorrect mappings mean your queries won't work.
 
-Before Importing, you can analyse and edit the model parameters, as well as confirming the primary key of the nodes. 
+**How to do it:**
+
+1. Review the model diagram—you should see Person and Movie nodes connected by ACTED_IN relationships
+2. Click on each node to verify property mappings (movieId, title for Movie; personId, name for Person)
+3. Verify the ACTED_IN relationship maps personId and movieId correctly
+4. Confirm primary keys: The Data Importer uses `movieId` and `personId` as unique identifiers to avoid creating duplicate nodes
+
+**How it works in the background:** The Data Importer analyzes your CSV to ensure:
+* No duplicate nodes (uses movieId/personId as unique keys)
+* All relationships can be created (both Person and Movie nodes exist)
+* Data types are correct (strings, numbers, etc.)
 
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/load-data-params.mp4["Load Data Parameters",role="cdn",  width=100%]
 
 [.slide]
+== Step 9: Run the import
 
-== Import
-Use **Run import** to ingest the data. You will need to connect to the database.
+**How to do it:**
+
+1. Click **Run import** button
+2. You'll be prompted to connect to your database
+3. Enter your Aura instance credentials:
+   * **URI**: Your instance connection string (e.g., `neo4j+s://xxxxx.databases.neo4j.io`)
+   * **Username**: Usually `neo4j` (or your instance ID for Free tier)
+   * **Password**: The password you saved when creating the instance
+4. Click **Connect**
+5. Wait for the import to complete—this may take a minute depending on your dataset size
+
+**How it works in the background:** The Data Importer:
+1. Generates optimized Cypher statements from your model
+2. Connects to your Aura instance
+3. Executes batched inserts (creates nodes first, then relationships)
+4. Verifies all data was imported correctly
+5. Reports any errors or warnings
 
 image::images/01_data_importer_connect.jpg[importer_connect,width=450,align=center]
 
-[.slide]
-== Connect to database
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/run-import.mp4["Run Import",role="cdn", width=100%]
 
-Once you have added the database credentials, click on **Connect** and wait until the import is done.
+The Data Importer processes your CSV data and creates nodes and relationships in your Neo4j instance. After the import completes, you'll see a summary of what was created.
 
 image::images/01_data_importer_result.jpg[importer_result,width=450,align=center]
 
 [.slide]
-== Import summary
-Once the import in complete, you will see a summary of the import results: 
+== Step 10: Verify your import results
+
+**What to check:** The import summary shows how many nodes and relationships were created. For your recommendation engine, you should see:
+* Multiple Movie nodes (one for each unique movie)
+* Multiple Person nodes (one for each unique actor)
+* ACTED_IN relationships connecting them
+
+If the counts look correct, your data was imported successfully. If something seems off (e.g., zero relationships), your model mapping might need adjustment.
+
+**Example:** A successful import might show:
+* 100 Movie nodes
+* 50 Person nodes  
+* 200 ACTED_IN relationships
+
+This means you have 200 actor-movie connections to traverse for recommendations.
 
 video::https://cdn.graphacademy.neo4j.com/courses/aura-fundamentals/import-summary.mp4["Import Summary",role="cdn",  width=100%]
 
 [.slide]
-== Save data model
-**Close** the result window and you will be back at the main data importer screen.
+== Step 11: Save your data model
 
-You can now see the imported data source in the list of data sources.
+If you need to import more data later or recreate the structure in another instance, the saved model lets you reuse the same mapping without rebuilding it.
+
+**How to do it:**
+
+1. Close the import summary window
+2. You'll return to the Data Importer main screen
+3. Your imported data source appears in the list
+4. Click on the model name field (it may show "Untitled")
+5. Enter a descriptive name like **"Movies Model"** or **"Movie Recommendation Dataset"**
+6. Click **Save**
+
+**Reusing the model:** Load this model later and apply it to new CSV files with the same structure, making it easy to add more movies to your recommendation engine.
 
 image::images/01_data_importer_model_untitled.jpg[importer_untitled,width=450,align=center]
-
-[.slide]
-== Name data model
-Give your data model a name, "Movies Model", and **Save** it.
 
 image::images/01_data_importer_model_named.jpg[importer_named,width=450,align=center]
 
@@ -163,12 +334,40 @@ image::images/01_data_importer_model_named.jpg[importer_named,width=450,align=ce
 [.quiz]
 == Check your understanding
 
+include::questions/1-import-steps.adoc[leveloffset=+1]
 
 include::questions/2-reuse.adoc[leveloffset=+1]
 
 [.summary]
 == Summary
 
-In this lesson you imported data in an Aura instance using the integrated data importer service, modeled the data, and ran the import.
+In this lesson, you imported movie data into your Aura instance to power your recommendation engine. You:
 
-In the next lesson, you will explore the integrated query tool to interact with your data and write Cypher queries.
+* **Prepared your dataset**: Downloaded and verified the movies.csv file, checking for unique identifiers, consistent data types, and proper formatting
+* **Created a graph model**: Defined Movie and Person nodes connected by ACTED_IN relationships—the structure your recommendation queries need
+* **Ran the import**: Loaded your data into Aura, creating nodes and relationships that enable recommendation queries
+* **Saved your model**: Preserved the mapping for future imports
+
+The graph structure you created (Person -[:ACTED_IN]-> Movie) enables queries like:
+* Finding movies with the same actors
+* Discovering actors who worked together
+* Identifying similar movies based on shared cast
+
+**Connecting to fundamentals:**
+
+* **Neo4j Fundamentals**: You created the graph elements (nodes, relationships, properties, labels) you learned about in that course
+* **Graph Data Modeling Fundamentals**: You applied modeling principles to design your instance model (Movie and Person nodes with ACTED_IN relationships)
+* **Importing Data Fundamentals**: You used the Data Importer tool to transform CSV data into a graph structure, applying import best practices
+
+**Key concepts reinforced:**
+
+* **Nodes** represent entities (Movie, Person) with properties (`title`, `name`)
+* **Relationships** represent connections (ACTED_IN) with optional properties (`characters`)
+* **Data preparation** ensures clean imports—checking for unique IDs, consistent types, and proper formatting
+* **Graph modeling** determines query performance—a well-designed model makes recommendation queries fast
+
+Data models are saved at the project level and can be reused across different instances.
+
+For more information on the Data Importer, including supported file formats and advanced mapping options, see the link:https://neo4j.com/docs/aura/import/introduction/[Neo4j Aura Import documentation^].
+
+In the next lesson, you'll write Cypher queries to find movie recommendations by traversing the relationships you just created.
