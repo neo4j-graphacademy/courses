@@ -2,7 +2,23 @@
 :type: lesson
 :order: 6
 
+
+[.transcript]
+== Testing Your Data Model
+
+
+You have defined your graph data model with nodes, labels, relationships, and properties.
+
+
+Now you need to test your data model to ensure it answers your use cases efficiently.
+
+
+In this lesson, you will learn how to test your data model with sample data before importing the full dataset.
+
+
+[.slide]
 == Why Test Your Model?
+
 
 Before importing large amounts of data, you should test your data model with sample data to verify it:
 
@@ -10,6 +26,7 @@ Before importing large amounts of data, you should test your data model with sam
 * Performs well with realistic queries
 * Is intuitive and easy to work with
 * Scales appropriately
+
 
 ```mermaid
 flowchart TD
@@ -21,7 +38,9 @@ flowchart TD
     F --> B
 ```
 
+
 == Testing with Sample Data
+
 
 Create a small instance model with representative data:
 
@@ -43,19 +62,25 @@ graph TB
     E1 -->|REPORTS_TO| E2[Employee: Andrew<br/>Sales Manager]
 ```
 
+
 This sample includes:
 * 2 customers with different countries
 * 2 orders with different dates
 * 3 products in 2 categories
 * 2 employees with reporting relationship
 
+
 == Testing Use Cases
+
 
 Now test each use case with Cypher queries:
 
-### Use Case 1: Orders by Customer
 
-**Question:** What orders did customer 'ALFKI' place?
+=== Use Case 1: Orders by Customer
+
+
+What orders did customer 'ALFKI' place?
+
 
 ```mermaid
 flowchart LR
@@ -63,17 +88,24 @@ flowchart LR
     B --> C[Return: Order details]
 ```
 
-**Cypher Pattern:**
+
+Cypher Pattern:
+
+
 ```cypher
 MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
 RETURN c.companyName, o.orderId, o.orderDate
 ```
 
-✓ Model supports this efficiently
 
-### Use Case 2: Products in an Order
+The model supports this efficiently with a direct relationship.
 
-**Question:** What products were in order 10248?
+
+=== Use Case 2: Products in an Order
+
+
+What products were in order 10248?
+
 
 ```mermaid
 flowchart LR
@@ -81,17 +113,24 @@ flowchart LR
     B --> C[Return: Products + quantities]
 ```
 
-**Cypher Pattern:**
+
+Cypher Pattern:
+
+
 ```cypher
 MATCH (o:Order {orderId: 10248})-[rel:ORDERS]->(p:Product)
 RETURN p.productName, rel.quantity, rel.unitPrice
 ```
 
-✓ Model supports this efficiently
 
-### Use Case 3: Products by Category
+The model supports this efficiently with a direct relationship and properties on the relationship.
 
-**Question:** What products are in the Beverages category?
+
+=== Use Case 3: Products by Category
+
+
+What products are in the Beverages category?
+
 
 ```mermaid
 flowchart LR
@@ -99,17 +138,24 @@ flowchart LR
     B --> C[Return: Product list]
 ```
 
-**Cypher Pattern:**
+
+Cypher Pattern:
+
+
 ```cypher
 MATCH (cat:Category {categoryName: 'Beverages'})<-[:PART_OF]-(p:Product)
 RETURN p.productName, p.unitPrice
 ```
 
-✓ Model supports this efficiently
 
-### Use Case 4: Employee Hierarchy
+The model supports this efficiently with a direct relationship.
 
-**Question:** Who reports to Andrew?
+
+=== Use Case 4: Employee Hierarchy
+
+
+Who reports to Andrew?
+
 
 ```mermaid
 flowchart LR
@@ -117,17 +163,24 @@ flowchart LR
     A --> C[Return: Subordinates]
 ```
 
-**Cypher Pattern:**
+
+Cypher Pattern:
+
+
 ```cypher
 MATCH (e:Employee)-[:REPORTS_TO]->(m:Employee {firstName: 'Andrew'})
 RETURN e.firstName, e.lastName, e.title
 ```
 
-✓ Model supports this efficiently
 
-### Use Case 5: Customer Purchase History
+The model supports this efficiently with a direct relationship.
 
-**Question:** What products has customer 'ALFKI' purchased?
+
+=== Use Case 5: Customer Purchase History
+
+
+What products has customer 'ALFKI' purchased?
+
 
 ```mermaid
 flowchart LR
@@ -136,19 +189,28 @@ flowchart LR
     C --> D[Return: Products]
 ```
 
-**Cypher Pattern:**
+
+Cypher Pattern:
+
+
 ```cypher
 MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
 RETURN DISTINCT p.productName
 ```
 
-✓ Model supports this with one traversal
 
-## Performance Considerations
+The model supports this with a simple two-hop traversal.
+
+
+[.slide]
+== Performance Considerations
+
 
 When testing, consider:
 
-### Query Complexity
+
+=== Query Complexity
+
 
 ```mermaid
 graph LR
@@ -157,13 +219,17 @@ graph LR
     E[Complex Query] --> F[5+ hops]
 ```
 
+
 * Most queries should be 1-3 relationship hops
-* Deep traversals (5+hops) may need optimization
+* Deep traversals (5+ hops) may need optimization
 * Consider adding direct relationships for common paths
 
-### Fanout
+
+=== Fanout
+
 
 How many relationships does a node have?
+
 
 ```mermaid
 graph TB
@@ -172,13 +238,19 @@ graph TB
     E[Low Fanout Expected] --> F[Category: 10-50 products]
 ```
 
+
 Neo4j handles high fanout well, but be aware of:
+
+
 * Popular products with thousands of orders
 * Active customers with hundreds of orders
 
-### Index Usage
+
+=== Index Usage
+
 
 Ensure you're using indexed properties for lookups:
+
 
 ```mermaid
 graph LR
@@ -186,9 +258,12 @@ graph LR
     C[Non-indexed Lookup] -->|Slow| D["city: 'Berlin'"]
 ```
 
-Always start queries with indexed properties (we'll add these during import).
 
-## Sample Test Results
+Always start queries with indexed properties. You will add these during import.
+
+
+== Sample Test Results
+
 
 After testing with sample data:
 
@@ -202,17 +277,21 @@ After testing with sample data:
 | Supplier products | ✓ | Fast | Direct relationship |
 | Order totals | ✓ | Fast | Aggregate relationship properties |
 
-All use cases are well-supported by the model!
+
+All use cases are well-supported by the model.
+
 
 == When to Refactor
+
 
 You might need to refactor if:
 
 * Queries require 5+ relationship hops
 * Common queries are slow
 * The model is hard to understand
-* New use cases aren't supported
+* New use cases are not supported
 * Data duplication causes inconsistencies
+
 
 ```mermaid
 flowchart TD
@@ -224,16 +303,21 @@ flowchart TD
     D -->|New Requirements| G[Add Node Labels or Relationships]
 ```
 
-For Northwind, our model passes all tests!
+
+For Northwind, the model passes all tests.
+
 
 == Summary
 
+
 In this lesson, you learned:
+
 
 * How to test your data model with sample data
 * Testing use cases with Cypher queries
-* Performance considerations (hops, fanout, indexes)
+* Performance considerations including hops, fanout, and indexes
 * When refactoring might be needed
 * That the Northwind model supports all use cases efficiently
 
-In the next lesson, you will learn about refactoring techniques for when you need to improve a model.
+
+In the next lesson, you will learn about refactoring techniques for improving a data model.
