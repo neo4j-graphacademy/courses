@@ -2,24 +2,19 @@
 :type: lesson
 :order: 5
 
+
+[.slide.discrete]
+== Introduction
+
 You learned how to create relationships between nodes in the Data Importer.
 
 In this lesson, you will learn about constraints and indexes to ensure data integrity and query performance.
 
-== What Are Constraints?
 
-**Constraints** enforce rules on your data:
+[.slide]
+== Understanding constraints
 
-// ```mermaid
-// graph TB
-//     A[Constraints] --> B[Uniqueness]
-//     A --> C[Existence]
-//     A --> D[Type]
-//
-//     B --> E[No duplicate IDs]
-//     C --> F[Required properties]
-//     D --> G[Correct data types]
-// ```
+Constraints enforce rules on your data to maintain data integrity.
 
 **Uniqueness constraints** ensure no two nodes have the same value for a property (e.g., customerId).
 
@@ -27,122 +22,98 @@ In this lesson, you will learn about constraints and indexes to ensure data inte
 
 **Type constraints** ensure properties have the correct data type.
 
-== What Are Indexes?
 
-**Indexes** speed up queries by creating efficient lookup structures:
+[.slide]
+== Understanding indexes
 
-// ```mermaid
-// flowchart LR
-//     A[Without Index] -->|Scan all nodes| B[Slow]
-//     C[With Index] -->|Direct lookup| D[Fast]
-// ```
+Indexes speed up queries by creating efficient lookup structures.
 
 When you query by a property (e.g., find customer by name), an index makes it much faster.
 
-== Constraints in Data Importer
+Without an index, Neo4j must scan all nodes. With an index, Neo4j can perform a direct lookup.
+
+[.slide]
+== Automatic constraints in Data Importer
 
 The Data Importer automatically creates uniqueness constraints when you mark ID properties.
 
 For Northwind, these constraints will be created:
 
-// ```mermaid
-// graph TD
-//     A[Uniqueness Constraints] --> B[Customer.customerId]
-//     A --> C[Product.productId]
-//     A --> D[Category.categoryId]
-//     A --> E[Supplier.supplierId]
-//     A --> F[Order.orderId]
-//     A --> G[Employee.employeeId]
-// ```
+* `Customer.customerId`
+* `Product.productId`
+* `Category.categoryId`
+* `Supplier.supplierId`
+* `Order.orderId`
+* `Employee.employeeId`
 
-These ensure:
-* No duplicate customer IDs
-* No duplicate product IDs
-* No duplicate order IDs
-* etc.
+These ensure no duplicate IDs exist for any of these node types.
 
-### Viewing Constraints
+
+[.slide.discrete]
+=== Viewing constraints
 
 In Data Importer, look for the constraint indicators next to ID properties (usually a key icon).
 
 You can also view constraints in the details panel for each node.
 
-== Adding Additional Indexes
+[.slide]
+== Adding additional indexes
 
 Beyond the automatic ID indexes, you can add indexes on commonly queried properties.
 
-### Which Properties to Index?
-
-Index properties that you'll frequently use in `WHERE` clauses or `MATCH` patterns:
-
-// ```mermaid
-// graph TB
-//     A[Consider Indexing] --> B[Frequently Queried]
-//     A --> C[High Cardinality]
-//     A --> D[Used in Filtering]
-//
-//     B --> E[Customer.companyName]
-//     C --> F[Product.productName]
-//     D --> G[Order.orderDate]
-// ```
+Index properties that you will frequently use in `WHERE` clauses or `MATCH` patterns.
 
 **Good candidates for Northwind:**
+
 * `Customer.companyName` - Finding customers by name
 * `Product.productName` - Finding products by name
 * `Order.orderDate` - Filtering orders by date
 * `Employee.lastName` - Finding employees by name
 
-### Adding Indexes in Data Importer
+
+[.slide.discrete]
+=== Adding indexes in Data Importer
 
 Some versions of Data Importer allow you to add indexes directly. Look for an "Add Index" button in the details panel.
 
-If not available, you can add indexes after import using Cypher (we'll cover this).
+If not available, you can add indexes after import using Cypher.
 
-== Index Types in Neo4j
+[.slide]
+== Index types in Neo4j
 
-// ```mermaid
-// graph TB
-//     A[Index Types] --> B[B-tree Index]
-//     A --> C[Text Index]
-//     A --> D[Point Index]
-//     A --> E[Range Index]
-//
-//     B --> F[General purpose]
-//     C --> G[Full-text search]
-//     D --> H[Spatial queries]
-//     E --> I[Range queries]
-// ```
+Neo4j supports several index types:
+
+* **B-tree Index** - General purpose (the default)
+* **Text Index** - Full-text search
+* **Point Index** - Spatial queries
+* **Range Index** - Range queries
 
 For Northwind, standard B-tree indexes (the default) are sufficient.
 
-== Constraint and Index Best Practices
-
-// ```mermaid
-// flowchart TD
-//     A[Best Practices] --> B[Always constrain IDs]
-//     A --> C[Index frequently queried properties]
-//     A --> D[Don't over-index]
-//     A --> E[Test query performance]
-//
-//     D --> F[Indexes use space]
-//     D --> G[Indexes slow down writes]
-// ```
+[.slide]
+== Constraint and index best practices
 
 **Do:**
+
 * Always add uniqueness constraints on ID properties
 * Index properties used in filtering/matching
 * Test query performance with realistic data
 
 **Don't:**
+
 * Index every property (wastes space)
 * Index properties rarely queried
 * Forget to add ID constraints
 
-## Creating Indexes After Import (Cypher)
+Indexes use space and slow down writes, so only create indexes you will use.
+
+[.slide]
+== Creating indexes after import
 
 If you need to add indexes after import, use Cypher:
 
-```cypher
+[source,cypher]
+----
 // Create index on customer company name
 CREATE INDEX customer_company_name FOR (c:Customer) ON (c.companyName);
 
@@ -154,65 +125,44 @@ CREATE INDEX order_date FOR (o:Order) ON (o.orderDate);
 
 // Create index on employee last name
 CREATE INDEX employee_last_name FOR (e:Employee) ON (e.lastName);
-```
+----
 
-## Viewing Constraints and Indexes
+
+[.slide]
+== Viewing constraints and indexes
 
 After import, you can view all constraints and indexes with Cypher:
 
-```cypher
+[source,cypher]
+----
 // Show all constraints
 SHOW CONSTRAINTS;
 
 // Show all indexes
 SHOW INDEXES;
-```
+----
 
-== Impact on Import Performance
+[.slide]
+== Impact on import performance
 
-Constraints and indexes affect import performance:
-
-// ```mermaid
-// flowchart TD
-//     A[Impact on Import] --> B[Constraints]
-//     A --> C[Indexes]
-//
-//     B --> D[Validation overhead]
-//     B --> E[Ensures data quality]
-//
-//     C --> F[Build time during import]
-//     C --> G[Faster queries after]
-// ```
+Constraints and indexes affect import performance.
 
 **During import:**
+
 * Constraints add validation overhead (worth it for data quality)
 * Indexes are built during import (slight slowdown)
 
 **After import:**
+
 * Queries are much faster
 * Data integrity is guaranteed
 
 For Northwind's size, the import will still be very fast.
 
-== Pre-Import Checklist
+[.slide]
+== Pre-import checklist
 
 Before running the import, verify:
-
-// ```mermaid
-// flowchart TD
-//     A[Pre-Import Checklist] --> B{All nodes defined?}
-//     B -->|Yes| C{All relationships defined?}
-//     C -->|Yes| D{ID properties marked?}
-//     D -->|Yes| E{Properties mapped correctly?}
-//     E -->|Yes| F{Constraints visible?}
-//     F -->|Yes| G[Ready to Import!]
-//
-//     B -->|No| H[Add missing nodes]
-//     C -->|No| I[Add missing relationships]
-//     D -->|No| J[Mark ID properties]
-//     E -->|No| K[Fix property mappings]
-//     F -->|No| L[Check ID properties]
-// ```
 
 * All 6 node types created
 * All 6 relationships created
@@ -221,17 +171,17 @@ Before running the import, verify:
 * Uniqueness constraints configured
 * ORDERS relationship has properties
 
-== Summary
 
-In this lesson, you learned:
+[.summary]
+== Lesson Summary
 
-* What constraints and indexes are
-* Uniqueness constraints ensure no duplicate IDs
-* Indexes speed up queries
-* Data Importer auto-creates constraints for ID properties
-* Which properties to consider indexing
-* How to add indexes with Cypher if needed
-* Best practices for constraints and indexes
-* Pre-import checklist items
+Constraints and indexes ensure data integrity and query performance:
 
-In the next lesson, you will run the import and verify the data loaded correctly!
+* **Constraints** - Enforce rules on your data (uniqueness, existence, type)
+* **Indexes** - Speed up queries by creating efficient lookup structures
+* **Data Importer** - Automatically creates uniqueness constraints for ID properties
+* **Best practices** - Always constrain IDs, index frequently queried properties, avoid over-indexing
+
+You can add additional indexes after import using Cypher `CREATE INDEX` statements.
+
+In the next lesson, you will run the import to load the Northwind dataset into your Neo4j Aura instance.

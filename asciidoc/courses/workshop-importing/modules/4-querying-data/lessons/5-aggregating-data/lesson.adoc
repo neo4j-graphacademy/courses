@@ -2,16 +2,24 @@
 :type: lesson
 :order: 5
 
-Aggregation lets you summarize and analyze data. In this lesson, you'll learn how to aggregate the Northwind data to answer business questions.
+[.slide.discrete]
+== Introduction
 
-== Count Aggregation
+Aggregation lets you summarize and analyze data across multiple nodes and relationships.
 
-== Counting Nodes
+In this lesson, you will learn how to use aggregation functions to answer business questions about the Northwind data.
 
-```cypher
+
+[.slide]
+== Counting nodes
+
+You can use the `count()` function to count the number of nodes or relationships in your graph.
+
+[source,cypher]
+----
 MATCH (c:Customer)
 RETURN count(c) AS customerCount;
-```
+----
 
 ////
 ```mermaid
@@ -21,27 +29,40 @@ flowchart LR
 ```
 ////
 
+The query returns the total number of Customer nodes in the graph.
+
 **Result:**
-```
+
+----
 customerCount
 91
-```
+----
 
-== Counting Relationships
 
-```cypher
+[.slide]
+== Counting relationships
+
+You can count relationships in the same way you count nodes.
+
+[source,cypher]
+----
 MATCH (:Customer)-[:PLACED]->(o:Order)
 RETURN count(o) AS totalOrders;
-```
+----
 
-Counts all customer orders.
+This query counts all customer orders by counting the Order nodes connected to Customer nodes.
 
-== Counting Distinct Values
 
-```cypher
+[.slide]
+== Counting distinct values
+
+The `count(DISTINCT)` function counts unique values in your data.
+
+[source,cypher]
+----
 MATCH (o:Order)
 RETURN count(DISTINCT o.shipCountry) AS countriesShippedTo;
-```
+----
 
 ////
 ```mermaid
@@ -51,20 +72,25 @@ flowchart LR
 ```
 ////
 
-Counts unique countries orders were shipped to.
+This query counts the unique countries that orders were shipped to.
 
-== Group By (Implicit)
 
-Cypher doesn't have explicit GROUP BY - it's implicit when you mix aggregation with non-aggregated fields.
+[.slide]
+== Grouping data implicitly
 
-== Orders per Customer
+Cypher doesn't have an explicit GROUP BY clause - grouping is implicit when you mix aggregation functions with non-aggregated fields.
 
-```cypher
+
+[.slide.discrete]
+=== Orders per customer
+
+[source,cypher]
+----
 MATCH (c:Customer)-[:PLACED]->(o:Order)
 RETURN c.companyName, count(o) AS orderCount
 ORDER BY orderCount DESC
 LIMIT 10;
-```
+----
 
 ////
 ```mermaid
@@ -75,38 +101,49 @@ flowchart TD
 ```
 ////
 
-Groups by `c.companyName` (non-aggregated), counts orders per customer.
+The query groups by `c.companyName` (the non-aggregated field) and counts orders per customer.
 
 **Result:**
-```
+
+----
 companyName               orderCount
 "Save-a-lot Markets"      31
 "Ernst Handel"            30
 "QUICK-Stop"              28
 ...
-```
+----
 
-== Products per Category
 
-```cypher
+[.slide.discrete]
+=== Products per category
+
+[source,cypher]
+----
 MATCH (cat:Category)<-[:PART_OF]-(p:Product)
 RETURN cat.categoryName, count(p) AS productCount
 ORDER BY productCount DESC;
-```
+----
 
-Groups by category, counts products.
+This query groups by category and counts the number of products in each category.
 
-== Sum and Average
 
-== Total Freight Cost
+[.slide]
+== Using sum and average
 
-```cypher
+You can use the `sum()` and `avg()` functions to calculate totals and averages across your data.
+
+
+[.slide.discrete]
+=== Total freight cost
+
+[source,cypher]
+----
 MATCH (o:Order)
 RETURN sum(o.freight) AS totalFreight,
        avg(o.freight) AS averageFreight,
        min(o.freight) AS minFreight,
        max(o.freight) AS maxFreight;
-```
+----
 
 ////
 ```mermaid
@@ -119,21 +156,27 @@ graph TB
 ```
 ////
 
+This query calculates multiple aggregate values for freight costs across all orders.
+
 **Result:**
-```
+
+----
 totalFreight  averageFreight  minFreight  maxFreight
 64942.69      78.24           0.02        1007.64
-```
+----
 
-== Order Line Item Totals
 
-```cypher
+[.slide.discrete]
+=== Order line item totals
+
+[source,cypher]
+----
 MATCH (o:Order {orderId: 10248})-[r:ORDERS]->(p:Product)
 RETURN o.orderId,
        sum(r.quantity * r.unitPrice) AS orderTotal,
        sum(r.quantity) AS totalItems,
        count(p) AS productTypes;
-```
+----
 
 ////
 ```mermaid
@@ -143,23 +186,27 @@ flowchart LR
 ```
 ////
 
-Calculates order totals from line items.
+This query calculates order totals from line items by summing the quantity multiplied by unit price for each product.
 
 **Result:**
-```
+
+----
 orderId  orderTotal  totalItems  productTypes
 10248    440.00      27          3
-```
+----
 
-== Revenue by Customer
 
-```cypher
+[.slide.discrete]
+=== Revenue by customer
+
+[source,cypher]
+----
 MATCH (c:Customer)-[:PLACED]->(o:Order)-[r:ORDERS]->(p:Product)
 RETURN c.companyName,
        sum(r.quantity * r.unitPrice * (1 - r.discount)) AS totalRevenue
 ORDER BY totalRevenue DESC
 LIMIT 10;
-```
+----
 
 ////
 ```mermaid
@@ -171,28 +218,36 @@ flowchart TD
 ```
 ////
 
-Calculates total revenue per customer including discounts.
+This query calculates total revenue per customer including discounts by traversing from customers through orders to products.
 
 **Result:**
-```
+
+----
 companyName               totalRevenue
 "QUICK-Stop"              110277.31
 "Ernst Handel"            104874.98
 "Save-a-lot Markets"      104361.95
 ...
-```
+----
 
-== Collect Aggregation
 
-== List Products by Category
+[.slide]
+== Collecting values into lists
 
-```cypher
+The `collect()` function aggregates values into a list.
+
+
+[.slide.discrete]
+=== List products by category
+
+[source,cypher]
+----
 MATCH (cat:Category)<-[:PART_OF]-(p:Product)
 RETURN cat.categoryName,
        collect(p.productName) AS products,
        count(p) AS productCount
 ORDER BY cat.categoryName;
-```
+----
 
 ////
 ```mermaid
@@ -202,41 +257,51 @@ flowchart LR
 ```
 ////
 
+This query collects all product names into a list for each category.
+
 **Result:**
-```
+
+----
 categoryName   products                                    productCount
 "Beverages"    ["Chai", "Chang", "Guaraná Fantástica"...] 12
 "Condiments"   ["Aniseed Syrup", "Chef Anton's..."...]    12
 ...
-```
+----
 
-== Customers per Country
 
-```cypher
+[.slide.discrete]
+=== Customers per country
+
+[source,cypher]
+----
 MATCH (c:Customer)
 RETURN c.country,
        collect(c.companyName) AS companies,
        count(c) AS customerCount
 ORDER BY customerCount DESC
 LIMIT 10;
-```
+----
 
-Groups customers by country.
+This query groups customers by country and collects the company names into a list.
 
-== WITH Clause
 
-The WITH clause lets you chain query parts and perform multi-step aggregations.
+[.slide]
+== Chaining queries with WITH
 
-== Top Product per Category
+The WITH clause lets you chain query parts together and perform multi-step aggregations.
 
-```cypher
+[.slide.discrete]
+=== Top product per category
+
+[source,cypher]
+----
 MATCH (cat:Category)<-[:PART_OF]-(p:Product)<-[r:ORDERS]-(:Order)
 WITH cat, p, sum(r.quantity) AS totalOrdered
 ORDER BY cat.categoryName, totalOrdered DESC
 WITH cat, collect({product: p.productName, quantity: totalOrdered})[0] AS topProduct
 RETURN cat.categoryName, topProduct.product AS topProduct, topProduct.quantity AS totalOrdered
 ORDER BY cat.categoryName;
-```
+----
 
 ////
 ```mermaid
@@ -248,17 +313,20 @@ flowchart TD
 ```
 ////
 
-Multi-step aggregation finding the most ordered product in each category.
+This multi-step aggregation finds the most ordered product in each category by using WITH to chain operations.
 
-== Filtering Aggregates
 
-```cypher
+[.slide.discrete]
+=== Filtering aggregates
+
+[source,cypher]
+----
 MATCH (c:Customer)-[:PLACED]->(o:Order)
 WITH c, count(o) AS orderCount
 WHERE orderCount > 10
 RETURN c.companyName, orderCount
 ORDER BY orderCount DESC;
-```
+----
 
 ////
 ```mermaid
@@ -269,20 +337,27 @@ flowchart TD
 ```
 ////
 
-WITH allows you to filter on aggregated values.
+The WITH clause allows you to filter on aggregated values before returning the final results.
 
-== Statistical Functions
 
-== Product Price Statistics
+[.slide]
+== Using statistical functions
 
-```cypher
+Cypher provides statistical functions for advanced analysis of your data.
+
+
+[.slide.discrete]
+=== Product price statistics
+
+[source,cypher]
+----
 MATCH (p:Product)
 WHERE NOT p.discontinued
 RETURN percentileCont(p.unitPrice, 0.5) AS median,
        percentileCont(p.unitPrice, 0.25) AS q1,
        percentileCont(p.unitPrice, 0.75) AS q3,
        stDev(p.unitPrice) AS standardDeviation;
-```
+----
 
 ////
 ```mermaid
@@ -294,13 +369,20 @@ graph TB
 ```
 ////
 
-Advanced statistics for active products.
+This query calculates advanced statistics including median, quartiles, and standard deviation for active products.
 
-== Complex Business Questions
 
-== Monthly Order Analysis
+[.slide]
+== Answering complex business questions
 
-```cypher
+You can combine multiple aggregation techniques to answer complex business questions.
+
+
+[.slide.discrete]
+=== Monthly order analysis
+
+[source,cypher]
+----
 MATCH (o:Order)
 WHERE o.orderDate >= date('1997-01-01')
   AND o.orderDate < date('1998-01-01')
@@ -310,7 +392,7 @@ RETURN o.orderDate.year AS year,
        sum(o.freight) AS totalFreight,
        avg(o.freight) AS avgFreight
 ORDER BY year, month;
-```
+----
 
 ////
 ```mermaid
@@ -321,18 +403,21 @@ flowchart LR
 ```
 ////
 
-Monthly analysis of orders and freight costs.
+This query performs a monthly analysis of orders and freight costs for a specific year.
 
-== Employee Performance
 
-```cypher
+[.slide.discrete]
+=== Employee performance
+
+[source,cypher]
+----
 MATCH (e:Employee)-[:SOLD]->(o:Order)-[r:ORDERS]->(p:Product)
 RETURN e.firstName + ' ' + e.lastName AS employee,
        count(DISTINCT o) AS ordersProcessed,
        sum(r.quantity * r.unitPrice) AS totalSales,
        avg(r.quantity * r.unitPrice) AS avgLineItemValue
 ORDER BY totalSales DESC;
-```
+----
 
 ////
 ```mermaid
@@ -344,11 +429,14 @@ flowchart TD
 ```
 ////
 
-Analyzes employee sales performance.
+This query analyzes employee sales performance by calculating orders processed, total sales, and average line item value.
 
-== Category Revenue Analysis
 
-```cypher
+[.slide.discrete]
+=== Category revenue analysis
+
+[source,cypher]
+----
 MATCH (cat:Category)<-[:PART_OF]-(p:Product)<-[r:ORDERS]-(:Order)
 RETURN cat.categoryName,
        count(DISTINCT p) AS products,
@@ -356,21 +444,28 @@ RETURN cat.categoryName,
        sum(r.quantity) AS unitsSold,
        avg(r.unitPrice) AS avgPricePoint
 ORDER BY revenue DESC;
-```
+----
 
-Comprehensive category analysis showing products, revenue, units, and average prices.
+This comprehensive category analysis shows products, revenue, units sold, and average price points.
 
-== Conditional Aggregation
 
-== Order Status Summary
+[.slide]
+== Conditional aggregation
 
-```cypher
+You can use CASE expressions within aggregation functions to perform conditional aggregation.
+
+
+[.slide.discrete]
+=== Order status summary
+
+[source,cypher]
+----
 MATCH (o:Order)
 RETURN count(o) AS totalOrders,
        count(CASE WHEN o.shippedDate IS NULL THEN 1 END) AS notShipped,
        count(CASE WHEN o.shippedDate IS NOT NULL THEN 1 END) AS shipped,
        count(CASE WHEN o.shippedDate > o.requiredDate THEN 1 END) AS lateShipments;
-```
+----
 
 ////
 ```mermaid
@@ -381,38 +476,20 @@ flowchart TD
 ```
 ////
 
-Uses CASE for conditional aggregation.
+This query uses CASE expressions within count functions to calculate multiple conditional metrics in a single query.
 
+
+[.summary]
 == Summary
 
-In this lesson, you learned:
+In this lesson, you learned how to use aggregation functions to summarize and analyze the Northwind data.
 
-* Counting: `count()`, `count(DISTINCT)`
-* Implicit grouping (non-aggregated fields group results)
-* Aggregation functions: `sum()`, `avg()`, `min()`, `max()`
-* Collecting: `collect()` to build lists
-* WITH clause for multi-step aggregations
-* Filtering aggregates with WITH and WHERE
-* Statistical functions: `percentileCont()`, `stDev()`
-* Complex business analysis queries
-* Conditional aggregation with CASE
+* **Counting** - Use `count()` and `count(DISTINCT)` to count nodes, relationships, and unique values
+* **Implicit grouping** - Cypher groups results automatically when you mix aggregated and non-aggregated fields
+* **Aggregation functions** - Use `sum()`, `avg()`, `min()`, and `max()` to calculate totals and statistics
+* **Collecting values** - Use `collect()` to aggregate values into lists
+* **Chaining queries** - Use the WITH clause for multi-step aggregations and filtering on aggregated values
+* **Statistical functions** - Use `percentileCont()` and `stDev()` for advanced statistical analysis
+* **Conditional aggregation** - Use CASE expressions within aggregation functions for conditional calculations
 
-You now have all the tools to query and analyze the Northwind graph to answer business questions!
-
-== Workshop Complete!
-
-Congratulations! You have completed the Northwind Import Workshop. You have:
-
-* ✓ Set up a free Neo4j Aura instance
-* ✓ Learned graph data modeling fundamentals
-* ✓ Imported the complete Northwind dataset
-* ✓ Mastered Cypher queries to explore and analyze data
-
-**Next Steps:**
-
-* Experiment with your own queries
-* Try importing your own data
-* Explore more advanced Cypher features
-* Build an application using the Neo4j drivers
-
-Keep learning and happy graphing!
+Congratulations! You have completed the Northwind Import Workshop and can now query and analyze graph data using Cypher.

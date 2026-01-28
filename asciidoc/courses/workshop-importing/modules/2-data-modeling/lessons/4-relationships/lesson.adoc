@@ -3,22 +3,17 @@
 :order: 4
 
 
-[.slide]
+[.slide.discrete]
 == Understanding Relationships
 
-You have learned about nodes and labels, which represent the entities in your graph.
-
-Now you will learn how to connect these nodes using relationships.
+In the previous lesson, you learned about nodes and labels, which represent the entities in your graph. To create a useful graph database, you need to connect these nodes.
 
 
 In this lesson, you will learn about relationships, how they work in Neo4j, and how to model the relationships for the Northwind dataset.
 
 
-You will understand how relationships connect your nodes and make your graph database powerful.
-
-
-[.slide]
-== What are Relationships?
+[.slide.discrete]
+== Defining Relationships
 
 **Relationships** connect nodes and represent associations between entities. They are the key feature that makes graph databases powerful.
 
@@ -31,56 +26,44 @@ Every relationship:
 * Connects exactly two nodes
 
 
-```mermaid
-graph LR
-    A[Node A] -->|RELATIONSHIP_TYPE| B[Node B]
-```
+[.slide.discrete]
+== Understanding Why Relationships Matter
+
+In relational databases, you model connections with foreign keys and pivot tables. This creates problems:
+
+
+**The Relational Approach:**
+
+* Orders connect to Products through an `order_details` pivot table
+* To find products in an order, you JOIN orders → order_details → products
+* Each JOIN scans tables and matches keys—slow for deep queries
+* The connection isn't explicit; it's just matching numbers
+
+
+**The Graph Approach:**
+
+* Orders connect directly to Products via `ORDERS` relationships
+* To find products, you traverse the relationship—no table scans
+* The relationship is explicit and named: `ORDERS`
+* You can traverse in either direction without additional JOINs
+
+
+Relationships are **faster** because there's no JOIN overhead, **clearer** because the connection is explicitly named, and **more flexible** because you can traverse them in any direction.
 
 
 [.slide.discrete]
-== Why Relationships Matter
-
-In traditional databases, relationships are implicit (foreign keys requiring JOINs). In graph databases, relationships are:
-
-
-* **Explicit** - First-class citizens in the data model
-* **Fast** - No JOINs needed, direct traversal
-* **Semantic** - The relationship type describes the connection
-* **Bidirectional** - Can be traversed in either direction
-
-
-```mermaid
-graph TB
-    A[Graph Relationships] --> B[Fast Traversal]
-    A --> C[No JOINs]
-    A --> D[Self-Documenting]
-    A --> E[Flexible Schema]
-```
-
-
-[.slide.discrete]
-== Relationship Direction
+== Understanding Relationship Direction
 
 Every relationship has a direction, but you can traverse relationships in either direction in your queries.
-
-
-```mermaid
-graph LR
-    A[Customer] -->|PLACED| B[Order]
-
-    C[Query can traverse]
-    C -->|Forward| D[Customer to Order]
-    C -->|Backward| E[Order to Customer]
-```
 
 
 The direction should represent the natural flow of the relationship.
 
 
 [.slide.discrete]
-== Northwind Relationships
+== Modeling Northwind Relationships
 
-Let's define the relationships for the Northwind domain:
+The Northwind domain includes the following relationships:
 
 
 ```mermaid
@@ -94,18 +77,21 @@ graph TB
 ```
 
 
-| Relationship | From | To | Meaning |
-|--------------|------|-----|---------|
-| `PLACED` | Customer | Order | Customer placed an order |
-| `ORDERS` | Order | Product | Order contains a product |
-| `PART_OF` | Product | Category | Product belongs to category |
-| `SUPPLIED_BY` | Product | Supplier | Product supplied by supplier |
-| `SOLD` | Employee | Order | Employee processed order |
-| `REPORTS_TO` | Employee | Employee | Employee reports to manager |
+[options="header"]
+|===
+| Relationship | From | To | Meaning
+
+| `PLACED` | Customer | Order | Customer placed an order
+| `ORDERS` | Order | Product | Order contains a product
+| `PART_OF` | Product | Category | Product belongs to category
+| `SUPPLIED_BY` | Product | Supplier | Product supplied by supplier
+| `SOLD` | Employee | Order | Employee processed order
+| `REPORTS_TO` | Employee | Employee | Employee reports to manager
+|===
 
 
 [.slide.discrete]
-== Relationship Naming Conventions
+== Applying Naming Conventions
 
 When naming relationships:
 
@@ -116,22 +102,46 @@ When naming relationships:
 * **Read naturally** - `(Customer)-[:PLACED]->(Order)` reads like a sentence
 
 
-```mermaid
-graph LR
-    A[Good Names] --> B[PLACED]
-    A --> C[REPORTS_TO]
-    A --> D[SUPPLIED_BY]
-
-    E[Avoid] --> F[has]
-    E --> G[related]
-    E --> H[PlacedOrder]
-```
-
-
 [.slide.discrete]
-== Multiple Relationships
+== Handling Many-to-Many Relationships
 
-Nodes can have multiple relationships of the same or different types:
+In relational databases, many-to-many relationships require pivot tables. In Northwind, orders contain many products, and products appear in many orders.
+
+
+**Relational approach with pivot tables:**
+
+[source,sql]
+----
+-- Three tables needed
+SELECT p.productName
+FROM orders o
+JOIN order_details od ON o.orderID = od.orderID  -- Pivot table
+JOIN products p ON od.productID = p.productID
+WHERE o.orderID = 10248;
+----
+
+**Problems with pivot tables:**
+
+* **Performance cost** - Two JOINs scan and match thousands of rows
+* **Not semantic** - `order_details` is just a join table, not meaningful
+* **Query complexity** - Every query needs the same JOIN pattern
+
+
+**Graph approach with relationships:**
+
+[source,cypher]
+----
+-- Direct traversal, no joins
+MATCH (o:Order {orderId: 10248})-[:ORDERS]->(p:Product)
+RETURN p.productName;
+----
+
+**Why this is better:**
+
+* **No JOIN overhead** - Direct traversal from order to products
+* **Semantic meaning** - `ORDERS` describes the relationship
+* **Properties on relationships** - Store quantity, price, discount right on the relationship
+* **Flexible queries** - Easy to traverse in any direction
 
 
 ```mermaid
@@ -140,16 +150,16 @@ graph TB
     A -->|PLACED| C[Order: #10249]
     A -->|PLACED| D[Order: #10250]
 
-    B -->|ORDERS| E[Product: Chai]
-    B -->|ORDERS| F[Product: Coffee]
+    B -->|ORDERS<br/>qty, price| E[Product: Chai]
+    B -->|ORDERS<br/>qty, price| F[Product: Coffee]
 ```
 
 
-This is natural in graphs - one customer places many orders, one order contains many products.
+This is natural in graphs because relationships are first-class data structures, not artificial join tables.
 
 
 [.slide.discrete]
-== Self-Referencing Relationships
+== Modeling Self-Referencing Relationships
 
 A node can have a relationship to itself (same label). In Northwind, employees report to other employees:
 
@@ -166,14 +176,15 @@ This creates a hierarchy or tree structure within the graph.
 
 
 [.slide.discrete]
-== Relationship Properties
+== Adding Relationship Properties
 
-Relationships can store properties too. For example, the `ORDERS` relationship might include:
+Some data belongs on the relationship itself, not on either node.
 
 
-* `quantity` - How many units were ordered
-* `unitPrice` - Price per unit at time of order
-* `discount` - Discount percentage applied
+**Why store properties on relationships?**
+
+
+In Northwind, an order contains products. But quantity, price, and discount aren't properties of the order OR the product—they're properties of **the connection between them**.
 
 
 ```mermaid
@@ -182,15 +193,35 @@ graph LR
 ```
 
 
-This is important in Northwind because:
+**Why not store this on the Product node?**
 
-* Product prices can change over time
-* Different orders might have different prices/discounts
-* Quantity varies per order
+* Product price changes over time
+* Historical orders need the price at the time they were placed
+* Different orders might have different discounts
+
+
+**Why not store this on the Order node?**
+
+* An order contains many products
+* Each product has its own quantity and price
+* You'd need a complex nested structure
+
+
+**Why relationships are the right place:**
+
+* `quantity` describes "how many of this product in this order"
+* `unitPrice` captures "what was the price when this order was placed"
+* `discount` represents "the discount applied to this product in this order"
+
+
+This data exists **because of the relationship**, so it belongs on the relationship.
+
+
+In a relational database, this becomes the `order_details` pivot table—but in a graph, you model it naturally as relationship properties.
 
 
 [.slide.discrete]
-== Fanout
+== Understanding Fanout
 
 **Fanout** is when one node connects to many others. This is common and performant in Neo4j:
 
@@ -211,9 +242,9 @@ A popular product might appear in thousands of orders - Neo4j handles this effic
 
 
 [.slide.discrete]
-== Complete Northwind Data Model
+== Reviewing the Complete Northwind Data Model
 
-Here's the complete data model with all nodes and relationships:
+The complete data model with all nodes and relationships:
 
 
 ```mermaid
@@ -230,15 +261,16 @@ graph TB
 [.summary]
 == Summary
 
-In this lesson, you learned:
+In this lesson, you learned about relationships in Neo4j:
 
 
-* Relationships connect nodes and represent associations
-* Relationships have types, direction, and properties
-* Relationship naming conventions (verbs, UPPER_SNAKE_CASE)
-* Multiple relationships between nodes are common
-* Self-referencing relationships create hierarchies
-* The complete Northwind data model with relationships
+* **Relationships** connect nodes and represent associations between entities
+* **Every relationship** has a type, direction, and can have properties
+* **Naming conventions** use verbs in UPPER_SNAKE_CASE (e.g., `PLACED`, `REPORTS_TO`)
+* **Multiple relationships** of the same or different types are common and performant
+* **Self-referencing relationships** create hierarchies (e.g., employee reporting structures)
+* **Relationship properties** store contextual data (e.g., quantity, price, discount)
+* **The Northwind model** includes relationships like `PLACED`, `ORDERS`, `PART_OF`, `SUPPLIED_BY`, `SOLD`, and `REPORTS_TO`
 
 
 In the next lesson, you will learn how to define properties for nodes and relationships.
