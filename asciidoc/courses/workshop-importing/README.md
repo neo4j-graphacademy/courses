@@ -62,3 +62,14 @@ By completing this workshop, participants will:
 - Import CSV data into Neo4j
 - Write Cypher queries to explore and analyze data
 - Apply best practices for constraints and indexes
+
+## Source Attribution
+
+This workshop combines and adapts content from several GraphAcademy courses:
+
+- [Neo4j Fundamentals](https://graphacademy.neo4j.com/courses/neo4j-fundamentals) - Cypher query language fundamentals
+- [Modeling Fundamentals](https://graphacademy.neo4j.com/courses/modeling-fundamentals) - Graph data modeling concepts and practices
+- [Importing Data Fundamentals](https://graphacademy.neo4j.com/courses/importing-fundamentals) - Data Importer tool and CSV import workflows
+- [Neo4j Aura Fundamentals](https://graphacademy.neo4j.com/courses/aura-fundamentals) - Neo4j Aura setup and management
+
+All content has been adapted to focus on the practical goal of importing and querying the Northwind dataset. Theory has been condensed, examples have been changed to use Northwind data, and all lessons build toward a cohesive workshop experience.

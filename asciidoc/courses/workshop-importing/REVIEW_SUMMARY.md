@@ -102,6 +102,34 @@ All lessons now meet GraphAcademy standards for:
 - **Lines changed**: ~2,500+
 - **Files modified**: 21 lesson files + module files
 
+## Source Courses
+
+This workshop combines and adapts content from the following GraphAcademy courses:
+
+- **[Neo4j Fundamentals](https://graphacademy.neo4j.com/courses/neo4j-fundamentals)**
+  - Cypher query fundamentals
+  - Pattern matching concepts
+  - Filtering and aggregation
+
+- **[Modeling Fundamentals](https://graphacademy.neo4j.com/courses/modeling-fundamentals)**
+  - Graph data modeling principles
+  - Nodes, labels, and relationships
+  - Properties and data model testing
+  - Refactoring strategies
+
+- **[Importing Data Fundamentals](https://graphacademy.neo4j.com/courses/importing-fundamentals)**
+  - Data Importer tool workflow
+  - Importing nodes and relationships
+  - Constraints and indexes
+  - Complete import process
+
+- **[Neo4j Aura Fundamentals](https://graphacademy.neo4j.com/courses/aura-fundamentals)**
+  - Neo4j Aura introduction
+  - Instance creation and management
+  - Aura tools overview
+
+All content has been adapted for this workshop's specific goals: importing the Northwind dataset and running business queries. Theory lessons have been condensed to focus on practical application, examples have been changed to use the Northwind domain, and all lessons follow a clear progression toward the workshop's end goal.
+
 ## Ready for Publication
 
 The Northwind Import Workshop is now fully reviewed, polished, and ready for:
