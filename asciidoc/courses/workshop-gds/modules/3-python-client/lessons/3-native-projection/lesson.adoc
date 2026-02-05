@@ -1,0 +1,430 @@
+= From Cypher to Native Projection
+:type: lesson
+:order: 3
+
+[.slide]
+== Introduction
+
+You've been using Cypher projections throughout this course.
+
+[source,cypher,role=noplay nocopy]
+.Cypher projection
+----
+MATCH (source:Movie)-[r:IN_GENRE]->(target:Genre)
+WITH gds.graph.project('movies-genres', source, target) AS g
+RETURN g.graphName, g.nodeCount
+----
+
+[.slide]
+== Introduction
+
+The Python client offers the same capabilities through `gds.graph.project()`—using Python dictionaries instead of Cypher syntax.
+
+This lesson shows how to translate your Cypher projection knowledge into Python.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Translate Cypher projections to Python syntax
+* Configure node and relationship properties in projections
+* Set relationship orientation (undirected, reverse)
+* Handle missing properties with default values
+* Choose between `gds.graph.project()` and `gds.graph.cypher.project()`
+
+[.slide]
+== The Same Concepts, Different Syntax
+
+Both approaches do the same thing:
+
+* Select nodes by label
+* Select relationships by type
+* Configure properties and orientation
+* Create an in-memory projection
+
+The Python client translates your dictionary configuration into the equivalent Cypher projection.
+
+[.slide]
+== Basic Projection: Cypher
+
+[source,cypher,role=noplay nocopy]
+.Cypher projection
+----
+MATCH (source:Movie)-[r:IN_GENRE]->(target:Genre)
+WITH gds.graph.project('movies-genres', source, target) AS g
+RETURN g.graphName, g.nodeCount
+----
+
+[.slide]
+== Basic Projection: Python
+
+[source,python,role=noplay nocopy]
+.Python equivalent
+----
+G, result = gds.graph.project(
+    "movies-genres",      # Graph name
+    ["Movie", "Genre"],   # Node labels
+    "IN_GENRE"            # Relationship type
+)
+----
+
+[.slide]
+== Basic Projection: The Pattern
+
+The MATCH pattern `(source:Movie)-[r:IN_GENRE]->(target:Genre)` becomes two arguments:
+
+* The labels `["Movie", "Genre"]`
+* The type `"IN_GENRE"`
+
+[.slide]
+== What gds.graph.project() Returns
+
+The method returns two values: a Graph object and projection metadata.
+
+[source,python,role=noplay nocopy]
+.Unpacking the return values
+----
+G, result = gds.graph.project(
+    "movies-genres",
+    ["Movie", "Genre"],
+    "IN_GENRE"
+)
+----
+
+[.slide]
+== The Result Metadata
+
+[source,python,role=noplay nocopy]
+.Accessing metadata
+----
+print(result["graphName"])           # 'movies-genres'
+print(result["nodeCount"])           # Number of nodes
+print(result["relationshipCount"])   # Number of relationships
+----
+
+[.slide]
+== Discarding Metadata
+
+If you only need the Graph object use `_` to discard the results metadata:
+
+[source,python,role=noplay nocopy]
+.Discarding metadata
+----
+G, _ = gds.graph.project(
+    "movies-genres",
+    ["Movie", "Genre"],
+    "IN_GENRE"
+)
+----
+
+[.slide]
+== Multiple Labels and Types: Cypher
+
+[source,cypher,role=noplay nocopy]
+.Multiple labels and types in Cypher
+----
+MATCH (source)-[r:ACTED_IN|RATED]->(target:Movie)
+WHERE source:Actor OR source:User
+WITH gds.graph.project('movie-interactions', source, target) AS g
+RETURN g
+----
+
+[.slide]
+== Multiple Labels and Types: Python
+
+[source,python,role=noplay nocopy]
+.Multiple labels and types in Python
+----
+G, _ = gds.graph.project(
+    "movie-interactions",
+    ["Actor", "User", "Movie"],  # Multiple labels
+    ["ACTED_IN", "RATED"]        # Multiple relationship types
+)
+----
+
+[.slide]
+== Adding Node Properties: Cypher
+
+[source,cypher,role=noplay nocopy]
+.Node properties in Cypher
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
+WITH gds.graph.project(
+  'actors-movies-props',
+  source, target,
+  { sourceNodeProperties: source { .born },
+    targetNodeProperties: target { .year, .imdbRating } }
+) AS g
+RETURN g
+----
+
+[.slide]
+== Adding Node Properties: Python
+
+[source,python,role=noplay nocopy]
+.Node properties in Python
+----
+G, _ = gds.graph.project(
+    "actors-movies-props",
+    {
+        "Actor": {},
+        "Movie": {"properties": ["year"]}
+    },
+    "ACTED_IN"
+)
+----
+
+When you need properties, labels become dictionary keys with a `properties` list.
+
+[.slide]
+== Relationship Properties: Cypher
+
+[source,cypher,role=noplay nocopy]
+.Relationship properties in Cypher
+----
+MATCH (source:User)-[r:RATED]->(target:Movie)
+WITH gds.graph.project(
+  'user-ratings', source, target,
+  { relationshipProperties: r { .rating } }
+) AS g
+RETURN g
+----
+
+[.slide]
+== Relationship Properties: Python
+
+[source,python,role=noplay nocopy]
+.Relationship properties in Python
+----
+G, _ = gds.graph.project(
+    "user-ratings",
+    ["User", "Movie"],
+    {"RATED": {"properties": ["rating"]}}
+)
+----
+
+Same pattern: when you need configuration, the type becomes a dictionary key.
+
+[.slide]
+== Undirected Relationships: Cypher
+
+[source,cypher,role=noplay nocopy]
+.Undirected in Cypher
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
+WITH gds.graph.project(
+  'actors-movies-undirected',
+  source, target, {},
+  { undirectedRelationshipTypes: ['ACTED_IN'] }
+) AS g
+RETURN g
+----
+
+[.slide]
+== Undirected Relationships: Python
+
+[source,python,role=noplay nocopy]
+.Undirected in Python
+----
+G, _ = gds.graph.project(
+    "actors-movies-undirected",
+    ["Actor", "Movie"],
+    {"ACTED_IN": {"orientation": "UNDIRECTED"}}
+)
+----
+
+[.slide]
+== Orientation Options
+
+* `NATURAL` — Keep original direction (default)
+* `REVERSE` — Flip all directions
+* `UNDIRECTED` — Treat as bidirectional
+
+[.slide]
+== Default Values for Missing Properties
+
+Some nodes might be missing properties. Use `defaultValue` to handle nulls:
+
+[source,python,role=noplay nocopy]
+.Handling missing properties
+----
+G, _ = gds.graph.project(
+    "with-defaults",
+    {
+        "Actor": {
+            "properties": {
+                "born": {
+                    "property": "born",
+                    "defaultValue": 1900
+                }
+            }
+        },
+        "Movie": {
+            "properties": {
+                "year": {"defaultValue": 1900},
+                "imdbRating": {"defaultValue": 0.0},
+                "runtime": {"defaultValue": 90}
+            }
+        }
+    },
+    {"ACTED_IN": {"orientation": "UNDIRECTED"}}
+)
+----
+
+[.slide]
+== Default Values
+
+Nodes missing the property use the default value instead of causing an error.
+
+This mirrors the `coalesce()` function you used in Cypher projections.
+
+[.slide]
+== Monopartite Transformations: Cypher
+
+Creating an Actor-to-Actor network through shared Movies requires a complex MATCH pattern.
+
+[source,cypher,role=noplay nocopy]
+.Monopartite in Cypher
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project('actor-collab', source, target) AS g
+RETURN g
+----
+
+[.slide]
+== Monopartite Transformations: Python
+
+The `gds.graph.project()` method only handles direct label/type projections.
+
+For pattern-based transformations, use `gds.graph.cypher.project()`:
+
+[source,python,role=noplay nocopy]
+.Monopartite in Python
+----
+G, result = gds.graph.cypher.project(
+    """
+    MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+    RETURN gds.graph.project($graph_name, source, target)
+    """,
+    graph_name='actor-collab'
+)
+----
+
+[.slide]
+== Alternative: run_cypher + graph.get()
+
+You can also run Cypher projection directly and retrieve the Graph object afterwards:
+
+[source,python,role=noplay nocopy]
+.Running raw Cypher
+----
+result = gds.run_cypher("""
+    MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+    WITH gds.graph.project('actor-collab-v2', source, target) AS g
+    RETURN g.graphName, g.nodeCount, g.relationshipCount
+""")
+----
+
+[.slide]
+== Retrieving the Graph Object
+
+[source,python,role=noplay nocopy]
+.Retrieving an existing projection
+----
+G = gds.graph.get("actor-collab-v2")
+
+print(f"Retrieved graph: {G.name()}")
+print(f"Node count: {G.node_count()}")
+----
+
+This approach uses the exact Cypher syntax you already know.
+
+[.slide]
+== Full Movies Graph Projection
+
+[source,python,role=noplay nocopy]
+.Complete projection with all labels and types
+----
+G, result = gds.graph.project(
+    "movies-full",
+    {
+        "Actor": {"properties": {"born": {"defaultValue": 1900}}},
+        "User": {},
+        "Movie": {"properties": {
+            "imdbRating": {"defaultValue": 0.0},
+            "year": {"defaultValue": 1900}
+        }},
+        "Genre": {}
+    },
+    {
+        "ACTED_IN": {},
+        "RATED": {"properties": {"rating": {"defaultValue": 0.0}}},
+        "IN_GENRE": {}
+    }
+)
+----
+
+[.slide]
+== When to Use Each Method
+
+[cols="1,2"]
+|===
+|**Method** |**Use when**
+
+|`gds.graph.project()`
+|Projecting by labels and types directly
+
+|`gds.graph.cypher.project()`
+|Complex patterns, aggregation, filtering
+
+|`run_cypher()` + `graph.get()`
+|You prefer writing raw Cypher
+|===
+
+[.slide]
+== When to Use Each Method
+
+Most projections work with `gds.graph.project()`.
+
+Use the Cypher-based methods when you need pattern transformations like monopartite projections.
+
+[.slide]
+== Translation Reference
+
+[cols="2,2"]
+|===
+|**Cypher** |**Python**
+
+|`MATCH (source:Label)`
+|`"Label"` or `{"Label": {}}`
+
+|`sourceNodeProperties: source { .prop }`
+|`{"Label": {"properties": ["prop"]}}`
+
+|`relationshipProperties: r { .weight }`
+|`{"TYPE": {"properties": ["weight"]}}`
+
+|`undirectedRelationshipTypes: ['TYPE']`
+|`{"TYPE": {"orientation": "UNDIRECTED"}}`
+
+|Complex MATCH patterns
+|`gds.graph.cypher.project()`
+|===
+
+
+read::Mark as read[]
+
+
+[.summary]
+== Summary
+
+Translating Cypher projections to Python:
+
+* Labels and types become strings or lists for simple cases
+* Use dictionaries when you need properties or configuration
+* `gds.graph.project()` handles direct label/type projections
+* `gds.graph.cypher.project()` handles complex MATCH patterns
+* Use `defaultValue` to handle missing properties
+
+**Next:** Running algorithms with the Python client.

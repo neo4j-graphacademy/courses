@@ -1,0 +1,295 @@
+= Introduction to Aura Graph Analytics
+:type: lesson
+:order: 1
+
+[.slide.discrete]
+== Introduction
+
+// asciidoc/courses/workshop-gds/modules/4-aura-graph-analytics/lessons/3-yens-k-shortest-paths/lesson.adoc
+
+Aura Graph Analytics is Neo4j's on-demand cloud environment for running Graph Data Science workloads.
+
+image::images/aga_banner.png[Aura Graph Analytics branding]
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Explain when Aura Graph Analytics is preferable to local GDS installations
+* Create and manage ephemeral GDS Sessions using the Python client
+* Project graphs remotely from AuraDB using `gds.graph.project.remote()`
+* Navigate the Cargo 2000 logistics dataset we'll use throughout this module
+
+[.slide]
+== The Business Question
+
+// asciidoc/courses/workshop-gds/modules/4-aura-graph-analytics/lessons/5-workshop-complete/lesson.adoc
+
+We have **5 months of air cargo shipping data** from a real freight forwarding company.
+
+Our goal: **Find inefficiencies in our routing decisions.**
+
+* Are we using the fastest routes?
+* What alternatives exist that we've never tried?
+* How much time (and money) could we save?
+
+This module teaches you to answer these questions using Graph Data Science.
+
+[.slide]
+== Ephemeral compute sessions
+
+// asciidoc/courses/workshop-gds/modules/4-aura-graph-analytics/lessons/2-djikstras-shortest-path/lesson.adoc
+Instead of installing GDS on a local database, you spin up ephemeral compute sessions that connect to your data source.
+
+image::images/aga_session.png[an Aura Graph Analytics session running]
+
+[.slide]
+== What you'll learn
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/9-fastrp-deep-dive/lesson.adoc
+
+Using Aura Graph Analytics, we'll:
+
+* Create and manage GDS Sessions
+* Project the logistics network remotely from AuraDB
+* Run **pathfinding algorithms** (Dijkstra, Yen's K-Shortest Paths)
+* Compare historical routes against optimal paths
+* Write results back to the database
+
+_For centrality and community detection algorithms, see the Graph Algorithms module._
+
+[.slide]
+== Theory vs practical
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/8-louvain-on-citations/lesson.adoc
+Each concept will be framed by our classic Movies dataset with follow-up practical lessons where you'll apply your knowledge to a real-world logistics use-case.
+
+image::images/movies_vs_logistics.png[Graph data model of the movies dataset and a logistics dataset]
+
+[.slide]
+== When to Use Aura Graph Analytics
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/3-native-projection/lesson.adoc
+
+**Aura Graph Analytics is useful when:**
+
+* Running heavy GDS workloads without impacting your production database
+* Scaling compute resources independently from storage
+* Working with AuraDB instances that don't have GDS installed locally
+* Needing temporary, cost-efficient analytics environments
+
+
+[.slide]
+== GDS Sessions
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/1-intro-to-gds-python/lesson.adoc
+
+A GDS Session is an ephemeral compute unit for running GDS workloads. There are three types:
+
+* **Attached**: Data source is an AuraDB instance
+* **Self-managed**: Data source is a self-managed Neo4j DBMS
+* **Standalone**: Data source is not Neo4j-based (e.g., pandas DataFrames)
+
+Sessions automatically expire after inactivity (default: 1 hour, max: 7 days) and have a hard limit of 7 days total lifetime.
+
+[.slide]
+== Get your credentials: Dashboard
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/5-citation-network-setup/lesson.adoc
+To get your credentials, head to Aura:
+
+image::images/aura.png[the Aura Dashboard]
+
+[.slide]
+== Get your credentials: Account Page
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/2-gds-workflows-python/lesson.adoc
+Go to your account page, and then the API Keys tab to generate credentials.
+
+image::images/generate_creds.png[the Aura account page]
+
+[.slide]
+== The GdsSessions Object
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/6-pagerank-deep-dive/lesson.adoc
+
+With the GDS python client installed:
+
+Create the entry point for session management:
+
+[source,python,role=noplay nocopy]
+----
+from graphdatascience.session import GdsSessions, AuraAPICredentials
+
+sessions = GdsSessions(
+    api_credentials=AuraAPICredentials(
+        client_id="my-aura-api-client-id",
+        client_secret="my-aura-api-client-secret"
+    )
+)
+----
+
+[.slide]
+== Creating a GDS Session
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/7-betweenness-deep-dive/lesson.adoc
+
+Use `get_or_create()` to create or reconnect to a session:
+
+[source,python,role=noplay nocopy]
+----
+gds = sessions.get_or_create(
+    session_name="my-session",
+    memory=SessionMemory.m_8GB,
+    db_connection=DbmsConnectionInfo(
+        aura_instance_id="mydbid",
+        username="neo4j",
+        password="my-password"
+    ),
+    ttl=timedelta(hours=2)
+)
+
+# Verify the connection
+gds.verify_connectivity()
+----
+
+[.slide]
+== The `gds` object
+
+// asciidoc/courses/workshop-gds/modules/3-python-client/lessons/4-running-algorithms/lesson.adoc
+The returned `gds` object works like the standard `GraphDataScience` client.
+
+[.slide]
+== Remote Projection
+
+// asciidoc/courses/workshop-gds/modules/2-community-detection-fraud/lessons/5-finding-fraud/lesson.adoc
+
+Projecting a graph into a GDS Session uses `gds.graph.project()` with a Cypher query containing `gds.graph.project.remote()`:
+
+[source,python,role=noplay nocopy]
+----
+G_collab, result = gds.graph.project(
+    "example-graph",    #Title of the graph
+    """
+    CALL {
+      MATCH (a1:EntryPoint)-[r:HAS_HISTORICAL_ROUTE]->(:HistoricalRoute)-[:TERMINATES_AT]->(a2:Destination)
+      WHERE a1 <> a2
+      RETURN a1 AS source,
+            a2 AS target,
+            type(r) AS relType
+    }
+    RETURN gds.graph.project.remote(source, target, {
+      sourceNodeLabels: labels(source),
+      targetNodeLabels: labels(target),
+      relationshipType: relType
+    })
+    """,
+    undirected_relationship_types=["*"] # Undirected relationships are specified outside the CALL block
+)
+----
+
+[.slide]
+== Managing Sessions
+
+// asciidoc/courses/workshop-gds/modules/2-community-detection-fraud/lessons/2-louvain-deep-dive/lesson.adoc
+
+List active sessions:
+
+[source,python,role=noplay nocopy]
+----
+sessions.list()
+----
+
+[.slide]
+== View your active sessions
+
+// asciidoc/courses/workshop-gds/modules/2-community-detection-fraud/lessons/4-wcc-deep-dive/lesson.adoc
+In your Graph Analytics dashboard, you can see which sessions you are currently running.
+
+image::images/aura_graph_analytics_dashboard.png[the aura graph analytics dashboard with a session running.]
+
+[.slide]
+== Graph vs Session vs Projection
+
+// asciidoc/courses/workshop-gds/modules/2-community-detection-fraud/lessons/3-reducing-search-space/lesson.adoc
+There are three containers here:
+
+1. Main graph (AuraDB)
+2. Aura Graph Analytics Session
+3. Projected graph
+
+[.slide]
+== Projection workflow
+
+// asciidoc/courses/workshop-gds/modules/2-community-detection-fraud/lessons/1-fraud-problem/lesson.adoc
+Your projection lives inside the session, entirely separate from the main graph.
+
+image::images/sessions_aura_ga.png[a diagram showing the projection that lives inside the session, separate from the main graph.]
+
+
+[.slide]
+== Delete a session
+
+// asciidoc/courses/workshop-gds/modules/1-foundations/lessons/6-run-algorithms/lesson.adoc
+Delete a session when finished:
+
+[source,python,role=noplay nocopy]
+----
+gds.delete()
+# or
+sessions.delete(session_name="my-session")
+----
+
+Deleting releases resources and stops costs. Data not written back is lost.
+
+[.slide]
+== The Supply Chain Dataset
+
+// asciidoc/courses/workshop-gds/modules/1-foundations/lessons/3-algorithm-categories/lesson.adoc
+
+Throughout this module, we'll analyze the **Cargo 2000** freight forwarding dataset—real air cargo logistics data from IATA.
+
+The graph contains:
+
+* `EntryPoint` nodes (source airports)
+* `Destination` nodes (delivery airports)
+* `DepartureWarehouse`, `ArrivalWarehouse`, `TransferPoint` nodes
+* `RECEPTION`, `DEPARTURE`, `TRANSPORT`, `DELIVERY` relationships
+
+Each relationship has an `effectiveMinutes` property—actual time for that process step.
+
+Run the notebook cells to get a sense of the data.
+
+[.slide]
+== Understanding the Data Model
+
+// asciidoc/courses/workshop-gds/modules/1-foundations/lessons/8-projection-configuration/lesson.adoc
+
+The Cargo 2000 dataset has two layers:
+
+**Raw Operations Layer:**
+`EntryPoint` → `RECEPTION` → `DepartureWarehouse` → `DEPARTURE` → `TransferPoint` → `TRANSPORT` → `ArrivalWarehouse` → `DELIVERY` → `Destination`
+
+**Historical Summary Layer:**
+`EntryPoint` -[:HAS_HISTORICAL_ROUTE]→ `HistoricalRoute` -[:TERMINATES_AT]→ `Destination`
+
+The raw layer shows every step. The summary layer captures which origin-destination pairs we've actually shipped.
+
+We'll use **both**: raw operations for finding optimal routes, historical summaries for comparing against past decisions.
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+// asciidoc/courses/workshop-gds/modules/1-foundations/lessons/1-what-is-gds/lesson.adoc
+
+Aura Graph Analytics provides:
+
+* On-demand, ephemeral compute for GDS workloads
+* Separation of compute from your database
+* Automatic session expiration to control costs
+* The same algorithm API as the standard GDS client
+
+**Next:** Creating sessions and running complete GDS workflows.

@@ -1,0 +1,651 @@
+= Degree Centrality & WCC
+:type: lesson
+:order: 4
+:sandbox: true
+
+[.slide.discrete]
+== Introduction
+
+Louvain helped us explore the fraud network. But for formal community assignment, we need algorithms that are deterministic, explainable, and give us precise control.
+
+This lesson covers two foundational algorithms:
+
+* **Degree Centrality** — Counts connections
+* **Weakly Connected Components (WCC)** — Finds connected groups
+
+We'll practice on the Movies graph first, then apply what we learn to fraud detection.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Calculate degree centrality with different orientations and weights
+* Explain the Union-Find algorithm underlying WCC
+* Configure WCC with thresholds, seeding, and performance optimizations
+* Choose between Louvain and WCC based on your requirements
+
+[.slide.discrete]
+== Part 1: Degree Centrality
+
+[.slide]
+== What Degree Centrality Measures
+
+**Degree centrality** counts how many relationships a node has.
+
+By default, it counts *outgoing* relationships. A node with 5 outgoing connections has degree 5.
+
+image::images/degree_centrality.png[A node has 5 outgoing relationships and three incoming relationships. Label reads "degree equals 5".]
+
+[.transcript-only]
+====
+This is the simplest centrality measure—no iteration, no convergence, just counting. But simple doesn't mean useless.
+====
+
+[.slide]
+== Project Movies and Actors
+
+Let's practice degree centrality on the Movies dataset:
+
+[source,cypher]
+.Project actors and movies
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
+RETURN gds.graph.project(
+  'actors-movies',
+  source,
+  target
+)
+----
+
+[.transcript-only]
+====
+This creates a bipartite graph: Actor nodes connected to Movie nodes. We'll use this to explore degree centrality before applying it to fraud.
+====
+
+[.slide]
+== Run Degree Centrality
+
+Count how many movies each actor has appeared in:
+
+[source,cypher]
+.Count movies per actor (outgoing relationships)
+----
+CALL gds.degree.stream('actors-movies', {})
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS node, score
+WHERE node:Actor
+RETURN node.name AS actor, score AS movieCount
+ORDER BY movieCount DESC
+LIMIT 15
+----
+
+[.slide]
+== Examine results
+
+This query should return a table that looks something like this:
+
+[cols="2,1"]
+|===
+|actor |movieCount
+
+|Gérard Depardieu
+|125
+
+|Eric Roberts
+|120
+
+|John Wayne
+|116
+
+|Christopher Lee
+|115
+
+|John Carradine
+|112
+
+|Samuel L. Jackson
+|103
+
+|Michael Caine
+|101
+
+|Nicolas Cage
+|100
+
+|Bruce Willis
+|99
+
+|Robert De Niro
+|97
+
+|...
+|...
+|===
+
+[.transcript-only]
+====
+This shows the most prolific actors. The degree score equals the number of movies they've appeared in.
+====
+
+[.slide]
+== Orientation Options
+
+You can control in which direction the algorithm should run using `orientation`:
+
+[cols="1,2,2"]
+|===
+|Orientation |Counts |Use Case
+
+|`NATURAL` (default)
+|Outgoing relationships
+|How many movies has this actor been in?
+
+|`REVERSE`
+|Incoming relationships
+|How many actors are in this movie?
+
+|`UNDIRECTED`
+|Forward and back
+|Both of the above at once
+|===
+
+[.slide]
+== Counting Incoming Relationships
+
+Use `REVERSE` to count incoming relationships—how many actors are in each movie:
+
+[source,cypher]
+.Count actors per movie (incoming relationships)
+----
+CALL gds.degree.stream('actors-movies', {
+  orientation: 'REVERSE'
+})
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS node, score
+WHERE node:Movie
+RETURN node.title AS movie, score AS castSize
+ORDER BY castSize DESC
+LIMIT 15
+----
+
+[.transcript-only]
+====
+Note here that the movies in the underlying dataset have a max cast number of 10.
+====
+
+[.slide]
+== Write Degree to Nodes
+
+Write degree values back to the database for later use:
+
+[source,cypher]
+.Write degree to Movie nodes
+----
+CALL gds.degree.write('actors-movies', {
+  writeProperty: 'movieCount'
+})
+YIELD nodePropertiesWritten
+RETURN nodePropertiesWritten
+----
+
+[.slide]
+== Verify the Written Property
+
+Check that the degree property was written:
+
+[source,cypher]
+.Check degree values on movies
+----
+MATCH (a:Actor)
+WHERE a.movieCount IS NOT NULL
+RETURN a.name AS actor, a.movieCount AS numMovies
+ORDER BY numMovies DESC
+LIMIT 10
+----
+
+[.slide]
+== Clean Up Actors-Movies Projection
+
+[source,cypher]
+.Drop the actors-movies projection
+----
+CALL gds.graph.drop('actors-movies')
+----
+
+[.slide.discrete]
+== Part 2: Weakly Connected Components
+
+[.slide]
+== What WCC Does
+
+**Weakly Connected Components** groups nodes by connectivity.
+
+Two nodes are in the same component if *any* path connects them—regardless of relationship direction or path length.
+
+No optimization, no density calculation—just reachability.
+
+[.slide]
+== Islands and Bridges
+
+image::images/islands_bridges.png[Seven islands. Those connected by bridges are labeled as single components.]
+
+Think of nodes as islands and relationships as bridges.
+
+WCC answers: "Which islands can you walk between?"
+
+If any sequence of bridges connects two islands, they're in the same component.
+
+[.slide]
+== How WCC Works: Union-Find
+
+Under the hood, WCC uses the **Union-Find** algorithm (also called Disjoint Set Union).
+
+The algorithm has three operations:
+
+1. **Make-Set:** Each node starts as its own component
+2. **Union:** When processing a relationship, merge the two endpoint components
+3. **Find:** Determine which component a node belongs to
+
+[.slide]
+== Project Actor Collaborations
+
+Let's run WCC on actor collaborations:
+
+[source,cypher]
+.Project actor collaborations for WCC
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WHERE source <> target
+WITH source, target, count(r) AS collaborations
+RETURN gds.graph.project(
+  'actor-network',
+  source,
+  target,
+  {relationshipProperties: {collaborations: collaborations}}
+)
+----
+
+[.slide]
+== Run WCC
+
+Write connected components to the graph:
+
+[source,cypher]
+.Run WCC
+----
+CALL gds.wcc.write('actor-network', {
+  writeProperty: 'componentId'
+})
+----
+
+[.slide]
+== Examine WCC Results
+
+Fetch the components from the graph:
+
+[source,cypher]
+.Fetch components
+----
+MATCH (a:Actor)
+WHERE a.componentId IS NOT NULL
+WITH a.componentId AS componentId, collect(a.name) AS members
+RETURN componentId, size(members) AS size, members[0..5] AS sampleMembers
+ORDER BY size DESC
+LIMIT 10
+----
+
+[.slide]
+== Examining WCC results
+
+You should get a table that looks something like this:
+
+╒[cols="1,1,3"]
+|===
+|componentId |size |sampleMembers
+
+|0
+|33744
+|Tasma Walton, Tia Texada, Mikko Nousiainen, Bo Svenson, Victor Adamson
+
+|28480
+|32
+|Bernadette McDonald, Jimmy Chin, Lakpa Dendi, Barry Blanchard, Gesman Tamang
+
+|28400
+|19
+|Jo Herbst, Barbara Hintz, Karl Krüger, Ingetraud Hinze, Ernst Pittschau
+
+|34381
+|18
+|Charlie Kirk, Alice Dewey, Lisa Fox, Larry Elder, Sebastian Gorka
+
+|...
+|...
+|...
+|===
+
+[.transcript-only]
+====
+You'll likely see one giant component containing most actors (the "main" Hollywood network), plus several smaller isolated groups. This is typical of collaboration networks.
+====
+
+[.slide]
+== Examine Component Distribution
+
+See how components are distributed by running the algorithm in stats mode:
+
+[source,cypher]
+.Component size distribution
+----
+CALL gds.wcc.stats('actor-network', {})
+----
+
+[.slide]
+== Return just one stats fields
+
+If you don't care about all the stats, and you just want to see the communityDistribution field, you can use YIELD and RETURN to specify:
+
+[source,cypher]
+.Component size distribution
+----
+CALL gds.wcc.stats('actor-network', {})
+YIELD componentCount, componentDistribution
+RETURN componentCount, componentDistribution
+----
+
+[.slide]
+== WCC vs Louvain
+
+[cols="1,1,1"]
+|===
+|Aspect |Louvain |WCC
+
+|Logic
+|Optimizes modularity (density)
+|Any path = same component
+
+|Output
+|Dense clusters
+|All reachable nodes
+
+|Determinism
+|Can vary between runs
+|Always identical
+
+|Explainability
+|"Modularity optimization grouped them"
+|"A path connects them"
+
+|===
+
+[.slide]
+== Why Determinism Matters
+
+Louvain might assign a user to community A in one run and community B in the next.
+
+WCC always produces identical results. This matters when:
+
+* Fraud investigations face legal scrutiny
+* You need to explain *why* someone was flagged
+* Results must be reproducible for audits
+* Downstream systems depend on stable IDs
+
+[.slide]
+== WCC Finds Components Based on What You Project
+
+This is WCC's power: **you define what "connected" means**.
+
+* Project all relationships -> WCC finds everyone who's reachable
+* Project only specific relationships -> WCC finds targeted groups
+
+
+[.slide.discrete]
+== Part 3: Advanced WCC Configuration
+
+[.slide]
+== Weighted WCC with Thresholds
+
+Not all connections are meaningful. A single shared movie differs from ten shared movies.
+
+Use `threshold` to ignore weak connections:
+
+[source,cypher]
+.WCC with threshold
+----
+CALL gds.wcc.stream('actor-network', {
+  relationshipWeightProperty: 'collaborations',
+  threshold: 5.0
+})
+YIELD nodeId, componentId
+WITH componentId, collect(gds.util.asNode(nodeId).name) AS members
+WHERE size(members) > 1
+RETURN componentId, size(members) AS size, members[0..5] AS sampleMembers
+ORDER BY size DESC
+LIMIT 10
+----
+
+[.transcript-only]
+====
+With threshold: 5.0, only connections where actors shared more than 2 movies are considered. This breaks the giant component into smaller, more meaningful groups of frequent collaborators.
+====
+
+[.slide]
+== Seeded Components
+
+What happens when new data arrives daily?
+
+For billion-node graphs, full recomputation is expensive. **Seeded WCC** lets you build incrementally.
+
+The idea: store previous component IDs, then only recompute for new or changed nodes.
+
+[.slide]
+== Seeding: Step 1 — Project with Seed Property
+
+The first time we ran WCC on the Movies graph, we wrote the `componentId`s to the graph.
+
+Now, let's include existing `componentId`s in our projection:
+
+[source,cypher]
+.Project with seed property
+----
+MATCH (source:Actor)-[:ACTED_IN]->(target:Movie)
+RETURN gds.graph.project(
+  'seeded-graph',
+  source,
+  target,
+  {
+    sourceNodeProperties: source { .componentId },
+    targetNodeProperties: target { .componentId }
+  }
+)
+----
+
+[.slide]
+== Seeding: Step 2 — Run WCC with seedProperty
+
+Reference the seed property in your WCC call:
+
+[source,cypher]
+.Run seeded WCC
+----
+CALL gds.wcc.write('seeded-graph', {
+  seedProperty: 'componentId',
+  writeProperty: 'componentId'
+})
+YIELD componentCount
+RETURN componentCount
+----
+
+[.transcript-only]
+====
+Nodes with existing `componentId` values start in those components. New nodes trigger computation.
+====
+
+[.slide]
+== How Seeding Works
+
+When WCC encounters seeded nodes:
+
+1. Nodes with seed values start in their seeded component
+2. New nodes (no seed value) start as singleton components
+3. Union-Find proceeds normally, merging as relationships are processed
+4. If two seeded components connect, they merge (using the lower ID)
+
+[.transcript-only]
+====
+Existing structure is preserved; new nodes join appropriately.
+====
+
+[.slide]
+== Seeding: Important Caveat
+
+Seeding assumes components only **grow or merge**—never split.
+
+If relationships are *removed* (not just added), seeding can produce incorrect results. In that case, run a full recompute.
+
+[.slide]
+== Performance: Sampled vs Unsampled
+
+WCC has two internal strategies:
+
+[cols="1,2"]
+|===
+|Strategy |When Used
+
+|**Unsampled**
+|Directed graphs (default)
+
+|**Sampled**
+|Undirected graphs, or directed with inverse index
+|===
+
+The sampled strategy is faster—it uses subgraph sampling to reduce work while maintaining correctness.
+
+[.slide]
+== Enabling the Sampled Strategy
+
+For directed graphs, add `inverseIndexedRelationshipTypes` during projection:
+
+[source,cypher]
+.Project with inverse index
+----
+MATCH (source:UserP2P)-[r:SHARED_DEVICE]->(target:UserP2P)
+RETURN gds.graph.project(
+  'optimized-graph',
+  source,
+  target,
+  {},
+  { inverseIndexedRelationshipTypes: ['*'] }
+)
+----
+
+[.transcript-only]
+====
+The inverse index lets WCC traverse relationships in both directions, enabling the optimized algorithm.
+
+On this graph, the performance gains are minimal -- but this would be especially important on a large, constantly updating graph.
+====
+
+[.slide]
+== Memory Estimation
+
+Before running on production data, estimate memory:
+
+[source,cypher]
+.Estimate WCC memory
+----
+CALL gds.wcc.write.estimate('actor-network', {
+  writeProperty: 'wccId'
+})
+YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
+RETURN nodeCount, relationshipCount, requiredMemory
+----
+
+If estimated memory exceeds available heap, GDS will block execution. Plan accordingly.
+
+[.slide]
+== Clean Up
+
+Drop the projection:
+
+[source,cypher]
+.Drop the actor network projection
+----
+CALL gds.graph.drop('actor-network')
+----
+
+[.slide]
+== Transfer: From Movies to Fraud
+
+You've practiced on actor collaboration networks. Now let's apply these algorithms:
+
+[cols="1,1"]
+|===
+|Movies Concept |Fraud Equivalent
+
+|Actor nodes
+|User nodes
+
+|Movie nodes
+|Card, Device, IP nodes
+
+|Actors per movie (degree)
+|Users per identifier (degree)
+
+|Collaboration components
+|Fraud ring components
+|===
+
+[.slide]
+== When to Use Each Algorithm
+
+[cols="1,2,2"]
+|===
+|Algorithm |Strengths |Use When
+
+|Degree Centrality
+|Simple, fast, interpretable
+|Filtering noise, identifying hubs, preprocessing
+
+|WCC
+|Deterministic, explainable, scalable
+|Formal grouping, auditable results, production systems
+
+|Louvain
+|Finds dense clusters, hierarchical
+|Exploration, discovering unknown patterns
+|===
+
+[.slide]
+== The Lesson 5 Strategy
+
+In Lesson 5, you'll combine everything:
+
+1. **Create fraud-hypothesis relationships** — Encode patterns like "P2P with shared card"
+2. **Use degree to filter** — Exclude high-degree noise nodes
+3. **Run WCC** — Find connected components of suspects
+4. **Label fraud risk** — Mark users connected to known fraudsters
+
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+**Degree Centrality** counts relationships:
+
+* Use orientation to control direction (NATURAL, REVERSE, UNDIRECTED)
+* Use weights to measure connection strength
+* Essential for filtering noise before community detection
+
+**WCC** finds connected components:
+
+* Deterministic and explainable—ideal for formal assignment
+* Thresholds filter weak connections
+* Seeding enables incremental processing
+* Inverse indexing improves performance on directed graphs
+
+Both algorithms are simple by design. Their power comes from what you project and how you configure them.
+
+In the next lesson, you'll apply these algorithms to build fraud communities and identify 211 previously unknown fraud risk users.
