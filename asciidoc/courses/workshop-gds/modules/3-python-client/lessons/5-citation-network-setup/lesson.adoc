@@ -1,0 +1,215 @@
+= Citation Networks
+:type: lesson
+:optional: true
+:order: 5
+:slides: true
+
+[.slide]
+== Introduction
+
+You've learned the Python GDS workflow using the Movies dataset. Now you'll apply those skills to a real-world research problem: analyzing academic citation networks.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Explain what citation networks reveal about scientific research
+* Load the Cora citation dataset into Neo4j
+* Create a graph projection configured for citation analysis
+* Describe the structure of the Cora dataset
+
+[.slide]
+== From Movies to Research
+
+In the previous lessons, you learned:
+
+* How to connect to Neo4j with the Python client
+* How to create graph projections with properties
+* How to run algorithms in different modes
+* How to chain algorithms together
+
+Now you'll use these skills on a new domain.
+
+[.slide]
+== The Citation Network Problem
+
+Academic research builds on previous work. Citation networks reveal:
+
+* **Influential papers:** Which research shaped entire fields?
+* **Bridge papers:** Which works connect different research areas?
+* **Research communities:** Which papers form natural clusters?
+
+[.slide]
+== The Cora Dataset
+
+A classic benchmark dataset for graph machine learning:
+
+* **2,708** academic papers
+* **10,556** citation relationships
+* **7 subject areas**
+
+[.slide]
+== Subject Areas
+
+* Neural Networks
+* Reinforcement Learning
+* Theory
+* Genetic Algorithms
+* Case-Based Reasoning
+* Probabilistic Methods
+* Rule Learning
+
+[.slide]
+== Graph Structure
+
+[cols="1,2"]
+|===
+|**Element** |**Details**
+
+|Nodes
+|`Paper` with properties: `subject`, `features`, `subjectClass`
+
+|Relationships
+|`CITES` (directed: Paper A -> Paper B means A cites B)
+
+|Features
+|1,433-dimensional vector representing words used in each paper
+|===
+
+[.slide]
+== What You'll Accomplish
+
+Over the next notebooks, you'll:
+
+1. **Load** the Cora citation dataset
+2. **Project** the citation network into GDS
+3. **Run PageRank** to find influential papers
+4. **Run Betweenness Centrality** to find bridge papers
+5. **Detect communities** to find research clusters
+6. **Combine results** for comprehensive analysis
+
+[.slide]
+== Loading the Dataset
+
+[source,python,role=noplay nocopy]
+.Loading paper nodes
+----
+node_load_q = """
+LOAD CSV WITH HEADERS FROM 
+  'https://raw.githubusercontent.com/.../node_list.csv' AS row
+MERGE (p:Paper {paper_Id: toInteger(row.id)})
+SET p.subject = row.subject, 
+    p.features = apoc.convert.fromJsonList(row.features)
+RETURN count(p) AS papers_loaded
+"""
+
+result = gds.run_cypher(node_load_q)
+print(f"Loaded {result['papers_loaded'][0]} papers")
+----
+
+[.slide]
+== Loading Relationships
+
+[source,python,role=noplay nocopy]
+.Loading citation relationships
+----
+edge_load_q = """
+LOAD CSV WITH HEADERS FROM 
+  'https://raw.githubusercontent.com/.../edge_list.csv' AS row
+MATCH (source:Paper {paper_Id: toInteger(row.source)})
+MATCH (target:Paper {paper_Id: toInteger(row.target)})
+MERGE (source)-[r:CITES]->(target)
+RETURN count(r) AS citations_loaded
+"""
+
+result = gds.run_cypher(edge_load_q)
+print(f"Loaded {result['citations_loaded'][0]} citations")
+----
+
+[.slide]
+== Verify Your Data
+
+After loading, verify the dataset:
+
+[source,python,role=noplay nocopy]
+.Checking papers by subject
+----
+df = gds.run_cypher("""
+    MATCH (p:Paper)
+    RETURN p.subject AS subject, count(*) AS count
+    ORDER BY count DESC
+""")
+display(df)
+----
+
+You should see 7 subjects with papers distributed across them.
+
+[.slide]
+== Node and Relationship Counts
+
+[source,python,role=noplay nocopy]
+.Verifying counts
+----
+df = gds.run_cypher("""
+    MATCH (p:Paper)
+    WITH count(p) AS papers
+    MATCH ()-[r:CITES]->()
+    RETURN papers, count(r) AS citations
+""")
+print(df)
+----
+
+You should see: **2,708 papers** and **10,556 citations**.
+
+[.slide]
+== Creating the Projection
+
+[source,python,role=noplay nocopy]
+.Projecting the citation network
+----
+G, result = gds.graph.project(
+    "cora-graph",
+    {
+        "Paper": {
+            "properties": ["subjectClass"]
+        }
+    },
+    {
+        "CITES": {
+            "orientation": "UNDIRECTED"
+        }
+    }
+)
+----
+
+[.slide]
+== Why UNDIRECTED?
+
+Even though citations are directional (Paper A cites Paper B), for influence analysis we treat them as connections in both directions.
+
+This captures the network of **related research** rather than just influence flow.
+
+[.slide]
+== Inspecting the Projection
+
+[source,python,role=noplay nocopy]
+.Checking projection details
+----
+print(f"Projected graph: {G.name()}")
+print(f"  Nodes: {G.node_count():,}")
+print(f"  Relationships: {G.relationship_count():,}")
+print(f"  Memory usage: {G.memory_usage()}")
+print(f"  Density: {G.density():.6f}")
+----
+
+[.summary]
+== Summary
+
+You're now ready to analyze citation networks:
+
+* **Dataset:** 2,708 papers, 10,556 citations, 7 research areas
+* **Goal:** Find influential papers, bridge papers, and research communities
+* **Tools:** The same Python GDS skills you've already learned
+
+**Next:** Run PageRank to find influential papers.

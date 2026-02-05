@@ -1,0 +1,348 @@
+= Practice: Graph Projections
+:type: lesson
+:optional: true
+:order: 5
+:slides: true
+
+[.slide.discrete]
+== Introduction
+
+Now it's time to put your knowledge into practice.
+
+You'll create both types of projections you learned about:
+
+* **Monopartite transformations** — connecting nodes through shared neighbours
+* **Labelled bipartite projections** — preserving two-partition structures
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Transform bipartite graphs into monopartite networks by traversing intermediate nodes
+* Create labelled bipartite projections that preserve node types
+* Match projection strategies to algorithm requirements
+* Recognize why projecting "everything" rarely produces meaningful results
+
+[.slide]
+== Exercise 1: Monopartite Transformation
+
+Your database has a bipartite structure: `(:Actor)-[:ACTED_IN]->(:Movie)`
+
+Transform this into a monopartite Actor-to-Actor network by connecting actors through shared movies.
+
+[source,cypher,role=noplay]
+----
+????
+----
+
+You have five minutes to try this. If you need help, pop a message in the chat.
+
+[.transcript-only]
+
+====
+This pattern traverses Movie nodes without capturing them, creating direct Actor-to-Actor connections. The result is a true monopartite graph where any actor can potentially connect to any other actor.
+====
+
+[.slide]
+== Exercise 1: Solution
+
+[source,cypher,role=noplay]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project('actor-collab', source, target) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+The key insight: traverse *through* Movie nodes without including them in `source` or `target`.
+
+[.slide]
+== Why This Works for PageRank
+
+In your Actor-to-Actor network:
+
+* Only Actor nodes exist
+* Actors connect directly to other Actors
+* Importance can flow freely between nodes
+
+No rank sinks—PageRank can do its job.
+
+[.slide]
+== Exercise 2: Run PageRank
+
+Run PageRank on the `actor-collab` graph in **write mode**, storing the result as a `pageRank` property.
+
+Then query the database to find the top 10 actors by PageRank score.
+
+[source,cypher,role=noplay]
+----
+????
+----
+
+Try this on your own for five minutes.
+
+[.slide]
+== Exercise 2: Solution
+
+**Step 1 — Run PageRank in write mode:**
+
+[source,cypher,role=noplay]
+----
+CALL gds.pageRank.write('actor-collab', {
+  writeProperty: 'pageRank'
+})
+YIELD nodePropertiesWritten
+RETURN nodePropertiesWritten
+----
+
+**Step 2 — Query the results:**
+
+[source,cypher,role=noplay]
+----
+MATCH (a:Actor)
+WHERE a.pageRank IS NOT NULL
+RETURN a.name AS actor, a.pageRank AS score
+ORDER BY score DESC
+LIMIT 10
+----
+
+[.slide]
+== Examine the Results
+
+You should see meaningful rankings—actors ranked by their importance in the collaboration network.
+
+[.transcript-only]
+
+====
+Compare this to the bipartite structure where PageRank produced nearly identical scores for all nodes.
+====
+
+[.slide]
+== Exercise 3: Movie Network
+
+Create a monopartite Movie-to-Movie network by connecting movies through shared actors.
+
+[source,cypher,role=noplay]
+----
+????
+----
+
+[.slide]
+== Exercise 3: Solution
+
+[source,cypher,role=noplay]
+----
+MATCH (source:Movie)<-[:ACTED_IN]-(:Actor)-[:ACTED_IN]->(target:Movie)
+WITH gds.graph.project('movie-collab', source, target) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+Same pattern, reversed: traverse through Actor nodes to connect Movies.
+
+[.slide]
+== Exercise 4: Labelled Bipartite Projection
+
+Create a bipartite projection of `(:User)-[:RATED]->(:Movie)`, preserving node labels.
+
+[source,cypher,role=noplay]
+----
+????
+----
+
+Try this by yourself for five minutes.
+
+[.transcript-only]
+
+====
+The configuration parameters preserve the User and Movie labels. GDS now knows which nodes belong to which partition.
+====
+
+[.slide]
+== Exercise 4: Solution
+
+[source,cypher,role=noplay]
+----
+MATCH (source:User)-[r:RATED]->(target:Movie)
+WITH gds.graph.project(
+  'user-movie-bipartite',
+  source,
+  target,
+  {
+    sourceNodeLabels: labels(source),
+    targetNodeLabels: labels(target),
+    relationshipType: type(r)
+  },
+  {}
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+[.slide]
+== What Have We Modelled?
+
+What insights can we glean from a graph of `(:User)-[:RATED]->(:Movie)`?
+
+Take a moment to discuss.
+
+[.transcript-only]
+
+====
+Expected answers: user preferences, taste profiles, recommendation foundations, collaborative filtering data.
+====
+
+[.slide]
+== Node Similarity
+
+Node Similarity compares nodes based on shared neighbours across the bipartite structure.
+
+In this case: finding users with overlapping taste in movies.
+
+image::images/node_similarity.png[A bipartite structure with SIMILAR relationships between nodes on one side.]
+
+[.slide]
+== Exercise 5: Run Node Similarity
+
+Run Node Similarity on the `user-movie-bipartite` graph in **write mode**.
+
+Use `SIMILAR` as the relationship type and `score` as the property name.
+
+[source,cypher,role=noplay]
+----
+????
+----
+
+[.slide]
+== Exercise 5: Solution
+
+[source,cypher,role=noplay]
+----
+CALL gds.nodeSimilarity.write('user-movie-bipartite', {
+  writeRelationshipType: 'SIMILAR',
+  writeProperty: 'score'
+})
+YIELD nodesCompared, relationshipsWritten
+RETURN nodesCompared, relationshipsWritten
+----
+
+[.transcript-only]
+
+====
+This creates SIMILAR relationships between Users who rated the same Movies, and between Movies rated by the same Users.
+====
+
+[.slide]
+== Verify the Results
+
+Check the similar users that Node Similarity found:
+
+[source,cypher,role=noplay]
+----
+MATCH (u1:User)-[s:SIMILAR]->(u2:User)
+RETURN u1.name AS user1, u2.name AS user2, s.score AS similarity
+ORDER BY s.score DESC
+LIMIT 10
+----
+
+These are users with similar movie rating patterns—the foundation of collaborative filtering.
+
+[.slide]
+== What Happens with Multipartite?
+
+Node Similarity works well on bipartite structures. But what if you project the *entire* graph?
+
+Let's find out.
+
+[.slide]
+== Project the Full Graph
+
+Project everything: Actors, Movies, Users, and their relationships:
+
+[source,cypher,role=noplay]
+----
+MATCH (source)-[r]->(target)
+WITH gds.graph.project(
+  'everything',
+  source,
+  target
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+[.slide]
+== Run Node Similarity on Everything
+
+[source,cypher,role=noplay]
+----
+CALL gds.nodeSimilarity.stream('everything')
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS n1,
+     gds.util.asNode(node2) AS n2,
+     similarity
+RETURN labels(n1) AS label1,
+       coalesce(n1.name, n1.title) AS node1,
+       labels(n2) AS label2,
+       coalesce(n2.name, n2.title) AS node2,
+       similarity
+ORDER BY similarity DESC
+LIMIT 10
+----
+
+[.slide]
+== Unexpected Results
+
+Problems with the "everything" projection:
+
+* The algorithm takes significantly longer to run
+* The query to interpret results is unnecessarily complex
+* The results are conceptually meaningless
+
+[.transcript-only]
+
+====
+The algorithm has no concept of node types. It just sees nodes with shared neighbours—regardless of whether those comparisons are meaningful.
+====
+
+[.slide]
+== Why This Happens
+
+Node Similarity compares nodes based on shared neighbours. On a multipartite graph:
+
+* An Actor and a User might both connect to the same Movie
+* The algorithm sees them as "similar"—even though that comparison is nonsensical
+
+**The data model represents the question**—the more specific your projection, the higher-quality your output.
+
+image::images/multipartite_similarity_problem.png[An Actor and User both connected to a Movie, marked as "similar".]
+
+[.slide]
+== The Lesson
+
+**Match your projection to your algorithm's expectations.**
+
+* Node Similarity expects bipartite → project bipartite
+* PageRank expects monopartite → project monopartite
+* Projecting "everything" rarely gives meaningful results
+
+[.slide]
+== Cleanup
+
+Before moving on, drop the projections we created:
+
+[source,cypher,role=noplay]
+----
+CALL gds.graph.list()
+YIELD graphName
+CALL gds.graph.drop(graphName)
+YIELD graphName AS droppedGraphs
+RETURN droppedGraphs
+----
+
+[.summary]
+== Practice Summary
+
+You practiced both projection approaches:
+
+* **Monopartite transformations** for algorithms like PageRank that need single-type networks
+* **Labelled bipartite projections** for algorithms like Node Similarity that work with two-partition structures
+
+The same data can answer different questions depending on how you project it. Choose your approach based on what your algorithm expects and what insights you're seeking.

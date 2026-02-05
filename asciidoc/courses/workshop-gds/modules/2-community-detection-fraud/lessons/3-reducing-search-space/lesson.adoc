@@ -1,0 +1,357 @@
+= Reducing Search Space with Louvain
+:type: lesson
+:optional: true
+:order: 3
+:slides: true
+:sandbox: true
+
+[.slide.discrete]
+== Introduction
+
+You've learned how Louvain finds communities by optimizing modularity.
+
+Now let's put it to work. You'll project the fraud network, run Louvain, and see how it reduces your search space by 98%.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Create a heterogeneous graph projection for fraud analysis
+* Run Louvain in stats and write modes
+* Identify communities containing known fraudsters
+* Focus investigation on high-priority communities
+
+[.slide]
+== Step 1: Project the Graph
+
+Create a projection of Users, Cards, and Devices:
+
+[source,cypher]
+.Create the fraud graph projection
+----
+MATCH (source:User)-[r:HAS_CC|USED|P2P]->(target:User|Card|Device)
+RETURN gds.graph.project(
+  'fraud-graph',
+  source,
+  target,
+  {relationshipType: type(r)},
+  {undirectedRelationshipTypes: ['HAS_CC', 'USED']}
+)
+----
+
+[.slide]
+== Understanding the Projection
+
+This projection makes several important choices:
+
+**Why include Cards and Devices?**
+
+Fraudsters share infrastructure. Including these nodes lets Louvain find communities based on shared cards and devices—not just direct transactions.
+
+**Why undirected for HAS_CC and USED?**
+
+Sharing is bidirectional—if User A and User B both have the same card, that connection works both ways. Making these undirected ensures the relationship propagates through the shared infrastructure back to other users.
+
+**Why keep P2P directed?**
+
+Transaction direction matters. Money flows from sender to receiver, and that asymmetry can reveal fraud patterns.
+
+[.slide]
+== Step 2: Run Louvain in Stats Mode
+
+Before writing results, let's preview what Louvain will find:
+
+[source,cypher]
+.Preview Louvain results
+----
+CALL gds.louvain.stats('fraud-graph', {})
+YIELD communityCount, communityDistribution, modularity
+RETURN communityCount, communityDistribution, modularity
+----
+
+[.slide]
+== Interpreting Stats Results
+
+You should see approximately:
+
+* **communityCount:** ~11,500 communities
+* **modularity:** ~0.98
+
+Remember from Lesson 2: modularity above 0.4 indicates useful structure. A score of 0.98 means extremely well-defined communities—nodes within communities are far more connected to each other than to outsiders.
+
+The `communityDistribution` shows size statistics (min, max, mean, percentiles).
+
+[.slide]
+== Step 3: Run Louvain in Write Mode
+
+Now write the community IDs back to the database:
+
+[source,cypher]
+.Write Louvain community IDs to nodes
+----
+CALL gds.louvain.write('fraud-graph', {
+  writeProperty: 'louvainCommunityId'
+})
+YIELD communityCount, modularity
+RETURN communityCount, modularity
+----
+
+[.slide]
+== What Just Happened?
+
+Louvain analyzed the projected nodes and found natural groupings.
+
+Each node now has a `louvainCommunityId` property indicating which community it belongs to.
+
+Nodes in the same community are more densely connected to each other than to the rest of the network.
+
+[.slide]
+== A Note on Community IDs
+
+**Your community IDs will differ from any examples shown.**
+
+Louvain is non-deterministic—the specific IDs assigned depend on processing order. What matters is the *grouping*, not the ID numbers.
+
+When following along, always use the IDs from *your* results.
+
+[.slide]
+== Step 4: Visualize Communities
+
+See the community structure:
+
+[source,cypher]
+.Visualize community members
+----
+MATCH path = (u:User)-[*1..2]-(n:Card|Device)
+WHERE u.louvainCommunityId = n.louvainCommunityId
+RETURN path
+LIMIT 100
+----
+
+[.transcript-only]
+
+====
+Click on nodes to see their `louvainCommunityId`. Nodes in the same visual cluster should share the same community ID.
+
+Notice how users cluster around shared cards and devices—this is exactly the infrastructure sharing we want to detect.
+====
+
+[.slide]
+== Step 5: Count Fraudulent Communities
+
+How many communities contain known fraudsters?
+
+[source,cypher]
+.Count communities with and without fraud
+----
+MATCH (u:User)
+WITH u.louvainCommunityId AS community,
+     sum(u.fraudMoneyTransfer) AS flaggedCount
+RETURN 
+  sum(CASE WHEN flaggedCount > 0 THEN 1 ELSE 0 END) AS communitiesWithFraud,
+  sum(CASE WHEN flaggedCount = 0 THEN 1 ELSE 0 END) AS communitiesWithoutFraud
+----
+
+[.slide]
+== The Power of Community Detection
+
+You should find approximately:
+
+* **~200** communities with at least one flagged fraudster
+* **~11,500** communities with no flagged fraudsters
+
+That's roughly **1.7%** of communities containing known fraud.
+
+Louvain just reduced your search space by **98%**.
+
+[.slide]
+== Why This Matters
+
+Before Louvain: **204,000 users** to investigate
+
+After Louvain: **~200 communities** worth examining
+
+The vast majority of users are in communities with no fraud flags. We can deprioritize them entirely and focus on the suspicious minority.
+
+[.slide]
+== Step 6: Rank Communities by Fraud
+
+Not all fraudulent communities are equal. Find the most suspicious ones:
+
+[source,cypher]
+.Rank communities by fraud indicators
+----
+MATCH (u:User)
+WITH u.louvainCommunityId AS community,
+     count(u) AS userCount,
+     sum(u.fraudMoneyTransfer) AS flaggedCount
+WHERE flaggedCount > 0
+RETURN community, 
+       userCount, 
+       flaggedCount,
+       round(100.0 * flaggedCount / userCount, 1) AS flaggedPercent
+ORDER BY flaggedCount DESC
+LIMIT 10
+----
+
+[.slide]
+== Interpreting the Rankings
+
+The results show:
+
+* **community** — The Louvain community ID
+* **userCount** — Total users in that community
+* **flaggedCount** — Known fraudsters in that community
+* **flaggedPercent** — Percentage of community that's flagged
+
+**High flaggedCount** = More known fraud (larger rings)
+
+**High flaggedPercent** = More concentrated fraud (tighter rings)
+
+[.transcript-only]
+
+====
+Note the community ID at the top of your results—you'll investigate it in the next steps. Remember, your ID will differ from others'.
+====
+
+[.slide]
+== Step 7: Set a Parameter for Investigation
+
+Pick the top community from your results and set it as a parameter:
+
+[source,cypher]
+.Set your community ID (replace with your actual ID)
+----
+:param louvainCommunityId => 179061
+----
+
+[.transcript-only]
+
+====
+The `:param` command is specific to Neo4j Browser. If you're using a different client, you may need to pass parameters differently.
+
+Replace `179061` with the community ID from the top of *your* results.
+====
+
+[.slide]
+== Step 8: Examine the Community
+
+See the breakdown of flagged vs unflagged users:
+
+[source,cypher]
+.Count flagged and unflagged users in the community
+----
+MATCH (u:User)
+WHERE u.louvainCommunityId = $louvainCommunityId
+RETURN u.fraudMoneyTransfer AS isFlagged, 
+       count(*) AS userCount
+ORDER BY isFlagged
+----
+
+[.slide]
+== What This Tells Us
+
+You should see two rows:
+
+* Users with `fraudMoneyTransfer = 0` (unflagged)
+* Users with `fraudMoneyTransfer = 1` (flagged)
+
+The unflagged users are our investigation targets—they're in a fraud-heavy community but haven't been identified yet.
+
+Are they accomplices? Victims? Mules? That's what we need to find out.
+
+[.slide]
+== Step 9: Visualize the Community
+
+See how users in this community connect:
+
+[source,cypher]
+.Visualize connections within the community
+----
+MATCH path = (u1:User)-[:HAS_CC|USED|P2P*1..4]-(u2:User)
+WHERE u1.louvainCommunityId = $louvainCommunityId
+  AND u2.louvainCommunityId = $louvainCommunityId
+  AND u1 <> u2
+RETURN path
+LIMIT 200
+----
+
+[.transcript-only]
+
+====
+Expand nodes to explore the connections. Look for:
+
+* Flagged users (fraudMoneyTransfer = 1) clustered together
+* Unflagged users connected to multiple flagged users
+* Shared cards or devices linking suspicious accounts
+
+These patterns suggest which unflagged users deserve closer scrutiny.
+====
+
+[.slide]
+== What We've Achieved
+
+[cols="1,1"]
+|===
+|Stage |Scale
+
+|Starting point
+|~790,000 nodes, 204,000 users
+
+|After Louvain
+|~200 suspicious communities
+
+|Focused community
+|A few hundred users
+|===
+
+We've gone from an impossible manual task to a focused investigation.
+
+[.slide]
+== The Remaining Question
+
+We've found communities containing fraud. But within each community:
+
+* Which users are most suspicious?
+* Who should we investigate first?
+* How do we prioritize hundreds of potential suspects?
+
+[.slide]
+== What's Next
+
+In Lesson 4, you'll learn two algorithms that help with formal community assignment:
+
+* **Degree Centrality** — Identify high-connection nodes (potential hubs or noise)
+* **Weakly Connected Components (WCC)** — Deterministic community assignment for auditable results
+
+These tools will help you move from exploration to actionable suspect lists.
+
+[.slide]
+== Cleanup
+
+Drop the projection:
+
+[source,cypher]
+.Drop the projection
+----
+CALL gds.graph.drop('fraud-graph')
+----
+
+[.transcript-only]
+
+====
+You can keep the projection if you want to experiment further. The `louvainCommunityId` property is already written to nodes, so the projection is no longer needed for the analysis we've done.
+====
+
+[.summary]
+== Summary
+
+You've used Louvain to dramatically reduce your search space:
+
+* Created a heterogeneous projection capturing users and shared infrastructure
+* Found ~11,500 communities with modularity of 0.98
+* Identified ~200 communities (1.7%) containing known fraud
+* Focused on the most fraudulent community for investigation
+
+Louvain transformed an impossible 204,000-user investigation into a manageable set of suspicious communities.

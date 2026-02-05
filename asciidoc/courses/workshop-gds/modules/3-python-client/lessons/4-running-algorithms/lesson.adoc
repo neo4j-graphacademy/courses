@@ -1,0 +1,227 @@
+= Running Algorithms
+:type: lesson
+:optional: true
+:order: 4
+:slides: true
+
+[.slide]
+== Introduction
+
+Algorithm call syntax in the Python client is similar to what you already know—with some minor differences.
+
+This lesson covers syntax, execution modes, and working with results.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Call algorithms using Python syntax
+* Choose the right execution mode for your task
+* Chain algorithms together using mutate mode
+* Stream combined results from projections
+* Estimate memory requirements before running
+
+[.slide]
+== Algorithm Syntax
+
+The pattern is: `gds[.tier].<algorithm>.<mode>(G, **config)`
+
+[source,python,role=noplay nocopy]
+.Algorithm call examples
+----
+# Louvain community detection with stream mode
+result = gds.louvain.stream(G)
+
+# Louvain with mutate mode
+result = gds.louvain.mutate(G, mutateProperty="community")
+
+# Beta algorithm
+result = gds.beta.node2vec.stream(G, embeddingDimension=64)
+----
+
+[.slide]
+== Execution Modes Compared
+
+[cols="1,2,2"]
+|===
+|**Mode** |**Returns** |**Side Effect**
+
+|`.stream()`
+|DataFrame with per-node/relationship results
+|None
+
+|`.mutate()`
+|Series with summary statistics
+|Adds property to projection
+
+|`.write()`
+|Series with summary statistics
+|Writes property to Neo4j
+
+|`.stats()`
+|Series with summary statistics
+|None
+|===
+
+[.slide]
+== Stream Mode
+
+Returns results as a DataFrame—perfect for analysis and exploration.
+
+[source,python,role=noplay nocopy]
+.Streaming Louvain results
+----
+df = gds.louvain.stream(G)
+
+# df contains nodeId and communityId columns
+print(df.head())
+----
+
+[.slide]
+== Stream Mode: Working with Results
+
+[source,python,role=noplay nocopy]
+.Analyzing community sizes
+----
+# Work with results using pandas
+community_sizes = df.groupby("communityId").size().reset_index(name="size")
+print(community_sizes.nlargest(10, "size"))
+----
+
+[.slide]
+== Mutate Mode
+
+Adds results to the projection (not the database). Useful for chaining algorithms.
+
+[source,python,role=noplay nocopy]
+.Mutating Louvain results
+----
+result = gds.louvain.mutate(
+    G,
+    mutateProperty="community"
+)
+
+print(f"Nodes processed: {result['nodePropertiesWritten']}")
+print(f"Communities found: {result['communityCount']}")
+print(f"Modularity: {result['modularity']:.4f}")
+----
+
+[.slide]
+== Mutate Mode: Verifying Properties
+
+[source,python,role=noplay nocopy]
+.Checking projection properties
+----
+# Property is now available in the projection
+print(G.node_properties("User"))  # includes 'community'
+print(G.node_properties("Movie")) # includes 'community'
+----
+
+[.slide]
+== Write Mode
+
+Writes results directly to Neo4j—useful for persisting results.
+
+[source,python,role=noplay nocopy]
+.Writing Louvain results to database
+----
+result = gds.louvain.write(
+    G,
+    writeProperty="community"
+)
+
+print(f"Wrote to {result['nodePropertiesWritten']} nodes")
+print(f"Communities found: {result['communityCount']}")
+----
+
+[.slide]
+== Write Mode: Verifying in Database
+
+[source,python,role=noplay nocopy]
+.Querying written results
+----
+df = gds.run_cypher("""
+    MATCH (u:User)
+    WHERE u.community IS NOT NULL
+    RETURN u.community AS community, count(*) AS userCount
+    ORDER BY userCount DESC
+    LIMIT 5
+""")
+display(df)
+----
+
+[.slide]
+== Stats Mode
+
+Returns only statistics—useful for tuning configuration before persisting.
+
+[source,python,role=noplay nocopy]
+.Getting statistics only
+----
+result = gds.louvain.stats(G)
+
+print(f"Community count: {result['communityCount']}")
+print(f"Modularity: {result['modularity']:.4f}")
+print(f"Compute time: {result['computeMillis']}ms")
+----
+
+[.slide]
+== Chaining Algorithms
+
+Use mutate mode to chain algorithms together—each algorithm's output becomes input for the next.
+
+[source,python,role=noplay nocopy]
+.Chaining Louvain and Degree
+----
+# First: find communities
+gds.louvain.mutate(G, mutateProperty="community")
+
+# Second: calculate degree centrality
+gds.degree.mutate(G, mutateProperty="degree")
+----
+
+[.slide]
+== Streaming Combined Results
+
+[source,python,role=noplay nocopy]
+.Streaming multiple properties
+----
+# Stream all results together
+df = gds.graph.nodeProperties.stream(
+    G,
+    node_properties=["community", "degree"],
+    listNodeLabels=True
+)
+
+print(df.head(10))
+----
+
+[.slide]
+== Memory Estimation
+
+Estimate algorithm memory requirements before running—useful for large graphs.
+
+[source,python,role=noplay nocopy]
+.Estimating memory requirements
+----
+estimate = gds.louvain.mutate.estimate(
+    G,
+    mutateProperty="community_new"
+)
+
+print(f"Required memory: {estimate['requiredMemory']}")
+print(f"Node count: {estimate['nodeCount']}")
+print(f"Relationship count: {estimate['relationshipCount']}")
+----
+
+[.summary]
+== Summary
+
+* Algorithm syntax: `gds.<algorithm>.<mode>(G, **config)`
+* Stream mode returns DataFrames; mutate/write/stats modes return Series
+* Chain algorithms using mutate mode
+* Use `.stats()` to tune configuration before persisting
+* Use `.estimate()` to check memory requirements
+
+**Next:** Introduction to the Cora citation network dataset.

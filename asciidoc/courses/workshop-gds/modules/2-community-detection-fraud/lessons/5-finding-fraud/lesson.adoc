@@ -1,0 +1,604 @@
+= Building Fraud Communities
+:type: lesson
+:optional: true
+:order: 5
+:slides: true
+:sandbox: true
+
+[.slide.discrete]
+== Introduction
+
+You've learned the algorithms. Now let's put them together.
+
+In this lesson, you'll create relationships that encode fraud hypotheses, use Degree Centrality to filter noise, and run WCC to identify communities of connected suspects.
+
+image::images/final_result.png[A graph view of multiple fraudulent users.]
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Encode domain hypotheses as graph relationships
+* Combine Degree Centrality filtering with WCC community detection
+* Identify fraud risk users through guilt-by-association
+* Validate results against transaction volume
+
+[.slide]
+== Why Not Just Use Louvain?
+
+Louvain was valuable for exploration, but it has limitations for formal fraud assignment:
+
+* **Non-deterministic:** Results vary between runs
+* **Density-based:** Groups by connection density, not by fraud patterns
+* **No semantic awareness:** A fraudster and their victim might land in the same community
+
+We need to encode *our* hypotheses about what fraud looks like—then use deterministic algorithms to find connected groups.
+
+[.slide]
+== The Solution: Entity Resolution
+
+**Entity Resolution (ER)** is the process of determining when multiple records represent the same real-world entity.
+
+In fraud detection, we use ER to identify when multiple user accounts likely belong to the same person or group.
+
+We encode this as new relationships in the graph.
+
+[.slide]
+== From Exploration to Hypothesis
+
+Louvain revealed a pattern:
+
+Flagged users sending money to unflagged users with whom they share credit cards.
+
+This is suspicious because it suggests:
+
+* The same person controls both accounts
+* Money is being moved before a chargeback hits
+
+Let's encode this pattern as a relationship.
+
+[.slide]
+== The Methodology
+
+1. **Explore:** Louvain revealed suspicious patterns
+2. **Hypothesize:** "Shared cards + transactions = likely same actor"
+3. **Encode:** Create relationships representing the hypothesis
+4. **Resolve:** WCC finds connected components
+5. **Label:** Mark users in fraud-connected communities
+
+[.slide.discrete]
+== Part 1: Encoding Fraud Hypotheses
+
+[.slide]
+== ER Rule 1: P2P with Shared Card
+
+If User A sent money to User B, and they share a credit card, that's suspicious.
+
+image::images/user_user_shared_card.png[Two users both share a card, and have sent money to each other.]
+
+[.slide]
+== Step 1: Create P2P_SHARED_CARD Relationships
+
+Encode the "sent money to someone sharing my card" pattern:
+
+[source,cypher]
+.Create shared card relationship
+----
+MATCH (u1:User)-[r:P2P]->(u2)
+WITH u1, u2, count(r) AS transaction
+MATCH (u1)-[:HAS_CC]->(n)<-[:HAS_CC]-(u2)
+WITH u1, u2, count(DISTINCT n) AS sharedCard
+MERGE(u1)-[s:P2P_SHARED_CARD]->(u2)
+RETURN count(DISTINCT s) AS P2PWithSharedCard
+----
+
+This finds user pairs where User 1 sent money to User 2, and they share at least one credit card.
+
+[.transcript-only]
+
+====
+You should see approximately 6,000+ relationships created. Each represents a potentially fraudulent money transfer.
+====
+
+[.slide]
+== ER Rule 2: Shared Identifiers
+
+Another pattern: users sharing multiple identifiers (cards, devices, IPs).
+
+Sharing one thing might be coincidence. Sharing several suggests coordination.
+
+But there's a problem: some identifiers connect to hundreds of users.
+
+[.slide]
+== The High-Degree Problem
+
+Before encoding this pattern, we need to handle noise.
+
+Some identifiers connect to hundreds of users:
+
+* Coffee shop IP addresses
+* Public library devices
+* Compromised cards sold on the dark web
+
+Sharing these isn't suspicious—it's meaningless. We need to filter them out.
+
+[.slide]
+== Step 2: Calculate Identifier Degrees
+
+First, create a projection of users and their shared identifiers:
+
+[source,cypher]
+.Project a graph of User and shared identifiers
+----
+MATCH (source:User)-[r:HAS_CC|USED|HAS_IP]->(target:Card|Device|IP)
+WITH gds.graph.project(
+  'identifier-graph',
+  source,
+  target
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+[.slide]
+== Step 3: Run Degree Centrality
+
+Compute degree for all identifier nodes:
+
+[source,cypher]
+.Run Degree Centrality
+----
+CALL gds.degree.write('identifier-graph', {
+  writeProperty: 'degree',
+  orientation: 'REVERSE'
+})
+YIELD nodePropertiesWritten
+RETURN nodePropertiesWritten
+----
+
+Each Card, Device, and IP node now has a `degree` property indicating how many users connect to it.
+
+[.slide]
+== Step 4: Clean Up the Projection
+
+[source,cypher]
+.Drop graph
+----
+CALL gds.graph.drop('identifier-graph')
+----
+
+[.slide]
+== Step 5: Create SHARED_IDS Relationships
+
+Now encode the "shares multiple identifiers" pattern, filtering out high-degree noise:
+
+[source,cypher]
+.Create relationships based on shared IDs
+----
+MATCH (u1:User)-[:HAS_CC|USED]->(n:Card|Device)<-[:HAS_CC|USED]-(u2:User)
+WHERE n.degree <= 10
+  AND u1 < u2
+WITH u1, u2, count(DISTINCT n) AS sharedIdentifiers
+MATCH (u1)-[:HAS_CC|USED|HAS_IP]->(m)<-[:HAS_CC|USED|HAS_IP]-(u2)
+WITH u1, u2, count(DISTINCT m) as sharedIdentifiers
+WHERE sharedIdentifiers > 2
+MERGE (u1)-[s:SHARED_IDS {count: sharedIdentifiers}]->(u2)
+RETURN count(s) AS relationshipsCreated
+----
+
+[.transcript-only]
+
+====
+You should see approximately 5,000+ relationships created. Combined with the P2P_SHARED_CARD relationships, these form the basis of our fraud communities.
+====
+
+[.slide]
+== Understanding the Filters
+
+**`u1 < u2`** — Prevents duplicate relationships (A→B and B→A)
+
+**`n.degree <= 10`** — Ignores high-degree nodes (shared proxies, public devices)
+
+**`sharedIdentifiers > 2`** — Requires multiple shared identifiers, not just one
+
+These filters reduce false positives from coincidental sharing.
+
+[.slide]
+== Business Rules
+
+The threshold is a domain judgment, not a magic number.
+
+* **Too low (2-3):** Miss legitimate fraud patterns
+* **Too high (100+):** Include meaningless shared proxies
+* **10:** Reasonable starting point for investigation
+
+In production, you'd tune this based on your data and false positive rates. You would likely also include many more rules than these.
+
+[.slide]
+== Why Encode Patterns as Relationships?
+
+Once our hypotheses are relationships, we can:
+
+* Visualize them directly
+* Query them efficiently
+* Run algorithms on them specifically
+
+The graph becomes a model of our fraud theory, not just raw data.
+
+[.slide]
+== Step 6: Visualize the ER Relationships
+
+Let's take a closer look at what we've created:
+
+[source,cypher]
+.View the ER communities
+----
+MATCH path = (u1:User)-[r:P2P_SHARED_CARD|SHARED_IDS*10]-(u2:User)
+RETURN path
+LIMIT 200
+----
+
+[.transcript-only]
+
+====
+These relationships connect users we believe may be the same actors or members of coordinated groups. Notice how they form clusters—these will become our WCC communities.
+====
+
+[.slide.discrete]
+== Part 2: Finding Connected Communities
+
+[.slide]
+== Step 7: Project the ER Graph
+
+Next, we'll create a projection using only our ER relationships:
+
+[source,cypher]
+.Create an ER-only projection
+----
+MATCH (source:User)
+OPTIONAL MATCH (source)-[r:P2P_SHARED_CARD|SHARED_IDS]->(target:User)
+RETURN gds.graph.project(
+  'er-graph',
+  source,
+  target,
+  {relationshipType: type(r)},
+  {undirectedRelationshipTypes: ['*']}
+)
+----
+
+We project only ER relationships so WCC finds components connected by suspicious patterns—not general network proximity.
+
+[.slide]
+== Why This Projection Matters
+
+We're projecting *only* the fraud-hypothesis relationships—not the original P2P, HAS_CC, or USED relationships.
+
+This means WCC will find components based on *our definitions of suspicious behavior*, not on general network connectivity.
+
+Users end up in the same component only if they're connected by patterns we've explicitly encoded.
+
+[.slide]
+== Step 8: Run WCC
+
+Finally we run WCC to find connected components:
+
+[source,cypher]
+.Write WCC IDs
+----
+CALL gds.wcc.write('er-graph', {
+  writeProperty: 'wccId'
+})
+YIELD componentCount, componentDistribution
+RETURN componentCount, componentDistribution
+----
+
+[.slide]
+== Interpreting WCC Results
+
+You should see approximately 28,000 components.
+
+Most contain one or two users. The interesting ones are multi-user components—these could be our fraud communities.
+
+Check the `componentDistribution`:
+
+* `min`: 1 (isolated users)
+* `max`: ~175 (largest community)
+* `mean`: ~2.4 (most components are small)
+
+[.slide]
+== Step 9: Examine Component Sizes
+
+See the distribution of community sizes:
+
+[source,cypher]
+.Get community distribution
+----
+MATCH (u:User)
+WHERE u.wccId IS NOT NULL
+WITH u.wccId AS community, count(*) AS size
+RETURN size, count(*) AS communitiesOfThisSize
+ORDER BY size
+----
+
+[.transcript-only]
+
+====
+Most communities are size 1—users not connected by suspicious patterns. Communities of size 2+ are our investigation targets.
+====
+
+[.slide]
+
+== Inspect distribution
+
+Your previous query should have returned something like this:
+
+[cols="1,1"]
+|===
+|size |communitiesOfThisSize
+
+|1
+|24283
+
+|2
+|3165
+
+|3
+|481
+
+|4
+|151
+
+|5
+|61
+
+|...
+|...
+
+|175
+|1
+|===
+
+[.slide]
+== The Guilt-by-Association Principle
+
+Our hypothesis is "if a user is connected (via fraud patterns) to a *known* fraudster, they warrant investigation."
+
+This isn't proof of guilt—it's prioritization. We're identifying users who deserve closer scrutiny.
+
+[.slide]
+== Step 10: Find Communities with Known Fraud
+
+Which communities contain flagged users?
+
+[source,cypher]
+.Get communities with flagged users
+----
+MATCH (u:User)
+WHERE u.wccId IS NOT NULL
+WITH u.wccId AS community,
+  count(*) AS totalUsers,
+  sum(u.fraudMoneyTransfer) AS flaggedUsers
+WHERE flaggedUsers > 0
+RETURN community, totalUsers, flaggedUsers,
+  totalUsers - flaggedUsers AS unflaggedUsers
+ORDER BY unflaggedUsers DESC
+LIMIT 10
+----
+
+[.slide]
+
+== Inspecting results
+
+The previous query should return a table that looks like this:
+
+╒[cols="1,1,1,1"]
+|===
+|community |totalUsers |flaggedUsers |unflaggedUsers
+
+|619
+|37
+|3
+|34
+
+|2798
+|11
+|1
+|10
+
+|3895
+|11
+|2
+|9
+
+|712
+|10
+|1
+|9
+
+|...
+|...
+|...
+|...
+|===
+
+[.transcript-only]
+
+====
+Communities with `flaggedUsers > 0` contain known fraud. Those with `unflaggedUsers > 0` contain unlabeled users connected by suspicious patterns—our new fraud risks.
+====
+
+
+[.slide]
+== Step 11: Label Fraud Risk Users
+
+Now, we can mark all users in fraud-connected communities as fraud risks:
+
+[source,cypher]
+.Mark users in fraud communities
+----
+MATCH (flagged:User)
+WHERE flagged.fraudMoneyTransfer = 1
+  AND flagged.wccId IS NOT NULL
+WITH collect(DISTINCT flagged.wccId) AS flaggedCommunities
+MATCH (u:User)
+WHERE u.wccId IN flaggedCommunities
+  AND u.fraudMoneyTransfer = 0
+SET u:FraudRisk, u.fraudRisk = 1
+RETURN count(u) AS newFraudRiskUsers
+----
+
+[.slide]
+== Results
+
+You should identify 211 new fraud risk users.
+
+These are users who:
+
+* Were not flagged by the original chargeback logic
+* Are connected to flagged users via suspicious patterns (shared cards + transactions, or multiple shared identifiers)
+
+[.slide.discrete]
+== Part 4: Validation
+
+[.slide]
+== Why Validate?
+
+We've identified 211 users. But are they significant, or just noise?
+
+One way to check: measure their transaction volume. If these users handle substantial money flow, our identification is meaningful.
+
+[.slide]
+== Step 12: Validate the Labeling
+
+How much money flows through these newly identified accounts?
+
+[source,cypher]
+.Find money flowing through accounts
+----
+MATCH (risk:FraudRisk)-[p:P2P]-()
+WITH sum(p.totalAmount) AS riskP2P
+MATCH ()-[p:P2P]->()
+WITH riskP2P, sum(p.totalAmount) AS totalP2P
+RETURN round(100.0 * riskP2P / totalP2P, 1) AS percentOfAllP2P
+----
+
+[.transcript-only]
+
+====
+You should find that these 211 users (less than 1% of total users) account for approximately 12-13% of all P2P transaction volume.
+====
+
+[.slide]
+== Interpreting the Validation
+
+These 211 users represent less than 0.1% of all users—yet they handle approximately 13% of all P2P transaction volume.
+
+If we'd selected 211 users at random, we'd expect them to handle roughly 0.1% of volume. We're seeing 130 times that amount.
+
+This suggests our methodology has identified economically significant actors, not random noise.
+
+[.slide]
+== Step 13: Visualize a Fraud Community
+
+Pick a community and examine it:
+
+[source,cypher]
+.Examine just one community
+----
+MATCH (u:User)
+WHERE u.wccId IS NOT NULL AND u.fraudMoneyTransfer = 1
+WITH u.wccId AS community, count(*) AS fraudCount
+ORDER BY fraudCount DESC LIMIT 1
+WITH community
+MATCH path = (u1:User)-[:P2P_SHARED_CARD|SHARED_IDS|HAS_CC|USED]-(n)--(u2:User)
+WHERE u1.wccId = community AND u2.wccId = community
+RETURN path
+LIMIT 200
+----
+
+[.transcript-only]
+
+====
+In the visualization:
+
+* Flagged users (fraudMoneyTransfer = 1) are known fraudsters
+* FraudRisk users are newly identified through ER + WCC
+* Notice how they're connected by shared cards and devices
+====
+
+[.slide]
+== Cleanup
+
+Drop the projection:
+
+[source,cypher]
+.Drop the ER projection
+----
+CALL gds.graph.drop('er-graph')
+----
+
+[.slide]
+== What We Built
+
+[cols="1,2,1"]
+|===
+|Step |What We Did |Result
+
+|Encode hypotheses
+|Created P2P_SHARED_CARD and SHARED_IDS relationships
+|~11,000 fraud-pattern edges
+
+|Filter noise
+|Used Degree Centrality to exclude high-degree identifiers
+|Removed false connections
+
+|Find communities
+|Ran WCC on fraud-hypothesis relationships
+|~28,000 components
+
+|Label risk
+|Marked users in fraud-connected components
+|211 new suspects
+
+|Validate
+|Checked transaction volume
+|13% of P2P volume
+|===
+
+[.slide]
+== Algorithms Are Tools
+
+The algorithms we used—Degree Centrality and WCC—are simple by design.
+
+The power came from:
+
+* **Encoding domain knowledge** as relationships
+* **Filtering noise** before community detection
+* **Projecting selectively** to control what "connected" means
+
+Algorithms find structure. You define what structure matters through relationship design and projection choices.
+
+[.slide]
+== Extending This Approach
+
+In production, you'd likely:
+
+* **Add more ER rules** — Same device + same IP, velocity patterns, behavioral similarity
+* **Weight relationships** — More shared identifiers = stronger connection
+* **Use thresholds in WCC** — Only consider strong connections
+* **Iterate** — Validate, tune thresholds, add rules, repeat
+
+[.summary]
+== Summary
+
+You've applied the full fraud detection methodology:
+
+* Created P2P_SHARED_CARD relationships (6,000+)
+* Created SHARED_IDS relationships (5,000+)
+* Ran WCC to find connected components (~28,000)
+* Identified 211 new fraud risk users
+* Validated they represent ~13% of transaction volume
+
+Remember, algorithms find structure, but you define what structure matters through relationship design and projection modeling.
+
+The power isn't in the algorithms themselves—it's in encoding your fraud hypotheses as graph relationships, then letting simple algorithms like WCC find the connected groups.

@@ -1,0 +1,371 @@
+= Yen's K-Shortest Paths
+:type: lesson
+:optional: true
+:order: 3
+:slides: true
+
+[.slide.discrete]
+== Introduction
+
+Dijkstra's gave you the optimal route. Yen's gives you options.
+
+Finding multiple ranked alternatives enables risk management, reveals underutilized paths, and allows comparison with historical operations.
+
+We'll practice on the Movie graph first, then apply what we learn to logistics.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Explain how Yen's algorithm finds multiple ranked paths between nodes
+* Configure the `k` parameter to retrieve alternative routes
+* Interpret path rankings and compare options for risk management
+* Recognize when Yen's is preferable to Dijkstra's (and vice versa)
+
+[.slide]
+== What Yen's Does
+
+Yen's finds the *k shortest paths* between two nodes.
+
+Not just the best route—the best k routes, ranked by total cost.
+
+image::images/yens_multiple_paths.png[Multiple ranked paths from source to destination, colored from green (best) to yellow (5th best).]
+
+[.slide]
+== Why Multiple Routes Matter
+
+* *Capacity constraints*: Optimal route might be full
+* *Risk management*: Backup options if disruptions occur
+* *Trade-off analysis*: Compare time vs. other factors
+* *Historical comparison*: See if current routes are in the top k
+
+[.slide]
+== How It Works
+
+Yen's builds on Dijkstra's:
+
+1. Find the shortest path (Dijkstra's)
+2. Systematically block edges and find next-best paths
+3. Rank all discovered paths by total cost
+4. Return the top k
+
+Guaranteed to find the k truly shortest paths.
+
+[.slide]
+== Yen's vs Dijkstra's
+
+[cols="1,1,1"]
+|===
+|Aspect |Dijkstra's |Yen's
+
+|Returns
+|Single best path
+|k best paths
+
+|Use case
+|"What's the optimal route?"
+|"What are my options?"
+
+|Internally
+|Single pass
+|Runs Dijkstra's multiple times
+
+|Performance
+|Faster
+|Scales with k
+|===
+
+For k = 1, Yen's behaves exactly like Dijkstra's.
+
+[.slide]
+== Configuration Parameters
+
+[cols="1,1,2"]
+|===
+|Parameter |Type |Description
+
+|sourceNode
+|Integer
+|The source node (required)
+
+|targetNode
+|Integer
+|The target node (required)
+
+|k
+|Integer
+|Number of shortest paths to compute (default: 1)
+
+|relationshipWeightProperty
+|String
+|Property to use as weights (optional)
+|===
+
+[.transcript-only]
+
+====
+Note that Yen's uses `targetNode` (singular), not `targetNodes` like Dijkstra's. You can only find k paths to a single destination per call.
+====
+
+[.slide]
+== Project the Movie Graph
+
+We use `gds.graph.project()` with a Cypher projection:
+
+[source,python]
+----
+G, result = gds.graph.project(
+    "actor-collaborations",
+    """
+    CALL {
+        MATCH (a1:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2:Actor)
+        WHERE a1 <> a2
+        WITH a1, a2, count(m) AS collaborations
+        RETURN a1 AS source, a2 AS target, collaborations
+    }
+    RETURN gds.graph.project.remote(
+        source,
+        target,
+        {relationshipProperties: {collaborations: collaborations}}
+    )
+    """
+)
+
+print(f"Projected graph: {G.name()}")
+print(f"  Nodes: {G.node_count():,}")
+print(f"  Relationships: {G.relationship_count():,}")
+----
+
+[.slide]
+== Find Multiple Paths
+
+Call `gds.shortestPath.yens.stream()` with the `k` parameter:
+
+[source,python]
+----
+# Get source and target node IDs
+source_id = gds.find_node_id(["Actor"], {"name": "Shah Rukh Khan"})
+target_id = gds.find_node_id(["Actor"], {"name": "Lee Jung-jae"})
+
+# Run Yen's algorithm for top 5 paths
+yens_result = gds.shortestPath.yens.stream(
+    G,
+    sourceNode=source_id,
+    targetNode=target_id,
+    k=5
+)
+----
+
+Now you see not just the best path, but the top 4 alternatives.
+
+[.slide]
+== Understanding the Results
+
+[cols="1,1,3"]
+|===
+|Field |Type |Description
+
+|index
+|Integer
+|0-based rank of this path (0 = best)
+
+|totalCost
+|Float
+|Total cost from source to target
+
+|nodeIds
+|List
+|Node IDs along the path
+
+|costs
+|List
+|Accumulated cost at each step
+
+|path
+|Path
+|Cypher path entity for visualization
+|===
+
+Paths are returned in order of total cost—lowest first.
+
+[.slide]
+== Parallel Relationships
+
+Yen's respects *parallel relationships* between nodes.
+
+If two actors collaborated on multiple movies, those are separate edges in the projection. Yen's can find paths that use different parallel edges between the same nodes.
+
+This is useful when parallel relationships have different weights.
+
+For example, in a logistics network, you may find that the same route costs more or less depending on the day. If you include parallel relationships in your projection, Yen's will only choose the cheapest of days.
+
+However, bear this in mind if you have a network with thousands of parallel edges. Without weights, you will always get the same path for your topK.
+
+[.slide]
+== Weighted Paths
+
+Add collaboration counts as weights to find paths through the weakest collaborators.
+
+Remember: Yen's minimizes cost, so this finds paths through actors who collaborated *least*.
+
+[source,python]
+----
+yens_weighted = gds.shortestPath.yens.stream(
+    G,
+    sourceNode=source_id,
+    targetNode=target_id,
+    k=5,
+    relationshipWeightProperty='collaborations'
+)
+----
+
+[.slide]
+== Yen's with inverted weights
+
+As with Dijkstra's, we can **invert** the weights to get the strongest collaboration paths. 
+
+First, we can project a new graph into the same session we've already been using -- this won't disrupt the other graph in the session.
+
+[source,python, role=noplay, nocopy]
+.Project with inverted weights
+----
+# Project with inverted weights
+G_inverted, result = gds.graph.project(
+    "actor-inverted-weights",
+    """
+    CALL {
+        MATCH (a1:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2:Actor)
+        WHERE a1 <> a2
+        WITH a1, a2, count(m) AS collaborations
+        RETURN a1 AS source, a2 AS target, 1.0 / collaborations AS invertedCollab
+    }
+    RETURN gds.graph.project.remote(
+        source,
+        target,
+        {relationshipProperties: {invertedCollab: invertedCollab}}
+    )
+    """
+)
+----
+
+[.slide]
+
+== Run Yen's with inverted weights
+
+----
+# Run Yen's with inverted weights (finds strongest collaboration paths)
+yens_inverted = gds.shortestPath.yens.stream(
+    G_inverted,
+    sourceNode=source_id,
+    targetNode=target_id,
+    k=5,
+    relationshipWeightProperty='invertedCollab'
+)
+----
+
+[.slide]
+== Results
+
+[cols="1,2,6", options="header"]
+|===
+| Rank | Total Cost | Path
+
+| 1 | 2.400000 | Shah Rukh Khan -> Deepika Padukone -> Donnie Yen -> Simon Yam -> Lee Jung-jae
+| 2 | 2.611111 | Shah Rukh Khan -> Anupam Kher -> Alfred Molina -> Liam Neeson -> Lee Jung-jae
+| 3 | 2.646429 | Shah Rukh Khan -> Johny Lever -> Akshay Kumar -> Deepika Padukone -> Donnie Yen -> Simon Yam -> Lee Jung-jae
+| 4 | 2.650000 | Shah Rukh Khan -> Deepika Padukone -> Donnie Yen -> Wai-Kwong Lo -> Simon Yam -> Lee Jung-jae
+| 5 | 2.676190 | Shah Rukh Khan -> Boman Irani -> Deepika Padukone -> Donnie Yen -> Simon Yam -> Lee Jung-jae
+|===
+
+[.slide]
+== Interpreting results
+
+In the previous version, when we minimized collaboration counts, we got the same 4-hop cost for every path. That happened because every hop in our shortest path had only one collaboration count. 
+
+However, in our inverted version, we can see that Shah Rukh Kahn has a high collaboration-count, and shorter path, through Deepika Padukone.
+
+[.slide]
+== Collaboration counts per hop
+
+[cols="3,2,3", options="header"]
+|===
+| From | Collaborations | To
+
+| Shah Rukh Khan | 5 | Deepika Padukone
+| Deepika Padukone | 1 | Donnie Yen
+| Donnie Yen | 5 | Simon Yam
+| Simon Yam | 1 | Lee Jung-jae
+|===
+
+[.slide]
+== Complex operations, simple workflow
+
+While Yen's makes it all seem quite simple, the results demonstrate the level of complexity it can blast through. 
+
+Shah Rukh Khan has acted in 5 movies with Deepika Padukone. However, Deepika has only acted in 1 movie with Donnie Yen -- the next on the list. 
+
+There are of course many other paths between Deepika and Lee Jung-jae with a higher collaboration count -- but Yen's knows that subbing in this low-count hop will get us to Lee Jung-jae faster than other paths with stronger collaborations.
+
+[.slide]
+== Performance Considerations
+
+Yen's is more expensive than Dijkstra's:
+
+* Runs Dijkstra's internally for _each_ of the k paths
+* Cost scales roughly with k
+* Still efficient for reasonable k values
+
+[.slide]
+== When Yen's Won't Help
+
+Yen's is *not* the right choice when:
+
+* You only need the single best path -> Use Dijkstra's
+* You need paths from one source to *multiple* targets -> Use Dijkstra's with targetNodes list
+* You need *all* shortest paths in the graph -> Use All Pairs Shortest Path
+
+[.slide]
+== Clean Up
+
+Drop the projection and delete the session when you're done:
+
+[source,python]
+----
+G.drop()
+print("Dropped: actor-collaborations")
+
+gds.delete()
+print("Session deleted - billing stopped")
+----
+
+[.slide]
+== From Movies to Logistics
+
+You've now learned Yen's on the Movie graph—but everything transfers to other contexts:
+
+* *Multiple paths between actors* -> *Alternative shipping routes*
+* *Ranked by hops/collaborations* -> *Ranked by transit time*
+* *Compare top k paths* -> *Compare to historical route choices*
+
+You now have all the core GDS skills: projections, algorithms, Python workflows, and scalable analytics with Aura Graph Analytics.
+
+[.summary]
+== Summary
+
+Yen's finds the k shortest paths between two nodes, enabling comparison and backup planning.
+
+What we covered:
+
+* Returns k paths ranked by total cost
+* Builds on Dijkstra's—runs it multiple times internally
+* Single target only—unlike Dijkstra's, no targetNodes list
+* Respects parallel relationships—can find paths using different edges between same nodes
+* Three execution modes—stream, mutate, and write
+
+You've completed all the technical lessons in this workshop. Time to celebrate what you've accomplished!
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/complete.adoc[leveloffset=+1]
