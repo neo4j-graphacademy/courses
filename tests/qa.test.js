@@ -418,21 +418,21 @@ describe("QA Tests", () => {
                   const lines = lessonAdoc.split("\n");
                   let summaryCount = 0;
                   let inCodeBlock = false;
-                  
+
                   for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    
+
                     // Track code block state
                     if (/^----/.test(line) || /^====/.test(line)) {
                       inCodeBlock = !inCodeBlock;
                     }
-                    
+
                     // Count [.summary] only outside code blocks
                     if (!inCodeBlock && /^\[\.summary\]/.test(line)) {
                       summaryCount++;
                     }
                   }
-                  
+
                   if (summaryCount > 1) {
                     throw new Error(
                       `Lesson should have only one [.summary] section, found ${summaryCount}`,
@@ -485,7 +485,7 @@ describe("QA Tests", () => {
                   }
                 });
 
-                it("should be optional, mark as read or have one or more questions", () => {
+                it("should have a mark as read button, one or more questions or be optional", () => {
                   expect(
                     optional ||
                       hasReadButton ||
