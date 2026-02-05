@@ -1,0 +1,294 @@
+= Fraud Detection
+:type: lesson
+:optional: true
+:order: 1
+:slides: true
+
+[.slide.discrete]
+== Introduction
+
+Traditional fraud detection looks at individual transactions. But organized fraud operates as coordinated networks—multiple actors working together.
+
+Graph algorithms excel at revealing these hidden groups.
+
+image::images/finding_connected_fraudsters.png[in a graph of financial transactions, individual, connected fraudsters are identified and highlighted.]
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Identify fraud patterns that are invisible in tables but obvious in graphs
+* Explore a real fraud dataset and discover suspicious connections
+* Design a graph projection strategy for fraud investigation
+* Choose appropriate algorithms for narrowing search space and ranking suspects
+
+[.slide]
+== Why Graphs?
+
+Fraudsters actively try to hide. They use:
+
+* Multiple accounts
+* Shared devices and credit cards
+* Complex transaction chains
+
+image::images/accounts_devices_chains.png[Left: a User node connected to multiple Credit Card nodes; Middle: IP and Credit Card nodes connected to many users; Right: A complex transaction chain across multiple fraudulent users.]
+
+[.transcript-only]
+
+====
+These connections are invisible in tables—but obvious in graphs. A relational database would require multiple JOINs to discover what a single graph traversal reveals instantly.
+====
+
+[.slide]
+== The Dataset
+
+Let's see these principles in action with a real fraud network.
+
+You'll work with an anonymized peer-to-peer (P2P) financial transactions dataset containing:
+
+* `User` nodes (some flagged as known fraudsters)
+* `Card`, `Device`, and `IP` nodes
+* `P2P`, `HAS_CC`, `HAS_IP`, `USED` relationships
+
+[.slide]
+== Explore the Schema
+
+Run this to see the data model:
+
+[source,cypher]
+----
+CALL db.schema.visualization()
+----
+
+[.transcript-only]
+
+====
+Take a moment to understand the structure. Users connect to Cards, Devices, and IPs. Users also connect to other Users via P2P transactions.
+====
+
+[.slide]
+== Node and Relationship Counts
+
+Let's see the scale of our data:
+
+[source,cypher]
+----
+MATCH (n)
+WITH count(n) AS nodeCount
+MATCH ()-[r]->()
+RETURN nodeCount AS nodes, count(r) AS relationships
+----
+
+[.transcript-only]
+
+====
+This should return approximately 790,000 nodes and 1.8 million relationships.
+
+This is a large search space—far too big for manual investigation. We need algorithms to help us focus.
+====
+
+[.slide]
+== Fraud Flags
+
+Known fraudulent users have been flagged with the property `fraudMoneyTransfer = 1`.
+
+[source,cypher]
+----
+MATCH (u:User)
+WHERE u.fraudMoneyTransfer = 1
+RETURN u
+LIMIT 10
+----
+
+[.slide]
+== Explore Flagged Users
+
+Run the query above and expand the nodes you find.
+
+**What to notice:**
+
+* How many unflagged users connect to each flagged user?
+* What types of nodes (Cards, Devices, IPs) appear in the neighborhood?
+* Do you see any shared infrastructure between flagged users?
+
+[.transcript-only]
+
+====
+The fraud property is only applied to *some* users—many connected users remain unflagged. These connections are exactly what we want to investigate.
+====
+
+[.slide]
+== Transfer Chains
+
+Now let's see how flagged users connect to each other through transaction chains:
+
+[source,cypher]
+----
+MATCH path = (u1:User)-[:P2P*5]-(u2:User)
+WHERE u1.fraudMoneyTransfer = 1 
+  AND u2.fraudMoneyTransfer = 1
+  AND u1 <> u2
+RETURN path
+LIMIT 100
+----
+
+[.slide]
+== What the Chains Reveal
+
+**What to notice:**
+
+* Users in the *middle* of chains often aren't flagged
+* Flagged users at either end suggest the middle users may be involved
+* Money flows through these intermediaries—intentionally or not
+
+[.transcript-only]
+
+====
+Discovering this pattern in a relational database would require five self-JOINs on the transaction table. In a graph, it's a simple path query.
+
+This is the power of graph-based fraud detection: patterns that are computationally expensive in tables become trivial traversals.
+====
+
+[.slide]
+== Shared Infrastructure
+
+Two known fraudsters sharing the same credit card is suspicious:
+
+[source,cypher]
+----
+MATCH path = (u1:User)-[:HAS_CC|USED]->(shared)<-[:HAS_CC|USED]-(u2:User)
+WHERE u1.fraudMoneyTransfer = 1 
+  AND u2.fraudMoneyTransfer = 1
+  AND u1 <> u2
+RETURN path
+LIMIT 50
+----
+
+[.transcript-only]
+
+====
+Legitimate users rarely share credit cards or devices. When two flagged users share infrastructure, it suggests coordination—possibly the same person operating multiple accounts.
+====
+
+[.slide]
+== The Key Question
+
+Finding connections *between* known fraudsters isn't remarkable.
+
+The real question: **Can we use these patterns to find fraudsters we don't know about yet?**
+
+That's what this module will teach you.
+
+[.slide]
+== The Challenge
+
+With ~790,000 nodes and ~1.8 million relationships, manual investigation is impossible.
+
+We need algorithms to:
+
+1. **Narrow the search space** — Find suspicious communities
+2. **Rank suspects** — Prioritize who to investigate first
+
+[.slide]
+== Designing the Projection
+
+Before running algorithms, we need to decide what to project.
+
+This network is **heterogeneous**—it contains multiple node and relationship types:
+
+* Users, Cards, Devices, IPs
+* P2P transactions, HAS_CC, HAS_IP, USED relationships
+
+image::images/heterogeneous_graph.png[User, Card, IP, Device nodes, connected by multiple relationships.]
+
+[.slide]
+== Projection Options
+
+We could project this network in different ways:
+
+[cols="1,2,2"]
+|===
+|Approach |What It Captures |What It Loses
+
+|**Monopartite** (User → User)
+|Direct transactions
+|Shared infrastructure
+
+|**Bipartite** (User → Card/Device)
+|Shared infrastructure
+|Direct transactions
+
+|**Heterogeneous** (All nodes)
+|Everything
+|Nothing (but more complex)
+|===
+
+[.slide]
+== Our Choice: Heterogeneous
+
+For fraud detection, shared infrastructure is critical evidence.
+
+We'll project Users, Cards, and Devices together. This lets our algorithms find communities based on *all* connection types—not just transactions.
+
+[.transcript-only]
+
+====
+In later lessons, you'll see how to refine projections for specific investigative questions. For initial exploration, capturing everything gives us the broadest view.
+====
+
+[.slide]
+== The Algorithmic Strategy
+
+We'll use two algorithm families in sequence:
+
+[cols="1,2,2"]
+|===
+|Step |Algorithm Family |Purpose
+
+|1
+|Community Detection
+|Find groups containing known fraudsters
+
+|2
+|Centrality
+|Rank users within those groups
+|===
+
+Community detection reduces the search space. Centrality ranks the suspects.
+
+[.slide]
+== Applying the Framework
+
+Let's formalize our approach:
+
+**Question:** Who else is involved in fraud networks?
+
+**Projection:** Users, Cards, and Devices with their relationships
+
+**Algorithm:** Community detection, then centrality ranking
+
+**Config:** Start with defaults; refine based on results
+
+[.slide]
+== What's Next
+
+In the following lessons, you'll:
+
+* **Lesson 2:** Learn how Louvain community detection works
+* **Lesson 3:** Run Louvain to reduce your search space by 98%
+* **Lesson 4:** Learn Degree Centrality and WCC for formal community assignment
+* **Lesson 5:** Build fraud communities using entity resolution patterns
+
+Each lesson builds on the previous, taking you from raw data to actionable suspect lists.
+
+[.summary]
+== Summary
+
+Fraud detection shifts from individual transactions to network analysis:
+
+* **Graph structure** reveals connections fraudsters try to hide
+* **Community detection** identifies fraud rings
+* **Centrality** ranks suspects within those rings
+
+You've explored the dataset and seen how flagged users connect through transactions and shared infrastructure. Now you're ready to apply algorithms to find the fraudsters hiding in plain sight.

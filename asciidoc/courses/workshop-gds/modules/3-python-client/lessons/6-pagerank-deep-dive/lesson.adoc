@@ -1,0 +1,585 @@
+= PageRank
+:type: lesson
+:optional: true
+:order: 6
+:slides: true
+
+[.slide]
+== Introduction
+
+You've likely heard of PageRank—it's the original Google algorithm that revolutionized web search.
+
+In this lesson, we'll apply it to our citation network to find the most influential papers.
+
+At its core, PageRank reveals which nodes matter most by measuring recursive influence.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Explain what PageRank measures and why it matters
+* Describe the random surfer model and damping factor
+* Run PageRank using the Python GDS client
+* Interpret PageRank results and check for convergence
+* Find cross-disciplinary influential papers
+
+[.slide]
+== What PageRank Measures
+
+PageRank doesn't simply count how many connections a node has. Instead, it measures something more nuanced:
+
+* How many nodes point to you
+* How important those nodes are
+* The overall "quality" of your connections
+
+[.slide]
+
+== Quality Over Quantity
+
+PageRank optimizes for quality over quantity.
+
+Being cited by an influential paper matters far more than being cited by an obscure one.
+
+A single citation from a foundational paper in your field can outweigh dozens of citations from lesser-known work.
+
+image::images/pagerank_quality_over_quantity.png[Quality over quantity in citations]
+
+[.slide]
+== The Random Surfer Model
+
+To understand how PageRank works, imagine a researcher randomly browsing through papers in a library.
+
+Let's walk through what this researcher does, step by step.
+
+image::images/random_surfer_overview.png[Random surfer browsing papers]
+
+[.slide]
+== Random Surfer: Step 1
+
+First, our researcher starts at a random paper in the network.
+
+They've picked up a paper off the shelf without any particular goal in mind.
+
+image::images/random_surfer_step1.png[Starting at a random paper]
+
+[.slide]
+== Random Surfer: Step 2
+
+Next, most of the time -- about 85% of the time with dampingFactor: 0.85 -- they follow a citation to another paper.
+
+They see an interesting reference, so they go find that paper and start reading it instead.
+
+image::images/random_surfer_step2.png[Following a citation link]
+
+[.slide]
+== Random Surfer: Step 3
+
+But occasionally -- about 15% of the time with dampingFactor: 0.85 -- they get bored or distracted and jump to a completely random paper instead.
+
+This simulates the unpredictable nature of real browsing behavior.
+
+image::images/random_surfer_step3.png[Random jump to another paper]
+
+[.slide]
+== Random Surfer: Step 4
+
+Now imagine this researcher repeats this process millions of times.
+
+Over time, they'll visit some papers far more often than others.
+
+image::images/random_surfer_step4.png[Repeated browsing simulation]
+
+[.slide]
+== What PageRank Represents
+
+PageRank equals the probability of landing on each paper during this random browsing process.
+
+Papers that the researcher lands on frequently are considered influential—they're the papers that naturally attract attention through the network structure.
+
+image::images/pagerank_probability.png[PageRank as landing probability]
+
+[.slide]
+== The Damping Factor
+
+Remember how our random surfer sometimes jumps to a random paper instead of following citations?
+
+The probability of this random jump is controlled by a parameter called the **damping factor**.
+
+image::images/damping_factor_concept.png[Damping factor illustration]
+
+[.slide]
+== Damping Factor Values
+
+When we set `dampingFactor = 0.85`, we're saying that 85% of the time the surfer follows links, and 15% of the time they jump randomly.
+
+The damping factor must be between 0 (inclusive) and 1 (exclusive).
+
+[.slide]
+== Damping Factor Effects
+
+Higher damping values place more weight on the actual link structure of the graph.
+
+Lower damping values produce a more uniform distribution, where all nodes end up with similar scores.
+
+The default value of 0.85 works well for most graphs, so you rarely need to change it.
+
+[.slide]
+== Why Do We Need Random Jumps?
+
+The random jump mechanism isn't just a quirky detail—it actually solves three important problems that can break the algorithm.
+
+Let's look at each one.
+
+[.slide]
+== Problem 1: Spider Traps
+
+Spider traps are groups of nodes with no outgoing links to the rest of the graph.
+
+Without random jumps, all the ranking signals would get "trapped" and accumulate here, giving these nodes artificially high scores.
+
+image::images/spider_trap.png[Spider trap diagram]
+
+[.slide]
+== Problem 2: Rank Sinks
+
+Rank sinks are cycles in the graph that accumulate rank infinitely.
+
+The ranking signals keep circling around and around, never escaping to the rest of the network.
+
+image::images/rank_sink.png[Rank sink diagram]
+
+[.slide]
+== Problem 3: Dead Ends
+
+Dead ends are nodes with no outgoing relationships at all.
+
+When the random surfer reaches a dead end, the rank "leaks" out of the graph entirely. Random jumps give them somewhere to go.
+
+image::images/dead_end.png[Dead end diagram]
+
+[.slide]
+== Why Not Just Count Citations?
+
+You might wonder: why not just count how many citations each paper has?
+
+Let's look at an example to see why that approach falls short.
+
+[.slide]
+== Citation Count vs PageRank
+
+[cols="1,1,1"]
+|===
+|**Paper** |**Citations** |**PageRank**
+
+|Paper A
+|100 (from obscure papers)
+|2.5
+
+|Paper B
+|20 (from foundational papers)
+|8.7
+
+|Paper C
+|50 (mixed)
+|4.2
+|===
+
+[.slide]
+== Importance, not popularity
+
+Notice that Paper B has far fewer citations than Paper A, but a much higher PageRank score.
+
+Why? Because Paper B is cited by the right papers—foundational work that itself has high influence.
+
+image::images/citation_count_vs_pagerank.png[Comparing citation count to PageRank]
+
+[.slide]
+== Now Let's Run PageRank
+
+With the theory covered, let's apply PageRank to our citation network.
+
+First, we need to retrieve the graph projection we created in Lesson 5.
+
+[.slide]
+== Setup: Retrieve the Projection
+
+We use `gds.graph.get()` to retrieve an existing projection by name.
+
+[source,python,role=noplay nocopy]
+.Retrieving the existing projection
+----
+G = gds.graph.get("cora-graph")
+
+print(f"Retrieved graph: {G.name()}")
+print(f"  Nodes: {G.node_count():,}")
+print(f"  Relationships: {G.relationship_count():,}")
+----
+
+[.slide]
+== Running PageRank: Write Mode
+
+Now we can run PageRank. We'll use write mode so the results get persisted back to the database.
+
+This lets us query the results later using Cypher.
+
+[source,python,role=noplay nocopy]
+.Running PageRank with write mode
+----
+PR_result = gds.pageRank.write(
+    G,
+    writeProperty='pageRank',
+    maxIterations=20,
+    dampingFactor=0.85
+)
+----
+
+[.slide]
+== Inspecting the Results
+
+The result object contains useful information about what the algorithm did.
+
+[source,python,role=noplay nocopy]
+.Inspecting the results
+----
+print(f"Computed PageRank for {PR_result['nodePropertiesWritten']:,} papers")
+print(f"  Iterations ran: {PR_result['ranIterations']}")
+print(f"  Compute time: {PR_result['computeMillis']}ms")
+----
+
+[.slide]
+== Key Parameters
+
+Here are the main parameters you can configure when running PageRank:
+
+[cols="1,1,2"]
+|===
+|**Parameter** |**Default** |**Description**
+
+|dampingFactor
+|0.85
+|Probability of following links (must be < 1)
+
+|maxIterations
+|20
+|Maximum iterations before stopping
+
+|tolerance
+|1e-7
+|Minimum score change for convergence
+
+|writeProperty
+|(required)
+|Property name for storing results
+|===
+
+[.slide]
+== Understanding Convergence
+
+PageRank is an iterative algorithm. It runs multiple passes over the graph, refining the scores each time.
+
+The algorithm stops when one of two things happens:
+
+* The scores change less than `tolerance` between iterations (it has converged)
+* It reaches `maxIterations` (it ran out of time)
+
+image::images/convergence_concept.png[Algorithm convergence illustration]
+
+[.slide]
+== Checking for Convergence
+
+If the algorithm used all available iterations, it may not have fully converged.
+
+We can check this by comparing `ranIterations` to our `maxIterations` setting.
+
+[source,python,role=noplay nocopy]
+.Checking for convergence
+----
+if PR_result['ranIterations'] == 20:  # maxIterations default
+    print("Warning: may not have converged!")
+    print("Consider increasing maxIterations")
+----
+
+[.slide]
+== Re-running with More Iterations
+
+If you find that PageRank has not converged, the fix is simple: increase `maxIterations` and run again.
+
+[source,python,role=noplay nocopy]
+.Running with 100 max iterations
+----
+PR_result = gds.pageRank.write(
+    G,
+    writeProperty='pageRank',
+    maxIterations=100,
+    dampingFactor=0.85
+)
+
+print(f"Iterations ran: {PR_result['ranIterations']}")
+----
+
+
+[.slide]
+== A Better Approach: Stats Mode First
+
+Rather than writing results and then checking convergence, you can use stats mode to test your parameters first.
+
+Stats mode runs the algorithm and returns statistics, but doesn't store anything.
+
+[source,python,role=noplay nocopy]
+.Using stats mode to verify convergence
+----
+result = gds.pageRank.stats(
+    G,
+    maxIterations=100,
+    dampingFactor=0.85
+)
+print(result)
+----
+
+[.slide]
+== Finding the Most Influential Papers
+
+Now that we have PageRank scores written to the database, we can query for the most influential papers.
+
+Let's find the top 10.
+
+[source,python,role=noplay nocopy]
+.Querying top 10 papers by PageRank
+----
+top_papers = gds.run_cypher("""
+    MATCH (p:Paper)
+    WHERE p.pageRank IS NOT NULL
+    RETURN p.paper_Id AS paperId,
+           p.subject AS subject,
+           p.pageRank AS pageRank
+    ORDER BY pageRank DESC
+    LIMIT 10
+""")
+----
+
+[.slide]
+== Top Papers Results
+
+Let's see which papers came out on top.
+
+[source,python,role=noplay nocopy]
+.Displaying the results
+----
+print("Top 10 Most Influential Papers:")
+display(top_papers)
+----
+
+[.slide]
+== Analyzing Influence by Subject
+
+We can also aggregate PageRank scores by subject area to see which research fields have the most influence overall.
+
+[source,python,role=noplay nocopy]
+.PageRank distribution by subject
+----
+subject_influence = gds.run_cypher("""
+    MATCH (p:Paper)
+    WHERE p.pageRank IS NOT NULL
+    RETURN p.subject AS subject,
+           count(*) AS paperCount,
+           avg(p.pageRank) AS avgPageRank,
+           max(p.pageRank) AS maxPageRank
+    ORDER BY avgPageRank DESC
+""")
+----
+
+[.slide]
+== Subject Influence Results
+
+This tells us which subject areas tend to produce more influential work.
+
+[source,python,role=noplay nocopy]
+.Displaying subject influence
+----
+print("Influence by Subject Area:")
+display(subject_influence)
+----
+
+[.slide]
+== Cross-Disciplinary Papers
+
+Some of the most interesting papers are those that bridge different research areas.
+
+These cross-disciplinary papers connect ideas across fields and often have outsized impact.
+
+
+[.slide]
+== Finding Cross-Discipline Citations
+
+Let's find influential papers that cite work in subjects different from their own.
+
+[source,python,role=noplay nocopy]
+.Finding cross-discipline citations
+----
+cross_discipline = gds.run_cypher("""
+    MATCH (p:Paper)
+    WHERE p.pageRank > 5
+    MATCH (p)-[:CITES]->(cited:Paper)
+    WHERE p.subject <> cited.subject
+    RETURN 
+        p.paper_Id AS paperId,
+        p.subject AS sourceSubject,
+        p.pageRank AS pageRank,
+        cited.subject AS citedSubject
+    ORDER BY p.pageRank DESC 
+    LIMIT 10
+""")
+display(cross_discipline)
+----
+
+[.slide]
+== Papers Citing Multiple Subjects
+
+We can take this further and find papers that cite across multiple different subject areas.
+
+These are potential interdisciplinary bridges—papers that connect several research communities.
+
+[source,python,role=noplay nocopy]
+.Finding interdisciplinary bridge papers
+----
+bridge_papers = gds.run_cypher("""
+    MATCH (p:Paper)
+    WHERE p.pageRank > 3
+    MATCH (p)-[:CITES]->(cited:Paper)
+    WITH p, 
+         count(DISTINCT cited.subject) AS subjectsCited,
+         count(cited) AS totalCitations
+    WHERE subjectsCited > 1
+    RETURN p.paper_Id AS paperId,
+           p.subject AS subject,
+           p.pageRank AS pageRank,
+           subjectsCited,
+           totalCitations
+    ORDER BY subjectsCited DESC, pageRank DESC
+    LIMIT 10
+""")
+display(bridge_papers)
+----
+
+[.slide]
+== Visualizing the Distribution
+
+PageRank scores typically follow a power-law distribution.
+
+This means most nodes have relatively low scores, while a small number of nodes have very high scores.
+
+image::images/power_law_concept.png[Power-law distribution concept]
+
+[.slide]
+== Creating a Histogram
+
+Let's visualize this distribution with a histogram of all PageRank scores in our network.
+
+[source,python,role=noplay nocopy]
+.Creating a histogram of PageRank scores
+----
+import matplotlib.pyplot as plt
+
+df = gds.run_cypher("MATCH (p:Paper) RETURN p.pageRank AS pr")
+plt.hist(df['pr'], bins=50)
+plt.xlabel('PageRank')
+plt.title('PageRank Distribution')
+plt.show()
+----
+
+[.slide]
+== Histogram Results
+
+As expected, we see the characteristic long-tail distribution: many papers with low PageRank, and a few standout papers with high scores.
+
+image::images/pagerank_histogram.png[PageRank distribution histogram]
+
+[.slide]
+== Interpreting Results: Relative Scores
+
+One important thing to remember is that PageRank scores are **relative**, not absolute.
+
+* Scores typically range from 0.15 to 20+ depending on the graph
+* You should only compare scores of nodes from the same run in the same graph
+* Higher scores indicate more influential or "central" nodes
+
+[.slide]
+== Interpreting Results: Our Citation Network
+
+In our citation network specifically:
+
+* Papers with PageRank > 5 are highly influential in this network
+* Papers that cite multiple subject areas are interdisciplinary bridges
+* High PageRank combined with citations to multiple subjects suggests foundational interdisciplinary work
+
+image::images/interpretation_summary.png[Interpretation of citation network results]
+
+[.slide]
+== Combining with Other Metrics
+
+PageRank tells us an important part of the story, but not the whole story.
+
+For richer insights, combine PageRank with other metrics:
+
+* **Citation count** gives you raw popularity
+* **Betweenness Centrality** shows bridges between communities (we'll cover this next)
+* **Community membership** reveals which cluster a paper belongs to
+
+[.slide]
+== Multi-Metric Analysis
+
+By combining multiple metrics, you can identify papers that are influential, well-connected, and serve as bridges between research areas.
+
+This multi-dimensional view is far more powerful than any single metric alone.
+
+
+[.slide]
+== Common pitfalls
+
+Before we wrap up, let's cover three common mistakes people make when using PageRank.
+
+[.slide]
+== Pitfall 1: Comparing across runs
+
+PageRank scores are relative to the specific graph they were computed on and the specific PageRank run on that graph.
+
+A score of 5.0 in one graph means something completely different than a score of 5.0 in another graph.
+
+A score of 5.0 on the same graph but different runs might be okay -- but run it in full again anyway. The random nature of the random surfer model will introduce inconsistencies across runs.
+
+Never compare PageRank scores across different graphs.
+
+
+[.slide]
+== Pitfall 2: Ignoring convergence
+
+If `ranIterations` equals `maxIterations`, the algorithm may not have converged properly.
+
+Always check for this condition, and use stats mode first to verify your parameters before writing results.
+
+
+[.slide]
+== Pitfall 3: Damping factor extremes
+
+The damping factor should stay close to the default of 0.85.
+
+Setting it too high -- close to 1 -- causes the spider trap problems. 
+
+Setting it too low makes all scores converge toward uniform values, losing the signal you're looking for.
+
+image::images/pitfall_damping_extremes.png[Damping factor extremes. Left: A graph with huge spider traps. Right: a graph with total uniformity.]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how PageRank measures recursive influence:
+
+* Being cited by influential papers matters more than raw citation count
+* The random surfer model simulates browsing behavior to calculate influence
+* The damping factor prevents spider traps, rank sinks, and dead-ends
+* Always check convergence by comparing `ranIterations` to `maxIterations`
+
+You applied PageRank to the citation network, found the most influential papers, and discovered cross-disciplinary bridges.
+
+**Next:** We'll use Betweenness Centrality to find "bridge papers" that connect different research communities.

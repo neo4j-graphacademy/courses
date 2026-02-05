@@ -1,0 +1,334 @@
+= Applying Algorithms
+:type: lesson
+:optional: true
+:order: 6
+:slides: true
+:sandbox: true
+
+[.slide.discrete]
+== Introduction
+
+You've learned how to project graphs and why structure matters. Now let's put algorithms to work.
+
+In this lesson, you'll run algorithms from each of the five categories and see how they answer different questions about the same data.
+
+[.slide]
+
+== Algorithm details
+
+Do not worry too much about retaining the specific details of each algorithm.
+
+Later in the course, we'll approach each of them in much greater detail. 
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Run algorithms from each of the five GDS categories on projected graphs
+* Recognize how different centrality algorithms define "importance" differently
+* Apply community detection, similarity, pathfinding, and embedding algorithms
+* Choose the right algorithm category based on your analytical question
+
+[.slide]
+== Setup: Create the Actor Network
+
+First, create an actor collaboration network:
+
+[source,cypher]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project('actor-network', source, target) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+You should see approximately 36,000 nodes and over 1 million relationships.
+
+[.slide]
+== Category 1: Centrality
+
+Centrality algorithms rank nodes by importance. But "important" depends on how you define it.
+
+Let's try three definitions on the same graph.
+
+[.slide]
+== Degree Centrality
+
+**Question:** "Who has the most direct connections?"
+
+Degree Centrality counts outgoing relationships.
+
+[source,cypher]
+----
+CALL gds.degree.stream('actor-network', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score AS collaborations
+ORDER BY score DESC LIMIT 10
+----
+
+Note the top actor and their score.
+
+[.slide]
+== PageRank
+
+**Question:** "Who is connected to other important nodes?"
+
+PageRank considers both connection count *and* the importance of those connections.
+
+[source,cypher]
+----
+CALL gds.pageRank.stream('actor-network', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score AS influence
+ORDER BY score DESC LIMIT 10
+----
+
+Compare the rankings. Same actors at the top?
+
+[.slide]
+== Betweenness Centrality
+
+**Question:** "Who bridges different groups?"
+
+Betweenness measures how often a node appears on shortest paths between others.
+
+[source,cypher]
+----
+CALL gds.betweenness.stream('actor-network', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS actor, score AS bridging
+ORDER BY score DESC LIMIT 10
+----
+
+[.transcript-only]
+
+====
+Betweenness is computationally expensive—O(n³) complexity. This may take a moment.
+====
+
+[.slide]
+== Three Definitions of "Important"
+
+Same graph, three different answers:
+
+* **Degree** — most collaborations
+* **PageRank** — connected to influential actors
+* **Betweenness** — bridges different communities
+
+The algorithm you choose defines what "importance" means.
+
+[.slide]
+== Category 2: Community Detection
+
+Community detection finds clusters—nodes more connected to each other than to the rest of the network.
+
+image::images/analyze_patterns.png[Left: a graph. Right: communities identified and coloured.]
+
+[.slide]
+== Louvain
+
+Louvain groups nodes by maximising "modularity"—connection density within groups vs. between groups.
+
+[source,cypher]
+----
+CALL gds.louvain.stream('actor-network', {})
+YIELD nodeId, communityId
+WITH communityId, count(*) AS size
+RETURN communityId, size
+ORDER BY size DESC LIMIT 10
+----
+
+How many communities? What's the largest?
+
+[.slide]
+== Explore a Community
+
+See who's in the largest community:
+
+[source,cypher]
+----
+CALL gds.louvain.stream('actor-network', {})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).name) AS actors, count(*) AS size
+ORDER BY size DESC LIMIT 1
+RETURN communityId, size, actors[0..15] AS sampleActors
+----
+
+These actors are more densely connected to each other than to the rest of the network.
+
+[.slide]
+== Tuning: maxLevels
+
+Louvain builds hierarchical communities. The `maxLevels` parameter controls depth.
+
+[source,cypher]
+----
+CALL gds.louvain.stats('actor-network', { maxLevels: 1 })
+YIELD communityCount, modularity
+RETURN communityCount, modularity
+----
+
+[source,cypher]
+----
+CALL gds.louvain.stats('actor-network', { maxLevels: 5 })
+YIELD communityCount, modularity
+RETURN communityCount, modularity
+----
+
+More levels = fewer, larger communities with higher modularity.
+
+[.slide]
+== Category 3: Similarity
+
+Node Similarity finds nodes with similar connection patterns.
+
+For this, we need a bipartite projection:
+
+[source,cypher]
+----
+MATCH (source:User)-[r:RATED]->(target:Movie)
+WITH gds.graph.project(
+  'user-movie',
+  source, target,
+  { sourceNodeLabels: labels(source), targetNodeLabels: labels(target) },
+  {}
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+[.slide]
+== Run Node Similarity
+
+Find users with similar movie tastes:
+
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream('user-movie', { topK: 3 })
+YIELD node1, node2, similarity
+RETURN gds.util.asNode(node1).name AS user1,
+       gds.util.asNode(node2).name AS user2,
+       similarity
+ORDER BY similarity DESC LIMIT 10
+----
+
+High similarity = rated many of the same movies.
+
+[.slide]
+== Category 4: Pathfinding
+
+Dijkstr's Shortest Path finds the shortest path between two nodes.
+
+Find the degrees of separation between actors:
+
+[source,cypher]
+----
+MATCH (source:Actor {name: 'Kevin Bacon'})
+MATCH (target:Actor {name: 'Meg Ryan'})
+CALL gds.shortestPath.dijkstra.stream('actor-network', {
+  sourceNode: source,
+  targetNode: target
+})
+YIELD path
+RETURN [node IN nodes(path) | node.name] AS connectionPath,
+       length(path) AS degrees
+----
+
+Try different actor pairs.
+
+[.slide]
+== Category 5: Node Embeddings
+
+FastRP creates vector representations capturing each node's network position.
+
+[source,cypher]
+----
+CALL gds.fastRP.stream('actor-network', {
+  embeddingDimension: 64
+})
+YIELD nodeId, embedding
+RETURN gds.util.asNode(nodeId).name AS actor,
+       embedding[0..5] AS embeddingSample
+LIMIT 5
+----
+
+Each actor now has a 64-dimensional vector.
+
+[.slide]
+== Using Embeddings
+
+Find actors structurally similar to Kevin Bacon:
+
+[source,cypher]
+----
+CALL gds.fastRP.stream('actor-network', { embeddingDimension: 64 })
+YIELD nodeId, embedding
+WITH gds.util.asNode(nodeId) AS actor, embedding
+WITH collect({actor: actor, embedding: embedding}) AS actors
+WITH [a IN actors WHERE a.actor.name = 'Kevin Bacon'][0] AS kevin, actors
+UNWIND actors AS other
+WITH kevin, other
+WHERE other.actor.name <> 'Kevin Bacon'
+RETURN other.actor.name AS actor,
+       gds.similarity.cosine(kevin.embedding, other.embedding) AS similarity
+ORDER BY similarity DESC LIMIT 10
+----
+
+These actors occupy similar positions in the collaboration network.
+
+[.slide]
+== Cleanup
+
+Drop projections before moving on:
+
+[source,cypher]
+----
+CALL gds.graph.drop('actor-network') YIELD graphName;
+----
+
+[source,cypher]
+----
+CALL gds.graph.drop('user-movie') YIELD graphName;
+----
+
+[.slide]
+== Quick Reference
+
+[cols="1,2,2"]
+|===
+| Question | Category | Try First
+
+| Who is influential?
+| Centrality
+| PageRank, Degree, Betweenness
+
+| What clusters exist?
+| Community Detection
+| Louvain, Leiden
+
+| Who has similar patterns?
+| Similarity
+| Node Similarity
+
+| How are nodes connected?
+| Pathfinding
+| Dijkstra
+
+| How do I use this in ML?
+| Embeddings
+| FastRP
+|===
+
+[.summary]
+== Summary
+
+You've now applied algorithms from all five categories:
+
+* **Centrality** — three definitions of "important"
+* **Community Detection** — finding clusters with Louvain
+* **Similarity** — users with similar movie tastes
+* **Pathfinding** — degrees of separation
+* **Embeddings** — vector representations for ML
+
+The same graph answers different questions depending on which algorithm you run.
+
+In the next lesson, you'll learn the execution modes that control how results are returned and stored.
