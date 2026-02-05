@@ -11,7 +11,7 @@ image::images/project_run_write.png[Diagram showing the three-step workflow]
 
 [.transcript-only]
 ====
-This workflow separates your source data from analysis, enabling fast, iterative experimentation on a _projection_ of your graph without modifying your original graph.
+This workflow separates your source data from analysis, enabling fast, iterative experimentation on an _in-memory projection_ of your graph without modifying your original graph.
 
 The reason we specify 'two or three' is that you can choose to run an algorithm and write its results in a single operation instead of two. Or, you can chain multiple algorithm results to feed a final algorithm before writing back to the graph.
 ====
@@ -38,7 +38,6 @@ By the end of this lesson, you'll be able to:
 
 
 [.slide]
-
 == Step 1: Project
 
 The graph projected by GDS is an in-memory structure containing nodes and relationships — just like your main graph.
@@ -50,138 +49,79 @@ image::images/projection_from_main.png[a representation of a main graph with an 
 However, the in-memory graph you create is optimized for topology and property lookup operations.
 ====
 
-[.slide]
+[.slide.col-2]
+== Projecting graphs with Cypher
 
-== Projection methods: Cypher
+You can create a projection of your graph using Cypher, or with a _native projection_.
 
-You can project a graph using either Cypher projection or Native projection.
+A Cypher projection follows the same pattern as any other Cypher query you are used to running. However, instead of returning results, the `gds.graph.project()` procedure creates an in-memory representation based on the `MATCH` clause.
 
-The following is a Cypher projection:
+
+[.col]
+====
 
 [source,cypher,role="noplay nocopy"]
 .Cypher projection example
 ----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
-WITH gds.graph.project(
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
   'actors-graph',
   source,
   target
 ) AS g
-RETURN g.graphName AS graph,
+RETURN g.graphName AS graph, // <3>
   g.nodeCount AS nodes,
   g.relationshipCount AS rels
 ----
 
-[.transcript-only]
-====
-The graph projection above has three components:
 ====
 
-[.slide]
+[.col]
+====
+The Cypher projection [transcript-only]#above# has three components:
 
-== Cypher query
+1. **Cypher query** - The `MATCH` clause defines which nodes and relationships to include.
+2. **Projection call** - The `gds.graph.project()`  procedure creates the projection with a unique name, and defines thesource and target nodes.
+3. **Return statement** - The `RETURN` clause returns metadata about the created projection, aliased as `g`.
+====
 
-This works in the same way as any other Cypher query you are used to running. However, instead of returning the graph results in the Neo4j Browser, you send it to GDS as a projection with the line that follows.
 
-[source,cypher,role="noplay nocopy"]
-.Project a graph of actors and movies
-----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
-----
 
-[.slide]
 
-== Call GDS
+[.slide.col-2]
+== Using Native projections
 
-The GDS WITH statement works the same way as any WITH statement you are used to running in the Neo4j Browser. You call `gds.graph.project` to create the in-memory graph matched by the preceding Cypher statement.
+The native projection below produces the same result, and is more concise, but is less flexible.
+To create a native production, use the `CALL` keyword to invoke the `gds.graph.project()` procedure and `YIELD` the metadata.
 
-[source,cypher,role="nocopy noplay"]
-.Creating the in-memory graph projection
-----
-...
-WITH gds.graph.project( // (2)
-  'actors-graph',
-  source,
-  target
-) AS g
-...
-----
-
-[.slide]
-
-== Configuration
-
-In the configuration, you add the name of the graph. Next, you include nodes matched by your source and target variables.
-
-In this basic example, you do not need to explicitly reference their relationships in the configuration — they will be inferred and returned.
-
-[source,cypher,role="nocopy noplay"]
-.Naming the graph and specifying nodes
-----
-...
-WITH gds.graph.project( // (2)
-  'actors-graph',
-  source,
-  target
-) AS g
-...
-----
-
-[.slide]
-
-== Return the stats
-
-The final section returns the stats of the graph that you have projected into memory.
-
-[source,cypher,role=nocopy,norun]
-.Returning projection statistics
-----
-...
-RETURN g.graphName AS graph,
-  g.nodeCount AS nodes,
-  g.relationshipCount AS rels
-----
-
-[.slide]
-
-== Review the projection in full
-
-Now, let's take one last look at the full projection.
-
-See if you can break down and explain each of its constituent parts.
-
-[source,cypher,role="noplay nocopy"]
-.Cypher projection example
-----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
-WITH gds.graph.project(
-  'actors-graph',
-  source,
-  target
-) AS g
-RETURN g.graphName AS graph,
-  g.nodeCount AS nodes,
-  g.relationshipCount AS rels
-----
-
-[.slide]
-== Projection methods: Native
+[.col]
+====
 
 [source,cypher,role="noplay nocopy"]
 .Native projection
 ----
 CALL gds.graph.project(
   'actor-graph-native',
-  ['Actor', 'Movie'],
-  'ACTED_IN'
+  ['Actor', 'Movie'],   // <1>
+  'ACTED_IN'            // <2>
 )
-YIELD graphName AS graph,
+YIELD graphName AS graph, // <3>
     nodeCount AS nodes,
     relationshipCount AS rels
 ----
+====
+
+[.col]
+====
+
+The native projection:
+
+1. Loads the provided labels into the project.
+2. Connects those nodes with the provided relationship types.
+3. Provides the same metadata, which are accessed using the `YIELD` clause.
+====
 
 [.slide]
-
 == Cypher vs Native
 
 In the early stages of this workshop, we will focus on Cypher projection.
@@ -189,106 +129,39 @@ In the early stages of this workshop, we will focus on Cypher projection.
 Later, when you become familiar with the Python driver, we will switch to using Native projection.
 
 
-[.slide]
-
+[.slide.col-2]
 == Running algorithms
 
 Once you have projected your graph into memory, you can run algorithms on it using the `CALL gds.<algorithm>.<mode>` command.
 
+[.col]
+====
 [source,cypher,role="noplay nocopy"]
 .Running an algorithm
 ----
-CALL gds.degree.stream(
-  'actors-graph',
-  {}
+CALL gds.degree.stream( // <1>
+  'actors-graph', // <2>
+  {} // <3>
 )
-YIELD nodeId, score
+YIELD nodeId, score // <4>
 RETURN gds.util.asNode(nodeId).name AS name, score
 ORDER BY score DESC
 ----
+====
+
+[.col]
+====
+1. The **degree centrality** algorithm is called in **stream** mode.
+2. The algorithm is run on the `actors-graph` projection.
+3. A map of configuration options can be provided as the third argument.
+4. Each algorithm yields a unique set of results, which can be processed with Cypher.
+====
+
 
 [.slide]
-
-== Algorithm call
-
-First, we call the `gds.degree.stream` function, declare what algorithm we want to run and then declare what **mode** we would like to run that algorithm in.
-
-Note: We will deal with the different modes in the next section.
-
-[source,cypher,role="noplay nocopy"]
-.Calling an algorithm in stream mode
-----
-CALL gds.degree.stream(
-...
-----
-
-[.slide]
-
-== Fetch the named graph
-
-In the next line, we name the graph on which we'd like to run the algorithm.
-
-[source,cypher,role="nocopy noplay"]
-.Fetch the named graph
-----
-...
-  'actors-graph',
-...
-----
-
-[.slide]
-
-== Config maps
-
-Next, if relevant, we can modify the algorithm's behaviour with an optional configuration map.
-
-[source,cypher,role="nocopy noplay"]
-.Optional configuration map
-----
-...
-    {}
-)
-...
-----
-
-[.slide]
-
-== YIELD and RETURN
-
-Finally, we YIELD the algorithm results, and then we can RETURN them.
-
-[source,cypher,role="nocopy noplay"]
-.Yielding and returning results
-----
-...
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS name, score
-ORDER BY score DESC
-----
-
-[.slide]
-
-== Another full look
-
-Now, let's take another look at the full algorithm. See if you can break down and explain the components.
-
-[source,cypher,role="noplay nocopy"]
-.Complete algorithm call
-----
-CALL gds.degree.stream(
-  'actors-graph',
-  {}
-)
-YIELD nodeId, score
-RETURN gds.util.asNode(nodeId).name AS name, score
-ORDER BY score DESC
-----
-
-[.slide]
-
 == Execution modes
 
-There are four execution modes for algorithm commands:
+There are five execution modes for algorithm commands:
 
 1. **Stats:** Get summary statistics without viewing individual results
 2. **Stream:** View results directly without storing
@@ -296,39 +169,25 @@ There are four execution modes for algorithm commands:
 4. **Write:** Persist results to your database
 5. **Estimate:** Check memory requirements before running
 
-[.slide]
-== You can simply sub these components into the algorithm call:
+You can invoke each of these modes by appending the mode to the algorithm name.
 
 [source,cypher,role="noplay nocopy"]
-.Algorithm modes
+.Invoking the stats mode
 ----
-CALL gds.degree.stats
-
-CALL gds.degree.stream
-
-CALL gds.degree.mutate
-
-CALL gds.degree.write
-
-CALL gds.degree.stream.estimate
+CALL gds.degree.stats('actor-graph-native')
 ----
+
 
 [.slide]
-
 == Estimate mode
 
-Bear in mind, the `estimate` mode is used to estimate any of the other four -- added as an addendum:
+The `estimate` mode is used to estimate the memory requirements for an algorithm.
 
 [source,cypher,role="noplay nocopy"]
 .Estimate mode
 ----
-CALL gds.degree.stats.estimate
-
-CALL gds.degree.stream.estimate
-
-CALL gds.degree.mutate.estimate
-
-CALL gds.degree.write.estimate
+CALL gds.degree.stats.estimate('actors-graph', {})
+YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
 ----
 
 [.transcript-only]
@@ -337,7 +196,6 @@ You will learn how and when to use each of these modes throughout this workshop.
 ====
 
 [.slide]
-
 == Write from algorithm
 
 Ultimately, you will end most GDS sessions by writing your results back to the graph. The `CALL gds.<algorithm>.write` will run the algorithm directly, and then write results.
@@ -359,7 +217,6 @@ RETURN centralityDistribution.min AS minimumScore,
 
 
 [.slide]
-
 == Write from projection
 
 You can also write results to your graph projection first, using `mutate` mode:
@@ -377,7 +234,6 @@ YIELD centralityDistribution, nodePropertiesWritten
 ----
 
 [.slide]
-
 == Write from graph
 
 Then write from the graph projection back to your main graph.
@@ -393,7 +249,6 @@ YIELD propertiesWritten
 ----
 
 [.slide]
-
 == List graphs
 
 Even when you've finished working on a projection, it will continue to hang around in memory until you either stop the server, or explicitly drop it.
@@ -409,7 +264,6 @@ RETURN graphName
 ----
 
 [.slide]
-
 == Dropping graphs
 
 Once you've finished working on your projection, you can drop it from memory.
@@ -423,7 +277,6 @@ CALL gds.graph.drop('actors-graph')
 The entire graph will disappear, including any data within it -- always make sure to write important information back to your main graph before dropping.
 
 [.slide]
-
 == Drop all
 
 Sometimes, you might end up with a bunch of graphs in memory. You can drop them all at once with this pattern.
