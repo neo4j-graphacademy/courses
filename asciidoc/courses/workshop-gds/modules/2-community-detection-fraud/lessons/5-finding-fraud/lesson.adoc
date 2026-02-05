@@ -83,7 +83,7 @@ Encode the "sent money to someone sharing my card" pattern:
 [source,cypher]
 .Create shared card relationship
 ----
-MATCH (u1:User)-[r:P2P]->(u2)
+MATCH (u1:UserP2P)-[r:P2P]->(u2)
 WITH u1, u2, count(r) AS transaction
 MATCH (u1)-[:HAS_CC]->(n)<-[:HAS_CC]-(u2)
 WITH u1, u2, count(DISTINCT n) AS sharedCard
@@ -129,7 +129,7 @@ First, create a projection of users and their shared identifiers:
 [source,cypher]
 .Project a graph of User and shared identifiers
 ----
-MATCH (source:User)-[r:HAS_CC|USED|HAS_IP]->(target:Card|Device|IP)
+MATCH (source:UserP2P)-[r:HAS_CC|USED|HAS_IP]->(target:Card|Device|IP)
 WITH gds.graph.project(
   'identifier-graph',
   source,
@@ -173,7 +173,7 @@ Now encode the "shares multiple identifiers" pattern, filtering out high-degree 
 [source,cypher]
 .Create relationships based on shared IDs
 ----
-MATCH (u1:User)-[:HAS_CC|USED]->(n:Card|Device)<-[:HAS_CC|USED]-(u2:User)
+MATCH (u1:UserP2P)-[:HAS_CC|USED]->(n:Card|Device)<-[:HAS_CC|USED]-(u2:UserP2P)
 WHERE n.degree <= 10
   AND u1 < u2
 WITH u1, u2, count(DISTINCT n) AS sharedIdentifiers
@@ -231,7 +231,7 @@ Let's take a closer look at what we've created:
 [source,cypher]
 .View the ER communities
 ----
-MATCH path = (u1:User)-[r:P2P_SHARED_CARD|SHARED_IDS*10]-(u2:User)
+MATCH path = (u1:UserP2P)-[r:P2P_SHARED_CARD|SHARED_IDS*10]-(u2:UserP2P)
 RETURN path
 LIMIT 200
 ----
@@ -253,8 +253,8 @@ Next, we'll create a projection using only our ER relationships:
 [source,cypher]
 .Create an ER-only projection
 ----
-MATCH (source:User)
-OPTIONAL MATCH (source)-[r:P2P_SHARED_CARD|SHARED_IDS]->(target:User)
+MATCH (source:UserP2P)
+OPTIONAL MATCH (source)-[r:P2P_SHARED_CARD|SHARED_IDS]->(target:UserP2P)
 RETURN gds.graph.project(
   'er-graph',
   source,
@@ -311,7 +311,7 @@ See the distribution of community sizes:
 [source,cypher]
 .Get community distribution
 ----
-MATCH (u:User)
+MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL
 WITH u.wccId AS community, count(*) AS size
 RETURN size, count(*) AS communitiesOfThisSize
@@ -371,7 +371,7 @@ Which communities contain flagged users?
 [source,cypher]
 .Get communities with flagged users
 ----
-MATCH (u:User)
+MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL
 WITH u.wccId AS community,
   count(*) AS totalUsers,
@@ -434,11 +434,11 @@ Now, we can mark all users in fraud-connected communities as fraud risks:
 [source,cypher]
 .Mark users in fraud communities
 ----
-MATCH (flagged:User)
+MATCH (flagged:UserP2P)
 WHERE flagged.fraudMoneyTransfer = 1
   AND flagged.wccId IS NOT NULL
 WITH collect(DISTINCT flagged.wccId) AS flaggedCommunities
-MATCH (u:User)
+MATCH (u:UserP2P)
 WHERE u.wccId IN flaggedCommunities
   AND u.fraudMoneyTransfer = 0
 SET u:FraudRisk, u.fraudRisk = 1
@@ -503,12 +503,12 @@ Pick a community and examine it:
 [source,cypher]
 .Examine just one community
 ----
-MATCH (u:User)
+MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL AND u.fraudMoneyTransfer = 1
 WITH u.wccId AS community, count(*) AS fraudCount
 ORDER BY fraudCount DESC LIMIT 1
 WITH community
-MATCH path = (u1:User)-[:P2P_SHARED_CARD|SHARED_IDS|HAS_CC|USED]-(n)--(u2:User)
+MATCH path = (u1:UserP2P)-[:P2P_SHARED_CARD|SHARED_IDS|HAS_CC|USED]-(n)--(u2:UserP2P)
 WHERE u1.wccId = community AND u2.wccId = community
 RETURN path
 LIMIT 200
