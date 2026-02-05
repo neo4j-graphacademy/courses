@@ -4,7 +4,7 @@
 :slides: true
 
 [.slide.discrete]
-== Backup and restore in Aura
+== Backing up and restoring data
 
 Data protection is one of the most important aspects of database management. Whether you're preparing for a major application update, migrating between environments, or simply want to ensure you can recover from unexpected problems, having a solid backup and restore strategy is essential.
 
@@ -18,44 +18,89 @@ In this lesson, you will learn how to:
 [.slide]
 == Understanding Aura snapshots
 
-Snapshots are Aura's term for **backups**. The tier determines when they are taken and how many are kept available in Aura itself.
+Snapshots are Aura's backup mechanism. Your tier determines when snapshots are taken automatically and how long they are retained.
 
 image::images/03_snapshot.jpg[snapshot,width=450,align=center]
 
-[.slide]
-== Purpose of snapshots
-Snapshots are your safety net. Think of them as save points in a video game - you can always go back to a known good state.
-
-Aura creates snapshots based on your instance tier:
-
-* **Aura Free**: On-demand only and limited snapshot retention
-* **Aura Professional**: Regular automated snapshots with longer retention
-* **Aura Business Critical**: Frequent automated snapshots with extended retention periods
 
 [.slide]
-== Snapshot frequency and retention
+== Scheduled and on-demand snapshots
 
-The specific frequency and retention periods vary by tier:
+Aura provides two types of snapshots:
 
-* **Aura Free**: On-demand snapshots only; only the latest snapshot is available
-* **Aura Professional**: Daily scheduled snapshots, retained for 7 days
-* **Aura Business Critical**: Daily full snapshots plus hourly differential snapshots, retained for 30 days
-* **Aura Virtual Dedicated Cloud**: Hourly snapshots for the first 7 days, then daily snapshots from day 8 to 60
+**Scheduled snapshots** are taken automatically based on your tier:
+
+* Provide regular, predictable backup points
+* Require no manual intervention
+* Retention period determined by tier
+
+**On-demand snapshots** are triggered manually:
+
+* Take a snapshot whenever you need one
+* Useful before risky operations or major changes
+* Same retention period as scheduled snapshots (except Free tier)
+
 
 [.slide]
-== Taking on-demand snapshots
+== Snapshot frequency and retention by tier
 
-You can manually trigger a snapshot at any time by selecting **Take snapshot** from the Snapshots tab of your instance. This is particularly useful:
+[cols="1,2,2"]
+|===
+|Tier |Scheduled Snapshots |Retention
 
-* Before major application updates or changes
+|**Free**
+|None (on-demand only)
+|Latest snapshot only
+
+|**Professional**
+|Daily
+|7 days
+
+|**Business Critical**
+|Hourly
+|30 days
+
+|**Virtual Dedicated Cloud**
+|Hourly (days 1-7), Daily (days 8-60)
+|60 days
+|===
+
+
+[.slide.col-2]
+== When to use each snapshot type
+
+[.col]
+====
+The decision tree helps you choose the right backup approach for your situation.
+
+Use the diagram to determine whether you need an on-demand snapshot, should rely on scheduled snapshots, or need to export for long-term storage.
+====
+
+[.col]
+====
+image::images/backup-decision.png[Backup decision tree showing when to use different snapshot types]
+====
+
+[.slide]
+=== Snapshot use cases
+
+**Use scheduled snapshots** for:
+
+* Regular disaster recovery protection
+* Compliance requirements for periodic backups
+* General data protection without manual effort
+
+**Use on-demand snapshots** for:
+
+* Before major application updates or schema changes
 * After significant data imports
-* Before performing risky operations
-* When you need a backup outside the regular schedule
+* Before performing risky operations (bulk deletes, migrations)
+* Creating a known-good restore point before testing
 
 [.slide]
 == Working with snapshots
 
-There are three key actions you can take with any snapshot:
+There are three key actions available for any snapshot:
 
 * **Export** - Download the snapshot to your local machine for long-term storage.
 * **Create a new instance from snapshot** - Spin up a new Aura instance using the snapshot data.
@@ -70,7 +115,7 @@ image::images/03_snapshot_actions.jpg[snapshotactions,width=300,align=center]
 [.slide]
 === Export snapshots
 
-**Export** downloads the snapshot to your local machine. This is crucial for long-term archival beyond Aura's retention period, especially when you need to meet compliance requirements that mandate offline backups.
+**Export** downloads the snapshot to your local machine. Exporting is essential for long-term archival beyond Aura's retention period, especially when you need to meet compliance requirements that mandate offline backups.
 
 It's also essential for creating backups before major changes or migrations, and for sharing data securely with development teams.
 
@@ -99,9 +144,9 @@ Store your exported snapshots in a secure location with a clear naming conventio
 [.slide]
 === Create new instances from snapshots
 
-**Create instance from snapshot** spins up a fresh instance with the snapshot's data. This is perfect for setting up development environments that mirror production, allowing you to test changes on a copy of real data.
+**Create instance from snapshot** spins up a fresh instance with the snapshot's data. Use this option to set up development environments that mirror production, allowing you to test changes on a copy of real data.
 
-You can also use this to create staging environments for application testing, or as part of your disaster recovery scenarios.
+Creating instances from snapshots also works well for staging environments for application testing, or as part of disaster recovery scenarios.
 
 [.slide]
 === How to create an instance from a snapshot
@@ -151,7 +196,7 @@ Your instance will be temporarily unavailable during the restore process. The du
 [.slide]
 === Previewing snapshot data
 
-There's no direct way to preview snapshot contents before restoring. However, you can:
+There's no direct way to preview snapshot contents before restoring. However, consider these alternatives:
 
 * Create a new instance from the snapshot to inspect the data
 * Verify the snapshot timestamp matches your expected state
@@ -165,9 +210,10 @@ image::images/03_restore_from_backup.jpg[restore,width=450,align=center]
 
 [.slide]
 == Restoring using local files
-If you have a backup or dump on your **local system** (different from having snapshots available in Aura), you can use it to overwrite the current instance.
 
-This is particularly useful when:
+If you have a backup or dump on your **local system** (different from snapshots available in Aura), use it to overwrite the current instance.
+
+Local file restore works well for:
 
 * Migrating from a self-managed Neo4j setup to Aura
 * Restoring from an exported snapshot
@@ -179,7 +225,7 @@ This is particularly useful when:
 To restore your instance from a local backup file:
 
 1. Navigate to the **Restore from backup file** tab in your Aura instance
-2. Drag and drop your `.backup`, `.dump`, or `.tar` file, or click to browse
+2. Click to browse and select your `.backup`, `.dump`, or `.tar` file
 3. Confirm the restoration, understanding that this will overwrite all existing data
 4. Wait for the process to complete
 
@@ -240,9 +286,11 @@ Having a backup plan is essential for data protection, as well as for managing c
 
 Here are some best practices to consider:
 
-* **Plan for regular exports** - Schedule regular exports of important snapshots to your own storage. This ensures you have a reliable backup that meets your compliance and retention requirements.
-* **Test your restore process** - Regularly test restoring from snapshots to ensure you can recover data when needed. This helps identify any issues in your backup and restore procedures before an actual need arises.
+* **Plan for regular exports** - Schedule regular exports of important snapshots to your own storage. This ensures a reliable backup that meets compliance and retention requirements.
+* **Test your restore process** - Regularly test restoring from snapshots to ensure data recovery works when needed. This helps identify issues in backup and restore procedures before an actual need arises.
 * **Consider compliance and retention** - Understand your organization's requirements for data retention and compliance. Ensure your backup strategy aligns with these needs, including how long backups must be kept and any specific storage or encryption requirements.
+
+For more information, see the link:https://neo4j.com/docs/aura/managing-instances/backup-restore-export/[Neo4j Aura documentation on backup, export, and restore^].
 
 [.slide]
 
@@ -324,7 +372,7 @@ This ensures that when you restore or create an instance from a snapshot, you ge
 [TIP]
 .Restoring using the Aura API
 ====
-You can also restore an instance and create a new instances from a snapshot by its ID through the Aura API.
+Restore an instance or create new instances from a snapshot by its ID through the Aura API.
 
 The API is particularly useful for:
 
@@ -332,7 +380,7 @@ The API is particularly useful for:
 * Integrating with CI/CD pipelines
 * Managing multiple instances programmatically
 
-link:https://neo4j.com/docs/aura/platform/api/specification/#/instances/post-instances[View the Aura API reference documentation]
+link:https://neo4j.com/docs/aura/api/overview/[View the Aura API reference documentation]
 
 ====
 
@@ -349,7 +397,7 @@ include::questions/2-snapshot-actions.adoc[leveloffset=+1]
 
 In this lesson, you learned about Aura's comprehensive backup and restore capabilities, including:
 
-* **Snapshot frequency and retention** - How different tiers (Free, Professional, Business Critical, VDC) handle automated and on-demand snapshots
+* **Snapshot frequency and retention** - How different tiers (Free, Professional, Business Critical, Virtual Dedicated Cloud) handle automated and on-demand snapshots
 * **Exporting snapshots** - How to download snapshots in `.backup` or `.dump` format for long-term storage
 * **Creating instances from snapshots** - How to spin up new instances from existing snapshots for testing or development
 * **Restoring snapshots** - The step-by-step process to revert your instance to a previous state
@@ -359,4 +407,4 @@ In this lesson, you learned about Aura's comprehensive backup and restore capabi
 
 You also learned about planning a backup strategy that includes regular exports, testing restore procedures, and meeting compliance requirements.
 
-In the next lesson, you'll move on to connecting to your instance and start working with your data directly.
+In the next lesson, you will learn how to connect to your instance and explore the tools available for interacting with your data.

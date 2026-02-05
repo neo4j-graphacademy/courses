@@ -31,14 +31,14 @@ describe("QA Tests", () => {
 
   const exclude = ["30-days", "how-we-teach"];
   let coursePaths = globSync(
-    globJoin(__dirname, "..", "asciidoc", "courses", "*")
+    globJoin(__dirname, "..", "asciidoc", "courses", "*"),
   )
     .filter((path) => !exclude.some((folder) => path.endsWith(folder)))
     .filter((path) => existsSync(join(path, "course.adoc")));
 
   if (process.env.COURSES) {
     const targetCourses = process.env.COURSES.split(",").map((c) =>
-      c.trim().toLowerCase()
+      c.trim().toLowerCase(),
     );
     coursePaths = coursePaths.filter((path) => {
       const slug = path.split(sep).reverse()[0].toLowerCase();
@@ -47,7 +47,7 @@ describe("QA Tests", () => {
     console.log(
       `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
         coursePaths.length
-      })`
+      })`,
     );
   }
 
@@ -61,7 +61,15 @@ describe("QA Tests", () => {
     if (["active", "draft"].includes(status) && certification !== "true") {
       describe(slug, () => {
         const modulePaths = globSync(
-          globJoin(__dirname, "..", "asciidoc", "courses", slug, "modules", "*")
+          globJoin(
+            __dirname,
+            "..",
+            "asciidoc",
+            "courses",
+            slug,
+            "modules",
+            "*",
+          ),
         );
 
         it("should have a caption", () => {
@@ -117,7 +125,7 @@ describe("QA Tests", () => {
                 expect(statusCode).toBe(200);
               } catch (e) {
                 throw new Error(
-                  `Repository ${repository} does not exist on GitHub (${url} returns ${statusCode})`
+                  `Repository ${repository} does not exist on GitHub (${url} returns ${statusCode})`,
                 );
               }
             }
@@ -138,7 +146,7 @@ describe("QA Tests", () => {
               "asciidoc",
               "courses",
               slug,
-              "illustration.svg"
+              "illustration.svg",
             );
             const exists = existsSync(illustrationPath);
 
@@ -153,7 +161,7 @@ describe("QA Tests", () => {
             "asciidoc",
             "courses",
             slug,
-            "banner.png"
+            "banner.png",
           );
           const exists = existsSync(bannerPath);
 
@@ -178,8 +186,8 @@ describe("QA Tests", () => {
               "modules",
               moduleSlug,
               "lessons",
-              "*"
-            )
+              "*",
+            ),
           );
 
           describe(moduleSlug, () => {
@@ -198,7 +206,7 @@ describe("QA Tests", () => {
 
               expect(Array.isArray(linkMatch)).toBe(
                 true,
-                "No lesson link found"
+                "No lesson link found",
               );
               expect(linkMatch.length).toBeGreaterThan(0);
 
@@ -207,11 +215,11 @@ describe("QA Tests", () => {
                 modulePath,
                 "lessons",
                 lessonSlug,
-                "lesson.adoc"
+                "lesson.adoc",
               );
               expect(existsSync(lessonAdocPath)).toBe(
                 true,
-                `Lesson ${lessonSlug} does not exist`
+                `Lesson ${lessonSlug} does not exist`,
               );
             });
 
@@ -237,13 +245,13 @@ describe("QA Tests", () => {
               const lessonSlug = lessonPath.split(sep).reverse()[0];
 
               const lessonAdoc = readFileSync(
-                join(lessonPath, "lesson.adoc")
+                join(lessonPath, "lesson.adoc"),
               ).toString();
 
               const optional = getAttribute(lessonAdoc, "optional") === "true";
               const hasReadButton = lessonAdoc.match(/read::(.*)\[\]/) !== null;
               const includesSandbox = lessonAdoc.includes(
-                'sandbox.adoc[tags="summary'
+                'sandbox.adoc[tags="summary',
               );
 
               describe(lessonSlug, () => {
@@ -259,8 +267,8 @@ describe("QA Tests", () => {
                     "lessons",
                     lessonSlug,
                     "questions",
-                    "*.adoc"
-                  )
+                    "*.adoc",
+                  ),
                 );
 
                 it("should have a title", () => {
@@ -297,7 +305,7 @@ describe("QA Tests", () => {
                       lessonAdoc.match(/conversation/m);
                     if (!hasSummary) {
                       throw new Error(
-                        'Lesson is missing a summary section ([.summary] or [tag="summary"]).'
+                        'Lesson is missing a summary section ([.summary] or [tag="summary"]).',
                       );
                     }
                     expect(hasSummary).toBeTruthy();
@@ -314,15 +322,133 @@ describe("QA Tests", () => {
                   expect(lessonAdoc.endsWith("\n")).toBe(true);
                 });
 
+                it("should have blank line after headers", () => {
+                  const lines = lessonAdoc.split("\n");
+                  const violations = [];
+
+                  for (let i = 0; i < lines.length - 1; i++) {
+                    const currentLine = lines[i];
+                    const nextLine = lines[i + 1];
+
+                    // Check if current line is a header (2 or more = followed by space and text)
+                    if (/^={2,}\s+.+/.test(currentLine)) {
+                      // Check if next line is not empty and not an attribute/directive/include
+                      if (
+                        nextLine.trim() !== "" &&
+                        !/^:/.test(nextLine) &&
+                        !/^\[/.test(nextLine) &&
+                        !/^=/.test(nextLine) &&
+                        !/^image::/.test(nextLine) &&
+                        !/^video::/.test(nextLine) &&
+                        !/^include::/.test(nextLine)
+                      ) {
+                        violations.push({
+                          line: i + 1,
+                          header: currentLine,
+                          nextLine: nextLine.substring(0, 60),
+                        });
+                      }
+                    }
+                  }
+
+                  if (violations.length > 0) {
+                    const errorMsg = violations
+                      .map(
+                        (v) =>
+                          `Line ${v.line}: "${v.header}" followed by "${v.nextLine}..."`,
+                      )
+                      .join("\n");
+                    throw new Error(
+                      `Headers must be followed by a blank line:\n${errorMsg}`,
+                    );
+                  }
+                });
+
+                it("should have blank line before lists", () => {
+                  const lines = lessonAdoc.split("\n");
+                  const violations = [];
+
+                  for (let i = 0; i < lines.length - 1; i++) {
+                    const currentLine = lines[i];
+                    const nextLine = lines[i + 1];
+
+                    // Check if current line is text (not empty, not already a list, not a directive)
+                    // Also exclude indented list items (lines starting with spaces followed by list markers)
+                    if (
+                      currentLine.trim() !== "" &&
+                      !/^[\*\-]/.test(currentLine) &&
+                      !/^\s+[\*\-]/.test(currentLine) &&
+                      !/^:/.test(currentLine) &&
+                      !/^\[/.test(currentLine) &&
+                      !/^=/.test(currentLine) &&
+                      !/^----/.test(currentLine) &&
+                      !/^====/.test(currentLine) &&
+                      !/^</.test(currentLine) &&
+                      !/^\./.test(currentLine) &&
+                      !/^image::/.test(currentLine) &&
+                      !/^video::/.test(currentLine) &&
+                      !/^include::/.test(currentLine) &&
+                      !/^\/\//.test(currentLine)
+                    ) {
+                      // Check if next line starts with list marker
+                      if (/^[\*\-]\s/.test(nextLine)) {
+                        violations.push({
+                          line: i + 1,
+                          text: currentLine.substring(0, 60),
+                          nextLine: nextLine.substring(0, 60),
+                        });
+                      }
+                    }
+                  }
+
+                  if (violations.length > 0) {
+                    const errorMsg = violations
+                      .map(
+                        (v) =>
+                          `Line ${v.line}: "${v.text}..." followed by list "${v.nextLine}..."`,
+                      )
+                      .join("\n");
+                    throw new Error(
+                      `Paragraphs must be followed by a blank line before lists:\n${errorMsg}`,
+                    );
+                  }
+                });
+
+                it("should have only one [.summary] section", () => {
+                  const lines = lessonAdoc.split("\n");
+                  let summaryCount = 0;
+                  let inCodeBlock = false;
+                  
+                  for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    // Track code block state
+                    if (/^----/.test(line) || /^====/.test(line)) {
+                      inCodeBlock = !inCodeBlock;
+                    }
+                    
+                    // Count [.summary] only outside code blocks
+                    if (!inCodeBlock && /^\[\.summary\]/.test(line)) {
+                      summaryCount++;
+                    }
+                  }
+                  
+                  if (summaryCount > 1) {
+                    throw new Error(
+                      `Lesson should have only one [.summary] section, found ${summaryCount}`,
+                    );
+                  }
+                });
+
                 it("should include {instance-database} if {instance-ip} is present", () => {
                   const hasInstanceIp = lessonAdoc.includes("{instance-ip}");
                   const hasInstanceDatabase = lessonAdoc.includes(
-                    "{instance-database}"
+                    "{instance-database}",
                   );
                   if (hasInstanceIp) {
                     expect(hasInstanceDatabase).toBe(
                       true,
-                      "Files containing {instance-ip} must also include {instance-database}"
+                      "Files containing {instance-ip} must also include {instance-database}",
                     );
                   }
                 });
@@ -353,7 +479,7 @@ describe("QA Tests", () => {
                         .trim()
                         .slice(0, 100);
                       throw new Error(
-                        `Admonition ${match[0]} does not have an action oriented title. Opening content: "${openingContent}..."`
+                        `Admonition ${match[0]} does not have an action oriented title. Opening content: "${openingContent}..."`,
                       );
                     }
                   }
@@ -364,7 +490,7 @@ describe("QA Tests", () => {
                     optional ||
                       hasReadButton ||
                       includesSandbox ||
-                      questionPaths.length > 0
+                      questionPaths.length > 0,
                   ).toBe(true);
                 });
 
@@ -402,14 +528,14 @@ describe("QA Tests", () => {
                             const statusCode = await getStatusCode(link);
                             try {
                               expect([200, 401, 402, 403, 408, 429]).toContain(
-                                statusCode
+                                statusCode,
                               );
                             } catch (e) {
                               throw new Error(`${link} returns ${statusCode}`);
                             }
                           }
                         },
-                        10000
+                        10000,
                       );
                     }
                   });
@@ -454,7 +580,7 @@ describe("QA Tests", () => {
                               .includes(`= ${title.toLowerCase()}`)
                           ) {
                             throw new Error(
-                              `Question title "${title}" should not appear as a heading in the lesson content`
+                              `Question title "${title}" should not appear as a heading in the lesson content`,
                             );
                           }
                         }
@@ -487,21 +613,21 @@ describe("QA Tests", () => {
                                   moduleSlug,
                                   "lessons",
                                   lessonSlug,
-                                  "verify.cypher"
-                                )
-                              )
+                                  "verify.cypher",
+                                ),
+                              ),
                             ).toBe(true);
 
                             if (!skipCypherChecks) {
                               const contents = readFileSync(
-                                join(lessonPath, "verify.cypher")
+                                join(lessonPath, "verify.cypher"),
                               ).toString();
 
                               for (const cypher of contents
                                 .split(";")
                                 .filter((e) => e.trim() != "")) {
                                 expect(
-                                  await explainCypherError(cypher)
+                                  await explainCypherError(cypher),
                                 ).toBeUndefined();
                               }
                             }
@@ -520,21 +646,21 @@ describe("QA Tests", () => {
                                   moduleSlug,
                                   "lessons",
                                   lessonSlug,
-                                  "solution.cypher"
-                                )
-                              )
+                                  "solution.cypher",
+                                ),
+                              ),
                             ).toBe(true);
 
                             if (!skipCypherChecks) {
                               const contents = readFileSync(
-                                join(lessonPath, "solution.cypher")
+                                join(lessonPath, "solution.cypher"),
                               ).toString();
 
                               for (const cypher of contents
                                 .split(";")
                                 .filter((e) => e.trim() != "")) {
                                 expect(
-                                  await explainCypherError(cypher)
+                                  await explainCypherError(cypher),
                                 ).toBeUndefined();
                               }
                             }
@@ -544,11 +670,11 @@ describe("QA Tests", () => {
                         describe("Multiple Choice Question", () => {
                           it("should have at least 1 answer option", () => {
                             const answerMatches = asciidoc.match(
-                              /^[\*\-]\s*\[[\sxX\*]\]/gm
+                              /^[\*\-]\s*\[[\sxX\*]\]/gm,
                             );
                             expect(answerMatches).toBeTruthy();
                             expect(answerMatches.length).toBeGreaterThanOrEqual(
-                              1
+                              1,
                             );
                           });
 
