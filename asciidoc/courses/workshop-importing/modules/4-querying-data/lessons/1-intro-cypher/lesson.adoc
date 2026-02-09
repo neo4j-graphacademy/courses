@@ -17,12 +17,6 @@ In this lesson, you will learn the basics of Cypher syntax and how to write simp
 
 It's designed to be intuitive and readable, using ASCII-art patterns to represent graph structures.
 
-// ```mermaid
-// graph LR
-//     A((SQL)) --> B((Relational Databases))
-//     C((Cypher)) --> D((Graph Databases))
-// ```
-
 Just as SQL is used to query relational databases, Cypher is used to query graph databases.
 
 
@@ -30,14 +24,6 @@ Just as SQL is used to query relational databases, Cypher is used to query graph
 == Why use Cypher?
 
 Cypher makes graph queries natural and expressive:
-
-// ```mermaid
-// flowchart TD
-//     A((Cypher Benefits)) --> B((Visual Pattern Matching))
-//     A --> C((Declarative Syntax))
-//     A --> D((Optimized for Graphs))
-//     A --> E((Human Readable))
-// ```
 
 *Example:* Find customers who placed orders
 
@@ -67,122 +53,92 @@ The Cypher version reads like a sentence and matches the visual structure of the
 [.slide]
 === Representing nodes
 
-Nodes are represented with parentheses `()`:
+Nodes are represented with parentheses `()`. Let's explore the different ways to match nodes, from the most general to the most specific.
 
 [source,cypher]
-.Find any node
+.Node pattern variations
 ----
-MATCH (n) RETURN n LIMIT 1;
+MATCH (n)                                     // (1)
+RETURN n LIMIT 1;
+
+MATCH (c:Customer)                            // (2)
+RETURN c LIMIT 1;
+
+MATCH (c:Customer {customerId: 'ALFKI'})      // (3)
+RETURN c;
 ----
 
-[source,cypher]
-.Any node with a Customer label
-----
-MATCH (c:Customer) RETURN c LIMIT 1;
-----
+<1> **Any node** - `(n)` matches any node in the graph and assigns it to variable `n`
+<2> **Label filter** - `(c:Customer)` matches only nodes with the Customer label
+<3> **Property filter** - Add curly braces `{customerId: 'ALFKI'}` to match a specific node by its properties
 
-[source,cypher]
-.Find a node with a property
-----
-MATCH (c:Customer {customerId: 'ALFKI'}) RETURN c;
-----
+The syntax gets more specific from top to bottom - start with `()` for any node, add `:Label` to filter by type, add `{property: value}` to find exact matches.
 
-// ```mermaid
-// graph LR
-//     A(("()")) --> B((Any node))
-//     C(("(c:Customer)")) --> D((Customer node<br/>assigned to variable c))
-//     E(("(c:Customer {customerId: 'ALFKI'})")) --> F((Specific customer))
-// ```
+Click **Run** on each query to see how the patterns match different nodes in your Northwind graph.
 
 
 [.slide]
 === Representing relationships
 
-Relationships are represented with arrows `\-->` or `<--`:
+Relationships connect nodes and are represented with arrows. The arrow direction and syntax determine how you traverse the graph.
 
 [source,cypher]
-.Any relationship (right direction)
+.Relationship pattern variations
 ----
-MATCH (c:Customer)-[:PLACED]->(o:Order) RETURN c, o LIMIT 1;
+MATCH (c:Customer)-[:PLACED]->(o:Order)       // (1)
+RETURN c.companyName, o.orderId LIMIT 1;
+
+MATCH (c:Customer)-[r:PLACED]->(o:Order)      // (2)
+RETURN r LIMIT 1;
+
+MATCH (c:Customer)-[:PLACED]-(o:Order)        // (3)
+RETURN c, o LIMIT 1;
 ----
 
-[source,cypher]
-.Named relationship type
-----
-MATCH (c:Customer)-[:PLACED]->(o:Order) RETURN c.companyName, o.orderId LIMIT 1;
-----
+<1> **Directional relationship** - `-[:PLACED]->` follows the PLACED relationship from Customer to Order (the arrow shows direction)
+<2> **Relationship variable** - `[r:PLACED]` assigns the relationship to variable `r` so you can access its properties or return it
+<3> **Bidirectional match** - `-[:PLACED]-` matches in either direction, useful when direction doesn't matter for your query
 
-[source,cypher]
-.Relationship with variable
-----
-MATCH (c:Customer)-[r:PLACED]->(o:Order) RETURN r LIMIT 1;
-----
+The square brackets `[]` contain the relationship type and optional variable. The arrow direction (`->`, `<-`, or `-`) determines which way you traverse.
 
-[source,cypher]
-.Bidirectional (any direction)
-----
-MATCH (c:Customer)-[:PLACED]-(o:Order) RETURN c, o LIMIT 1;
-----
-
-// ```mermaid
-// graph LR
-//     A(("-->")) --> B((Any relationship))
-//     C(("-[:PLACED))->"] --> D((PLACED relationship))
-//     E(("-[r:PLACED))->"] --> F((PLACED relationship<br/>assigned to variable r))
-// ```
+Click **Run** to see how these patterns match customer orders in different ways.
 
 
 [.slide]
 === Forming patterns
 
-Combine nodes and relationships to form patterns:
+Combine nodes and relationships to form patterns that match the structure of your graph. Each pattern represents a path through connected data.
 
 [source,cypher]
-.Customer placed order
+.Common Northwind patterns
 ----
-MATCH (c:Customer)-[:PLACED]->(o:Order) RETURN c.companyName, o.orderId LIMIT 1;
+MATCH (c:Customer)-[:PLACED]->(o:Order)                // (1)
+RETURN c.companyName, o.orderId LIMIT 1;
+
+MATCH (o:Order)-[:ORDERS]->(p:Product)                 // (2)
+RETURN p.productName LIMIT 1;
+
+MATCH (p:Product)-[:PART_OF]->(cat:Category)           // (3)
+RETURN cat.categoryName LIMIT 1;
 ----
 
-[source,cypher]
-.Order contains product
-----
-MATCH (o:Order)-[:ORDERS]->(p:Product) RETURN p.productName LIMIT 1;
-----
+<1> **Customer to Order** - Traverses from a customer to the orders they placed
+<2> **Order to Product** - Finds products that appear in orders (the line items)
+<3> **Product to Category** - Navigates from a product to its category classification
 
-[source,cypher]
-.Product in category
-----
-MATCH (p:Product)-[:PART_OF]->(cat:Category) RETURN cat.categoryName LIMIT 1;
-----
-
-[mermaid]
+[source,mermaid]
 ....
 graph LR
-    A[Customer] -->|PLACED| B[Order]
-    B -->|ORDERS| C[Product]
-    C -->|PART_OF| D[Category]
+    A((Customer)) -->|PLACED| B((Order))
+    B -->|ORDERS| C((Product))
+    C -->|PART_OF| D((Category))
 ....
 
-Each pattern matches a piece of the graph structure.
+These patterns can be chained together to traverse multiple relationships in a single query. Try running each query to see what data they return.
 
 
 [.slide]
 == Using core Cypher clauses
-
-// ```mermaid
-// graph TB
-//     A((Cypher Clauses)) --> B((MATCH))
-//     A --> C((WHERE))
-//     A --> D((RETURN))
-//     A --> E((CREATE))
-//     A --> F((DELETE))
-//
-//     B --> G((Find patterns))
-//     C --> H((Filter results))
-//     D --> I((Return data))
-//     E --> J((Create data))
-//     F --> K((Delete data))
-// ```
 
 *Key clauses you will use:*
 
@@ -198,109 +154,80 @@ Each pattern matches a piece of the graph structure.
 [.slide]
 == Breaking down a simple query
 
-Breaking down a complete query:
+Let's analyze a complete query that combines multiple Cypher clauses to answer a business question: "Which German customers place the most orders?"
 
 [source,cypher]
 ----
-MATCH (c:Customer)-[:PLACED]->(o:Order)
-WHERE c.country = 'Germany'
-RETURN c.companyName, count(o) AS orderCount
-ORDER BY orderCount DESC
-LIMIT 5;
+MATCH (c:Customer)-[:PLACED]->(o:Order)              // (1)
+WHERE c.country = 'Germany'                          // (2)
+RETURN c.companyName, count(o) AS orderCount        // (3)
+ORDER BY orderCount DESC                             // (4)
+LIMIT 5                                              // (5)
 ----
 
-// ```mermaid
-// flowchart TD
-//     A((MATCH)) --> B((Find pattern:<br/>Customers and Orders))
-//     B --> C((WHERE))
-//     C --> D((Filter:<br/>Only Germany))
-//     D --> E((RETURN))
-//     E --> F((Return:<br/>Name and count))
-//     F --> G((ORDER BY))
-//     G --> H((Sort:<br/>Descending))
-//     H --> I((LIMIT))
-//     I --> J((Top 5 results))
-// ```
+<1> **MATCH clause** - Finds the pattern of customers connected to their orders via PLACED relationships
+<2> **WHERE clause** - Filters to include only customers located in Germany
+<3> **RETURN clause** - Returns the company name and counts how many orders each customer has (aliased as `orderCount`)
+<4> **ORDER BY clause** - Sorts results by order count in descending order (highest first)
+<5> **LIMIT clause** - Restricts output to the top 5 results
 
-This query does the following:
+Click **Run** to see which German customers are the most active. You'll see results similar to:
 
-1. *MATCH* - Finds customers and their orders
-2. *WHERE* - Filters to German customers only
-3. *RETURN* - Returns company names and order counts
-4. *ORDER BY* - Sorts by order count (highest first)
-5. *LIMIT* - Shows only top 5
+[options="header",cols="2,1"]
+|===
+| companyName | orderCount
 
-The result looks like this:
-
-----
-companyName              orderCount
-"Königlich Essen"        10
-"QUICK-Stop"             8
-"Toms Spezialitäten"     7
-...
-----
+| Königlich Essen | 10
+| QUICK-Stop | 8
+| Toms Spezialitäten | 7
+|===
 
 
 [.slide]
 == Using variables
 
-Variables let you reference nodes and relationships:
+Variables give you a way to reference nodes and relationships throughout your query. Once you assign a variable in the MATCH clause, you can use it in WHERE, RETURN, and other clauses.
 
 [source,cypher]
 ----
-MATCH (c:Customer)-[r:PLACED]->(o:Order)
-RETURN c, r, o;
+MATCH (c:Customer)-[r:PLACED]->(o:Order)    // (1)
+RETURN c, r, o                               // (2)
+LIMIT 5;
 ----
 
-// ```mermaid
-// graph LR
-//     A((c)) --> B((Variable for Customer))
-//     C((r)) --> D((Variable for PLACED relationship))
-//     E((o)) --> F((Variable for Order))
-// ```
+<1> **Assigning variables** - `c` is assigned to Customer nodes, `r` to PLACED relationships, and `o` to Order nodes
+<2> **Using variables** - Return the complete pattern by referencing all three variables
 
-* `c` refers to the Customer node
-* `r` refers to the PLACED relationship
-* `o` refers to the Order node
+Variable naming conventions:
+* Use descriptive names: `customer`, `c`, `order`, `o`
+* Node variables: `(c:Customer)` - variable before the colon
+* Relationship variables: `[r:PLACED]` - variable before the type in square brackets
 
-You can use these variables in WHERE, RETURN, and other clauses.
+Click **Run** to see the complete pattern visualized in graph form. The Query tool will show you the nodes and relationships together.
 
 
 [.slide]
 == Accessing properties
 
-Use dot notation to access properties:
+Once you've matched nodes or relationships, you access their properties using dot notation. This lets you return specific data instead of the entire node.
 
 [source,cypher]
 ----
-MATCH (c:Customer)
-RETURN c.companyName, c.city, c.country;
+MATCH (c:Customer)                                // (1)
+RETURN c.companyName, c.city, c.country          // (2)
+LIMIT 10;
 ----
 
-// ```mermaid
-// flowchart LR
-//     A((c)) --> B((Customer node))
-//     B --> C((c.companyName))
-//     B --> D((c.city))
-//     B --> E((c.country))
-// ```
+<1> **Match the node** - Find Customer nodes and assign them to variable `c`
+<2> **Access properties** - Use `c.propertyName` to access individual properties of the customer node
+
+The dot notation `variable.property` works for both nodes and relationships. For example, `r.quantity` would access the quantity property of a relationship assigned to variable `r`.
+
+Click **Run** to see customer properties displayed in a table format. Try adding more properties like `c.contactName` or `c.phone` to the RETURN clause.
 
 
 [.slide]
 == Following Cypher style conventions
-
-// ```mermaid
-// graph TB
-//     A((Naming Conventions)) --> B((Node Labels))
-//     A --> C((Relationship Types))
-//     A --> D((Properties))
-//     A --> E((Variables))
-//
-//     B --> F((PascalCase<br/>Customer, Order))
-//     C --> G((UPPER_SNAKE_CASE<br/>PLACED, ORDERS))
-//     D --> H((camelCase<br/>companyName, orderId))
-//     E --> I((camelCase<br/>c, order, prod))
-// ```
 
 *Best practices:*
 
@@ -315,14 +242,6 @@ RETURN c.companyName, c.city, c.country;
 == Running Cypher queries
 
 In Neo4j Aura, open the *Query* tool to run Cypher:
-
-// ```mermaid
-// flowchart LR
-//     A((Write Query)) --> B((Click Run))
-//     B --> C{View Results}
-//     C -->|Graph| D((Visual Diagram))
-//     C -->|Table| E((Tabular Data))
-// ```
 
 1. Type your Cypher query in the editor
 2. Click *Run* or press `Ctrl+Enter` (`Cmd+Enter` on Mac)
