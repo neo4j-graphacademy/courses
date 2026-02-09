@@ -1,0 +1,197 @@
+= Understanding Relationships
+:type: lesson
+:order: 1
+
+// Source: workshop-importing/modules-backup-original/2-data-modeling/lessons/4-relationships
+// Adapted: Focused on PLACED relationship, connected to recommendation goal
+
+[.slide.discrete]
+== Introduction
+
+In the previous module, you imported Product nodes. Nodes alone cannot answer complex questions - you need to connect them with relationships.
+
+In this lesson, you will learn about relationships in Neo4j and why they are key to building your recommendation system.
+
+
+[.slide]
+== What Are Relationships?
+
+**Relationships** connect nodes and represent associations between entities.
+
+Every relationship has:
+
+* **Type** - A name that describes the connection (PLACED, ORDERS, SUPPLIES)
+* **Direction** - Points from one node to another (Customer→Order)
+* **Properties** - Optional attributes that describe the relationship (orderDate, quantity)
+
+Relationships are **first-class citizens** in Neo4j - they're not just foreign keys in a table.
+
+
+[.slide]
+== Why Relationships Matter
+
+**The Relational Problem:**
+
+In SQL, connections are foreign keys:
+
+```sql
+customers table: customerId (PK)
+orders table: customerId (FK), orderId (PK)
+```
+
+To find a customer's orders, you JOIN:
+
+```sql
+SELECT * FROM customers c
+JOIN orders o ON c.customerId = o.customerId
+WHERE c.customerId = 'ALFKI';
+```
+
+The JOIN scans both tables, matches keys, and combines rows. This gets slow with millions of records.
+
+
+**The Graph Solution:**
+
+In Neo4j, connections are direct relationships:
+
+```
+(Customer {customerId: 'ALFKI'})-[:PLACED]->(Order {orderId: 10248})
+```
+
+To find orders, you traverse:
+
+```cypher
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN o;
+```
+
+No JOIN - you follow the pointer directly. Performance stays constant regardless of database size.
+
+
+[.slide]
+== The PLACED Relationship
+
+For recommendations, you need to know **who bought what**.
+
+The path is: Customer → Order → Product
+
+The first step is connecting Customers to Orders with the PLACED relationship:
+
+[source,mermaid]
+....
+graph LR
+    Customer((Customer)) -->|PLACED| Order((Order))
+
+    style Customer fill:#4C8EDA
+    style Order fill:#7CCFA9
+....
+
+**Meaning:** Customer PLACED an Order
+
+**Direction:** Customer→Order (the natural flow of the action)
+
+**Properties:** You could add `placedDate` or `paymentMethod` to the relationship
+
+
+[.slide]
+== Relationship Direction
+
+Every relationship has a direction, but you can query in **either direction**:
+
+**Outgoing (follow the arrow):**
+
+[source,cypher]
+.What orders did this customer place?
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN o;
+----
+
+**Incoming (reverse the arrow):**
+
+[source,cypher]
+.Which customer placed this order?
+----
+MATCH (c:Customer)<-[:PLACED]-(o:Order {orderId: 10248})
+RETURN c;
+----
+
+**Bidirectional (ignore direction):**
+
+[source,cypher]
+.Find all customer-order connections
+----
+MATCH (c:Customer)-[:PLACED]-(o:Order)
+RETURN c, o LIMIT 5;
+----
+
+The direction in the data model represents the semantic meaning, but queries are flexible.
+
+
+[.slide]
+== Relationship Properties
+
+Relationships can have properties that describe the connection:
+
+[source,cypher]
+.Query relationship properties
+----
+MATCH (c:Customer)-[r:PLACED]->(o:Order)  // (1)
+WHERE r.orderDate = '1996-07-04'          // (2)
+RETURN c.companyName, o.orderId, r.shipCountry
+LIMIT 5;
+----
+
+<1> **Relationship variable** - `r` captures the relationship so we can access its properties
+<2> **Filter by property** - Use relationship properties in WHERE clauses
+
+**Why use relationship properties?**
+
+* Data belongs to the **connection**, not either node
+* Example: `orderDate` belongs to the act of placing, not to Customer or Order alone
+* Example: `quantity` belongs to the Order-Product connection (we'll see this in Module 4)
+
+
+[.slide]
+== Connection to the Goal
+
+To recommend products, you need to know:
+
+1. **Who placed orders?** (Customer→Order via PLACED)
+2. **What products were ordered?** (Order→Product via ORDERS - next module)
+3. **Who bought similar products?** (traverse backward from products to find other customers)
+
+The PLACED relationship is the first piece of this path.
+
+
+[.slide]
+== Naming Conventions
+
+When naming relationships:
+
+* **Use verbs** - PLACED, ORDERS, SUPPLIES (actions or associations)
+* **Use UPPER_SNAKE_CASE** - All caps with underscores for multi-word types
+* **Be specific** - PLACED is clearer than RELATED_TO or HAS
+
+Good names make queries self-documenting:
+
+```cypher
+(Customer)-[:PLACED]->(Order)  // Reads like English
+```
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about relationships in Neo4j:
+
+* **Relationships connect nodes** - They have a type, direction, and optional properties
+* **First-class citizens** - Not foreign keys; direct connections with no JOIN overhead
+* **PLACED relationship** - Connects Customer to Order (Customer→Order)
+* **Direction flexibility** - Query in any direction regardless of how it's stored
+* **Relationship properties** - Data that belongs to the connection itself
+* **Connection to goal** - Customer→Order is the first step toward Customer→Product path for recommendations
+
+In the next lesson, you will import Customer and Order nodes and create PLACED relationships between them.
+
+read::Mark as completed[]

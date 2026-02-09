@@ -1,0 +1,210 @@
+= Graph vs Pivot Tables: The Many-to-Many Problem
+:type: lesson
+:order: 1
+
+// Source: workshop-importing/modules-backup-original/2-data-modeling lessons on relationships
+// Adapted: Focused on many-to-many and pivot table transformation
+
+[.slide.discrete]
+== Introduction
+
+You have Customer→Order relationships working. Now you need to connect Orders to Products so you can find what customers bought.
+
+In this lesson, you will learn why many-to-many relationships are a pain point in relational databases and why graphs handle them elegantly.
+
+
+[.slide]
+== The Many-to-Many Problem
+
+**The business reality:**
+
+* One Order can contain multiple Products (Order 10248 has Chai, Chang, and Aniseed Syrup)
+* One Product appears in multiple Orders (Chai is in orders 10248, 10250, 10251, etc.)
+
+This is a **many-to-many relationship** - orders and products are connected in both directions.
+
+
+[.slide]
+== The Relational Solution: Pivot Tables
+
+In relational databases, you CANNOT directly connect tables in a many-to-many relationship. You need a **pivot table** (also called junction table or bridge table).
+
+**The structure:**
+
+```
+orders table             order_details table         products table
+┌──────────┐            ┌──────────┐                ┌──────────┐
+│ orderID  │────────┐   │ orderID  │  ┌─────────────│productID │
+│ customer │        └──→│ productID│←─┘             │ name     │
+│ date     │            │ quantity │                │ price    │
+└──────────┘            │ price    │                └──────────┘
+                        └──────────┘
+```
+
+The `order_details` table exists ONLY to connect orders to products. It stores:
+
+* Foreign keys to both tables (orderID, productID)
+* Data about the connection (quantity, unitPrice)
+
+
+[.slide]
+== The SQL Complexity
+
+To answer "What products are in order 10248?" requires TWO JOINs:
+
+```sql
+SELECT p.productName, od.quantity, od.unitPrice
+FROM orders o
+JOIN order_details od ON o.orderID = od.orderID    -- First JOIN
+JOIN products p ON od.productID = p.productID       -- Second JOIN
+WHERE o.orderID = 10248;
+```
+
+**Problems:**
+
+* Three tables for a simple connection
+* Two JOIN operations scanning thousands of rows
+* Gets exponentially slower with more data
+* Complex queries for simple questions
+
+
+[.slide]
+== The Graph Solution: Direct Relationships
+
+In a graph, you create a **direct relationship** from Order to Product:
+
+[source,mermaid]
+....
+graph LR
+    Order((Order)) -->|ORDERS| Product((Product))
+
+    style Order fill:#7CCFA9
+    style Product fill:#FCC644
+....
+
+**No pivot table needed!** The relationship IS the connection.
+
+**Data about the connection** (quantity, unitPrice) goes ON the relationship as properties:
+
+```
+(Order {orderId: '10248'})-[:ORDERS {quantity: 12, unitPrice: 18.00}]->(Product {productName: 'Chai'})
+```
+
+
+[.slide]
+== Comparing the Approaches
+
+**Relational (3 tables, 2 JOINs):**
+
+[options="header"]
+|===
+| What | How
+| Store connection | order_details pivot table with foreign keys
+| Query | JOIN orders → order_details → products
+| Add data | Insert row in pivot table
+| Performance | O(n × m) - scans both tables
+|===
+
+**Graph (direct relationship):**
+
+[options="header"]
+|===
+| What | How
+| Store connection | Direct ORDERS relationship
+| Query | Traverse relationship (Order)-[:ORDERS]->(Product)
+| Add data | Create relationship
+| Performance | O(k) - touches only connected data
+|===
+
+
+[.slide]
+== The Transformation
+
+**What happens in the import:**
+
+The entire `order_details` pivot table becomes relationships:
+
+**Before (Relational):**
+```
+order_details table:
+┌─────────┬───────────┬──────────┬───────────┐
+│ orderID │ productID │ quantity │ unitPrice │
+├─────────┼───────────┼──────────┼───────────┤
+│ 10248   │ 11        │ 12       │ 18.00     │
+│ 10248   │ 42        │ 10       │ 9.80      │
+│ 10248   │ 72        │ 5        │ 34.80     │
+└─────────┴───────────┴──────────┴───────────┘
+```
+
+**After (Graph):**
+```
+(Order {orderId: '10248'})-[:ORDERS {quantity: 12, unitPrice: 18.00}]->(Product {productId: '11'})
+(Order {orderId: '10248'})-[:ORDERS {quantity: 10, unitPrice: 9.80}]->(Product {productId: '42'})
+(Order {orderId: '10248'})-[:ORDERS {quantity: 5, unitPrice: 34.80}]->(Product {productId: '72'})
+```
+
+**The table becomes relationships. The rows become connections.**
+
+
+[.slide]
+== Why This Matters for Recommendations
+
+To recommend products, you need the complete path:
+
+**Customer → Order → Product**
+
+You now have:
+* ✅ Customer → Order (PLACED relationships from Module 3)
+* ⏳ Order → Product (ORDERS relationships - you'll create this next)
+
+Once you have both, you can traverse:
+
+[source,cypher]
+.What products has this customer bought?
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)  // (1)
+RETURN DISTINCT p.productName;                                                        // (2)
+----
+
+<1> **Two-hop traversal** - Customer through Order to Product
+<2> **Distinct products** - List unique products (customer may buy same product multiple times)
+
+**This query would require 3 JOINs in SQL:**
+```sql
+SELECT DISTINCT p.productName
+FROM customers c
+JOIN orders o ON c.customerID = o.customerID           -- JOIN 1
+JOIN order_details od ON o.orderID = od.orderID        -- JOIN 2
+JOIN products p ON od.productID = p.productID          -- JOIN 3
+WHERE c.customerID = 'ALFKI';
+```
+
+
+[.slide]
+== Connection to the Goal
+
+The ORDERS relationship is **the most critical piece** of the recommendation system:
+
+* Connects customers to products through orders
+* Eliminates the need for the pivot table
+* Enables multi-hop traversals
+* Makes recommendations possible
+
+In the next lesson, you'll create these ORDERS relationships and complete the Customer→Order→Product path.
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about many-to-many relationships:
+
+* **The problem** - Orders and Products have a many-to-many relationship
+* **Relational solution** - Pivot table (order_details) with foreign keys and 2 JOINs
+* **Graph solution** - Direct ORDERS relationships with properties (quantity, unitPrice)
+* **The transformation** - Pivot table rows become graph relationships
+* **Performance** - Graphs traverse directly (O(k)) vs JOINs scanning tables (O(n × m))
+* **Connection to goal** - ORDERS completes the Customer→Product path needed for recommendations
+
+In the next lesson, you will create ORDERS relationships and complete the path.
+
+read::Mark as completed[]
