@@ -1,6 +1,7 @@
-= Optional: Practice Multi-Hop Queries
+= Optional Practice with Multi-Hop Queries
 :type: lesson
 :order: 4
+:duration: 15
 :optional: true
 
 // Original content - practice queries for multi-hop patterns
@@ -23,7 +24,7 @@ Find customer ANTON's favorite product by quantity:
 [source,cypher]
 .ANTON's top product
 ----
-MATCH (c:Customer {customerId: 'ANTON'})-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)  // (1)
+MATCH (c:Customer {customerId: 'ANTON'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // (1)
 RETURN p.productName,                                                                  // (2)
        sum(r.quantity) AS totalQuantity                                                // (3)
 ORDER BY totalQuantity DESC                                                            // (4)
@@ -54,13 +55,13 @@ Find products that haven't been ordered yet:
 .Products with no orders
 ----
 MATCH (p:Product)                      // (1)
-WHERE NOT (p)<-[:ORDERS]-(:Order)      // (2)
+WHERE NOT (p)<-[:CONTAINS]-(:Order)      // (2)
 RETURN p.productName, p.unitPrice      // (3)
 ORDER BY p.unitPrice DESC;             // (4)
 ----
 
 <1> **All products** - Start with every product
-<2> **Negative pattern** - Filter to products WITHOUT incoming ORDERS relationships
+<2> **Negative pattern** - Filter to products WITHOUT incoming CONTAINS relationships
 <3> **Product details** - Show name and price
 <4> **Sort** - Most expensive first
 
@@ -77,7 +78,7 @@ Find orders with total value over $500:
 [source,cypher]
 .Orders worth more than $500
 ----
-MATCH (o:Order)-[r:ORDERS]->(p:Product)                      // (1)
+MATCH (o:Order)-[r:CONTAINS]->(p:Product)                      // (1)
 WITH o, sum(r.quantity * r.unitPrice) AS orderTotal          // (2)
 WHERE orderTotal > 500                                        // (3)
 RETURN o.orderId, orderTotal                                 // (4)
@@ -106,8 +107,8 @@ Find customers who bought the same products as ALFKI (similar taste!):
 [source,cypher]
 .Customers with similar purchases to ALFKI
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)  // (1)
-MATCH (p)<-[:ORDERS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
+MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)  // (1)
+MATCH (p)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
 WHERE other <> me                                                                      // (3)
 RETURN other.companyName,                                                              // (4)
        count(DISTINCT p) AS sharedProducts                                             // (5)
@@ -136,7 +137,7 @@ Find products frequently bought together:
 [source,cypher]
 .What products are bought with Chai?
 ----
-MATCH (p1:Product {productName: 'Chai'})<-[:ORDERS]-(o:Order)-[:ORDERS]->(p2:Product)  // (1)
+MATCH (p1:Product {productName: 'Chai'})<-[:CONTAINS]-(o:Order)-[:CONTAINS]->(p2:Product)  // (1)
 WHERE p2 <> p1                                                                          // (2)
 RETURN p2.productName,                                                                  // (3)
        count(DISTINCT o) AS timesBoughtTogether                                         // (4)
@@ -164,7 +165,7 @@ Find which categories customer ALFKI prefers:
 [source,cypher]
 .ALFKI's favorite product categories
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)-[:IN_CATEGORY]->(cat:Category)  // (1)
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)-[:IN_CATEGORY]->(cat:Category)  // (1)
 RETURN cat.categoryName,                                                                                              // (2)
        sum(r.quantity) AS totalQuantity,                                                                              // (3)
        count(DISTINCT p) AS uniqueProducts                                                                            // (4)

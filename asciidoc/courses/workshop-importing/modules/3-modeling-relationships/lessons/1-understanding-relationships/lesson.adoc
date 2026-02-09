@@ -1,6 +1,7 @@
-= Understanding Relationships
+= Understanding Relationships (PLACED and CONTAINS)
 :type: lesson
 :order: 1
+:duration: 10
 
 // Source: workshop-importing/modules-backup-original/2-data-modeling/lessons/4-relationships
 // Adapted: Focused on PLACED relationship, connected to recommendation goal
@@ -66,6 +67,171 @@ RETURN o;
 ```
 
 No JOIN - you follow the pointer directly. Performance stays constant regardless of database size.
+
+
+[.slide]
+== Modeling Decision: Direct Relationship vs Intermediate Node
+
+**The question:** How should we model the connection between Customer and Product?
+
+We have two options:
+
+**Option 1: Direct relationship**
+```
+(Customer)-[:PURCHASED {quantity: 10, discount: 0.05}]->(Product)
+```
+
+**Option 2: Intermediate node**
+```
+(Customer)-[:PLACED]->(Order)-[:CONTAINS {quantity: 10}]->(Product)
+```
+
+**How do you choose?**
+
+
+[.slide]
+== Option 1: Direct Relationship
+
+**When it's good enough:**
+
+[source,mermaid]
+....
+graph LR
+    Customer((Customer)) -->|PURCHASED| Product((Product))
+
+    style Customer fill:#4C8EDA
+    style Product fill:#FCC644
+....
+
+**Use a direct relationship when:**
+
+* You only need to know **that** a connection exists
+* The relationship properties are simple (quantity, discount, price)
+* You're answering questions like: "What products did this customer buy?" or "How many times was this product purchased?"
+
+**Properties on the relationship:**
+```
+-[:PURCHASED {quantity: 10, unitPrice: 18.00, discount: 0.05, date: '2024-01-15'}]->
+```
+
+**Advantages:**
+* Simpler model
+* Faster queries (one hop instead of two)
+* Less storage
+* Perfect for straightforward many-to-many relationships
+
+
+[.slide]
+== Option 2: Intermediate Node (Order)
+
+**When you need more context:**
+
+[source,mermaid]
+....
+graph LR
+    Customer((Customer)) -->|PLACED| Order((Order))
+    Order -->|CONTAINS| Product((Product))
+    Employee((Employee)) -->|PROCESSED| Order
+    Shipper((Shipper)) -->|SHIPPED| Order
+
+    style Customer fill:#4C8EDA
+    style Order fill:#7CCFA9
+    style Product fill:#FCC644
+    style Employee fill:#B8A5D6
+    style Shipper fill:#F4A261
+....
+
+**Use an intermediate node when:**
+
+* You need to link the connection to **other entities** (Employee, Shipper, Warehouse)
+* The connection has its own **identity and lifecycle** (order status, tracking number)
+* You're answering questions like: "When was this ordered?" "Who processed this?" "How was it shipped?"
+
+**The Order node enables:**
+```cypher
+// Find orders processed by a specific employee
+MATCH (emp:Employee)-[:PROCESSED]->(o:Order)
+
+// Find orders shipped by a specific company
+MATCH (shipper:Shipper)-[:SHIPPED]->(o:Order)
+
+// Find orders with specific status or date range
+MATCH (o:Order)
+WHERE o.orderDate > '2024-01-01' AND o.status = 'Shipped'
+```
+
+**Advantages:**
+* More flexible - can connect to many other entities
+* Captures the **context** of the transaction
+* Models the real-world concept (orders are things)
+
+
+[.slide]
+== The Northwind Decision: Why We Use Order Nodes
+
+**For the Northwind dataset, we chose the intermediate node approach:**
+
+```
+(Customer)-[:PLACED]->(Order)-[:CONTAINS]->(Product)
+```
+
+**Why?**
+
+1. **Multiple products per order** - An order can contain many products. Without the Order node, you'd have multiple PURCHASED relationships from the same customer to multiple products, with no way to group them.
+
+2. **Order metadata** - Orders have their own properties: `orderDate`, `shippedDate`, `freight`, `shipAddress`, `orderStatus`
+
+3. **Additional relationships** - Orders connect to:
+   - `(Employee)-[:PROCESSED]->(Order)` - Who handled the order
+   - `(Shipper)-[:SHIPPED]->(Order)` - How it was delivered
+
+4. **Business questions** - We want to answer:
+   - "Show me all products from order #10248"
+   - "Which employee processes the most orders?"
+   - "What orders are shipped by FedEx?"
+
+
+[.slide]
+== When to Promote a Relationship to a Node
+
+**Promote a relationship to a node when:**
+
+* ✅ The relationship needs to connect to other entities (Order connects to Employee, Shipper)
+* ✅ The relationship has its own properties that describe it as an entity (orderDate, shipAddress)
+* ✅ Multiple relationships need to be grouped (multiple products in one order)
+* ✅ You need to query the relationship itself (find orders by date, status)
+
+**Keep it as a relationship when:**
+
+* ✅ It's a simple connection with minimal properties
+* ✅ You only need to know "A is connected to B"
+* ✅ Performance is critical and you don't need the extra context
+
+
+[.slide]
+== Refactoring Is Always Possible
+
+**Important principle:** You can refactor your graph model in either direction.
+
+**Simplify (Node → Relationship):**
+```cypher
+// If you decide Order nodes aren't needed
+MATCH (c:Customer)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)
+MERGE (c)-[:PURCHASED {date: o.orderDate}]->(p)
+```
+
+**Promote (Relationship → Node):**
+```cypher
+// If you decide purchases need more context
+MATCH (c:Customer)-[r:PURCHASED]->(p:Product)
+CREATE (c)-[:PLACED]->(o:Order {date: r.date})-[:CONTAINS]->(p)
+```
+
+**Best practice:** Err on the side of the **more complex model** (intermediate node) until you have performance requirements.
+
+* More complex models are more flexible
+* You can always simplify later
+* Premature optimization limits your options
 
 
 [.slide]
@@ -187,10 +353,16 @@ In this lesson, you learned about relationships in Neo4j:
 
 * **Relationships connect nodes** - They have a type, direction, and optional properties
 * **First-class citizens** - Not foreign keys; direct connections with no JOIN overhead
+* **Modeling decision** - Direct relationship vs intermediate node depends on your questions
+  * Direct: (Customer)-[:PURCHASED]->(Product) - Simple, fast, good for "what was bought"
+  * Intermediate: (Customer)-[:PLACED]->(Order)-[:CONTAINS]->(Product) - Flexible, contextual, good for "when/how/who"
+* **Promote to node when** - Need to connect to other entities, has own identity, grouping required
+* **Refactoring is possible** - Can always change between relationship and node
+* **Best practice** - Err on side of more complex model, optimize later
 * **PLACED relationship** - Connects Customer to Order (Customer→Order)
 * **Direction flexibility** - Query in any direction regardless of how it's stored
 * **Relationship properties** - Data that belongs to the connection itself
-* **Connection to goal** - Customer→Order is the first step toward Customer→Product path for recommendations
+* **Connection to goal** - Customer→Order→Product path enables recommendations
 
 In the next lesson, you will import Customer and Order nodes and create PLACED relationships between them.
 
