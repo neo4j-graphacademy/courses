@@ -1,0 +1,234 @@
+= Multi-Hop Traversals: The Foundation of Recommendations
+:type: lesson
+:order: 3
+
+// Original content - multi-hop traversal patterns
+
+[.slide.discrete]
+== Introduction
+
+You created ORDERS relationships and completed the Customer→Order→Product path. Now you'll see the full power of graph traversals.
+
+In this lesson, you will learn how to write multi-hop queries that would be nightmares in SQL but are natural in Cypher.
+
+
+[.slide]
+== The Complete Path
+
+You now have this structure:
+
+[source,mermaid]
+....
+graph LR
+    Customer((Customer)) -->|PLACED| Order((Order))
+    Order -->|ORDERS| Product((Product))
+
+    style Customer fill:#4C8EDA
+    style Order fill:#7CCFA9
+    style Product fill:#FCC644
+....
+
+This enables powerful traversals:
+* Customer → Order → Product (what did they buy?)
+* Product ← Order ← Customer (who bought this?)
+* Customer → Order → Product ← Order ← Customer (who bought similar products?)
+
+
+[.slide]
+== Query 1: What Did Customer Buy?
+
+The fundamental query - traverse two hops:
+
+[source,cypher]
+.Products purchased by ALFKI
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)  // (1)
+RETURN DISTINCT p.productName                                                         // (2)
+ORDER BY p.productName;                                                               // (3)
+----
+
+<1> **Two-hop pattern** - Customer through Order to Product (anonymous Order node)
+<2> **Distinct** - Eliminate duplicates (customer may order same product multiple times)
+<3> **Sort** - Alphabetical order
+
+Click **Run** to see all products ALFKI has ever purchased.
+
+**SQL equivalent (3 JOINs):**
+```sql
+SELECT DISTINCT p.productName
+FROM customers c
+JOIN orders o ON c.customerID = o.customerID
+JOIN order_details od ON o.orderID = od.orderID
+JOIN products p ON od.productID = p.productID
+WHERE c.customerID = 'ALFKI'
+ORDER BY p.productName;
+```
+
+
+[.slide]
+== Query 2: Who Bought This Product?
+
+Traverse backward from product to customers:
+
+[source,cypher]
+.Customers who bought Chai
+----
+MATCH (c:Customer)-[:PLACED]->(:Order)-[:ORDERS]->(p:Product {productName: 'Chai'})  // (1)
+RETURN DISTINCT c.companyName, c.city, c.country                                      // (2)
+ORDER BY c.companyName;                                                               // (3)
+----
+
+<1> **Reverse pattern** - Start at Product, traverse back through orders to customers
+<2> **Customer info** - Return company details
+<3> **Sort** - By company name
+
+Click **Run** to see all customers who have purchased Chai.
+
+**Why this is easy:** Direction in the query doesn't matter - you can traverse relationships either way.
+
+
+[.slide]
+== Query 3: Customer's Favorite Products
+
+Aggregate relationship properties across the path:
+
+[source,cypher]
+.ALFKI's most ordered products
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)  // (1)
+RETURN p.productName,                                                                  // (2)
+       sum(r.quantity) AS totalQuantity,                                               // (3)
+       count(DISTINCT r) AS numberOfOrders,                                            // (4)
+       avg(r.unitPrice) AS avgPrice                                                    // (5)
+ORDER BY totalQuantity DESC                                                            // (6)
+LIMIT 10;                                                                              // (7)
+----
+
+<1> **Capture relationship** - Variable `r` accesses ORDERS properties
+<2> **Group by product** - Implicitly groups by productName
+<3> **Sum quantities** - Total units ordered across all orders
+<4> **Count orders** - How many times ordered
+<5> **Average price** - Mean unit price paid
+<6> **Sort** - Highest quantity first
+<7> **Limit** - Top 10 products
+
+Click **Run** to see ALFKI's favorite products by volume.
+
+
+[.slide]
+== Query 4: Product Popularity
+
+Find the most popular products across all customers:
+
+[source,cypher]
+.Top 10 most ordered products
+----
+MATCH (:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)  // (1)
+RETURN p.productName,                                           // (2)
+       sum(r.quantity) AS totalQuantity,                        // (3)
+       count(DISTINCT r) AS timesOrdered                        // (4)
+ORDER BY totalQuantity DESC                                     // (5)
+LIMIT 10;                                                       // (6)
+----
+
+<1> **All customers** - No filter, traverse entire graph
+<2> **Group by product** - Aggregate per product
+<3> **Total quantity** - Sum across all orders from all customers
+<4> **Order count** - How many individual orders included this product
+<5> **Sort** - Highest quantity first
+<6> **Top 10** - Most popular products
+
+Click **Run** to see your bestsellers.
+
+
+[.slide]
+== Query 5: Customer Spending
+
+Calculate total spending using relationship properties:
+
+[source,cypher]
+.Top spending customers
+----
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(:Product)  // (1)
+RETURN c.companyName,                                           // (2)
+       sum(r.quantity * r.unitPrice) AS totalSpent,             // (3)
+       count(DISTINCT r) AS itemsOrdered                        // (4)
+ORDER BY totalSpent DESC                                        // (5)
+LIMIT 10;                                                       // (6)
+----
+
+<1> **Traverse path** - Customer through orders to products
+<2> **Group by customer** - Aggregate per customer
+<3> **Calculate spending** - Multiply quantity × unitPrice for each order item, sum total
+<4> **Count items** - Total distinct products ordered
+<5> **Sort** - Highest spenders first
+<6> **Top 10** - Best customers
+
+Click **Run** to see your top customers by revenue.
+
+
+[.slide]
+== The Pattern for Recommendations
+
+All these queries use the **same fundamental pattern** that powers recommendations:
+
+```
+Customer → Order → Product
+```
+
+**To recommend products:**
+
+1. Find products I bought: `(me:Customer)-[:PLACED]->(:Order)-[:ORDERS]->(myProduct)`
+2. Find customers who bought those products: `(myProduct)<-[:ORDERS]-(:Order)<-[:PLACED]-(other:Customer)`
+3. Find what THEY bought that I haven't: `(other)-[:PLACED]->(:Order)-[:ORDERS]->(rec:Product)`
+
+**You're one step away from the complete recommendation query!**
+
+
+[.slide]
+== SQL Comparison: The Complexity Grows
+
+Each of these queries requires 3 JOINs in SQL. Let's look at the customer spending query:
+
+**SQL (verbose, slow):**
+```sql
+SELECT c.companyName,
+       SUM(od.quantity * od.unitPrice) AS totalSpent,
+       COUNT(DISTINCT od.orderDetailID) AS itemsOrdered
+FROM customers c
+JOIN orders o ON c.customerID = o.customerID
+JOIN order_details od ON o.orderID = od.orderID
+GROUP BY c.companyName
+ORDER BY totalSpent DESC
+LIMIT 10;
+```
+
+**Cypher (concise, fast):**
+```cypher
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(:Product)
+RETURN c.companyName,
+       sum(r.quantity * r.unitPrice) AS totalSpent,
+       count(DISTINCT r) AS itemsOrdered
+ORDER BY totalSpent DESC
+LIMIT 10;
+```
+
+The Cypher reads like the question. The SQL is machinery.
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about multi-hop traversals:
+
+* **Two-hop patterns** - Customer→Order→Product traverses the complete path
+* **Bidirectional** - Can traverse forward or backward through relationships
+* **Relationship properties** - Aggregate quantities, prices, and other connection data
+* **Anonymous nodes** - Use `(:Order)` when you don't need to reference the node
+* **Complex analytics** - Product popularity, customer spending, favorite products
+* **Foundation for recommendations** - Same pattern powers the recommendation query
+* **SQL comparison** - Cypher is readable and performant vs complex JOINs
+
+In the next lesson (optional), you can practice writing multi-hop queries.
+
+read::Mark as completed[]

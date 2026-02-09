@@ -1,0 +1,259 @@
+= Create ORDERS Relationships
+:type: challenge
+:order: 2
+
+// Source: workshop-importing/modules-backup-original/3-importing-data/lessons/4-importing-relationships
+// Adapted: Focused on ORDERS relationships with properties, pivot table transformation
+
+[.slide.discrete]
+== Challenge: Complete the Customer→Product Path
+
+You learned how pivot tables become relationships. Now you will transform the `order_details` table into ORDERS relationships.
+
+In this challenge, you will complete the critical path needed for product recommendations: Customer→Order→Product.
+
+
+[.slide]
+== Step 1: Download the order_details CSV
+
+Download the pivot table data:
+
+* link:https://data.neo4j.com/northwind/order-details.csv[order-details.csv^] (2,155 order line items)
+
+**What's in this file?**
+
+* `orderID` - Foreign key to orders table
+* `productID` - Foreign key to products table
+* `quantity` - How many units ordered
+* `unitPrice` - Price per unit (may differ from product's list price due to discounts)
+
+**This entire file will become relationships!**
+
+
+[.slide]
+== Step 2: Open Data Importer
+
+Open the Data Importer tool. You should see your existing model:
+
+```
+[Customer] -[:PLACED]-> [Order]
+
+[Product]
+```
+
+You're about to connect Order to Product.
+
+
+[.slide]
+== Step 3: Upload order-details.csv
+
+1. Click *Add Data Source*
+2. Upload `order-details.csv`
+3. Preview the data - notice it has NO entity data, only connection data
+4. Click *Continue*
+
+**Important:** This CSV doesn't create nodes - it only creates relationships!
+
+
+[.slide]
+== Step 4: Create ORDERS Relationship
+
+Now create the relationship from Order to Product:
+
+1. Click on the **Order** node
+2. Drag from Order to Product (or click *Add Relationship*)
+3. A relationship line appears between them
+
+
+[.slide]
+== Step 5: Configure the Relationship
+
+In the relationship details panel:
+
+**1. Set the type:**
+   - Type: `ORDERS` (verb, UPPER_SNAKE_CASE)
+
+**2. Map from file:**
+   - From file: `order-details.csv`
+
+**3. Configure the connection:**
+   - **From:** Order node, using `orderId` property
+   - **Match to CSV column:** `orderID`
+   - **To:** Product node, using `productId` property
+   - **Match to CSV column:** `productID`
+
+**What this means:**
+
+For each row in order-details.csv:
+* Find the Order with matching `orderId`
+* Find the Product with matching `productId`
+* Create an ORDERS relationship between them
+
+
+[.slide]
+== Step 6: Add Relationship Properties
+
+The relationship needs properties for quantity and price:
+
+In the relationship properties section:
+
+1. Add property: `quantity`
+   - Source column: `quantity`
+   - Type: Integer
+
+2. Add property: `unitPrice`
+   - Source column: `unitPrice`
+   - Type: Float
+
+**Why on the relationship?**
+
+* `quantity` belongs to THIS connection (Order 10248 ordered 12 units of Chai)
+* Can't store on Order (which product's quantity?)
+* Can't store on Product (which order's quantity?)
+* **Perfect for relationship properties!**
+
+
+[NOTE]
+.Relationship Properties Are Powerful
+====
+Relationship properties let you store data about the connection itself:
+
+* Order→Product: quantity, unitPrice, discount
+* Person→Movie: rating, reviewDate
+* Customer→Store: loyaltyPoints, memberSince
+
+This eliminates the need for pivot tables entirely!
+====
+
+
+[.slide]
+== Step 7: Review Your Complete Model
+
+Your canvas should now show:
+
+```
+[Customer] -[:PLACED]-> [Order] -[:ORDERS {quantity, unitPrice}]-> [Product]
+```
+
+**This is the complete path for recommendations!**
+
+
+[.slide]
+== Step 8: Run the Import
+
+1. Click *Run Import*
+2. The tool will create **2,155 ORDERS relationships**
+3. Each relationship has quantity and unitPrice properties
+4. Wait for completion
+
+
+[.slide]
+== Step 9: Validate the Import
+
+Open the Query tool and count the relationships:
+
+[source,cypher]
+.Count ORDERS relationships
+----
+MATCH (o:Order)-[r:ORDERS]->(p:Product)  // (1)
+RETURN count(r) AS ordersRelationships;  // (2)
+----
+
+<1> **Match pattern** - Find Order-Product connections
+<2> **Count** - How many ORDERS relationships exist
+
+You should see **2,155 ORDERS relationships** (the entire order_details table became relationships!).
+
+
+[.slide]
+== Step 10: Test the Complete Path
+
+Now the moment of truth - traverse from Customer to Product:
+
+[source,cypher]
+.What products has ALFKI bought?
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)  // (1)
+RETURN DISTINCT p.productName                                                         // (2)
+ORDER BY p.productName;                                                               // (3)
+----
+
+<1> **Two-hop traversal** - Customer through Order to Product (no JOINs!)
+<2> **Distinct products** - Eliminate duplicates (customer may buy same product multiple times)
+<3> **Sort** - Alphabetical order
+
+Click **Run** to see ALFKI's product purchases.
+
+**In SQL, this would require 3 JOINs:**
+```sql
+SELECT DISTINCT p.productName
+FROM customers c
+JOIN orders o ON c.customerID = o.customerID
+JOIN order_details od ON o.orderID = od.orderID
+JOIN products p ON od.productID = p.productID
+WHERE c.customerID = 'ALFKI'
+ORDER BY p.productName;
+```
+
+
+[.slide]
+== Step 11: Query Relationship Properties
+
+Access the relationship properties:
+
+[source,cypher]
+.What quantities did ALFKI order?
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)-[r:ORDERS]->(p:Product)  // (1)
+RETURN p.productName,                                                                   // (2)
+       sum(r.quantity) AS totalQuantity,                                                // (3)
+       avg(r.unitPrice) AS avgPrice                                                     // (4)
+ORDER BY totalQuantity DESC;                                                            // (5)
+----
+
+<1> **Capture relationship** - Use variable `r` to access ORDERS properties
+<2> **Product name** - Group by product
+<3> **Sum quantity** - Total units across all orders
+<4> **Average price** - Average unit price paid
+<5> **Sort** - Most frequently ordered products first
+
+Click **Run** to see ALFKI's favorite products by quantity.
+
+
+[.slide]
+== Building Block #3 Complete! ⭐
+
+You now have the **complete Customer→Order→Product path**!
+
+**What you can do now:**
+
+* ✅ Find what products a customer bought (2 hops, no JOINs)
+* ✅ Find which customers bought a product (reverse traversal)
+* ✅ Aggregate quantities and prices from relationship properties
+* ✅ Count product popularity across orders
+
+**What's next:**
+
+* Find customers who bought similar products (bidirectional traversal)
+* Exclude products you already bought (negative patterns)
+* Complete the recommendation query
+
+
+[.summary]
+== Summary
+
+In this challenge, you transformed the pivot table into relationships:
+
+* **Downloaded** order-details.csv with 2,155 rows (the entire pivot table)
+* **Created** ORDERS relationships from Order to Product (2,155 relationships)
+* **Added** relationship properties - quantity (Integer) and unitPrice (Float)
+* **Eliminated** the need for a pivot table - relationships store the connection data
+* **Completed** the Customer→Order→Product path (two-hop traversal)
+* **Tested** multi-hop queries - from customer to products without JOINs
+* **Queried** relationship properties - aggregated quantities and prices
+
+The pivot table is now gone - transformed into direct graph relationships. This is THE key advantage of graph databases for many-to-many relationships.
+
+In the next lesson, you will learn about multi-hop traversals and see how they compare to complex SQL queries.
+
+read::Proceed to next lesson[]

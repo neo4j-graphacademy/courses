@@ -25,6 +25,183 @@ A **workshop** is a shorter, hands-on learning experience (typically 1-3 hours) 
 - "Build a Recommendation Engine" - combines Cypher + GDS + application development
 - "Set Up Production Monitoring" - combines Aura + metrics + alerting
 
+## Workshop Pedagogy: Hands-On Learning Through Iteration
+
+**⚠️ CRITICAL: Workshops must be hands-on and iterative, not theory-then-practice.**
+
+### The Problem with Sequential Teaching
+
+**DON'T structure workshops as:**
+
+```
+Module 1: All Theory (modeling concepts)
+Module 2: All Practice (importing)
+Module 3: All Application (querying)
+```
+
+This approach:
+
+- Delays hands-on work until learners are already bored
+- Makes it hard to understand WHY concepts matter
+- Doesn't show the connection between decisions and outcomes
+- Feels like a traditional lecture, not a workshop
+
+### The Hands-On Workshop Approach
+
+**DO structure workshops as iterative cycles:**
+
+Each modeling decision should be:
+
+1. **Taught** - Explain the concept briefly (1-2 minutes)
+2. **Applied** - Use it immediately in a hands-on challenge
+3. **Proven** - Query the result to show the value vs relational databases
+
+**Pattern for Data Modeling Workshops:**
+
+Instead of teaching all modeling theory first, interleave modeling decisions with importing and querying:
+
+```
+Module 2: Building Your Graph Model (Iterative)
+
+Cycle 1: Nodes and Labels
+├── Lesson 1: Understanding Graph Elements (brief recap: nodes, relationships, properties)
+├── Lesson 2: Cypher Basics (primer: enough to read and write simple queries)
+├── Lesson 3: Modeling Your First Nodes (concept: what makes something a node?)
+├── Challenge 4: Import Customer Nodes
+└── Lesson 5: Querying Nodes (prove: show how simple it is vs SQL)
+
+Cycle 2: Relationships
+├── Lesson 6: Relationship Types (concept: how entities connect)
+├── Challenge 7: Import Orders and Create PLACED Relationships
+└── Lesson 8: Traversing Relationships (prove: no JOINs needed, compare to SQL)
+
+Cycle 3: Many-to-Many Relationships
+├── Lesson 9: Graph vs Pivot Tables (concept: why graphs excel at many-to-many)
+├── Challenge 10: Import Products and Create ORDERS Relationships
+└── Lesson 11: Multi-Hop Traversals (prove: "What products did this customer buy?" - one query vs multiple JOINs)
+
+Cycle 4: Properties vs Nodes
+├── Lesson 12: When to Use a Node vs a Property (concept: decision-making criteria)
+├── Challenge 13: Import Categories as Nodes
+└── Lesson 14: Filtering and Pattern Matching (prove: flexible querying)
+
+Cycle 5: Specific Relationships
+├── Lesson 15: Specific Relationship Types (concept: clarity and performance)
+├── Challenge 16: Refactor Model with Specific Relationships
+└── Lesson 17: Query Optimization (prove: clearer queries, better performance)
+```
+
+### Key Principles
+
+1. **Teach → Apply → Prove Pattern**
+   - Each modeling concept is taught briefly
+   - Immediately applied in Data Importer
+   - Proven valuable with a Cypher query that would be hard in SQL
+
+2. **Graph vs Relational Comparisons**
+   - Every proof point should show a problem that's hard or impossible in SQL
+   - Show the SQL equivalent (complex JOINs) vs the Cypher query (simple traversal)
+   - Highlight real-world business value (performance, simplicity, flexibility)
+
+3. **Incremental Complexity**
+   - Start with simple concepts (nodes)
+   - Build up to more complex concepts (many-to-many, intermediate nodes)
+   - Each cycle builds on the previous one
+
+4. **Hands-On First**
+   - Minimize theory - just enough to understand the decision
+   - Maximize practice - learners should spend most time doing
+   - Make it concrete - use real data and real business questions
+
+### Example: Many-to-Many Relationships Cycle
+
+**Lesson: Graph vs Pivot Tables (3 minutes)**
+
+```asciidoc
+In relational databases, many-to-many relationships require a pivot table:
+
+[options="header"]
+|===
+| Table | Purpose
+| orders | Stores order data
+| order_details | Pivot table connecting orders to products
+| products | Stores product data
+|===
+
+To find products in an order:
+SELECT p.* FROM orders o
+JOIN order_details od ON o.orderId = od.orderId
+JOIN products p ON od.productId = p.productId
+WHERE o.orderId = 10248;
+
+In a graph database, you create a direct relationship:
+(Order)-[:ORDERS]->(Product)
+
+Properties like quantity belong ON the relationship, not in a separate table.
+```
+
+**Challenge: Import Products and ORDERS Relationships (10 minutes)**
+
+```asciidoc
+Use Data Importer to:
+1. Import products.csv as Product nodes
+2. Create ORDERS relationships between Order and Product nodes
+3. Add quantity and unitPrice properties to the ORDERS relationship
+
+[Hands-on instructions with screenshots]
+```
+
+**Lesson: Prove the Value - Multi-Hop Queries (5 minutes)**
+
+```asciidoc
+Business question: "What products has customer ALFKI purchased?"
+
+**Relational (3 JOINs):**
+SELECT DISTINCT p.productName
+FROM customers c
+JOIN orders o ON c.customerId = o.customerId
+JOIN order_details od ON o.orderId = od.orderId
+JOIN products p ON od.productId = p.productId
+WHERE c.customerId = 'ALFKI';
+
+**Graph (direct traversal):**
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)
+RETURN DISTINCT p.productName;
+
+The graph query:
+- Reads like the question you're asking
+- No JOINs scanning thousands of rows
+- Performance stays constant as data grows
+- Easy to extend (add more hops, filter by date, etc.)
+```
+
+### Benefits of This Approach
+
+- **Engagement** - Learners stay active, not passive
+- **Motivation** - They see WHY each decision matters immediately
+- **Retention** - Doing reinforces learning better than hearing
+- **Confidence** - Each small success builds toward the complete solution
+- **Real-world skills** - They learn the workflow they'll actually use
+
+### Structuring Your Workshop Modules
+
+For data modeling/importing workshops:
+
+**Module 1: Setup** (Keep traditional structure)
+
+- Overview, setup, tools introduction
+
+**Module 2: Building Your Graph** (Iterative cycles)
+
+- Combine modeling + importing + querying
+- Each concept → hands-on challenge → proof point
+- 5-7 cycles covering key modeling decisions
+
+**Module 3: Advanced Patterns** (Optional stretch goals)
+
+- Refactoring, optimization, advanced queries
+- Optional lessons for deeper learning
+
 ## Technical Requirements for Workshop Content
 
 **⚠️ CRITICAL: Follow these technical requirements for every workshop lesson. These are non-negotiable.**
@@ -50,6 +227,7 @@ The first lesson of every workshop must be an **overview lesson** that covers:
 **Only after the overview** should you introduce tools and setup.
 
 **Example - BAD:**
+
 ```
 Lesson 1: What is Neo4j Aura?
 Lesson 2: Create an Aura instance
@@ -57,6 +235,7 @@ Lesson 3: What is Data Importer?
 ```
 
 **Example - GOOD:**
+
 ```
 Lesson 1: Workshop Overview: Building Your First Graph Database (problem, outcomes, approach)
 Lesson 2: Introduction to Neo4j Aura (introduces the platform)
@@ -65,6 +244,7 @@ Lesson 4: Aura Tools Overview (tools they'll use)
 ```
 
 **First Lesson Template:**
+
 ```asciidoc
 = Workshop Overview: [What They'll Build]
 :type: lesson
@@ -109,18 +289,21 @@ By completing this workshop, you will:
 **CRITICAL: Only include content that exists in the source courses you're adapting from.**
 
 **DON'T:**
+
 - Add concepts not covered in source courses
 - Invent new technical terms or sections
 - Add "advanced" topics that weren't in the original material
 - Create content from general knowledge
 
 **DO:**
+
 - Read the entire source lesson before adapting
 - Only include concepts present in source material
 - Adapt examples to workshop context, but keep concepts the same
 - If you think additional content is needed, note it for review rather than adding it
 
 **Example of Hallucination to AVOID:**
+
 - Source course doesn't mention "fanout" → Don't add a "Understanding Fanout" section
 - Source course doesn't cover "denormalization strategies" → Don't add that concept
 - Source course has 3 relationship types → Don't add 6 relationship types
@@ -169,6 +352,7 @@ read::Mark as completed[]
 ```
 
 **Rules:**
+
 - Opening section: `[.slide.discrete]` with level-2 header `==`
 - Main content sections: `[.slide]` with level-2 header `==`
 - Subsections within main topics: `[.slide.discrete]` with level-3 header `===`
@@ -239,6 +423,7 @@ You can query customers and orders.
 ```
 
 **Why this is bad:**
+
 - No context before code (why do we need this?)
 - Multiple code blocks dumped in sequence
 - No breakdown of what each does
@@ -248,27 +433,32 @@ You can query customers and orders.
 **REQUIRED for every code block:**
 
 **1. Context BEFORE (2-3 sentences):**
+
 - What question are we answering?
 - What business problem does this solve?
 - Why does this query matter?
 
 **2. Descriptive title:**
+
 - Use `.Title` format
 - Make it action-oriented
 - Example: `.Find customers who ordered chai`
 
 **3. Explanation AFTER (bullet points):**
+
 - Break down what each part does
 - Explain the pattern being used
 - Connect to concepts they learned
 
 **4. Encouragement to RUN and EXPERIMENT:**
+
 - "Click **Run** to execute this query"
 - "Try running this in your Query tool"
 - "Experiment with different values"
 - Suggest specific modifications they can make
 
 **DON'T:**
+
 - Show multiple code blocks in sequence without explanation
 - Assume learners understand what code does
 - Use code blocks as filler
@@ -276,6 +466,7 @@ You can query customers and orders.
 - Forget that they have a Run button - use it!
 
 **DO:**
+
 - Explain the purpose BEFORE showing the code
 - Add a descriptive title to every code block (`.Title here`)
 - Break down what the code does AFTER showing it
@@ -325,21 +516,93 @@ Click **Run** to see the customer's order summary.
 ```
 
 **Why this works:**
+
 - Learners see WHERE in the code each concept applies
 - UI highlights make connections visual
 - Complex queries become understandable
 - No more "lazy queries just thrown in"
 
 **When to use numbered annotations:**
+
 - Code teaching 3+ distinct concepts
 - Queries with multiple clauses (MATCH, WHERE, RETURN, ORDER BY)
 - Complex patterns with multiple node/relationship types
 - Code where order of operations matters
 
 **When NOT to use (keep it simple):**
+
 - Single-concept examples (just explain before/after)
 - Very short queries (1-2 lines)
 - When the code is self-evident
+
+#### ⚠️ CRITICAL: Every Code Block Must Be Runnable
+
+**RULE: Each code block MUST contain a complete, executable query.**
+
+**❌ NEVER DO THIS - Multiple incomplete statements in one block:**
+
+```asciidoc
+[source,cypher]
+.Basic node patterns
+----
+()                                    // (1)
+(p:Product)                           // (2)
+(p:Product {productName: 'Chai'})     // (3)
+----
+```
+
+**Why this is wrong:**
+
+- None of these can be run on their own
+- No MATCH, no RETURN - not valid Cypher
+- Learners can't click Run and see results
+- Confusing teaching pattern
+
+**✅ DO THIS - Complete, runnable query with annotations:**
+
+```asciidoc
+[source,cypher]
+.Node pattern syntax
+----
+MATCH (p:Product {productName: 'Chai'})  // (1)
+RETURN p.productName, p.unitPrice         // (2)
+----
+
+1. **Node pattern** - `(variable:Label {property: value})` matches nodes with specific properties
+2. **Return clause** - Returns the product name and price
+
+Click **Run** to see the Chai product details.
+```
+
+**Why this is correct:**
+
+- Complete query with MATCH and RETURN
+- Can be executed immediately
+- Numbered annotations explain each part
+- Learners can run it and see results
+
+**Alternative - Separate runnable queries:**
+
+If you need to show progression, use separate complete blocks:
+
+```asciidoc
+[source,cypher]
+.Match all products
+----
+MATCH (p:Product)
+RETURN p
+LIMIT 5;
+----
+
+[source,cypher]
+.Match products by name
+----
+MATCH (p:Product {productName: 'Chai'})
+RETURN p;
+----
+```
+
+**Key principle:** Every code block must have a Run button that works. If a learner clicks Run, they should see valid results, not an error.
 
 **DON'T throw in lazy queries without annotation:**
 
@@ -373,16 +636,77 @@ Node patterns have three parts that identify what to match:
 [source,cypher]
 .Anatomy of a node pattern
 ----
-MATCH (n:Customer {country: 'USA'})  // (1) // (2) // (3)
-RETURN n.companyName
+MATCH (n:Customer)   // (1)
+WHERE n.id = 123     // (2)
+RETURN n.companyName // (3)
 ----
 
-1. **Variable** - `n` gives this node a name you can reference
-2. **Label** - `:Customer` specifies which type of node to find
-3. **Properties** - `{country: 'USA'}` filters to match specific values
+1. **Match the pattern** - Find a node with the label customer
+2. **Filter the pattern** - Filter on the `id` property
+3. **Control output** - Return the `companyName` property
 
 Click **Run** to find all US customers.
 ```
+
+**DO NOT** include more than one number on the same line.
+
+```
+// THIS IS BAD
+// (1) // (2)
+```
+
+#### Cypher Comments vs AsciiDoc Callouts
+
+**IMPORTANT: Distinguish between AsciiDoc callouts and actual Cypher comments.**
+
+**AsciiDoc callouts** (numbered annotations) use `//` and are correct:
+
+```asciidoc
+[source,cypher]
+----
+MATCH (p:Product)           // (1)
+WHERE p.unitPrice > 50      // (2)
+RETURN p.productName        // (3)
+----
+
+<1> Pattern explanation
+<2> Filter explanation
+<3> Return explanation
+```
+
+**Actual Cypher comments** (explanatory text within code) should use `/* */` not `//`:
+
+```asciidoc
+❌ DON'T use // for Cypher comments:
+[source,cypher]
+----
+// Find expensive products
+MATCH (p:Product)
+WHERE p.unitPrice > 50
+RETURN p.productName
+----
+
+✅ DO use /* */ for Cypher comments:
+[source,cypher]
+----
+/* Find expensive products */
+MATCH (p:Product)
+WHERE p.unitPrice > 50
+RETURN p.productName
+----
+```
+
+**Why this matters:**
+
+- While Cypher supports both `//` and `/* */` for comments, using `/* */` avoids confusion with AsciiDoc callouts
+- `/* */` works for both single and multi-line comments
+- Consistent style makes code more readable
+
+**When to use each:**
+
+- Use `// (1)` for AsciiDoc callouts that link to numbered explanations
+- Use `/* comment */` for actual Cypher comments that explain the code
+- Prefer minimal comments - let the code and callout explanations do the teaching
 
 ### 5. Query Results - Encourage Interaction, Use Tables Sparingly
 
@@ -449,6 +773,7 @@ Click **Run** to execute this query. You'll see the first 5 customers with their
 ```
 
 **Only show result tables when:**
+
 1. Understanding the output format is critical to the lesson
 2. The result structure is complex and needs explanation
 3. The query demonstrates a specific pattern in the data
@@ -469,6 +794,7 @@ Click **Run** to see the top 3 most expensive products:
 ```
 
 **Best practices:**
+
 - **Default: Encourage running, don't show results** (80% of queries)
 - **Only show results when necessary** (20% of queries)
 - Use imperative prompts: "Click **Run**", "Try running...", "Execute and observe..."
@@ -484,6 +810,7 @@ Click **Run** to see the top 3 most expensive products:
 **REQUIRED: Graph nodes must be circles, not boxes.**
 
 **DON'T use boxes:**
+
 ```mermaid
 graph LR
     A[Customer] -->|PLACED| B[Order]
@@ -491,6 +818,7 @@ graph LR
 ```
 
 **DO use circles:**
+
 ```mermaid
 graph LR
     A((Customer)) -->|PLACED| B((Order))
@@ -498,6 +826,7 @@ graph LR
 ```
 
 **Alternative circle syntax:**
+
 ```mermaid
 graph LR
     Customer((Customer)) -->|PLACED| Order((Order))
@@ -505,6 +834,7 @@ graph LR
 ```
 
 **Rules:**
+
 - Use `((NodeName))` for circle nodes
 - Keep relationship labels clear and readable
 - Use colors appropriately (current colors are fine)
@@ -548,6 +878,7 @@ image::images/query-tool-screenshot.png[Query Tool interface showing a Cypher qu
 ```
 
 **When to use imagery:**
+
 - Tool interfaces → Screenshots
 - Data models → Mermaid diagrams
 - Workflows → Flowcharts or numbered screenshots
@@ -559,12 +890,14 @@ image::images/query-tool-screenshot.png[Query Tool interface showing a Cypher qu
 **REQUIRED: Copy all relevant images and videos from the source lessons you're adapting.**
 
 **DO NOT:**
+
 - Skip images that exist in source lessons
 - Recreate screenshots that already exist
 - Describe visual content with text instead of showing the actual image
 - Omit videos that demonstrate key concepts
 
 **DO:**
+
 - Copy all images from source lesson directories
 - Copy all videos (or video references) from source lessons
 - Maintain the same image placement (inline, two-column, etc.)
@@ -572,6 +905,7 @@ image::images/query-tool-screenshot.png[Query Tool interface showing a Cypher qu
 - Note in OUTLINE.adoc which images to copy from which source
 
 **Image sources priority:**
+
 1. **First: Copy from source courses** - Always check source lessons for existing images/videos
 2. **Second: Use existing GraphAcademy assets** - Shared images, diagrams, screenshots
 3. **Third: Create new only if necessary** - Only when source doesn't have suitable visuals
@@ -606,6 +940,7 @@ video::https://cdn.graphacademy.neo4j.com/courses/[course]/[video].mp4["Video Ti
 **CRITICAL: Write for humans, not like an AI.**
 
 **AI Artifacts to AVOID:**
+
 - "Comprehensive understanding"
 - "Delve into"
 - "It's worth noting that"
@@ -614,6 +949,7 @@ video::https://cdn.graphacademy.neo4j.com/courses/[course]/[video].mp4["Video Ti
 - Bullet points that restate the same thing 3 different ways
 
 **Sales Language to AVOID:**
+
 - "Excel at" → Use "are well-suited for" or "provide benefits for"
 - "Best-in-class" → Use factual comparisons
 - "Revolutionary" or "game-changing" → Describe actual benefits
@@ -622,6 +958,7 @@ video::https://cdn.graphacademy.neo4j.com/courses/[course]/[video].mp4["Video Ti
 - Superlatives without evidence → Stick to demonstrable facts
 
 **DON'T - Wordy and verbose:**
+
 ```asciidoc
 [.slide]
 == Understanding the Fundamental Concepts of Relationships
@@ -635,6 +972,7 @@ connections between nodes.
 ```
 
 **DO - Concise and clear:**
+
 ```asciidoc
 [.slide]
 == How Relationships Work
@@ -649,11 +987,45 @@ Every relationship has three key parts:
 ```
 
 **Balance slide content:**
+
 - **Too wordy**: Paragraphs of 100+ words, multiple complex sentences, overexplanation
 - **Too sparse**: Single bullet point, no context, assumes too much knowledge
 - **Just right**: 2-4 clear sentences or 3-5 focused bullet points per slide
 
+**Explain examples fully - never be lazy:**
+
+**DON'T - Lazy list without explanation:**
+
+```asciidoc
+* Type: `PLACED`, `ORDERS`, `SUPPLIES`, `REPORTS_TO`
+```
+
+This is lazy! It just dumps examples without explaining what they mean.
+
+**DO - Explain what each example represents:**
+
+```asciidoc
+* Type describes the connection: `PLACED` (customer placed an order), `ORDERS` (order contains a product), `SUPPLIES` (supplier provides a product)
+```
+
+**Why this matters:**
+
+- Learners can't infer meaning from cryptic examples
+- Each example should teach, not just list
+- Show the pattern so they can create their own
+- Examples should be self-explanatory, not require guessing
+
+**When providing examples:**
+
+- ✅ Explain what each example means in context
+- ✅ Show the pattern: "VERB_PAST_TENSE for completed actions"
+- ✅ Connect to the domain: "in our Northwind data, customers PLACED orders"
+- ❌ Don't just list: "Examples: FOO, BAR, BAZ"
+- ❌ Don't assume learners will figure it out
+- ❌ Don't be lazy with comma-separated lists
+
 **Writing style checklist:**
+
 - ✅ Use "you will" not "you'll" or "we will"
 - ✅ Action-oriented headers in sentence case (not questions)
 - ✅ Conversational but professional tone
@@ -666,6 +1038,7 @@ Every relationship has three key parts:
 **Avoid sales language - use factual statements:**
 
 **DON'T - Sales language:**
+
 ```asciidoc
 Graph databases excel at handling connected data and provide amazing performance
 for complex queries. They seamlessly handle relationships and deliver powerful
@@ -673,6 +1046,7 @@ insights that are impossible with traditional databases.
 ```
 
 **DO - Factual, educational language:**
+
 ```asciidoc
 Graph databases are well-suited for connected data because they store relationships
 as first-class citizens. Traversing relationships is more efficient than JOIN
@@ -682,6 +1056,7 @@ operations, which can improve query performance for highly connected datasets.
 ### 9. Dataset References - Natural, Not Labeled
 
 **DON'T explicitly label the dataset repeatedly:**
+
 ```asciidoc
 In the Northwind Dataset, we have customers.
 The Northwind Dataset contains orders.
@@ -689,6 +1064,7 @@ We'll import The Northwind Dataset into Neo4j.
 ```
 
 **DO reference naturally:**
+
 ```asciidoc
 Northwind is a fictitious food company with customers, orders, and products.
 You'll import customer and order data from CSV files.
@@ -696,6 +1072,7 @@ This data represents a real business scenario.
 ```
 
 **Guidelines:**
+
 - First mention: "Northwind dataset" or "the Northwind data" (lowercase "dataset")
 - Subsequent mentions: "Northwind" or "this data" or "the data"
 - Don't use "The Northwind Dataset" as a proper noun repeatedly
@@ -706,6 +1083,7 @@ This data represents a real business scenario.
 **CRITICAL: Every tool mentioned must have a screenshot.**
 
 **Required screenshots:**
+
 - Aura Console dashboard
 - Instance creation flow
 - Data Importer interface (main view, mapping view, import preview)
@@ -714,6 +1092,7 @@ This data represents a real business scenario.
 - Instance management page
 
 **Screenshot guidelines:**
+
 - Use actual tool screenshots, not mock-ups
 - Crop to show relevant portions, not full screen
 - Add descriptive alt text
@@ -721,12 +1100,14 @@ This data represents a real business scenario.
 - Update screenshots if tools change
 
 **Where to place screenshots:**
+
 - Copy from source courses when appropriate
 - Take new screenshots when needed for workshop context
 - Store in `modules/X-module-name/lessons/Y-lesson-name/images/`
 - Use `.png` or `.jpg` format
 
 **Example image reference:**
+
 ```asciidoc
 [.slide.col-2]
 == Data Importer Interface
@@ -815,6 +1196,7 @@ In the next lesson, you will apply these concepts to the Northwind dataset.
 4. **Traceable** - Clear lineage for updates and maintenance
 
 **Guidelines for "learn more" links:**
+
 - Use natural language: "learn more", "deeper dive", "explore", "see the full course"
 - Link at the END of summary, not in the middle
 - Connect to learner's next step: "to master this...", "for production use...", "to go deeper..."
@@ -1573,6 +1955,7 @@ Once outlines are approved, generate workshop content ONE LESSON AT A TIME:
    - Note examples to adapt
 
 3. **Read previous workshop lesson** (if not the first lesson)
+
    ```
    Read: asciidoc/courses/workshop-[slug]/modules/[X]/lessons/[Y-1]/lesson.adoc
    ```
@@ -1587,7 +1970,6 @@ Once outlines are approved, generate workshop content ONE LESSON AT A TIME:
    ⚠️ **CRITICAL: Review and apply ALL "Technical Requirements for Workshop Content" from the beginning of this document.**
 
    **Mandatory Technical Requirements (see full details above):**
-
    1. ✅ **Lead with problems, not solutions** - Start with what they'll build, not tools
    2. ✅ **Stay true to source material** - No hallucinations, only adapt existing content
    3. ✅ **Slide formatting** - Consistent [.slide] and [.slide.discrete] usage
@@ -1946,12 +2328,14 @@ After all lesson content is generated:
 5. **Check OUTLINE.adoc** files for documented image/video requirements
 
 **DO NOT:**
+
 - Skip images that exist in source lessons
 - Replace images with text descriptions
 - Assume an image isn't needed
 - Create new screenshots when source already has them
 
 **DO:**
+
 - Copy ALL images from every source lesson you adapted
 - Maintain the same visual quality and context
 - Update alt text to match workshop context if needed
@@ -1966,6 +2350,7 @@ After all lesson content is generated:
 - **Remove** only decorative diagrams that don't enhance understanding
 
 **Priority:**
+
 1. Copy from source first
 2. Convert to mermaid only if beneficial for graph diagrams
 3. Create new assets only when source has none
