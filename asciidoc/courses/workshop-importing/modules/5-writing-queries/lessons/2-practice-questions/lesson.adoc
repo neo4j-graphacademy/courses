@@ -1,0 +1,339 @@
+= Writing Queries - Practice Questions
+:type: challenge
+:order: 2
+:duration: 20
+
+[.slide.discrete]
+== Introduction
+
+Now that you understand how Cypher queries work, it's time to practice! This lesson contains business questions for you to answer with Cypher.
+
+**Try to write each query yourself before looking at the answer.**
+
+
+[.slide]
+== Question 1: High-Value Products
+
+**Business Question:** Which products cost more than $50?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (p:Product)
+WHERE p.unitPrice > 50
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+----
+
+**Explanation:**
+* Anchor on all Products
+* Filter by price > $50
+* Return name and price
+* Sort by price (highest first)
+====
+
+
+[.slide]
+== Question 2: Customer Order Count
+
+**Business Question:** How many orders has each customer placed?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+RETURN c.companyName, count(o) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10;
+----
+
+**Explanation:**
+* Pattern: Customer → Order
+* Count orders per customer
+* Sort by most orders
+* Show top 10
+====
+
+
+[.slide]
+== Question 3: Products in Low Stock
+
+**Business Question:** Which products have less than 10 units in stock?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (p:Product)
+WHERE p.unitsInStock < 10
+RETURN p.productName, p.unitsInStock, p.unitPrice
+ORDER BY p.unitsInStock;
+----
+
+**Explanation:**
+* Anchor on Products
+* Filter by stock level
+* Return product details
+* Sort by stock (lowest first)
+====
+
+
+[.slide]
+== Question 4: Customer's Product List
+
+**Business Question:** What products did customer ANTON buy?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer {customerId: 'ANTON'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN DISTINCT p.productName
+ORDER BY p.productName;
+----
+
+**Explanation:**
+* Anchor on ANTON
+* Follow PLACED → CONTAINS
+* Return distinct products (they may have ordered same product multiple times)
+* Sort alphabetically
+====
+
+
+[.slide]
+== Question 5: Most Popular Products
+
+**Business Question:** Which products have been ordered the most times?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (:Order)-[r:CONTAINS]->(p:Product)
+RETURN p.productName, sum(r.quantity) AS totalQuantity
+ORDER BY totalQuantity DESC
+LIMIT 10;
+----
+
+**Explanation:**
+* Pattern: Order → Product (with relationship variable)
+* Sum quantity across all orders
+* Sort by total quantity
+* Show top 10
+====
+
+
+[.slide]
+== Question 6: Customer Spending
+
+**Business Question:** Which customers have spent the most money?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)
+RETURN c.companyName, sum(r.quantity * r.unitPrice) AS totalSpent
+ORDER BY totalSpent DESC
+LIMIT 10;
+----
+
+**Explanation:**
+* Pattern: Customer → Order → Product
+* Calculate spending: quantity × price
+* Sum across all purchases
+* Sort by highest spending
+* Top 10 customers
+====
+
+
+[.slide]
+== Question 7: Products Never Ordered
+
+**Business Question:** Which products have never been ordered?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (p:Product)
+WHERE NOT EXISTS((p)<-[:CONTAINS]-())
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+----
+
+**Explanation:**
+* Anchor on all Products
+* Filter: WHERE NOT EXISTS checks if pattern exists
+* Pattern `(p)<-[:CONTAINS]-()` means "any order contains this product"
+* Return products where this pattern does NOT exist
+* Sort by price
+====
+
+
+[.slide]
+== Question 8: Orders on a Specific Date
+
+**Business Question:** What orders were placed on July 4, 1996?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+WHERE o.orderDate = '1996-07-04'
+RETURN c.companyName, o.orderId, o.shipCountry
+ORDER BY c.companyName;
+----
+
+**Explanation:**
+* Pattern: Customer → Order
+* Filter by order date
+* Return customer and order details
+* Sort by company name
+====
+
+
+[.slide]
+== Question 9: Customer's Favorite Product
+
+**Business Question:** What is ALFKI's most frequently ordered product?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)
+RETURN p.productName, sum(r.quantity) AS totalQuantity
+ORDER BY totalQuantity DESC
+LIMIT 1;
+----
+
+**Explanation:**
+* Anchor on ALFKI
+* Follow to products
+* Sum quantities across all orders
+* Sort descending
+* LIMIT 1 gives top result
+====
+
+
+[.slide]
+== Question 10: Customers from Same Country
+
+**Business Question:** How many customers are from each country?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (c:Customer)
+RETURN c.country, count(c) AS customerCount
+ORDER BY customerCount DESC;
+----
+
+**Explanation:**
+* Anchor on all Customers
+* Group by country (implicit)
+* Count customers per country
+* Sort by highest count
+====
+
+
+[.slide]
+== Question 11: Average Order Value
+
+**Business Question:** What is the average value of all orders?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (o:Order)-[r:CONTAINS]->(:Product)
+WITH o, sum(r.quantity * r.unitPrice) AS orderTotal
+RETURN avg(orderTotal) AS averageOrderValue;
+----
+
+**Explanation:**
+* Pattern: Order → Product
+* WITH clause: calculate total per order first
+* Then calculate average across all order totals
+* Returns single value
+====
+
+
+[.slide]
+== Question 12: Products Bought Together
+
+**Business Question:** What products are frequently bought with Chai?
+
+[%collapsible]
+====
+**Answer:**
+
+[source,cypher]
+----
+MATCH (p1:Product {productName: 'Chai'})<-[:CONTAINS]-(o:Order)-[:CONTAINS]->(p2:Product)
+WHERE p1 <> p2
+RETURN p2.productName, count(o) AS timesBoughtTogether
+ORDER BY timesBoughtTogether DESC
+LIMIT 10;
+----
+
+**Explanation:**
+* Anchor on Chai
+* Find orders containing Chai
+* Find other products in same orders
+* WHERE p1 <> p2 excludes Chai itself
+* Count how many orders had both
+* Top 10 combinations
+====
+
+
+[.summary]
+== Summary
+
+In this lesson, you practiced writing Cypher queries for:
+
+* **Filtering** - Find products by price, stock level
+* **Counting** - Count orders per customer, customers per country
+* **Aggregating** - Sum quantities, calculate spending
+* **Pattern matching** - Customer purchases, product co-purchases
+* **Negative patterns** - Find products never ordered
+* **Multi-hop traversals** - Customer → Order → Product
+* **Relationship properties** - Use quantity and price from CONTAINS
+
+**Key skills:**
+* Start with an anchor
+* Follow relationships
+* Filter with WHERE
+* Aggregate with count(), sum(), avg()
+* Sort and limit results
+
+In the next lesson, you'll build the complete recommendation query.
+
+read::Mark as completed[]

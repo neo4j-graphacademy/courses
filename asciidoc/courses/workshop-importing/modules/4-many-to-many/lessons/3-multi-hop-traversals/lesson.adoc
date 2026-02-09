@@ -1,13 +1,14 @@
-= Multi-Hop Traversals: The Foundation of Recommendations
+= Multi-Hop Traversals for Recommendations
 :type: lesson
 :order: 3
+:duration: 10
 
 // Original content - multi-hop traversal patterns
 
 [.slide.discrete]
 == Introduction
 
-You created ORDERS relationships and completed the Customer→Order→Product path. Now you'll see the full power of graph traversals.
+You created CONTAINS relationships and completed the Customer→Order→Product path. Now you'll see the full power of graph traversals.
 
 In this lesson, you will learn how to write multi-hop queries that would be nightmares in SQL but are natural in Cypher.
 
@@ -42,7 +43,7 @@ The fundamental query - traverse two hops:
 [source,cypher]
 .Products purchased by ALFKI
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:ORDERS]->(p:Product)  // (1)
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)  // (1)
 RETURN DISTINCT p.productName                                                         // (2)
 ORDER BY p.productName;                                                               // (3)
 ----
@@ -73,7 +74,7 @@ Traverse backward from product to customers:
 [source,cypher]
 .Customers who bought Chai
 ----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[:ORDERS]->(p:Product {productName: 'Chai'})  // (1)
+MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product {productName: 'Chai'})  // (1)
 RETURN DISTINCT c.companyName, c.city, c.country                                      // (2)
 ORDER BY c.companyName;                                                               // (3)
 ----
@@ -95,7 +96,7 @@ Aggregate relationship properties across the path:
 [source,cypher]
 .ALFKI's most ordered products
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)  // (1)
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // (1)
 RETURN p.productName,                                                                  // (2)
        sum(r.quantity) AS totalQuantity,                                               // (3)
        count(DISTINCT r) AS numberOfOrders,                                            // (4)
@@ -123,7 +124,7 @@ Find the most popular products across all customers:
 [source,cypher]
 .Top 10 most ordered products
 ----
-MATCH (:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(p:Product)  // (1)
+MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // (1)
 RETURN p.productName,                                           // (2)
        sum(r.quantity) AS totalQuantity,                        // (3)
        count(DISTINCT r) AS timesOrdered                        // (4)
@@ -149,7 +150,7 @@ Calculate total spending using relationship properties:
 [source,cypher]
 .Top spending customers
 ----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(:Product)  // (1)
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)  // (1)
 RETURN c.companyName,                                           // (2)
        sum(r.quantity * r.unitPrice) AS totalSpent,             // (3)
        count(DISTINCT r) AS itemsOrdered                        // (4)
@@ -178,9 +179,9 @@ Customer → Order → Product
 
 **To recommend products:**
 
-1. Find products I bought: `(me:Customer)-[:PLACED]->(:Order)-[:ORDERS]->(myProduct)`
-2. Find customers who bought those products: `(myProduct)<-[:ORDERS]-(:Order)<-[:PLACED]-(other:Customer)`
-3. Find what THEY bought that I haven't: `(other)-[:PLACED]->(:Order)-[:ORDERS]->(rec:Product)`
+1. Find products I bought: `(me:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct)`
+2. Find customers who bought those products: `(myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)`
+3. Find what THEY bought that I haven't: `(other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)`
 
 **You're one step away from the complete recommendation query!**
 
@@ -205,7 +206,7 @@ LIMIT 10;
 
 **Cypher (concise, fast):**
 ```cypher
-MATCH (c:Customer)-[:PLACED]->(:Order)-[r:ORDERS]->(:Product)
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)
 RETURN c.companyName,
        sum(r.quantity * r.unitPrice) AS totalSpent,
        count(DISTINCT r) AS itemsOrdered
