@@ -204,6 +204,128 @@ ORDER BY totalQuantity DESC;                                                    
 
 
 [.slide]
+== Indexes and Constraints: Query Performance
+
+**Indexes and constraints make your queries fast and data quality high.**
+
+**Without them:** Neo4j scans all nodes to find matches (slow)
+
+**With them:** Neo4j uses direct lookups (fast)
+
+
+[.slide]
+== Uniqueness Constraints
+
+**Ensure a property value is unique and create an automatic index:**
+
+[source,cypher]
+.Create constraint on productName
+----
+CREATE CONSTRAINT product_name_unique
+FOR (p:Product)
+REQUIRE p.productName IS UNIQUE;
+----
+
+**What this does:**
+* Prevents duplicate product names
+* Automatically creates an index on `productName`
+* Makes lookups instant: `O(1)` instead of `O(n)`
+
+**Use constraints for:** Entity IDs and unique identifiers
+
+
+[.slide]
+== How Constraints Improve CONTAINS Queries
+
+**Query without constraint:**
+
+[source,cypher]
+----
+MATCH (:Order)-[:CONTAINS]->(p:Product {productName: 'Chai'})
+RETURN count(*);
+----
+
+Without constraint: **Scans all Product nodes** to find 'Chai'
+
+**Query with constraint:**
+
+Same query, but with `product_name_unique` constraint:
+* **Direct index lookup** to find 'Chai'
+* 100x+ faster on large datasets
+
+**The constraint makes finding products by name instant.**
+
+
+[.slide]
+== Common Constraints to Create
+
+[source,cypher]
+.Essential constraints for the workshop
+----
+// Product name uniqueness
+CREATE CONSTRAINT product_name_unique
+FOR (p:Product)
+REQUIRE p.productName IS UNIQUE;
+
+// Customer ID uniqueness
+CREATE CONSTRAINT customer_id_unique
+FOR (c:Customer)
+REQUIRE c.customerId IS UNIQUE;
+
+// Order ID uniqueness
+CREATE CONSTRAINT order_id_unique
+FOR (o:Order)
+REQUIRE o.orderId IS UNIQUE;
+----
+
+**Best practice:** Create constraints on properties you frequently use to find nodes.
+
+
+[.slide]
+== Indexes for Range Queries
+
+**For properties used in comparisons or sorting:**
+
+[source,cypher]
+.Create index on unitPrice
+----
+CREATE INDEX product_price_index
+FOR (p:Product)
+ON (p.unitPrice);
+----
+
+**Use case:**
+```cypher
+MATCH (p:Product)
+WHERE p.unitPrice < 20    // Index speeds up range queries
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice;     // Index speeds up sorting
+```
+
+**When to index:** Properties in WHERE clauses or ORDER BY
+
+
+[.slide]
+== Impact on Recommendation Query
+
+**The recommendation query benefits from constraints:**
+
+[source,cypher]
+----
+MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+----
+
+* `customerId` constraint → Instant Customer lookup
+* `productName` constraint → Fast Product identification
+
+**Without constraints:** Scans all Customers to find 'ALFKI'
+
+**With constraints:** Direct index lookup - 100x+ faster
+
+**Performance improvement is dramatic on large graphs!**
+
+
+[.slide]
 == The Query Building Process
 
 **When writing a query:**
@@ -224,6 +346,10 @@ ORDER BY totalQuantity DESC;                                                    
    - `RETURN p.productName, p.unitPrice`
    - `count()`, `sum()`, `ORDER BY`, `LIMIT`
 
+5. **Consider constraints and indexes** → For frequently queried properties
+   - Create constraints on unique identifiers
+   - Create indexes on properties used in WHERE/ORDER BY
+
 
 [.summary]
 == Summary
@@ -237,7 +363,10 @@ In this lesson, you learned how Cypher queries work:
 * **Aggregations** - Use `count()`, `sum()`, `avg()` to calculate results
 * **WHERE filtering** - Add conditions to filter nodes or relationships
 * **Relationship properties** - Access data on connections with `[r:TYPE]`
-* **Query pattern** - Anchor → Follow → Filter → Return
+* **Uniqueness constraints** - Ensure unique values and create automatic indexes
+* **Indexes** - Speed up lookups, range queries, and sorting
+* **Performance impact** - Constraints make CONTAINS queries 100x+ faster
+* **Query pattern** - Anchor → Follow → Filter → Return → Consider indexes
 
 In the next lesson, you'll practice writing queries to answer business questions.
 
