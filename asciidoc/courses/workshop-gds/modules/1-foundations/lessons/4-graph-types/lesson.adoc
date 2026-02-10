@@ -19,45 +19,76 @@ By the end of this lesson, you'll be able to:
 * Identify monopartite, bipartite, multipartite, and heterogeneous graph structures
 * Choose appropriate projection strategies based on your target algorithm
 
-[.slide]
+[.slide.col-2]
 == Running a Cypher Projection
 
 The most basic Cypher projection command looks like this:
 
+[.col]
+====
 [source,cypher,role=noplay nocopy]
 .Basic Cypher projection example
 ----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // Match these nodes and relationships
-WITH gds.graph.project(                           // Create a projection
-  'actors-graph',                                 // Name the projection
-  source,                                         // Use the source nodes identified in the previous MATCH statement
-  target                                          // Use the target nodes identified in the previous MATCH statement
-) AS g                                            // Name the graph `g`
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'actors-graph', // <3>
+  source, // <4>
+  target // <5>
+) AS g // <6>
 RETURN g.graphName AS graph,
       g.nodeCount AS nodes,
-      g.relationshipCount AS rels                 // Return the properties of the graph `g`
+      g.relationshipCount AS rels // <7>
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Match Actor nodes connected to Movie nodes via ACTED_IN relationships
+<2> Create a graph projection using the matched nodes
+<3> Name the projection `actors-graph`
+<4> Use the source nodes (Actors) from the MATCH statement
+<5> Use the target nodes (Movies) from the MATCH statement
+<6> Assign the resulting graph to variable `g`
+<7> Return the graph name, node count, and relationship count
+====
+
+[.slide.col-2]
 == Projecting Graph Models
 
 You are not limited to using the relationships available in the main graph. For example, you can use intermediate nodes in your MATCH statement to create new relationships that exist only in the projection.
 
+// This projection creates direct Actor-to-Actor relationships through shared movies.
+
+[.col]
+====
 [source,cypher,role=noplay nocopy]
 .Actor to actor collaboration
 ----
-MATCH (source:Actor)-[r:ACTED_IN]->               // Select source nodes
+MATCH (source:Actor)-[r:ACTED_IN]-> // <1>
         (:Movie)
-      <-[:ACTED_IN]-(target:Actor)                // Select the source nodes as the target nodes
-WITH gds.graph.project(                           // Create a projection
-  'actors-graph',                                 // Name the projection
-  source,                                         // Use the source nodes identified in the previous MATCH statement
-  target                                          // Use the target nodes identified in the previous MATCH statement
-) AS g                                            // Name the graph `g`
-RETURN g.graphName AS graph,
+      <-[:ACTED_IN]-(target:Actor) // <2>
+WITH gds.graph.project( // <3>
+  'actors-graph', // <4>
+  source, // <5>
+  target // <6>
+) AS g // <7>
+RETURN g.graphName AS graph, // <8>
       g.nodeCount AS nodes,
-      g.relationshipCount AS rels                 // Return the properties of the graph `g`
+      g.relationshipCount AS rels
 ----
+====
+
+[.col]
+====
+<1> Start with Actors who acted in movies
+<2> Find other Actors who acted in the same movies
+<3> Create a graph projection from the matched pattern
+<4> Name the projection `actors-graph`
+<5> Use the first set of Actors as source nodes
+<6> Use the second set of Actors as target nodes
+<7> Assign the resulting graph to variable `g`
+<8> Return the metadata and graph statistics
+====
 
 [.slide]
 == Actor to Actor Collaboration Graph
@@ -149,14 +180,20 @@ Two separate concepts:
 
 Your projection kept the bipartite *structure* but lost the *labels*.
 
-[.slide]
+[.slide.col-2]
 == Graph Structures: Monopartite
 
+[.col]
+====
 A **monopartite graph** has nodes that cannot be separated into distinct non-overlapping sets.
 
 Example: A social network where `(:Person)-[:FRIENDS_WITH]->(:Person)`
+====
 
+[.col]
+====
 image::images/social_network.png[A monopartite social network graph., width=50%]
+====
 
 [.transcript-only]
 ====
@@ -194,10 +231,15 @@ In a true multipartite structure, each set is non-overlapping.
 [.slide]
 == Graph Structures: Heterogeneous
 
+[.col]
+====
 A **heterogeneous graph** has multiple node types and/or relationship types, but nodes within the same type can connect to each other.
+====
 
+[.col]
+====
 image::images/heterogeneous_graph.png[The movie graph with Actor, Movie, User, and Genre nodes., width=50%]
-
+====
 [.transcript-only]
 ====
 Our full Movies dataset has Actors, Movies, Users, and Genres. Movies can connect to all node types, meaning the connections can overlap.
@@ -263,38 +305,145 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount
 This creates direct Actor-to-Actor connections through shared Movies. The Movies become invisible "bridges."
 ====
 
-[.slide]
+[.slide.col-2]
 == True Monopartite Result
 
+[.col]
+====
 The projected graph is now **monopartite**. All actors connect to other actors.
 
 There is no meaningful way of separating the nodes into non-overlapping sets.
+====
 
-image::images/kevin_and_ryan_acting_relationships_without_labels.png[Actors connected directly to each other.]
+[.col]
+====
+// image::images/kevin_and_ryan_acting_relationships_without_labels.png[Actors connected directly to each other.]
 
-[.slide]
+[source,mermaid]
+.Monopartite graph
+----
+%%{init: {
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "elk": {
+      "algorithm": "force",
+      "nodeSpacing": 20,
+      "edgeLength": 80
+    }
+  }
+}}%%
+
+graph TD
+
+%% Styles
+classDef small fill:#222,stroke:#222,stroke-width:0.5px,font-size:1px;
+classDef super fill:#444,stroke:#444,stroke-width:1.2px,font-size:1px;
+
+%% Super nodes
+S1(( )):::super
+S2(( )):::super
+
+%% Shared nodes
+A1(( )):::small
+A2(( )):::small
+A3(( )):::small
+A4(( )):::small
+A5(( )):::small
+
+%% S1-only
+A6(( )):::small
+A7(( )):::small
+A8(( )):::small
+A9(( )):::small
+A10(( )):::small
+A11(( )):::small
+A12(( )):::small
+A13(( )):::small
+A14(( )):::small
+A15(( )):::small
+A16(( )):::small
+A17(( )):::small
+A18(( )):::small
+A19(( )):::small
+A20(( )):::small
+A21(( )):::small
+A22(( )):::small
+A23(( )):::small
+A24(( )):::small
+A25(( )):::small
+A26(( )):::small
+A27(( )):::small
+
+%% S2-only
+A28(( )):::small
+A29(( )):::small
+A30(( )):::small
+A31(( )):::small
+A32(( )):::small
+A33(( )):::small
+A34(( )):::small
+A35(( )):::small
+A36(( )):::small
+A37(( )):::small
+A38(( )):::small
+A39(( )):::small
+A40(( )):::small
+A41(( )):::small
+A42(( )):::small
+A43(( )):::small
+A44(( )):::small
+A45(( )):::small
+A46(( )):::small
+A47(( )):::small
+A48(( )):::small
+A49(( )):::small
+A50(( )):::small
+
+%% Edges (springs)
+S1 --- A1 & A2 & A3 & A4 & A5
+S2 --- A1 & A2 & A3 & A4 & A5
+
+S1 --- A6 & A7 & A8 & A9 & A10 & A11 & A12 & A13 & A14 & A15 & A16 & A17 & A18 & A19 & A20 & A21 & A22 & A23 & A24 & A25 & A26 & A27
+S2 --- A28 & A29 & A30 & A31 & A32 & A33 & A34 & A35 & A36 & A37 & A38 & A39 & A40 & A41 & A42 & A43 & A44 & A45 & A46 & A47 & A48 & A49 & A50
+
+----
+
+====
+
+[.slide.col-2]
 == PageRank on Monopartite
 
+[.col]
+====
 Now PageRank can flow between nodes of the same type, producing meaningful importance rankings.
+====
 
+[.col]
+====
 image::images/no_rank_sink.png[a slightly transparent Movie node, no longer part of the graph, with a bunch of relationships crossing over it.]
-
-[.slide]
+====
+[.slide.col-2]
 == Monopartite Structures
 
+[.col]
+====
 Bear in mind, the projection **still** does not retain node labels.
 
 It is the graph **structure**, not its labels, that affects the algorithm's results.
+====
 
+[.col]
+====
 image::images/monopartite_model.png[A generic 'Node' connects to another generic 'Node' via a generic '__ALL__' relationship.]
+====
 
-[.slide]
+[.slide.col-2]
 == Preserve Labels
 
-For some algorithms, you will want to retain node labels.
+For some algorithms, you will want to retain node labels.  Use configuration to preserve labels:
 
-Use configuration to preserve labels:
-
+[.col]
+====
 [source,cypher,role=noplay nocopy]
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
@@ -302,46 +451,69 @@ WITH gds.graph.project(
   'actors-movies-labelled',
   source,
   target,
-  {
-    sourceNodeLabels: labels(source),
-    targetNodeLabels: labels(target),
-    relationshipType: type(r)
+  { // <1>
+    sourceNodeLabels: labels(source), // <2>
+    targetNodeLabels: labels(target), // <3>
+    relationshipType: type(r) // <4>
   },
   {}
 ) AS g
 RETURN g.graphName, g.nodeCount, g.relationshipCount
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Pass a configuration object to customize the projection
+<2> Preserve the labels from source nodes (Actor)
+<3> Preserve the labels from target nodes (Movie)
+<4> Preserve the relationship type (ACTED_IN)
+====
+
+[.slide.col-2]
 == When to Preserve Labels
 
+[.col]
+====
 **Preserve labels when:**
 
 * You need to filter algorithms by node type
 * Node type distinctions affect your analysis
+====
 
+[.col]
+====
 **Use default (unlabelled) when:**
 
 * You're projecting a true monopartite or bipartite subgraph
 * The algorithm ignores node labels (most do)
-
-[.slide]
+====
+[.slide.col-2]
 == Bipartite-Friendly Algorithm: Node Similarity
 
 Node Similarity compares nodes based on shared neighbours. It's *designed* for bipartite graphs.
 
+[.col]
+====
 [source,cypher,role=noplay nocopy]
 ----
 MATCH (source:User)-[r:RATED]->(target:Movie)
 WITH gds.graph.project(
   'user-rated-movie',
   source, target,
-  { sourceNodeLabels: labels(source),
-    targetNodeLabels: labels(target) },
+  { sourceNodeLabels: labels(source), // <1>
+    targetNodeLabels: labels(target) }, // <2>
   {}
 ) AS g
 RETURN g.graphName, g.nodeCount, g.relationshipCount
 ----
+====
+
+[.col]
+====
+<1> Preserve User labels so the algorithm can distinguish them
+<2> Preserve Movie labels so the algorithm can compare based on shared Movies
+====
 
 [.slide]
 == Node Similarity Result
