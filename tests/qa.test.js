@@ -494,6 +494,67 @@ describe("QA Tests", () => {
                   ).toBe(true);
                 });
 
+                it("should use local questions folder syntax (not parent directory references)", () => {
+                  // Find any question includes that reference parent directories
+                  const parentDirMatches = [
+                    ...lessonAdoc.matchAll(
+                      /include::\.\.\/.+\/questions\/([^\/\[\]]+\.adoc)\[/g,
+                    ),
+                  ];
+
+                  if (parentDirMatches.length > 0) {
+                    const badIncludes = parentDirMatches.map(
+                      (match) => match[0],
+                    );
+                    throw new Error(
+                      `Question includes should use "include::questions/..." syntax, not parent directory references. Found: ${badIncludes.join(", ")}`,
+                    );
+                  }
+                });
+
+                it("should include all questions from the questions folder and no non-existent questions", () => {
+                  // Skip this test if lesson is optional or has read button
+                  if (optional || hasReadButton) {
+                    return;
+                  }
+
+                  // Get all question file names from the questions folder
+                  const questionFiles = questionPaths.map(
+                    (path) => path.split(sep).reverse()[0],
+                  );
+
+                  // Find all question includes in the lesson content
+                  // Match both "include::questions/" and "include::./questions/"
+                  const includeMatches = [
+                    ...lessonAdoc.matchAll(
+                      /include::(?:\.\/)?questions\/([^\/\[\]]+\.adoc)\[/g,
+                    ),
+                  ];
+                  const includedQuestions = includeMatches.map(
+                    (match) => match[1],
+                  );
+
+                  // Check that all questions in the folder are included in the lesson
+                  const missingQuestions = questionFiles.filter(
+                    (file) => !includedQuestions.includes(file),
+                  );
+                  if (missingQuestions.length > 0) {
+                    throw new Error(
+                      `The following questions exist in the questions folder but are not included in the lesson: ${missingQuestions.join(", ")}`,
+                    );
+                  }
+
+                  // Check that all included questions exist in the folder
+                  const nonExistentQuestions = includedQuestions.filter(
+                    (file) => !questionFiles.includes(file),
+                  );
+                  if (nonExistentQuestions.length > 0) {
+                    throw new Error(
+                      `The following questions are included in the lesson but do not exist in the questions folder: ${nonExistentQuestions.join(", ")}`,
+                    );
+                  }
+                });
+
                 // TODO: Test all verify & solution cypher files
                 // if (type === 'challenge' && !optional) {
                 //     it('should contain a valid verify.cypher', async () => {
