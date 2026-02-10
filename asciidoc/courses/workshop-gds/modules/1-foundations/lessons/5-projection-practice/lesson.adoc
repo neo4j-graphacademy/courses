@@ -29,10 +29,10 @@ Your database has a bipartite structure: `(:Actor)-[:ACTED_IN]->(:Movie)`
 
 Transform this into a monopartite Actor-to-Actor network by connecting actors through shared movies.
 
-[source,cypher,role=noplay]
-----
-????
-----
+. Use `MATCH` to traverse from Actor through Movie to Actor
+. Use `gds.graph.project()` with the matched `source` and `target` nodes
+. Name the graph `actor-collab`
+. Return the graph statistics
 
 You have five minutes to try this. If you need help, pop a message in the chat.
 
@@ -41,17 +41,27 @@ You have five minutes to try this. If you need help, pop a message in the chat.
 This pattern traverses Movie nodes without capturing them, creating direct Actor-to-Actor connections. The result is a true monopartite graph where any actor can potentially connect to any other actor.
 ====
 
-[.slide]
+[.slide.col-2]
 == Exercise 1: Solution
 
-[source,cypher,role=noplay]
-----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
-WITH gds.graph.project('actor-collab', source, target) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
-----
+The following query traverses through Movie nodes without including them in `source` or `target`.
 
-The key insight: traverse *through* Movie nodes without including them in `source` or `target`.
+[.col]
+====
+[source,cypher,role=noplay nocopy]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+WITH gds.graph.project('actor-collab', source, target) AS g // <2>
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
+----
+====
+
+[.col]
+====
+<1> Match Actors connected through Movies, creating Actor-to-Actor pairs
+<2> Project a graph named 'actor-collab' using the matched source and target nodes
+<3> Return statistics about the created projection
+====
 
 [.slide]
 == Why This Works for PageRank
@@ -71,37 +81,62 @@ Run PageRank on the `actor-collab` graph in **write mode**, storing the result a
 
 Then query the database to find the top 10 actors by PageRank score.
 
-[source,cypher,role=noplay]
-----
-????
-----
+. Call `gds.pageRank.write()` with the graph name `actor-collab`
+. Set `writeProperty` to `pageRank`
+. Query actors where the `pageRank` property is not null
+. Order by score descending and limit to 10 results
 
 Try this on your own for five minutes.
 
-[.slide]
+[.slide.col-2]
 == Exercise 2: Solution
 
-**Step 1 — Run PageRank in write mode:**
+The first query runs PageRank on the actor-collab graph and stores the results in the database:
 
-[source,cypher,role=noplay]
+[.col]
+====
+[source,cypher,role=noplay nocopy]
 ----
-CALL gds.pageRank.write('actor-collab', {
-  writeProperty: 'pageRank'
+CALL gds.pageRank.write('actor-collab', { // <1>
+  writeProperty: 'pageRank' // <2>
 })
-YIELD nodePropertiesWritten
+YIELD nodePropertiesWritten // <3>
 RETURN nodePropertiesWritten
 ----
+====
 
-**Step 2 — Query the results:**
+[.col]
+====
+<1> Run PageRank in write mode on the actor-collab projection
+<2> Store the PageRank score in a property named 'pageRank'
+<3> Return the count of properties written to the database
+====
 
-[source,cypher,role=noplay]
+[.slide.col-2]
+== Exercise 2: Solution (continued)
+
+The second query retrieves the top 10 actors by PageRank score:
+
+[.col]
+====
+[source,cypher,role=noplay nocopy]
 ----
-MATCH (a:Actor)
-WHERE a.pageRank IS NOT NULL
-RETURN a.name AS actor, a.pageRank AS score
-ORDER BY score DESC
-LIMIT 10
+MATCH (a:Actor) // <1>
+WHERE a.pageRank IS NOT NULL // <2>
+RETURN a.name AS actor, a.pageRank AS score // <3>
+ORDER BY score DESC // <4>
+LIMIT 10 // <5>
 ----
+====
+
+[.col]
+====
+<1> Match all Actor nodes
+<2> Filter to actors with a PageRank score
+<3> Return the actor name and their PageRank score
+<4> Order by score from highest to lowest
+<5> Return only the top 10 results
+====
 
 [.slide]
 == Examine the Results
@@ -118,32 +153,44 @@ Compare this to the bipartite structure where PageRank produced nearly identical
 
 Create a monopartite Movie-to-Movie network by connecting movies through shared actors.
 
-[source,cypher,role=noplay]
-----
-????
-----
+. Use `MATCH` to traverse from Movie through Actor to Movie
+. Use `gds.graph.project()` with the matched `source` and `target` nodes
+. Name the graph `movie-collab`
+. Return the graph statistics
 
-[.slide]
+[.slide.col-2]
 == Exercise 3: Solution
 
-[source,cypher,role=noplay]
-----
-MATCH (source:Movie)<-[:ACTED_IN]-(:Actor)-[:ACTED_IN]->(target:Movie)
-WITH gds.graph.project('movie-collab', source, target) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
-----
+The following query traverses through Actor nodes to connect Movies.
 
-Same pattern, reversed: traverse through Actor nodes to connect Movies.
+[.col]
+====
+[source,cypher,role=noplay nocopy]
+----
+MATCH (source:Movie)<-[:ACTED_IN]-(:Actor)-[:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project('movie-collab', source, target) AS g // <2>
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
+----
+====
+
+[.col]
+====
+<1> Match Movies connected through Actors, creating Movie-to-Movie pairs
+<2> Project a graph named 'movie-collab' using the matched source and target nodes
+<3> Return statistics about the created projection
+====
 
 [.slide]
 == Exercise 4: Labelled Bipartite Projection
 
 Create a bipartite projection of `(:User)-[:RATED]->(:Movie)`, preserving node labels.
 
-[source,cypher,role=noplay]
-----
-????
-----
+. Use `MATCH` to find Users and Movies connected by the `RATED` relationship
+. Use `gds.graph.project()` with configuration parameters
+. Set `sourceNodeLabels` to preserve User labels
+. Set `targetNodeLabels` to preserve Movie labels
+. Set `relationshipType` using the matched relationship
+. Return the graph statistics
 
 Try this by yourself for five minutes.
 
@@ -152,25 +199,38 @@ Try this by yourself for five minutes.
 The configuration parameters preserve the User and Movie labels. GDS now knows which nodes belong to which partition.
 ====
 
-[.slide]
+[.slide.col-2]
 == Exercise 4: Solution
 
-[source,cypher,role=noplay]
+[.col]
+====
+[source,cypher,role=noplay nocopy]
 ----
-MATCH (source:User)-[r:RATED]->(target:Movie)
+MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
 WITH gds.graph.project(
-  'user-movie-bipartite',
-  source,
-  target,
-  {
+  'user-movie-bipartite', // <2>
+  source, // <3>
+  target, // <4>
+  { // <5>
     sourceNodeLabels: labels(source),
     targetNodeLabels: labels(target),
     relationshipType: type(r)
   },
   {}
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 ----
+====
+
+[.col]
+====
+<1> Match Users connected to Movies via RATED relationships
+<2> Name the projection 'user-movie-bipartite'
+<3> Use User nodes as source
+<4> Use Movie nodes as target
+<5> Configure the projection to preserve node labels and relationship type
+<6> Return statistics about the created projection
+====
 
 [.slide]
 == What Have We Modelled?
@@ -200,23 +260,34 @@ Run Node Similarity on the `user-movie-bipartite` graph in **write mode**.
 
 Use `SIMILAR` as the relationship type and `score` as the property name.
 
-[source,cypher,role=noplay]
-----
-????
-----
+. Call `gds.nodeSimilarity.write()` with the graph name `user-movie-bipartite`
+. Set `writeRelationshipType` to `SIMILAR`
+. Set `writeProperty` to `score`
+. Return the comparison statistics
 
-[.slide]
+[.slide.col-2]
 == Exercise 5: Solution
 
-[source,cypher,role=noplay]
+[.col]
+====
+[source,cypher,role=noplay nocopy]
 ----
-CALL gds.nodeSimilarity.write('user-movie-bipartite', {
-  writeRelationshipType: 'SIMILAR',
-  writeProperty: 'score'
+CALL gds.nodeSimilarity.write('user-movie-bipartite', { // <1>
+  writeRelationshipType: 'SIMILAR', // <2>
+  writeProperty: 'score' // <3>
 })
-YIELD nodesCompared, relationshipsWritten
+YIELD nodesCompared, relationshipsWritten // <4>
 RETURN nodesCompared, relationshipsWritten
 ----
+====
+
+[.col]
+====
+<1> Run Node Similarity in write mode on the user-movie-bipartite projection
+<2> Create SIMILAR relationships between similar nodes
+<3> Store the similarity score as a 'score' property on the relationships
+<4> Return statistics about the nodes compared and relationships created
+====
 
 [.transcript-only]
 ====
