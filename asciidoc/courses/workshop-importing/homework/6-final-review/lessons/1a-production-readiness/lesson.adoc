@@ -1,0 +1,432 @@
+= When to Use Graphs and Production Readiness
+:type: lesson
+:order: 1
+:duration: 12
+
+[.slide.discrete]
+== Introduction
+
+You've built a complete graph database and learned to optimize queries. Before deploying to production, you need to understand when graph databases are the right choice and how to prepare for production use.
+
+In this lesson, you will learn when graphs excel, when they don't, and what makes a graph production-ready.
+
+
+[.slide]
+== When graphs excel
+
+**Concept:** Graph databases solve problems where relationships between entities are as important as the entities themselves.
+
+**Ideal use cases:**
+
+* **Recommendations** - Collaborative filtering, similar users, product suggestions
+* **Social networks** - Friends, followers, connections, influence
+* **Fraud detection** - Pattern matching across transactions and accounts
+* **Network analysis** - Dependencies, impact analysis, pathfinding
+* **Knowledge graphs** - Entities and their complex relationships
+
+**Why graphs win:** Relationships are traversed directly (no JOINs), multi-hop queries stay fast, pattern matching is natural.
+
+
+[.slide]
+== Example - Recommendations in graphs vs SQL
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Find products similar customers bought (Cypher)
+----
+MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+MATCH (p)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+WHERE other <> me
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
+RETURN rec.productName, count(DISTINCT other) AS recommendedBy
+ORDER BY recommendedBy DESC
+LIMIT 10;
+----
+
+**Time complexity:** O(k) where k = connected data touched
+
+**In SQL (equivalent logic):**
+
+```sql
+-- Find my products (CTE 1)
+-- Find similar customers (CTE 2 with JOIN)
+-- Find their products (CTE 3 with JOINs)
+-- Exclude my products (subquery)
+-- Requires 6+ JOINs, 38 lines of code
+```
+
+**Time complexity:** O(n × m) - scans and joins entire tables
+
+**Performance difference:** Graphs are 10-100x faster for connected data queries.
+
+
+[.slide]
+== When graphs struggle
+
+**Concept:** Graph databases are not optimized for problems where relationships don't matter or aggregations dominate.
+
+**Not ideal use cases:**
+
+**Heavy aggregations across unconnected data:**
+* "Sum all sales across all regions for the past 5 years"
+* "Calculate average revenue per product category globally"
+* Better in: Data warehouses (BigQuery, Snowflake, Redshift)
+
+**Simple CRUD operations:**
+* Storing user settings, application configuration
+* Basic create/read/update/delete with no relationships
+* Better in: Key-value stores (Redis) or document databases (MongoDB)
+
+**Time-series data:**
+* Sensor readings, stock prices, metrics over time
+* "Get average CPU usage per minute for last month"
+* Better in: Time-series databases (InfluxDB, TimescaleDB)
+
+**Binary large objects:**
+* Storing images, videos, PDF files
+* Better in: Object storage (S3, Azure Blob Storage)
+
+
+[.slide]
+== Comparing graph vs relational databases
+
+**On your Northwind graph:**
+
+[options="header"]
+|===
+| Query Type | Graph Performance | Relational Performance | Winner
+| "What products did ALFKI buy?" | Fast (1 traversal) | Fast (2 JOINs) | Tie
+| "Recommend products based on similar customers" | Fast (3 traversals) | Slow (6+ JOINs) | Graph
+| "Total revenue by region" | Slow (aggregate all) | Fast (GROUP BY) | Relational
+| "Shortest path between two customers" | Fast (built-in algorithm) | Very slow (recursive CTEs) | Graph
+| "Average product price" | Fast (simple aggregate) | Fast (simple aggregate) | Tie
+| "Find customers 3+ degrees away" | Fast (traversal) | Nearly impossible | Graph
+|===
+
+**Key insight:** If your queries involve 3+ JOINs or multi-hop relationships, consider a graph.
+
+
+[.slide]
+== Understanding polyglot persistence
+
+**Concept:** Most real applications use multiple database types, each for what it does best.
+
+**Example architecture:**
+
+```
+User Authentication → PostgreSQL (relational)
+  ├─ Reason: Simple CRUD, ACID guarantees
+
+Product Catalog → PostgreSQL (relational)
+  ├─ Reason: Structured data, inventory management
+
+Recommendations → Neo4j (graph)
+  ├─ Reason: Connected data, collaborative filtering
+
+User Activity Logs → Elasticsearch (search)
+  ├─ Reason: Full-text search, analytics
+
+Session Cache → Redis (key-value)
+  ├─ Reason: Fast reads/writes, TTL support
+
+Analytics Data → BigQuery (data warehouse)
+  └─ Reason: Large-scale aggregations, reporting
+```
+
+**This is normal and recommended!** Use the right tool for each job.
+
+
+[.slide]
+== Deciding when to use a graph
+
+**Choose a graph when:**
+
+✅ Your queries traverse relationships (2+ hops)
+
+✅ Relationships change frequently
+
+✅ You need to find patterns or paths
+
+✅ Schema evolves over time
+
+✅ Performance matters for connected queries
+
+**Stick with relational when:**
+
+✅ Simple CRUD operations dominate
+
+✅ Heavy aggregations are primary use case
+
+✅ Data is mostly tabular with few relationships
+
+✅ You need mature tooling and broad ecosystem
+
+✅ Team has deep SQL expertise
+
+
+[.slide]
+== Production readiness checklist
+
+**Concept:** Before deploying to production, ensure your graph is optimized, monitored, and maintainable.
+
+**Performance:**
+
+✅ **Constraints created** on all unique identifiers
+```cypher
+customerId, productId, orderId
+```
+
+✅ **Indexes created** on frequently filtered properties
+```cypher
+unitPrice, country, orderDate
+```
+
+✅ **Queries profiled** and optimized (no full scans)
+```cypher
+Use PROFILE to verify index usage
+```
+
+✅ **Load testing** completed with realistic data volume
+
+
+[.slide]
+== Data quality in production
+
+**Concept:** Ensure data integrity through proper import and validation processes.
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Check for orphaned orders (orders without customers)
+----
+MATCH (o:Order)
+WHERE NOT (o)<-[:PLACED]-(:Customer)
+RETURN count(o) AS orphanedOrders;
+----
+
+Expected: 0 orphaned orders
+
+[source,cypher]
+.Check for orphaned order items (orders without products)
+----
+MATCH (o:Order)-[r:CONTAINS]->()
+WHERE NOT EXISTS {
+  MATCH (o)-[:CONTAINS]->(p:Product)
+}
+RETURN count(r) AS orphanedItems;
+----
+
+Expected: 0 orphaned items
+
+**Best practice:** Run validation queries after imports to catch data quality issues early.
+
+
+[.slide]
+== Ensuring data integrity
+
+**Concept:** Use MERGE instead of CREATE for idempotent imports.
+
+**CREATE (can create duplicates):**
+```cypher
+CREATE (c:Customer {customerId: 'ALFKI', companyName: 'Alfreds Futterkiste'})
+// Run twice = 2 customers with same ID ❌
+```
+
+**MERGE (idempotent):**
+```cypher
+MERGE (c:Customer {customerId: 'ALFKI'})
+ON CREATE SET c.companyName = 'Alfreds Futterkiste', c.createdAt = datetime()
+ON MATCH SET c.updatedAt = datetime()
+// Run twice = 1 customer, updatedAt refreshed ✅
+```
+
+**Use MERGE when:**
+* Re-running import scripts
+* Updating existing data
+* Need idempotency guarantees
+
+
+[.slide]
+== Monitoring in production
+
+**Concept:** Track key metrics to ensure healthy database performance.
+
+**Metrics to monitor:**
+
+**Query performance:**
+* Average query duration
+* Slow queries (>1 second)
+* Queries per second
+
+**Resource usage:**
+* Memory utilization (heap, page cache)
+* CPU usage
+* Storage growth rate
+
+**Data health:**
+* Node counts by label
+* Relationship counts by type
+* Constraint violations
+
+
+[.slide]
+== Schema evolution in graphs
+
+**Concept:** Graphs are schema-flexible, but you still need a migration strategy.
+
+**Adding new node types:**
+
+[source,cypher]
+.Add Supplier nodes to existing graph
+----
+CREATE (s:Supplier {
+  supplierId: 'SUP001',
+  companyName: 'Exotic Liquids',
+  country: 'UK'
+});
+----
+
+**Adding new relationships:**
+
+[source,cypher]
+.Connect existing Products to Suppliers
+----
+MATCH (p:Product {productId: '1'})
+MATCH (s:Supplier {supplierId: 'SUP001'})
+MERGE (s)-[:SUPPLIES]->(p);
+----
+
+**Adding new properties:**
+
+[source,cypher]
+.Backfill featured flag on existing products
+----
+MATCH (p:Product)
+WHERE p.featured IS NULL
+SET p.featured = false;
+----
+
+
+[.slide]
+== Handling schema changes safely
+
+**Best practices:**
+
+**Test changes on a copy:**
+```
+1. Clone production database to staging
+2. Apply schema changes on staging
+3. Validate data integrity
+4. Test queries still work
+5. Deploy to production
+```
+
+**Make changes additive:**
+```
+✅ Add new properties (backward compatible)
+✅ Add new relationships (backward compatible)
+⚠️ Remove properties (breaks old queries)
+⚠️ Rename properties (breaks old queries)
+```
+
+**Version your data model:**
+```
+Add modelVersion property to track schema changes
+Use application logic to handle multiple versions
+```
+
+
+[.slide]
+== Backup and recovery
+
+**Concept:** Production databases need backup and recovery plans.
+
+**For Neo4j Aura:**
+* Continuous backups (automatic)
+* Point-in-time recovery available
+* Snapshots taken regularly
+
+**Best practices:**
+
+✅ Test restore process regularly
+
+✅ Document recovery procedures
+
+✅ Keep backup retention policy (30+ days)
+
+✅ Store backups in separate region
+
+**For self-hosted Neo4j:**
+* Use `neo4j-admin backup` command
+* Automate backup schedule
+* Test restores regularly
+
+
+[.slide]
+== Deployment checklist
+
+**Before deploying your graph to production:**
+
+**Performance:**
+* ✅ Constraints on all unique identifiers
+* ✅ Indexes on filtered/sorted properties
+* ✅ Queries profiled and optimized
+* ✅ Load tested with production-scale data
+
+**Data Quality:**
+* ✅ Import process uses MERGE for idempotency
+* ✅ Validation queries pass (no orphans)
+* ✅ Constraints prevent duplicate data
+
+**Operations:**
+* ✅ Monitoring configured
+* ✅ Backup strategy in place
+* ✅ Schema migration plan documented
+* ✅ Team trained on graph operations
+
+
+[.slide]
+== Next steps after this workshop
+
+**To continue learning:**
+
+**Build on Northwind:**
+* Add Suppliers and connect to Products
+* Add Employees and connect to Orders
+* Add Shippers and connect to Orders
+* Create more complex recommendation queries
+
+**Explore graph algorithms:**
+* Shortest path between customers
+* PageRank to find influential products
+* Community detection on customer segments
+
+**Learn graph data science:**
+* Predictive modeling on graph data
+* Link prediction (what will customers buy next?)
+* Anomaly detection for fraud
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned when to use graphs and how to prepare for production:
+
+* **Graph strengths** - Recommendations, social networks, fraud detection, pathfinding
+* **Graph weaknesses** - Heavy aggregations, simple CRUD, time-series, BLOBs
+* **Polyglot persistence** - Use multiple database types in one application
+* **Decision criteria** - Choose graphs when relationships and traversals dominate
+* **Production readiness** - Constraints, indexes, profiling, load testing
+* **Data quality** - Use MERGE for idempotency, validate with queries
+* **Monitoring** - Track query performance, resources, data health
+* **Schema evolution** - Add nodes/relationships/properties safely
+* **Backups** - Test restore process regularly
+* **Deployment checklist** - Performance, data quality, operations ready
+
+**Key takeaway:** Graph databases excel at connected data problems. Use them when relationships matter, combine with other databases for complete solutions, and follow best practices for production deployment.
+
+In the next lesson, you'll complete a knowledge check to test your understanding of everything you've learned in this workshop.
+
+read::Mark as completed[]

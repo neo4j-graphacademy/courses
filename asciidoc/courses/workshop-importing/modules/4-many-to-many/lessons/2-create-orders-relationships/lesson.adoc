@@ -7,7 +7,7 @@
 // Adapted: Focused on CONTAINS relationships with properties, pivot table transformation
 
 [.slide.discrete]
-== Challenge: Complete the Customer→Product Path
+== Complete the Customer→Product Path
 
 You learned how pivot tables become relationships. Now you will transform the `order_details` table into CONTAINS relationships.
 
@@ -57,7 +57,7 @@ You're about to connect Order to Product.
 
 
 [.slide]
-== Creating ORDERS relationship
+== Creating CONTAINS relationship
 
 Now create the relationship from Order to Product:
 
@@ -72,7 +72,7 @@ Now create the relationship from Order to Product:
 In the relationship details panel:
 
 **1. Set the type:**
-   - Type: `ORDERS` (verb, UPPER_SNAKE_CASE)
+   - Type: `CONTAINS` (verb, UPPER_SNAKE_CASE)
 
 **2. Map from file:**
    - From file: `order-details.csv`
@@ -88,7 +88,7 @@ In the relationship details panel:
 For each row in order-details.csv:
 * Find the Order with matching `orderId`
 * Find the Product with matching `productId`
-* Create an CONTAINS relationship between them
+* Create a CONTAINS relationship between them
 
 
 [.slide]
@@ -115,7 +115,7 @@ In the relationship properties section:
 
 
 [NOTE]
-.Relationship Properties Are Powerful
+.Storing Data on Relationships
 ====
 Relationship properties let you store data about the connection itself:
 
@@ -133,7 +133,7 @@ This eliminates the need for pivot tables entirely!
 Your canvas should now show:
 
 ```
-[Customer] -[:PLACED]-> [Order] -[:ORDERS {quantity, unitPrice}]-> [Product]
+[Customer] -[:PLACED]-> [Order] -[:CONTAINS {quantity, unitPrice}]-> [Product]
 ```
 
 **This is the complete path for recommendations!**
@@ -148,96 +148,7 @@ Your canvas should now show:
 4. Wait for completion
 
 
-[.slide]
-== Validating the import
-
-Open the Query tool and count the relationships:
-
-[source,cypher]
-.Count CONTAINS relationships
-----
-MATCH (o:Order)-[r:CONTAINS]->(p:Product)  // (1)
-RETURN count(r) AS ordersRelationships;  // (2)
-----
-
-<1> **Match pattern** - Find Order-Product connections
-<2> **Count** - How many CONTAINS relationships exist
-
-You should see **2,155 CONTAINS relationships** (the entire order_details table became relationships!).
-
-
-[.slide]
-== Testing the complete path
-
-Now the moment of truth - traverse from Customer to Product:
-
-[source,cypher]
-.What products has ALFKI bought?
-----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)  // (1)
-RETURN DISTINCT p.productName                                                         // (2)
-ORDER BY p.productName;                                                               // (3)
-----
-
-<1> **Two-hop traversal** - Customer through Order to Product (no JOINs!)
-<2> **Distinct products** - Eliminate duplicates (customer may buy same product multiple times)
-<3> **Sort** - Alphabetical order
-
-Click **Run** to see ALFKI's product purchases.
-
-**In SQL, this would require 3 JOINs:**
-```sql
-SELECT DISTINCT p.productName
-FROM customers c
-JOIN orders o ON c.customerID = o.customerID
-JOIN order_details od ON o.orderID = od.orderID
-JOIN products p ON od.productID = p.productID
-WHERE c.customerID = 'ALFKI'
-ORDER BY p.productName;
-```
-
-
-[.slide]
-== Step 11: Query Relationship Properties
-
-Access the relationship properties:
-
-[source,cypher]
-.What quantities did ALFKI order?
-----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)-[r:CONTAINS]->(p:Product)  // (1)
-RETURN p.productName,                                                                   // (2)
-       sum(r.quantity) AS totalQuantity,                                                // (3)
-       avg(r.unitPrice) AS avgPrice                                                     // (4)
-ORDER BY totalQuantity DESC;                                                            // (5)
-----
-
-<1> **Capture relationship** - Use variable `r` to access ORDERS properties
-<2> **Product name** - Group by product
-<3> **Sum quantity** - Total units across all orders
-<4> **Average price** - Average unit price paid
-<5> **Sort** - Most frequently ordered products first
-
-Click **Run** to see ALFKI's favorite products by quantity.
-
-
-[.slide]
-== Completing building block #3
-
-You now have the **complete Customer→Order→Product path**!
-
-**What you can do now:**
-
-* ✅ Find what products a customer bought (2 hops, no JOINs)
-* ✅ Find which customers bought a product (reverse traversal)
-* ✅ Aggregate quantities and prices from relationship properties
-* ✅ Count product popularity across orders
-
-**What's next:**
-
-* Find customers who bought similar products (bidirectional traversal)
-* Exclude products you already bought (negative patterns)
-* Complete the recommendation query
+include::questions/verify.adoc[leveloffset=+1]
 
 
 [.summary]
@@ -256,5 +167,3 @@ In this challenge, you transformed the pivot table into relationships:
 The pivot table is now gone - transformed into direct graph relationships. This is THE key advantage of graph databases for many-to-many relationships.
 
 In the next lesson, you will learn about multi-hop traversals and see how they compare to complex SQL queries.
-
-read::Proceed to next lesson[]

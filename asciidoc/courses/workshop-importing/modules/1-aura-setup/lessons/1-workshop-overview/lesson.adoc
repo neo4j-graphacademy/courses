@@ -52,16 +52,18 @@ image::images/northwind.webp[Northwind data model showing interconnected custome
 4. Exclude products I already own
 5. Rank by popularity among similar customers
 
-This is **collaborative filtering**—the algorithm behind Amazon, Netflix, and Spotify recommendations.
+This is **collaborative filtering**—the algorithm behind recommendation systems provided by the world's largest companies.
 
 These questions are about **relationships and connections**, not just individual records.
 
 
-[.slide]
+[.slide.col-2]
 == The relational database approach
 
 In SQL, the recommendation query requires **38 lines of code** with 7 JOINs and 3 Common Table Expressions:
 
+[.col]
+====
 [source,sql]
 .Product recommendations in SQL (simplified)
 ----
@@ -79,7 +81,10 @@ similar_customers AS (SELECT DISTINCT c2.customerID FROM customers c2
 -- Step 3: Find recommendations (3 more JOINs + subquery)
 -- ... 25 more lines of SQL ...
 ----
+====
 
+[.col]
+====
 **The problems:**
 
 * 38 lines of complex SQL
@@ -87,6 +92,43 @@ similar_customers AS (SELECT DISTINCT c2.customerID FROM customers c2
 * Multiple subqueries and CTEs
 * Performance degrades as data grows (O(n × m) complexity)
 * Hard to write, read, and maintain
+====
+
+[.slide.col-2]
+== Why graph databases?
+
+Graph databases store relationships as first-class citizens, making connected data queries natural and fast.
+
+[.col]
+====
+**The recommendation query in Cypher (11 lines):**
+
+[source,cypher]
+.Product recommendations
+----
+MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+WHERE other <> me
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
+  AND rec.unitsInStock > 0
+RETURN rec.productName, rec.unitPrice,
+       count(DISTINCT other) AS recommendedBy
+ORDER BY recommendedBy DESC
+LIMIT 10;
+----
+====
+
+[.col]
+====
+**The advantages:**
+
+* **11 lines** vs 38 lines SQL
+* **No JOINs**—direct relationship traversals
+* **80x faster**—O(k) vs O(n × m) complexity
+* **Readable**—reads like the problem statement
+* **Maintainable**—easy to modify and extend
+====
 
 [.slide]
 == What you'll build
@@ -118,9 +160,8 @@ Each module builds toward the recommendation query.
 * Graph fundamentals - nodes, relationships, properties
 * Identifying nodes vs properties
 * Import tool overview
-* Import Product nodes (required)
-* Optional: Import Customer, Order, and Category nodes
-* Optional: Import IN_CATEGORY relationships
+* Import nodes - Products, Customers, Orders, Categories
+
 
 [.slide]
 === Module 3: Modeling Relationships
@@ -128,15 +169,14 @@ Each module builds toward the recommendation query.
 * Understanding relationships - type, direction, properties
 * When to use direct relationships vs intermediate nodes
 * Discussion: Customer→Product vs Customer→Order→Product
-* Import PLACED relationships (Customer→Order)
-* Validate relationship traversals
+* Import relationships - Customer `PLACED` Order, Product `IN_CATEGORY` category.
+
 
 [.slide]
 === Module 4: Many-to-Many
 
 * Transform pivot table into relationships
-* Import CONTAINS relationships (Order→Product)
-* Complete Customer→Order→Product path
+* Import Product `CONTAINS` Order relationships
 * Multi-hop traversals for recommendations
 
 [.slide]
@@ -155,37 +195,6 @@ Each module builds toward the recommendation query.
 * Knowledge check quiz
 * Test your understanding of the workshop concepts
 
-
-[.slide]
-== Why graph databases?
-
-Graph databases store relationships as first-class citizens, making connected data queries natural and fast.
-
-
-**The recommendation query in Cypher (11 lines):**
-
-[source,cypher]
-.Product recommendations
-----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
-WHERE other <> me
-MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
-WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
-  AND rec.unitsInStock > 0
-RETURN rec.productName, rec.unitPrice,
-       count(DISTINCT other) AS recommendedBy
-ORDER BY recommendedBy DESC
-LIMIT 10;
-----
-
-**The advantages:**
-
-* **11 lines** vs 38 lines SQL
-* **No JOINs**—direct relationship traversals
-* **80x faster**—O(k) vs O(n × m) complexity
-* **Readable**—reads like the problem statement
-* **Maintainable**—easy to modify and extend
 
 
 [.slide]

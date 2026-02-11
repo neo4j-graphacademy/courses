@@ -8,219 +8,79 @@
 // Adapted: Focused on Customers, Orders, and PLACED relationships, connected to recommendation goal
 
 [.slide.discrete]
-== Challenge: Create Your First Relationships
+== Create Your First Relationships
 
-You learned about relationships and why they matter. Now you will import Customer and Order nodes and create PLACED relationships to connect them.
+You learned about relationships and why they matter.
 
-In this challenge, you will build the first part of the Customer→Order→Product path needed for recommendations.
-
-
-[.slide]
-== Downloading the CSV files
-
-Download both CSV files:
-
-* link:https://data.neo4j.com/northwind/customers.csv[customers.csv^] (91 customers)
-* link:https://data.neo4j.com/northwind/orders.csv[orders.csv^] (830 orders)
-
-**What's in these files?**
-
-**customers.csv** contains:
-* customerID, companyName, contactName, city, country, etc.
-
-**orders.csv** contains:
-* orderID, customerID (foreign key!), orderDate, shipCountry, etc.
-
-Notice that `orders.csv` has a `customerID` column - this is the foreign key we'll transform into a PLACED relationship.
+In this lesson, you will create the PLACED relationship between Customer and Order nodes.
 
 
 [.slide]
-== Opening data importer
+== Data source
 
-In your Aura instance, open the Data Importer tool (Import from left navigation).
+If you completed Module 2, you should already have Customer and Order nodes in your graph. Use the button below to load the data model:
 
-You should still see your Product node from the previous module. We'll add Customers and Orders to the same model.
+link:#[Load Northwind Data Files, role="btn"]
 
+If you need to create Customer and Order nodes, return to Module 2, Lessons 5 and 6.
 
-[.slide]
-== Uploading both CSV files
-
-1. Click *Add Data Source*
-2. Upload `customers.csv` - preview and continue
-3. Click *Add Data Source* again
-4. Upload `orders.csv` - preview and continue
-
-You should now see both files in the data sources panel.
+You should see your existing nodes (Product, Customer, Order) on the canvas.
 
 
 [.slide]
-== Creating Customer node
+== Create the PLACED relationship
 
-1. Click *Add Node*
-2. Set label to `Customer`
-3. Click *Map from file*
-4. Select `customers.csv`
-5. Map properties:
-   - `customerID` → `customerId` (String) - mark as ID property (key icon)
-   - `companyName` → `companyName` (String)
-   - `contactName` → `contactName` (String)
-   - `city` → `city` (String)
-   - `country` → `country` (String)
-6. You can map additional properties if desired (address, phone, etc.)
+Drag from the Customer node to the Order node:
+
+1. Hover your mouse over the Customer node - a grey circle with a green plus sign appears
+2. Click and drag your mouse to the Order node to create the relationship
+
 
 
 [.slide]
-== Creating Order node
+== Configure the relationship
 
-1. Click *Add Node*
-2. Set label to `Order`
-3. Click *Map from file*
-4. Select `orders.csv`
-5. Map properties:
-   - `orderID` → `orderId` (String) - mark as ID property (key icon)
-   - `orderDate` → `orderDate` (Date)
-   - `shipCountry` → `shipCountry` (String)
-   - `shipCity` → `shipCity` (String)
-6. **Important:** Also map `customerID` as a property for now - we'll use it to create relationships
+In the **Definition tab** on the right:
 
+1. **Set the type:** Enter `PLACED` as the relationship type
+2. **Select the table:** Under **Table**, select `orders.csv`
+3. **Configure From node:**
+   - Node: Customer
+   - Property: id (the Customer's ID property)
+   - Column: `customerID` (from orders.csv)
+4. **Configure To node:**
+   - Node: Order
+   - Property: id (the Order's ID property)
+   - Column: `orderID` (from orders.csv)
 
-[.slide]
-== Creating PLACED relationship
-
-Now create the relationship from Customer to Order:
-
-1. Click on the Customer node
-2. Drag from the Customer node to the Order node (or click *Add Relationship*)
-3. Set the relationship type to `PLACED`
-4. In the relationship mapping:
-   - **From:** Customer node, using `customerId` property
-   - **To:** Order node, using `customerId` property (from orders.csv)
-   - This tells Data Importer: "Match the customerID in orders.csv to the customerId in customers and create a relationship"
-
-
-[NOTE]
+[NOTE,role=transcript-only]
 .How Relationship Mapping Works
 ====
-The Data Importer uses the foreign key pattern:
+The Data Importer uses the foreign keys in orders.csv (`customerID` and `orderID`) to match existing nodes and create relationships.
 
-* Orders have a `customerID` column that references customers
-* Map: Customer.customerId (ID) → PLACED → Order.customerID (reference)
-* This creates: `(Customer)-[:PLACED]->(Order)` relationships
-
-The foreign key becomes a direct graph relationship!
+Each row in orders.csv will create one PLACED relationship.
 ====
 
 
 [.slide]
-== Reviewing your model
+== Run the import
 
-Your canvas should now show:
+Click the **Run Import** button to create the relationships. You will see a progress indicator while the import is running.
 
-```
-[Customer] -[:PLACED]-> [Order]
-
-[Product] (from previous module)
-```
-
-You haven't connected Orders to Products yet - that's Module 4!
+Once the import is complete, you will see a summary showing that **830 PLACED relationships** were created.
 
 
-[.slide]
-== Running the import
-
-1. Click *Run Import*
-2. The tool will:
-   - Create 91 Customer nodes
-   - Create 830 Order nodes
-   - Create 830 PLACED relationships
-3. Wait for completion
-
-
-[.slide]
-== Validating your import
-
-Open the Query tool and verify your data:
-
-[source,cypher]
-.Count customers and orders
-----
-MATCH (c:Customer)
-WITH count(c) AS customers
-MATCH (o:Order)
-RETURN customers, count(o) AS orders;
-----
-
-You should see **91 customers** and **830 orders**.
-
-Now verify the relationships:
-
-[source,cypher]
-.Count PLACED relationships
-----
-MATCH (c:Customer)-[r:PLACED]->(o:Order)
-RETURN count(r) AS placedRelationships;
-----
-
-You should see **830 PLACED relationships** (one per order).
-
-
-[.slide]
-== Testing traversal
-
-Now the fun part - traverse from a customer to their orders:
-
-[source,cypher]
-.Find orders for customer ALFKI
-----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)  // (1)
-RETURN c.companyName, o.orderId, o.orderDate                    // (2)
-ORDER BY o.orderDate                                             // (3)
-LIMIT 5;
-----
-
-<1> **Traverse relationship** - Follow PLACED from customer to their orders
-<2> **Return data** - Get customer name and order details
-<3> **Sort** - Order by date to see purchase history
-
-Click **Run** to see ALFKI's orders. You should see orders from "Alfreds Futterkiste" sorted by date.
-
-**✅ No JOINs needed!** You're traversing the graph directly.
-
-
-[.slide]
-== Completing building block #2
-
-You now have the Customer→Order path in your graph!
-
-**What you can do now:**
-
-* Find a customer's orders (no JOIN needed)
-* Find which customer placed an order (traverse backward)
-* Count how many orders each customer has placed
-
-**What you still need:**
-
-* Connect Orders to Products (the CONTAINS relationship)
-* Complete the Customer→Order→Product path
-* Make product recommendations
-
-The next module will add the critical Order→Product connection.
+include::questions/verify.adoc[leveloffset=+1]
 
 
 [.summary]
 == Summary
 
-In this challenge, you created your first relationships:
+In this lesson, you created your first relationships:
 
-* **Imported** Customer nodes (91) and Order nodes (830)
-* **Mapped** properties from customers.csv and orders.csv
 * **Created** PLACED relationships from Customer to Order (830 relationships)
-* **Used** the foreign key pattern - orders.customerID → relationship to Customer
-* **Validated** with count queries (91 customers, 830 orders, 830 relationships)
-* **Tested** traversal - found customer orders without JOINs
+* **Used** the foreign key pattern - orders.customerID matches Customer.id to create relationships
+* **Configured** relationship type, direction, and mapping in the Definition tab
+* **Dragged** from source node to target node to create the relationship line
 
-You now have the first half of the path needed for recommendations: Customer→Order. Next, you'll add Order→Product.
-
-In the next lesson, you will learn about graph traversals and see how they compare to SQL JOINs.
-
-read::Proceed to next lesson[]
+You now have the first half of the path needed for recommendations: Customer→Order. In Module 4, you'll add Order→Product to complete the path.
