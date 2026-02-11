@@ -1,0 +1,224 @@
+[.slide]
+== Understanding relationship cardinality
+
+**Cardinality** describes how many nodes can participate on each side of a relationship.
+
+While Neo4j doesn't enforce cardinality constraints, understanding these patterns helps you model correctly.
+
+**The three types:**
+
+* **One-to-Many** - One node connects to many nodes
+* **Many-to-One** - Many nodes connect to one node
+* **Many-to-Many** - Many nodes on both sides connect
+
+Let's see how Northwind uses each pattern.
+
+
+[.slide.col-2]
+== Modeling one-to-many relationships
+
+[.col]
+====
+**Pattern:** One Customer places many Orders
+
+[source,mermaid]
+....
+graph LR
+    C((Customer))
+    O1((Order 1))
+    O2((Order 2))
+    O3((Order 3))
+
+    C -->|PLACED| O1
+    C -->|PLACED| O2
+    C -->|PLACED| O3
+
+    style C fill:#4C8EDA
+    style O1 fill:#7CCFA9
+    style O2 fill:#7CCFA9
+    style O3 fill:#7CCFA9
+....
+
+**The relationship:**
+```
+(Customer)-[:PLACED]->(Order)
+```
+
+One Customer → Many Orders (one-to-many from Customer's perspective)
+====
+
+[.col]
+====
+**Query the pattern:**
+
+[source,cypher]
+.How many orders has each customer placed?
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+RETURN c.companyName,
+       count(o) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 5;
+----
+
+**Result:** Shows customers with the most orders.
+
+**Key insight:** One customer can have multiple outgoing PLACED relationships.
+====
+
+
+[.slide.col-2]
+== Modeling many-to-one relationships
+
+[.col]
+====
+**Pattern:** Many Orders placed by one Customer
+
+[source,mermaid]
+....
+graph LR
+    O1((Order 1))
+    O2((Order 2))
+    O3((Order 3))
+    C((Customer))
+
+    O1 -->|PLACED| C
+    O2 -->|PLACED| C
+    O3 -->|PLACED| C
+
+    style O1 fill:#7CCFA9
+    style O2 fill:#7CCFA9
+    style O3 fill:#7CCFA9
+    style C fill:#4C8EDA
+....
+
+**The same relationship, viewed backward:**
+```
+(Order)<-[:PLACED]-(Customer)
+```
+
+Many Orders ← One Customer (many-to-one from Order's perspective)
+====
+
+[.col]
+====
+**Query the pattern:**
+
+[source,cypher]
+.Which customer placed this order?
+----
+MATCH (o:Order {orderId: '10248'})<-[:PLACED]-(c:Customer)
+RETURN c.companyName, o.orderDate;
+----
+
+**Result:** The customer who placed order 10248.
+
+**Key insight:** Each order has exactly one incoming PLACED relationship (business rule: one customer per order).
+
+**Important:** Neo4j doesn't enforce this "one customer per order" rule - it's your responsibility to model correctly.
+====
+
+
+[.slide.col-2]
+== Modeling many-to-many relationships
+
+[.col]
+====
+**Pattern:** Many Orders contain many Products
+
+[source,mermaid]
+....
+graph LR
+    O1((Order 1))
+    O2((Order 2))
+    P1((Product A))
+    P2((Product B))
+
+    O1 -->|CONTAINS| P1
+    O1 -->|CONTAINS| P2
+    O2 -->|CONTAINS| P1
+    O2 -->|CONTAINS| P2
+
+    style O1 fill:#7CCFA9
+    style O2 fill:#7CCFA9
+    style P1 fill:#FCC644
+    style P2 fill:#FCC644
+....
+
+**The relationship:**
+```
+(Order)-[:CONTAINS]->(Product)
+```
+
+Many Orders → Many Products (both sides can have multiple connections)
+====
+
+[.col]
+====
+**Business reality:**
+
+* Order 10248 contains Chai, Chang, and Aniseed Syrup
+* Chai appears in orders 10248, 10250, 10251, etc.
+
+**Query the pattern:**
+
+[source,cypher]
+.Which orders contain Chai?
+----
+MATCH (p:Product {productName: 'Chai'})<-[:CONTAINS]-(o:Order)
+RETURN count(o) AS ordersWithChai;
+----
+
+**In relational databases:** You'd need a pivot table (`order_details`) to model this.
+
+**In Neo4j:** Direct relationships with properties (`quantity`, `unitPrice`).
+
+You'll create these CONTAINS relationships in Module 4.
+====
+
+
+[.slide]
+== Recognizing cardinality in your domain
+
+**Ask these questions when modeling:**
+
+**One-to-Many:**
+* Can this entity have multiple connections?
+* Example: One customer, many orders ✓
+
+**Many-to-One:**
+* Is this the reverse view of one-to-many?
+* Example: Each order belongs to one customer ✓
+
+**Many-to-Many:**
+* Can both sides have multiple connections?
+* Example: Orders contain products, products appear in orders ✓
+
+**Neo4j doesn't enforce cardinality** - you control it through your data import and application logic.
+
+
+[.slide]
+== Handling cardinality in practice
+
+**Enforcing "one-to-one" or "one-to-many":**
+
+Neo4j allows multiple relationships of the same type between nodes. If you need to enforce cardinality:
+
+**Option 1: Application logic**
+```
+Check before creating: Does this order already have a PLACED relationship?
+```
+
+**Option 2: Data model design**
+```
+Use relationship direction and naming to imply cardinality
+(Customer)-[:PLACED]->(Order)  // Implies one customer per order
+```
+
+**Option 3: Merge instead of create**
+```cypher
+// Only creates if relationship doesn't exist
+MERGE (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order {orderId: '10248'})
+```
+
+**Best practice:** Design your import to match business rules, but know Neo4j won't prevent violations.
