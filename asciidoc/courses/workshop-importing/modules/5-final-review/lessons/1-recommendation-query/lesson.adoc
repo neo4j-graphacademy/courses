@@ -49,20 +49,19 @@ Who else bought the same products?
 [source,cypher]
 .Customers with similar purchases
 ----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
-WHERE other <> me                                                                                // (3)
-RETURN other.name, count(DISTINCT myProduct) AS sharedProducts                           // (4)
-ORDER BY sharedProducts DESC                                                                     // (5)
-LIMIT 10;                                                                                        // (6)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (1)
+WHERE other <> me                                                                                // (2)
+RETURN other.name, count(DISTINCT myProduct) AS sharedProducts                           // (3)
+ORDER BY sharedProducts DESC                                                                     // (4)
+LIMIT 10;                                                                                        // (5)
 ----
 
-<1> **My products** - Forward traversal
-<2> **Similar customers** - Backward traversal from products
-<3> **Exclude me** - Don't include ALFKI
-<4> **Count shared** - How many products in common
-<5> **Sort** - Most similar first
-<6> **Top 10** - Most relevant
+<1> **Similar customers** - Backward traversal from products to find customers who bought same products
+<2> **Exclude me** - Don't include ALFKI in the results
+<3> **Count shared** - How many products in common
+<4> **Sort** - Most similar first
+<5> **Top 10** - Most relevant
 
 This finds customers with the most similar taste.
 
@@ -75,22 +74,17 @@ What did similar customers buy?
 [source,cypher]
 .Products similar customers bought
 ----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
-WHERE other <> me                                                                                // (3)
-MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (4)
-RETURN DISTINCT rec.name, count(DISTINCT other) AS recommendedBy                         // (5)
-ORDER BY recommendedBy DESC                                                                      // (6)
-LIMIT 10;                                                                                        // (7)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+WHERE other <> me
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (1)
+RETURN DISTINCT rec.name, count(DISTINCT other) AS recommendedBy                         // (2)
+ORDER BY recommendedBy DESC
+LIMIT 10;
 ----
 
-<1> **My products** - What I bought
-<2> **Similar customers** - Who bought same things
-<3> **Filter** - Exclude myself
-<4> **Their products** - Forward traversal again
-<5> **Count** - How many similar customers recommend this
-<6> **Sort** - Most popular first
-<7> **Top 10** - Best recommendations
+<1> **Their products** - Forward traversal from similar customers to find what they bought
+<2> **Count recommendations** - How many similar customers recommend each product
 
 **Problem:** This includes products ALFKI already bought!
 
@@ -103,24 +97,17 @@ Add a filter to exclude products I already own:
 [source,cypher]
 .Recommendations excluding my purchases
 ----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
-WHERE other <> me                                                                                // (3)
-MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (4)
-WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)                                           // (5)
-RETURN rec.name, count(DISTINCT other) AS recommendedBy                                  // (6)
-ORDER BY recommendedBy DESC                                                                      // (7)
-LIMIT 10;                                                                                        // (8)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+WHERE other <> me
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)                                           // (1)
+RETURN rec.name, count(DISTINCT other) AS recommendedBy
+ORDER BY recommendedBy DESC
+LIMIT 10;
 ----
 
-<1> **My products** - Anchor point
-<2> **Similar customers** - Find people like me
-<3> **Exclude me** - Filter out myself
-<4> **Their products** - What they bought
-<5> **Exclude my purchases** - WHERE NOT checks if path exists from me to product
-<6> **Return recommendations** - Product name and popularity score
-<7> **Sort** - Most recommended first
-<8> **Top 10** - Best results
+<1> **Exclude my purchases** - WHERE NOT checks if a path exists from me to the recommended product
 
 
 
@@ -138,21 +125,18 @@ WHERE other <> me
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
 WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
   AND rec.unitsInStock > 0                                                                       // (1)
-RETURN rec.name,                                                                          // (2)
-       rec.unitPrice,                                                                            // (3)
-       rec.unitsInStock,                                                                         // (4)
-       count(DISTINCT other) AS recommendedBy                                                    // (5)
-ORDER BY recommendedBy DESC, rec.unitPrice                                                       // (6)
-LIMIT 10;                                                                                        // (7)
+RETURN rec.name,
+       rec.unitPrice,                                                                            // (2)
+       rec.unitsInStock,                                                                         // (3)
+       count(DISTINCT other) AS recommendedBy
+ORDER BY recommendedBy DESC, rec.unitPrice                                                       // (4)
+LIMIT 10;
 ----
 
-<1> **Filter available** - Only in-stock products
-<2> **Product name** - What to recommend
-<3> **Price** - How much it costs
-<4> **Stock** - How many available
-<5> **Popularity score** - Number of similar customers who bought it
-<6> **Sort** - By popularity, then price
-<7> **Top 10** - Best recommendations
+<1> **Filter available** - Only show in-stock products
+<2> **Price** - Include unit price for each recommendation
+<3> **Stock level** - Show how many units are available
+<4> **Secondary sort** - Sort by popularity first, then by price
 
 
 [.slide]
