@@ -5,6 +5,7 @@
 ### ❌ DO NOT use colons in lesson titles
 
 **Bad:**
+
 ```asciidoc
 = Challenge: Import Categories
 = Optional: Practice Queries
@@ -13,6 +14,7 @@
 ```
 
 **Good:**
+
 ```asciidoc
 = Import Categories
 = Practice Queries
@@ -21,6 +23,7 @@
 ```
 
 **Why:**
+
 - The lesson metadata (`:type: challenge`, `:optional: true`) already indicates the lesson type
 - Colons interfere with parsing and navigation
 - Cleaner, more concise titles
@@ -45,6 +48,7 @@ The system will display "Optional" or "Challenge" badges based on metadata, not 
 Every concept should be immediately followed by an example using the workshop dataset.
 
 **Structure:**
+
 1. **Concept** - Introduce the idea
 2. **Example** - Demonstrate with Northwind data
 3. **Query** - Show Cypher that illustrates the concept
@@ -76,9 +80,11 @@ REQUIRE c.customerId IS UNIQUE;
 **CRITICAL RULE:** Lessons should have EITHER a verification question OR a read button, never both.
 
 #### When to use read:: button:
+
 - Use when the lesson does NOT have a verification question (no `verify::[]` macro)
 - Place BEFORE the `[.summary]` section
 - Example placement:
+
   ```asciidoc
   [.slide]
   == Final content slide
@@ -92,9 +98,11 @@ REQUIRE c.customerId IS UNIQUE;
   ```
 
 #### When NOT to use read:: button:
+
 - **DO NOT use when the lesson has a verification question** (`verify::[]` macro)
 - The verification question provides the progression mechanism
 - Example:
+
   ```asciidoc
   include::questions/verify.adoc[leveloffset=+1]
 
@@ -109,6 +117,7 @@ REQUIRE c.customerId IS UNIQUE;
 For challenge lessons that require database validation:
 
 1. **Create `questions/verify.adoc`** with this structure:
+
    ```asciidoc
    [.verify.slide]
    = Validate Import
@@ -131,6 +140,7 @@ For challenge lessons that require database validation:
    ```
 
 2. **Create `verify.cypher`** in the lesson root:
+
    ```cypher
    // For node verification:
    RETURN COUNT {(:NodeLabel)} > 0 AS outcome, 'There must be one or more (:NodeLabel) nodes in the database. Check your spelling, node labels are case sensitive.' AS reason
@@ -156,6 +166,7 @@ For challenge lessons that require database validation:
    **Important:** The solution should be the minimal code to pass verification, not the full import.
 
 4. **Include in lesson.adoc** BEFORE the summary:
+
    ```asciidoc
    include::questions/verify.adoc[leveloffset=+1]
 
@@ -207,6 +218,7 @@ button::Download Model Snapshot[role=NX_DOWNLOAD_FILE, file="snapshots/moduleX-l
 **Homework lessons:** Typically 10-25 minutes each
 
 **Per lesson targets:**
+
 - Theory lessons: 5-10 minutes
 - Import lessons: 10-15 minutes
 - Query lessons: 10-15 minutes
@@ -217,6 +229,7 @@ button::Download Model Snapshot[role=NX_DOWNLOAD_FILE, file="snapshots/moduleX-l
 ## File Structure
 
 ### Module Structure
+
 ```
 modules/
 └── X-module-name/
@@ -231,6 +244,7 @@ modules/
 ```
 
 ### Homework Structure
+
 ```
 homework/
 └── X-module-name/
@@ -242,6 +256,7 @@ homework/
 ```
 
 **Homework numbering:**
+
 - Use `1a`, `2a`, `3a` etc. to indicate homework extensions
 - Place in corresponding module folder
 - Follow same lesson structure as main modules
@@ -261,11 +276,13 @@ Every `lesson.adoc` must include:
 ```
 
 **Required fields:**
+
 - `type` - lesson, challenge, or quiz
 - `order` - numeric order within module
 - `duration` - estimated minutes
 
 **Optional fields:**
+
 - `optional` - marks as optional (true/false)
 
 ---
@@ -273,6 +290,7 @@ Every `lesson.adoc` must include:
 ## Writing Style
 
 ### DO:
+
 ✅ Use active voice ("Create a constraint" not "A constraint should be created")
 ✅ Use "you" to address students ("You will create..." not "Students will create...")
 ✅ Start with the concept, then show the example
@@ -281,8 +299,13 @@ Every `lesson.adoc` must include:
 ✅ Keep lessons focused on one main concept
 ✅ Use concrete, specific language that explains "how" and "what"
 ✅ Explain what will be done and what it will be used for (instead of saying "optional")
+✅ Use "tabular data" instead of "CSV data" (but keep filenames like "customers.csv")
+✅ Use **bold** when first defining a term
+✅ Use _italics_ for emphasis on a phrase
+✅ Use `backticks` for code and graph elements (labels, types, properties)
 
 ### DON'T:
+
 ❌ Use colons in lesson titles
 ❌ Use passive voice
 ❌ Introduce concepts without examples
@@ -292,6 +315,44 @@ Every `lesson.adoc` must include:
 ❌ Use empty buzzwords: "powerful", "elegant", "robust", "first-class citizens", "flexible", "scalable"
 ❌ Make vague statements that don't provide concrete information
 ❌ Call out "This lesson is optional" in lesson content - optional status is in metadata only
+❌ Use CAPITALS for emphasis - use **bold** for definitions, _italics_ for emphasis, `backticks` for code and graph elements
+
+---
+
+## Text Formatting
+
+### Bold, Italics, and Backticks
+
+**Use bold when first defining a term:**
+
+- A **graph database** stores data as nodes and relationships
+- A **large language model** is trained on text data
+- The **Data Importer** is a visual tool for importing data
+
+**Use italics for emphasis on phrases:**
+
+- This is _really important_ to understand
+- You _must_ complete step 1 before proceeding
+- The relationship direction does _not_ affect query performance
+
+**Use backticks for code and graph elements:**
+
+- Node labels: `Customer`, `Product`, `Order`
+- Relationship types: `PLACED`, `CONTAINS`, `IN_CATEGORY`
+- Property names: `id`, `name`, `date`
+- File names: `customers.csv`, `orders.csv`
+- Cypher keywords: `MATCH`, `RETURN`, `WHERE`
+
+**UI elements use bold (not backticks):**
+
+- Click the **Map from table** button
+- In the **Definition pane**, set the type
+- Click **Run Import** to execute
+
+**Never use CAPITALS for emphasis:**
+
+- ❌ This is VERY IMPORTANT
+- ✅ This is _very important_
 
 ---
 
@@ -312,6 +373,7 @@ RETURN c.companyName;                      // (2)
 ```
 
 ### Important notes:
+
 - Always include a descriptive title (`.Title`)
 - Add callouts for complex queries (`// (1)`, `// (2)`)
 - Explain each callout below the code block
@@ -322,11 +384,13 @@ RETURN c.companyName;                      // (2)
 ## Homework Guidelines
 
 **When to create homework:**
+
 - Content is valuable but extends beyond 2-hour workshop
 - Topic is advanced/optional
 - Provides deeper dive into workshop concepts
 
 **Homework structure:**
+
 - Must reference main module lessons as prerequisites
 - Should use same Northwind dataset
 - Include clear learning objectives
