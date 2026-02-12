@@ -178,6 +178,78 @@ For challenge lessons that require database validation:
 
 ---
 
+## Question Types
+
+Use the correct question type marker based on the question format:
+
+### Single/Multiple Choice Questions
+
+Use `[.question]` for standard multiple choice questions with checkboxes:
+
+```asciidoc
+[.question]
+= Question Title
+
+Question text here?
+
+- [ ] A. Wrong answer
+- [x] B. Correct answer
+- [ ] C. Wrong answer
+- [ ] D. Wrong answer
+
+[TIP,role=hint]
+.Hint
+====
+Hint text...
+====
+
+[TIP,role=solution]
+.Solution
+====
+**B is correct:** Explanation of why B is correct.
+
+Why others are wrong...
+====
+```
+
+**Important:**
+- Use `[.question]` for ALL multiple choice questions (single or multiple correct answers)
+- **DO NOT use `[.question.freetext]`** for multiple choice - freetext is only for open-ended text entry questions
+- Use `- [x]` to mark correct answers
+- Use `- [ ]` for incorrect answers
+
+### Fill-in-the-Blank Code Questions
+
+Use `[.question.select-in-source]` for code completion questions:
+
+```asciidoc
+[.question.select-in-source]
+= Complete the Cypher Query
+
+Complete the pattern to match Product nodes.
+
+[source,cypher,role=nocopy noplay]
+----
+MATCH (p/*select::Product*/)
+RETURN p.name
+----
+```
+
+### Database Verification Questions
+
+Use `[.verify.slide]` for hands-on challenges that check the database state:
+
+```asciidoc
+[.verify.slide]
+= Validate Import
+
+Once you have completed the import, click **Check Database** to verify.
+
+verify::[]
+```
+
+---
+
 ## Snapshot Instructions
 
 Every mandatory lesson should include a collapsible snapshot section for students who want to skip ahead or catch up.
