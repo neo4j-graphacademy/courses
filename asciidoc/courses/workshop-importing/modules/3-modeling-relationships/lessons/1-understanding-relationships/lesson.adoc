@@ -28,7 +28,14 @@ Every relationship has:
 
 
 [.slide]
-== Why relationships matter
+== Deciding what should be a relationship
+
+**Relationships represent connections** - associations between entities that already exist as nodes.
+
+**Think of relationships as verbs** - they describe actions or connections between nouns (Customer PLACED Order, Order CONTAINS Product).
+
+[.slide]
+== The problem with relational databases
 
 The irony is that relational databases do not handle relationships well. Foreign keys are backed by indexes, and joins are calculated at read-time. The larger the tables grow, the larger the indexes become, and the slower the queries become.
 
@@ -68,10 +75,10 @@ Each JOIN scans indexes and matches keys. With 3+ joins, performance degrades si
 ----
 MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)
       -[:CONTAINS]->(:Product)-[:IN_CATEGORY]->(cat:Category)
-RETURN DISTINCT cat.categoryName;
+RETURN cat.categoryName, count(*) AS productsOrdered;
 ----
 
-Neo4j uses an index to find the Customer node, then follows pointers directly through the connected nodes.
+Neo4j uses an index to find the Customer node, then follows pointers to relationships held in memory to complete the pattern.
 
 ====
 
@@ -116,26 +123,32 @@ The performance gap widens with scale.  With millions of records, the difference
 
 
 [.slide]
-== Understanding the PLACED relationship
+== Identifying Northwind relationships
 
-For recommendations, you need to know **who bought what**.
+Based on the decision criteria, these Northwind relationships connect your entities:
 
-The first step is connecting Customers to Orders with the PLACED relationship:
+* **PLACED** - Customer to Order (who placed which orders)
+* **IN_CATEGORY** - Product to Category (how products are organized)
+* **SUPPLIES** - Supplier to Product (who provides products)
+// * **CONTAINS** - Order to Product (what products are in each order)
 
-[source,mermaid]
-....
-graph LR
-    Customer((Customer)) -->|PLACED| Order((Order))
+Each of these relationships represents a connection between entities, has a natural direction, and will be traversed in queries.
 
-    style Customer fill:#4C8EDA
-    style Order fill:#7CCFA9
-....
+[.slide]
+== Analyzing PLACED as a relationship
+
+**PLACED** is a relationship in Northwind because:
+
+* **Connects two entities** - Links Customer (who) to Order (what), both of which exist independently
+* **Clear direction** - Customer PLACED Order makes natural sense; "Order PLACED Customer" does not
+* **Describes the connection** - Has properties like `orderDate` and `shipCountry` that belong to the act of placing
+* **Enables traversal** - You can follow PLACED to find "What orders did this customer place?" or "Who placed this order?"
 
 
 [.slide.col-2]
 == Querying relationship direction
 
-Every relationship has a direction, but you can query in **either direction**.
+Every relationship has a direction, but you can query in either direction, or omit the direction entirely.
 
 [.col]
 ====

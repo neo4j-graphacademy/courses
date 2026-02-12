@@ -1,12 +1,14 @@
 = Building the Recommendation Query
 :type: lesson
-:order: 3
+:order: 1
 :duration: 10
 
 [.slide.discrete]
 == Introduction
 
-You've practiced writing queries. Now you'll build the complete recommendation query that answers: **"What products do people like me buy, that I haven't bought yet?"**
+You've imported the nodes.  You've created the relationships.  You've practiced writing queries.
+
+Now you'll build the complete recommendation query that answers: **"What products do people like me buy, that I haven't bought yet?"**
 
 In this lesson, you will construct the recommendation algorithm step by step.
 
@@ -31,9 +33,9 @@ Start with what customer ALFKI has purchased:
 [source,cypher]
 .My purchase history
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
-RETURN DISTINCT myProduct.productName
-ORDER BY myProduct.productName;
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+RETURN DISTINCT myProduct.name
+ORDER BY myProduct.name;
 ----
 
 This finds all products ALFKI has ever bought.
@@ -47,10 +49,10 @@ Who else bought the same products?
 [source,cypher]
 .Customers with similar purchases
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
 WHERE other <> me                                                                                // (3)
-RETURN other.companyName, count(DISTINCT myProduct) AS sharedProducts                           // (4)
+RETURN other.name, count(DISTINCT myProduct) AS sharedProducts                           // (4)
 ORDER BY sharedProducts DESC                                                                     // (5)
 LIMIT 10;                                                                                        // (6)
 ----
@@ -73,11 +75,11 @@ What did similar customers buy?
 [source,cypher]
 .Products similar customers bought
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
 WHERE other <> me                                                                                // (3)
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (4)
-RETURN DISTINCT rec.productName, count(DISTINCT other) AS recommendedBy                         // (5)
+RETURN DISTINCT rec.name, count(DISTINCT other) AS recommendedBy                         // (5)
 ORDER BY recommendedBy DESC                                                                      // (6)
 LIMIT 10;                                                                                        // (7)
 ----
@@ -101,12 +103,12 @@ Add a filter to exclude products I already own:
 [source,cypher]
 .Recommendations excluding my purchases
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // (1)
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (2)
 WHERE other <> me                                                                                // (3)
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (4)
 WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)                                           // (5)
-RETURN rec.productName, count(DISTINCT other) AS recommendedBy                                  // (6)
+RETURN rec.name, count(DISTINCT other) AS recommendedBy                                  // (6)
 ORDER BY recommendedBy DESC                                                                      // (7)
 LIMIT 10;                                                                                        // (8)
 ----
@@ -130,13 +132,13 @@ Enrich with price and availability:
 [source,cypher]
 .Complete recommendations with details
 ----
-MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
 WHERE other <> me
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
 WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
   AND rec.unitsInStock > 0                                                                       // (1)
-RETURN rec.productName,                                                                          // (2)
+RETURN rec.name,                                                                          // (2)
        rec.unitPrice,                                                                            // (3)
        rec.unitsInStock,                                                                         // (4)
        count(DISTINCT other) AS recommendedBy                                                    // (5)
@@ -186,7 +188,7 @@ recommendations AS (
   WHERE od3.productID NOT IN (SELECT productID FROM my_products)
   GROUP BY od3.productID
 )
-SELECT p.productName, p.unitPrice, p.unitsInStock, r.recommendedBy
+SELECT p.name, p.unitPrice, p.unitsInStock, r.recommendedBy
 FROM recommendations r
 JOIN products p ON r.productID = p.productID
 WHERE p.unitsInStock > 0
@@ -217,7 +219,7 @@ LIMIT 10;
 
 **Modify the query:**
 
-1. Change customer ID to 'ANTON' or 'BOLID'
+1. Change customer ID to `'ANTON'` or `'BOLID'`
 2. Change LIMIT to see more recommendations
 3. Add price filter: `AND rec.unitPrice < 50`
 4. Remove stock filter to see all products
