@@ -1,0 +1,511 @@
+= SQL and Cypher: Query Efficiency Comparison
+:order: 3
+:type: lesson
+
+Comparing query performance: SQL JOINs vs Cypher traversals on Northwind data.
+
+
+[.slide]
+== Understanding the Performance Difference
+
+How SQL vs Cypher resolve relationships:
+
+[cols="1,2,2"]
+|===
+| Aspect | SQL (Relational) | Cypher (Graph)
+
+| Relationship Storage
+| Implicit (foreign keys)
+| Explicit (stored relationships)
+
+| Join Operation
+| Computed at query time using indexes
+| Pre-computed, direct pointer traversal
+
+| Performance Scaling
+| Degrades with data volume and JOIN count
+| Constant time per relationship hop
+
+| Index Dependency
+| Critical for JOIN performance
+| Less critical for traversals
+
+|===
+
+
+[.slide]
+== Query Comparison 1: Simple Lookup
+
+**Business Question:** Find all orders for customer "ALFKI"
+
+[.slide.discrete]
+=== SQL Approach
+
+[source,sql]
+----
+SELECT o.order_id, o.order_date, o.shipped_date
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+WHERE c.customer_id = 'ALFKI';
+----
+
+**How SQL executes this:**
+1. Look up customer 'ALFKI' using index on customer_id
+2. Scan orders table for matching customer_id (or use index)
+3. Join the results
+
+**Complexity:** O(log n) for indexed lookup + O(m) for matching orders
+
+
+=== Cypher Approach
+
+[source,cypher]
+----
+MATCH (c:Customer {customerID: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN o.orderID, o.orderDate, o.shippedDate;
+----
+
+**How Cypher executes this:**
+1. Look up customer 'ALFKI' using index on customerID
+2. Follow PLACED relationship pointers directly to Order nodes
+3. Return results
+
+**Complexity:** O(log n) for indexed lookup + O(k) where k is number of relationships (constant time per relationship)
+
+[.slide.discrete]
+=== Performance Comparison
+
+For this simple query, both perform similarly because:
+
+* Single JOIN in SQL
+* Single relationship hop in Cypher
+* Both benefit from indexes
+
+**Winner:** Tie for simple lookups
+
+
+[.slide]
+== Query Comparison 2: Multi-Table JOIN
+
+**Business Question:** Find all products ordered by customer "ALFKI" with their categories
+
+[.slide.discrete]
+=== SQL Approach (3 JOINs)
+
+[source,sql]
+----
+SELECT DISTINCT 
+    p.product_name,
+    cat.category_name,
+    p.unit_price
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN order_details od ON o.order_id = od.order_id
+JOIN products p ON od.product_id = p.product_id
+JOIN categories cat ON p.category_id = cat.category_id
+WHERE c.customer_id = 'ALFKI'
+ORDER BY cat.category_name, p.product_name;
+----
+
+**How SQL executes this:**
+1. Look up customer 'ALFKI'
+2. JOIN to orders (scan/index lookup)
+3. JOIN to order_details (scan/index lookup)
+4. JOIN to products (scan/index lookup)
+5. JOIN to categories (scan/index lookup)
+6. Apply DISTINCT and ORDER BY
+
+**Complexity:** Multiple index lookups and hash/merge joins
+
+[.slide.discrete]
+=== Cypher Approach
+
+[source,cypher]
+----
+MATCH (c:Customer {customerID: 'ALFKI'})-[:PLACED]->(o:Order)
+      -[:CONTAINS]->(p:Product)-[:IN_CATEGORY]->(cat:Category)
+RETURN DISTINCT p.productName, cat.categoryName, p.unitPrice
+ORDER BY cat.categoryName, p.productName;
+----
+
+**How Cypher executes this:**
+1. Look up customer 'ALFKI'
+2. Traverse PLACED relationships to Orders
+3. Traverse CONTAINS relationships to Products
+4. Traverse IN_CATEGORY relationships to Categories
+5. Apply DISTINCT and ORDER BY
+
+**Complexity:** Index lookup + direct pointer traversal (constant time per hop)
+
+[.slide.discrete]
+=== Performance Comparison
+
+As JOINs increase, SQL performance degrades while Cypher remains efficient:
+
+[cols="1,1,1"]
+|===
+| Metric | SQL | Cypher
+
+| Tables/Nodes involved
+| 5 tables
+| 4 node types
+
+| Join operations
+| 4 JOINs
+| 3 traversals
+
+| Index dependencies
+| Needs indexes on all join columns
+| Only needs index on starting node
+
+| Scaling behavior
+| Slower with more data
+| Consistent regardless of total data size
+
+|===
+
+**Winner:** Cypher - more efficient for multi-hop queries
+
+
+[.slide]
+== Query Comparison 3: Variable-Depth Traversal
+
+**Business Question:** Find the management chain for employee Nancy Davolio
+
+[.slide.discrete]
+=== SQL Approach (Recursive CTE)
+
+[source,sql]
+----
+WITH RECURSIVE management_chain AS (
+    -- Base case: start with Nancy
+    SELECT employee_id, first_name, last_name, reports_to, 1 as level
+    FROM employees
+    WHERE first_name = 'Nancy' AND last_name = 'Davolio'
+    
+    UNION ALL
+    
+    -- Recursive case: find managers
+    SELECT e.employee_id, e.first_name, e.last_name, e.reports_to, mc.level + 1
+    FROM employees e
+    JOIN management_chain mc ON e.employee_id = mc.reports_to
+)
+SELECT * FROM management_chain ORDER BY level;
+----
+
+**How SQL executes this:**
+1. Execute base query to find Nancy
+2. Iteratively execute recursive query until no more results
+3. Union all results
+4. Complex query plan with multiple iterations
+
+**Complexity:** O(n * d) where n is employees and d is hierarchy depth
+
+[.slide.discrete]
+=== Cypher Approach
+
+[source,cypher]
+----
+MATCH path = (e:Employee {firstName: 'Nancy', lastName: 'Davolio'})
+              -[:REPORTS_TO*]->(manager:Employee)
+RETURN e.firstName + ' ' + e.lastName AS employee,
+       [n IN nodes(path) | n.firstName + ' ' + n.lastName] AS chain,
+       length(path) AS levels;
+----
+
+**How Cypher executes this:**
+1. Find Nancy using index
+2. Traverse REPORTS_TO relationships to any depth
+3. Return path information
+
+**Complexity:** O(k) where k is the actual path length
+
+[.slide.discrete]
+=== Performance Comparison
+
+[cols="1,1,1"]
+|===
+| Metric | SQL | Cypher
+
+| Query complexity
+| Complex recursive CTE
+| Simple pattern with *
+
+| Execution model
+| Iterative with unions
+| Direct traversal
+
+| Depth handling
+| Must iterate for each level
+| Handles any depth naturally
+
+| Code readability
+| 15+ lines
+| 4 lines
+
+|===
+
+**Winner:** Cypher — simpler and more efficient for hierarchical queries (4 lines compared to 15+ lines)
+
+
+[.slide]
+== Query Comparison 4: Pattern Matching
+
+**Business Question:** Find customers who ordered the same products as customer "ALFKI"
+
+[.slide.discrete]
+=== SQL Approach
+
+[source,sql]
+----
+SELECT DISTINCT c2.customer_id, c2.company_name
+FROM customers c1
+JOIN orders o1 ON c1.customer_id = o1.customer_id
+JOIN order_details od1 ON o1.order_id = od1.order_id
+JOIN order_details od2 ON od1.product_id = od2.product_id
+JOIN orders o2 ON od2.order_id = o2.order_id
+JOIN customers c2 ON o2.customer_id = c2.customer_id
+WHERE c1.customer_id = 'ALFKI'
+  AND c2.customer_id != 'ALFKI'
+ORDER BY c2.company_name;
+----
+
+**How SQL executes this:**
+1. Find ALFKI's orders
+2. Find products in those orders
+3. Find other order_details with same products
+4. Find orders containing those details
+5. Find customers who placed those orders
+6. Exclude ALFKI
+
+**Complexity:** 5 JOINs with potential for large intermediate result sets
+
+[.slide.discrete]
+=== Cypher Approach
+
+[source,cypher]
+----
+MATCH (c1:Customer {customerID: 'ALFKI'})-[:PLACED]->(:Order)
+      -[:CONTAINS]->(p:Product)<-[:CONTAINS]-(:Order)<-[:PLACED]-(c2:Customer)
+WHERE c1 <> c2
+RETURN DISTINCT c2.customerID, c2.companyName
+ORDER BY c2.companyName;
+----
+
+**How Cypher executes this:**
+1. Find ALFKI
+2. Traverse to their ordered products
+3. Traverse back through other orders to other customers
+4. Filter out ALFKI
+
+**Complexity:** Direct bidirectional traversal
+
+[.slide.discrete]
+=== Performance Comparison
+
+[cols="1,1,1"]
+|===
+| Metric | SQL | Cypher
+
+| Join operations
+| 5 JOINs
+| 4 traversals (bidirectional)
+
+| Pattern clarity
+| Obscured by JOIN syntax
+| Visual pattern matching
+
+| Intermediate results
+| Large join products
+| Only relevant paths
+
+| Query intent
+| Hard to understand
+| Clear and readable
+
+|===
+
+**Winner:** Cypher - pattern matching is what graphs were built for
+
+
+[.slide]
+== Query Comparison 5: Aggregation with Relationships
+
+**Business Question:** Find the top 5 customers by total order value
+
+[.slide.discrete]
+=== SQL Approach
+
+[source,sql]
+----
+SELECT 
+    c.customer_id,
+    c.company_name,
+    COUNT(DISTINCT o.order_id) AS order_count,
+    SUM(od.unit_price * od.quantity * (1 - od.discount)) AS total_value
+FROM customers c
+JOIN orders o ON c.customer_id = o.customer_id
+JOIN order_details od ON o.order_id = od.order_id
+GROUP BY c.customer_id, c.company_name
+ORDER BY total_value DESC
+LIMIT 5;
+----
+
+[.slide.discrete]
+=== Cypher Approach
+
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order)-[item:CONTAINS]->(p:Product)
+WITH c, COUNT(DISTINCT o) AS orderCount,
+     SUM(item.unitPrice * item.quantity * (1 - item.discount)) AS totalValue
+ORDER BY totalValue DESC
+LIMIT 5
+RETURN c.customerID, c.companyName, orderCount, totalValue;
+----
+
+[.slide.discrete]
+=== Performance Comparison
+
+For aggregation queries, both databases perform similarly because:
+
+* Both must scan all relevant data
+* Both can use indexes for initial filtering
+* Aggregation computation is similar
+
+**Winner:** Tie for aggregation-heavy queries
+
+
+[.slide]
+== When SQL Outperforms Cypher
+
+SQL can be more efficient for:
+
+[cols="1,2"]
+|===
+| Scenario | Reason
+
+| Simple aggregations without relationships
+| No traversal benefit; relational optimization is mature
+
+| Bulk data operations
+| SQL batch operations can be highly optimized
+
+| Single-table queries
+| No relationship traversal needed
+
+| Complex mathematical computations
+| SQL has more mature numeric functions
+
+|===
+
+
+[.slide]
+== When Cypher Outperforms SQL
+
+Cypher excels at:
+
+[cols="1,2"]
+|===
+| Scenario | Reason
+
+| Multi-hop relationship queries
+| Direct traversal instead of multiple JOINs
+
+| Variable-depth paths
+| Native support instead of recursive CTEs
+
+| Pattern matching
+| Built-in pattern syntax instead of complex JOINs
+
+| Real-time recommendations
+| Fast traversal for "customers who bought X also bought Y"
+
+| Network/hierarchy analysis
+| Shortest path, centrality algorithms built-in
+
+|===
+
+
+[.slide]
+== Performance Summary
+
+[cols="1,1,1,1"]
+|===
+| Query Type | SQL Performance | Cypher Performance | Winner
+
+| Simple lookup
+| Fast
+| Fast
+| Tie
+
+| 2-3 table JOIN
+| Good
+| Good
+| Slight edge to Cypher
+
+| 4+ table JOIN
+| Degrades
+| Consistent
+| Cypher
+
+| Recursive/hierarchical
+| Complex, slow
+| Simple, fast
+| Cypher
+
+| Pattern matching
+| Very complex
+| Natural
+| Cypher
+
+| Bulk aggregation
+| Optimized
+| Good
+| Slight edge to SQL
+
+|===
+
+
+[.slide]
+== Organizing Query Examples in Neo4j Aura
+
+The Cypher queries in this lesson demonstrate common query patterns. Save them in Neo4j Aura for reference:
+
+* **Folder: `Query-Patterns-Simple`** - Save the simple lookup query from Query Comparison 1
+* **Folder: `Query-Patterns-Multi-Hop`** - Save the multi-hop traversal query from Query Comparison 2
+* **Folder: `Query-Patterns-Hierarchical`** - Save the variable-depth path query from Query Comparison 3
+* **Folder: `Query-Patterns-Matching`** - Save the pattern matching query from Query Comparison 4
+* **Folder: `Query-Patterns-Aggregation`** - Save the aggregation query from Query Comparison 5
+
+These queries serve as templates. Adapt them to your specific node labels and relationship types when working with other datasets.
+
+[TIP]
+.Bookmark the performance comparison table
+====
+Bookmark this lesson. The performance comparison table at the end summarizes when to use graph traversals versus when SQL-style aggregations may be more appropriate. This guidance applies beyond Northwind to any graph database project.
+====
+
+
+[.slide]
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-data-model.adoc[leveloffset=+1]
+
+include::questions/2-traversal.adoc[leveloffset=+1]
+
+
+[.slide]
+[.summary]
+== Summary
+
+In this lesson, you learned:
+
+* How SQL JOINs differ from Cypher traversals at a fundamental level
+* Query comparisons for simple lookups, multi-table JOINs, hierarchical queries, and pattern matching
+* When Cypher outperforms SQL (multi-hop, variable-depth, pattern matching)
+* When SQL may be preferable (simple aggregations, bulk operations)
+* How to choose the right query approach for your use case
+
+In the next lesson, you will find resources for continuing your learning journey.

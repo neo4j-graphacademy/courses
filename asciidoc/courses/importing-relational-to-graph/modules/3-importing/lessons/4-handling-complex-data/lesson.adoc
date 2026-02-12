@@ -1,0 +1,632 @@
+= Handling Complex Data Scenarios
+:order: 5
+:type: lesson
+
+This lesson shows how to handle: NULL values, data type mismatches, self-referencing relationships, large datasets, duplicate data, and many-to-many with extra properties.
+
+[NOTE]
+.Aura and Sandbox
+====
+The techniques in this lesson apply to both Neo4j Aura and the GraphAcademy Sandbox. For Cypher-based solutions, you can use:
+
+* **Aura**: The Query tool in your AuraDB instance
+* **Sandbox**: Neo4j Browser or the Query tab in Neo4j Workspace
+====
+
+
+[.slide]
+== Handling NULL Values
+
+Relational databases use NULL to represent missing or unknown values. When importing into Neo4j:
+
+* **Properties with NULL values are not created** - Neo4j does not store NULL properties
+* **Use COALESCE in Cypher** to provide default values if needed
+* **Decide what NULL means** — "Unknown" vs "not applicable" affects whether you omit, use a default, or use conditional logic
+
+[.slide.discrete]
+=== Example: Handling NULL Regions
+
+In the Northwind database, the `region` column is often NULL for non-US customers:
+
+[source,sql]
+----
+SELECT customer_id, company_name, region 
+FROM customers 
+WHERE region IS NULL;
+----
+
+When importing, choose one approach:
+
+. **Skip the property** - Let Neo4j omit it naturally (recommended if NULL means "not applicable")
+. **Use a default value** - Use COALESCE in Cypher to set region to "N/A" when NULL
+. **Use conditional logic** - Use CASE WHEN row.region IS NOT NULL THEN row.region END to omit the property when NULL
+
+
+[.slide]
+== Handling Data Type Mismatches
+
+Sometimes source data does not match expected types:
+
+[.slide.discrete]
+=== Mixed Data Types in Columns
+
+If a column contains mixed types (e.g., numbers and text):
+
+[source,sql]
+----
+-- Find non-numeric values in a supposedly numeric column
+SELECT postal_code FROM customers 
+WHERE postal_code !~ '^[0-9]+$';
+----
+
+Fix before or during import:
+
+* Import as String, then convert with `toInteger()` or `toFloat()` in follow-up queries
+* Clean in SQL (e.g. remove non-numeric rows) before export
+* Use `CASE WHEN` to route values to different properties
+
+[.slide.discrete]
+=== Date Format Variations
+
+Dates may be stored in different formats:
+
+[source,sql]
+----
+-- Check date formats
+SELECT DISTINCT TO_CHAR(order_date, 'YYYY-MM-DD') as formatted_date
+FROM orders
+LIMIT 10;
+----
+
+Convert to ISO format (YYYY-MM-DD) in SQL before export, or use `datetime(row.order_date)` in Cypher during import.
+
+
+[.slide]
+== Handling Self-Referencing Relationships
+
+The `employees` table has a self-referencing `reports_to` column for the management hierarchy.
+
+[.slide.discrete]
+=== Challenge: Order of Operations
+
+When creating `REPORTS_TO` relationships:
+
+. All Employee nodes must exist first
+. Then create the relationships
+
+This requires a two-pass import:
+
+**Pass 1: Create Employee nodes**
+[source,cypher,role=noplay]
+----
+LOAD CSV WITH HEADERS FROM 'file:///employees.csv' AS row
+CREATE (e:Employee {
+  employeeID: toInteger(row.employee_id),
+  firstName: row.first_name,
+  lastName: row.last_name
+})
+----
+
+**Pass 2: Create REPORTS_TO relationships**
+[source,cypher,role=noplay]
+----
+LOAD CSV WITH HEADERS FROM 'file:///employees.csv' AS row
+MATCH (e:Employee {employeeID: toInteger(row.employee_id)})
+MATCH (m:Employee {employeeID: toInteger(row.reports_to)})
+CREATE (e)-[:REPORTS_TO]->(m)
+----
+
+
+[.slide]
+== Handling Large Datasets
+
+For large imports, use batch processing:
+
+[.slide.discrete]
+=== Batch Processing
+
+Instead of importing all data at once, process in batches:
+
+[source,cypher,role=noplay]
+----
+:auto LOAD CSV WITH HEADERS FROM 'file:///large_file.csv' AS row
+CALL {
+  WITH row
+  CREATE (n:Node {id: row.id, name: row.name})
+} IN TRANSACTIONS OF 10000 ROWS
+----
+
+[.slide.discrete]
+=== Periodic Commit (Legacy)
+
+For older Neo4j versions:
+
+[source,cypher,role=noplay]
+----
+USING PERIODIC COMMIT 10000
+LOAD CSV WITH HEADERS FROM 'file:///large_file.csv' AS row
+CREATE (n:Node {id: row.id})
+----
+
+
+[.slide]
+== Handling Duplicate Data
+
+Relational data may contain duplicates that need handling:
+
+[.slide.discrete]
+=== Detecting Duplicates
+
+[source,sql]
+----
+-- Find duplicate company names
+SELECT company_name, COUNT(*) 
+FROM customers 
+GROUP BY company_name 
+HAVING COUNT(*) > 1;
+----
+
+[.slide.discrete]
+=== Strategies for Duplicates
+
+. **Merge duplicates** - Combine into a single node
+. **Keep all records** - Use a unique identifier to distinguish
+. **Clean before import** - Remove duplicates in the source
+
+
+[.slide]
+== Handling Many-to-Many with Additional Data
+
+When junction tables have extra columns beyond foreign keys, choose:
+
+. **Use relationship properties** - For simple additional data
+. **Create intermediate nodes** - For complex data or when you need to query the junction independently
+
+[.slide.discrete]
+=== Example: Order Details with Complex Data
+
+If `order_details` had shipment tracking, return status, and other complex data:
+
+[source]
+----
+// Option 1: Relationship properties (simple case)
+(Order)-[:CONTAINS {quantity: 10, unitPrice: 15.00}]->(Product)
+
+// Option 2: Intermediate node (complex case)
+(Order)-[:HAS_LINE_ITEM]->(OrderLine)-[:FOR_PRODUCT]->(Product)
+----
+
+
+[.slide]
+== Best Practices for Complex Data Import
+
+Best practices from real-world import projects:
+
+[TIP]
+.Bookmark the best practices checklist
+====
+Bookmark this section. These nine best practices serve as a reference checklist for any data import project you undertake in the future.
+====
+
+
+[.slide.discrete]
+=== Best Practice 1: Create Constraints Before Import
+
+Always create unique constraints before importing any data.
+
+[source,cypher,role=noplay]
+----
+// Create all constraints first
+CREATE CONSTRAINT customer_id IF NOT EXISTS
+FOR (c:Customer) REQUIRE c.customerID IS UNIQUE
+----
+
+[source,cypher,role=noplay]
+----
+CREATE CONSTRAINT order_id IF NOT EXISTS
+FOR (o:Order) REQUIRE o.orderID IS UNIQUE
+----
+
+[source,cypher,role=noplay]
+----
+CREATE CONSTRAINT product_id IF NOT EXISTS
+FOR (p:Product) REQUIRE p.productID IS UNIQUE
+----
+
+**Why this matters:**
+
+* Prevents duplicate nodes during import
+* Enables efficient MERGE operations
+* Creates indexes automatically for faster lookups
+* Catches data quality issues early
+
+[TIP]
+.Verify constraints before importing
+====
+Run `SHOW CONSTRAINTS` after creating them to verify they are in place before starting the import.
+====
+
+
+[.slide.discrete]
+=== Best Practice 2: Import in the Correct Order
+
+Follow this sequence for reliable imports:
+
+[cols="1,2,3"]
+|===
+| Step | Action | Reason
+
+| 1
+| Create constraints
+| Enable MERGE and prevent duplicates
+
+| 2
+| Import independent nodes first
+| Categories, Suppliers, Shippers (no foreign keys to other entities)
+
+| 3
+| Import dependent nodes
+| Products (needs Categories, Suppliers), Customers, Employees
+
+| 4
+| Import transaction nodes
+| Orders (needs Customers, Employees, Shippers)
+
+| 5
+| Create relationships
+| All referenced nodes must exist
+
+|===
+
+**Northwind Import Order:**
+
+[source]
+----
+// Step 2: Independent nodes
+LOAD CSV ... // Categories
+LOAD CSV ... // Suppliers  
+LOAD CSV ... // Shippers
+
+// Step 3: Dependent nodes
+LOAD CSV ... // Products (references Categories, Suppliers)
+LOAD CSV ... // Customers
+LOAD CSV ... // Employees
+
+// Step 4: Transaction nodes
+LOAD CSV ... // Orders (references Customers, Employees, Shippers)
+
+// Step 5: Relationships
+// PLACED, CONTAINS, IN_CATEGORY, SUPPLIES, REPORTS_TO, etc.
+----
+
+
+[.slide.discrete]
+=== Best Practice 3: Use MERGE for Idempotent Imports
+
+Make your imports re-runnable without creating duplicates:
+
+[source,cypher,role=noplay]
+----
+// Bad: Creates duplicates on re-run
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+CREATE (c:Customer {customerID: row.customer_id, companyName: row.company_name})
+----
+
+[source,cypher,role=noplay]
+----
+// Good: Idempotent - safe to re-run
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+MERGE (c:Customer {customerID: row.customer_id})
+SET c.companyName = row.company_name,
+    c.contactName = row.contact_name,
+    c.city = row.city,
+    c.country = row.country
+----
+
+**When to use MERGE and CREATE:**
+
+[cols="1,1,2"]
+|===
+| Command | Use When | Example
+
+| CREATE
+| First-time import with guaranteed unique data
+| Initial bulk load with clean data
+
+| MERGE
+| Re-runnable imports, incremental updates
+| Regular sync from source system
+
+| MERGE + ON CREATE/ON MATCH
+| Different behavior for new and existing
+| Update timestamps only on changes
+
+|===
+
+
+[.slide.discrete]
+=== Best Practice 4: Handle NULL Values Explicitly
+
+Do not let NULL values cause silent failures:
+
+[source,cypher,role=noplay]
+----
+// Bad: May fail silently or create unexpected results
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+MERGE (c:Customer {customerID: row.customer_id})
+SET c.region = row.region
+----
+
+[source,cypher,role=noplay]
+----
+// Good: Explicit NULL handling
+LOAD CSV WITH HEADERS FROM 'file:///customers.csv' AS row
+MERGE (c:Customer {customerID: row.customer_id})
+SET c.companyName = row.company_name,
+    c.region = CASE WHEN row.region IS NOT NULL AND row.region <> '' 
+                    THEN row.region 
+                    ELSE null END
+----
+
+**NULL Handling Strategies:**
+
+[cols="1,2,2"]
+|===
+| Strategy | When to Use | Implementation
+
+| Omit property
+| Value is truly optional
+| Use CASE to return null
+
+| Default value
+| Need consistent property for queries
+| Use COALESCE(row.field, 'Unknown')
+
+| Separate label
+| NULL indicates a category
+| Add label like :NoRegion
+
+|===
+
+
+[.slide.discrete]
+=== Best Practice 5: Validate Foreign Keys Before Creating Relationships
+
+Avoid creating relationships to non-existent nodes:
+
+[source,cypher,role=noplay]
+----
+// Bad: Silently fails if customer does not exist
+LOAD CSV WITH HEADERS FROM 'file:///orders.csv' AS row
+MATCH (c:Customer {customerID: row.customer_id})
+MATCH (o:Order {orderID: toInteger(row.order_id)})
+CREATE (c)-[:PLACED]->(o)
+----
+
+[source,cypher,role=noplay]
+----
+// Good: Log missing references
+LOAD CSV WITH HEADERS FROM 'file:///orders.csv' AS row
+OPTIONAL MATCH (c:Customer {customerID: row.customer_id})
+WITH row, c
+WHERE c IS NULL
+RETURN row.order_id AS orderWithMissingCustomer, row.customer_id AS missingCustomerID
+----
+
+**Pre-import validation query:**
+
+[source,cypher,role=noplay]
+----
+// Check for orphan foreign keys before import
+LOAD CSV WITH HEADERS FROM 'file:///orders.csv' AS row
+WITH row.customer_id AS custId
+WHERE NOT EXISTS ((c:Customer {customerID: custId}))
+RETURN DISTINCT custId AS missingCustomer
+----
+
+
+[.slide.discrete]
+=== Best Practice 6: Use Transactions for Related Data
+
+Keep related data consistent:
+
+[source,cypher,role=noplay]
+----
+// Import order and its details in one transaction
+:auto LOAD CSV WITH HEADERS FROM 'file:///orders_with_details.csv' AS row
+CALL {
+  WITH row
+  MERGE (o:Order {orderID: toInteger(row.order_id)})
+  SET o.orderDate = date(row.order_date)
+  
+  WITH o, row
+  MATCH (p:Product {productID: toInteger(row.product_id)})
+  MERGE (o)-[r:CONTAINS]->(p)
+  SET r.quantity = toInteger(row.quantity),
+      r.unitPrice = toFloat(row.unit_price)
+} IN TRANSACTIONS OF 1000 ROWS
+----
+
+
+[.slide.discrete]
+=== Best Practice 7: Log and Monitor Import Progress
+
+Track what is happening during import:
+
+[source,cypher]
+----
+// Before import: Record starting counts
+MATCH (n) 
+RETURN labels(n)[0] AS label, COUNT(*) AS beforeCount
+----
+
+[source,cypher]
+----
+// After import: Compare counts
+MATCH (n)
+RETURN labels(n)[0] AS label, COUNT(*) AS afterCount
+----
+
+[source,cypher]
+----
+// Check for import issues
+MATCH (o:Order)
+WHERE NOT EXISTS ((:Customer)-[:PLACED]->(o))
+RETURN COUNT(o) AS ordersWithoutCustomer
+----
+
+**Create an import log:**
+
+[source,cypher,role=noplay]
+----
+// Create import metadata node
+CREATE (i:ImportLog {
+  timestamp: datetime(),
+  source: 'northwind',
+  customersImported: 91,
+  ordersImported: 830,
+  status: 'COMPLETED'
+})
+----
+
+
+[.slide.discrete]
+=== Best Practice 8: Clean Up After Failed Imports
+
+If an import fails partway through:
+
+[source,cypher,role=noplay]
+----
+// Remove partially imported data (be careful!)
+// First, identify what was imported in the failed batch
+MATCH (n)
+WHERE n.importBatch = 'batch_2024_01_15'
+DETACH DELETE n
+----
+
+[source,cypher,role=noplay]
+----
+// Or remove nodes without expected relationships
+MATCH (o:Order)
+WHERE NOT EXISTS ((:Customer)-[:PLACED]->(o))
+DETACH DELETE o
+----
+
+[WARNING]
+.Backup before running DELETE operations
+====
+Always backup your database before running DELETE operations, especially DETACH DELETE which removes nodes and all their relationships.
+====
+
+
+[.slide.discrete]
+=== Best Practice 9: Document Your Import Process
+
+Create a runbook for your import:
+
+[source]
+----
+# Northwind Import Runbook
+
+## Prerequisites
+
+- [ ] PostgreSQL Northwind database running
+- [ ] Neo4j database accessible
+- [ ] CSV files exported to import directory
+
+## Step 1: Create Constraints
+Run: constraints.cypher
+Expected: 7 constraints created
+
+## Step 2: Import Categories
+Run: import-categories.cypher  
+Expected: 8 Category nodes
+
+## Step 3: Import Suppliers
+Run: import-suppliers.cypher
+Expected: 29 Supplier nodes
+
+... (continue for all steps)
+
+## Validation
+Run: validate-counts.cypher
+Run: validate-relationships.cypher
+Run: validate-sample-data.cypher
+----
+
+
+[.slide]
+== Organizing Your Queries
+
+=== In Neo4j Aura
+
+In the Aura Query tool, create folders to organize the import queries from this lesson. The folder names reflect the execution order:
+
+* **Folder: `01-Setup-Constraints`** - Save constraint creation queries (from Best Practice 1)
+* **Folder: `02-Import-Independent-Nodes`** - Save queries for Categories, Suppliers, Shippers
+* **Folder: `03-Import-Dependent-Nodes`** - Save queries for Products, Customers, Employees
+* **Folder: `04-Import-Transaction-Nodes`** - Save queries for Orders
+* **Folder: `05-Create-Relationships`** - Save relationship creation queries
+* **Folder: `06-Validation`** - Save count verification and integrity check queries
+* **Folder: `Maintenance-Cleanup`** - Save cleanup queries for failed imports (from Best Practice 8)
+* **Folder: `Maintenance-Monitoring`** - Save progress monitoring queries (from Best Practice 7)
+
+To create folders in Aura:
+
+. Open the Query tool
+. Click the **+** button next to "Saved Cypher"
+. Select **New Folder**
+. Name the folder and save queries inside it
+
+
+=== In GraphAcademy Sandbox
+
+If you are using the sandbox with Neo4j Browser:
+
+. Save queries using the **Favorites** feature (star icon)
+. Use descriptive names with prefixes (e.g., "01-Constraints", "02-Categories")
+. Export your favorites periodically as a backup
+
+This folder structure ensures you execute queries in the correct dependency order and can locate maintenance queries when needed.
+
+
+[.slide]
+== Best Practices Summary Checklist
+
+Use this checklist for every import:
+
+[%interactive]
+* [ ] Constraints created before import
+* [ ] Import order follows dependency chain
+* [ ] Using MERGE for idempotent imports
+* [ ] NULL values handled explicitly
+* [ ] Foreign keys validated before relationship creation
+* [ ] Related data imported in transactions
+* [ ] Import progress logged and monitored
+* [ ] Cleanup plan ready for failed imports
+* [ ] Import process documented
+
+
+[.slide]
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-null-values.adoc[leveloffset=+1]
+
+include::questions/2-best-practices.adoc[leveloffset=+1]
+
+
+[.slide]
+[.summary]
+== Summary
+
+In this lesson, you learned strategies for handling:
+
+* NULL values in source data
+* Data type mismatches
+* Self-referencing relationships
+* Large dataset imports
+* Duplicate data
+* Complex many-to-many relationships
+
+These techniques address the complexities of production data imports that simplified examples often omit.
