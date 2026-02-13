@@ -1,37 +1,46 @@
-= Practice multipartite projection
+= Practice bipartite projections
 :type: lesson
 :order: 7
+:sandbox: true
 
 [.transcript]
 == Introduction
 
-Now that you understand bipartite and multipartite graphs, it's time to practice creating projections that preserve multiple node types.
+Now that you understand the difference between graph *structure* and graph *labels*, and when to preserve labels in your projections, it's time to practice creating bipartite projections.
 
-In this lesson, you'll work with the Movies dataset to create various bipartite projections and run node similarity on them—the same algorithm you used in the previous lesson.
+In this lesson, you'll work with the Movies dataset to create various labelled bipartite projections and run Node Similarity on them—an algorithm specifically designed to work with bipartite structures.
 
 By the end of this lesson, you will be able to:
 
 * Create bipartite projections with preserved labels
-* Run node similarity on different bipartite structures
-* Understand how projection patterns affect algorithm results
+* Run Node Similarity on different bipartite structures
+* Understand how the bipartite structure determines what "similarity" means
+
+
+== Quick recap: Why preserve labels?
+
+In the previous lessons, you learned:
+
+* **Structure** = how nodes connect (bipartite: two non-overlapping sets with connections only between them)
+* **Labels** = what GDS knows about node types
+
+For Node Similarity, preserving labels matters because the algorithm compares nodes *within* each partition based on their shared connections *across* the partition. GDS needs to know which nodes belong to which partition.oan
 
 
 == The movies dataset
 
-Your database contains:
+Your database contains several bipartite structures:
 
-- `Actor` nodes with properties like `name` and `born`
-- `Movie` nodes with properties like `title` and `released`
-- `User` nodes with properties like `name`
-- `Genre` nodes with properties like `name`
-- `ACTED_IN` relationships (Actor -> Movie)
-- `RATED` relationships (User -> Movie)
-- `IN_GENRE` relationships (Movie -> Genre)
+- `(:User)-[:RATED]->(:Movie)` — Users rate Movies
+- `(:Actor)-[:ACTED_IN]->(:Movie)` — Actors appear in Movies
+- `(:Movie)-[:IN_GENRE]->(:Genre)` — Movies belong to Genres
+
+Each of these is naturally bipartite: one node type connects only to the other, never to itself.
 
 
-== Projection 1: User-movie bipartite
+== Projection 1: User-Movie bipartite
 
-Remember this projection you created in the previous lesson? Run this command again to create a bipartite user-movie network:
+Let's start with the User-Movie projection from the previous lesson. Run this command to create a labelled bipartite network:
 
 [source,cypher]
 .Project user-movie bipartite graph
@@ -59,33 +68,36 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 3. Name the projection 'user-movie'
 4. Include source (User) nodes
 5. Include target (Movie) nodes
-6. Preserve source node labels
-7. Preserve target node labels
-8. Preserve relationship types
+6. Preserve source node labels (User)
+7. Preserve target node labels (Movie)
+8. Preserve relationship type (RATED)
 9. Return projection statistics
 ====
 
-This projection creates:
+**What you've created:**
 
-- A bipartite network with User and Movie labels preserved
-- Users connected to movies through RATED relationships
-- A structure perfect for node similarity
+* A bipartite structure: Users connect to Movies, but Users never connect to other Users
+* Labels preserved: GDS knows which nodes are Users and which are Movies
+* Perfect for Node Similarity: the algorithm can compare Users based on shared Movie connections
+
+
+=== Running Node Similarity
 
 [IMPORTANT]
-.write()
+.write() mode
 ====
-In this lesson, you'll use `.write()` mode to persist algorithm results to your database. Module 3 will teach all execution modes in detail—for now, follow the patterns shown in each example.
+In this lesson, you'll use `.write()` mode to persist algorithm results to your database. This creates new relationships that you can query afterwards. Module 3 covers all execution modes in detail—for now, follow the patterns shown.
 ====
 
-Now run node similarity on this projection:
+Run Node Similarity on this projection:
 
 [source,cypher]
-.Run node similarity on user-movie
+.Run Node Similarity on user-movie
 ----
 CALL gds.nodeSimilarity.write( // <1>
   'user-movie', // <2>
   {
-    writeRelationshipType: 'SIMILAR', // <3>
+    writeRelationshipType: 'SIMILAR_USER', // <3>
     writeProperty: 'score' // <4>
   })
 YIELD nodesCompared, relationshipsWritten // <5>
@@ -94,21 +106,26 @@ YIELD nodesCompared, relationshipsWritten // <5>
 [TIP]
 .Algorithm breakdown
 ====
-1. Call node similarity algorithm in write mode
+1. Call Node Similarity algorithm in write mode
 2. Run on 'user-movie' projection
-3. Write new relationships with type 'SIMILAR'
+3. Write new relationships with type 'SIMILAR_USER'
 4. Write similarity scores as 'score' property
 5. Yield the number of nodes compared and relationships written
 ====
 
-Remember from the previous lesson: node similarity connects nodes on the same side of the bipartite graph.
+**How Node Similarity uses the bipartite structure:**
+
+1. It identifies the two partitions (Users and Movies)
+2. It compares nodes within each partition based on shared neighbours in the other partition
+3. Users who rated similar Movies get connected by SIMILAR_USER relationships
+4. Movies rated by similar Users get connected too (though we'll focus on Users here)
 
 Verify the results:
 
 [source,cypher]
 .View similar users
 ----
-MATCH path = (:User)-[:SIMILAR]->(:User)-[:SIMILAR]-(:User) // <1>
+MATCH path = (u1:User)-[:SIMILAR_USER]->(u2:User)-[:RATED]->(m:Movie) // <1>
 RETURN path // <2>
 LIMIT 10 // <3>
 ----
@@ -116,32 +133,32 @@ LIMIT 10 // <3>
 [TIP]
 .Query breakdown
 ====
-1. Match a path of users connected by SIMILAR relationships
+1. Match similar users and a movie one of them rated
 2. Return the complete path
 3. Limit to 10 results
 ====
 
-**What this reveals:** Users with similar movie rating patterns.
+**What this reveals:** Users with similar movie rating patterns—the foundation of collaborative filtering recommendation systems.
 
 
-=== Actor-Movie Bipartite
+== Projection 2: Actor-Movie bipartite
 
-Now, let's create a different bipartite projection: actors and movies with preserved labels.
+Now create a different bipartite projection: Actors and Movies.
 
-Copy the code below into the query window and replace `????` with the correct values.
+Complete the projection by replacing the `????` placeholders:
 
 [source,cypher,role=noplay]
 .Complete the actor-movie projection (replace ????)
 ----
 MATCH (source:????)-[r:????]->(target:????) // <1>
-WITH ????( // <2>
+WITH gds.graph.project( // <2>
   'actor-movie', // <3>
   source, // <4>
   target, // <5>
   {
-    ????, // <6>
-    ????, // <7>
-    ???? // <8>
+    sourceNodeLabels: ????, // <6>
+    targetNodeLabels: ????, // <7>
+    relationshipType: ???? // <8>
   },
   {}
 ) AS g
@@ -151,23 +168,21 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 [TIP]
 .Projection breakdown
 ====
-1. Match Actor nodes connected to Movie nodes (fill in the labels and relationship)
-2. Call the GDS projection function (fill in function name)
+1. Match Actor nodes connected to Movie nodes (fill in the labels and relationship type)
+2. Call the GDS projection function
 3. Name the projection 'actor-movie'
 4. Include source nodes
 5. Include target nodes
-6. Preserve source node labels (fill in configuration)
-7. Preserve target node labels (fill in configuration)
-8. Preserve relationship types (fill in configuration)
+6. Preserve source node labels (fill in)
+7. Preserve target node labels (fill in)
+8. Preserve relationship type (fill in)
 9. Return projection statistics
 ====
 
-If you need help finding the solution, you'll find the full projection command in the dropdown below:
-
 [%collapsible]
+.Solution
 ====
-
-[source,cypher]
+[source,cypher,role=nocopy noplay]
 .Solution: Project actor-movie bipartite graph
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
@@ -185,32 +200,35 @@ WITH gds.graph.project( // <2>
 RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <9>
 ----
 
+[TIP]
 .Projection breakdown
+====
 1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
 2. Call the GDS projection function
 3. Name the projection 'actor-movie'
 4. Include source (Actor) nodes
 5. Include target (Movie) nodes
-6. Preserve source node labels
-7. Preserve target node labels
-8. Preserve relationship types
+6. Preserve source node labels (Actor)
+7. Preserve target node labels (Movie)
+8. Preserve relationship type (ACTED_IN)
 9. Return projection statistics
 ====
+====
 
-This projection creates:
+**What you've created:**
 
-- A bipartite network with Actor and Movie labels preserved
-- Actors connected to movies through ACTED_IN relationships
+* A bipartite structure: Actors connect to Movies, never directly to other Actors
+* Labels preserved: GDS knows which nodes are Actors and which are Movies
 
-Now run node similarity on this projection.
+Now run Node Similarity:
 
 [source,cypher]
-.Run node similarity on actor-movie
+.Run Node Similarity on actor-movie
 ----
 CALL gds.nodeSimilarity.write( // <1>
   'actor-movie', // <2>
   {
-    writeRelationshipType: 'SIMILAR', // <3>
+    writeRelationshipType: 'SIMILAR_ACTOR', // <3>
     writeProperty: 'score' // <4>
   })
 YIELD nodesCompared, relationshipsWritten // <5>
@@ -219,9 +237,9 @@ YIELD nodesCompared, relationshipsWritten // <5>
 [TIP]
 .Algorithm breakdown
 ====
-1. Call node similarity algorithm in write mode
+1. Call Node Similarity algorithm in write mode
 2. Run on 'actor-movie' projection
-3. Write new relationships with type 'SIMILAR'
+3. Write new relationships with type 'SIMILAR_ACTOR'
 4. Write similarity scores as 'score' property
 5. Yield the number of nodes compared and relationships written
 ====
@@ -231,25 +249,27 @@ Verify the results:
 [source,cypher]
 .View similar actors
 ----
-MATCH path = (:Actor)-[:SIMILAR]->(:Actor)-[:SIMILAR]->(:Actor) // <1>
-RETURN path // <2>
-LIMIT 10 // <3>
+MATCH (a1:Actor)-[s:SIMILAR_ACTOR]->(a2:Actor) // <1>
+RETURN a1.name AS actor1, a2.name AS actor2, s.score AS similarity // <2>
+ORDER BY s.score DESC // <3>
+LIMIT 10 // <4>
 ----
 
 [TIP]
-.Cypher breakdown
+.Query breakdown
 ====
-1. Match a path of actors connected by SIMILAR relationships
-2. Return the complete path
-3. Limit to 10 results
+1. Match pairs of Actor nodes connected by SIMILAR_ACTOR relationships
+2. Return actor names and similarity scores
+3. Sort by score in descending order
+4. Limit to top 10 most similar pairs
 ====
 
-**What this reveals:** Actors who collaborate.
+**What this reveals:** Actors who frequently appear in the same movies—collaboration clusters in the film industry.
 
 
-=== Movie-genre bipartite
+== Projection 3: Movie-Genre bipartite
 
-Now create a bipartite projection of movies and genres called 'movie-genre', then run node similarity on it—this time, complete both steps yourself.
+Now create a bipartite projection of Movies and Genres, then run Node Similarity. Complete both steps yourself.
 
 **Step 1:** Create the projection by replacing the `?????` placeholders:
 
@@ -257,66 +277,64 @@ Now create a bipartite projection of movies and genres called 'movie-genre', the
 .Complete the movie-genre projection (replace ?????)
 ----
 MATCH (source:?????)-[r:?????]->(target:?????) // <1>
-WITH ????( // <2>
-  '?????', // <3>
+WITH gds.graph.project( // <2>
+  'movie-genre', // <3>
   source, // <4>
   target, // <5>
   {
-    ????, // <6>
-    ????, // <7>
-    ???? // <8>
+    sourceNodeLabels: ?????, // <6>
+    targetNodeLabels: ?????, // <7>
+    relationshipType: ????? // <8>
   },
   {}
-) ???? // <9>
-RETURN ????, ????, ???? // <10>
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <9>
 ----
 
 [TIP]
-.Cypher breakdown
+.Projection breakdown
 ====
-1. Match Movie nodes connected to Genre nodes (fill in the labels and relationship)
-2. Call the GDS projection function (fill in function name)
-3. Name the projection (choose a descriptive name)
+1. Match Movie nodes connected to Genre nodes (fill in labels and relationship type)
+2. Call the GDS projection function
+3. Name the projection 'movie-genre'
 4. Include source nodes
 5. Include target nodes
-6. Preserve source node labels (fill in configuration)
-7. Preserve target node labels (fill in configuration)
-8. Preserve relationship types (fill in configuration)
-9. Alias the projection result (fill in alias)
-10. Return projection statistics (fill in return fields)
+6. Preserve source node labels (fill in)
+7. Preserve target node labels (fill in)
+8. Preserve relationship type (fill in)
+9. Return projection statistics
 ====
 
-**Step 2:** Run node similarity on your projection. Replace the graph name and choose a relationship type to write:
+**Step 2:** Run Node Similarity on your projection:
 
 [source,cypher,role=noplay]
-.Run node similarity on movie-genre
+.Run Node Similarity on movie-genre (replace ?????)
 ----
 CALL gds.nodeSimilarity.write( // <1>
-  '????', // <2>
+  'movie-genre', // <2>
   {
-    writeRelationshipType: '????', // <3>
+    writeRelationshipType: '?????', // <3>
     writeProperty: 'score' // <4>
   })
 YIELD nodesCompared, relationshipsWritten // <5>
 ----
 
 [TIP]
-.Cypher breakdown
+.Algorithm breakdown
 ====
-1. Call node similarity algorithm in write mode
+1. Call Node Similarity algorithm in write mode
 2. Run on 'movie-genre' projection
-3. Write new relationships with type 'SIMILAR'
+3. Choose a relationship type name (e.g., 'SIMILAR_MOVIE')
 4. Write similarity scores as 'score' property
 5. Yield the number of nodes compared and relationships written
 ====
 
-If you need to see the full command, feel free to open the dropdown below.
-
 [%collapsible]
+.Solution
 ====
 **Step 1: Create the projection**
 
-[source,cypher, role=nocopy noplay]
+[source,cypher,role=nocopy noplay]
 .Solution: Project movie-genre bipartite graph
 ----
 MATCH (source:Movie)-[r:IN_GENRE]->(target:Genre) // <1>
@@ -335,62 +353,119 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 ----
 
 **Projection breakdown**
-
 1. Match Movie nodes connected to Genre nodes via IN_GENRE relationships
 2. Call the GDS projection function
 3. Name the projection 'movie-genre'
 4. Include source (Movie) nodes
 5. Include target (Genre) nodes
-6. Preserve source node labels
-7. Preserve target node labels
-8. Preserve relationship types
+6. Preserve source node labels (Movie)
+7. Preserve target node labels (Genre)
+8. Preserve relationship type (IN_GENRE)
 9. Return projection statistics
-
 ====
 
-**Key points:**
+**Step 2: Run Node Similarity**
 
-- Match `Movie` nodes to `Genre` nodes via `IN_GENRE` relationships
-- Name the projection `'movie-genre'`
-- Preserve labels with `labels(source)` and `labels(target)`
-- Run `nodeSimilarity.write` with `'SIMILAR'` as the relationship type
+[source,cypher,role=nocopy noplay]
+.Solution: Run Node Similarity on movie-genre
+----
+CALL gds.nodeSimilarity.write(
+  'movie-genre',
+  {
+    writeRelationshipType: 'SIMILAR_MOVIE',
+    writeProperty: 'score'
+  })
+YIELD nodesCompared, relationshipsWritten
+----
+====
 
-Check which movies are similar based on shared genres:
+Verify the results:
 
 [source,cypher]
-.View similar movies
+.View similar movies by genre
 ----
-MATCH (m1:Movie)-[s:SIMILAR]->(m2:Movie) // <1>
-RETURN m1.title, m2.title, s.score // <2>
+MATCH (m1:Movie)-[s:SIMILAR_MOVIE]->(m2:Movie) // <1>
+RETURN m1.title AS movie1, m2.title AS movie2, s.score AS similarity // <2>
 ORDER BY s.score DESC // <3>
 LIMIT 10 // <4>
 ----
 
 [TIP]
-.Cypher breakdown
+.Query breakdown
 ====
-1. Match pairs of Movie nodes connected by SIMILAR relationships
-2. Return the titles of both movies and their similarity score
+1. Match pairs of Movie nodes connected by SIMILAR_MOVIE relationships
+2. Return movie titles and similarity scores
 3. Sort by score in descending order
 4. Limit to top 10 most similar pairs
 ====
 
-**What this reveals:** Movies that belong to similar genre combinations.
+**What this reveals:** Movies that share genre classifications—content-based similarity for recommendations.
 
 
-== Comparing algorithm results
+== How bipartite structure determines similarity
 
-Each bipartite projection you created produces different node similarity results because the structure determines what "similarity" means.
+Each projection you created uses the same algorithm but produces different results because the bipartite structure determines what "shared neighbours" means:
 
-**User-Movie projection:** Similarity is based on shared movie ratings (collaborative filtering)
+[cols="1,2,2"]
+|===
+| Projection | Partitions | Similarity means...
 
-**Actor-Movie projection:** Similarity is based on shared cast members (collaboration patterns)
+| User-Movie
+| Users ↔ Movies
+| Users who rated the same movies
 
-**Movie-Genre projection:** Similarity is based on shared genre classifications (content-based similarity)
+| Actor-Movie
+| Actors ↔ Movies
+| Actors who appeared in the same movies
 
-The same algorithm—node similarity—reveals completely different insights depending on your projection structure.
+| Movie-Genre
+| Movies ↔ Genres
+| Movies that belong to the same genres
+|===
 
-Understanding bipartite and multipartite graphs helps you design projections that answer specific analytical questions.
+**The key insight:** Node Similarity doesn't define what "similar" means—your projection structure does. The algorithm simply finds nodes that share neighbours across the bipartite divide.
+
+
+== Bipartite projections vs monopartite transformations
+
+In Lesson 4, you created *monopartite* projections by transforming bipartite structures:
+
+* `(Actor)-[:ACTED_IN]->(Movie)<-[:ACTED_IN]-(Actor)` → Actor-to-Actor network
+
+In this lesson, you created *labelled bipartite* projections that preserve both node types:
+
+* `(Actor)-[:ACTED_IN]->(Movie)` with labels preserved
+
+**When to use each approach:**
+
+[cols="1,1"]
+|===
+| Monopartite transformation | Labelled bipartite projection
+
+| Algorithms that expect single-type networks (PageRank, many centrality measures)
+| Algorithms designed for bipartite structures (Node Similarity)
+
+| You want direct Type-to-Type connections
+| You want to compare nodes based on shared cross-type connections
+
+| The intermediate nodes are just "bridges"
+| Both node types are meaningful to your analysis
+|===
+
+Both approaches are valid—choose based on your algorithm and analytical goals.
+
+
+== What's next
+
+You've practiced creating labelled bipartite projections and running Node Similarity on each one.
+
+Each projection used the same bipartite-aware algorithm but revealed different insights:
+
+* **User-Movie:** Similar users based on rating patterns (collaborative filtering)
+* **Actor-Movie:** Similar actors based on collaboration patterns
+* **Movie-Genre:** Similar movies based on genre classifications (content-based filtering)
+
+In the next lesson, you'll put this knowledge to the test with a challenge that requires you to design your own projection and choose the appropriate approach—monopartite transformation or labelled bipartite—based on your analytical goal.
 
 
 [.quiz]
@@ -402,15 +477,19 @@ include::questions/1-projection-affects-similarity.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-Bipartite projections with preserved labels enable node similarity to connect nodes on the same side of the graph based on shared neighbors.
+Labelled bipartite projections preserve the two-partition structure and enable algorithms like Node Similarity to compare nodes within each partition based on shared connections across the partition.
 
-You practiced creating three bipartite projections:
+**You practiced creating three bipartite projections:**
 
-- **User-Movie:** Found similar users based on rating patterns
-- **Actor-Movie:** Found similar actors based on collaboration patterns  
-- **Movie-Genre:** Found similar movies based on genre classifications
+* **User-Movie:** Found similar users based on shared movie ratings
+* **Actor-Movie:** Found similar actors based on shared movie appearances
+* **Movie-Genre:** Found similar movies based on shared genre classifications
 
-You've now practiced creating multiple bipartite projections from the Movies dataset and running node similarity on each one—consolidating your understanding of how label preservation enables different types of analysis. Each projection transformed the same data into different analytical contexts: User-Movie (collaborative filtering), Actor-Movie (collaboration patterns), and Movie-Genre (content-based similarity). In the next lesson, you'll put this knowledge to the test with a challenge that requires you to create your own bipartite projection and run node similarity independently.
+**Key insight:** The same algorithm reveals different insights depending on your projection structure. Node Similarity doesn't define what "similar" means—your bipartite structure does.
 
-The same algorithm—node similarity—reveals completely different insights depending on your projection structure. Understanding how to design meaningful bipartite projections is a fundamental GDS skill for relationship inference and recommendation systems.
+**Choosing your approach:**
 
+* Use *monopartite transformations* for algorithms that expect single-type networks
+* Use *labelled bipartite projections* for algorithms designed for two-partition structures
+
+Understanding when to use each approach is a fundamental GDS skill for designing effective graph analytics.

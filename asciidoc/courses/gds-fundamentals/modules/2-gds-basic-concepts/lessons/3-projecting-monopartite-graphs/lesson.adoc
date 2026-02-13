@@ -1,6 +1,7 @@
 = Projecting monopartite graphs
 :type: lesson
 :order: 3
+:sandbox: true
 
 [.transcript]
 == Introduction
@@ -9,7 +10,7 @@ In the previous lesson, you learned how to create basic Cypher projections. You 
 
 Now let's understand what type of graph you actually created—and why it matters for the algorithms you'll run on it.
 
-**Here's a critical detail:** the projection you created likely isn't what you might think it is.
+**Here's a critical detail:** the projection you created may not behave the way you expect.
 
 Run this projection now:
 
@@ -40,30 +41,52 @@ Intuitively, you may think you projected a data model that looks like this:
 
 image::images/actor_movie_model.png[A node, 'Actor', connected via an 'ACTED_IN' relationship to another node, 'Movie']
 
-This is what's known as a 'bipartite graph', as in 'of two parts'. 
+This is what's known as a **bipartite graph**—a graph whose nodes can be divided into two distinct, non-overlapping sets where connections only occur *between* sets (Actors connect to Movies, but Actors never connect directly to other Actors).
 
 What you actually projected was this:
 
 image::images/monopartite_model.png[An unidentified node, 'Node', connected via an '__ALL__' relationship to another node, 'Node']
 
-This is what's known as a 'monopartite graph', or a 'graph of one part'.
+**The graph structure is still bipartite**—Actors still only connect to Movies in the projection. But GDS has stripped away the labels, so it no longer knows *which* nodes are Actors and which are Movies.
+
+This is an **unlabelled projection**. Understanding this distinction between *structure* and *labels* is essential for getting meaningful algorithm results.
 
 By the end of this lesson, you will understand:
 
-* What monopartite graphs are
-* Why GDS creates monopartite graphs by default
-* How monopartite structure affects algorithm results
+* What monopartite graphs are and how they differ from bipartite graphs
+* The difference between graph structure and graph labels
+* Why GDS creates unlabelled projections by default
+* How graph structure affects algorithm results
+* When and how to project true monopartite graphs
+
+
+== Structure vs Labels: The key distinction
+
+Before diving deeper, let's clarify two concepts that are easy to conflate:
+
+**Graph structure** refers to how nodes connect to each other:
+
+* In a **monopartite** structure, nodes cannot be separated into distinct non-overlapping sets—any node can potentially connect to any other node
+* In a **bipartite** structure, nodes fall into exactly two non-overlapping sets, and connections only occur *between* sets
+
+**Graph labels** refer to what GDS knows about node and relationship types:
+
+* A **labelled** projection preserves node labels (Actor, Movie) and relationship types (ACTED_IN)
+* An **unlabelled** projection treats all nodes as generic "Node" and all relationships as generic connections
+
+By default, GDS creates unlabelled projections. This means:
+
+* A bipartite structure *remains* bipartite (Actors still only connect to Movies)
+* But GDS doesn't *know* which nodes are which type
+
+This distinction matters because some algorithms behave poorly on bipartite structures, regardless of whether labels are present.
 
 
 == What is a monopartite graph?
 
-A monopartite graph contains nodes of a **single type** (from the algorithm's perspective) with connections between them.
+A **monopartite graph** is one whose nodes cannot be separated into distinct non-overlapping sets based on their connection patterns.
 
-Consider a social network where all nodes are people, and they have only one type of relationship: `-[:FRIENDS_WITH]->`
-
-You could also refer to this graph as a 'homogeneous graph' because it has only one node type __and__ one relationship type.
-
-You could project that network with the following command:
+Consider a social network where all nodes are people connected by friendships:
 
 [source,cypher,role=noplay]
 .Project a social network
@@ -92,21 +115,30 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
 8. Return projection statistics
 ====
 
-This command would create an in-memory projection that looks something like this:
+This creates an in-memory projection that looks like this:
 
-image::images/social_network.png[a bunch of nodes, all of the same type, connected to each other with the same type of relationships]
+image::images/social_network.png[A network of nodes all of the same type, connected to each other]
 
-For this particular graph, we actually __want__ all the nodes to be of the same type, and we have only one type of relationship anyway.
+This is a true monopartite graph because:
 
-Running an algorithm on this non-specific graph will not change its output.
+* Any Person can be friends with any other Person
+* You cannot divide the nodes into separate groups where connections only occur *between* groups
+* The structure itself is monopartite
 
+For this graph, stripping labels doesn't change anything meaningful—it was already a single node type connecting to itself. Running algorithms on this unlabelled projection will produce the same results as a labelled version.
 
-== The default projection behavior
+[NOTE]
+.Homogeneous graphs
+====
+A graph with a single node type and **single relationship** type is also called a **homogeneous graph**.
+====
 
-However, let's return now to our Movies dataset. When we projected it using this command:
+== The default projection behaviour
+
+Now let's return to our Movies dataset. When we projected it using this command:
 
 [source,cypher,role=noplay]
-.Default projection behavior
+.Default projection behaviour
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
 WITH gds.graph.project( // <2>
@@ -128,48 +160,45 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 6. Return projection statistics
 ====
 
-We projected a graph that looks very similar to our social media graph.
+We created an **unlabelled bipartite** projection:
 
-image::images/movie_monopartite.png[a graph of nodes of one type and relationships between them]
+image::images/movie_monopartite.png[A graph of nodes without labels and relationships without types]
 
-**By default, GDS projections ignore node labels.**
+**What GDS sees:**
 
-Even though your source data has Actor and Movie labels, GDS treats this as a **monopartite graph**:
+- All nodes appear as a generic "Node" type (no distinction between Actor and Movie)
+- All relationships appear as a generic type (no "ACTED_IN" label)
+- Algorithms cannot distinguish between node types
 
-- All nodes become the same generic type (no distinction between `Actor` and `Movie`)
-- Relationships connect nodes without type awareness
-- Algorithms see a single node type with connections
+**What the structure still is:**
 
-It is important to be aware of precisely what you are projecting and why.
+- Bipartite—the original Actor nodes still only connect to original Movie nodes
+- No Actor-to-Actor connections exist
+- No Movie-to-Movie connections exist
+
+The structure hasn't changed -- only GDS's awareness of node types has been removed.
 
 
-== Why this matters for algorithms
+== Why structure matters for algorithms
 
-Earlier, we ran degree centrality on this graph. Remember, degree centrality counts the outgoing relationships of every node to rank them by importance.
+Earlier, we ran degree centrality on this graph. Degree centrality simply counts connections for each node. It doesn't care about graph structure—it produces valid results on any graph.
 
-Running degree centrality on a graph with two labels as if it is a graph with one label doesn't hugely impact our results. 
+However, other algorithms behave differently depending on structure.
 
-Degree centrality doesn't care what your nodes are, and it will count their outgoing relationships all the same.
+Take **PageRank** for example. PageRank ranks nodes by "importance" based on the importance of nodes that link to them. It works by simulating a "random walk" through the graph, where importance flows along relationships.
 
-However, the same is not true when we run other algorithms.
-
-Take PageRank for example. We will deal with PageRank specifically in more detail later. For now, just remember:
-
-* PageRank also aims to rank nodes by importance. 
-* It calculates importance by measuring the relative importance of neighboring nodes.
-
-Let's run PageRank on our current graph projection, and see what happens:
+Let's run PageRank on our current projection:
 
 [source,cypher]
 .Run PageRank on actors-graph
 ----
-CALL gds.pageRank.stream( // (1)
-  'actors-graph',         // (2)
-  {}                      // (3)
+CALL gds.pageRank.stream( // <1>
+  'actors-graph',         // <2>
+  {}                      // <3>
 )
-YIELD nodeId, score       // (4)
-RETURN gds.util.asNode(nodeId).title, score // (5)
-ORDER BY score DESC // (6)
+YIELD nodeId, score       // <4>
+RETURN gds.util.asNode(nodeId).title, score // <5>
+ORDER BY score DESC // <6>
 ----
 
 [TIP]
@@ -183,36 +212,30 @@ ORDER BY score DESC // (6)
 6. Sort by score in descending order
 ====
 
-The returned table shows you the nodeId of each node in one column and the PageRank score they received in the next.
+You should notice that almost all nodes receive nearly the same PageRank score. This isn't useful.
 
-You should notice that almost all of these nodes have received the same PageRank score.
+=== Why does this happen?
 
-This happens because we are explicitly giving GDS a node structure that looks like this:
+In our bipartite structure:
 
-image::images/kevin_and_ryan_nodes_only.png[Two small clusters of nodes, labeled only 'Node' with '__ALL__' relationships. Only one relationship connects them.]
+image::images/kevin_and_ryan_nodes_only.png[Two clusters showing the bipartite structure with unlabelled nodes]
 
-We may intuitively __think__ it will interpret the node structure as this:
+PageRank's "importance" flows along relationship directions. In our Actor->Movie structure:
 
-image::images/kevin_and_ryan_with_labels.png[Two small clusters of nodes, labeled with 'Actor' and 'Movie' labels with 'ACTED_IN' relationships. Only one relationship connects them.]
+1. Importance flows *from* Actors *into* Movies
+2. Movies have no outgoing relationships (in this projection)
+3. Movies become "rank sinks"—accumulating importance with nowhere to pass it
 
-It won't. 
+The result: Movies accumulate all the PageRank score based purely on how many Actors appeared in them. This tells us nothing meaningful about actor importance.
 
-By default, many algorithms, PageRank included, will treat every single node and relationship the same. They will consider it a 'monopartite' graph, even if it is not.
-
-The reason for this behavior is that most algorithms simply work better on a monopartite graph.
-
-If you want to understand which movie is most important to increase user watch times, introducing actors into that signal will likely dilute it.
-
-Many GDS algorithms will provide better results on two monopartite graphs than on a single graph with many labels. However, this decision is dependent on the use-case.
+**The problem isn't the missing labels—it's the bipartite structure itself.** Even if we preserved the Actor and Movie labels, PageRank would still flow into Movies and get trapped there.
 
 
 == Projecting a true monopartite graph
 
-To understand how we can fix this, we need to reconsider what it is our projection is asking from the algorithm.
+To get meaningful PageRank results for actors, we need to change the *structure*, not just the labels.
 
-In this case, we want to know the 'most important actors'. We don't actually care about their movies. Therefore, we need not include their movies at all.
-
-To create a graph of actors and their relationships to each other, we can project this graph:
+If we want to know which actors are most important, we need a graph where actors connect to *other actors*. We can create this by treating shared movies as implicit connections:
 
 [source,cypher]
 .Project actors connected through movies
@@ -231,7 +254,7 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 [TIP]
 .Projection breakdown
 ====
-1. Match Actor nodes connected through Movie nodes (Movies are not captured)
+1. Match Actor nodes connected *through* Movie nodes (Movies are traversed but not captured)
 2. Call the GDS projection function
 3. Name the projection 'actors-only'
 4. Include source (Actor) nodes
@@ -241,18 +264,18 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 8. Return projection statistics
 ====
 
-This gives us a new graph that, in theory, looks like this:
+This creates a fundamentally different structure:
 
-image::images/kevin_and_ryan_acting_relationships_with_labels.png[A graph of the working relationships of Kevin Bacon and Ryan Reynolds.]
+image::images/kevin_and_ryan_acting_relationships_without_labels.png[Actors connected directly to other actors]
 
-GDS has skipped over the intermediate 'Movie' nodes, and has repinned those relationships directly between the actors. Now each actor has greater or fewer degrees between themselves and other actors in the graph.
+Now we have a **true monopartite graph**:
 
-Still, GDS still sees this graph as generic nodes with generic relationships:
+* Only Actor nodes exist in the projection
+* Actors connect directly to other Actors (through shared movie appearances)
+* Any Actor can potentially connect to any other Actor
+* The nodes cannot be separated into distinct non-overlapping sets
 
-image::images/kevin_and_ryan_acting_relationships_without_labels.png[A graph of the working relationships of Kevin Bacon and Ryan Reynolds represented as generic nodes and generic relationships.]
-
-However, let's see what happens when we run PageRank on __this__ graph.
-
+Let's run PageRank on this new projection:
 
 [source,cypher]
 .Run PageRank on actors-only projection
@@ -283,13 +306,29 @@ ORDER BY score DESC // <6>
 In this example, we're illustrating the impact of projections on algorithms with `.stream()` mode—this runs the algorithm and shows results without writing them. You'll learn to use all five execution modes in detail in Module 3.
 ====
 
-Now, PageRank returns Robert De Niro as the most important actor in the graph, and other actors have received descending values based on their relative 'importance'.
+Now PageRank returns meaningful results—Gérard Depardieu as the most important actor, with other actors ranked by their relative importance in the collaboration network.
 
-Before, PageRank could only use any actor's relationship to a movie. Every actor connected to a movie would only ever have one relationship to that movie, never directly to each other. That meant that any actors with same number of roles would necessarily be considered as important as each other.
+**What changed:**
 
-In our current graph, we only consider them as a single social network.
+* Before: Bipartite structure (Actor->Movie) caused importance to flow into Movies and get trapped
+* After: Monopartite structure (Actor<->Actor) allows importance to flow between actors based on collaboration patterns
 
-Before, we were trying to treat a 'bipartite' graph (two types) as if it were a 'monopartite' graph (one type). Now, we are projecting a true 'monopartite' graph.
+
+== When to project monopartite graphs
+
+**Project a true monopartite graph when:**
+
+* You want to analyse relationships *within* a single entity type
+* You're using algorithms that expect monopartite structure (PageRank, many centrality measures)
+* The intermediate nodes (like Movies) are just "bridges" for your analysis
+
+**Keep bipartite structure when:**
+
+* You're using algorithms designed for bipartite graphs (Node Similarity, some recommendation algorithms)
+* The relationship *between* different types is what you're analysing
+* You need to distinguish between node types for filtering
+
+We'll explore bipartite projections and label preservation in a later lesson.
 
 
 [.quiz]
@@ -301,11 +340,10 @@ include::questions/1-monopartite-identification.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-A **monopartite graph** contains nodes of a single type with connections between them. By default, GDS projections create monopartite graphs—ignoring node labels and treating all nodes as the same type.
+You now understand the critical difference between graph *structure* (monopartite vs bipartite) and graph *labels* (what GDS knows about types).
 
-This default behavior can affect algorithm results. Some algorithms (like degree centrality) work fine on any structure, while others (like PageRank) produce more meaningful results when run on true monopartite graphs where all nodes genuinely represent the same entity type.
+You've seen how bipartite structures can cause algorithms like PageRank to produce meaningless results—not because of missing labels, but because of how the structure traps the algorithm's computations.
 
-When you want to analyze relationships within a single entity type (like actors connected through their movies), you should project a true monopartite graph by excluding intermediate nodes.
+When you need to analyse relationships within a single entity type, project a true monopartite graph by connecting nodes through their shared neighbours.
 
-You now understand what monopartite graphs are and why GDS creates them by default. You've seen how the graph structure affects algorithm results. In the next lesson, you'll get hands-on practice creating different types of monopartite projections.
-
+In the next lesson, you'll learn about bipartite and multipartite graphs, and when preserving labels matters.

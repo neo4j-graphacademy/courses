@@ -1,0 +1,178 @@
+---
+description: Format for converting exercise-based lessons with placeholder code blocks
+globs: **/lessons/*/lesson.adoc
+alwaysApply: false
+---
+
+// TODO: remove once the course has been reviewed
+
+# Exercise Lesson Format
+
+When converting lessons with multiple exercises, follow this pattern to transform placeholder code blocks into clear, actionable step lists and detailed solution explanations.
+
+## Exercise Slides: Replace Placeholder Code
+
+Replace placeholder code blocks with numbered step lists that guide learners.
+
+❌ **Before:**
+
+```asciidoc
+[.slide]
+== Exercise 1: Create Projection
+
+Create a monopartite Actor-to-Actor network.
+
+[source,cypher,role=noplay]
+----
+????
+----
+```
+
+✅ **After:**
+
+```asciidoc
+[.slide]
+== Exercise 1: Create Projection
+
+Create a monopartite Actor-to-Actor network.
+
+. Use `MATCH` to traverse from Actor through Movie to Actor
+. Use `gds.graph.project()` with the matched `source` and `target` nodes
+. Name the graph `actor-collab`
+. Return the graph statistics
+```
+
+### Guidelines
+
+- Extract steps from the corresponding solution query
+- Use AsciiDoc dot notation (`.`) for ordered lists
+- Reference specific functions, properties, and graph names
+- Keep each step concise and actionable
+- Maintain 4-6 steps per exercise
+
+## Solution Slides: Two-Column Layout with Callouts
+
+Convert solution slides to use two-column layouts with numbered callouts explaining each part of the query.
+
+❌ **Before:**
+
+```asciidoc
+[.slide]
+== Exercise 1: Solution
+
+[source,cypher,role=noplay]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+WITH gds.graph.project('actor-collab', source, target) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+
+The key insight: traverse through Movie nodes.
+```
+
+✅ **After:**
+
+```asciidoc
+[.slide.col-2]
+== Exercise 1: Solution
+
+The following query traverses through Movie nodes without including them in `source` or `target`.
+
+[.col]
+====
+[source,cypher,role=noplay nocopy]
+----
+MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+WITH gds.graph.project('actor-collab', source, target) AS g // <2>
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
+----
+====
+
+[.col]
+====
+<1> Match Actors connected through Movies, creating Actor-to-Actor pairs
+<2> Project a graph named 'actor-collab' using the matched source and target nodes
+<3> Return statistics about the created projection
+====
+```
+
+### Guidelines
+
+- Change `[.slide]` to `[.slide.col-2]`
+- Add descriptive sentence explaining what the query does
+- Use "The following query..." or "This query..." phrasing
+- Wrap code in `[.col]` and `====` blocks
+- Add `nocopy` to the role attribute
+- Add numbered callouts `// <1>` to each significant line
+- Keep one callout per line
+- Wrap explanations in second `[.col]` block
+- Write explanations in active voice
+
+## Multi-Step Solutions
+
+For solutions with multiple queries, create separate slides for each step.
+
+```asciidoc
+[.slide.col-2]
+== Exercise 2: Solution
+
+The first query runs PageRank on the actor-collab graph and stores the results in the database:
+
+[.col]
+====
+[source,cypher,role=noplay nocopy]
+----
+CALL gds.pageRank.write('actor-collab', { // <1>
+  writeProperty: 'pageRank' // <2>
+})
+YIELD nodePropertiesWritten // <3>
+RETURN nodePropertiesWritten
+----
+====
+
+[.col]
+====
+<1> Run PageRank in write mode on the actor-collab projection
+<2> Store the PageRank score in a property named 'pageRank'
+<3> Return the count of properties written to the database
+====
+
+[.slide.col-2]
+== Exercise 2: Solution (continued)
+
+The second query retrieves the top 10 actors by PageRank score:
+
+[.col]
+====
+[source,cypher,role=noplay nocopy]
+----
+MATCH (a:Actor) // <1>
+WHERE a.pageRank IS NOT NULL // <2>
+RETURN a.name AS actor, a.pageRank AS score // <3>
+ORDER BY score DESC // <4>
+LIMIT 10 // <5>
+----
+====
+
+[.col]
+====
+<1> Match all Actor nodes
+<2> Filter to actors with a PageRank score
+<3> Return the actor name and their PageRank score
+<4> Order by score from highest to lowest
+<5> Return only the top 10 results
+====
+```
+
+## Conversion Checklist
+
+- [ ] Replace all `????` placeholder blocks with numbered step lists
+- [ ] Convert all solution slides to `[.slide.col-2]` format
+- [ ] Add descriptive sentence explaining what each query does
+- [ ] Add numbered callouts to all solution code blocks
+- [ ] Add `nocopy` to all solution code block roles
+- [ ] Create explanation columns for all callouts
+- [ ] Split multi-step solutions into separate slides
+- [ ] Remove "The key insight:" or similar prefixes
+- [ ] Remove unnecessary bold formatting from step labels
+- [ ] Use active voice in all explanations

@@ -1,129 +1,129 @@
 = Projecting bipartite and multipartite graphs
 :type: lesson
 :order: 6
+:sandbox: true
 
 [.transcript]
 == Introduction
 
-You've learned that GDS creates monopartite projections by default, treating all nodes as a single type regardless of their original labels.
+In the previous lessons, you learned that GDS creates unlabelled projections by default—preserving graph structure but stripping away node labels and relationship types.
 
-But what if you need to preserve the distinction between node types? What if it matters that some nodes are Actors and others are Movies?
+You also learned that some algorithms, like PageRank, produce poor results on bipartite structures because the structure itself traps their computations.
 
-In this lesson, you'll learn about **bipartite** and **multipartite graphs**—graphs with two or more distinct node types—and how to create projections that preserve these distinctions in GDS.
+But bipartite structures aren't always a problem. Some algorithms are *designed* for bipartite graphs and produce excellent results on them.
+
+In this lesson, you'll learn about **bipartite** and **multipartite graphs**, when to preserve labels in your projections, and which algorithms work well with multi-type structures.
 
 By the end of this lesson, you will understand:
 
 * What bipartite and multipartite graphs are
 * The difference between multipartite and heterogeneous graphs
-* Why preserving node labels matters for certain analyses
-* How to configure projections to preserve multiple node types in GDS
+* When preserving node labels matters
+* How to configure projections to preserve labels
+* Which algorithms work well with bipartite structures
 
 
 == What is a bipartite graph?
 
-A bipartite graph has **two distinct types** of nodes, with relationships only connecting nodes of different types—never nodes of the same type.
+A **bipartite graph** is one whose nodes can be divided into exactly two distinct, non-overlapping sets, where connections only occur *between* sets—never within them.
 
 Think of it as a graph "of two parts."
 
 Example: Customers purchasing products:
 
-* `(:Customer)-[:PURCHASED]->(:Product)`
-* `(:Customer)-[:PURCHASED]->(:Product)`
-* `(:Customer)-[:PURCHASED]->(:Product)`
+[source,text,role=nocopy]
+----
+(:Customer)-[:PURCHASED]->(:Product)
+(:Customer)-[:PURCHASED]->(:Product)
+(:Customer)-[:PURCHASED]->(:Product)
+----
 
-(No Customer-to-Customer connections)
-(No Product-to-Product connections)
+In this structure:
 
-In a true bipartite graph:
+* Customers connect to Products
+* Customers never connect directly to other Customers
+* Products never connect directly to other Products
 
-- Type A nodes connect only to Type B nodes
-- Type B nodes connect only to Type A nodes
-- No connections exist between nodes of the same type
+The same is true of our `(:Actor)-[:ACTED_IN]->(:Movie)` projection:
 
-image::images/bipartite_graph_example.png[A bipartite graph. A row of Actor nodes in a top row connect to a row of Movie nodes in a bottom row. No nodes within the same row connect to each other.]
+image::images/bipartite_graph_example.png[A bipartite graph. Actor nodes in a top row connect to Movie nodes in a bottom row. No nodes within the same row connect to each other.]
+
+The defining characteristic is that you can cleanly separate all nodes into two groups where every relationship crosses the divide and no node connects to any other node on the same side.
 
 
 == What is a multipartite graph?
 
-A multipartite graph contains **three or more distinct node types**.
+A multipartite graph is simply an extension of the concept to three, four, or more non-overlapping sets.
 
-You could also call this a 'heterogeneous graph' if it has **multiple relationship types** as well. 
+Here's an example from the Movies dataset:
 
-In practice:
+image::images/heterogeneous_graph.png[A multipartite and heterogeneous graph (both) with Actor, Movie, User, and Genre nodes.]
 
-- **Multipartite** = multiple node types (3+)
-- **Heterogeneous** = more than one node type __and/or__ multiple relationship types
-
-Here's an example from the Movies dataset you're experimenting with:
-
-image::images/multipartite_graph.png[A multipartite, heterogeneous graph. Many node types connect to each other via various relationships.]
-
-In this image we have the following nodes and relationships:
+This graph has four node types and multiple relationship types:
 
 * `(:Actor)-[:ACTED_IN]->(:Movie)`
 * `(:User)-[:RATED]->(:Movie)`
 * `(:Movie)-[:IN_GENRE]->(:Genre)`
 
+Each node type forms a distinct set, and every relationship crosses between sets—no Actor connects to another Actor, no Movie to another Movie, and so on.
 
-This graph has four node types (`Actor`, `User`, `Movie`, `Genre`) and three relationship types, making it both multipartite and heterogeneous.
+== What is a heterogeneous graph?
+
+A **heterogeneous graph** is a graph with multiple node types and/or relationship types, where nodes of the same type *may* connect to each other.
+
+The Movies example above is both multipartite *and* heterogeneous—it has multiple node and relationship types, and happens to have no within-set connections.
+
+But if we added `(:Actor)-[:FRIENDS_WITH]->(:Actor)` relationships, the graph would still be heterogeneous—but it would no longer be multipartite, because actors would now connect to other actors.
+
+All multipartite graphs are heterogeneous, but not all heterogeneous graphs are multipartite.
+
+== Recap: Structure vs Labels
+
+Remember the key distinction from the previous lessons:
+
+**Structure** = how nodes actually connect
+
+* Monopartite: nodes cannot be separated into distinct non-overlapping sets
+* Bipartite: exactly two non-overlapping sets, connections only between them
+* Multipartite: three or more non-overlapping sets
+
+**Labels** = what GDS knows about node/relationship types
+
+* Labelled: GDS preserves Actor, Movie, ACTED_IN, etc.
+* Unlabelled: GDS sees generic "Node" and generic relationships
+
+By default, GDS creates unlabelled projections. The structure remains unchanged, but GDS loses awareness of which nodes are which type.
 
 
-== Understanding what you're actually projecting
+== When labels matter
 
-Remember when we projected actors and movies?
+In the previous lessons, we saw that PageRank fails on bipartite structures—not because of missing labels, but because of the structure itself. Adding labels wouldn't fix PageRank on a bipartite graph.
 
-[source,cypher]
-.Default projection without label preservation
-----
-MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
-WITH gds.graph.project( // <2>
-  'actors-movies', // <3>
-  source, // <4>
-  target, // <5>
-  {}, // <6>
-  {} // <7>
-) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount // <8>
-----
+So when *do* labels matter?
 
-[TIP]
-.Projection breakdown
-====
-1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
-2. Call the GDS projection function
-3. Name the projection 'actors-movies'
-4. Include source (Actor) nodes
-5. Include target (Movie) nodes
-6. First configuration map (empty - labels not preserved)
-7. Second configuration map (empty - using defaults)
-8. Return projection statistics
-====
+**Labels matter when:**
 
-Even though this graph is naturally bipartite, GDS sees this projection as a monopartite graph—treating all nodes as a single generic type, ignoring the Actor and Movie labels.
+1. **You need to filter algorithm execution by type** — Run PageRank only on Actor nodes, for example
+2. **The algorithm uses labels for its logic** — Some algorithms behave differently based on node types
+3. **You're writing results back and need type awareness** — Knowing which nodes received which scores
 
-image::images/kevin_and_ryan_nodes_only.png[Two small clusters of nodes, labeled only 'Node' with '__ALL__' relationships. Only one relationship connects them.]
+**Labels don't matter when:**
 
-This happens because we have not specified that labels should be preserved. GDS is projecting exactly what we asked for.
-
-For certain algorithms, this doesn't matter. For others, you may actually __want__ to treat different node types as if they are the same.
-
-In most cases, when your data has multiple types, you'll want to project a monopartite subgraph.
-
-However, in some cases, you'll want to project multiple node types, and preserve the distinctions between node types in your projection.
+1. **You've already projected a single-type subgraph** — Your Actor-to-Actor projection only contains Actors anyway
+2. **The algorithm ignores types entirely** — Degree centrality just counts connections
+3. **Structure is your only concern** — The algorithm's behaviour depends on connection patterns, not labels
 
 
 == Preserving labels in projections
 
-In earlier lessons, you saw the empty configuration settings in graph projection syntax.
-
-To preserve labels, use these configuration parameters:
+To preserve labels, use the configuration parameters in your projection:
 
 [source,cypher]
 .Project bipartite graph with label preservation
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
 WITH gds.graph.project( // <2>
-  'actors-movies-bipartite', // <3>
+  'actors-movies-labelled', // <3>
   source, // <4>
   target, // <5>
   {
@@ -141,30 +141,26 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <9>
 ====
 1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
 2. Call the GDS projection function
-3. Name the projection 'actors-movies-bipartite'
+3. Name the projection 'actors-movies-labelled'
 4. Include source (Actor) nodes
 5. Include target (Movie) nodes
-6. Preserve source node labels
-7. Preserve target node labels
-8. Preserve relationship types
+6. Preserve source node labels (Actor)
+7. Preserve target node labels (Movie)
+8. Preserve relationship type (ACTED_IN)
 9. Return projection statistics
 ====
 
 **Key configuration parameters:**
 
-* `sourceNodeLabels: labels(source)`: Preserves the label(s) from source nodes
-* `targetNodeLabels: labels(target)`: Preserves the label(s) from target nodes
-* `relationshipType: type(r)`: Preserves the relationship type
+* `sourceNodeLabels: labels(source)` — Preserves the label(s) from source nodes
+* `targetNodeLabels: labels(target)` — Preserves the label(s) from target nodes
+* `relationshipType: type(r)` — Preserves the relationship type
 
-Now GDS creates a properly labeled bipartite graph:
+Now GDS creates a labelled bipartite projection:
 
 image::images/actor_movie_model.png[An Actor node connects to a Movie node via an ACTED_IN relationship.]
 
-- **Actor nodes** retain their Actor label
-- **Movie nodes** retain their Movie label
-- **Relationships** retain their types
-
-You do not have to use all three of these settings at any given time -- but there's no harm in doing so.
+The structure is unchanged—still bipartite. But now GDS knows which nodes are Actors and which are Movies.
 
 
 == Creating multipartite projections
@@ -175,9 +171,10 @@ The same configuration works for three or more node types:
 .Project multipartite graph with multiple node types
 ----
 MATCH (source)-[r]->(target) // <1>
-WHERE source:Actor OR source:Movie OR source:User OR source:Genre AND target:Actor OR target:Movie OR target:User OR target:Genre // <2>
+WHERE (source:Actor OR source:Movie OR source:User OR source:Genre) 
+  AND (target:Actor OR target:Movie OR target:User OR target:Genre) // <2>
 WITH gds.graph.project( // <3>
-  'movies-network-multi', // <4>
+  'movies-multipartite', // <4>
   source, // <5>
   target, // <6>
   {
@@ -196,7 +193,7 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <10>
 1. Match any source and target nodes with relationships
 2. Filter to include only Actor, Movie, User, or Genre nodes
 3. Call the GDS projection function
-4. Name the projection 'movies-network-multi'
+4. Name the projection 'movies-multipartite'
 5. Include source nodes
 6. Include target nodes
 7. Preserve source node labels
@@ -205,30 +202,16 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <10>
 10. Return projection statistics
 ====
 
-This preserves all four node types (`Actor`, `Movie`, `User`, `Genre`) and their relationship types in a single projection.
+This preserves all four node types and their relationship types in a single labelled projection.
 
 
-== When label preservation matters
+== Algorithms designed for bipartite graphs
 
-**Use default monopartite** (no label configuration) when:
+Some algorithms are specifically designed to work *with* bipartite structures, not against them.
 
-- All nodes genuinely represent the same entity type
-- Node labels don't affect your analysis goals
-- You intentionally want to treat different node types as the same
+**Node Similarity** compares nodes based on their shared neighbours—perfect for bipartite graphs where one set of nodes connects to another.
 
-**Preserve labels** (bipartite/multipartite) when:
-
-- You need to distinguish between node types
-- You'll filter algorithms by node type (e.g., run only on Actors)
-
-
-== Algorithm considerations
-
-Not all algorithms work well with multiple node types.
-
-Throughout this course, as you happen across an algorithm, we'll show you how to decide on your projection type, and explain the reasoning.
-
-For now, to illustrate this, let's project our Users and Movies to a graph.
+Let's see it in action. First, project Users and Movies:
 
 [source,cypher]
 .Project user-movie bipartite graph
@@ -262,26 +245,17 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <9>
 9. Return projection statistics
 ====
 
-Now, you have projected a graph that really does look like this:
+This creates a labelled bipartite projection:
 
-image::images/user_rated_movie.png[a graph model of a User node connecting to a Movie node via a RATED relationship.]
+image::images/user_rated_movie.png[A User node connecting to a Movie node via a RATED relationship.]
 
-The labels persist, and we can now use them when running an algorithm. 
 
-=== Running node similarity
+== Running Node Similarity
 
-Node similarity is an algorithm that compares the similarity of each node to others based on the nodes they are both connected to. When you run it, it generates a new relationship between similar nodes, and gives that relationship a score property, based on how similar the two nodes are.
-
-Two nodes are considered similar if they share many of the same neighbors.
-
-You can link:https://neo4j.com/docs/graph-data-science/current/algorithms/node-similarity/[learn more about the node similarity algorithm in the GDS docs].
-
-For now, all you need to know is that node similarity works extremely well on bipartite graphs.
-
-Let's run node similarity on our bipartite `user-rated-movie` graph.
+Node Similarity finds nodes that share many neighbours. In a bipartite graph, it compares nodes on one side based on their connections to the other side.
 
 [source,cypher]
-.Run node similarity on bipartite graph
+.Run Node Similarity on bipartite graph
 ----
 CALL gds.nodeSimilarity.write( // <1>
   'user-rated-movie', // <2>
@@ -295,7 +269,7 @@ YIELD nodesCompared, relationshipsWritten // <5>
 [TIP]
 .Algorithm breakdown
 ====
-1. Call node similarity algorithm in write mode
+1. Call Node Similarity algorithm in write mode
 2. Run on 'user-rated-movie' projection
 3. Write new relationships with type 'SIMILAR'
 4. Write similarity scores as 'score' property
@@ -308,7 +282,10 @@ YIELD nodesCompared, relationshipsWritten // <5>
 You're using `.write()` mode to persist results to the database. This is different from `.stream()` which only displays results. You'll learn when to use each execution mode in Module 3.
 ====
 
-Now, to verify what it has done -- or rather, what it has not done -- run the following query:
+
+== Understanding the results
+
+Let's verify what Node Similarity created. First, check if it created any User-to-Movie similarity relationships:
 
 [source,cypher]
 .Check for User-to-Movie similarity (should be empty)
@@ -326,39 +303,43 @@ LIMIT 1 // <3>
 3. Limit to 1 result (should return nothing)
 ====
 
-This query should have returned `no changes, no records`. 
+This returns no results. Why?
 
-Node similarity only considers nodes to be similar if they have shared neighbors. A `User` node, in our model, is never a direct neighbor with another `User` node, and so a `User` will never be similar to a shared `Movie`.
+Node Similarity only considers nodes similar if they share neighbours. In our bipartite structure:
 
-In a bipartite graph, every node on one side exclusively connects to nodes on the other side of the divide.
+image::images/user_movie_bipartite.png[Users in one row connect only to Movies in another row.]
 
-image::images/user_movie_bipartite.png[A bipartite graph. A row of User nodes in a top row connect to a row of Movie nodes in a bottom row. No nodes within the same row connect to each other.]
+* Users connect to Movies
+* Users never directly neighbour other Users
+* Therefore, Users can only be similar to *other Users* (based on shared Movie connections)
 
-The relationships that we created with the algorithm only exist between nodes **on the same side** of the graph.
+The algorithm respects the bipartite structure: it compares nodes *within* each partition based on their shared connections *across* the partition.
 
-Run the following query to see some of your new `SIMILAR` relationships.
+Now let's see the relationships it *did* create:
 
 [source,cypher]
-.View similar users and movies
+.View similar users
 ----
-MATCH path = (:User)-[:SIMILAR]->(:User)-[:RATED]->(:Movie) // (1)
-RETURN path // (2)
-LIMIT 10 // (3)
+MATCH path = (u1:User)-[s:SIMILAR]->(u2:User)-[:RATED]->(m:Movie) // <1>
+RETURN path // <2>
+LIMIT 10 // <3>
 ----
 
 [TIP]
 .Query breakdown
 ====
-1. Match a path showing similar users and the movies they have rated.
-2. Return the complete path.
-3. Limit to 10 results.
+1. Match paths showing similar users and movies they've rated
+2. Return the complete path
+3. Limit to 10 results
 ====
 
-You should now find that `User` nodes have received SIMILAR relationships to each other, based on their movie rating behaviors.
+You should see User nodes connected by SIMILAR relationships:
 
-image::images/user_movie_similar_bipartite.png[A once bipartite graph, now multipartite. A row of User nodes in a top row connect to a row of Movie nodes in a bottom row. The User nodes connect to each other with similarity relationships.]
+image::images/user_movie_similar_bipartite.png[Users now connected by SIMILAR relationships based on shared movie ratings.]
 
-You could use these newly inferred relationships in multiple ways -- not least, as part of a content recommendation system.
+Node Similarity found Users who rated similar Movies and created direct User-to-User relationships based on that pattern.
+
+Always check whether your algorithm expects monopartite or handles bipartite structures.
 
 
 [.quiz]
@@ -372,30 +353,12 @@ include::questions/2-label-preservation-config.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-**Bipartite graphs** have two distinct node types; **multipartite graphs** have three or more. When multiple relationship types are also preserved, these are often called **heterogeneous graphs**.
+You now understand bipartite and multipartite graphs—structures with two or more distinct, non-overlapping node sets.
 
-By default, GDS ignores node labels, creating monopartite projections. To preserve multiple node types, use:
+You've learned:
 
-[source,cypher]
-.Configuration for label preservation
-----
-{ // <1>
-  sourceNodeLabels: labels(source), // <2>
-  targetNodeLabels: labels(target), // <3>
-  relationshipType: type(r) // <4>
-}
-----
+* How to preserve labels using configuration parameters
+* That some algorithms (Node Similarity) are designed for bipartite structures
+* How to choose between monopartite projection and label-preserved bipartite projection
 
-[TIP]
-.Configuration breakdown
-====
-1. Configuration map for label preservation
-2. Preserve source node labels
-3. Preserve target node labels
-4. Preserve relationship types
-====
-
-Label preservation matters when algorithms need to distinguish between node types, when you'll filter by type, or when you're analyzing relationships between different entities. Choose your projection structure based on your analytical goals.
-
-You now understand bipartite and multipartite graphs—structures with two or more distinct node types. You've learned how to preserve these distinctions using label and relationship configuration settings. In the next lesson, you'll practice creating projections with multiple node types from the Movies dataset.
-
+In the next lesson, you'll practice creating projections with multiple node types from the Movies dataset.

@@ -1,0 +1,275 @@
+= GDS Workflows in Python
+:type: lesson
+:order: 2
+
+[.slide]
+== Introduction
+
+Whether you're working in the Browser or in Python, GDS workflows follow the same fundamental pattern. The steps are identical. The logic is identical. Only the syntax changes.
+
+This lesson walks through that workflow step by step, showing you how each piece translates from Cypher to Python.
+
+[.slide]
+== What You'll Learn
+
+By the end of this lesson, you'll be able to:
+
+* Execute the standard five-step GDS workflow in Python
+* Create graph projections and inspect them using the Graph object
+* Choose the right execution mode for different situations
+* Work with algorithm results as pandas DataFrames
+* Clean up projections properly to manage memory
+
+[.slide]
+== The GDS Workflow
+
+Every GDS analysis follows the same five steps:
+
+1. **Load data** into Neo4j (if needed)
+2. **Project** the graph into GDS memory
+3. **Run algorithms** on the projection
+4. **Work with results**
+5. **Drop** the projection
+
+You did this in Modules 1 and 2 using Cypher. Now you'll do the same thing in Python.
+
+[.slide]
+== From Cypher to Python
+
+In Module 2, you wrote Cypher projections like this:
+
+[source,cypher,role=noplay nocopy]
+.Cypher projection
+----
+MATCH (source:User)-[r:P2P]->(target:User)
+WITH gds.graph.project('fraud-graph', source, target) AS g
+RETURN g.graphName, g.nodeCount
+----
+
+The Python equivalent uses the same concepts, but with a different interface. Let's work through each step.
+
+[.slide]
+== Step 1: Loading Data
+
+If your data isn't already in Neo4j, you can load it using `gds.run_cypher()`. This method executes any Cypher query and returns results as a pandas DataFrame.
+
+[source,python,role=noplay nocopy]
+.Run Cypher to load data
+----
+# Load Movie nodes from CSV
+gds.run_cypher(f"""
+    LOAD CSV WITH HEADERS FROM '{CSV_URLS['movies']}' AS row
+    MERGE (m:Movie {{tmdbId: row.tmdbId}})
+    SET m.title = row.title,
+        m.year = toInteger(row.year),
+        m.imdbRating = toFloat(row.imdbRating)
+""")
+----
+
+For this workshop, the companion notebook handles data loading. In practice, you'd often connect to an existing database.
+
+[.slide]
+== Step 2: Creating Projections
+
+The `gds.graph.project()` method returns two values: a Graph object and metadata about the projection.
+
+[source,python,role=noplay nocopy]
+.Project a graph
+----
+G, result = gds.graph.project(
+    "movies-graph",
+    {
+        "Actor": {
+            "properties": {
+                "born": {"defaultValue": 1900}
+            }
+        },
+        "Movie": {
+            "properties": {
+                "year": {"defaultValue": 1900},
+                "imdbRating": {"defaultValue": 0.0}
+            }
+        }
+    },
+    "ACTED_IN"
+)
+----
+
+This example uses **native projection** syntax. In the next lesson, you'll learn how to translate your Cypher projection knowledge to native projection in Python.
+
+[.slide]
+== The Graph Object
+
+The Graph object (`G`) gives you methods to inspect your projection without querying the catalog directly.
+
+[source,python,role=noplay nocopy]
+.Graph operations
+----
+G.name()                     # Returns the graph name
+G.node_count()               # Number of nodes in projection
+G.relationship_count()       # Number of relationships
+G.node_labels()              # List of node labels
+G.relationship_types()       # List of relationship types
+G.node_properties("Movie")   # Properties available on Movie nodes
+G.memory_usage()             # Memory consumption
+G.exists()                   # True if graph exists in catalog
+----
+
+These methods are useful for verifying your projection before running algorithms.
+
+[.slide]
+== Step 3: Running Algorithms
+
+Algorithm calls follow a consistent pattern:
+
+[source,python,role=noplay nocopy]
+----
+gds.<algorithm>.<mode>(G, **config)
+----
+
+For example, to run degree centrality in mutate mode:
+
+[source,python,role=noplay nocopy]
+.Mutate
+----
+result = gds.degree.mutate(G, mutateProperty="degree")
+
+# Verify the property was added
+print(G.node_properties("Actor"))  # ['born', 'degree']
+----
+
+The mode you choose determines what happens with the results.
+
+[.slide]
+== The Four Execution Modes
+
+Each mode serves a different purpose:
+
+* **`.stream()`** — Returns results as a DataFrame. Use when you want to analyze or visualize results in Python.
+
+* **`.mutate()`** — Stores results in the projection only. Use when chaining multiple algorithms together.
+
+* **`.write()`** — Writes results back to Neo4j. Use when you need to persist results for later queries.
+
+* **`.stats()`** — Returns statistics only. Use for quick checks without storing anything.
+
+[.slide]
+== Stream Mode in Practice
+
+Stream mode is the most common choice for analysis work. Results come back as a pandas DataFrame.
+
+[source,python,role=noplay nocopy]
+.Stream
+----
+df = gds.degree.stream(G)
+
+# Standard pandas operations work immediately
+top_nodes = df.nlargest(10, "score")
+print(top_nodes)
+----
+
+[.slide]
+== Step 4: Working with Results
+
+Since stream mode returns DataFrames, you can use the full pandas toolkit. Filter, sort, merge, visualize—whatever your analysis requires.
+
+[source,python,role=noplay nocopy]
+.Stream to dataframes
+----
+# Get degree centrality scores
+scores = gds.degree.stream(G)
+
+# Find nodes above a threshold
+high_degree = scores[scores["score"] > 50]
+
+# Calculate summary statistics
+print(scores["score"].describe())
+----
+
+[.slide]
+== Step 5: Cleanup
+
+Projections consume memory. When you're finished with a projection, drop it.
+
+[source,python,role=noplay nocopy]
+.Cleanup
+----
+# Drop using the Graph object
+G.drop()
+
+# Or use the catalog
+gds.graph.drop("movies-graph")
+
+# Check what projections remain
+print(gds.graph.list())
+----
+
+Forgetting to drop projections is a common source of memory issues, especially in notebooks where you might create multiple projections during exploration.
+
+[.slide]
+== The Context Manager Pattern
+
+Python's `with` statement provides automatic cleanup. When the block ends, the projection is dropped—even if an error occurs.
+
+[source,python,role=noplay nocopy]
+.Using with to Project -> Run -> Drop in one go
+----
+with gds.graph.project("temp", ["User", "Movie"], "RATED")[0] as G:
+    result = gds.degree.stream(G)
+    print(f"Ran on {G.node_count()} nodes")
+    display(result.nlargest(5, "score"))
+
+# G has been dropped automatically
+print(gds.graph.exists("temp")["exists"])  # False
+----
+
+This pattern is especially useful for exploratory work where you're creating and discarding projections frequently.
+
+[.slide]
+== Putting It Together
+
+Here's the complete workflow in one place:
+
+[source,python,role=noplay nocopy]
+.Connect
+----
+from graphdatascience import GraphDataScience
+
+gds = GraphDataScience(uri, auth=(username, password))
+----
+
+[source,python,role=noplay nocopy]
+.Project -> Run -> Analyze -> Drop
+----
+G, _ = gds.graph.project(
+    "movies-graph",
+    ["Actor", "Movie"],
+    {"ACTED_IN": {"orientation": "UNDIRECTED"}}
+)
+
+# Run algorithm
+df = gds.degree.stream(G)
+
+# Work with results
+print(df.nlargest(10, "score"))
+
+# Cleanup
+G.drop()
+gds.close()
+----
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+The GDS workflow in Python mirrors what you learned in Cypher:
+
+* `gds.graph.project()` returns a Graph object for inspecting projections
+* Four execution modes let you choose where results go: `.stream()`, `.mutate()`, `.write()`, `.stats()`
+* Always drop projections when finished—or use context managers for automatic cleanup
+* Include `defaultValue` when projecting properties to handle nulls
+
+In the companion notebook, you'll work through each step hands-on with the Movies dataset.
+
+**Next:** Understanding projection syntax options—native vs. Cypher projection in Python.
