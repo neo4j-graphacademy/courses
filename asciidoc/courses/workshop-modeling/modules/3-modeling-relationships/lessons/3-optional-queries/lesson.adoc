@@ -1,0 +1,154 @@
+= Querying relationships
+:type: lesson
+:order: 3
+:duration: 15
+:optional: true
+
+// Original content - practice queries for relationships
+
+[.slide.discrete]
+== Optional Practice
+
+You have created the PLACED relationship between Customer and Order. You now have the data available to start querying the graph.
+
+[.slide]
+== Counting customer orders
+
+Write a query to find how many orders customer ANTON has placed:
+
+[source,cypher]
+.Count orders for ANTON
+----
+MATCH (c:Customer {id: 'ANTON'})-[:PLACED]->(o:Order)  // <1>
+RETURN c.name, count(o) AS orderCount;                   // <2>
+----
+
+<1> **Match pattern** - Find ANTON and traverse to orders
+<2> **Count aggregation** - Count how many orders are connected
+
+Click **Run** to see the result.
+
+**Try experimenting:**
+
+* Change 'ANTON' to 'ALFKI' to see a different customer
+* Remove the WHERE to count orders for ALL customers: `MATCH (c:Customer)-[:PLACED]->(o:Order) RETURN c.name, count(o) ORDER BY count(o) DESC LIMIT 10;`
+
+
+[.slide]
+== Finding customers with many orders
+
+Find customers who have placed more than 10 orders:
+
+[source,cypher]
+.Active customers (10+ orders)
+----
+MATCH (c:Customer)  // <1>
+WITH c, COUNT { (c)-[:PLACED]->(o:Order) } AS orderCount // <2>
+WHERE orderCount > 10                    // <3>
+RETURN c.name, orderCount         // <4>
+ORDER BY orderCount DESC;                // <5>
+----
+
+<1> **Match pattern** - Connect customers to their orders
+<2> **Aggregate with WITH** - The `COUNT` sub-query finds the number of relationships by type and direction
+<3> **Filter aggregation** - Only keep customers with more than 10 orders
+<4> **Return results** - Show company name and order count
+<5> **Sort** - Highest order counts first
+
+Click **Run** to see your most active customers.
+
+
+[.slide]
+== Querying order date ranges
+
+Find the date range of orders for a specific customer:
+
+[source,cypher]
+.Order history for ALFKI
+----
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(o:Order)  // <1>
+RETURN c.name,                                           // <2>
+       min(o.date) AS firstOrder,                          // <3>
+       max(o.date) AS lastOrder,                           // <4>
+       count(o) AS totalOrders;                                 // <5>
+----
+
+<1> **Match pattern** - Find customer and their orders
+<2> **Customer name** - Return the company name
+<3> **Earliest order** - Use min() to find first order date
+<4> **Latest order** - Use max() to find most recent order
+<5> **Total count** - How many orders in this time range
+
+Click **Run** to see ALFKI's ordering history.
+
+
+[.slide]
+== Grouping orders by country
+
+Find how many orders were shipped to each country:
+
+[source,cypher]
+.Orders by ship country
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order)  // <1>
+RETURN o.shipCountry,                    // <2>
+       count(o) AS orderCount            // <3>
+ORDER BY orderCount DESC                 // <4>
+LIMIT 10;                                // <5>
+----
+
+<1> **Match pattern** - Connect customers to orders
+<2> **Group by country** - Implicitly groups by shipCountry
+<3> **Count orders** - Aggregate per country
+<4> **Sort descending** - Highest counts first
+<5> **Limit** - Top 10 countries
+
+Click **Run** to see which countries receive the most orders.
+
+
+[.slide]
+== Finding customers without orders
+
+Find customers who haven't placed any orders yet:
+
+[source,cypher]
+.Customers with no orders
+----
+MATCH (c:Customer)                       // <1>
+WHERE NOT (c)-[:PLACED]->(:Order)        // <2>
+RETURN c.name, c.country;         // <3>
+----
+
+<1> **Match all customers** - Find every Customer node
+<2> **Negative pattern** - Filter to only customers WITHOUT PLACED relationships
+<3> **Return customer info** - Show who they are
+
+Click **Run** to find customers who need outreach!
+
+
+[TIP,role=hint]
+.Hint
+====
+The `WHERE NOT` pattern here accesses the data store directly to find a count of the number of `PLACED` relationships, which is fast and efficient.
+You'll use negative patterns (`WHERE NOT`) in the recommendation query to exclude products you've already bought.
+====
+
+
+read::Mark as completed[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you practiced relationship traversal queries:
+
+* **Basic traversals** - Follow PLACED relationships from Customer to Order
+* **Aggregation** - Count orders per customer with count()
+* **Date functions** - min() and max() for date ranges
+* **Grouping** - Implicit grouping by returned properties
+* **Negative patterns** - Find customers _without_ orders using the `WHERE NOT` clause
+* **Building blocks** - These patterns are foundations for the recommendation query
+
+In the next module, you will add the critical Order→Product connection, completing the path needed for recommendations.
+
+

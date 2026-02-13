@@ -1,0 +1,349 @@
+= Graph Elements
+:type: lesson
+:order: 1
+:duration: 8
+
+// Source: workshop-importing/modules-backup-original/2-data-modeling/lessons/1-what-is-modeling
+// Source: workshop-importing/modules-backup-original/4-querying-data/lessons/1-intro-cypher
+// Adapted: Combined graph elements overview with Cypher basics, framed around recommendation goal
+
+[.slide.discrete]
+== Introduction
+
+In the previous module, You set up your Neo4j Aura instance in the previous module. Before importing data, you need to understand how graph databases store information differently from relational databases.
+
+
+In this lesson, you will learn the components of a Neo4j graph and basic Cypher query syntax.
+
+
+[.slide]
+== Understanding the goal
+
+By the end of this workshop, you will build a query that answers:
+
+**"What products do people like me buy, that I haven't bought yet?"**
+
+This is the kind of query that requires complex JOINs and subqueries in SQL, but is natural and performant in a graph database.
+
+Each module adds a piece to this solution.
+
+
+[.slide]
+== Understanding graph building blocks
+
+Neo4j graphs have four components that work together to model your domain:
+
+* **Nodes** - Entities that exist independently
+* **Labels** - Categories for nodes
+* **Relationships** - Connections between nodes
+* **Properties** - Attributes that describe nodes or relationships
+
+Let's explore each one.
+
+
+[.slide.col-2]
+== Representing nodes
+
+[.col]
+====
+**Nodes** represent entities that exist independently in your domain.
+
+* Think of these as the "things" or "objects" in your business
+* **Nodes are typically nouns**: Customer, Product, Order, Employee
+* Each node represents a distinct entity
+* Nodes are the foundation of your graph
+====
+
+[.col]
+====
+[source,mermaid]
+----
+graph TB
+    Customer((Customer))
+    Product((Product))
+    Order((Order))
+
+    style Customer fill:#4C8EDA
+    style Product fill:#FCC644
+    style Order fill:#7CCFA9
+----
+====
+
+[.slide.col-2]
+== Categorizing with labels
+
+[.col]
+====
+**Labels** categorize nodes into types.
+
+* Written with a colon prefix: `:Customer`, `:Product`, `:Order`
+* Help organize and query your data efficiently
+* Multiple labels are possible: a node can be both `:Product` and `:DiscontinuedItem`
+* Labels make queries faster and more specific
+====
+
+[.col]
+====
+[source,mermaid]
+....
+graph TB
+    C((":Customer"))
+    P((":Product"))
+    O((":Order"))
+
+    style C fill:#4C8EDA
+    style P fill:#FCC644
+    style O fill:#7CCFA9
+....
+====
+
+[.slide.col-2]
+== Connecting with relationships
+
+[.col]
+====
+**Relationships** connect nodes together.
+
+* Always have a **type** and a **direction**
+* **Relationships are typically verbs**: +
+`PLACED`, `CONTAINS`, `SUPPLIES`, `REPORTS_TO`
+* **Direction** holds the semantic meaning of the relationship. +
+A customer placed an order, the order did not place the customer.
+* Can store **properties** to capture details about the connection
+
+
+The following pattern describes that Order #10248 contains 12 units of Product named Chai, at a price of 14.00 each.
+
+
+
+====
+
+[.col]
+====
+[source,mermaid]
+....
+graph LR
+    O((Order<br/>orderId: 10248))
+    P((Product<br/>name: 'Chai'))
+
+    O -->|"CONTAINS<br/>{quantity: 12,<br/>unitPrice: 14.00}"| P
+
+    style O fill:#7CCFA9
+    style P fill:#FCC644
+....
+
+
+====
+
+
+
+[.slide.col-2]
+== Storing data in properties
+
+[.col]
+====
+**Properties** are attributes that describe nodes or relationships.
+
+* Stored as key-value pairs
+* Node examples: `name`, `price`, `email`, `orderDate`
+* Relationship examples: `quantity`, `since`, `rating`
+* Hold the detailed data about your entities and connections
+====
+
+[.col]
+====
+[source,mermaid]
+....
+graph LR
+    P(("Product<br/>name: 'Chai'<br/>unitPrice: 18.00"))
+
+    style P fill:#FCC644
+....
+====
+
+
+[.slide]
+== Thinking in patterns
+
+The golden rule of graph modeling is to think of nodes as nouns and relationships as verbs.
+
+* **Nodes are nouns** - `Customer`, `Product`, `Order`, `Category`
+* **Relationships are verbs** - `PLACED`, `CONTAINS`, `BELONGS_TO`, `SUPPLIES`
+
+This makes reasoning about the graph model more natural and allows you to use the language of your business or domain to describe the data.
+
+This leads to a data model that is more expressive and easier to understand.
+
+* `(Customer)-[:PLACED]->(Order)` - "Customer PLACED Order"
+* `(Order)-[:CONTAINS]->(Product)` - "Order CONTAINS Product"
+* `(Product)-[:BELONGS_TO]->(Category)` - "Product BELONGS_TO Category"
+
+
+
+[.slide.col-2]
+== Combining the elements
+
+[.col]
+====
+
+[source,mermaid]
+.Relational Model (Many-to-Many)
+....
+erDiagram
+    Order ||--o{ ProductOrder : contains
+    Product ||--o{ ProductOrder : "ordered in"
+
+    Order {
+        int orderId
+        date orderDate
+    }
+    ProductOrder {
+        int orderId
+        int productId
+        int quantity
+    }
+    Product {
+        int productId
+        string productName
+        decimal unitPrice
+    }
+....
+
+====
+
+
+[.col]
+====
+
+[source,mermaid]
+.Graph Model (Direct Connection)
+....
+graph LR
+    O((Order))
+    P((Product))
+
+    O -->|"CONTAINS<br/>{quantity: 10}"| P
+
+    style O fill:#7CCFA9
+    style P fill:#FCC644
+....
+
+In SQL, many-to-many relationships require a join table (`ProductOrder`).
+
+In Neo4j, a single node connects two relationships directly, so there is no concept of a many-to-many relationship.  The properties of the relationship provide context on how the two nodes are connected.
+
+====
+
+[.slide]
+== Introducing Cypher
+
+**Cypher** is Neo4j's query language. It uses ASCII-art patterns to represent graph structures.
+
+You will use Cypher to:
+
+* Query the data you import
+* Verify your imports worked
+* Build the recommendation query
+
+The syntax is designed to be readable and match how you think about graph patterns.
+
+
+[.slide.col-2]
+== Writing node patterns
+
+Nodes are represented with parentheses `()`.
+
+[.col]
+====
+[source,cypher]
+.Match a specific product by property
+----
+MATCH (p:Product)  // <1>
+WHERE p.name = 'Chai'  // <2>
+RETURN p.name, p.unitPrice // <3>
+LIMIT 1
+----
+====
+
+[.col]
+====
+<1> **Pattern** - `p` is a variable to reference the node, `:Product` is a label to filter node types
+<2> **Filter** - `WHERE` clause filters by property value
+<3> **Return** - Returns the product name and price properties
+====
+
+
+
+[.slide.col-2]
+== Writing relationship patterns
+
+Relationships are represented with arrows and square brackets.  Here is a pattern that spans customers, the orders they placed, and the products they purchased.
+
+[.col]
+====
+[source,cypher]
+.From customer to products
+----
+MATCH path = (c:Customer)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)  // <1>
+WHERE c.customerId = 'ALFKI'  // <2>
+RETURN c.name AS company, p.name AS product, count(*) AS count // <3>
+LIMIT 5;
+----
+====
+
+[.col]
+====
+<1> **Multi-hop pattern** - The `path =` syntax captures the entire pattern. Find a customer who has placed an order, which contains a product.
+<2> **Filter** - Find a specific customer by their ID.
+<3> **Return** - The `AS` keyword is used to rename the properties.
+
+====
+
+This pattern shows how relationships connect nodes. The arrow `-[:TYPE]->` indicates direction.
+
+You can also capture relationships in variables like `[r:CONTAINS]` to access their properties.
+
+// TODO: reinstate
+// [.slide]
+// == A Teaser: The Recommendation Query
+
+// Here's what you will build by the end of this workshop:
+
+// [source,cypher]
+// .Product recommendations (simplified preview)
+// ----
+// // Find products I bought
+// MATCH (me:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+// WHERE me.customerId = 'ALFKI'
+// WITH me, collect(myProduct) AS myProducts
+
+// // Find customers like me (bought same products)
+// MATCH (me)-[:PLACED]->(:Order)-[:CONTAINS]->(:Product)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+
+// // Find what they bought that I haven't
+// MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+// WHERE NOT rec IN myProducts
+
+// RETURN rec.productName, count(*) AS recommendations
+// ORDER BY recommendations DESC
+// LIMIT 5;
+// ----
+
+// This query would require 6+ JOINs and a complex subquery in SQL. In Cypher, it reads naturally.
+
+// Don't worry about understanding all of this yet - you will build it step by step.
+
+read::Mark as completed[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned the graph fundamentals and Cypher basics:
+
+* **Graph components** - Nodes (entities), labels (categories), relationships (connections), properties (attributes)
+* **Cypher syntax** - Nodes `()`, relationships `-[:TYPE]->`, patterns that match graph structures
+* **Basic queries** - MATCH finds patterns, WHERE filters results, RETURN specifies output
+
+Next, you can optionally test your understanding with a quick Cypher patterns quiz, or continue to learn how to identify what should be a node in your graph model.
+
+

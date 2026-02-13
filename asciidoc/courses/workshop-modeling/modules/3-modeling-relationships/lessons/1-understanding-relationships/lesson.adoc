@@ -1,0 +1,266 @@
+= Understanding Relationships
+:type: lesson
+:order: 1
+:duration: 10
+
+// Source: workshop-importing/modules-backup-original/2-data-modeling/lessons/4-relationships
+// Adapted: Focused on PLACED relationship, connected to recommendation goal
+
+[.slide.discrete]
+== Introduction
+
+In the previous module, you imported nodes into your graph. Nodes represent entities, but relationships connect them together to enable complex queries about how entities relate.
+
+
+In this lesson, you will learn about relationships in Neo4j and how they enable the recommendation system.
+
+
+[.slide]
+== Understanding relationships
+
+**Relationships** connect nodes and represent associations between entities.
+
+Every relationship has:
+
+* **Type** - A name that describes the connection (PLACED, ORDERS, SUPPLIES)
+* **Direction** - Points from one node to another (Customer **placed an** Order)
+* **Properties** - Optional attributes that describe the relationship (orderDate, quantity)
+
+
+[.slide]
+== Deciding what should be a relationship
+
+**Relationships represent connections** - associations between entities that already exist as nodes.
+
+**Think of relationships as verbs** - they describe actions or connections between nouns (Customer PLACED Order, Order CONTAINS Product).
+
+[.slide]
+== The problem with relational databases
+
+The irony is that relational databases do not handle relationships well. Foreign keys are backed by indexes, and joins are calculated at read-time. The larger the tables grow, the larger the indexes become, and the slower the queries become.
+
+
+[.slide.col-2]
+== A worked example
+
+**A common question: "What product categories has this customer purchased from?"**
+
+[.col]
+====
+
+
+[source,sql]
+.SQL requires 3+ JOINs
+----
+SELECT DISTINCT cat.categoryName
+FROM customers c
+JOIN orders o ON c.customerId = o.customerId
+JOIN order_details od ON o.orderId = od.orderId
+JOIN products p ON od.productId = p.productId
+JOIN categories cat ON p.categoryId = cat.categoryId
+WHERE c.customerId = 'ALFKI';
+----
+
+Each JOIN scans indexes and matches keys. With 3+ joins, performance degrades significantly.
+
+====
+
+
+[.col]
+====
+
+
+[source,cypher]
+.Neo4j follows the path
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)
+      -[:CONTAINS]->(:Product)-[:IN_CATEGORY]->(cat:Category)
+RETURN cat.categoryName, count(*) AS productsOrdered;
+----
+
+Neo4j uses an index to find the Customer node, then follows pointers to relationships held in memory to complete the pattern.
+
+====
+
+[.slide]
+== Understanding O(n) notation
+
+
+Big O notation describes how performance scales as data grows:
+
+* **O(1)** - Constant time: Performance stays the same regardless of data size
+* **O(n)** - Linear time: Performance degrades proportionally (2x data = 2x slower)
+* **O(n²)** - Quadratic time: Performance degrades exponentially (2x data = 4x slower)
+
+[.slide]
+=== SQL JOINs compound
+
+Each JOIN adds another index scan. With large tables:
+
+* 1 JOIN: Scan 2 indexes, match keys
+* 2 JOINs: Scan 3 indexes, match keys twice
+* 3 JOINs: Scan 4 indexes, match keys three times
+* **Result:** Performance degrades with each hop (approaching O(n²))
+
+[.slide]
+=== Graph traversals stay constant:
+
+Each relationship is a direct pointer in memory:
+
+* 1 hop: Follow 1 pointer
+* 2 hops: Follow 2 pointers
+* 3 hops: Follow 3 pointers
+* **Result:** O(1) per hop - same speed regardless of database size
+
+[.slide]
+=== The performance gap
+
+The performance gap widens with scale.  With millions of records, the difference becomes dramatic. The more relationships you traverse, the bigger the advantage:
+
+* 1-2 hops: SQL is acceptable
+* 3+ hops: SQL becomes prohibitively slow
+* Many-to-many relationships: SQL requires junction tables and additional joins; graphs use direct relationships
+
+
+[.slide]
+== Identifying Northwind relationships
+
+Based on the decision criteria, these Northwind relationships connect your entities:
+
+* **PLACED** - Customer to Order (who placed which orders)
+* **IN_CATEGORY** - Product to Category (how products are organized)
+* **SUPPLIES** - Supplier to Product (who provides products)
+// * **CONTAINS** - Order to Product (what products are in each order)
+
+Each of these relationships represents a connection between entities, has a natural direction, and will be traversed in queries.
+
+[.slide]
+== Analyzing PLACED as a relationship
+
+**PLACED** is a relationship in Northwind because:
+
+* **Connects two entities** - Links Customer (who) to Order (what), both of which exist independently
+* **Clear direction** - Customer PLACED Order makes natural sense; "Order PLACED Customer" does not
+* **Describes the connection** - Has properties like `orderDate` and `shipCountry` that belong to the act of placing
+* **Enables traversal** - You can follow PLACED to find "What orders did this customer place?" or "Who placed this order?"
+
+
+[.slide.col-2]
+== Querying relationship direction
+
+Every relationship has a direction, but you can query in either direction, or omit the direction entirely.
+
+[.col]
+====
+
+[source,cypher]
+.What orders did this customer place?
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN o;
+----
+
+This query is written with the Customer node on the left hand side.
+
+====
+
+[.col]
+====
+
+[source,cypher]
+.What customers placed this order?
+----
+MATCH (o:Order {orderId: 10248})<-[:PLACED]-(c:Customer)
+RETURN c;
+----
+
+This query starts with the order node, with the arrow denoting the direction of the relationship.
+====
+
+
+[.slide.col-2]
+== Undirected relationships
+
+Some relationships don't have an inherent direction. You can omit the arrow to match in either direction.
+
+[.col]
+====
+[source,cypher]
+.MARRIED_TO is bidirectional
+----
+MATCH (p1:Person)-[:MARRIED_TO]-(p2:Person)
+WHERE p1.name = 'Alice'
+RETURN p2.name;
+----
+
+`MARRIED_TO` is symmetric - if Alice is married to Bob, Bob is married to Alice. No arrow needed.
+====
+
+[.col]
+====
+[source,cypher]
+.LIKES could be one-way
+----
+MATCH (p1:Person)-[:LIKES]->(p2:Person)
+WHERE p1.name = 'Alice'
+RETURN p2.name;
+----
+
+`LIKES` has a direction - Alice likes Bob doesn't mean Bob likes Alice. Use an arrow.
+====
+
+
+[.slide]
+== Using relationship properties
+
+Relationships can have properties that describe the connection:
+
+[source,cypher]
+.Query relationship properties
+----
+MATCH (c:Customer)-[r:PLACED]->(o:Order)  // <1>
+WHERE r.orderDate = '1996-07-04'          // <2>
+RETURN c.companyName, o.orderId, r.shipCountry
+LIMIT 5;
+----
+
+<1> **Relationship variable** - `r` captures the relationship so we can access its properties
+<2> **Filter by property** - Use relationship properties in WHERE clauses
+
+// **Why use relationship properties?**
+
+// * Data belongs to the **connection**, not either node
+// * Example: `orderDate` belongs to the act of placing, not to Customer or Order alone
+// * Example: `quantity` belongs to the Order-Product connection (we'll see this in Module 4)
+
+Relationship properties provide context on the connection itself, rather than the nodes it connects.
+
+
+[.slide]
+== Connecting to the goal
+
+To recommend products, you need to know:
+
+1. **Who placed orders?** (Customer→Order via PLACED)
+2. **What products were ordered?** (Order→Product via ORDERS - next module)
+3. **Who bought similar products?** (traverse backward from products to find other customers)
+
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned about relationships in Neo4j:
+
+* **Relationships connect nodes** - They have a type, direction, and optional properties
+* **Performance advantage** - Direct memory pointers vs SQL JOINs; O(1) traversals vs O(n) index scans
+* **Multi-hop queries** - Graphs excel when traversing 3+ relationships (Customer→Order→Product→Category)
+* **PLACED relationship** - Connects Customer to Order (Customer→Order) for the recommendation path
+* **Direction flexibility** - Query in any direction regardless of how it's stored
+* **Relationship properties** - Data that belongs to the connection itself (orderDate, quantity)
+* **Naming conventions** - Use verbs in UPPER_SNAKE_CASE (PLACED, CONTAINS, IN_CATEGORY)
+* **Connection to goal** - Customer→Order→Product path enables recommendations
+
+In the next lesson, you will import Customer and Order nodes and create PLACED relationships between them.
+
+read::Mark as completed[]

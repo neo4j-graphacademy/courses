@@ -544,7 +544,13 @@ describe("QA Tests", () => {
                 it("should contain valid [source,cypher] blocks", async () => {
                   if (!skipCypherChecks) {
                     for (const cypher of findCypherStatements(lessonAdoc)) {
-                      expect(await explainCypherError(cypher)).toBeUndefined();
+                      const error = await explainCypherError(cypher);
+                      if (error) {
+                        throw new Error(
+                          `Invalid Cypher query:\n\nQuery:\n${JSON.stringify(cypher)}\n\nError:\n${JSON.stringify(error)}`,
+                        );
+                      }
+                      expect(error).toBeUndefined();
                     }
                   }
                 });

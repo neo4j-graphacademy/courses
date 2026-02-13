@@ -1,0 +1,232 @@
+= Workshop Overview
+:type: lesson
+:order: 1
+:duration: 5
+
+[.slide.discrete]
+== Introduction
+
+In this workshop, you will build a **product recommendation system** by transforming relational data into a graph database.  These systems need to find patterns in connected data—customers, orders, and products—and answer questions about relationships between them.
+
+**Your goal:** Answer this question with a single query:
+
+In this lesson, you will learn what you'll build in this workshop and why graph databases are ideal for connected data queries.
+
+
+[.slide.col-2]
+== Your workshop goal
+
+[.col]
+====
+By the end of this workshop, you will build a **product recommendation system** that answers this question:
+
+> "What products do people like me buy, that I haven't bought yet?"
+
+You will import data from the **Northwind dataset**—a fictitious food products company with customers, orders, products, suppliers, and employees.
+
+* 91 customers
+* 830 orders
+* 77 products across 8 categories
+* 29 suppliers
+* 9 employees
+====
+
+[.col]
+====
+image::images/northwind.webp[Northwind data model showing interconnected customers, orders, products, suppliers, and employees]
+====
+
+
+[.slide.discrete]
+== Understanding the recommendation challenge
+
+**The question you'll answer:**
+
+> "What products do people like me buy, that I haven't bought yet?"
+
+**To answer this, you need to:**
+
+1. Find what products I've purchased
+2. Find customers with similar purchases ("people like me")
+3. Find what products they bought
+4. Exclude products I already own
+5. Rank by popularity among similar customers
+
+This is **collaborative filtering**—the algorithm behind recommendation systems provided by the world's largest companies.
+
+These questions are about **relationships and connections**, not just individual records.
+
+
+[.slide.col-2]
+== The relational database approach
+
+In SQL, the recommendation query requires **38 lines of code** with 7 JOINs and 3 Common Table Expressions:
+
+[.col]
+====
+[source,sql]
+.Product recommendations in SQL (simplified)
+----
+-- Step 1: Find my products (3 JOINs)
+WITH my_products AS (SELECT DISTINCT productID FROM customers c
+  JOIN orders o ON c.customerID = o.customerID
+  JOIN order_details od ON o.orderID = od.orderID
+  WHERE c.customerID = 'ALFKI'),
+-- Step 2: Find similar customers (3 more JOINs + subquery)
+similar_customers AS (SELECT DISTINCT c2.customerID FROM customers c2
+  JOIN orders o2 ON c2.customerID = o2.customerID
+  JOIN order_details od2 ON o2.orderID = od2.orderID
+  WHERE od2.productID IN (SELECT productID FROM my_products)
+    AND c2.customerID <> 'ALFKI'),
+-- Step 3: Find recommendations (3 more JOINs + subquery)
+-- ... 25 more lines of SQL ...
+----
+====
+
+[.col]
+====
+**The problems:**
+
+* 38 lines of complex SQL
+* 7 JOIN operations across 4 tables
+* Multiple subqueries and CTEs
+* Performance degrades as data grows (O(n × m) complexity)
+* Hard to write, read, and maintain
+====
+
+[.slide.col-2]
+== Why graph databases?
+
+Graph databases store relationships as first-class citizens, making connected data queries natural and fast.
+
+[.col]
+====
+**The recommendation query in Cypher (11 lines):**
+
+[source,cypher]
+.Product recommendations
+----
+MATCH (me:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+WHERE other <> me
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
+  AND rec.unitsInStock > 0
+RETURN rec.productName, rec.unitPrice,
+       count(DISTINCT other) AS recommendedBy
+ORDER BY recommendedBy DESC
+LIMIT 10;
+----
+====
+
+[.col]
+====
+**The advantages:**
+
+* **11 lines** vs 38 lines SQL
+* **No JOINs**—direct relationship traversals
+* **80x faster**—O(k) vs O(n × m) complexity
+* **Readable**—reads like the problem statement
+* **Maintainable**—easy to modify and extend
+====
+
+[.slide]
+== What you'll build
+
+By the end of this workshop, you will have:
+
+* **Complete graph model** - Products, Customers, Orders, and Categories as nodes and relationships
+
+* **Collaborative filtering algorithm** - Find "people like me" based on purchase patterns
+
+* **Recommendation query** - 11 lines of Cypher compared to 38 lines of SQL
+
+* **Hands-on experience** - Import data, write queries, and understand graph database concepts
+
+Each module builds toward the recommendation query.
+
+
+[.slide]
+=== Module 1: Aura Setup
+
+* Set up Neo4j Aura free tier
+* Learn the Data Importer tool
+* Understand Query and Explore tools
+* Load all data files with one button
+
+[.slide]
+=== Module 2: Foundation
+
+* Graph fundamentals - nodes, relationships, properties
+* Identifying nodes vs properties
+* Import tool overview
+* Import nodes - Products, Customers, Orders, Categories
+
+
+[.slide]
+=== Module 3: Modeling Relationships
+
+* Understanding relationships - type, direction, properties
+* When to use direct relationships vs intermediate nodes
+* Discussion: Customer→Product vs Customer→Order→Product
+* Import relationships - Customer `PLACED` Order, Product `IN_CATEGORY` category.
+
+
+[.slide]
+=== Module 4: Many-to-Many
+
+* Transform pivot table into relationships
+* Import Product `CONTAINS` Order relationships
+* Multi-hop traversals for recommendations
+
+[.slide]
+=== Module 5: Writing Cypher Queries
+
+* How Cypher queries work - anchor nodes, follow relationships
+* Indexes and constraints for performance
+* Practice questions with hands-on examples
+* Build complete recommendation query
+* Side-by-side SQL vs Cypher comparison
+* 11 lines vs 38 lines, 80x faster
+
+[.slide]
+=== Module 6: Final Review
+
+* Knowledge check quiz
+* Test your understanding of the workshop concepts
+
+
+
+[.slide]
+== Creating your environment
+
+To build your graph database, you need a Neo4j instance. You'll use **Neo4j Aura**, a fully managed cloud database service.
+
+
+**Why Aura for this workshop:**
+
+* Free tier available—no credit card required
+* Set up in minutes—no installation needed
+* Includes built-in tools for importing and querying
+* Accessible from anywhere via web browser
+
+
+In the next lesson, you will learn about Neo4j Aura.
+
+read::Mark as completed[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about the workshop goal:
+
+* **Goal** - Build a recommendation system: "What products do people like me buy?"
+* **The challenge** - SQL requires 38 lines with 7 JOINs and is slow (O(n × m))
+* **The solution** - Cypher does it in 11 lines and is 80x faster (O(k))
+* **What you'll build** - Complete graph with Products, Customers, Orders, collaborative filtering algorithm
+* **Workshop structure** - 6 modules: Aura Setup → Foundation → Modeling Relationships → Many-to-Many → Writing Cypher Queries → Final Review
+* **Dataset** - Real Northwind data (91 customers, 830 orders, 77 products)
+
+
+In the next lesson, you will learn about Neo4j Aura, the cloud platform where you'll build your graph.
+

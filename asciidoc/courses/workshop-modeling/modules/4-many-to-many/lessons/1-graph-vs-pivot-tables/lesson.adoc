@@ -1,0 +1,215 @@
+= Transforming Pivot Tables into Graph Relationships
+:type: lesson
+:order: 1
+:duration: 12
+
+// Source: workshop-importing/modules-backup-original/2-data-modeling lessons on relationships
+// Adapted: Focused on many-to-many and pivot table transformation
+
+[.slide.discrete]
+== Introduction
+
+You have Customer→Order relationships working. Now you need to connect Orders to Products so you can find what customers bought.
+
+In this lesson, you will learn why many-to-many relationships require pivot tables in relational databases and how graphs handle them with direct relationships.
+
+
+[.slide]
+== Understanding many-to-many relationships
+
+**Many-to-many relationships** occur when multiple entities on one side can connect to multiple entities on the other side.
+
+In relational databases, you **cannot directly connect two tables** in a many-to-many relationship. You must create an intermediate table (pivot table, junction table, or bridge table) to store the associations.
+
+**You'll encounter this pattern everywhere:**
+
+* **Products and Categories** - products listed as "Electronics", "On Sale", "Featured"
+* **Articles and Tags** - articles tagged as "Technology", "News", "Featured"
+* **Recipes and Dietary Tags** - dishes classified as "Vegetarian", "Quick Meals", "Budget-Friendly"
+* **Orders and Products** - an order containing multiple products, products appearing in multiple orders
+
+These tables are only there to make the problem fit the underlying technology.
+
+
+
+[.slide]
+== Northwind's pivot tables
+
+Let's take a look at how this pattern can be applied in the Northwind dataset.
+
+Northwind contains two pivot tables that demonstrate the pattern:
+
+* A product can be in multiple categories, multiple categories can contain the same product
+* An Order can contain multiple products, a product can appear in multiple orders
+
+In a graph, both of these pivot tables become direct relationships.
+
+[.slide.col-2.reverse]
+== Products in Categories
+
+[.col]
+====
+[source,mermaid]
+....
+erDiagram
+    PRODUCTS {
+        INT productID
+        STRING productName
+        FLOAT unitPrice
+    }
+    CATEGORIES {
+        INT categoryID
+        STRING categoryName
+    }
+    PRODUCT_CATEGORIES {
+        INT id
+        INT productID
+        INT categoryID
+    }
+
+    PRODUCTS ||--o{ PRODUCT_CATEGORIES : ""
+    CATEGORIES ||--o{ PRODUCT_CATEGORIES : ""
+....
+====
+
+[.col]
+====
+The `product_categories` table **only exists to facilitate the many-to-many relationship** between Products and Categories.
+
+The table contains three columns:
+
+* `id` - The unique identifier for the row
+* `productID` - The ID of the product in the products table
+* `categoryID` - The ID of the category in the categories table
+
+[NOTE]
+.Understanding Northwind's simplified category model
+====
+In the Northwind dataset used for this import, each product belongs to only one category (1:1 relationship). However, in a real-world scenario, a product would typically be listed in multiple categories (many-to-many).
+====
+
+====
+
+
+[.slide]
+== Product IN_CATEGORY as graph relationship
+
+[.col]
+====
+
+This relationship can be represented as a direct relationship in a graph.
+
+Any one relationship connects two nodes, so there is no concept of many-to-many relationship, or the need for a pivot table.
+====
+
+[.col]
+====
+
+[source,mermaid]
+....
+graph LR
+    Product((Product)) -->|IN_CATEGORY| Category((Category))
+
+    style Product fill:#FCC644
+    style Category fill:#9B6BDF
+....
+
+====
+
+
+[.slide.col-2]
+== Orders Contain Products
+
+[.col.reverse]
+====
+The `order_details` table is also used to facilitate the many-to-many relationship between Orders and Products, but has additional columns that hold information about the connection.
+
+Alongside the foreign keys, the table also contains:
+* `quantity` - The number of units ordered
+* `unitPrice` - The price per unit
+* `discount` - The discount applied to the order
+
+This data gives the table **validity as an entity** because it describes **how** the product was ordered.
+====
+[.col]
+====
+[source,mermaid]
+....
+erDiagram
+    ORDERS {
+        INT orderID
+        DATE orderDate
+        STRING shipCountry
+    }
+    PRODUCTS {
+        INT productID
+        STRING productName
+        FLOAT unitPrice
+    }
+    ORDER_DETAILS {
+        INT orderID
+        INT productID
+        INT quantity
+        FLOAT unitPrice
+        FLOAT discount
+    }
+
+    ORDERS ||--o{ ORDER_DETAILS : ""
+    PRODUCTS ||--o{ ORDER_DETAILS : ""
+....
+====
+
+
+
+[.slide]
+== Order CONTAINS as graph relationship
+
+In a graph, the `order_details` pivot table becomes direct `CONTAINS` relationships with properties:
+
+[source,mermaid]
+....
+graph LR
+    Order((Order)) -->|"CONTAINS<br/>{quantity: 12,<br/>unitPrice: 14.00}"| Product((Product))
+
+    style Order fill:#7CCFA9
+    style Product fill:#FCC644
+....
+
+
+
+[.slide]
+== Examples in the Northwind dataset
+
+The Northwind dataset contains:
+
+**Product-Category relationships:**
+
+* Product "Chai" → IN_CATEGORY → "Beverages"
+* Product "Chang" → IN_CATEGORY → "Beverages"
+* Product "Tofu" → IN_CATEGORY → "Produce"
+
+**Order-Product relationships:**
+
+* Order 10248 → CONTAINS → "Queso Cabrales" (quantity: 12, unitPrice: 14.00, discount: 0)
+* Order 10248 → CONTAINS → "Singaporean Hokkien Fried Mee" (quantity: 10, unitPrice: 9.80, discount: 0)
+* Order 10248 → CONTAINS → "Mozzarella di Giovanni" (quantity: 5, unitPrice: 34.80, discount: 0)
+
+In the next lesson, you'll import the `order_details` data and create these CONTAINS relationships.
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to transform pivot tables into graph relationships:
+
+* **Many-to-many relationships** - Occur when multiple entities on one side connect to multiple entities on the other
+* **Pivot tables in relational databases** - Required to connect two tables in a many-to-many relationship
+* **Two Northwind examples** - `product_categories` (Product↔Category) and `order_details` (Order↔Product)
+* **Pure junction tables** - `product_categories` has only foreign keys and an ID
+* **Rich pivot tables** - `order_details` has meaningful business data (`quantity`, `unitPrice`, `discount`)
+* **Graph transformation** - Pivot tables become direct relationships (IN_CATEGORY, CONTAINS)
+* **Relationship properties** - Pivot table columns become properties on the relationships
+
+In the next lesson, you will import the `order_details` data and create CONTAINS relationships.
+
+read::Mark as completed[]
