@@ -25,75 +25,97 @@ In this lesson, you will construct the recommendation algorithm step by step.
 5. **Rank by popularity** - Most recommended first
 
 
-[.slide]
+[.slide.col-2]
 == Step 1: finding my products
 
 Start with what customer ALFKI has purchased:
 
+[.col]
+====
 [source,cypher]
 .My purchase history
 ----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
-RETURN DISTINCT myProduct.name
-ORDER BY myProduct.name;
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)  // <1>
+RETURN DISTINCT myProduct.name                                                                   // <2>
+ORDER BY myProduct.name;                                                                         // <3>
 ----
+====
+
+[.col]
+====
+<1> **Find customer and traverse** - Start at customer, follow PLACED to orders, then CONTAINS to products
+<2> **Return products** - Get unique product names
+<3> **Sort results** - Alphabetically by product name
 
 This finds all products ALFKI has ever bought.
+====
 
 
-[.slide]
+
+[.slide.col-2]
 == Step 2: finding similar customers
 
 Who else bought the same products?
 
+[.col]
+====
 [source,cypher]
 .Customers with similar purchases
 ----
 MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // (1)
-WHERE other <> me                                                                                // (2)
-RETURN other.name, count(DISTINCT myProduct) AS sharedProducts                           // (3)
-ORDER BY sharedProducts DESC                                                                     // (4)
-LIMIT 10;                                                                                        // (5)
+MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)                             // <1>
+WHERE other <> me
+RETURN other.name, count(DISTINCT myProduct) AS sharedProducts
+ORDER BY sharedProducts DESC
+LIMIT 10;
 ----
+====
 
-<1> **Similar customers** - Backward traversal from products to find customers who bought same products
-<2> **Exclude me** - Don't include ALFKI in the results
-<3> **Count shared** - How many products in common
-<4> **Sort** - Most similar first
-<5> **Top 10** - Most relevant
+[.col]
+====
+<1> **Similar customers** - Backward traversal from my products to find other customers who bought the same products
 
 This finds customers with the most similar taste.
+====
 
 
-[.slide]
+
+[.slide.col-2]
 == Step 3: finding their products
 
 What did similar customers buy?
 
+[.col]
+====
 [source,cypher]
 .Products similar customers bought
 ----
 MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
 WHERE other <> me
-MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // (1)
-RETURN DISTINCT rec.name, count(DISTINCT other) AS recommendedBy                         // (2)
+MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)                                    // <1>
+RETURN DISTINCT rec.name, count(DISTINCT other) AS recommendedBy
 ORDER BY recommendedBy DESC
 LIMIT 10;
 ----
+====
 
+[.col]
+====
 <1> **Their products** - Forward traversal from similar customers to find what they bought
-<2> **Count recommendations** - How many similar customers recommend each product
 
-**Problem:** This includes products ALFKI already bought!
+However, this includes products ALFKI already bought!
+====
 
 
-[.slide]
+
+[.slide.col-2]
 == Step 4: excluding my products
 
 Add a filter to exclude products I already own:
 
+[.col]
+====
 [source,cypher]
 .Recommendations excluding my purchases
 ----
@@ -101,21 +123,27 @@ MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Pr
 MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
 WHERE other <> me
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
-WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)                                           // (1)
 RETURN rec.name, count(DISTINCT other) AS recommendedBy
+WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)                                           // <1>
 ORDER BY recommendedBy DESC
 LIMIT 10;
 ----
+====
 
-<1> **Exclude my purchases** - WHERE NOT checks if a path exists from me to the recommended product
+[.col]
+====
+<1> **Exclude my purchases** - Only recommend products I haven't already bought
+====
 
 
 
-[.slide]
+[.slide.col-2]
 == Step 5: adding product details
 
 Enrich with price and availability:
 
+[.col]
+====
 [source,cypher]
 .Complete recommendations with details
 ----
@@ -124,19 +152,22 @@ MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
 WHERE other <> me
 MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
 WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
-  AND rec.unitsInStock > 0                                                                       // (1)
+  AND rec.unitsInStock > 0                                                                       // <1>
 RETURN rec.name,
-       rec.unitPrice,                                                                            // (2)
-       rec.unitsInStock,                                                                         // (3)
+       rec.unitPrice,                                                                            // <2>
+       rec.unitsInStock,
        count(DISTINCT other) AS recommendedBy
-ORDER BY recommendedBy DESC, rec.unitPrice                                                       // (4)
+ORDER BY recommendedBy DESC, rec.unitPrice                                                       // <3>
 LIMIT 10;
 ----
+====
 
+[.col]
+====
 <1> **Filter available** - Only show in-stock products
-<2> **Price** - Include unit price for each recommendation
-<3> **Stock level** - Show how many units are available
-<4> **Secondary sort** - Sort by popularity first, then by price
+<2> **Add product details** - Include price and stock information
+<3> **Secondary sort** - Sort by popularity first, then by price
+====
 
 
 [.slide]
@@ -186,14 +217,16 @@ LIMIT 10;
 [.slide]
 == Analyzing Cypher vs SQL
 
-| Metric | Cypher | SQL |
-|--------|--------|-----|
-| **Lines of code** | 11 | 38 |
-| **JOINs** | 0 | 7 |
-| **CTEs/Subqueries** | 0 | 3 CTEs + 2 subqueries |
-| **Readability** | Reads like the question | Complex nested logic |
-| **Performance** | O(k) - scales with connections | O(n × m) - table scans |
-| **Maintainability** | Easy to modify | Hard to debug |
+[options="header"]
+|===
+| Metric                 | Cypher                             | SQL
+| Lines of code          | 11                                 | 38
+| JOINs                  | 0                                  | 7
+| CTEs/Subqueries        | 0                                  | 3 CTEs + 2 subqueries
+| Readability            | Reads like the question            | Complex nested logic
+| Performance            | O(k) - scales with connections     | O(n × m) - table scans
+| Maintainability        | Easy to modify                     | Hard to debug
+|===
 
 **Graph databases excel at connected data queries.**
 
@@ -209,7 +242,7 @@ LIMIT 10;
 4. Remove stock filter to see all products
 5. Show top 20 instead of 10
 
-**Challenge:** Create a weighted score that considers both popularity and price.
+**Experiment further:** Why not try and create a weighted score that considers both popularity and price?
 
 read::Mark as completed[]
 
@@ -227,5 +260,5 @@ In this lesson, you built the recommendation query:
 * **Comparison:** 11 lines Cypher vs 38 lines SQL
 * **Performance:** O(k) graph traversal vs O(n × m) joins
 
-**You've built a real recommendation engine!**
+**You've modeled your data and written a recommendation query that is simpler to understand and faster to execute than SQL!**
 
