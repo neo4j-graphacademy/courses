@@ -1,0 +1,259 @@
+= Analyzing the Northwind Schema
+:order: 1
+:type: lesson
+
+In this lesson, you will explore the Northwind database schema and understand its structure before designing a graph model.
+
+
+[.slide]
+== Northwind Schema Overview
+
+This lesson explores the Northwind schema introduced in Module 1. The following tables are the focus for graph modelling.
+
+[.slide.discrete]
+=== Core Business Tables
+
+[cols="1,3"]
+|===
+| Table | Description
+
+| `customers`
+| Companies that purchase products. Contains contact information, addresses, and company details.
+
+| `orders`
+| Purchase orders placed by customers. Links to customers, employees, and shippers.
+
+| `order_details`
+| Line items within orders. Links orders to products with quantity, price, and discount.
+
+| `products`
+| Items available for sale. Links to categories and suppliers.
+
+| `categories`
+| Product groupings (e.g., Beverages, Dairy Products, Seafood).
+
+| `suppliers`
+| Companies that provide products. Contains contact and address information.
+
+| `employees`
+| Staff members who process orders. Includes a self-referencing `reports_to` column for the management hierarchy.
+
+| `shippers`
+| Delivery companies that transport orders.
+
+|===
+
+
+[.slide.discrete]
+=== Supporting Tables
+
+[cols="1,3"]
+|===
+| Table | Description
+
+| `territories`
+| Geographic sales regions assigned to employees.
+
+| `region`
+| Broader geographic areas containing territories.
+
+| `employee_territories`
+| Junction table linking employees to their assigned territories.
+
+| `customer_demographics`
+| Customer classification types.
+
+| `customer_customer_demo`
+| Junction table linking customers to demographic types.
+
+| `us_states`
+| Reference table for US state information.
+
+|===
+
+
+[.slide]
+== Analyzing Schema Structure
+
+To design your graph model, you need to understand the source schema: tables, columns, and foreign keys. The queries below use standard SQL (`information_schema`). Similar catalogs exist in BigQuery, Snowflake, and other relational databases.
+
+[.slide.discrete]
+=== List All Tables
+
+[source,sql]
+----
+SELECT table_name 
+FROM information_schema.tables 
+WHERE table_schema = 'public'
+ORDER BY table_name;
+----
+
+[.slide.discrete]
+=== View Table Columns
+
+To see the columns in a specific table:
+
+[source,sql]
+----
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'customers'
+ORDER BY ordinal_position;
+----
+
+// TODO: Add screenshot showing customers table columns
+
+[.slide.discrete]
+=== Count Records in Tables
+
+Understanding the data volume helps with import planning:
+
+[source,sql]
+----
+SELECT 'customers' as table_name, COUNT(*) as row_count FROM customers
+UNION ALL
+SELECT 'orders', COUNT(*) FROM orders
+UNION ALL
+SELECT 'order_details', COUNT(*) FROM order_details
+UNION ALL
+SELECT 'products', COUNT(*) FROM products
+UNION ALL
+SELECT 'categories', COUNT(*) FROM categories
+UNION ALL
+SELECT 'suppliers', COUNT(*) FROM suppliers
+UNION ALL
+SELECT 'employees', COUNT(*) FROM employees;
+----
+
+// TODO: Add screenshot of record counts
+
+
+[.slide]
+== Understanding Foreign Keys
+
+Foreign keys define the relationships between tables. These will become relationships in your graph model.
+
+Run this query to see all foreign key relationships:
+
+[source,sql]
+----
+SELECT
+    tc.table_name AS source_table,
+    kcu.column_name AS source_column,
+    ccu.table_name AS target_table,
+    ccu.column_name AS target_column
+FROM information_schema.table_constraints tc
+JOIN information_schema.key_column_usage kcu 
+    ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage ccu 
+    ON ccu.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+ORDER BY tc.table_name;
+----
+
+// TODO: Add screenshot of foreign key relationships
+
+[.slide.discrete]
+=== Relationships in Northwind
+
+The query above reveals these important relationships:
+
+[cols="1,1,1"]
+|===
+| Source Table | Foreign Key | References
+
+| `orders`
+| `customer_id`
+| `customers.customer_id`
+
+| `orders`
+| `employee_id`
+| `employees.employee_id`
+
+| `orders`
+| `ship_via`
+| `shippers.shipper_id`
+
+| `order_details`
+| `order_id`
+| `orders.order_id`
+
+| `order_details`
+| `product_id`
+| `products.product_id`
+
+| `products`
+| `category_id`
+| `categories.category_id`
+
+| `products`
+| `supplier_id`
+| `suppliers.supplier_id`
+
+| `employees`
+| `reports_to`
+| `employees.employee_id`
+
+|===
+
+
+[.slide]
+== Sample Data Exploration
+
+Before modelling, explore some actual data to understand its structure:
+
+
+=== View Customer Data
+
+[source,sql]
+----
+SELECT customer_id, company_name, contact_name, city, country
+FROM customers
+LIMIT 5;
+----
+
+// TODO: Add screenshot of customer data
+
+
+=== View Order with Details
+
+[source,sql]
+----
+SELECT 
+    o.order_id,
+    c.company_name AS customer,
+    e.first_name || ' ' || e.last_name AS employee,
+    o.order_date,
+    p.product_name,
+    od.quantity,
+    od.unit_price
+FROM orders o
+JOIN customers c ON o.customer_id = c.customer_id
+JOIN employees e ON o.employee_id = e.employee_id
+JOIN order_details od ON o.order_id = od.order_id
+JOIN products p ON od.product_id = p.product_id
+LIMIT 10;
+----
+
+// TODO: Add screenshot of joined order data
+
+
+[.slide]
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-requirements.adoc[leveloffset=+1]
+
+
+[.slide]
+[.summary]
+== Summary
+
+In this lesson, you explored the Northwind database schema and learned:
+
+* The main tables and their purposes
+* How to analyze relational schema structure (tables, columns, foreign keys)
+* The foreign key relationships between tables
+* How to explore sample data
+
+In the next lesson, you will identify which tables should become nodes in your graph model.

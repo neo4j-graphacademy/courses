@@ -23,3 +23,4 @@ Brief description of changes made.
 
 - [ ] Tested locally
 - [ ] All existing tests pass
+- [ ] Course category confirmed

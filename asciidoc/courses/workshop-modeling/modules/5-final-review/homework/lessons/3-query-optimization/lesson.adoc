@@ -1,0 +1,655 @@
+= Query Fundamentals and Performance
+:type: lesson
+:order: 1
+:duration: 25
+
+[.slide.discrete]
+== Introduction
+
+You've built a complete graph with Products, Customers, Orders, and relationships. Now you'll learn how to write efficient queries and optimize their performance using constraints, indexes, and profiling tools.
+
+In this lesson, you will understand how Cypher queries execute and how to make them fast with proper indexing and optimization techniques.
+
+
+[.slide]
+== How Cypher queries execute
+
+**Every Cypher query follows a two-phase pattern:**
+
+**Phase 1: Find anchor nodes**
+Neo4j starts by locating specific nodes to begin the query.
+
+**Phase 2: Expand relationships**
+From anchor nodes, Neo4j traverses relationships to find connected data.
+
+**Example concept:**
+
+[source,cypher]
+.Basic query execution flow
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.companyName, count(o) AS orderCount
+----
+
+1. **Anchor:** Find Customer with customerId = 'ALFKI'
+2. **Expand:** Follow PLACED relationships to Orders
+3. **Aggregate:** Count the orders
+4. **Return:** Display results
+
+
+[.slide]
+== Finding anchor nodes efficiently
+
+**Concept:** The anchor is your query's starting point. Fast anchors = fast queries.
+
+**Without an index:**
+
+[source,text]
+.Query without index - linear scan
+----
+Neo4j scans ALL Customer nodes → checks each customerId → finds match
+Time: O(n) where n = total customers
+----
+
+**With an index:**
+
+[source,text]
+.Query with index - direct lookup
+----
+Neo4j looks up 'ALFKI' directly in the index → instant
+Time: O(1) - constant time regardless of database size
+----
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Find a specific customer (try this)
+----
+MATCH (c:Customer {customerId: 'ALFKI'})
+RETURN c.companyName;
+----
+
+If you created constraints during import, this uses an index automatically. Without constraints, it scans all 91 customers.
+
+
+[.slide]
+== Understanding constraints
+
+**Concept:** Constraints enforce data rules AND create automatic indexes.
+
+**What constraints do:**
+
+1. **Enforce uniqueness** - Prevent duplicate values
+2. **Create index** - Enable fast lookups
+3. **Improve performance** - Turn scans into seeks
+
+**Syntax:**
+
+[source,cypher]
+.Constraint syntax
+----
+CREATE CONSTRAINT constraint_name
+FOR (n:Label)
+REQUIRE n.property IS UNIQUE;
+----
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Create constraints on unique identifiers
+----
+CREATE CONSTRAINT customer_id_unique
+FOR (c:Customer)
+REQUIRE c.customerId IS UNIQUE;
+
+CREATE CONSTRAINT product_name_unique
+FOR (p:Product)
+REQUIRE p.productName IS UNIQUE;
+
+CREATE CONSTRAINT order_id_unique
+FOR (o:Order)
+REQUIRE o.orderId IS UNIQUE;
+----
+
+**Note:** If you used the Data Importer's "ID property" feature, these may already exist!
+
+
+[.slide]
+== Verifying constraint impact
+
+**Check existing constraints:**
+
+[source,cypher]
+----
+SHOW CONSTRAINTS;
+----
+
+You should see constraints for Customer.customerId, Product.productName, and Order.orderId.
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Query that benefits from constraints
+----
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN DISTINCT p.productName
+ORDER BY p.productName;
+----
+
+**With constraint:** Instant lookup of 'ALFKI' → fast query
+**Without constraint:** Scans 91 customers to find 'ALFKI' → slower
+
+
+[.slide]
+== Understanding indexes for range queries
+
+**Concept:** Constraints handle equality lookups (=), but range queries (<, >, BETWEEN) need regular indexes.
+
+**When to create indexes:**
+
+* Properties in WHERE clauses with <, >, <=, >=
+* Properties used in ORDER BY
+* Properties used in text search (CONTAINS, STARTS WITH)
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Find expensive products (without index)
+----
+MATCH (p:Product)
+WHERE p.unitPrice > 50
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+----
+
+This works, but scans all 77 products to check prices.
+
+
+[.slide]
+== Creating range indexes
+
+**Concept:** Range indexes speed up comparison and sorting operations.
+
+**Syntax:**
+
+[source,cypher]
+.Index syntax
+----
+CREATE INDEX index_name
+FOR (n:Label)
+ON (n.property);
+----
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Create index for price filtering and sorting
+----
+CREATE INDEX product_price_index
+FOR (p:Product)
+ON (p.unitPrice);
+----
+
+Now run the expensive products query again:
+
+[source,cypher]
+----
+MATCH (p:Product)
+WHERE p.unitPrice > 50
+RETURN p.productName, p.unitPrice
+ORDER BY p.unitPrice DESC;
+----
+
+**Impact:** The index enables Neo4j to quickly find products in the price range without scanning all products.
+
+
+[.slide]
+== Common index patterns
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Useful indexes for the workshop
+----
+// Price filtering and sorting
+CREATE INDEX product_price_index
+FOR (p:Product)
+ON (p.unitPrice);
+
+// Country filtering
+CREATE INDEX customer_country_index
+FOR (c:Customer)
+ON (c.country);
+
+// Date range queries
+CREATE INDEX order_date_index
+FOR (o:Order)
+ON (o.orderDate);
+----
+
+**Rule of thumb:** Index properties you filter by or sort on frequently.
+
+
+[.slide]
+== Using EXPLAIN to preview queries
+
+**Concept:** EXPLAIN shows Neo4j's execution plan WITHOUT running the query.
+
+**Use EXPLAIN to:**
+* Preview which indexes will be used
+* Check if your query will scan or seek
+* Identify potential problems before executing
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Explain a product lookup
+----
+EXPLAIN
+MATCH (p:Product {productName: 'Chai'})
+RETURN p.unitPrice;
+----
+
+**Look for these operators:**
+
+* ✅ `NodeUniqueIndexSeek` - Using constraint index (good!)
+* ✅ `NodeIndexSeek` - Using regular index (good!)
+* ⚠️ `NodeByLabelScan` - Scanning all nodes (needs index)
+* ❌ `AllNodesScan` - Scanning entire database (very bad)
+
+
+[.slide]
+== Using PROFILE to measure performance
+
+**Concept:** PROFILE runs the query and shows actual performance metrics.
+
+**What PROFILE shows:**
+
+* **Rows** - How many results each step produced
+* **Database Hits** - How much work each step did
+* **Operators** - The actual steps Neo4j took
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Profile finding a customer's orders
+----
+PROFILE
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.companyName, count(o) AS orderCount;
+----
+
+**Reading the plan (bottom-to-top):**
+
+1. **Bottom:** `NodeUniqueIndexSeek` - Found ALFKI using index (1-2 db hits)
+2. **Middle:** `Expand(All)` - Followed PLACED relationships (6 db hits for 6 orders)
+3. **Top:** `EagerAggregation` - Counted the orders
+
+**Total database hits should be low (under 20 for this query).**
+
+
+[.slide]
+== Exercise - Profile without an index
+
+Let's see the performance difference without indexes.
+
+**Step 1: Drop the product constraint temporarily**
+
+[source,cypher]
+----
+DROP CONSTRAINT product_name_unique IF EXISTS;
+----
+
+**Step 2: Profile the query**
+
+[source,cypher]
+----
+PROFILE
+MATCH (p:Product {productName: 'Chai'})
+RETURN p.unitPrice;
+----
+
+**Observe:**
+* Operator: `NodeByLabelScan` + `Filter`
+* Database hits: ~77 (checks every product)
+
+**Step 3: Recreate the constraint**
+
+[source,cypher]
+----
+CREATE CONSTRAINT product_name_unique
+FOR (p:Product)
+REQUIRE p.productName IS UNIQUE;
+----
+
+**Step 4: Profile again**
+
+[source,cypher]
+----
+PROFILE
+MATCH (p:Product {productName: 'Chai'})
+RETURN p.unitPrice;
+----
+
+**Observe:**
+* Operator: `NodeUniqueIndexSeek`
+* Database hits: ~1-2 (direct lookup)
+
+**Performance gain: 50-100x faster on large datasets!**
+
+
+[.slide]
+== Exercise - Profile the recommendation path
+
+**Concept:** Multi-hop traversals benefit from indexed anchors.
+
+[source,cypher]
+.Profile customer to products
+----
+PROFILE
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN DISTINCT p.productName
+ORDER BY p.productName;
+----
+
+**Expected plan:**
+
+1. `NodeUniqueIndexSeek` - Find ALFKI (indexed)
+2. `Expand(All)` - Follow PLACED to orders
+3. `Expand(All)` - Follow CONTAINS to products
+4. `Distinct` - Remove duplicates
+5. `Sort` - Order alphabetically
+
+**Database hits:** Should be proportional to the data touched (customer + orders + products).
+
+**Key insight:** Even multi-hop queries are fast when the anchor is indexed!
+
+
+[.slide]
+== Exercise - Profile an aggregation
+
+**Concept:** Aggregations work efficiently when anchors are indexed.
+
+[source,cypher]
+.Profile counting products per customer
+----
+PROFILE
+MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN c.companyName, count(DISTINCT p) AS productCount
+ORDER BY productCount DESC
+LIMIT 10;
+----
+
+**Analyze the plan:**
+
+* How does it find Customers? (`NodeByLabelScan` - gets all customers)
+* Are relationships traversed efficiently? (`Expand(All)`)
+* Is the aggregation efficient? (`EagerAggregation`)
+
+**For this query:** Label scan is OK because we need all customers. No index needed.
+
+
+[.slide]
+== Recognizing good vs bad operators
+
+**Good operators (fast, efficient):**
+
+[options="header"]
+|===
+| Operator | Meaning | Example
+| `NodeUniqueIndexSeek` | Constraint lookup | Finding customer by ID
+| `NodeIndexSeek` | Index lookup | Finding products by price
+| `Expand(All)` | Traverse relationships | Following PLACED/CONTAINS
+| `Distinct` | Remove duplicates | Getting unique products
+|===
+
+**Bad operators (slow, needs optimization):**
+
+[options="header"]
+|===
+| Operator | Meaning | Fix
+| `NodeByLabelScan` | Scan all nodes of label | Add index on filtered property
+| `AllNodesScan` | Scan entire database | Add label to MATCH clause
+| `Filter` (after scan) | Filter after retrieval | Move filter to indexed property
+|===
+
+**Goal:** See more seeks, fewer scans!
+
+
+[.slide]
+== Understanding database hits
+
+**Concept:** Database hits measure work done, not time elapsed.
+
+**Good pattern:**
+
+[source,text]
+.Efficient query pattern
+----
+100 database hits → 90 rows returned = efficient (1.1 hits per row)
+----
+
+**Bad pattern:**
+
+[source,text]
+.Inefficient query pattern
+----
+1000 database hits → 1 row returned = inefficient (1000 hits per row)
+----
+
+**On your Northwind graph:**
+
+[source,cypher]
+.Check database hits
+----
+PROFILE
+MATCH (c:Customer {customerId: 'ALFKI'})
+RETURN c.companyName;
+----
+
+Expected: 1-2 database hits for 1 row (very efficient).
+
+**Rule of thumb:** Database hits should be roughly proportional to rows returned.
+
+
+[.slide]
+== Query optimization checklist
+
+**Before running queries in production:**
+
+✅ **Constraints on unique identifiers**
+
+[source,text]
+.Required constraints
+----
+customerId, productId, orderId
+----
+
+✅ **Indexes on filtered properties**
+
+[source,text]
+.Recommended indexes
+----
+unitPrice, country, orderDate
+----
+
+✅ **Labels specified in MATCH**
+
+[source,text]
+.Specify labels for performance
+----
+MATCH (c:Customer) not MATCH (c)
+----
+
+✅ **Relationship types specified**
+
+[source,text]
+.Specify relationship types
+----
+-[:PLACED]-> not -[]->
+----
+
+✅ **Direction specified (when known)**
+
+[source,text]
+.Specify direction when known
+----
+-[:PLACED]-> not -[:PLACED]-
+----
+
+✅ **LIMIT used when appropriate**
+
+[source,text]
+.Use LIMIT to restrict results
+----
+Don't return 100K rows when you need 10
+----
+
+✅ **Profile queries before production**
+
+[source,text]
+.Profile to check for scans
+----
+Use PROFILE to check for scans
+----
+
+
+[.slide]
+== Constraints vs indexes - When to use each
+
+**Use constraints when:**
+* Property values must be unique (IDs, emails, usernames)
+* You need both enforcement AND performance
+
+**Use regular indexes when:**
+* Property values can duplicate (prices, countries, dates)
+* You need range queries or sorting
+* You need text search
+
+**On your Northwind graph:**
+
+[source,text]
+.Constraints vs indexes decision guide
+----
+Constraint: customerId (unique)
+Constraint: productName (unique)
+Index: unitPrice (not unique, range queries)
+Index: country (not unique, filtering)
+----
+
+
+[.slide]
+== Managing constraints and indexes
+
+**View all constraints:**
+[source,cypher]
+----
+SHOW CONSTRAINTS;
+----
+
+**View all indexes:**
+[source,cypher]
+----
+SHOW INDEXES;
+----
+
+**Drop a constraint:**
+[source,cypher]
+----
+DROP CONSTRAINT constraint_name;
+----
+
+**Drop an index:**
+[source,cypher]
+----
+DROP INDEX index_name;
+----
+
+**Note:** Dropping a constraint also removes its automatic index!
+
+
+[.slide]
+== Best practices for performance
+
+**DO:**
+
+* ✅ Create constraints on properties you look up by ID
+* ✅ Create indexes on properties you filter or sort by
+* ✅ Use PROFILE to verify indexes are being used
+* ✅ Specify labels and relationship types
+* ✅ Use LIMIT to restrict result size
+
+**DON'T:**
+
+* ❌ Create indexes on every property (overhead on writes)
+* ❌ Forget to specify labels: `MATCH (n)` is slow
+* ❌ Use variable-length paths without limits: `[*]` is dangerous
+* ❌ Return entire nodes when you only need properties
+* ❌ Ignore PROFILE results showing scans
+
+
+[.slide]
+== When optimization matters
+
+**Optimize when:**
+
+* ✅ User-facing queries (response time matters)
+* ✅ Queries run frequently (>100 times/minute)
+* ✅ Production database with many users
+* ✅ Large datasets (>100K nodes)
+
+**Don't optimize prematurely:**
+
+* ⚠️ Query runs in <100ms already
+* ⚠️ Used infrequently (once per day)
+* ⚠️ Development/testing environment
+* ⚠️ Small datasets (<10K nodes)
+
+**Focus on high-impact queries first!**
+
+
+[.slide]
+== Performance at scale
+
+**Your Northwind graph:**
+* 91 customers
+* 830 orders
+* 77 products
+* ~2,100 CONTAINS relationships
+
+**At this scale:** Indexes are nice but not critical. Queries are fast either way.
+
+**At production scale:**
+* 100K+ customers
+* 10M+ orders
+* 50K+ products
+
+**At production scale:** Indexes are ESSENTIAL. Without them:
+* Scans take seconds instead of milliseconds
+* Database performance degrades
+* User experience suffers
+
+**The techniques you learn here scale to billions of nodes.**
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned query fundamentals and performance optimization:
+
+* **Query execution** - Find anchors, expand relationships, return results
+* **Constraints** - Enforce uniqueness + create automatic indexes (use for IDs)
+* **Indexes** - Speed up range queries and sorting (use for filtered properties)
+* **EXPLAIN** - Preview execution plans without running queries
+* **PROFILE** - Measure actual performance with database hits and operators
+* **Good operators** - `NodeIndexSeek`, `NodeUniqueIndexSeek`, `Expand(All)`
+* **Bad operators** - `NodeByLabelScan`, `AllNodesScan` (need indexes)
+* **Database hits** - Should be proportional to rows returned
+* **Optimization checklist** - Constraints, indexes, labels, types, directions, LIMIT
+* **Best practices** - Profile queries, add indexes strategically, focus on high-impact queries
+
+**Key takeaway:** With proper constraints and indexes on anchor properties, even complex multi-hop traversals perform excellently at scale.
+
+In the next lesson, you'll build the complete recommendation query and see how all these optimizations enable fast collaborative filtering.
+
+read::Mark as completed[]

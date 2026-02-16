@@ -322,6 +322,124 @@ describe("QA Tests", () => {
                   expect(lessonAdoc.endsWith("\n")).toBe(true);
                 });
 
+                it("should have blank line after headers", () => {
+                  const lines = lessonAdoc.split("\n");
+                  const violations = [];
+
+                  for (let i = 0; i < lines.length - 1; i++) {
+                    const currentLine = lines[i];
+                    const nextLine = lines[i + 1];
+
+                    // Check if current line is a header (2 or more = followed by space and text)
+                    if (/^={2,}\s+.+/.test(currentLine)) {
+                      // Check if next line is not empty and not an attribute/directive/include
+                      if (
+                        nextLine.trim() !== "" &&
+                        !/^:/.test(nextLine) &&
+                        !/^\[/.test(nextLine) &&
+                        !/^=/.test(nextLine) &&
+                        !/^image::/.test(nextLine) &&
+                        !/^video::/.test(nextLine) &&
+                        !/^include::/.test(nextLine)
+                      ) {
+                        violations.push({
+                          line: i + 1,
+                          header: currentLine,
+                          nextLine: nextLine.substring(0, 60),
+                        });
+                      }
+                    }
+                  }
+
+                  if (violations.length > 0) {
+                    const errorMsg = violations
+                      .map(
+                        (v) =>
+                          `Line ${v.line}: "${v.header}" followed by "${v.nextLine}..."`,
+                      )
+                      .join("\n");
+                    throw new Error(
+                      `Headers must be followed by a blank line:\n${errorMsg}`,
+                    );
+                  }
+                });
+
+                it("should have blank line before lists", () => {
+                  const lines = lessonAdoc.split("\n");
+                  const violations = [];
+
+                  for (let i = 0; i < lines.length - 1; i++) {
+                    const currentLine = lines[i];
+                    const nextLine = lines[i + 1];
+
+                    // Check if current line is text (not empty, not already a list, not a directive)
+                    // Also exclude indented list items (lines starting with spaces followed by list markers)
+                    if (
+                      currentLine.trim() !== "" &&
+                      !/^[\*\-]/.test(currentLine) &&
+                      !/^\s+[\*\-]/.test(currentLine) &&
+                      !/^:/.test(currentLine) &&
+                      !/^\[/.test(currentLine) &&
+                      !/^=/.test(currentLine) &&
+                      !/^----/.test(currentLine) &&
+                      !/^====/.test(currentLine) &&
+                      !/^</.test(currentLine) &&
+                      !/^\./.test(currentLine) &&
+                      !/^image::/.test(currentLine) &&
+                      !/^video::/.test(currentLine) &&
+                      !/^include::/.test(currentLine) &&
+                      !/^\/\//.test(currentLine)
+                    ) {
+                      // Check if next line starts with list marker
+                      if (/^[\*\-]\s/.test(nextLine)) {
+                        violations.push({
+                          line: i + 1,
+                          text: currentLine.substring(0, 60),
+                          nextLine: nextLine.substring(0, 60),
+                        });
+                      }
+                    }
+                  }
+
+                  if (violations.length > 0) {
+                    const errorMsg = violations
+                      .map(
+                        (v) =>
+                          `Line ${v.line}: "${v.text}..." followed by list "${v.nextLine}..."`,
+                      )
+                      .join("\n");
+                    throw new Error(
+                      `Paragraphs must be followed by a blank line before lists:\n${errorMsg}`,
+                    );
+                  }
+                });
+
+                it("should have only one [.summary] section", () => {
+                  const lines = lessonAdoc.split("\n");
+                  let summaryCount = 0;
+                  let inCodeBlock = false;
+                  
+                  for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    
+                    // Track code block state
+                    if (/^----/.test(line) || /^====/.test(line)) {
+                      inCodeBlock = !inCodeBlock;
+                    }
+                    
+                    // Count [.summary] only outside code blocks
+                    if (!inCodeBlock && /^\[\.summary\]/.test(line)) {
+                      summaryCount++;
+                    }
+                  }
+                  
+                  if (summaryCount > 1) {
+                    throw new Error(
+                      `Lesson should have only one [.summary] section, found ${summaryCount}`,
+                    );
+                  }
+                });
+
                 it("should include {instance-database} if {instance-ip} is present", () => {
                   const hasInstanceIp = lessonAdoc.includes("{instance-ip}");
                   const hasInstanceDatabase = lessonAdoc.includes(
