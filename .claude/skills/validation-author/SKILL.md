@@ -28,7 +28,36 @@ This skill writes **validation/query lessons** that:
 - Use business questions, not abstract queries
 - Follow the Learn → Do → Verify pattern (this is the "Verify")
 
-**Do NOT write concept lessons, challenges, or practice lessons.** This skill focuses ONLY on validation lessons with SQL comparisons.
+**Do NOT write concept lessons, challenges, or practice lessons.** This skill focuses ONLY on validation lessons.
+
+---
+
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Prove what they built works** - Show that the graph structure enables real business queries
+- **Use comparisons when they add value** - Visual diagrams (ERD vs Graph) or code comparisons can be helpful context
+- **Be factual, not salesy** - Show concrete metrics (lines of code, complexity) not vague superiority claims
+- **Make it satisfying** - They should see their work pay off with queries that actually work
+
+**Validation lesson approach:**
+1. Show the business question
+2. Show the Cypher query that answers it
+3. Explain what the query does (using graph concepts)
+4. Show results proving it works
+5. Optionally: Include comparisons (SQL, relational model) when they demonstrate value effectively
+
+**When comparisons are helpful:**
+- Final workshop solution (showing dramatic difference in simplicity)
+- Complex multi-hop traversals where alternatives are significantly more complex
+- Visual diagrams (ERD vs Graph model) to show structural differences
+- When teaching concepts where the comparison provides valuable context
+
+**Keep it balanced:**
+- Don't compare constantly - teach graph query patterns on their own merits
+- When comparing, use facts (lines of code, O(k) vs O(n×m)) not marketing language
+- Focus on proving their work produces something valuable
 
 ---
 
@@ -515,6 +544,8 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 - [ ] Metrics table uses AsciiDoc format
 - [ ] No sales language, concrete facts only
 - [ ] "Click **Run**" encouragement after Cypher queries
+- [ ] **CRITICAL:** Blank line before ALL lists
+- [ ] **CRITICAL:** Code callouts use `// <1>` not `// (1)`
 
 ### Code Block Requirements
 

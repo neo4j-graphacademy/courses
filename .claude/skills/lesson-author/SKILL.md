@@ -30,6 +30,24 @@ This skill writes **concept/theory lessons** that:
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Teach Neo4j on its own merits** - Explain nodes, relationships, properties, traversals, and Cypher as graph-native concepts
+- **Use comparisons when helpful** - SQL, relational, or other tech comparisons can provide context, but don't overdo it
+- **Be factual, not salesy** - Demonstrate features with real examples, stick to facts (O(1) lookups, O(k) traversals)
+- **Make it hands-on and fun** - Users should enjoy building something that works
+- **Deliver working value** - By the end, they have something that demonstrates value and can be built upon
+
+**Using comparisons effectively:**
+- Use visual diagrams (ERD vs Graph) to show structural differences when helpful
+- Show SQL comparison for final solution if it demonstrates dramatic value
+- Don't compare constantly - teach graph thinking on its own terms first
+- When comparing, focus on facts (lines of code, complexity, performance) not vague claims
+
+---
+
 ## Phase 1: Understand Context (5 min)
 
 ### Checklist: Gather Information
@@ -372,7 +390,8 @@ In the next lesson, you will use Data Importer to create Product nodes from a CS
 **From .cursor/rules/asciidoc-syntax.mdc:**
 - TWO line breaks between elements
 - NO MARKDOWN - only AsciiDoc
-- Blank lines before lists
+- **CRITICAL:** Blank line required before ALL lists (after paragraphs, headers, bold text, etc.)
+- **CRITICAL:** Callouts in code use angle brackets `// <1>` not parentheses `// (1)`
 
 **From .cursor/review-lesson-content.mdc:**
 - Two-part opening pattern

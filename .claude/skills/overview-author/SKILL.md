@@ -27,6 +27,23 @@ This skill writes **overview lessons** for:
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Lead with what they'll build** - Show the concrete deliverable and its value
+- **Use comparisons when helpful** - SQL or other tech comparisons can provide context for the final solution
+- **Be factual about value** - Performance (O(1) + O(k)), simplicity, readability - stick to facts, not sales language
+- **Make it sound fun and achievable** - 2 hours to build something that works and demonstrates value
+
+**Workshop overview pattern:**
+- Start with the concrete goal (what they'll build)
+- Explain why it matters (business value, real-world use case)
+- Use comparisons if they help demonstrate value (e.g., final solution: 11 lines vs 38 lines)
+- Focus on the hands-on journey and working deliverable
+
+---
+
 ## Part A: Workshop Overview Lessons
 
 ### Phase 1: Understand Workshop Goal (10 min)
@@ -473,6 +490,7 @@ link:./1-graph-vs-pivot-tables/[Ready? Let's go →, role=btn]
 - Brief description (1-2 sentences)
 - "By the end of this module, you will:" + bullets
 - Link to first lesson with `role=btn`
+- **CRITICAL:** Blank line before the bullet list
 
 **Style:**
 - Sentence case titles

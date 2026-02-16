@@ -1,0 +1,212 @@
+= Importing Employees
+:type: challenge
+:order: 6
+:duration: 20
+:optional: true
+
+[.slide.discrete]
+== Importing Employees
+
+You have Customers, Orders, and Products. Now add Employees with organizational hierarchy and sales tracking.
+
+In this challenge, you will work independently to import employees and create REPORTS_TO (hierarchical) and SOLD (order assignment) relationships.
+
+[.slide]
+== File structure: employees.csv
+
+The link:https://data.neo4j.com/northwind/employees.csv[employees.csv^] file contains employee information (click the filename to download if needed):
+
+[options="header"]
+|===
+| Column | Type | Description
+| employeeID | Integer | Unique identifier for each employee
+| lastName | String | Employee's last name
+| firstName | String | Employee's first name
+| title | String | Job title
+| titleOfCourtesy | String | Title of courtesy (Mr., Mrs., etc.)
+| birthDate | Date | Birth date
+| hireDate | Date | Hire date
+| address | String | Street address
+| city | String | City location
+| region | String | Region/state (may be empty)
+| postalCode | String | Postal/ZIP code
+| country | String | Country location
+| homePhone | String | Home phone number
+| extension | String | Phone extension
+| photo | String | Photo path
+| notes | String | Employee notes/bio
+| reportsTo | Integer | employeeID of manager (null for CEO)
+| photoPath | String | Photo file path
+|===
+
+This file has **9 rows** - one for each employee.
+
+
+[.slide]
+== Understanding employee relationships
+
+**Business rules:**
+
+1. **REPORTS_TO** - Employees report to other employees (hierarchical structure)
+   * The `reportsTo` column contains the `employeeID` of their manager
+   * The CEO has no manager (reportsTo is null)
+   * Creates a self-referential relationship
+
+2. **SOLD** - Employees are assigned to process orders
+   * The `employeeID` column in orders.csv references the employee who handled the order
+   * Creates relationships from Employee to Order
+
+**Graph patterns:**
+
+[source,mermaid]
+----
+graph TB
+    CEO((Employee<br/>CEO))
+    Manager((Employee<br/>Manager))
+    Rep1((Employee<br/>Sales Rep))
+    Rep2((Employee<br/>Sales Rep))
+    Order((Order))
+
+    Manager -->|REPORTS_TO| CEO
+    Rep1 -->|REPORTS_TO| Manager
+    Rep2 -->|REPORTS_TO| Manager
+    Rep1 -->|SOLD| Order
+
+    style CEO fill:#FF6B9D
+    style Manager fill:#FF6B9D
+    style Rep1 fill:#FF6B9D
+    style Rep2 fill:#FF6B9D
+    style Order fill:#7CCFA9
+----
+
+
+[.slide]
+== Your challenge
+
+Using what you've learned about the Import tool:
+
+**Part 1: Create Employee nodes**
+
+1. Map employees.csv to an Employee node
+2. Set `employeeID` as the unique identifier
+3. Include relevant properties (firstName, lastName, title, hireDate, city, country)
+
+**Part 2: Create REPORTS_TO relationships**
+
+1. Map employees.csv as the relationship source
+2. Create relationship type: `REPORTS_TO`
+3. **From:** Map `employeeID` to Employee node's ID (the employee)
+4. **To:** Map `reportsTo` to Employee node's ID (their manager)
+5. Note: Some employees have null `reportsTo` (the CEO) - the tool will skip these automatically
+
+**Part 3: Create SOLD relationships**
+
+1. Map orders.csv as the relationship source
+2. Create relationship type: `SOLD`
+3. **From:** Map `employeeID` in orders.csv to Employee node's ID
+4. **To:** Map `orderId` in orders.csv to Order node's ID
+
+**Part 4: Run the import**
+
+
+[.slide]
+== Expected results
+
+After importing, you should have:
+
+* **9 Employee nodes** created
+* **8 REPORTS_TO relationships** created (CEO has no manager)
+* **830 SOLD relationships** created (one for each order)
+
+You can verify with these queries:
+
+[source,cypher]
+.Check organizational hierarchy
+----
+MATCH (e:Employee)-[:REPORTS_TO]->(manager:Employee)
+RETURN e.firstName + ' ' + e.lastName AS employee,
+       manager.firstName + ' ' + manager.lastName AS reportsTo,
+       e.title AS title
+ORDER BY e.employeeID;
+----
+
+[source,cypher]
+.Check sales assignments
+----
+MATCH (e:Employee)-[:SOLD]->(o:Order)
+RETURN e.firstName + ' ' + e.lastName AS employee,
+       count(o) AS ordersSold
+ORDER BY ordersSold DESC;
+----
+
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.slide]
+== Multi-level hierarchy queries
+
+One of the powerful features of graphs is querying hierarchical data with variable-length paths.
+
+**Example: Find all reports (direct and indirect) to a manager**
+
+[source,cypher,role="norun"]
+.Find all employees who report to a Sales Manager
+----
+MATCH (manager:Employee {title: 'Sales Manager'})
+      <-[:REPORTS_TO*]-(employee:Employee)  // <1>
+RETURN manager.firstName + ' ' + manager.lastName AS manager,
+       employee.firstName + ' ' + employee.lastName AS employee,
+       employee.title AS title
+ORDER BY employee.title, employee.lastName;
+----
+
+<1> **Variable-length path** - `[:REPORTS_TO*]` follows the relationship any number of times, finding direct reports, their reports, and so on
+
+**Why this is powerful:**
+
+In a relational database, you would need:
+
+* Recursive CTEs (Common Table Expressions) in SQL
+* Multiple self-joins to traverse each level
+* Fixed depth queries (limited to predefined levels)
+
+In Neo4j, variable-length paths handle unlimited hierarchy depth naturally.
+
+
+[.slide]
+== Analyzing organizational structure
+
+**Example: Find the complete reporting chain for an employee**
+
+[source,cypher,role="norun"]
+.Reporting chain from Sales Representative to CEO
+----
+MATCH path = (employee:Employee {title: 'Sales Representative'})
+             -[:REPORTS_TO*]->(ceo:Employee)
+WHERE NOT (ceo)-[:REPORTS_TO]->()  // <1>
+RETURN [n IN nodes(path) | n.firstName + ' ' + n.lastName] AS reportingChain,
+       length(path) AS levels;
+----
+
+<1> **Find CEO** - The employee with no REPORTS_TO relationship is at the top
+
+This query returns the complete chain from employee to CEO, regardless of how many management levels exist.
+
+
+[.summary]
+== Summary
+
+You imported Employee nodes with hierarchical relationships:
+
+* 9 Employee nodes created
+* Properties: employeeID, firstName, lastName, title, hireDate
+* 8 REPORTS_TO relationships created (organizational hierarchy)
+* 830 SOLD relationships created (order assignments)
+* **Variable-length paths** - Query multi-level hierarchies with `[:REPORTS_TO*]` syntax
+* **Graph advantage** - No recursive CTEs or complex self-joins needed for hierarchy traversal
+* **Optional Building Block**: "Employees with hierarchy and sales tracking" ✓
+
+You now have the complete Northwind graph with all entities and relationships!
+
+read::Mark as completed[]

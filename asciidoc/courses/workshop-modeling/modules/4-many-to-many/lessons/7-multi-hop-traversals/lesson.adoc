@@ -1,6 +1,6 @@
 = Multi-Hop Traversals for Recommendations
 :type: lesson
-:order: 4
+:order: 7
 :duration: 10
 :optional: true
 
@@ -44,9 +44,9 @@ The fundamental query - traverse two hops:
 [source,cypher]
 .Products purchased by ALFKI
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)  // (1)
-RETURN DISTINCT p.productName                                                         // (2)
-ORDER BY p.productName;                                                               // (3)
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)  // <1>
+RETURN DISTINCT p.productName                                                         // <2>
+ORDER BY p.productName;                                                               // <3>
 ----
 
 <1> **Two-hop pattern** - Customer through Order to Product (anonymous Order node)
@@ -55,19 +55,35 @@ ORDER BY p.productName;                                                         
 
 Click **Run** to see all products ALFKI has ever purchased.
 
-**SQL equivalent (3 JOINs):**
+**Understanding the traversal:**
 
-[source,sql]
-.SQL query with three table joins
-----
-SELECT DISTINCT p.productName
-FROM customers c
-JOIN orders o ON c.customerID = o.customerID
-JOIN order_details od ON o.orderID = od.orderID
-JOIN products p ON od.productID = p.productID
-WHERE c.customerID = 'ALFKI'
-ORDER BY p.productName;
-----
+[source,mermaid]
+.Two-hop path from customer to products
+....
+graph LR
+    C["Customer<br/>(ALFKI)"]
+    O1["Order<br/>10248"]
+    O2["Order<br/>10952"]
+    P1["Product<br/>Chai"]
+    P2["Product<br/>Tofu"]
+    P3["Product<br/>Chocolade"]
+
+    C -->|PLACED| O1
+    C -->|PLACED| O2
+    O1 -->|CONTAINS| P1
+    O1 -->|CONTAINS| P2
+    O2 -->|CONTAINS| P2
+    O2 -->|CONTAINS| P3
+
+    style C fill:#4C8EDA
+    style O1 fill:#7CCFA9
+    style O2 fill:#7CCFA9
+    style P1 fill:#FCC644
+    style P2 fill:#FCC644
+    style P3 fill:#FCC644
+....
+
+The query follows the path: Start at Customer ALFKI → follow PLACED to Orders → follow CONTAINS to Products. Each hop is a pointer traversal in memory.
 
 
 [.slide]
@@ -78,9 +94,9 @@ Traverse backward from product to customers:
 [source,cypher]
 .Customers who bought Chai
 ----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product {productName: 'Chai'})  // (1)
-RETURN DISTINCT c.companyName, c.city, c.country                                      // (2)
-ORDER BY c.companyName;                                                               // (3)
+MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product {productName: 'Chai'})  // <1>
+RETURN DISTINCT c.companyName, c.city, c.country                                      // <2>
+ORDER BY c.companyName;                                                               // <3>
 ----
 
 <1> **Reverse pattern** - Start at Product, traverse back through orders to customers
@@ -100,13 +116,13 @@ Aggregate relationship properties across the path:
 [source,cypher]
 .ALFKI's most ordered products
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // (1)
-RETURN p.productName,                                                                  // (2)
-       sum(r.quantity) AS totalQuantity,                                               // (3)
-       count(DISTINCT r) AS numberOfOrders,                                            // (4)
-       avg(r.unitPrice) AS avgPrice                                                    // (5)
-ORDER BY totalQuantity DESC                                                            // (6)
-LIMIT 10;                                                                              // (7)
+MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // <1>
+RETURN p.productName,                                                                  // <2>
+       sum(r.quantity) AS totalQuantity,                                               // <3>
+       count(DISTINCT r) AS numberOfOrders,                                            // <4>
+       avg(r.unitPrice) AS avgPrice                                                    // <5>
+ORDER BY totalQuantity DESC                                                            // <6>
+LIMIT 10;                                                                              // <7>
 ----
 
 <1> **Capture relationship** - Variable `r` accesses ORDERS properties
@@ -128,12 +144,12 @@ Find the most popular products across all customers:
 [source,cypher]
 .Top 10 most ordered products
 ----
-MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // (1)
-RETURN p.productName,                                           // (2)
-       sum(r.quantity) AS totalQuantity,                        // (3)
-       count(DISTINCT r) AS timesOrdered                        // (4)
-ORDER BY totalQuantity DESC                                     // (5)
-LIMIT 10;                                                       // (6)
+MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // <1>
+RETURN p.productName,                                           // <2>
+       sum(r.quantity) AS totalQuantity,                        // <3>
+       count(DISTINCT r) AS timesOrdered                        // <4>
+ORDER BY totalQuantity DESC                                     // <5>
+LIMIT 10;                                                       // <6>
 ----
 
 <1> **All customers** - No filter, traverse entire graph
@@ -154,12 +170,12 @@ Calculate total spending using relationship properties:
 [source,cypher]
 .Top spending customers
 ----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)  // (1)
-RETURN c.companyName,                                           // (2)
-       sum(r.quantity * r.unitPrice) AS totalSpent,             // (3)
-       count(DISTINCT r) AS itemsOrdered                        // (4)
-ORDER BY totalSpent DESC                                        // (5)
-LIMIT 10;                                                       // (6)
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)  // <1>
+RETURN c.companyName,                                           // <2>
+       sum(r.quantity * r.unitPrice) AS totalSpent,             // <3>
+       count(DISTINCT r) AS itemsOrdered                        // <4>
+ORDER BY totalSpent DESC                                        // <5>
+LIMIT 10;                                                       // <6>
 ----
 
 <1> **Traverse path** - Customer through orders to products
@@ -196,40 +212,42 @@ graph LR
 
 
 [.slide]
-== Comparing to SQL complexity
+== Understanding aggregation along paths
 
-Each of these queries requires 3 JOINs in SQL. Let's look at the customer spending query:
+The customer spending query aggregates data along the traversal path:
 
-**SQL (verbose, slow):**
+[source,mermaid]
+.Aggregating relationship properties
+....
+graph LR
+    C["Customer"]
+    O1["Order"]
+    O2["Order"]
+    P1["Product<br/>qty: 5<br/>price: $10"]
+    P2["Product<br/>qty: 3<br/>price: $15"]
+    P3["Product<br/>qty: 2<br/>price: $20"]
 
-[source,sql]
-.Complex SQL with multiple JOINs and aggregation
-----
-SELECT c.companyName,
-       SUM(od.quantity * od.unitPrice) AS totalSpent,
-       COUNT(DISTINCT od.orderDetailID) AS itemsOrdered
-FROM customers c
-JOIN orders o ON c.customerID = o.customerID
-JOIN order_details od ON o.orderID = od.orderID
-GROUP BY c.companyName
-ORDER BY totalSpent DESC
-LIMIT 10;
-----
+    C -->|PLACED| O1
+    C -->|PLACED| O2
+    O1 -->|"CONTAINS<br/>{quantity: 5, unitPrice: 10}"| P1
+    O1 -->|"CONTAINS<br/>{quantity: 3, unitPrice: 15}"| P2
+    O2 -->|"CONTAINS<br/>{quantity: 2, unitPrice: 20}"| P3
 
-**Cypher (concise, fast):**
+    style C fill:#4C8EDA
+    style O1 fill:#7CCFA9
+    style O2 fill:#7CCFA9
+    style P1 fill:#FCC644
+    style P2 fill:#FCC644
+    style P3 fill:#FCC644
+....
 
-[source,cypher]
-.Simple Cypher traversal with aggregation
-----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)
-RETURN c.companyName,
-       sum(r.quantity * r.unitPrice) AS totalSpent,
-       count(DISTINCT r) AS itemsOrdered
-ORDER BY totalSpent DESC
-LIMIT 10;
-----
+**The calculation:**
+* Item 1: 5 × $10 = $50
+* Item 2: 3 × $15 = $45
+* Item 3: 2 × $20 = $40
+* **Total spent:** $135
 
-The Cypher reads like the question. The SQL is machinery.
+The graph makes aggregation natural - follow the path, collect the properties, compute the sum.
 
 
 [.summary]

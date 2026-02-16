@@ -31,6 +31,25 @@ This skill writes **quiz lessons** that:
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Test graph database understanding** - Questions about nodes, relationships, traversals, Cypher patterns
+- **Focus on what was taught** - If comparisons were a major learning objective, test them; otherwise focus on graph concepts
+- **Be factual** - Test understanding of features and capabilities, not marketing claims
+- **Test practical knowledge** - What they can actually use to build things
+
+**Quiz questions should test:**
+- Graph modeling decisions (what should be a node? a relationship? a property?)
+- Cypher syntax and patterns
+- Graph traversal concepts (single-hop, multi-hop, bidirectional)
+- Performance characteristics (O(1) index lookup, O(k) traversal) - factual understanding
+- Best practices for graph data modeling
+- Neo4j features and capabilities taught in the workshop
+
+---
+
 ## Phase 1: Understand Quiz Scope (10 min)
 
 ### Checklist: Gather Information
@@ -542,6 +561,7 @@ Which is best suited for highly connected data?
 - [ ] Include statements use `leveloffset=+1`
 - [ ] Summary has congratulations and next steps
 - [ ] No markdown, only AsciiDoc
+- [ ] **CRITICAL:** Blank line before ALL lists
 
 ### Question Type Markers
 
