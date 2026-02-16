@@ -32,6 +32,24 @@ This skill writes **optional practice lessons** that:
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Practice graph query patterns** - Traversals, filtering, aggregation, collections in Cypher
+- **Make it fun and exploratory** - Business questions that encourage experimentation
+- **Build Cypher fluency** - Hands-on practice with graph-native patterns
+- **Focus on what graphs do well** - Bidirectional traversals, multi-hop paths, relationship properties
+
+**Practice lessons should:**
+- Provide exercises using graph patterns taught in concept lessons
+- Use real business questions that are interesting to solve
+- Include "try experimenting" suggestions to encourage exploration
+- Build fluency with Cypher syntax and graph thinking
+- Be enjoyable - learners should have fun discovering patterns
+
+---
+
 ## Phase 1: Understand Practice Context (5 min)
 
 ### Checklist: Gather Information
@@ -394,6 +412,8 @@ In Module 4, you will learn how to traverse many-to-many relationships between o
 - [ ] Numbered annotations for complex queries
 - [ ] "Try experimenting" suggestions included
 - [ ] Natural tone (no sales/AI language)
+- [ ] **CRITICAL:** Blank line before ALL lists
+- [ ] **CRITICAL:** Code callouts use `// <1>` not `// (1)`
 
 ### Collapsible Solution Format
 

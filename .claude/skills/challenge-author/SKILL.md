@@ -31,6 +31,24 @@ This skill writes **challenge lessons** that:
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+- **Build graph structures hands-on** - Import nodes, create relationships, configure properties as graph-native activities
+- **Use graph terminology** - Nodes, relationships, properties (teach the graph model)
+- **Make it fun and practical** - Challenges should be engaging and build toward something that works
+- **Deliver working results** - Each challenge completes a building block that demonstrates value
+
+**Challenge lessons should:**
+- Guide learners through hands-on graph building tasks
+- Reference graph concepts taught in previous lessons
+- Validate graph structure (node counts, relationship patterns)
+- Focus on what they're building, not what they're migrating from
+- Result in something that works and can be queried
+
+---
+
 ## Phase 1: Understand Challenge (5 min)
 
 ### Checklist: Gather Information
@@ -425,6 +443,8 @@ CREATE (:Product {id: "2", name: "Another Product"});
 [.verify.slide]
 == Validate Results
 
+Once you have [completed the challenge/imported the data/created the relationships], verify your results.
+
 verify::[]
 
 [TIP,role=hint]
@@ -462,6 +482,8 @@ You should see [expected result].
 ```asciidoc
 [.verify.slide]
 == Validate Results
+
+Once you have imported Product nodes, verify your results.
 
 verify::[]
 
@@ -555,6 +577,8 @@ In the next lesson, you will write queries to explore the products you imported.
 - [ ] No tool mechanics (references Module 1 Lesson 3 instead)
 - [ ] Building block completion marker present
 - [ ] Natural tone (no sales/AI language)
+- [ ] **CRITICAL:** Blank line before ALL lists (after text, headers, bold text)
+- [ ] **CRITICAL:** Code callouts use angle brackets `// <1>` not `// (1)`
 
 ### Include Verification
 

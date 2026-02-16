@@ -205,7 +205,7 @@ erDiagram
     Product {
         int productId
         string productName
-        decimal unitPrice
+        float unitPrice
     }
 ....
 
@@ -230,7 +230,7 @@ graph LR
 
 In SQL, many-to-many relationships require a join table (`ProductOrder`).
 
-In Neo4j, a single node connects two relationships directly, so there is no concept of a many-to-many relationship.  The properties of the relationship provide context on how the two nodes are connected.
+In Neo4j, a single relationship connects two nodes directly, so there is no concept of a many-to-many relationship.  The properties of the relationship provide context on how the two nodes are connected.
 
 ====
 
@@ -302,6 +302,75 @@ LIMIT 5;
 This pattern shows how relationships connect nodes. The arrow `-[:TYPE]->` indicates direction.
 
 You can also capture relationships in variables like `[r:CONTAINS]` to access their properties.
+
+[.slide]
+== Anchor nodes and traversal
+
+[.transcript-only]
+====
+Understanding how graph queries execute helps you build efficient models.
+
+Every graph query follows two steps:
+====
+
+**Step 1: Find the anchor node (starting point)**
+
+The query engine needs a place to start. This is typically done by:
+
+* Finding a node by a property value: `WHERE c.customerId = 'ALFKI'`
+* Using an index for fast lookup: O(1) constant time
+* Without an index: Scanning all nodes O(n) linear time
+
+**Step 2: Traverse relationships**
+
+Once the anchor nodes are found, the query follows relationships by type and direction:
+
+* Relationships are pre-materialized pointers stored with each node
+* Traversing is O(k) where k = number of connections
+* Much faster than computing JOINs in SQL
+
+[.slide.col-2]
+== Why graphs perform well
+
+[.col]
+====
+**SQL approach:**
+
+1. Scan customers table → O(n)
+2. JOIN orders table → O(n × m)
+3. JOIN order_details → O(n × m × p)
+4. JOIN products → O(n × m × p × q)
+
+
+Query cost grows with **table sizes**.
+====
+
+[.col]
+====
+**Graph approach:**
+
+1. Index lookup customer → O(1)
+2. Follow PLACED pointers → O(k₁)
+3. Follow CONTAINS pointers → O(k₂)
+4. Return products → O(k₃)
+
+
+Query cost grows with **connections**, not table size.
+====
+
+This is why the recommendation query we will build is fast - it only touches relevant data.
+
+[.slide]
+== Indexes and constraints
+
+When you import data using the Import tool, you will set **unique identifiers**.
+
+This automatically creates:
+
+* **Constraint** - Ensures no duplicate IDs (data quality)
+* **Index** - Enables fast anchor node lookups (performance)
+
+You will see this in action when we import customers and products.
 
 // TODO: reinstate
 // [.slide]

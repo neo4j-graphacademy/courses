@@ -12,6 +12,33 @@ allowed-tools: Read, Glob, Grep, Write, Bash
 
 ---
 
+## Core Principle: Teaching Graph Databases
+
+**Focus on graph databases and graph technologies.**
+
+When planning workshops, focus on building something valuable with Neo4j:
+
+- **Goal: Working deliverable** - "Build a recommendation query that works" - something they can demonstrate and build upon
+- **Teach Neo4j features** - Graph modeling, Cypher, traversals, performance characteristics - factually, not as sales pitch
+- **Make it hands-on and fun** - Structure for engagement and satisfaction with working results
+- **Use comparisons when helpful** - Visual models (ERD vs Graph), code comparisons (final solution) provide valuable context
+- **Structure around graph building blocks** - Each module = one graph transformation (nodes added, relationships created)
+
+**Workshop planning guidelines:**
+- **Module 1:** Setup and graph fundamentals
+- **Module 2-N:** Build graph structures, teach traversals, practice queries
+- **Final module:** Complete solution that works and demonstrates value
+
+**Using comparisons effectively:**
+- Plan visual diagram comparisons (ERD vs Graph model) when they help explain structure
+- Use code comparisons (SQL, other tech) when they effectively demonstrate value - especially for final solution
+- Don't overdo it - focus on teaching graph thinking and building with Neo4j
+- Be factual about advantages (O(k) traversal, lines of code) not salesy
+
+**Remember:** The goal is to teach learners to build valuable things with Neo4j. They should leave with something that works, demonstrates value, and can be built upon. Make it hands-on and fun.
+
+---
+
 ## Phase 1: Discovery (10-15 min)
 
 ### Checklist: Understanding the Goal
