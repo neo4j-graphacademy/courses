@@ -1,16 +1,17 @@
-= Practicing graph projections
+= Projection Practice
 :type: lesson
 :order: 5
 
 [.slide.discrete]
 == Introduction
 
-Now it's time to put your knowledge into practice.
-
-You'll create both types of projections you learned about:
+Now it's time to put your knowledge into practice. You'll create both types of projections you learned about:
 
 * **Monopartite transformations** — connecting nodes through shared neighbours
 * **Labelled bipartite projections** — preserving two-partition structures
+
+image::images/diagram_showing_monopartite_and_bipartite_projecti.svg[Diagram showing monopartite and bipartite projections with node connections.]
+
 
 [.slide]
 == What You'll Learn
@@ -29,15 +30,12 @@ Your database has a bipartite structure: `(:Actor)-[:ACTED_IN]->(:Movie)`
 
 Transform this into a monopartite Actor-to-Actor network by connecting actors through shared movies.
 
-. Use `MATCH` to traverse from Actor through Movie to Actor
-. Use `gds.graph.project()` with the matched `source` and `target` nodes
-. Name the graph `actor-collab`
-. Return the graph statistics
-
-You have five minutes to try this. If you need help, pop a message in the chat.
+image::images/bipartite_to_mono.svg[Actor-to-Actor network by connecting actors through shared movies.]
 
 [.transcript-only]
 ====
+You have five minutes to try this. If you need help, pop a message in the chat.
+
 This pattern traverses Movie nodes without capturing them, creating direct Actor-to-Actor connections. The result is a true monopartite graph where any actor can potentially connect to any other actor.
 ====
 
@@ -68,11 +66,10 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
 
 In your Actor-to-Actor network:
 
-* Only Actor nodes exist
 * Actors connect directly to other Actors
 * Importance can flow freely between nodes
 
-No rank sinks—PageRank can do its job.
+image::images/actor_to_actor_network_with_direct_connections_and.svg[Actor-to-Actor network with direct connections and importance flow.]
 
 [.slide]
 == Exercise 2: Run PageRank
@@ -80,11 +77,6 @@ No rank sinks—PageRank can do its job.
 Run PageRank on the `actor-collab` graph in **write mode**, storing the result as a `pageRank` property.
 
 Then query the database to find the top 10 actors by PageRank score.
-
-. Call `gds.pageRank.write()` with the graph name `actor-collab`
-. Set `writeProperty` to `pageRank`
-. Query actors where the `pageRank` property is not null
-. Order by score descending and limit to 10 results
 
 Try this on your own for five minutes.
 
@@ -138,9 +130,6 @@ LIMIT 10 // <5>
 <5> Return only the top 10 results
 ====
 
-[.slide]
-== Examine the Results
-
 You should see meaningful rankings—actors ranked by their importance in the collaboration network.
 
 [.transcript-only]
@@ -153,10 +142,7 @@ Compare this to the bipartite structure where PageRank produced nearly identical
 
 Create a monopartite Movie-to-Movie network by connecting movies through shared actors.
 
-. Use `MATCH` to traverse from Movie through Actor to Movie
-. Use `gds.graph.project()` with the matched `source` and `target` nodes
-. Name the graph `movie-collab`
-. Return the graph statistics
+image::images/movie_network.svg[Movie-to-Movie network by connecting movies through shared actors.]
 
 [.slide.col-2]
 == Exercise 3: Solution
@@ -180,19 +166,22 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
 <3> Return statistics about the created projection
 ====
 
-[.slide]
+[.slide.col-2]
 == Exercise 4: Labelled Bipartite Projection
 
 Create a bipartite projection of `(:User)-[:RATED]->(:Movie)`, preserving node labels.
 
-. Use `MATCH` to find Users and Movies connected by the `RATED` relationship
-. Use `gds.graph.project()` with configuration parameters
-. Set `sourceNodeLabels` to preserve User labels
-. Set `targetNodeLabels` to preserve Movie labels
-. Set `relationshipType` using the matched relationship
-. Return the graph statistics
-
+[.col]
+====
 Try this by yourself for five minutes.
+
+If you need help, pop a message in the chat.
+====
+
+[.col]
+====
+image::images/bipartite_projection_showing_user_movie_connection.svg[Bipartite projection showing User-Movie connections with preserved labels.]
+====
 
 [.transcript-only]
 ====
@@ -237,6 +226,8 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount // <6>
 
 What insights can we glean from a graph of `(:User)-[:RATED]->(:Movie)`?
 
+image::images/user_movie_graph_labelled.svg[User-Movie graph with connections and annotated insights.]
+
 Take a moment to discuss.
 
 [.transcript-only]
@@ -251,19 +242,12 @@ Node Similarity compares nodes based on shared neighbours across the bipartite s
 
 In this case: finding users with overlapping taste in movies.
 
-image::images/node_similarity.png[A bipartite structure with SIMILAR relationships between nodes on one side.]
-
 [.slide]
 == Exercise 5: Run Node Similarity
 
 Run Node Similarity on the `user-movie-bipartite` graph in **write mode**.
 
 Use `SIMILAR` as the relationship type and `score` as the property name.
-
-. Call `gds.nodeSimilarity.write()` with the graph name `user-movie-bipartite`
-. Set `writeRelationshipType` to `SIMILAR`
-. Set `writeProperty` to `score`
-. Return the comparison statistics
 
 [.slide.col-2]
 == Exercise 5: Solution
@@ -314,6 +298,8 @@ These are users with similar movie rating patterns—the foundation of collabora
 
 Node Similarity works well on bipartite structures. But what if you project the *entire* graph?
 
+image::images/entire_movie_graph.svg[Comparison of Node Similarity on bipartite vs full graph projections.]
+
 Let's find out.
 
 [.slide]
@@ -356,9 +342,13 @@ LIMIT 10
 
 Problems with the "everything" projection:
 
+* Spurious links between Users, Actors and Genres
+* The results are conceptually meaningless
 * The algorithm takes significantly longer to run
 * The query to interpret results is unnecessarily complex
-* The results are conceptually meaningless
+
+
+image::images/entire_movie_graph_problems.svg[Flowchart showing issues with projecting the entire graph.]
 
 [.transcript-only]
 ====
@@ -373,18 +363,12 @@ Node Similarity compares nodes based on shared neighbours. On a multipartite gra
 * An Actor and a User might both connect to the same Movie
 * The algorithm sees them as "similar"—even though that comparison is nonsensical
 
-**The data model represents the question**—the more specific your projection, the higher-quality your output.
+image::images/multipartite_similarity_problem.svg[An Actor and User both connected to a Movie, marked as "similar".]
 
-image::images/multipartite_similarity_problem.png[An Actor and User both connected to a Movie, marked as "similar".]
-
-[.slide]
-== The Lesson
-
-**Match your projection to your algorithm's expectations.**
-
-* Node Similarity expects bipartite → project bipartite
-* PageRank expects monopartite → project monopartite
-* Projecting "everything" rarely gives meaningful results
+[.transcript-only]
+====
+The algorithm has no concept of node types. It just sees nodes with shared neighbours—regardless of whether those comparisons are meaningful.
+====
 
 [.slide]
 == Cleanup
@@ -409,5 +393,7 @@ You practiced both projection approaches:
 
 * **Monopartite transformations** for algorithms like PageRank that need single-type networks
 * **Labelled bipartite projections** for algorithms like Node Similarity that work with two-partition structures
+
+You experienced the consequences of projecting "everything" graphs.
 
 The same data can answer different questions depending on how you project it. Choose your approach based on what your algorithm expects and what insights you're seeking.

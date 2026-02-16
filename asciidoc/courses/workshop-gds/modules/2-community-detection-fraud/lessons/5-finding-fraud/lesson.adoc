@@ -1,7 +1,6 @@
 = Building Fraud Communities
 :type: lesson
 :order: 5
-:sandbox: true
 
 [.slide.discrete]
 == Introduction
@@ -9,8 +8,6 @@
 You've learned the algorithms. Now let's put them together.
 
 In this lesson, you'll create relationships that encode fraud hypotheses, use Degree Centrality to filter noise, and run WCC to identify communities of connected suspects.
-
-image::images/final_result.png[A graph view of multiple fraudulent users.]
 
 [.slide]
 == What You'll Learn
@@ -73,23 +70,32 @@ Let's encode this pattern as a relationship.
 
 If User A sent money to User B, and they share a credit card, that's suspicious.
 
-image::images/user_user_shared_card.png[Two users both share a card, and have sent money to each other.]
+image::images/user_user_shared_card.svg[Two users both share a card, and have sent money to each other.]
 
-[.slide]
+[.slide.col-2]
 == Step 1: Create P2P_SHARED_CARD Relationships
 
 Encode the "sent money to someone sharing my card" pattern:
 
+[.col]
+====
 [source,cypher]
 .Create shared card relationship
 ----
 MATCH (u1:UserP2P)-[r:P2P]->(u2)
 WITH u1, u2, count(r) AS transaction
-MATCH (u1)-[:HAS_CC]->(n)<-[:HAS_CC]-(u2)
+MATCH (u1)-[:HAS_CC]->(n)<-[:HAS_CC]-(u2) // <1>
 WITH u1, u2, count(DISTINCT n) AS sharedCard
-MERGE(u1)-[s:P2P_SHARED_CARD]->(u2)
+MERGE(u1)-[s:P2P_SHARED_CARD]->(u2) // <2>
 RETURN count(DISTINCT s) AS P2PWithSharedCard
 ----
+====
+
+[.col]
+====
+<1> Finds credit cards shared between the sender and receiver -- this two-hop pattern through a Card node is the core fraud signal
+<2> Creates a new relationship type encoding our hypothesis -- MERGE ensures we don't create duplicates
+====
 
 This finds user pairs where User 1 sent money to User 2, and they share at least one credit card.
 
@@ -98,60 +104,86 @@ This finds user pairs where User 1 sent money to User 2, and they share at least
 You should see approximately 6,000+ relationships created. Each represents a potentially fraudulent money transfer.
 ====
 
-[.slide]
+[.slide.col-2]
 == ER Rule 2: Shared Identifiers
-
 Another pattern: users sharing multiple identifiers (cards, devices, IPs).
 
 Sharing one thing might be coincidence. Sharing several suggests coordination.
 
-But there's a problem: some identifiers connect to hundreds of users.
+But there's a problem: some identifiers
+connect to hundreds of users, like coffee shop IP addresses, public library devices.
 
-[.slide]
+[.slide.col-2]
 == The High-Degree Problem
 
 Before encoding this pattern, we need to handle noise.
 
+[.col]
+====
 Some identifiers connect to hundreds of users:
 
 * Coffee shop IP addresses
 * Public library devices
 * Compromised cards sold on the dark web
+====
+
+[.col]
+====
+image::images/high_degree_identifiers.svg[Illustration showing high-degree identifiers with many user connections, highlighting noise.]
+====
 
 Sharing these isn't suspicious—it's meaningless. We need to filter them out.
 
-[.slide]
+
+[.slide.col-2]
 == Step 2: Calculate Identifier Degrees
 
 First, create a projection of users and their shared identifiers:
 
+[.col]
+====
 [source,cypher]
 .Project a graph of User and shared identifiers
 ----
-MATCH (source:UserP2P)-[r:HAS_CC|USED|HAS_IP]->(target:Card|Device|IP)
+MATCH (source:UserP2P)-[r:HAS_CC|USED|HAS_IP]->(target:Card|Device|IP) // <1>
 WITH gds.graph.project(
   'identifier-graph',
   source,
   target
 ) AS g
-RETURN g.graphName, g.nodeCount, g.relationshipCount
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <2>
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Projects all user-to-identifier relationships -- this heterogeneous projection includes Cards, Devices, and IPs as targets
+<2> Returns projection metadata to verify the expected number of nodes and relationships were captured
+====
+
+[.slide.col-2]
 == Step 3: Run Degree Centrality
 
 Compute degree for all identifier nodes:
 
+[.col]
+====
 [source,cypher]
 .Run Degree Centrality
 ----
 CALL gds.degree.write('identifier-graph', {
   writeProperty: 'degree',
-  orientation: 'REVERSE'
+  orientation: 'REVERSE' // <1>
 })
 YIELD nodePropertiesWritten
 RETURN nodePropertiesWritten
 ----
+====
+
+[.col]
+====
+<1> `REVERSE` counts incoming relationships -- for identifier nodes (Cards, Devices, IPs), this measures how many users connect to each one, revealing high-degree noise nodes
+====
 
 Each Card, Device, and IP node now has a `degree` property indicating how many users connect to it.
 
@@ -164,24 +196,34 @@ Each Card, Device, and IP node now has a `degree` property indicating how many u
 CALL gds.graph.drop('identifier-graph')
 ----
 
-[.slide]
+[.slide.col-2]
 == Step 5: Create SHARED_IDS Relationships
 
 Now encode the "shares multiple identifiers" pattern, filtering out high-degree noise:
 
+[.col]
+====
 [source,cypher]
 .Create relationships based on shared IDs
 ----
 MATCH (u1:UserP2P)-[:HAS_CC|USED]->(n:Card|Device)<-[:HAS_CC|USED]-(u2:UserP2P)
-WHERE n.degree <= 10
+WHERE n.degree <= 10 // <1>
   AND u1 < u2
 WITH u1, u2, count(DISTINCT n) AS sharedIdentifiers
 MATCH (u1)-[:HAS_CC|USED|HAS_IP]->(m)<-[:HAS_CC|USED|HAS_IP]-(u2)
 WITH u1, u2, count(DISTINCT m) as sharedIdentifiers
-WHERE sharedIdentifiers > 2
-MERGE (u1)-[s:SHARED_IDS {count: sharedIdentifiers}]->(u2)
+WHERE sharedIdentifiers > 2 // <2>
+MERGE (u1)-[s:SHARED_IDS {count: sharedIdentifiers}]->(u2) // <3>
 RETURN count(s) AS relationshipsCreated
 ----
+====
+
+[.col]
+====
+<1> Filters out high-degree identifiers (public devices, shared proxies) using the degree property we computed in Step 3
+<2> Requires more than 2 shared identifiers -- sharing one thing is coincidence, sharing several suggests coordination
+<3> Stores the count of shared identifiers as a relationship property for potential use as a weight in downstream algorithms
+====
 
 [.transcript-only]
 ====
@@ -221,18 +263,26 @@ Once our hypotheses are relationships, we can:
 
 The graph becomes a model of our fraud theory, not just raw data.
 
-[.slide]
+[.slide.col-2]
 == Step 6: Visualize the ER Relationships
 
 Let's take a closer look at what we've created:
 
+[.col]
+====
 [source,cypher]
 .View the ER communities
 ----
-MATCH path = (u1:UserP2P)-[r:P2P_SHARED_CARD|SHARED_IDS*10]-(u2:UserP2P)
+MATCH path = (u1:UserP2P)-[r:P2P_SHARED_CARD|SHARED_IDS*10]-(u2:UserP2P) // <1>
 RETURN path
 LIMIT 200
 ----
+====
+
+[.col]
+====
+<1> Traverses up to 10 hops along only our fraud-hypothesis relationship types -- this reveals the emerging community structure before running WCC
+====
 
 [.transcript-only]
 ====
@@ -242,24 +292,33 @@ These relationships connect users we believe may be the same actors or members o
 [.slide.discrete]
 == Part 2: Finding Connected Communities
 
-[.slide]
+[.slide.col-2]
 == Step 7: Project the ER Graph
 
 Next, we'll create a projection using only our ER relationships:
 
+[.col]
+====
 [source,cypher]
 .Create an ER-only projection
 ----
 MATCH (source:UserP2P)
-OPTIONAL MATCH (source)-[r:P2P_SHARED_CARD|SHARED_IDS]->(target:UserP2P)
+OPTIONAL MATCH (source)-[r:P2P_SHARED_CARD|SHARED_IDS]->(target:UserP2P) // <1>
 RETURN gds.graph.project(
   'er-graph',
   source,
   target,
   {relationshipType: type(r)},
-  {undirectedRelationshipTypes: ['*']}
+  {undirectedRelationshipTypes: ['*']} // <2>
 )
 ----
+====
+
+[.col]
+====
+<1> OPTIONAL MATCH ensures all UserP2P nodes are included in the projection, even those with no ER relationships -- they'll become singleton components in WCC
+<2> Makes all relationships undirected so WCC treats fraud connections as bidirectional
+====
 
 We project only ER relationships so WCC finds components connected by suspicious patterns—not general network proximity.
 
@@ -272,20 +331,29 @@ This means WCC will find components based on *our definitions of suspicious beha
 
 Users end up in the same component only if they're connected by patterns we've explicitly encoded.
 
-[.slide]
+[.slide.col-2]
 == Step 8: Run WCC
 
 Finally we run WCC to find connected components:
 
+[.col]
+====
 [source,cypher]
 .Write WCC IDs
 ----
 CALL gds.wcc.write('er-graph', {
-  writeProperty: 'wccId'
+  writeProperty: 'wccId' // <1>
 })
-YIELD componentCount, componentDistribution
+YIELD componentCount, componentDistribution // <2>
 RETURN componentCount, componentDistribution
 ----
+====
+
+[.col]
+====
+<1> Writes a `wccId` property to each node -- users in the same component share the same ID, forming our fraud communities
+<2> Returns the total number of components and their size distribution to assess the community structure
+====
 
 [.slide]
 == Interpreting WCC Results
@@ -300,20 +368,29 @@ Check the `componentDistribution`:
 * `max`: ~175 (largest community)
 * `mean`: ~2.4 (most components are small)
 
-[.slide]
+[.slide.col-2]
 == Step 9: Examine Component Sizes
 
 See the distribution of community sizes:
 
+[.col]
+====
 [source,cypher]
 .Get community distribution
 ----
 MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL
-WITH u.wccId AS community, count(*) AS size
-RETURN size, count(*) AS communitiesOfThisSize
+WITH u.wccId AS community, count(*) AS size // <1>
+RETURN size, count(*) AS communitiesOfThisSize // <2>
 ORDER BY size
 ----
+====
+
+[.col]
+====
+<1> Groups users by their WCC component to calculate the size of each community
+<2> Aggregates again to show how many communities exist at each size -- this reveals the power-law distribution typical of fraud networks
+====
 
 [.transcript-only]
 ====
@@ -358,11 +435,13 @@ Our hypothesis is "if a user is connected (via fraud patterns) to a *known* frau
 
 This isn't proof of guilt—it's prioritization. We're identifying users who deserve closer scrutiny.
 
-[.slide]
+[.slide.col-2]
 == Step 10: Find Communities with Known Fraud
 
 Which communities contain flagged users?
 
+[.col]
+====
 [source,cypher]
 .Get communities with flagged users
 ----
@@ -370,13 +449,20 @@ MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL
 WITH u.wccId AS community,
   count(*) AS totalUsers,
-  sum(u.fraudMoneyTransfer) AS flaggedUsers
+  sum(u.fraudMoneyTransfer) AS flaggedUsers // <1>
 WHERE flaggedUsers > 0
 RETURN community, totalUsers, flaggedUsers,
-  totalUsers - flaggedUsers AS unflaggedUsers
+  totalUsers - flaggedUsers AS unflaggedUsers // <2>
 ORDER BY unflaggedUsers DESC
 LIMIT 10
 ----
+====
+
+[.col]
+====
+<1> Sums the fraud flag across each community -- communities with `flaggedUsers > 0` contain known fraud
+<2> Calculates unflagged users per community -- these are our investigation targets: users connected to fraudsters by suspicious patterns but not yet identified
+====
 
 [.slide]
 == Inspecting results
@@ -419,24 +505,34 @@ Communities with `flaggedUsers > 0` contain known fraud. Those with `unflaggedUs
 ====
 
 
-[.slide]
+[.slide.col-2]
 == Step 11: Label Fraud Risk Users
 
 Now, we can mark all users in fraud-connected communities as fraud risks:
 
+[.col]
+====
 [source,cypher]
 .Mark users in fraud communities
 ----
 MATCH (flagged:UserP2P)
 WHERE flagged.fraudMoneyTransfer = 1
   AND flagged.wccId IS NOT NULL
-WITH collect(DISTINCT flagged.wccId) AS flaggedCommunities
+WITH collect(DISTINCT flagged.wccId) AS flaggedCommunities // <1>
 MATCH (u:UserP2P)
 WHERE u.wccId IN flaggedCommunities
-  AND u.fraudMoneyTransfer = 0
-SET u:FraudRisk, u.fraudRisk = 1
+  AND u.fraudMoneyTransfer = 0 // <2>
+SET u:FraudRisk, u.fraudRisk = 1 // <3>
 RETURN count(u) AS newFraudRiskUsers
 ----
+====
+
+[.col]
+====
+<1> Collects all WCC community IDs that contain at least one known fraudster
+<2> Finds unflagged users in those communities -- these are connected to fraudsters through our encoded patterns but haven't been identified yet
+<3> Adds both a label (`:FraudRisk`) and a property (`fraudRisk = 1`) for flexible downstream querying
+====
 
 [.slide]
 == Results
@@ -458,20 +554,29 @@ We've identified 211 users. But are they significant, or just noise?
 
 One way to check: measure their transaction volume. If these users handle substantial money flow, our identification is meaningful.
 
-[.slide]
+[.slide.col-2]
 == Step 12: Validate the Labeling
 
 How much money flows through these newly identified accounts?
 
+[.col]
+====
 [source,cypher]
 .Find money flowing through accounts
 ----
-MATCH (risk:FraudRisk)-[p:P2P]-()
+MATCH (risk:FraudRisk)-[p:P2P]-() // <1>
 WITH sum(p.totalAmount) AS riskP2P
 MATCH ()-[p:P2P]->()
 WITH riskP2P, sum(p.totalAmount) AS totalP2P
-RETURN round(100.0 * riskP2P / totalP2P, 1) AS percentOfAllP2P
+RETURN round(100.0 * riskP2P / totalP2P, 1) AS percentOfAllP2P // <2>
 ----
+====
+
+[.col]
+====
+<1> Matches all P2P transactions involving FraudRisk users -- both sent and received -- to capture their full economic footprint
+<2> Calculates the percentage of total P2P volume flowing through these 211 users -- a high percentage relative to their population confirms they are economically significant actors
+====
 
 [.transcript-only]
 ====
@@ -487,24 +592,33 @@ If we'd selected 211 users at random, we'd expect them to handle roughly 0.1% of
 
 This suggests our methodology has identified economically significant actors, not random noise.
 
-[.slide]
+[.slide.col-2]
 == Step 13: Visualize a Fraud Community
 
 Pick a community and examine it:
 
+[.col]
+====
 [source,cypher]
 .Examine just one community
 ----
 MATCH (u:UserP2P)
 WHERE u.wccId IS NOT NULL AND u.fraudMoneyTransfer = 1
 WITH u.wccId AS community, count(*) AS fraudCount
-ORDER BY fraudCount DESC LIMIT 1
+ORDER BY fraudCount DESC LIMIT 1 // <1>
 WITH community
 MATCH path = (u1:UserP2P)-[:P2P_SHARED_CARD|SHARED_IDS|HAS_CC|USED]-(n)--(u2:UserP2P)
-WHERE u1.wccId = community AND u2.wccId = community
+WHERE u1.wccId = community AND u2.wccId = community // <2>
 RETURN path
 LIMIT 200
 ----
+====
+
+[.col]
+====
+<1> Selects the community with the most known fraudsters for the most informative visualization
+<2> Filters both endpoints to the same community and traverses through shared infrastructure (cards, devices) to reveal the fraud ring structure
+====
 
 [.transcript-only]
 ====

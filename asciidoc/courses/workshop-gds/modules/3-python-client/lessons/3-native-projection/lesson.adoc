@@ -56,18 +56,27 @@ WITH gds.graph.project('movies-genres', source, target) AS g
 RETURN g.graphName, g.nodeCount
 ----
 
-[.slide]
+[.slide.col-2]
 == Basic Projection: Python
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Python equivalent
 ----
-G, result = gds.graph.project(
+G, result = gds.graph.project( # <1>
     "movies-genres",      # Graph name
-    ["Movie", "Genre"],   # Node labels
+    ["Movie", "Genre"],   # Node labels  # <2>
     "IN_GENRE"            # Relationship type
 )
 ----
+====
+
+[.col]
+====
+<1> Returns a Graph object (`G`) and metadata (`result`) — use `G` for all subsequent operations
+<2> Labels from the MATCH pattern become a list; the relationship type becomes a string argument
+====
 
 [.slide]
 == Basic Projection: The Pattern
@@ -130,18 +139,27 @@ WITH gds.graph.project('movie-interactions', source, target) AS g
 RETURN g
 ----
 
-[.slide]
+[.slide.col-2]
 == Multiple Labels and Types: Python
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Multiple labels and types in Python
 ----
 G, _ = gds.graph.project(
     "movie-interactions",
-    ["Actor", "User", "Movie"],  # Multiple labels
-    ["ACTED_IN", "RATED"]        # Multiple relationship types
+    ["Actor", "User", "Movie"], # <1>
+    ["ACTED_IN", "RATED"] # <2>
 )
 ----
+====
+
+[.col]
+====
+<1> All node labels from the Cypher `WHERE source:Actor OR source:User` pattern become a simple list
+<2> Multiple relationship types from `r:ACTED_IN|RATED` also become a list
+====
 
 [.slide]
 == Adding Node Properties: Cypher
@@ -159,21 +177,30 @@ WITH gds.graph.project(
 RETURN g
 ----
 
-[.slide]
+[.slide.col-2]
 == Adding Node Properties: Python
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Node properties in Python
 ----
 G, _ = gds.graph.project(
     "actors-movies-props",
     {
-        "Actor": {},
-        "Movie": {"properties": ["year"]}
+        "Actor": {}, # <1>
+        "Movie": {"properties": ["year"]} # <2>
     },
     "ACTED_IN"
 )
 ----
+====
+
+[.col]
+====
+<1> Labels without properties use an empty dict `{}` — the label is still included in the projection
+<2> When you need properties, the label becomes a dict key with a `properties` list
+====
 
 When you need properties, labels become dictionary keys with a `properties` list.
 
@@ -191,18 +218,26 @@ WITH gds.graph.project(
 RETURN g
 ----
 
-[.slide]
+[.slide.col-2]
 == Relationship Properties: Python
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Relationship properties in Python
 ----
 G, _ = gds.graph.project(
     "user-ratings",
     ["User", "Movie"],
-    {"RATED": {"properties": ["rating"]}}
+    {"RATED": {"properties": ["rating"]}} # <1>
 )
 ----
+====
+
+[.col]
+====
+<1> Same pattern as nodes: when you need properties or configuration, the type string becomes a dictionary key with a `properties` list
+====
 
 Same pattern: when you need configuration, the type becomes a dictionary key.
 
@@ -221,18 +256,26 @@ WITH gds.graph.project(
 RETURN g
 ----
 
-[.slide]
+[.slide.col-2]
 == Undirected Relationships: Python
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Undirected in Python
 ----
 G, _ = gds.graph.project(
     "actors-movies-undirected",
     ["Actor", "Movie"],
-    {"ACTED_IN": {"orientation": "UNDIRECTED"}}
+    {"ACTED_IN": {"orientation": "UNDIRECTED"}} # <1>
 )
 ----
+====
+
+[.col]
+====
+<1> `orientation` replaces the Cypher `undirectedRelationshipTypes` config — options are `NATURAL`, `REVERSE`, or `UNDIRECTED`
+====
 
 [.slide]
 == Orientation Options
@@ -241,11 +284,13 @@ G, _ = gds.graph.project(
 * `REVERSE` — Flip all directions
 * `UNDIRECTED` — Treat as bidirectional
 
-[.slide]
+[.slide.col-2]
 == Default Values for Missing Properties
 
 Some nodes might be missing properties. Use `defaultValue` to handle nulls:
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Handling missing properties
 ----
@@ -255,14 +300,14 @@ G, _ = gds.graph.project(
         "Actor": {
             "properties": {
                 "born": {
-                    "property": "born",
+                    "property": "born", # <1>
                     "defaultValue": 1900
                 }
             }
         },
         "Movie": {
             "properties": {
-                "year": {"defaultValue": 1900},
+                "year": {"defaultValue": 1900}, # <2>
                 "imdbRating": {"defaultValue": 0.0},
                 "runtime": {"defaultValue": 90}
             }
@@ -271,6 +316,13 @@ G, _ = gds.graph.project(
     {"ACTED_IN": {"orientation": "UNDIRECTED"}}
 )
 ----
+====
+
+[.col]
+====
+<1> Long form: `property` specifies the source property name, `defaultValue` provides a fallback for nulls
+<2> Short form: when the projected property name matches the source, you can omit the `property` key
+====
 
 [.slide]
 == Default Values
@@ -292,39 +344,56 @@ WITH gds.graph.project('actor-collab', source, target) AS g
 RETURN g
 ----
 
-[.slide]
+[.slide.col-2]
 == Monopartite Transformations: Python
 
 The `gds.graph.project()` method only handles direct label/type projections.
 
 For pattern-based transformations, use `gds.graph.cypher.project()`:
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Monopartite in Python
 ----
-G, result = gds.graph.cypher.project(
+G, result = gds.graph.cypher.project( # <1>
     """
     MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
-    RETURN gds.graph.project($graph_name, source, target)
+    RETURN gds.graph.project($graph_name, source, target) # <2>
     """,
     graph_name='actor-collab'
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> `gds.graph.cypher.project()` accepts a Cypher query string — use this when native projection can't express your pattern
+<2> `$graph_name` is a parameterized variable passed as a keyword argument — avoids string injection
+====
+
+[.slide.col-2]
 == Alternative: run_cypher + graph.get()
 
 You can also run Cypher projection directly and retrieve the Graph object afterwards:
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Running raw Cypher
 ----
-result = gds.run_cypher("""
+result = gds.run_cypher(""" # <1>
     MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
     WITH gds.graph.project('actor-collab-v2', source, target) AS g
     RETURN g.graphName, g.nodeCount, g.relationshipCount
 """)
 ----
+====
+
+[.col]
+====
+<1> Uses the exact same Cypher syntax from Module 2 — useful if you already have working Cypher projections you want to reuse
+====
 
 [.slide]
 == Retrieving the Graph Object
@@ -340,9 +409,11 @@ print(f"Node count: {G.node_count()}")
 
 This approach uses the exact Cypher syntax you already know.
 
-[.slide]
+[.slide.col-2]
 == Full Movies Graph Projection
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Complete projection with all labels and types
 ----
@@ -355,15 +426,23 @@ G, result = gds.graph.project(
             "imdbRating": {"defaultValue": 0.0},
             "year": {"defaultValue": 1900}
         }},
-        "Genre": {}
+        "Genre": {} # <1>
     },
     {
         "ACTED_IN": {},
-        "RATED": {"properties": {"rating": {"defaultValue": 0.0}}},
-        "IN_GENRE": {}
+        "RATED": {"properties": {"rating": {"defaultValue": 0.0}}}, # <2>
+        "IN_GENRE": {} # <3>
     }
 )
 ----
+====
+
+[.col]
+====
+<1> Labels without properties still need an entry — `{}` means "include all nodes with this label, no properties"
+<2> Relationship properties follow the same `defaultValue` pattern as node properties
+<3> Relationship types without special config use an empty dict — same pattern as labels
+====
 
 [.slide]
 == When to Use Each Method

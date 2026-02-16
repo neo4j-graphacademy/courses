@@ -26,7 +26,7 @@ By the end of this lesson, you'll be able to:
 
 Betweenness Centrality measures how often a node lies on the shortest paths between other nodes in the network.
 
-image::images/betweenness_concept.png[Betweenness Centrality concept]
+image::images/betweenness_concept.svg[Betweenness Centrality concept]
 
 [.slide]
 == High Betweenness means high connectivity
@@ -35,36 +35,59 @@ If a node has high Betweenness, it means many shortest paths pass through it.
 
 This makes the node a bottleneck or bridge in the network. If you removed it, many nodes would become harder to reach from each other.
 
-[.slide]
+image::images/bottleneck_bridge.svg[Network diagram with a highlighted node acting as a bridge between two clusters.]
+
+
+[.slide.col-2]
 == Betweenness in a social network
 
+[.col]
+====
 Think about a social network for a moment.
 
 A person with high PageRank is like a celebrity—everyone knows who they are.
 
 A person with high Betweenness is like a connector—they introduce people from different social circles to each other.
+====
 
-image::images/celebrity_vs_connector.png[Celebrity versus connector in a network]
+[.col]
+====
+image::images/celebrity_vs_connector.svg[Celebrity versus connector in a network]
+====
 
-[.slide]
+[.slide.col-2]
 == Both types matter
 
+[.col]
+====
 Both roles are valuable, but for different reasons.
 
 The celebrity has influence. The connector enables information flow across the network.
 
 In our citation network, we want to find the papers that play the connector role.
+====
 
-[.slide]
+[.col]
+====
+image::images/celebrity_vs_connector.svg[Celebrity versus connector in a network]
+====
+
+[.slide.col-2]
 == How Betweenness is calculated
 
 For each node in the graph, the algorithm:
 
+[.col]
+====
 1. Finds all shortest paths between every pair of nodes
 2. Counts how many of those paths pass through the node
 3. Divides that count by the total number of paths
+====
 
-image::images/betweenness_calculation.png[Betweenness calculation steps]
+[.col]
+====
+image::images/betweenness_calculation.svg[Betweenness calculation steps]
+====
 
 [.slide]
 == Computational cost
@@ -88,21 +111,30 @@ print(f"  {G.node_count():,} nodes")
 print(f"  {G.relationship_count():,} relationships")
 ----
 
-[.slide]
+[.slide.col-2]
 == Running Betweenness Centrality
 
 Now we can run Betweenness Centrality and write the results to the database.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Running Betweenness with write mode
 ----
-bc_result = gds.betweenness.write(
+bc_result = gds.betweenness.write(  # <1>
     G,
-    writeProperty='betweenness'
+    writeProperty='betweenness'  # <2>
 )
 
 print(f"Computed Betweenness for {bc_result['nodePropertiesWritten']:,} papers")
 ----
+====
+
+[.col]
+====
+<1> Unlike PageRank, Betweenness has no damping factor or iteration parameters -- it computes exact results by default
+<2> The property name where each node's Betweenness score will be stored
+====
 
 [.slide]
 == Inspecting the distribution
@@ -166,13 +198,17 @@ Here are the main parameters you can configure when running Betweenness Centrali
 
 By default, Betweenness computes exact results using all nodes as sources.
 
+image::images/sampling_decision.svg[Flowchart showing decision process for exact vs. approximate Betweenness calculations.]
+
 For large graphs, you can use sampling to get approximate results much faster. We'll look at this option later in the lesson.
 
-[.slide]
+[.slide.col-2]
 == Finding bridge papers
 
 With Betweenness scores written to the database, we can query for the top bridge papers.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Querying top bridge papers
 ----
@@ -183,14 +219,21 @@ q_top_betweenness = """
         p.paper_Id AS paperId,
         p.subject AS subject,
         p.betweenness AS betweenness,
-        p.pageRank AS pageRank
+        p.pageRank AS pageRank  // <1>
     ORDER BY p.betweenness DESC
     LIMIT 10
 """
 
-df_bridges = gds.run_cypher(q_top_betweenness)
+df_bridges = gds.run_cypher(q_top_betweenness)  # <2>
 display(df_bridges)
 ----
+====
+
+[.col]
+====
+<1> Including PageRank alongside Betweenness lets us compare influence vs connectivity for each paper
+<2> `gds.run_cypher()` returns results as a pandas DataFrame for easy analysis
+====
 
 [.slide]
 == Interpreting the results
@@ -198,8 +241,6 @@ display(df_bridges)
 Notice how the top papers by Betweenness are often different from the top papers by PageRank.
 
 High Betweenness papers act as connectors between research communities. These are often methodological papers whose techniques apply across multiple domains.
-
-image::images/bridge_papers_results.png[Top bridge papers by Betweenness]
 
 [.slide]
 == Interpreting Betweenness scores
@@ -212,25 +253,22 @@ Betweenness scores are relative to your specific graph:
 
 You should only compare scores within the same graph. A score of 500 means very different things in different networks.
 
-[.slide]
+[.slide.col-2]
 == Comparing PageRank and Betweenness
 
 Let's visualise the relationship between influence (PageRank) and connectivity (Betweenness).
 
 This helps us understand the different types of important papers in the network.
 
-[.slide]
-== Fetching both metrics
-
-First, we query all papers that have both metrics computed.
-
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Querying papers with both metrics
 ----
 q_both_metrics = """
     MATCH (p:Paper)
     WHERE p.pageRank IS NOT NULL
-      AND p.betweenness IS NOT NULL
+      AND p.betweenness IS NOT NULL  // <1>
     RETURN p.pageRank AS pageRank,
            p.betweenness AS betweenness,
            p.subject AS subject
@@ -238,12 +276,20 @@ q_both_metrics = """
 
 df_metrics = gds.run_cypher(q_both_metrics)
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Filtering for nodes with both metrics ensures we only compare papers that have been scored by both algorithms
+====
+
+[.slide.col-2]
 == Creating a scatter plot
 
 Now we can create a scatter plot to see how the two metrics relate.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Creating a scatter plot of PageRank vs Betweenness
 ----
@@ -252,18 +298,20 @@ import matplotlib.pyplot as plt
 plt.figure(figsize=(10, 6))
 plt.scatter(df_metrics['pageRank'],
             df_metrics['betweenness'],
-            alpha=0.5, s=10)
+            alpha=0.5, s=10)  # <1>
 plt.xlabel('PageRank (Influence)')
-plt.ylabel('Betweenness Centrality (Connectivity)')
+plt.ylabel('Betweenness Centrality (Connectivity)')  # <2>
 plt.title('PageRank vs Betweenness in Citation Network')
 plt.grid(True, alpha=0.3)
 plt.show()
 ----
+====
 
-[.slide]
-== The scatter plot reveals four quadrants
-
-image::images/pagerank_vs_betweenness_scatter.png[Scatter plot of PageRank vs Betweenness]
+[.col]
+====
+<1> Low alpha and small point size prevent overplotting when thousands of papers overlap
+<2> Labeling axes with the metric interpretation (not just the name) helps readers understand the plot
+====
 
 [.slide]
 == Bottom-left: Regular papers
@@ -302,28 +350,37 @@ Using PageRank alone, you would miss the bridge papers. Using Betweenness alone,
 
 Combining them gives you a more complete picture.
 
-[.slide]
+[.slide.col-2]
 == Cross-subject bridge analysis
 
 Let's find out which research subjects produce the most bridge papers.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Analysing bridge papers by subject
 ----
 q_subject_bridges = """
     MATCH (p:Paper)
-    WHERE p.betweenness > 1000
+    WHERE p.betweenness > 1000  // <1>
     RETURN
         p.subject AS subject,
         count(p) AS num_bridge_papers,
         avg(p.betweenness) AS avg_betweenness,
-        avg(p.pageRank) AS avg_pageRank
+        avg(p.pageRank) AS avg_pageRank  // <2>
     ORDER BY num_bridge_papers DESC
 """
 
 df_subject_bridges = gds.run_cypher(q_subject_bridges)
 display(df_subject_bridges)
 ----
+====
+
+[.col]
+====
+<1> Threshold of 1000 selects papers with meaningful bridge roles; adjust based on your graph's score distribution
+<2> Including PageRank alongside Betweenness shows whether bridge subjects are also influential
+====
 
 [.slide]
 == Interpreting subject analysis
@@ -380,29 +437,31 @@ We can also find papers that specifically cite across multiple different researc
 
 These are the truly interdisciplinary works.
 
-[.slide]
+[.slide.col-2]
 == Querying cross-subject bridges
 
 This query finds papers with high Betweenness that cite at least three different subjects.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Finding papers that bridge multiple research areas
 ----
 q_cross_subject = """
     MATCH (p:Paper)-[:CITES]->(cited:Paper)
     WHERE p.betweenness > 500
-      AND p.subject <> cited.subject
+      AND p.subject <> cited.subject  // <1>
     WITH p,
          collect(DISTINCT cited.subject) AS cited_subjects,
          count(DISTINCT cited.subject) AS num_subjects_cited
-    WHERE num_subjects_cited >= 3
+    WHERE num_subjects_cited >= 3  // <2>
     RETURN
         p.paper_Id AS paperId,
         p.subject AS subject,
         p.betweenness AS betweenness,
         p.pageRank AS pageRank,
         num_subjects_cited,
-        cited_subjects
+        cited_subjects  // <3>
     ORDER BY num_subjects_cited DESC, p.betweenness DESC
     LIMIT 10
 """
@@ -410,6 +469,14 @@ q_cross_subject = """
 df_cross_subject = gds.run_cypher(q_cross_subject)
 pp(df_cross_subject)
 ----
+====
+
+[.col]
+====
+<1> Filters to cross-subject citations only, ignoring within-field references
+<2> Requires at least 3 different subjects cited -- true interdisciplinary breadth
+<3> Returns the list of cited subjects so you can see exactly which fields each paper bridges
+====
 
 [.slide]
 == Truly interdisciplinary papers
@@ -458,40 +525,12 @@ They serve as knowledge transfer hubs, synthesising ideas from across the resear
 |3
 |Theory, Case_Based, Probabilistic_Methods
 
-|97892
-|Case_Based
-|17,265
-|0.83
-|3
-|Reinforcement_Learning, Theory, Rule_Learning
-
-|14549
-|Theory
-|10,824
-|1.30
-|3
-|Neural_Networks, Reinforcement_Learning, Probabilistic_Methods
-
-|1103676
-|Neural_Networks
-|5,063
-|0.68
-|3
-|Case_Based, Probabilistic_Methods, Theory
-
-|323128
-|Theory
-|4,610
-|0.86
-|3
-|Probabilistic_Methods, Case_Based, Neural_Networks
-
-|68463
-|Rule_Learning
-|1,673
-|0.67
-|3
-|Case_Based, Theory, Genetic_Algorithms
+|...
+|...
+|...
+|...
+|...
+|...
 |===
 
 [.slide]
@@ -501,46 +540,64 @@ For large graphs with millions of nodes, exact Betweenness computation can be sl
 
 You can use sampling to get approximate results much faster.
 
-[.slide]
+[.slide.col-2]
 == Using the samplingSize parameter
 
 The `samplingSize` parameter limits how many source nodes are used in the calculation.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Running Betweenness with sampling
 ----
 bc_sampled_result = gds.betweenness.write(
     G,
     writeProperty='betweenness_sampled',
-    samplingSize=500,
-    samplingSeed=42
+    samplingSize=500,  # <1>
+    samplingSeed=42  # <2>
 )
 
 print(f"Computed sampled Betweenness for {bc_sampled_result['nodePropertiesWritten']:,} papers")
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Uses only 500 source nodes instead of all 2,708 -- trades accuracy for speed on large graphs
+<2> Fixed seed ensures reproducible results across runs
+====
+
+[.slide.col-2]
 == Comparing exact and sampled results
 
 You can compare exact and sampled results to see how close the approximation is.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Comparing exact vs sampled Betweenness
 ----
 q_compare = """
     MATCH (p:Paper)
     WHERE p.betweenness IS NOT NULL
-      AND p.betweenness_sampled IS NOT NULL
+      AND p.betweenness_sampled IS NOT NULL  // <1>
     RETURN p.paper_Id AS paperId,
            p.betweenness AS exact,
            p.betweenness_sampled AS sampled
-    ORDER BY p.betweenness DESC
+    ORDER BY p.betweenness DESC  // <2>
     LIMIT 10
 """
 
 df_compare = gds.run_cypher(q_compare)
 display(df_compare)
 ----
+====
+
+[.col]
+====
+<1> Both properties must exist to compare -- only papers scored by both runs are included
+<2> Ordering by exact scores lets you check whether the top bridges are preserved by sampling
+====
 
 [.slide]
 == Compare sampled vs unsampled results
@@ -623,27 +680,39 @@ If you run into memory problems on large graphs, you can:
 * Consider whether you need exact Betweenness or if another centrality measure would suffice
 
 [.slide]
-== Common pitfall: Disconnected graphs
+== Disconnected graphs
 
 Betweenness only counts paths that actually exist in the graph.
 
 If your graph has isolated components, nodes may have zero Betweenness even if they are central within their own component.
 
-image::images/disconnected_graph_pitfall.png[Disconnected graph with isolated components]
+image::images/disconnected_graph_pitfall.svg[Disconnected graph with isolated components]
 
-[.slide]
-== Common pitfall: Comparing across graphs
+[.slide.col-2]
+== Betweenness relativity
 
+[.col]
+====
 A Betweenness score of 5000 means nothing without context.
 
-You should only compare scores within the same graph. The same score in a different network would have a completely different meaning.
+You should only compare scores within the same graph. 
+
+The same score in a different network would have a completely different meaning.
+====
+
+[.col]
+====
+image::images/betweenness_relativity.svg[Illustration showing importance of context in Betweenness score interpretation.]
+====
 
 [.slide]
 == Common pitfall: Expecting similarity to PageRank
 
 High PageRank does not imply high Betweenness, and vice versa.
 
-They measure fundamentally different things: Influence versus connectivity. The fact that they identify different papers is a feature, not a bug.
+image::images/pagerank_betweenness.svg[Comparison chart illustrating differences between PageRank and Betweenness Centrality.]
+
+They measure fundamentally different things: Influence versus connectivity.
 
 read::Mark as read[]
 

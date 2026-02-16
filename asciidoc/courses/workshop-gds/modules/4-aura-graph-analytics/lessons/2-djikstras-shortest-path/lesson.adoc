@@ -7,6 +7,8 @@
 
 Before running Dijkstra's on our logistics network, let's understand what it does, how it works internally, and how to configure it for different use cases.
 
+image::images/dijkstra.svg[Flowchart of Dijkstra's algorithm steps from initialization to shortest path.]
+
 We'll practice on the familiar Movie graph first, then apply what we learn to logistics.
 
 [.slide]
@@ -19,14 +21,13 @@ By the end of this lesson, you'll be able to:
 * Invert relationship weights to find "strongest" rather than "cheapest" paths
 * Recognize when Dijkstra's is (and isn't) the right algorithm choice
 
-[.slide]
+[.slide.col-2]
 == What Dijkstra's Does
-
 Dijkstra's finds the **shortest weighted path** between a source node and one or more target nodes.
 
 It systematically explores the network, always choosing the lowest-cost path forward until reaching the destination.
 
-image::images/dijkstra_exploration.png[Dijkstra's algorithm expanding outward from source, with explored paths and the final optimal route highlighted.]
+image::images/dijkstra_exploration.svg[Dijkstra's algorithm expanding outward from source, with explored paths and the final optimal route highlighted.]
 
 [.slide]
 == A Note on Projection Syntax
@@ -71,10 +72,6 @@ Dijkstra's uses a **greedy approach** with a priority queue:
 4. If it's the target, we're done
 5. Otherwise, add its unvisited neighbors to the queue
 6. Repeat until target is reached or queue is empty
-
-[.slide]
-== How Dijkstra's works
-image::image/djikstras_simple_diagram.png[a simple six window demonstration of djikstra's 6 step process.]
 
 [.slide]
 == Why Not Just Use Cypher SHORTEST?
@@ -150,36 +147,48 @@ Dijkstra's works on:
 If `relationshipWeightProperty` is not specified, the algorithm runs unweighted—treating all relationships as having equal cost. This effectively finds the path with fewest hops.
 ====
 
-[.slide]
+[.slide.col-2]
 == Project the Movie Graph
 
 Let's find the shortest path between actors through their collaborations. In plain Cypher, we'd do this:
 
+[.col]
+====
 [source,python]
 .Project actor collaborations
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target:Actor)
+MATCH (source:Actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
 WHERE source <> target
 WITH source, target, count(m) AS collaborations
 RETURN gds.graph.project(
   'actor-collaborations',
   source,
   target,
-  {relationshipProperties: {collaborations: collaborations}},
-  {undirectedRelationshipTypes: ['*']}
+  {relationshipProperties: {collaborations: collaborations}}, // <2>
+  {undirectedRelationshipTypes: ['*']} // <3>
 )
 ----
+====
+
+[.col]
+====
+<1> Find pairs of actors who appeared in the same movie
+<2> Store the collaboration count as a relationship property for weighted pathfinding
+<3> Treat all relationships as undirected since collaboration is mutual
+====
 
 [.transcript-only]
 ====
 This creates an undirected graph where actors are connected if they've appeared in the same movie. The `collaborations` property counts how many movies they've shared.
 ====
 
-[.slide]
+[.slide.col-2]
 == Practice: Project the Movie Graph (AGA)
 
 In AGA, we use `gds.graph.project.remote()` with a Cypher projection:
 
+[.col]
+====
 [source,python]
 ----
 G_collab, result = gds.graph.project(
@@ -191,42 +200,60 @@ G_collab, result = gds.graph.project(
       RETURN a1 AS source,
             a2 AS target,
             type(r) AS relType,
-            a1{} AS sourceNodeProperties,
+            a1{} AS sourceNodeProperties, # <1>
             a2{} AS targetNodeProperties,
             count(r) AS collaborations
     }
-    RETURN gds.graph.project.remote(source, target, {
+    RETURN gds.graph.project.remote(source, target, { # <2>
       sourceNodeLabels: labels(source),
       targetNodeLabels: labels(target),
       sourceNodeProperties: sourceNodeProperties,
       targetNodeProperties: targetNodeProperties,
       relationshipType: 'COLLABORATED',
-      relationshipProperties: {collaborations: collaborations}
+      relationshipProperties: {collaborations: collaborations} # <3>
     })
     """
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> `a1{}` passes all node properties to the projection for later use
+<2> `gds.graph.project.remote()` sends the projection to the remote GDS Session
+<3> Collaboration count stored as a relationship property for weighted algorithms
+====
+
+[.slide.col-2]
 == Find the Shortest Path
 
 Now, to find the shortest path between two actors in the Browser, we'd do this:
 
+[.col]
+====
 [source,cypher]
 .Run Dijkstra's
 ----
-MATCH (source:Actor {name: 'Shah Rukh Khan'}),                  // Match target and source
+MATCH (source:Actor {name: 'Shah Rukh Khan'}),
       (target:Actor {name: 'Lee Jung-jae'})
-CALL gds.shortestPath.dijkstra.stream('actor-collaborations', {
-    sourceNode: source,                                         // Pass target and source to Dijkstra's
+CALL gds.shortestPath.dijkstra.stream('actor-collaborations', { // <1>
+    sourceNode: source,
     targetNodes: target
 })
-YIELD totalCost, nodeIds
+YIELD totalCost, nodeIds // <2>
 RETURN totalCost AS hops,
-       [nodeId IN nodeIds | gds.util.asNode(nodeId).name] AS path
+       [nodeId IN nodeIds | gds.util.asNode(nodeId).name] AS path // <3>
 ----
+====
 
-Without a weight property, this finds the path with fewest hops—the classic "degrees of separation."
+[.col]
+====
+<1> Stream mode returns results row-by-row without writing to the database
+<2> `totalCost` is the sum of all weights along the path
+<3> Resolve internal GDS node IDs back to readable actor names
+====
+
+Without a weight property, this finds the path with fewest hops--the classic "degrees of separation."
 
 [.slide]
 == Source and target
@@ -243,20 +270,29 @@ print(f"Source: Shah Rukh Khan (ID: {source_id})")
 print(f"Target: Lee Jung-jae (ID: {target_id})")
 ----
 
-[.slide]
+[.slide.col-2]
 == Find the Shortest Path (AGA)
 
 Then, we can call `gds.shortestPath.dijkstra.stream()` on the graph object:
 
+[.col]
+====
 [source,python]
 ----
 # Run Dijkstra's algorithm
 result = gds.shortestPath.dijkstra.stream(
-    G_collab,
+    G_collab, # <1>
     sourceNode=source_id,
-    targetNode=target_id
+    targetNode=target_id # <2>
 )
 ----
+====
+
+[.col]
+====
+<1> Pass the projected graph object, not the graph name string
+<2> In AGA Python, use `targetNode` (singular) for a single target
+====
 
 [.slide]
 == Single Target vs Multiple Targets
@@ -277,28 +313,38 @@ target_ids = [
 ]
 ----
 
-[.slide]
+[.slide.col-2]
 == Single Target vs Multiple Targets (AGA)
 
 In AGA, pass a list of target node IDs:
 
+[.col]
+====
 [source,python]
 ----
 # Run Dijkstra's with multiple targets
 multi_result = gds.shortestPath.dijkstra.stream(
     G_collab,
     sourceNode=source_id,
-    targetNodes=target_ids
+    targetNodes=target_ids # <1>
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> `targetNodes` (plural) accepts a list, returning the shortest path to each target in a single call
+====
+
+[.slide.col-2]
 == Dijkstra's finds the minimum cost
 
 We projected collaboration counts to the graph too. Let's add those as a weight and see what happens.
 
 In AGA, add the `relationshipWeightProperty` parameter:
 
+[.col]
+====
 [source,python]
 ----
 # Run Dijkstra's with collaboration weights
@@ -306,15 +352,23 @@ weighted_result = gds.shortestPath.dijkstra.stream(
     G_collab,
     sourceNode=source_id,
     targetNodes=target_ids,
-    relationshipWeightProperty='collaborations'
+    relationshipWeightProperty='collaborations' # <1>
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Dijkstra's minimizes total weight -- higher collaboration counts are treated as higher cost
+====
+
+[.slide.col-2]
 == Collaboration visualisation no weights
 
 Check out this query -- it runs Djikstra's but returns the paths between actors as a graph:
 
+[.col]
+====
 [source,cypher]
 .Dijkstra's as graph -- no weights
 ----
@@ -323,27 +377,36 @@ MATCH (source:Actor {name: 'Shah Rukh Khan'}), (target1:Actor {name: 'Lee Jung-j
 CALL gds.shortestPath.dijkstra.stream('actor-collaborations', {
     sourceNode: source, targetNodes: [target1, target2, target3]})
 YIELD targetNode, nodeIds
-WITH [nodeId IN nodeIds | gds.util.asNode(nodeId)] AS actors
+WITH [nodeId IN nodeIds | gds.util.asNode(nodeId)] AS actors // <1>
 UNWIND range(0, size(actors) - 2) AS i
 WITH actors[i] AS a1, actors[i + 1] AS a2
-MATCH path = (a1)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2)
+MATCH path = (a1)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2) // <2>
 RETURN path
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Convert internal node IDs to actual node objects for path reconstruction
+<2> Re-match the original ACTED_IN relationships to visualize the full graph path
+====
+
+[.slide.col-2]
 == Collaboration visualisation weighted with collaborations
 
 And now try this one, with the collaboration weights.
 
 Remember, Djikstra's interprets the 'weight' as 'cost'. The higher the cost, the greater the penalty.
 
+[.col]
+====
 [source,cypher]
 .Shortest path with collaboration weights
 ----
 MATCH (source:Actor {name: 'Shah Rukh Khan'}), (target1:Actor {name: 'Lee Jung-jae'}),
       (target2:Actor {name: 'Joe Pantoliano'}), (target3:Actor {name: 'Keanu Reeves'})
 CALL gds.shortestPath.dijkstra.stream('actor-collaborations', {
-    sourceNode: source, targetNodes: [target1, target2, target3], relationshipWeightProperty: 'collaborations'})
+    sourceNode: source, targetNodes: [target1, target2, target3], relationshipWeightProperty: 'collaborations'}) // <1>
 YIELD targetNode, nodeIds
 WITH [nodeId IN nodeIds | gds.util.asNode(nodeId)] AS actors
 UNWIND range(0, size(actors) - 2) AS i
@@ -351,6 +414,12 @@ WITH actors[i] AS a1, actors[i + 1] AS a2
 MATCH path = (a1)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(a2)
 RETURN path
 ----
+====
+
+[.col]
+====
+<1> Adding `relationshipWeightProperty` changes the path -- Dijkstra's now avoids high-collaboration edges because it minimizes cost
+====
 
 [.slide]
 == Collaboration Strength
@@ -360,11 +429,13 @@ What if we want to find the path through the **strongest** collaborations?
 We need to invert our thinking: Dijkstra's minimizes cost, but we want to maximize strength.
 
 
-[.slide]
+[.slide.col-2]
 == Project with inverted weighted paths (AGA)
 
 In AGA, include the inverted weight calculation in the projection:
 
+[.col]
+====
 [source,python]
 ----
 # Project with inverted weights using remote projection
@@ -381,7 +452,7 @@ G_weighted, result = gds.graph.project(
           'COLLABORATED' AS relType,
           a1{} AS sourceNodeProperties,
           a2{} AS targetNodeProperties,
-          1.0 / collaborations AS invertedCollab
+          1.0 / collaborations AS invertedCollab # <1>
     }
     RETURN gds.graph.project.remote(source, target, {
       sourceNodeLabels: labels(source),
@@ -389,7 +460,7 @@ G_weighted, result = gds.graph.project(
       sourceNodeProperties: sourceNodeProperties,
       targetNodeProperties: targetNodeProperties,
       relationshipType: relType,
-      relationshipProperties: {invertedCollab: invertedCollab}
+      relationshipProperties: {invertedCollab: invertedCollab} # <2>
     })
     """
 )
@@ -398,6 +469,13 @@ print(f"Projected graph: {G_weighted.name()}")
 print(f"  Nodes: {G_weighted.node_count():,}")
 print(f"  Relationships: {G_weighted.relationship_count():,}")
 ----
+====
+
+[.col]
+====
+<1> Invert the collaboration count so Dijkstra's minimizes `1/count` -- finding paths through the strongest collaborators
+<2> Store the inverted weight as a relationship property for use by the algorithm
+====
 
 [.slide]
 == Weighted Paths (AGA)
@@ -427,11 +505,13 @@ VG = visualize_dijkstra_paths(inverted_result, "Dijkstra's Paths (Inverted Weigh
 VG.render()
 ----
 
-[.slide]
+[.slide.col-2]
 == Write Mode (AGA)
 
 In AGA, use `gds.shortestPath.dijkstra.write()`:
 
+[.col]
+====
 [source,python]
 ----
 # Get Keanu Reeves node ID
@@ -442,13 +522,20 @@ write_result = gds.shortestPath.dijkstra.write(
     G_collab,
     sourceNode=source_id,
     targetNode=keanu_id,
-    writeRelationshipType='SHORTEST_PATH',
-    writeNodeIds=True,
+    writeRelationshipType='SHORTEST_PATH', # <1>
+    writeNodeIds=True, # <2>
     writeCosts=True
 )
 
 print(f"Relationships written: {write_result['relationshipsWritten']}")
 ----
+====
+
+[.col]
+====
+<1> Write mode creates a new relationship in the database between source and target
+<2> `writeNodeIds` and `writeCosts` store the full path details on the relationship
+====
 
 [.slide]
 == See the relationship
@@ -467,15 +554,17 @@ RETURN a.name AS actor1, r.totalCost AS totalCost, r.nodeIds AS nodeIds, r.costs
 The relationship produced is always **directed**, even if the input graph is undirected. This is because a path has a natural direction from source to target.
 ====
 
-[.slide]
+[.slide.col-2]
 == Mutate Mode
 
 In AGA, use `gds.shortestPath.dijkstra.mutate()`:
 
+[.col]
+====
 [source,python]
 ----
 # Get Tom Hanks node ID
-tom_id = gds.run_cypher("""
+tom_id = gds.run_cypher(""" # <1>
     MATCH (a:Actor {name: 'Tom Hanks'})
     RETURN id(a) AS id
 """)['id'].iloc[0]
@@ -485,11 +574,18 @@ mutate_result = gds.shortestPath.dijkstra.mutate(
     G_collab,
     sourceNode=tom_id,
     targetNode=keanu_id,
-    mutateRelationshipType='SHORTEST_PATH'
+    mutateRelationshipType='SHORTEST_PATH' # <2>
 )
 
 print(f"Relationships added to projection: {mutate_result['relationshipsWritten']}")
 ----
+====
+
+[.col]
+====
+<1> `gds.run_cypher()` lets you run arbitrary Cypher against the source database
+<2> Mutate adds results to the in-memory projection only -- nothing is written back to AuraDB
+====
 
 [.slide]
 == Relationship Type Filtering

@@ -1,7 +1,7 @@
 = Louvain Community Detection
 :type: lesson
 :order: 2
-:sandbox: true
+:sandbox: false
 
 [.slide.discrete]
 == Introduction
@@ -29,12 +29,14 @@ Louvain is a **community detection** algorithm.
 
 It finds groups of nodes that are more densely connected to each other than to the rest of the network.
 
-image::images/louvain_communities.png[A network divided into distinct communities, each highlighted in a different color.]
+image::images/community_detection_large.svg[A network divided into distinct communities, each highlighted in a different color.]
 
 [.slide]
 == The Core Concept: Modularity
 
-Louvain optimizes **modularity**—a measure of community quality.
+Louvain optimizes **modularity**--a measure of community quality.
+
+image::images/high_vs_low_modularity.svg[Diagram showing high vs low modularity in network connections.]
 
 * **High modularity:** Dense connections *within* communities, sparse connections *between* them
 * **Low modularity:** Connections spread randomly across the network
@@ -66,25 +68,42 @@ In general, scores above 0.4 typically indicate meaningful groupings worth inves
 
 Louvain iteratively moves nodes between communities to maximize modularity.
 
-image::images/louvain_moves_nodes.png[Left: A node in one community. Right: Same node moved to another community where it has more connections.]
+image::images/louvain_moves_nodes.svg[Left: A node in one community. Right: Same node moved to another community where it has more connections.]
 
 [.transcript-only]
 ====
 The algorithm asks: "Would moving this node to a neighboring community increase overall modularity?" If yes, it moves the node. This continues until no beneficial moves remain.
 ====
 
-[.slide]
-== The Algorithm: Two Phases
+[.slide.col-2]
+== The Two Phases of Louvain
 
 Louvain repeats two phases until modularity stops improving:
 
+[.col]
+====
 **Phase 1: Local Optimization**
 
-Each node considers joining neighboring communities. It joins whichever community increases modularity the most.
+Each node considers joining neighboring
+communities.
+
+It joins whichever community increases
+modularity the most.
 
 **Phase 2: Aggregation**
 
-Once no more moves improve modularity, collapse each community into a single "super-node" and repeat Phase 1.
+Once no more moves improve modularity,
+it collapses each community into a
+single "super-node"
+and repeats Phase 1.
+====
+
+[.col]
+====
+image::images/louvain_two_phases.svg[Flowchart of Louvain algorithm's two phases: Local Optimization and Aggregation.]
+====
+
+
 
 [.slide]
 == A Metaphor: Party Guests
@@ -95,7 +114,7 @@ Imagine a party where guests naturally cluster into conversation groups.
 
 **Phase 2:** Once groups stabilize, imagine each group as a single unit. These large *group-units* merge together based on whether more people would know each other in aggregate.
 
-**Result:** A hierarchy of social clusters—friend groups within larger social circles.
+**Result:** A hierarchy of social clusters--friend groups within larger social circles.
 
 [.slide]
 == Hierarchical Communities
@@ -106,11 +125,11 @@ This two-phase process creates a hierarchy:
 * **Level 2:** Small communities merge into medium ones
 * **Level 3:** Medium communities merge into larger ones
 
-image::images/louvain_hierarchy.png[A diagram showing communities merging at successive levels.]
+image::images/louvain_hierarchy.svg[A diagram showing communities merging at successive levels.]
 
 [.transcript-only]
 ====
-Each level represents a different granularity of community structure. You can choose which level suits your analysis—or access all levels at once.
+Each level represents a different granularity of community structure. You can choose which level suits your analysis--or access all levels at once.
 ====
 
 [.slide.discrete]
@@ -129,25 +148,35 @@ The Movies graph contains:
 
 We'll find communities of actors who frequently work together.
 
-[.slide]
+[.slide.col-2]
 == Project the Actor Collaboration Network
 
 Create a projection of actors connected through shared movies:
 
+[.col]
+====
 [source,cypher]
 .Project actor collaborations
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target:Actor)
 WHERE source <> target
-WITH source, target, count(r) AS collaborations
+WITH source, target, count(r) AS collaborations // <1>
 RETURN gds.graph.project(
   'actor-collaborations',
   source,
   target,
-  {relationshipProperties: {collaborations: collaborations}},
-  {undirectedRelationshipTypes: ['*']}
+  {relationshipProperties: {collaborations: collaborations}}, // <2>
+  {undirectedRelationshipTypes: ['*']} // <3>
 )
 ----
+====
+
+[.col]
+====
+<1> Count shared movies between each actor pair
+<2> Store collaboration count as a relationship property
+<3> Make all relationships undirected
+====
 
 [.transcript-only]
 ====
@@ -196,21 +225,32 @@ You should get a table with similar results to this:
 |===
 
 
-[.slide]
+[.slide.col-2]
 == Run Louvain in Stream Mode
 
 See which community each actor belongs to:
 
+[.col]
+====
 [source,cypher]
 .Stream Louvain results
 ----
 CALL gds.louvain.stream('actor-collaborations', {})
 YIELD nodeId, communityId
-WITH communityId, collect(gds.util.asNode(nodeId).name) AS actors
-RETURN communityId, actors[0..10], size(actors) AS communitySize
+WITH communityId,
+     collect(gds.util.asNode(nodeId).name) AS actors // <1>
+RETURN communityId, actors[0..10], // <2>
+       size(actors) AS communitySize
 ORDER BY communitySize DESC
 LIMIT 30
 ----
+====
+
+[.col]
+====
+<1> Collect actor names within each community
+<2> Preview the first 10 actors per community
+====
 
 [.transcript-only]
 ====
@@ -218,30 +258,40 @@ You should notice that some groups are extremely large, and of our ~680 communit
 ====
 
 
-[.slide]
+[.slide.col-2]
 == Visualize a Community
 
 See how actors in a community connect through movies:
 
+[.col]
+====
 [source,cypher]
 .Visualize community connections
 ----
 CALL gds.louvain.stream('actor-collaborations', {})
 YIELD nodeId, communityId
-WITH communityId, collect(gds.util.asNode(nodeId)) AS members
+WITH communityId,
+     collect(gds.util.asNode(nodeId)) AS members
 ORDER BY size(members) DESC
-LIMIT 1
+LIMIT 1 // <1>
 WITH members
 UNWIND members AS actor
 MATCH path = (actor)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(costar)
-WHERE costar IN members
+WHERE costar IN members // <2>
 RETURN path
 LIMIT 100
 ----
+====
+
+[.col]
+====
+<1> Take the largest community
+<2> Only show connections within that community
+====
 
 [.transcript-only]
 ====
-This shows the movies connecting actors within the largest community. Notice how densely connected they are—that's why Louvain grouped them together.
+This shows the movies connecting actors within the largest community. Notice how densely connected they are--that's why Louvain grouped them together.
 ====
 
 [.slide.discrete]
@@ -302,23 +352,26 @@ Notice how more levels produces fewer, larger communities. The modularity may be
 * You're looking for large-scale structure
 * Many group members are unknown (like in fraud detection)
 
-[.slide]
+[.slide.col-2]
 == Alternative: includeIntermediateCommunities
 
 Instead of guessing `maxLevels`, set `includeIntermediateCommunities: true`.
 
 This stores community IDs at *every* level:
 
+[.col]
+====
 [source,cypher]
 .Include intermediate communities
 ----
 CALL gds.louvain.stream('actor-collaborations', {
-  includeIntermediateCommunities: true
+  includeIntermediateCommunities: true // <1>
 })
-YIELD nodeId, communityId, intermediateCommunityIds
-WITH gds.util.asNode(nodeId) AS actor, communityId, intermediateCommunityIds
+YIELD nodeId, communityId, intermediateCommunityIds // <2>
+WITH gds.util.asNode(nodeId) AS actor,
+     communityId, intermediateCommunityIds
 WITH actor.name AS name,
-       intermediateCommunityIds[0] AS level1,
+       intermediateCommunityIds[0] AS level1, // <3>
        intermediateCommunityIds[1] AS level2,
        communityId AS final
 WHERE level1 <> level2 AND level2 <> final
@@ -326,6 +379,14 @@ RETURN name, level1, level2, final
 ORDER BY name
 LIMIT 20
 ----
+====
+
+[.col]
+====
+<1> Enable tracking of all hierarchy levels
+<2> Each node yields its community at every level
+<3> Access individual levels by index
+====
 
 [.transcript-only]
 ====
@@ -377,11 +438,13 @@ The resulting table should look something like this:
 |...
 |===
 
-[.slide]
+[.slide.col-2]
 == Check intermediateCommunity sizes
 
 Run the following query to see the increasing sizes of the communities at each level:
 
+[.col]
+====
 [source,cypher]
 .Community consolidation across levels
 ----
@@ -389,8 +452,8 @@ CALL gds.louvain.stream('actor-collaborations', {
   includeIntermediateCommunities: true
 })
 YIELD nodeId, intermediateCommunityIds, communityId
-WITH intermediateCommunityIds + [communityId] AS allLevels
-UNWIND range(0, size(allLevels) - 1) AS levelIndex
+WITH intermediateCommunityIds + [communityId] AS allLevels // <1>
+UNWIND range(0, size(allLevels) - 1) AS levelIndex // <2>
 WITH levelIndex + 1 AS level, allLevels[levelIndex] AS communityId
 WITH level, communityId, count(*) AS communitySize
 RETURN level,
@@ -400,6 +463,13 @@ RETURN level,
        max(communitySize) AS maxSize
 ORDER BY level
 ----
+====
+
+[.col]
+====
+<1> Combine all levels into a single list
+<2> Unwind to analyze each level separately
+====
 
 [.slide]
 == Community consolidation
@@ -445,55 +515,75 @@ You should notice how the communities become larger with each new level.
 
 Louvain can use relationship weights to influence community assignment.
 
-Let's see this in action by running Louvain twice—once unweighted, once weighted—and comparing the results.
+image::images/lovain_with_weights.svg[Diagram comparing weighted vs unweighted network relationships.]
 
-[.slide]
+Let's see this in action by running Louvain twice--once unweighted, once weighted--and comparing the results.
+
+[.slide.col-2]
 == Run Unweighted Louvain
 
 First, run Louvain without weights:
 
+[.col]
+====
 [source,cypher]
 .Unweighted Louvain
 ----
 CALL gds.louvain.write('actor-collaborations', {
-  writeProperty: 'communityUnweighted'
+  writeProperty: 'communityUnweighted' // <1>
 })
 YIELD communityCount, modularity
 RETURN 'Unweighted' AS config, communityCount, modularity
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Store community IDs as a node property
+====
+
+[.slide.col-2]
 == Run Weighted Louvain
 
 Now run Louvain using collaboration counts as weights:
 
+[.col]
+====
 [source,cypher]
 .Weighted Louvain
 ----
 CALL gds.louvain.write('actor-collaborations', {
   writeProperty: 'communityWeighted',
-  relationshipWeightProperty: 'collaborations'
+  relationshipWeightProperty: 'collaborations' // <1>
 })
 YIELD communityCount, modularity
 RETURN 'Weighted' AS config, communityCount, modularity
 ----
+====
+
+[.col]
+====
+<1> Use collaboration count as edge weight--stronger connections pull harder
+====
 
 [.transcript-only]
 ====
-Compare the community counts and modularity scores. Weighting by collaboration strength often produces different groupings—actors with many shared movies pull harder on each other.
+Compare the community counts and modularity scores. Weighting by collaboration strength often produces different groupings--actors with many shared movies pull harder on each other.
 ====
 
-[.slide]
+[.slide.col-2]
 == Find Actors Split by Weighting
 
 Find actors who were together in the unweighted run but split apart when weights were applied:
 
+[.col]
+====
 [source,cypher]
 .Together unweighted, split when weighted
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target:Actor)
-WHERE source.communityUnweighted = target.communityUnweighted
-  AND source.communityWeighted <> target.communityWeighted
+WHERE source.communityUnweighted = target.communityUnweighted // <1>
+  AND source.communityWeighted <> target.communityWeighted // <2>
   AND source < target
 WITH source, target, count(m) AS sharedMovies
 ORDER BY sharedMovies ASC
@@ -501,6 +591,13 @@ LIMIT 1
 MATCH path = (source)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target)
 RETURN path
 ----
+====
+
+[.col]
+====
+<1> Same community when unweighted
+<2> Different communities when weighted--their connection wasn't strong enough
+====
 
 [.transcript-only]
 ====
@@ -533,17 +630,19 @@ RETURN path, path2, path3
 See if you can spot them. They are actually quite far apart from each other.
 ====
 
-[.slide]
+[.slide.col-2]
 == Find Actors Joined by Weighting
 
 Find actors who were in different communities unweighted, but joined together when weights were applied:
 
+[.col]
+====
 [source,cypher]
 .Split unweighted, together when weighted
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target:Actor)
-WHERE source.communityUnweighted <> target.communityUnweighted
-  AND source.communityWeighted = target.communityWeighted
+WHERE source.communityUnweighted <> target.communityUnweighted // <1>
+  AND source.communityWeighted = target.communityWeighted // <2>
   AND source < target
 WITH source, target, count(m) AS sharedMovies
 ORDER BY sharedMovies DESC
@@ -551,6 +650,13 @@ LIMIT 1
 MATCH path = (source)-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(target)
 RETURN path
 ----
+====
+
+[.col]
+====
+<1> Different communities when unweighted
+<2> Same community when weighted--their strong collaboration pulled them together
+====
 
 [.transcript-only]
 ====
@@ -697,7 +803,7 @@ Louvain has some important limitations:
 
 [.transcript-only]
 ====
-These limitations don't make Louvain wrong for fraud detection—they make it a tool for *exploration*, not final judgment. In Lesson 5, you'll learn how to use WCC for deterministic, explainable community assignment.
+These limitations don't make Louvain wrong for fraud detection--they make it a tool for *exploration*, not final judgment. In Lesson 5, you'll learn how to use WCC for deterministic, explainable community assignment.
 ====
 
 read::Mark as read[]

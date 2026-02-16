@@ -1,13 +1,17 @@
 = Degree Centrality & WCC
 :type: lesson
 :order: 4
-:sandbox: true
 
 [.slide.discrete]
 == Introduction
 
 Louvain helped us explore the fraud network. But for formal community assignment, we need algorithms that are deterministic, explainable, and give us precise control.
 
+image::images/louvain_and_wcc.svg[Comparison of Louvain, Degree Centrality, and WCC algorithms with labeled characteristics.]
+
+
+[.slide]
+== Two algorithms
 This lesson covers two foundational algorithms:
 
 * **Degree Centrality** — Counts connections
@@ -28,14 +32,11 @@ By the end of this lesson, you'll be able to:
 [.slide.discrete]
 == Part 1: Degree Centrality
 
-[.slide]
-== What Degree Centrality Measures
-
 **Degree centrality** counts how many relationships a node has.
 
 By default, it counts *outgoing* relationships. A node with 5 outgoing connections has degree 5.
 
-image::images/degree_centrality.png[A node has 5 outgoing relationships and three incoming relationships. Label reads "degree equals 5".]
+image::images/degree_centrality.svg[A node has 5 outgoing relationships and three incoming relationships. Label reads "degree equals 5".]
 
 [.transcript-only]
 ====
@@ -63,22 +64,31 @@ RETURN gds.graph.project(
 This creates a bipartite graph: Actor nodes connected to Movie nodes. We'll use this to explore degree centrality before applying it to fraud.
 ====
 
-[.slide]
+[.slide.col-2]
 == Run Degree Centrality
 
 Count how many movies each actor has appeared in:
 
+[.col]
+====
 [source,cypher]
 .Count movies per actor (outgoing relationships)
 ----
-CALL gds.degree.stream('actors-movies', {})
+CALL gds.degree.stream('actors-movies', {}) // <1>
 YIELD nodeId, score
-WITH gds.util.asNode(nodeId) AS node, score
+WITH gds.util.asNode(nodeId) AS node, score // <2>
 WHERE node:Actor
 RETURN node.name AS actor, score AS movieCount
 ORDER BY movieCount DESC
 LIMIT 15
 ----
+====
+
+[.col]
+====
+<1> Streams degree results without writing to the database -- useful for exploration before committing
+<2> `gds.util.asNode()` converts internal GDS node IDs back to actual graph nodes so we can access properties like `name`
+====
 
 [.slide]
 == Examine results
@@ -150,24 +160,33 @@ You can control in which direction the algorithm should run using `orientation`:
 |Both of the above at once
 |===
 
-[.slide]
+[.slide.col-2]
 == Counting Incoming Relationships
 
 Use `REVERSE` to count incoming relationships—how many actors are in each movie:
 
+[.col]
+====
 [source,cypher]
 .Count actors per movie (incoming relationships)
 ----
 CALL gds.degree.stream('actors-movies', {
-  orientation: 'REVERSE'
+  orientation: 'REVERSE' // <1>
 })
 YIELD nodeId, score
 WITH gds.util.asNode(nodeId) AS node, score
-WHERE node:Movie
+WHERE node:Movie // <2>
 RETURN node.title AS movie, score AS castSize
 ORDER BY castSize DESC
 LIMIT 15
 ----
+====
+
+[.col]
+====
+<1> `REVERSE` counts incoming relationships instead of outgoing -- for the Actor->Movie projection, this counts how many actors point to each movie
+<2> Filters to Movie nodes only since Actor nodes will have a reverse degree of 0
+====
 
 [.transcript-only]
 ====
@@ -216,25 +235,28 @@ CALL gds.graph.drop('actors-movies')
 [.slide.discrete]
 == Part 2: Weakly Connected Components
 
-[.slide]
-== What WCC Does
-
 **Weakly Connected Components** groups nodes by connectivity.
 
 Two nodes are in the same component if *any* path connects them—regardless of relationship direction or path length.
 
 No optimization, no density calculation—just reachability.
 
-[.slide]
+[.slide.col-2]
 == Islands and Bridges
 
-image::images/islands_bridges.png[Seven islands. Those connected by bridges are labeled as single components.]
-
+[.col]
+====
 Think of nodes as islands and relationships as bridges.
 
 WCC answers: "Which islands can you walk between?"
 
 If any sequence of bridges connects two islands, they're in the same component.
+====
+
+[.col]
+====
+image::images/islands_bridges.svg[Seven islands. Those connected by bridges are labeled as single components.]
+====
 
 [.slide]
 == How WCC Works: Union-Find
@@ -247,24 +269,33 @@ The algorithm has three operations:
 2. **Union:** When processing a relationship, merge the two endpoint components
 3. **Find:** Determine which component a node belongs to
 
-[.slide]
+[.slide.col-2]
 == Project Actor Collaborations
 
 Let's run WCC on actor collaborations:
 
+[.col]
+====
 [source,cypher]
 .Project actor collaborations for WCC
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
 WHERE source <> target
-WITH source, target, count(r) AS collaborations
+WITH source, target, count(r) AS collaborations // <1>
 RETURN gds.graph.project(
   'actor-network',
   source,
   target,
-  {relationshipProperties: {collaborations: collaborations}}
+  {relationshipProperties: {collaborations: collaborations}} // <2>
 )
 ----
+====
+
+[.col]
+====
+<1> Counts how many movies each pair of actors appeared in together -- this becomes the relationship weight
+<2> Stores collaboration count as a relationship property for later use with weighted algorithms
+====
 
 [.slide]
 == Run WCC
@@ -279,21 +310,30 @@ CALL gds.wcc.write('actor-network', {
 })
 ----
 
-[.slide]
+[.slide.col-2]
 == Examine WCC Results
 
 Fetch the components from the graph:
 
+[.col]
+====
 [source,cypher]
 .Fetch components
 ----
 MATCH (a:Actor)
 WHERE a.componentId IS NOT NULL
-WITH a.componentId AS componentId, collect(a.name) AS members
-RETURN componentId, size(members) AS size, members[0..5] AS sampleMembers
+WITH a.componentId AS componentId, collect(a.name) AS members // <1>
+RETURN componentId, size(members) AS size, members[0..5] AS sampleMembers // <2>
 ORDER BY size DESC
 LIMIT 10
 ----
+====
+
+[.col]
+====
+<1> Groups actors by their WCC-assigned component and collects names into a list
+<2> Shows only the first 5 members of each component to keep output manageable -- large components may have thousands of actors
+====
 
 [.slide]
 == Examining WCC results
@@ -382,9 +422,14 @@ RETURN componentCount, componentDistribution
 [.slide]
 == Why Determinism Matters
 
-Louvain might assign a user to community A in one run and community B in the next.
+Louvain might assign a user to community A in one run and community B in the next. WCC always produces identical results.
 
-WCC always produces identical results. This matters when:
+image::images/louvain_and_wcc.svg[Comparison of Louvain, Degree Centrality, and WCC algorithms with labeled characteristics.]
+
+
+[.slide]
+== Determinism matters
+This matters when:
 
 * Fraud investigations face legal scrutiny
 * You need to explain *why* someone was flagged
@@ -403,19 +448,21 @@ This is WCC's power: **you define what "connected" means**.
 [.slide.discrete]
 == Part 3: Advanced WCC Configuration
 
-[.slide]
+[.slide.col-2]
 == Weighted WCC with Thresholds
 
 Not all connections are meaningful. A single shared movie differs from ten shared movies.
 
 Use `threshold` to ignore weak connections:
 
+[.col]
+====
 [source,cypher]
 .WCC with threshold
 ----
 CALL gds.wcc.stream('actor-network', {
-  relationshipWeightProperty: 'collaborations',
-  threshold: 5.0
+  relationshipWeightProperty: 'collaborations', // <1>
+  threshold: 5.0 // <2>
 })
 YIELD nodeId, componentId
 WITH componentId, collect(gds.util.asNode(nodeId).name) AS members
@@ -424,6 +471,13 @@ RETURN componentId, size(members) AS size, members[0..5] AS sampleMembers
 ORDER BY size DESC
 LIMIT 10
 ----
+====
+
+[.col]
+====
+<1> Tells WCC to read the `collaborations` property as the relationship weight
+<2> Only connections where actors collaborated more than 5 times are considered -- this breaks the giant component into smaller, more meaningful groups of frequent collaborators
+====
 
 [.transcript-only]
 ====
@@ -433,19 +487,21 @@ With threshold: 5.0, only connections where actors shared more than 2 movies are
 [.slide]
 == Seeded Components
 
-What happens when new data arrives daily?
-
-For billion-node graphs, full recomputation is expensive. **Seeded WCC** lets you build incrementally.
+What happens when new data arrives daily? For billion-node graphs, full recomputation is expensive. **Seeded WCC** lets you build incrementally.
 
 The idea: store previous component IDs, then only recompute for new or changed nodes.
 
-[.slide]
+image::images/seeded_wcc.svg[Flowchart illustrating how seeded WCC works.]
+
+[.slide.col-2]
 == Seeding: Step 1 — Project with Seed Property
 
 The first time we ran WCC on the Movies graph, we wrote the `componentId`s to the graph.
 
 Now, let's include existing `componentId`s in our projection:
 
+[.col]
+====
 [source,cypher]
 .Project with seed property
 ----
@@ -455,42 +511,65 @@ RETURN gds.graph.project(
   source,
   target,
   {
-    sourceNodeProperties: source { .componentId },
+    sourceNodeProperties: source { .componentId }, // <1>
     targetNodeProperties: target { .componentId }
   }
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Includes the previously written `componentId` as a node property in the projection -- WCC will use these as starting assignments instead of treating every node as a new singleton
+====
+
+[.slide.col-2]
 == Seeding: Step 2 — Run WCC with seedProperty
 
 Reference the seed property in your WCC call:
 
+[.col]
+====
 [source,cypher]
 .Run seeded WCC
 ----
 CALL gds.wcc.write('seeded-graph', {
-  seedProperty: 'componentId',
-  writeProperty: 'componentId'
+  seedProperty: 'componentId', // <1>
+  writeProperty: 'componentId' // <2>
 })
 YIELD componentCount
 RETURN componentCount
 ----
+====
+
+[.col]
+====
+<1> Tells WCC to initialize component assignments from existing `componentId` values -- nodes with seeds start in those components rather than as singletons
+<2> Writes updated component IDs back to the same property, preserving stable IDs for unchanged components
+====
 
 [.transcript-only]
 ====
 Nodes with existing `componentId` values start in those components. New nodes trigger computation.
 ====
 
-[.slide]
+[.slide.col-2]
 == How Seeding Works
 
 When WCC encounters seeded nodes:
 
-1. Nodes with seed values start in their seeded component
-2. New nodes (no seed value) start as singleton components
-3. Union-Find proceeds normally, merging as relationships are processed
-4. If two seeded components connect, they merge (using the lower ID)
+[.col]
+====
+1. Seeded nodes start in their seeded component
+2. New nodes start as singleton components
+3. Union-Find merges components
+4. If components connect, they merge to the lower ID
+====
+
+[.col]
+====
+image::images/seeded_wcc.svg[Flowchart illustrating how seeded WCC works.]
+====
 
 [.transcript-only]
 ====
@@ -505,7 +584,7 @@ Seeding assumes components only **grow or merge**—never split.
 If relationships are *removed* (not just added), seeding can produce incorrect results. In that case, run a full recompute.
 
 [.slide]
-== Performance: Sampled vs Unsampled
+== Sampled vs Unsampled
 
 WCC has two internal strategies:
 
@@ -522,11 +601,13 @@ WCC has two internal strategies:
 
 The sampled strategy is faster—it uses subgraph sampling to reduce work while maintaining correctness.
 
-[.slide]
+[.slide.col-2]
 == Enabling the Sampled Strategy
 
 For directed graphs, add `inverseIndexedRelationshipTypes` during projection:
 
+[.col]
+====
 [source,cypher]
 .Project with inverse index
 ----
@@ -536,9 +617,15 @@ RETURN gds.graph.project(
   source,
   target,
   {},
-  { inverseIndexedRelationshipTypes: ['*'] }
+  { inverseIndexedRelationshipTypes: ['*'] } // <1>
 )
 ----
+====
+
+[.col]
+====
+<1> Creates an inverse index for all relationship types, enabling WCC's faster sampled algorithm by allowing bidirectional traversal on directed graphs
+====
 
 [.transcript-only]
 ====
@@ -547,20 +634,29 @@ The inverse index lets WCC traverse relationships in both directions, enabling t
 On this graph, the performance gains are minimal -- but this would be especially important on a large, constantly updating graph.
 ====
 
-[.slide]
+[.slide.col-2]
 == Memory Estimation
 
 Before running on production data, estimate memory:
 
+[.col]
+====
 [source,cypher]
 .Estimate WCC memory
 ----
-CALL gds.wcc.write.estimate('actor-network', {
+CALL gds.wcc.write.estimate('actor-network', { // <1>
   writeProperty: 'wccId'
 })
 YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
-RETURN nodeCount, relationshipCount, requiredMemory
+RETURN nodeCount, relationshipCount, requiredMemory // <2>
 ----
+====
+
+[.col]
+====
+<1> The `.estimate` variant calculates memory requirements without actually running the algorithm
+<2> Returns a human-readable `requiredMemory` string (e.g., "24 MiB") alongside raw node and relationship counts
+====
 
 If estimated memory exceeds available heap, GDS will block execution. Plan accordingly.
 

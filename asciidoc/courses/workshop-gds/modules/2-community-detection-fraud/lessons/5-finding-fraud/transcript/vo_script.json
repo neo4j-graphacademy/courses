@@ -1,0 +1,260 @@
+[
+  {
+    "section_index": 304,
+    "title": "Introduction",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 305,
+    "title": "Building Fraud Communities",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 306,
+    "title": "Introduction",
+    "text": "You've learned the algorithms. Now let's put them together. In this lesson, you'll create relationships that encode fraud hypotheses, use Degree Centrality to filter noise, and run WCC to identify communities of connected suspects. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s306-000-existing] As you can see here, this graph highlights multiple fraudulent users within a network, where nodes represent users and edges represent suspicious transactions or shared identifiers.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 307,
+    "title": "What You'll Learn",
+    "text": "By the end of this lesson, you'll be able to: Encode domain hypotheses as graph relationships, combine Degree Centrality filtering with WCC community detection, identify fraud risk users through guilt-by-association, and validate results against transaction volume.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 308,
+    "title": "Why Not Just Use Louvain?",
+    "text": "Louvain was valuable for exploration, but it has limitations for formal fraud assignment. It's non-deterministic, meaning results vary between runs. It's density-based, grouping by connection density rather than fraud patterns. And it lacks semantic awareness, so a fraudster and their victim might end up in the same community. We need to encode our hypotheses about what fraud looks like, and then use deterministic algorithms to find connected groups.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 309,
+    "title": "The Solution: Entity Resolution",
+    "text": "Entity Resolution, or ER, is the process of determining when multiple records represent the same real-world entity. In fraud detection, we use ER to identify when multiple user accounts likely belong to the same person or group. We encode this as new relationships in the graph. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s309-002-new] This diagram illustrates how disparate user accounts are linked to a single real-world entity through shared identifiers.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 310,
+    "title": "From Exploration to Hypothesis",
+    "text": "Louvain revealed a pattern: flagged users sending money to unflagged users with whom they share credit cards. This is suspicious because it suggests the same person controls both accounts and money is being moved before a chargeback hits. Let's encode this pattern as a relationship. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s310-003-new] Here, the flowchart shows the suspicious pattern identified by Louvain, illustrating the flow of money and shared credit card usage between flagged and unflagged users.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 311,
+    "title": "The Methodology",
+    "text": "Our methodology involves several steps: First, explore using Louvain to reveal suspicious patterns. Then, hypothesize that shared cards and transactions indicate the same actor. Next, encode these as relationships representing the hypothesis. Resolve using WCC to find connected components, and finally, label users in fraud-connected communities. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s311-004-new] This flowchart illustrates the steps from exploration to labeling, showing how each step leads to the next in detecting fraud.",
+    "estimated_duration_seconds": 24.0
+  },
+  {
+    "section_index": 312,
+    "title": "Part 1: Encoding Fraud Hypotheses",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 313,
+    "title": "ER Rule 1: P2P with Shared Card",
+    "text": "If User A sent money to User B, and they share a credit card, that's suspicious. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s313-001-existing] In this diagram, you can see two users who both share a credit card and have sent money to each other, indicating a suspicious relationship.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 314,
+    "title": "Step 1: Create P2P_SHARED_CARD Relationships",
+    "text": "To encode the 'sent money to someone sharing my card' pattern, we use a specific query. This finds user pairs where User 1 sent money to User 2, and they share at least one credit card. You should see approximately 6,000+ relationships created. Each represents a potentially fraudulent money transfer.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 315,
+    "title": "ER Rule 2: Shared Identifiers",
+    "text": "Another pattern involves users sharing multiple identifiers like cards, devices, and IPs. Sharing one thing might be coincidence, but sharing several suggests coordination. However, some identifiers connect to hundreds of users, which can be problematic. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s315-005-new] This diagram shows how multiple shared identifiers can indicate coordination among users, highlighting the difference between coincidence and suspicious behavior.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 316,
+    "title": "The High-Degree Problem",
+    "text": "Before encoding this pattern, we need to handle noise. Some identifiers connect to hundreds of users, like coffee shop IP addresses, public library devices, and compromised cards sold on the dark web. Sharing these isn't suspicious—it's meaningless. We need to filter them out. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s316-006-new] This illustration shows examples of high-degree identifiers like public IPs and devices, explaining why these need to be filtered out to reduce noise.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 317,
+    "title": "Step 2: Calculate Identifier Degrees",
+    "text": "First, we create a projection of users and their shared identifiers. This involves projecting a graph of users and shared identifiers to analyze their connections.",
+    "estimated_duration_seconds": 9.0
+  },
+  {
+    "section_index": 318,
+    "title": "Step 3: Run Degree Centrality",
+    "text": "Next, we compute the degree for all identifier nodes. Each Card, Device, and IP node now has a 'degree' property indicating how many users connect to it.",
+    "estimated_duration_seconds": 9.0
+  },
+  {
+    "section_index": 319,
+    "title": "Step 4: Clean Up the Projection",
+    "text": "After calculating degrees, we drop the graph to clean up the projection.",
+    "estimated_duration_seconds": 6.0
+  },
+  {
+    "section_index": 320,
+    "title": "Step 5: Create SHARED_IDS Relationships",
+    "text": "Now we encode the 'shares multiple identifiers' pattern, filtering out high-degree noise. This involves creating relationships based on shared IDs, ensuring that only meaningful connections are considered. You should see approximately 5,000+ relationships created. Combined with the P2P_SHARED_CARD relationships, these form the basis of our fraud communities.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 321,
+    "title": "Understanding the Filters",
+    "text": "We use several filters to reduce false positives from coincidental sharing: 'u1 < u2' prevents duplicate relationships, 'n.degree <= 10' ignores high-degree nodes, and 'sharedIdentifiers > 2' requires multiple shared identifiers, not just one.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 322,
+    "title": "Business Rules",
+    "text": "The threshold is a domain judgment, not a magic number. Too low, and we might miss legitimate fraud patterns. Too high, and we include meaningless shared proxies. A threshold of 10 is a reasonable starting point for investigation. In production, you'd tune this based on your data and false positive rates, likely including many more rules than these.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 323,
+    "title": "Why Encode Patterns as Relationships?",
+    "text": "Once our hypotheses are relationships, we can visualize them directly, query them efficiently, and run algorithms on them specifically. The graph becomes a model of our fraud theory, not just raw data. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s323-009-new] This diagram shows the benefits of encoding hypotheses as graph relationships, including visualization, querying, and algorithm application.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 324,
+    "title": "Step 6: Visualize the ER Relationships",
+    "text": "Let's take a closer look at what we've created. These relationships connect users we believe may be the same actors or members of coordinated groups. Notice how they form clusters—these will become our WCC communities.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 325,
+    "title": "Part 2: Finding Connected Communities",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 326,
+    "title": "Step 7: Project the ER Graph",
+    "text": "Next, we'll create a projection using only our ER relationships. We project only ER relationships so WCC finds components connected by suspicious patterns—not general network proximity.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 327,
+    "title": "Why This Projection Matters",
+    "text": "We're projecting only the fraud-hypothesis relationships—not the original P2P, HAS_CC, or USED relationships. This means WCC will find components based on our definitions of suspicious behavior, not on general network connectivity. Users end up in the same component only if they're connected by patterns we've explicitly encoded. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s327-010-new] This diagram illustrates the difference between projecting fraud-hypothesis relationships versus general network relationships, emphasizing the focus on suspicious behavior.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 328,
+    "title": "Step 8: Run WCC",
+    "text": "Finally, we run WCC to find connected components. This step helps us identify groups of users connected by the suspicious patterns we've defined.",
+    "estimated_duration_seconds": 9.0
+  },
+  {
+    "section_index": 329,
+    "title": "Interpreting WCC Results",
+    "text": "You should see approximately 28,000 components. Most contain one or two users. The interesting ones are multi-user components—these could be our fraud communities. Check the component distribution: the minimum is 1 for isolated users, the maximum is around 175 for the largest community, and the mean is about 2.4, indicating most components are small.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 330,
+    "title": "Step 9: Examine Component Sizes",
+    "text": "Let's see the distribution of community sizes. Most communities are size 1—users not connected by suspicious patterns. Communities of size 2 or more are our investigation targets.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 331,
+    "title": "Inspect distribution",
+    "text": "Your previous query should have returned something like this: sizes range from 1 to 175, with most communities being quite small. This gives us a clear picture of the distribution of community sizes.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 332,
+    "title": "The Guilt-by-Association Principle",
+    "text": "Our hypothesis is that if a user is connected via fraud patterns to a known fraudster, they warrant investigation. This isn't proof of guilt—it's prioritization. We're identifying users who deserve closer scrutiny. [IMAGE: img-2-community-detection-fraud-5-finding-fraud-s332-012-new] This illustration depicts the guilt-by-association principle, showing how connections to known fraudsters can prioritize users for investigation.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 333,
+    "title": "Step 10: Find Communities with Known Fraud",
+    "text": "Which communities contain flagged users? This query helps us identify communities with known fraudsters, allowing us to focus on those with unflagged users connected by suspicious patterns.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 334,
+    "title": "Inspecting results",
+    "text": "The previous query should return a table showing communities with both flagged and unflagged users. Communities with flagged users contain known fraud, while those with unflagged users connected by suspicious patterns are our new fraud risks.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 335,
+    "title": "Step 11: Label Fraud Risk Users",
+    "text": "Now, we can mark all users in fraud-connected communities as fraud risks. This step involves identifying and labeling users who are connected to known fraudsters via suspicious patterns.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 336,
+    "title": "Results",
+    "text": "You should identify 211 new fraud risk users. These are users who were not flagged by the original chargeback logic but are connected to flagged users via suspicious patterns like shared cards and transactions or multiple shared identifiers.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 337,
+    "title": "Part 4: Validation",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 338,
+    "title": "Why Validate?",
+    "text": "We've identified 211 users. But are they significant, or just noise? One way to check is by measuring their transaction volume. If these users handle substantial money flow, our identification is meaningful.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 339,
+    "title": "Step 12: Validate the Labeling",
+    "text": "How much money flows through these newly identified accounts? This query helps us find the transaction volume associated with these accounts, giving us insight into their significance.",
+    "estimated_duration_seconds": 12.0
+  },
+  {
+    "section_index": 340,
+    "title": "Interpreting the Validation",
+    "text": "These 211 users represent less than 0.1% of all users, yet they handle approximately 13% of all P2P transaction volume. If we'd selected 211 users at random, we'd expect them to handle roughly 0.1% of volume. We're seeing 130 times that amount. This suggests our methodology has identified economically significant actors, not random noise.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 341,
+    "title": "Step 13: Visualize a Fraud Community",
+    "text": "Pick a community and examine it. In the visualization, flagged users are known fraudsters, and FraudRisk users are newly identified through ER and WCC. Notice how they're connected by shared cards and devices.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 342,
+    "title": "Cleanup",
+    "text": "Drop the projection to clean up after our analysis.",
+    "estimated_duration_seconds": 6.0
+  },
+  {
+    "section_index": 343,
+    "title": "What We Built",
+    "text": "Here's a summary of what we did: We encoded hypotheses by creating P2P_SHARED_CARD and SHARED_IDS relationships, resulting in about 11,000 fraud-pattern edges. We filtered noise using Degree Centrality to exclude high-degree identifiers, removing false connections. We found communities by running WCC on fraud-hypothesis relationships, resulting in about 28,000 components. We labeled risk by marking users in fraud-connected components, identifying 211 new suspects. Finally, we validated by checking transaction volume, finding that these users represent 13% of P2P volume.",
+    "estimated_duration_seconds": 24.0
+  },
+  {
+    "section_index": 344,
+    "title": "Algorithms Are Tools",
+    "text": "The algorithms we used—Degree Centrality and WCC—are simple by design. The power came from encoding domain knowledge as relationships, filtering noise before community detection, and projecting selectively to control what 'connected' means. Algorithms find structure, but you define what structure matters through relationship design and projection choices.",
+    "estimated_duration_seconds": 18.0
+  },
+  {
+    "section_index": 345,
+    "title": "Extending This Approach",
+    "text": "In production, you'd likely add more ER rules, such as same device and same IP, velocity patterns, and behavioral similarity. You might weight relationships, use thresholds in WCC, and iterate by validating, tuning thresholds, adding rules, and repeating the process.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 346,
+    "title": "Summary",
+    "text": "You've applied the full fraud detection methodology: Created P2P_SHARED_CARD relationships with over 6,000 connections, created SHARED_IDS relationships with over 5,000 connections, ran WCC to find connected components totaling around 28,000, identified 211 new fraud risk users, and validated that they represent about 13% of transaction volume. Remember, algorithms find structure, but you define what structure matters through relationship design and projection modeling. The power isn't in the algorithms themselves—it's in encoding your fraud hypotheses as graph relationships, then letting simple algorithms like WCC find the connected groups.",
+    "estimated_duration_seconds": 30.0
+  }
+]

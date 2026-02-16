@@ -7,7 +7,7 @@
 
 Every GDS analysis follows the same basic pattern: **Project -> Run -> Write**
 
-image::images/project_run_write.png[Diagram showing the three-step workflow]
+image::images/project_run_write_finished.svg[Diagram showing the three-step workflow]
 
 [.transcript-only]
 ====
@@ -21,7 +21,7 @@ The reason we specify 'two or three' is that you can choose to run an algorithm 
 
 By the end of this lesson, you'll be able to:
 
-* Apply the Project → Run → Write workflow to any GDS analysis
+* Apply the Project -> Run -> Write workflow to any GDS analysis
 * Create graph projections using Cypher projection syntax
 * Run algorithms in different execution modes (stats, stream, mutate, write)
 * Manage in-memory projections by listing and dropping graphs
@@ -31,16 +31,16 @@ By the end of this lesson, you'll be able to:
 == Why This Workflow?
 
 * **Speed:** In-memory projections are faster than querying the database directly.
-
 * **Safety:** Your source graph remains unchanged until you explicitly write results back.
-
 * **Flexibility:** Run multiple algorithms on the same projection to compare and combine results.
+
+image::images/disk_vs_memory.svg[Comparison of in-memory projections vs direct database queries.]
 
 
 [.slide]
 == Step 1: Project
 
-The graph projected by GDS is an in-memory structure containing nodes and relationships — just like your main graph.
+The graph projected by GDS is an in-memory structure containing nodes and relationships -- just like your main graph.
 
 image::images/projection_from_main.png[a representation of a main graph with an arrow pointing to its projected variant. The main graph remains on disk, while the projected graph is stored in memory.]
 
@@ -80,9 +80,9 @@ RETURN g.graphName AS graph, // <3>
 ====
 The Cypher projection [transcript-only]#above# has three components:
 
-1. **Cypher query** - The `MATCH` clause defines which nodes and relationships to include.
-2. **Projection call** - The `gds.graph.project()`  procedure creates the projection with a unique name, and defines thesource and target nodes.
-3. **Return statement** - The `RETURN` clause returns metadata about the created projection, aliased as `g`.
+<1> **Cypher query** - The `MATCH` clause defines which nodes and relationships to include.
+<2> **Projection call** - The `gds.graph.project()` procedure creates the projection with a unique name, and defines the source and target nodes.
+<3> **Return statement** - The `RETURN` clause returns metadata about the created projection, aliased as `g`.
 ====
 
 
@@ -116,9 +116,9 @@ YIELD graphName AS graph, // <3>
 
 The native projection:
 
-1. Loads the provided labels into the project.
-2. Connects those nodes with the provided relationship types.
-3. Provides the same metadata, which are accessed using the `YIELD` clause.
+<1> Loads the provided labels into the project.
+<2> Connects those nodes with the provided relationship types.
+<3> Provides the same metadata, which are accessed using the `YIELD` clause.
 ====
 
 [.slide]
@@ -151,10 +151,10 @@ ORDER BY score DESC
 
 [.col]
 ====
-1. The **degree centrality** algorithm is called in **stream** mode.
-2. The algorithm is run on the `actors-graph` projection.
-3. A map of configuration options can be provided as the third argument.
-4. Each algorithm yields a unique set of results, which can be processed with Cypher.
+<1> The **degree centrality** algorithm is called in **stream** mode.
+<2> The algorithm is run on the `actors-graph` projection.
+<3> A map of configuration options can be provided as the third argument.
+<4> Each algorithm yields a unique set of results, which can be processed with Cypher.
 ====
 
 
@@ -178,90 +178,140 @@ CALL gds.degree.stats('actor-graph-native')
 ----
 
 
-[.slide]
+[.slide.col-2]
 == Estimate mode
 
 The `estimate` mode is used to estimate the memory requirements for an algorithm.
 
+[.col]
+====
 [source,cypher,role="noplay nocopy"]
 .Estimate mode
 ----
-CALL gds.degree.stats.estimate('actors-graph', {})
-YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
+CALL gds.degree.stats.estimate('actors-graph', {}) // <1>
+YIELD nodeCount, relationshipCount, // <2>
+      bytesMin, bytesMax, requiredMemory
 ----
+====
+
+[.col]
+====
+<1> Append `.estimate` to any execution mode
+<2> Returns graph size and memory requirements
+====
 
 [.transcript-only]
 ====
 You will learn how and when to use each of these modes throughout this workshop.
 ====
 
-[.slide]
+[.slide.col-2]
 == Write from algorithm
 
 Ultimately, you will end most GDS sessions by writing your results back to the graph. The `CALL gds.<algorithm>.write` will run the algorithm directly, and then write results.
 
+[.col]
+====
 [source,cypher,role="noplay nocopy"]
 .Writing algorithm results directly to the database
 ----
 CALL gds.degree.write(
   'actors-graph',
   {
-    writeProperty: 'degree'
+    writeProperty: 'degree' // <1>
   }
 )
-YIELD centralityDistribution, nodePropertiesWritten
+YIELD centralityDistribution, nodePropertiesWritten // <2>
 RETURN centralityDistribution.min AS minimumScore,
     centralityDistribution.mean AS meanScore,
     nodePropertiesWritten
 ----
+====
+
+[.col]
+====
+<1> Specify the property name for storing results in the database
+<2> Write mode yields summary statistics about what was written
+====
 
 
-[.slide]
+[.slide.col-2]
 == Write from projection
 
 You can also write results to your graph projection first, using `mutate` mode:
 
+[.col]
+====
 [source,cypher,role="noplay nocopy"]
 .Storing results in the projection using mutate mode
 ----
 CALL gds.degree.mutate(
   'actors-graph',
   {
-    mutateProperty: 'degree'
+    mutateProperty: 'degree' // <1>
   }
 )
-YIELD centralityDistribution, nodePropertiesWritten
+YIELD centralityDistribution, nodePropertiesWritten // <2>
 ----
+====
+
+[.col]
+====
+<1> Store results in the projection under this property name
+<2> Results stay in the projection only--not persisted to the database
+====
 
 [.slide]
 == Write from graph
 
 Then write from the graph projection back to your main graph.
 
+image::images/flowchart_of_writing_node_properties_from_projecti.png[Flowchart of writing node properties from projection to main graph.]
+
+[.slide.col-2]
+== Write from graph
+
+[.col]
+====
 [source,cypher,role="noplay nocopy"]
 .Writing node properties from projection to database
 ----
 CALL gds.graph.nodeProperties.write(
-  'actors-graph',
-  ['degree']
+  'actors-graph', // <1>
+  ['degree'] // <2>
 )
 YIELD propertiesWritten
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> Name of the projection to write from
+<2> List of properties to write back to the database
+====
+
+[.slide.col-2]
 == List graphs
 
 Even when you've finished working on a projection, it will continue to hang around in memory until you either stop the server, or explicitly drop it.
 
 You can see which graphs you have in memory with the `gds.graph.list()` command:
 
+[.col]
+====
 [source,cypher]
 .List graphs
 ----
-CALL gds.graph.list()
+CALL gds.graph.list() // <1>
 YIELD graphName
 RETURN graphName
 ----
+====
+
+[.col]
+====
+<1> Returns all in-memory projections and their metadata
+====
 
 [.slide]
 == Dropping graphs
@@ -274,22 +324,36 @@ Once you've finished working on your projection, you can drop it from memory.
 CALL gds.graph.drop('actors-graph')
 ----
 
+[.slide]
+== Dropping graphs
 The entire graph will disappear, including any data within it -- always make sure to write important information back to your main graph before dropping.
 
-[.slide]
+image::images/dropping_graph.svg[Illustration of dropping a graph from memory with warning.]
+
+
+[.slide.col-2]
 == Drop all
 
 Sometimes, you might end up with a bunch of graphs in memory. You can drop them all at once with this pattern.
 
+[.col]
+====
 [source,cypher]
 .Drop all graphs
 ----
 CALL gds.graph.list()
-YIELD graphName
-CALL gds.graph.drop(graphName)
+YIELD graphName // <1>
+CALL gds.graph.drop(graphName) // <2>
 YIELD graphName AS droppedGraphs
 RETURN droppedGraphs
 ----
+====
+
+[.col]
+====
+<1> List all projection names
+<2> Drop each projection by name
+====
 
 read::Mark as read[]
 
@@ -299,4 +363,3 @@ read::Mark as read[]
 In this lesson, you got to grips with the general GDS workflow: project -> Run -> Write.
 
 In the next lesson, you'll learn how to project a graph and run your first graph projection.
-

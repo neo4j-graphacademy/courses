@@ -1,7 +1,6 @@
 = Reducing Search Space with Louvain
 :type: lesson
 :order: 3
-:sandbox: true
 
 [.slide.discrete]
 == Introduction
@@ -20,11 +19,13 @@ By the end of this lesson, you'll be able to:
 * Identify communities containing known fraudsters
 * Focus investigation on high-priority communities
 
-[.slide]
+[.slide.col-2]
 == Step 1: Project the Graph
 
 Create a projection of Users, Cards, and Devices:
 
+[.col]
+====
 [source,cypher]
 .Create the fraud graph projection
 ----
@@ -33,10 +34,17 @@ RETURN gds.graph.project(
   'fraud-graph',
   source,
   target,
-  {relationshipType: type(r)},
-  {undirectedRelationshipTypes: ['HAS_CC', 'USED']}
+  {relationshipType: type(r)}, // <1>
+  {undirectedRelationshipTypes: ['HAS_CC', 'USED']} // <2>
 )
 ----
+====
+
+[.col]
+====
+<1> Preserves original relationship types (HAS_CC, USED, P2P) in the projection so they can be referenced later
+<2> Makes sharing relationships undirected -- if User A and User B share a card, the connection propagates both ways
+====
 
 [.slide]
 == Understanding the Projection
@@ -80,20 +88,29 @@ Remember from Lesson 2: modularity above 0.4 indicates useful structure. A score
 
 The `communityDistribution` shows size statistics (min, max, mean, percentiles).
 
-[.slide]
+[.slide.col-2]
 == Step 3: Run Louvain in Write Mode
 
 Now write the community IDs back to the database:
 
+[.col]
+====
 [source,cypher]
 .Write Louvain community IDs to nodes
 ----
 CALL gds.louvain.write('fraud-graph', {
-  writeProperty: 'louvainCommunityId'
+  writeProperty: 'louvainCommunityId' // <1>
 })
-YIELD communityCount, modularity
+YIELD communityCount, modularity // <2>
 RETURN communityCount, modularity
 ----
+====
+
+[.col]
+====
+<1> Each node receives a `louvainCommunityId` property -- nodes in the same community share the same ID
+<2> Returns summary stats to confirm the algorithm ran successfully
+====
 
 [.slide]
 == What Just Happened?
@@ -113,19 +130,27 @@ Louvain is non-deterministic—the specific IDs assigned depend on processing or
 
 When following along, always use the IDs from *your* results.
 
-[.slide]
+[.slide.col-2]
 == Step 4: Visualize Communities
 
 See the community structure:
 
+[.col]
+====
 [source,cypher]
 .Visualize community members
 ----
 MATCH path = (u:UserP2P)-[*1..2]-(n:Card|Device)
-WHERE u.louvainCommunityId = n.louvainCommunityId
+WHERE u.louvainCommunityId = n.louvainCommunityId // <1>
 RETURN path
 LIMIT 100
 ----
+====
+
+[.col]
+====
+<1> Filters to only show nodes that Louvain assigned to the same community -- confirming they cluster around shared infrastructure
+====
 
 [.transcript-only]
 ====
@@ -134,21 +159,30 @@ Click on nodes to see their `louvainCommunityId`. Nodes in the same visual clust
 Notice how users cluster around shared cards and devices—this is exactly the infrastructure sharing we want to detect.
 ====
 
-[.slide]
+[.slide.col-2]
 == Step 5: Count Fraudulent Communities
 
 How many communities contain known fraudsters?
 
+[.col]
+====
 [source,cypher]
 .Count communities with and without fraud
 ----
 MATCH (u:UserP2P)
 WITH u.louvainCommunityId AS community,
-     sum(u.fraudMoneyTransfer) AS flaggedCount
+     sum(u.fraudMoneyTransfer) AS flaggedCount // <1>
 RETURN
-  sum(CASE WHEN flaggedCount > 0 THEN 1 ELSE 0 END) AS communitiesWithFraud,
+  sum(CASE WHEN flaggedCount > 0 THEN 1 ELSE 0 END) AS communitiesWithFraud, // <2>
   sum(CASE WHEN flaggedCount = 0 THEN 1 ELSE 0 END) AS communitiesWithoutFraud
 ----
+====
+
+[.col]
+====
+<1> Aggregates fraud flags per community -- `fraudMoneyTransfer` is 1 for known fraudsters, 0 otherwise
+<2> Uses conditional aggregation to split communities into those containing fraud vs. clean ones
+====
 
 [.slide]
 == The Power of Community Detection
@@ -171,11 +205,13 @@ After Louvain: **~200 communities** worth examining
 
 The vast majority of users are in communities with no fraud flags. We can deprioritize them entirely and focus on the suspicious minority.
 
-[.slide]
+[.slide.col-2]
 == Step 6: Rank Communities by Fraud
 
 Not all fraudulent communities are equal. Find the most suspicious ones:
 
+[.col]
+====
 [source,cypher]
 .Rank communities by fraud indicators
 ----
@@ -183,14 +219,21 @@ MATCH (u:UserP2P)
 WITH u.louvainCommunityId AS community,
      count(u) AS userCount,
      sum(u.fraudMoneyTransfer) AS flaggedCount
-WHERE flaggedCount > 0
+WHERE flaggedCount > 0 // <1>
 RETURN community,
        userCount,
        flaggedCount,
-       round(100.0 * flaggedCount / userCount, 1) AS flaggedPercent
+       round(100.0 * flaggedCount / userCount, 1) AS flaggedPercent // <2>
 ORDER BY flaggedCount DESC
 LIMIT 10
 ----
+====
+
+[.col]
+====
+<1> Filters to only communities with at least one known fraudster
+<2> Calculates the fraud concentration -- a community where 50% of users are flagged is more suspicious than one where 1% are
+====
 
 [.slide]
 == Interpreting the Rankings
@@ -229,20 +272,29 @@ The `:param` command is specific to Neo4j Browser. If you're using a different c
 Replace `179061` with the community ID from the top of *your* results.
 ====
 
-[.slide]
+[.slide.col-2]
 == Step 8: Examine the Community
 
 See the breakdown of flagged vs unflagged users:
 
+[.col]
+====
 [source,cypher]
 .Count flagged and unflagged users in the community
 ----
 MATCH (u:UserP2P)
-WHERE u.louvainCommunityId = $louvainCommunityId
-RETURN u.fraudMoneyTransfer AS isFlagged,
+WHERE u.louvainCommunityId = $louvainCommunityId // <1>
+RETURN u.fraudMoneyTransfer AS isFlagged, // <2>
        count(*) AS userCount
 ORDER BY isFlagged
 ----
+====
+
+[.col]
+====
+<1> Uses the parameter set in the previous step to filter to a single community
+<2> Groups by fraud flag to show how many users are flagged (1) vs unflagged (0) -- unflagged users in fraud-heavy communities are our investigation targets
+====
 
 [.slide]
 == What This Tells Us
@@ -256,21 +308,30 @@ The unflagged users are our investigation targets—they're in a fraud-heavy com
 
 Are they accomplices? Victims? Mules? That's what we need to find out.
 
-[.slide]
+[.slide.col-2]
 == Step 9: Visualize the Community
 
 See how users in this community connect:
 
+[.col]
+====
 [source,cypher]
 .Visualize connections within the community
 ----
-MATCH path = (u1:UserP2P)-[:HAS_CC|USED|P2P*1..4]-(u2:UserP2P)
+MATCH path = (u1:UserP2P)-[:HAS_CC|USED|P2P*1..4]-(u2:UserP2P) // <1>
 WHERE u1.louvainCommunityId = $louvainCommunityId
   AND u2.louvainCommunityId = $louvainCommunityId
-  AND u1 <> u2
+  AND u1 <> u2 // <2>
 RETURN path
 LIMIT 200
 ----
+====
+
+[.col]
+====
+<1> Traverses up to 4 hops through shared cards, devices, and P2P transactions to reveal the full community structure
+<2> Prevents self-matching -- ensures we only see paths between distinct users
+====
 
 [.transcript-only]
 ====

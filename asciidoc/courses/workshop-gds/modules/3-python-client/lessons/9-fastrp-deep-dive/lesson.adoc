@@ -9,6 +9,8 @@ Centrality and community detection reveal graph properties. **Embeddings** encod
 
 In this lesson, you'll scale features, create embeddings with FastRP, and cluster papers to compare with official subject labels.
 
+image::images/fastrp_concept.svg[Graph properties transformed into vector embeddings, highlighting centrality and community detection.]
+
 [.slide]
 == What you'll learn
 
@@ -30,14 +32,22 @@ Machine learning algorithms need fixed-size feature vectors:
 
 **Embeddings** solve this by encoding graph structure into dense vectors.
 
-[.slide]
+[.slide.col-2]
 == What are Node Embeddings?
 
+[.col]
+====
 Each node gets a fixed-length vector (e.g., 128 dimensions) where:
 
 * Similar nodes get similar vectors
 * Graph structure is encoded
 * The result is ready for ML algorithms
+====
+
+[.col]
+====
+image::images/embeddings_concept_details.svg[Nodes in a graph with corresponding embeddings showing similarity and structure encoding.]
+====
 
 [.slide]
 == Why FastRP?
@@ -67,21 +77,39 @@ FastRP creates embeddings through four steps:
 
 Nodes connected to similar neighbors end up with similar embeddings.
 
-[.slide]
+[.slide.col-2]
 == The mechanics
 
 If two papers are cited by similar papers, they're probably about similar topics - even if they don't cite each other directly.
 
-FastRP encodes this by letting nodes "absorb" information from their neighbors. After a few rounds, nodes in similar network positions end up with similar vectors.
+[.col]
+====
+FastRP encodes this by letting nodes "absorb" information from their neighbors.
 
-[.slide]
+After a few rounds, nodes in similar network positions end up with similar vectors.
+====
+
+[.col]
+====
+image::images/fastrp_similarity_citations.svg[FastRP encodes node similarity through shared citations without direct links.]
+====
+
+
+[.slide.col-2]
 == FastRP: Initialization
 
 FastRP **initializes** random vectors for each node.
 
-The vectors don't need to be meaningful - they just need to be different from each other. The meaning emerges during propagation.
+[.col]
+====
+The vectors don't need to be meaningful - they just need to be different from each other.
 
-image::images/fastrp_initialization.png[A graph with 5 nodes, each labeled with a random vector like [0.2, -0.1, 0.8]. The vectors are shown as small bar charts next to each node, with random positive and negative values.]
+The meaning emerges during propagation.
+====
+
+====
+image::images/fastrp_initialization.svg[A graph with 5 nodes, each labeled with a random vector like 0.2, -0.1, 0.8 The vectors are shown as small bar charts next to each node, with random positive and negative values.]
+====
 
 [.slide]
 == FastRP: Propagation
@@ -90,7 +118,7 @@ FastRP **propagates** information along edges over multiple iterations.
 
 Each node averages its vector with its neighbors' vectors. After several rounds, nodes in similar network positions end up with similar vectors - even if they're not directly connected.
 
-image::images/fastrp_propagation.png[The same 5-node graph with arrows showing information flowing along edges. Node A's vector is being averaged with vectors from its neighbors B and C. Dotted lines show the flow of vector information between connected nodes.]
+image::images/fastrp_propagation.svg[The same 5-node graph with arrows showing information flowing along edges. Node A's vector is being averaged with vectors from its neighbors B and C. Dotted lines show the flow of vector information between connected nodes.]
 
 [.slide]
 == FastRP: Combination
@@ -99,7 +127,7 @@ FastRP **combines** propagated vectors with configurable weights.
 
 The weights control how far the algorithm "looks." A weight of 0.0 on iteration 0 ignores self-information. Higher weights on later iterations emphasize broader neighborhood structure.
 
-image::images/fastrp_combination.png[Three stacked vectors labeled Iteration 1, Iteration 2, and Iteration 3, with weights 0.0, 1.0, and 1.0 shown next to each. The weighted vectors are being summed together into a single combined vector on the right.]
+image::images/iteration_weights.svg[Three stacked vectors labeled Iteration 1, Iteration 2, and Iteration 3, with weights 0.0, 1.0, and 1.0 shown next to each. The weighted vectors are being summed together into a single combined vector on the right.]
 
 [.slide]
 == FastRP: Projection
@@ -108,14 +136,14 @@ FastRP then **projects** to the final dimension using random projection.
 
 This compression seems like it should lose information, but high-dimensional geometry is counterintuitive - random projections preserve distances between points surprisingly well.
 
-image::images/fastrp_projection.png[A tall vector with many dimensions on the left labeled 'Combined vector (1435 dims)' being compressed through a funnel-shaped random projection matrix into a shorter vector on the right labeled 'Final embedding (128 dims)'.]
+image::images/fastrp_projection.svg[A tall vector with many dimensions on the left labeled 'Combined vector (1435 dims)' being compressed through a funnel-shaped random projection matrix into a shorter vector on the right labeled 'Final embedding (128 dims)'.]
 
 [.slide]
 == FastRP: Results
 
 Nodes connected to similar neighbors end up with similar embeddings.
 
-image::images/fastrp_results.png[Two views side by side. Left: the original graph with nodes colored by research area - blue nodes clustered together, red nodes clustered together. Right: a 2D scatter plot of embeddings where the same blue nodes appear close together and red nodes appear close together, showing that graph proximity translates to embedding proximity.]
+image::images/embeddings_concept_details.svg[Similar nodes appear close together in the embedding space.]
 
 [.slide]
 == Feature Engineering First
@@ -176,11 +204,13 @@ MinMax scaling transforms values to the range [0, 1], where 0 represents the min
 
 This works well with embedding algorithms like FastRP, and the results are easy to interpret.
 
-[.slide]
+[.slide.col-2]
 == Creating a New Projection for ML
 
 To use scaleProperties, we need a projection that includes all the properties we want to scale.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Creating a projection with all properties
 ----
@@ -190,66 +220,100 @@ G2, result = gds.graph.project(
         'Paper': {
             'properties': {
                 'features': {'property': 'features'},
-                'betweenness': {'property': 'betweenness', 'defaultValue': 0.0},
+                'betweenness': {'property': 'betweenness', 'defaultValue': 0.0},  # <1>
                 'pageRank': {'property': 'pageRank', 'defaultValue': 0.0}
             }
         }
     },
     {
         'CITES': {
-            'orientation': 'UNDIRECTED',
+            'orientation': 'UNDIRECTED',  # <2>
             'aggregation': 'SINGLE'
         }
     }
 )
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> `defaultValue: 0.0` handles nodes missing a centrality score -- without this, the projection would fail on nodes without the property
+<2> `UNDIRECTED` orientation lets FastRP propagate information in both directions along citation edges
+====
+
+[.slide.col-2]
 == Scaling Properties with GDS
 
 Now we use `gds.scaleProperties.mutate()` to scale and combine our features.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Scaling and combining features
 ----
 scaled_result = gds.scaleProperties.mutate(
     G2,
-    nodeProperties=['features', 'betweenness', 'pageRank'],
-    scaler='MinMax',
+    nodeProperties=['features', 'betweenness', 'pageRank'],  # <1>
+    scaler='MinMax',  # <2>
     mutateProperty='scaledFeatures'
 )
 
 print(f"Scaled properties for {scaled_result['nodePropertiesWritten']:,} papers")
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> All three property sources are combined into a single vector -- the 1,433-dim word frequencies plus 2 centrality scores
+<2> MinMax scales each dimension independently to [0, 1], preventing high-magnitude features from dominating
+====
+
+[.slide.col-2]
 == Understanding the Scaled Output
 
 The scaleProperties procedure combines all input properties into a single feature vector.
 
+[.col]
+====
 Our 1,433-dimensional word frequency vector plus Betweenness plus PageRank becomes a 1,435-dimensional scaled feature vector.
+====
+
+[.col]
+====
+image::images/scaled_properties.svg[Multiple input properties combined into a single scaled feature vector.]
+====
 
 All values are now in the [0, 1] range and ready for FastRP.
 
-[.slide]
+[.slide.col-2]
 == Running FastRP
 
 Now we create embeddings using our scaled features.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Creating embeddings with FastRP
 ----
 result = gds.fastRP.mutate(
     G2,
     mutateProperty='embedding',
-    embeddingDimension=128,
-    featureProperties=['scaledFeatures'],
+    embeddingDimension=128,  # <1>
+    featureProperties=['scaledFeatures'],  # <2>
     randomSeed=42,
-    iterationWeights=[0.0, 1.0, 1.0]
+    iterationWeights=[0.0, 1.0, 1.0]  # <3>
 )
 
 print(f"Created {result['nodePropertiesWritten']:,} embeddings")
 ----
+====
+
+[.col]
+====
+<1> Compresses 1,435 input dimensions down to 128 -- a balance between capacity and efficiency
+<2> Incorporates our scaled node properties so embeddings reflect content and centrality, not just structure
+<3> Ignores self-information (0.0), then weights 1-hop and 2-hop neighbors equally
+====
 
 The `featureProperties` parameter incorporates our scaled node properties into the embeddings.
 
@@ -327,23 +391,47 @@ Our embedding captures multiple signals:
 All compressed from 1,435 dimensions into 128 dimensions.
 
 [.slide]
+== K-Means Clustering
+
+[.col]
+====
+K-Means clustering is a simple and popular unsupervised learning algorithm that groups similar data points into clusters.
+
+It works by iteratively assigning points to the nearest cluster center and updating the cluster centers until convergence.
+====
+
+[.col]
+====
+image::images/kmeans_clustering.svg[K-Means clustering algorithm.]
+====
+
+[.slide.col-2]
 == Clustering with K-Means
 
 Now we'll use the embeddings to cluster papers.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Clustering papers with K-Means
 ----
 result = gds.kmeans.write(
     G2,
-    nodeProperty='embedding',
-    k=7,
+    nodeProperty='embedding',  # <1>
+    k=7,  # <2>
     writeProperty='kmeans7_cluster',
     randomSeed=42
 )
 
 print(f"Created {result['communityCount']} clusters")
 ----
+====
+
+[.col]
+====
+<1> Clusters based on the FastRP embeddings, which encode structure + content + centrality
+<2> k=7 matches the number of official subject categories -- lets us directly compare clusters to known labels
+====
 
 We use k=7 to match the number of official subject categories.
 
@@ -373,24 +461,33 @@ Compare with Louvain from Lesson 8:
 |Comparing to known categories
 |===
 
-[.slide]
+[.slide.col-2]
 == Analyzing Cluster Quality
 
 Compare K-Means clusters to official subject labels:
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Cluster composition analysis
 ----
 q = """
 MATCH (p:Paper)
 WHERE p.kmeans7_cluster IS NOT NULL
-RETURN p.kmeans7_cluster AS cluster,
+RETURN p.kmeans7_cluster AS cluster,  // <1>
        p.subject AS subject,
        count(*) AS count
-ORDER BY cluster, count DESC
+ORDER BY cluster, count DESC  // <2>
 """
 df = gds.run_cypher(q)
 ----
+====
+
+[.col]
+====
+<1> Each paper was assigned a cluster (0-6) by K-Means based on embedding similarity
+<2> Ordering by count DESC within each cluster reveals the dominant subject -- high purity means the embedding captured meaningful structure
+====
 
 **Cluster purity** measures how well clusters align with known labels.
 

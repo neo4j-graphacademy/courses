@@ -29,14 +29,22 @@ In the previous lessons, you learned:
 
 Now you'll use these skills on a new domain.
 
-[.slide]
+[.slide.col-2]
 == The Citation Network Problem
 
+[.col]
+====
 Academic research builds on previous work. Citation networks reveal:
 
 * **Influential papers:** Which research shaped entire fields?
 * **Bridge papers:** Which works connect different research areas?
 * **Research communities:** Which papers form natural clusters?
+====
+
+[.col]
+====
+image::images/cora_citation_network.svg[Citation network diagram with highlighted influential and bridge papers.]
+====
 
 [.slide]
 == The Cora Dataset
@@ -87,9 +95,11 @@ Over the next notebooks, you'll:
 5. **Detect communities** to find research clusters
 6. **Combine results** for comprehensive analysis
 
-[.slide]
+[.slide.col-2]
 == Loading the Dataset
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Loading paper nodes
 ----
@@ -98,32 +108,48 @@ LOAD CSV WITH HEADERS FROM
   'https://raw.githubusercontent.com/.../node_list.csv' AS row
 MERGE (p:Paper {paper_Id: toInteger(row.id)})
 SET p.subject = row.subject,
-    p.features = apoc.convert.fromJsonList(row.features)
+    p.features = apoc.convert.fromJsonList(row.features) # <1>
 RETURN count(p) AS papers_loaded
 """
 
-result = gds.run_cypher(node_load_q)
+result = gds.run_cypher(node_load_q) # <2>
 print(f"Loaded {result['papers_loaded'][0]} papers")
 ----
+====
 
-[.slide]
+[.col]
+====
+<1> `apoc.convert.fromJsonList()` parses the 1,433-dimensional feature vector from its JSON string representation
+<2> Cypher stored in a variable and passed to `gds.run_cypher()` — keeps complex queries readable
+====
+
+[.slide.col-2]
 == Loading Relationships
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Loading citation relationships
 ----
 edge_load_q = """
 LOAD CSV WITH HEADERS FROM
   'https://raw.githubusercontent.com/.../edge_list.csv' AS row
-MATCH (source:Paper {paper_Id: toInteger(row.source)})
+MATCH (source:Paper {paper_Id: toInteger(row.source)}) # <1>
 MATCH (target:Paper {paper_Id: toInteger(row.target)})
-MERGE (source)-[r:CITES]->(target)
+MERGE (source)-[r:CITES]->(target) # <2>
 RETURN count(r) AS citations_loaded
 """
 
 result = gds.run_cypher(edge_load_q)
 print(f"Loaded {result['citations_loaded'][0]} citations")
 ----
+====
+
+[.col]
+====
+<1> `MATCH` both source and target Paper nodes first — they must already exist from the previous load step
+<2> `CITES` is directed: Paper A -> Paper B means A references B in its bibliography
+====
 
 [.slide]
 == Verify Your Data
@@ -160,9 +186,11 @@ print(df)
 
 You should see: **2,708 papers** and **10,556 citations**.
 
-[.slide]
+[.slide.col-2]
 == Creating the Projection
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Projecting the citation network
 ----
@@ -170,36 +198,45 @@ G, result = gds.graph.project(
     "cora-graph",
     {
         "Paper": {
-            "properties": ["subjectClass"]
+            "properties": ["subjectClass"] # <1>
         }
     },
     {
         "CITES": {
-            "orientation": "UNDIRECTED"
+            "orientation": "UNDIRECTED" # <2>
         }
     }
 )
 ----
+====
 
-[.slide]
-== Why UNDIRECTED?
+[.col]
+====
+<1> `subjectClass` is projected so algorithms can use subject information — useful for validating community detection later
+<2> `UNDIRECTED` treats each citation as bidirectional — required for algorithms like Louvain and many centrality measures
+====
 
-Even though citations are directional (Paper A cites Paper B), for influence analysis we treat them as connections in both directions.
-
-This captures the network of **related research** rather than just influence flow.
-
-[.slide]
+[.slide.col-2]
 == Inspecting the Projection
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Checking projection details
 ----
 print(f"Projected graph: {G.name()}")
 print(f"  Nodes: {G.node_count():,}")
-print(f"  Relationships: {G.relationship_count():,}")
+print(f"  Relationships: {G.relationship_count():,}") # <1>
 print(f"  Memory usage: {G.memory_usage()}")
-print(f"  Density: {G.density():.6f}")
+print(f"  Density: {G.density():.6f}") # <2>
 ----
+====
+
+[.col]
+====
+<1> With `UNDIRECTED` orientation, the relationship count doubles (each edge is stored in both directions)
+<2> Density measures how connected the graph is — citation networks are typically sparse (low density)
+====
 
 read::Mark as read[]
 

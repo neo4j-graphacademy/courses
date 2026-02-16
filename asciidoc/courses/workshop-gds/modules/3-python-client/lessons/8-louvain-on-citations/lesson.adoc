@@ -7,6 +7,10 @@
 
 You've already used Louvain in the fraud module to detect fraud rings by optimizing modularity.
 
+image::images/analyze_patterns.svg[Graph showing papers as nodes, grouped into communities by citation patterns using Louvain algorithm.]
+
+[.slide]
+== Louvain on Citations
 Now we'll apply the same algorithm to the citation network to discover research communities—groups of papers that cite each other more than they cite papers outside the group.
 
 The question we'll explore: do citation-based communities align with official subject labels?
@@ -35,24 +39,34 @@ G = gds.graph.get("cora-graph")
 print(f"Graph '{G.name()}' ready with {G.node_count():,} nodes")
 ----
 
-[.slide]
+[.slide.col-2]
 == Running Louvain community detection
 
 Now we run Louvain and write the community assignments to the database.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Running Louvain with write mode
 ----
 louvain_result = gds.louvain.write(
     G,
-    writeProperty='louvainCommunity',
-    maxLevels=10,
+    writeProperty='louvainCommunity',  # <1>
+    maxLevels=10,  # <2>
     maxIterations=10
 )
 
 print(f"Detected {louvain_result['communityCount']} communities")
-print(f"Modularity score: {louvain_result['modularity']:.4f}")
+print(f"Modularity score: {louvain_result['modularity']:.4f}")  # <3>
 ----
+====
+
+[.col]
+====
+<1> Each node gets a community ID stored in this property
+<2> `maxLevels` controls the depth of hierarchical merging; Louvain recursively coarsens the graph
+<3> Modularity ranges from -0.5 to 1.0; values above 0.3 indicate meaningful community structure
+====
 
 [.slide]
 == Understanding the results
@@ -96,11 +110,13 @@ The Cora dataset has official subject labels assigned by humans. Comparing Louva
 
 If communities align with subjects, papers mostly cite within their field. If they don't, citation patterns reveal structure that formal labels miss.
 
-[.slide]
+[.slide.col-2]
 == Comparing communities with subjects
 
 Let's see which subjects appear in each community.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Analyzing community composition
 ----
@@ -109,15 +125,22 @@ q_community_subjects = """
     WHERE p.louvainCommunity IS NOT NULL
     WITH p.louvainCommunity AS community,
          p.subject AS subject,
-         count(*) AS count
+         count(*) AS count  // <1>
     RETURN community, subject, count
-    ORDER BY community, count DESC
+    ORDER BY community, count DESC  // <2>
     LIMIT 20
 """
 
 df_comm_subj = gds.run_cypher(q_community_subjects)
 pp(df_comm_subj.head(20))
 ----
+====
+
+[.col]
+====
+<1> Counts papers per subject within each community to see the dominant topic
+<2> Ordering by count DESC within each community puts the dominant subject first
+====
 
 [.slide]
 == Interpreting the composition
@@ -169,11 +192,13 @@ Smaller communities (379, 592, 617) are pure—containing only a single subject.
 
 This suggests citation patterns mostly follow subject boundaries, with papers primarily citing within their field.
 
-[.slide]
+[.slide.col-2]
 == Community statistics with centrality metrics
 
 We can enrich our analysis by including the centrality metrics we computed earlier.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Community statistics with PageRank and Betweenness
 ----
@@ -183,11 +208,11 @@ q_community_stats = """
     WITH p.louvainCommunity AS community,
          collect(DISTINCT p.subject) AS subjects,
          count(*) AS size,
-         avg(p.pageRank) AS avg_pageRank,
+         avg(p.pageRank) AS avg_pageRank,  // <1>
          avg(p.betweenness) AS avg_betweenness
     RETURN community,
            size,
-           size(subjects) AS num_subjects,
+           size(subjects) AS num_subjects,  // <2>
            subjects,
            avg_pageRank,
            avg_betweenness
@@ -198,6 +223,13 @@ q_community_stats = """
 df_community_stats = gds.run_cypher(q_community_stats)
 pp(df_community_stats)
 ----
+====
+
+[.col]
+====
+<1> Aggregating centrality metrics per community reveals which communities are influential vs which are bridges
+<2> `size(subjects)` counts how many distinct subjects appear -- a measure of community diversity
+====
 
 [.slide]
 == Reading the community statistics
@@ -208,7 +240,9 @@ Communities with high average Betweenness serve as bridges between other communi
 
 Communities spanning many subjects are interdisciplinary research areas.
 
-.Top 10 Communities by Size
+[.slide]
+== Top 8 Communities by Size
+.Top 8 Communities by Size
 [cols="1,1,1,3,1,1"]
 |===
 |**community** |**size** |**num_subjects** |**subjects** |**avg_pageRank** |**avg_betweenness**
@@ -268,20 +302,6 @@ Communities spanning many subjects are interdisciplinary research areas.
 |Rule_Learning, Theory, Neural_Networks, Case_Based, ...
 |1.01
 |5,554
-
-|289
-|119
-|5
-|Case_Based, Neural_Networks, Genetic_Algorithms, ...
-|0.99
-|5,689
-
-|326
-|117
-|6
-|Probabilistic_Methods, Neural_Networks, Reinforcement_Learning, ...
-|0.96
-|5,439
 |===
 
 [.slide]
@@ -295,11 +315,13 @@ Looking at the statistics, we can identify:
 
 These communities would be good starting points for understanding cross-disciplinary research.
 
-[.slide]
+[.slide.col-2]
 == Visualizing community sizes
 
 A bar chart helps us see the distribution of community sizes.
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Creating a bar chart of community sizes
 ----
@@ -316,12 +338,18 @@ q_community_sizes = """
 
 df_sizes = gds.run_cypher(q_community_sizes)
 
-plt.bar(df_sizes['community'].astype(str), df_sizes['size'])
+plt.bar(df_sizes['community'].astype(str), df_sizes['size'])  # <1>
 plt.xlabel('Community ID')
 plt.ylabel('Number of Papers')
 plt.title('Top 10 Research Communities by Size')
 plt.show()
 ----
+====
+
+[.col]
+====
+<1> Converting community IDs to strings ensures they display as categorical labels, not numeric axis values
+====
 
 [.slide]
 == Community sizes chart
@@ -340,33 +368,49 @@ You now have three complementary views of each paper:
 
 Combining these perspectives reveals patterns that no single metric could show alone.
 
-[.slide]
-== Multi-metric analysis examples
+[.slide.col-2]
+== Multi-metric analysis
 
+[.col]
+====
 With all three metrics, you can answer questions like:
 
 * Which paper is most influential in each community?
 * Which papers bridge between communities?
 * How do community-level averages compare across the network?
+====
 
-[.slide]
+[.col]
+====
+image::images/multi_metric_analysis.svg[Multi-metric analysis examples]
+====
+[.slide.col-2]
 == Multi-metric analysis example
 
 Find the most influential paper in each of the top 5 communities:
 
+[.col]
+====
 [source,python,role=noplay nocopy]
 .Finding top papers per community
 ----
 q = """
     MATCH (p:Paper)
-    WHERE p.louvainCommunity IN [1136, 2018, 686, 795, 745]
+    WHERE p.louvainCommunity IN [1136, 2018, 686, 795, 745]  // <1>
     WITH p.louvainCommunity AS community, p
     ORDER BY p.pageRank DESC
-    WITH community, collect(p)[0] AS topPaper
+    WITH community, collect(p)[0] AS topPaper  // <2>
     RETURN community, topPaper.paper_Id, topPaper.pageRank
 """
 gds.run_cypher(q)
 ----
+====
+
+[.col]
+====
+<1> Filters to the top 5 communities identified in our earlier analysis
+<2> Collects papers ordered by PageRank and takes the first (highest) from each community
+====
 
 This combines community membership with PageRank to answer a real question.
 

@@ -9,7 +9,7 @@ Traditional fraud detection looks at individual transactions. But organized frau
 
 Graph algorithms excel at revealing these hidden groups.
 
-image::images/finding_connected_fraudsters.png[in a graph of financial transactions, individual, connected fraudsters are identified and highlighted.]
+image::images/fraud_networks.svg[in a graph of financial transactions, individual, connected fraudsters are identified and highlighted.]
 
 [.slide]
 == What You'll Learn
@@ -30,23 +30,44 @@ Fraudsters actively try to hide. They use:
 * Shared devices and credit cards
 * Complex transaction chains
 
-image::images/accounts_devices_chains.png[Left: a User node connected to multiple Credit Card nodes; Middle: IP and Credit Card nodes connected to many users; Right: A complex transaction chain across multiple fraudulent users.]
+image::images/accounts_devices_chains.svg[Left: a User node connected to multiple Credit Card nodes; Middle: IP and Credit Card nodes connected to many users; Right: A complex transaction chain across multiple fraudulent users.]
 
 [.transcript-only]
 ====
 These connections are invisible in tables—but obvious in graphs. A relational database would require multiple JOINs to discover what a single graph traversal reveals instantly.
 ====
 
-[.slide]
+[.slide.col-2]
 == The Dataset
 
 Let's see these principles in action with a real fraud network.
 
+[.col]
+====
 You'll work with an anonymized peer-to-peer (P2P) financial transactions dataset containing:
 
 * `User` nodes (some flagged as known fraudsters)
 * `Card`, `Device`, and `IP` nodes
 * `P2P`, `HAS_CC`, `HAS_IP`, `USED` relationships
+====
+
+[.col]
+====
+[source,mermaid, role=noplay nocoppy]
+.Schema diagram showing User, Card, Device, and IP nodes with relationships.
+----
+graph LR
+    User1(("User"))
+    User2(("User"))
+    Card(("Card"))
+    Device(("Device"))
+    IP(("IP"))
+    User1 -- "P2P" --> User2
+    User1 -- "HAS_CC" --> Card
+    User1 -- "HAS_IP" --> IP
+    User1 -- "USED" --> Device
+----
+====
 
 [.slide]
 == Explore the Schema
@@ -63,18 +84,27 @@ CALL db.schema.visualization()
 Take a moment to understand the structure. Users connect to Cards, Devices, and IPs. Users also connect to other Users via P2P transactions.
 ====
 
-[.slide]
+[.slide.col-2]
 == Node and Relationship Counts
 
 Let's see the scale of our data:
 
+[.col]
+====
 [source,cypher]
 ----
 MATCH (n)
-WITH count(n) AS nodeCount
-MATCH ()-[r]->()
+WITH count(n) AS nodeCount // <1>
+MATCH ()-[r]->() // <2>
 RETURN nodeCount AS nodes, count(r) AS relationships
 ----
+====
+
+[.col]
+====
+<1> Count all nodes first, then pass the total forward
+<2> Separate `MATCH` to count relationships independently
+====
 
 [.transcript-only]
 ====
@@ -83,18 +113,26 @@ This should return approximately 790,000 nodes and 1.8 million relationships.
 This is a large search space—far too big for manual investigation. We need algorithms to help us focus.
 ====
 
-[.slide]
+[.slide.col-2]
 == Fraud Flags
 
 Known fraudulent users have been flagged with the property `fraudMoneyTransfer = 1`.
 
+[.col]
+====
 [source,cypher]
 ----
 MATCH (u:UserP2P)
-WHERE u.fraudMoneyTransfer = 1
+WHERE u.fraudMoneyTransfer = 1 // <1>
 RETURN u
 LIMIT 10
 ----
+====
+
+[.col]
+====
+<1> The `fraudMoneyTransfer` property is a pre-labeled ground truth--only a subset of users carry this flag
+====
 
 [.slide]
 == Explore Flagged Users
@@ -112,20 +150,29 @@ Run the query above and expand the nodes you find.
 The fraud property is only applied to *some* users—many connected users remain unflagged. These connections are exactly what we want to investigate.
 ====
 
-[.slide]
+[.slide.col-2]
 == Transfer Chains
 
 Now let's see how flagged users connect to each other through transaction chains:
 
+[.col]
+====
 [source,cypher]
 ----
-MATCH path = (u1:UserP2P)-[:P2P*5]-(u2:UserP2P)
+MATCH path = (u1:UserP2P)-[:P2P*5]-(u2:UserP2P) // <1>
 WHERE u1.fraudMoneyTransfer = 1
   AND u2.fraudMoneyTransfer = 1
-  AND u1 <> u2
+  AND u1 <> u2 // <2>
 RETURN path
 LIMIT 100
 ----
+====
+
+[.col]
+====
+<1> `[:P2P*5]` follows exactly 5 hops of P2P transactions--long enough to reveal intermediaries between fraudsters
+<2> Ensures the two endpoints are distinct users, avoiding self-loops in the result
+====
 
 [.slide]
 == What the Chains Reveal
@@ -143,20 +190,29 @@ Discovering this pattern in a relational database would require five self-JOINs 
 This is the power of graph-based fraud detection: patterns that are computationally expensive in tables become trivial traversals.
 ====
 
-[.slide]
+[.slide.col-2]
 == Shared Infrastructure
 
 Two known fraudsters sharing the same credit card is suspicious:
 
-[source,cypher]
+[.col]
+====
+[source,cypher, role=noplay nocoppy]
 ----
-MATCH path = (u1:UserP2P)-[:HAS_CC|USED]->(shared)<-[:HAS_CC|USED]-(u2:UserP2P)
+MATCH path = (u1:UserP2P)-[:HAS_CC|USED]->(shared) // <1>
+             <-[:HAS_CC|USED]-(u2:UserP2P)
 WHERE u1.fraudMoneyTransfer = 1
   AND u2.fraudMoneyTransfer = 1
   AND u1 <> u2
 RETURN path
 LIMIT 50
 ----
+====
+
+[.col]
+====
+<1> The `(shared)` node is an unnamed Card or Device--the pattern matches two fraudsters converging on the same piece of infrastructure via `HAS_CC` or `USED`
+====
 
 [.transcript-only]
 ====
@@ -164,11 +220,11 @@ Legitimate users rarely share credit cards or devices. When two flagged users sh
 ====
 
 [.slide]
-== The Key Question
+== Fraud patterns
 
 Finding connections *between* known fraudsters isn't remarkable.
 
-The real question: **Can we use these patterns to find fraudsters we don't know about yet?**
+**Can we use these patterns to find fraudsters we don't know about yet?**
 
 That's what this module will teach you.
 
@@ -177,22 +233,34 @@ That's what this module will teach you.
 
 With ~790,000 nodes and ~1.8 million relationships, manual investigation is impossible.
 
+image::images/reducing_search_space.svg[Flowchart showing algorithmic steps for narrowing search space and ranking suspects.]
+
+
+[.slide]
+== The Strategy
 We need algorithms to:
 
 1. **Narrow the search space** — Find suspicious communities
 2. **Rank suspects** — Prioritize who to investigate first
 
-[.slide]
+[.slide.col-2]
 == Designing the Projection
 
 Before running algorithms, we need to decide what to project.
 
-This network is **heterogeneous**—it contains multiple node and relationship types:
+[.col]
+====
+This network is **heterogeneous**—-it contains 
+multiple overlapping node and relationship types:
 
 * Users, Cards, Devices, IPs
 * P2P transactions, HAS_CC, HAS_IP, USED relationships
+====
 
-image::images/heterogeneous_graph.png[User, Card, IP, Device nodes, connected by multiple relationships.]
+[.col]
+====
+image::images/heterogeneous_graph.svg[User, Card, IP, Device nodes, connected by multiple relationships.]
+====
 
 [.slide]
 == Projection Options
@@ -216,12 +284,25 @@ We could project this network in different ways:
 |Nothing (but more complex)
 |===
 
-[.slide]
+[.slide.col-2]
 == Our Choice: Heterogeneous
 
 For fraud detection, shared infrastructure is critical evidence.
 
-We'll project Users, Cards, and Devices together. This lets our algorithms find communities based on *all* connection types—not just transactions.
+[.col]
+====
+We'll project `Users`, `Cards`, and `Devices` together.
+
+This allows our algorithms to find communities 
+based on several connection types—not just P2P transactions.
+
+We will exclude `IP` nodes to avoid noise.
+====
+
+[.col]
+====
+image::images/heterogeneous_projection_of_users.svg[Diagram showing heterogeneous projection of Users, Cards, and Devices.]
+====
 
 [.transcript-only]
 ====
