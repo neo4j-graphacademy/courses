@@ -33,7 +33,7 @@ This skill writes **overview lessons** for:
 
 - **Lead with what they'll build** - Show the concrete deliverable and its value
 - **Use comparisons when helpful** - SQL or other tech comparisons can provide context for the final solution
-- **Be factual about value** - Performance (O(1) + O(k)), simplicity, readability - stick to facts, not sales language
+- **Be factual about value** - Performance in plain language (index lookup then pointer traversal; cost scales with connections, not table size), simplicity, readability—stick to facts, not sales language. Do not use Big O or notation like O(1), O(k), O(n×m).
 - **Make it sound fun and achievable** - 2 hours to build something that works and demonstrates value
 
 **Workshop overview pattern:**
@@ -330,7 +330,7 @@ Graph databases are well-suited for connected data because relationships are sto
 
 **Concrete advantages:**
 * **Simpler queries** - No JOIN operations for relationship traversals
-* **Constant performance** - O(k) complexity based on connections, not table sizes (O(n×m))
+* **Predictable performance** - Cost scales with connections traversed, not table sizes; graph stores adjacency so traversals follow pointers instead of repeated index scans and joins
 * **Natural modeling** - Queries read like the questions you're asking
 
 **Example:** Finding "what products did this customer buy" requires 3 JOINs in SQL (4 tables) vs a simple 2-hop traversal in Cypher.
@@ -521,7 +521,7 @@ link:./1-graph-vs-pivot-tables/[Ready? Let's go →, role=btn]
 
 **Issue:** Sales language
 - ❌ "Powerful graph capabilities that will transform your queries"
-- ✅ "Graph traversal is O(k) vs SQL JOIN which is O(n×m)"
+- ✅ "Graph traversal follows pointers in memory; cost scales with connections traversed, not table sizes—unlike SQL JOINs which repeatedly scan indexes and materialize joins"
 
 **Issue:** Missing prerequisites
 - ❌ "Anyone can take this workshop"
