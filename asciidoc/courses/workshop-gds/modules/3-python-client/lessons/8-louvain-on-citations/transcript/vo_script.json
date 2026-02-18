@@ -1,0 +1,128 @@
+[
+  {
+    "section_index": 542,
+    "title": "Introduction",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 543,
+    "title": "Louvain Community Detection",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 544,
+    "title": "Introduction",
+    "text": "You've already seen how we used the Louvain algorithm in the fraud module to detect fraud rings by optimizing modularity. Now, we're going to apply this same algorithm to a citation network. Our goal? To uncover research communities—these are groups of papers that cite each other more frequently than they cite papers outside their group. The big question we're diving into is whether these citation-based communities align with the official subject labels. [IMAGE: img-3-python-client-8-louvain-on-citations-s544-000-new] Take a look at this graph diagram. It illustrates how Louvain community detection works on a citation network. Here, nodes represent papers, and edges show citation relationships. Notice how communities are highlighted by grouping nodes with similar citation patterns.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 545,
+    "title": "What you'll learn",
+    "text": "By the end of this lesson, you'll have the skills to run Louvain community detection to find research communities. You'll also be able to analyze how these detected communities relate to official subject labels. Plus, you'll learn to combine community membership with centrality metrics for a richer analysis. Finally, you'll be able to interpret community statistics to identify influential and bridging communities.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 546,
+    "title": "Setup: Retrieve the projection",
+    "text": "Let's start by retrieving the graph projection we've been working with. Here's the code to do that: \n\n```python\nG = gds.graph.get(\"cora-graph\")\n\nprint(f\"Graph '{G.name()}' ready with {G.node_count():} nodes\")\n```\n\nThis will prepare the graph for our analysis.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 547,
+    "title": "Running Louvain community detection",
+    "text": "Now, it's time to run the Louvain algorithm and write the community assignments to the database. Here's how you can do it: \n\n```python\nlouvain_result = gds.louvain.write(\n    G,\n    writeProperty='louvainCommunity',\n    maxLevels=10,\n    maxIterations=10\n)\n\nprint(f\"Detected {louvain_result['communityCount']} communities\")\nprint(f\"Modularity score: {louvain_result['modularity']:.4f}\")\n```\n\nThis code will detect communities and provide you with a modularity score, indicating the strength of the community structure.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 548,
+    "title": "Understanding the results",
+    "text": "Let's break down the key metrics from our Louvain run. We achieved a modularity of 0.82, which indicates a strong community structure with dense internal connections. In total, we detected 104 communities across 4 hierarchical levels, with an average community size of 26 papers. These metrics give us a solid understanding of the community landscape within our citation network.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 549,
+    "title": "Communities versus subject labels",
+    "text": "The Cora dataset includes official subject labels like Neural Networks, Theory, and Reinforcement Learning. Louvain, however, identifies communities based solely on citation patterns, without any knowledge of these labels. This raises an intriguing question: do the communities detected by Louvain align with these official subject labels? [IMAGE: img-3-python-client-8-louvain-on-citations-s549-005-new] Here, you can see a comparison diagram that contrasts Louvain-detected communities with official subject labels, highlighting both alignments and discrepancies.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 550,
+    "title": "What do these communities mean?",
+    "text": "We found 104 communities, but what do they actually represent? The Cora dataset has official subject labels assigned by humans. By comparing Louvain's communities to these labels, we can determine whether citation behavior follows topical boundaries. If communities align with subjects, it suggests that papers mostly cite within their field. If not, it indicates that citation patterns reveal structures that formal labels might miss. [IMAGE: img-3-python-client-8-louvain-on-citations-s550-006-new] This flowchart illustrates the process of comparing Louvain-detected communities with official subject labels, highlighting key steps and decision points.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 551,
+    "title": "Comparing communities with subjects",
+    "text": "Let's dive into which subjects appear in each community. Here's the query to analyze community composition: \n\n```python\nq_community_subjects = \"\"\"\n    MATCH (p:Paper)\n    WHERE p.louvainCommunity IS NOT NULL\n    WITH p.louvainCommunity AS community,\n         p.subject AS subject,\n         count(*) AS count\n    RETURN community, subject, count\n    ORDER BY community, count DESC\n    LIMIT 20\n\"\"\"\n\ndf_comm_subj = gds.run_cypher(q_community_subjects)\npp(df_comm_subj.head(20))\n```\n\nThis will help us see which subjects dominate each community.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 552,
+    "title": "Interpreting the composition",
+    "text": "Most communities are dominated by a single subject. For example, Community 289 is primarily Case_Based with 111 papers, while Community 326 is mostly Probabilistic_Methods with 88 papers. Each community tends to have a clear dominant subject, with minor contributions from related fields. This pattern suggests that citation behavior often aligns with subject boundaries.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 553,
+    "title": "What the composition reveals",
+    "text": "The larger communities, like 289, 326, and 622, each have a dominant subject. For instance, Community 289 is 93% Case_Based, Community 326 is 75% Probabilistic_Methods, and Community 622 is 90% Neural_Networks. Smaller communities, such as 379, 592, and 617, are pure, containing only a single subject. This suggests that citation patterns mostly follow subject boundaries, with papers primarily citing within their field.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 554,
+    "title": "Community statistics with centrality metrics",
+    "text": "We can enrich our analysis by including the centrality metrics we computed earlier. Here's how you can gather community statistics with PageRank and Betweenness: \n\n```python\nq_community_stats = \"\"\"\n    MATCH (p:Paper)\n    WHERE p.louvainCommunity IS NOT NULL\n    WITH p.louvainCommunity AS community,\n         collect(DISTINCT p.subject) AS subjects,\n         count(*) AS size,\n         avg(p.pageRank) AS avg_pageRank,\n         avg(p.betweenness) AS avg_betweenness\n    RETURN community,\n           size,\n           size(subjects) AS num_subjects,\n           subjects,\n           avg_pageRank,\n           avg_betweenness\n    ORDER BY size DESC\n    LIMIT 10\n\"\"\"\n\ndf_community_stats = gds.run_cypher(q_community_stats)\npp(df_community_stats)\n```\n\nThis will provide a deeper understanding of each community's characteristics.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 555,
+    "title": "Reading the community statistics",
+    "text": "Communities with a high average PageRank contain influential papers, while those with high average Betweenness serve as bridges between other communities. Communities that span many subjects are interdisciplinary research areas. For example, Community 1136, with a size of 329, includes subjects like Genetic_Algorithms and Reinforcement_Learning, and has an average PageRank of 1.02. This data helps us identify the most influential and bridging communities.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 556,
+    "title": "Identifying key communities",
+    "text": "By examining the statistics, we can pinpoint key communities. Community 2018 is the most influential with the highest average PageRank of 1.07. Community 745 stands out as a key bridging community with the highest average Betweenness of 9,522. Meanwhile, Community 795 is the most interdisciplinary, spanning 7 subjects. These communities are excellent starting points for understanding cross-disciplinary research.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 557,
+    "title": "Visualizing community sizes",
+    "text": "A bar chart can help us visualize the distribution of community sizes. Here's how you can create one: \n\n```python\nimport matplotlib.pyplot as plt\n\nq_community_sizes = \"\"\"\n    MATCH (p:Paper)\n    WHERE p.louvainCommunity IS NOT NULL\n    RETURN p.louvainCommunity AS community,\n           count(*) AS size\n    ORDER BY size DESC\n    LIMIT 10\n\"\"\"\n\ndf_sizes = gds.run_cypher(q_community_sizes)\n\nplt.bar(df_sizes['community'].astype(str), df_sizes['size'])\nplt.xlabel('Community ID')\nplt.ylabel('Number of Papers')\nplt.title('Top 10 Research Communities by Size')\nplt.show()\n```\n\nThis visualization will give you a clear picture of the largest research communities.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 558,
+    "title": "Community sizes chart",
+    "text": "As you can see in this bar chart, it shows the top 10 communities by size, giving you a visual representation of how many papers each community contains. This helps in understanding the scale and impact of each community within the network.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 559,
+    "title": "Combining all three perspectives",
+    "text": "Now, you have three complementary views of each paper: PageRank tells you how influential a paper is, Betweenness indicates how much it connects different areas, and Community shows you which cluster it belongs to. By combining these perspectives, you can uncover patterns that no single metric could reveal on its own.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 560,
+    "title": "Multi-metric analysis examples",
+    "text": "With all three metrics at your disposal, you can answer questions like: Which paper is most influential in each community? Which papers serve as bridges between communities? How do community-level averages compare across the network? [IMAGE: img-3-python-client-8-louvain-on-citations-s560-015-new] This flowchart demonstrates how you can use PageRank, Betweenness, and Community metrics to analyze papers and communities, highlighting key questions and analysis paths.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 561,
+    "title": "Multi-metric analysis example",
+    "text": "Let's find the most influential paper in each of the top 5 communities. Here's the query to do that: \n\n```python\nq = \"\"\"\n    MATCH (p:Paper)\n    WHERE p.louvainCommunity IN [1136, 2018, 686, 795, 745]\n    WITH p.louvainCommunity AS community, p\n    ORDER BY p.pageRank DESC\n    WITH community, collect(p)[0] AS topPaper\n    RETURN community, topPaper.paper_Id, topPaper.pageRank\n\"\"\"\ngds.run_cypher(q)\n```\n\nThis combines community membership with PageRank to answer a real question about influence within communities.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 562,
+    "title": "Summary",
+    "text": "In this lesson, you ran the Louvain algorithm to detect 104 research communities from citation patterns. You compared these communities to official subject labels and found a strong alignment. By combining community membership with PageRank and Betweenness, you enriched your analysis and identified influential and bridging communities using multi-metric analysis. Next, we'll move on to scaling features for machine learning, using FastRP to create node embeddings, and exploring node similarity for recommendations.",
+    "estimated_duration_seconds": 25.0
+  }
+]

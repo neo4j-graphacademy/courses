@@ -1,0 +1,206 @@
+[
+  {
+    "section_index": 563,
+    "title": "Introduction",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 564,
+    "title": "Scaled Properties and FastRP Embeddings",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 565,
+    "title": "Introduction",
+    "text": "Centrality and community detection are key to understanding graph properties. But how do we translate these insights into something a machine learning model can use? That's where **embeddings** come in. They encode these properties into vectors, making them ready for machine learning. In this lesson, we're going to scale features, create embeddings using FastRP, and then cluster papers to see how they compare with official subject labels. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s565-000-new] As you can see here, the transformation from graph properties to embeddings involves centrality and community detection, leading to vector encoding. This diagram shows how graph features are abstracted into embeddings for machine learning.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 566,
+    "title": "What you'll learn",
+    "text": "By the end of this lesson, you'll have the skills to: Scale features for machine learning using `scaleProperties`, create node embeddings with FastRP that combine structure, content, and centrality, cluster papers using K-Means on these embeddings, and analyze the quality of these clusters by comparing them to known labels.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 567,
+    "title": "The ML Problem",
+    "text": "Machine learning algorithms require fixed-size feature vectors. For instance, neural networks need consistent input dimensions, and sklearn classifiers can't directly handle graph structures. So, how do you represent a node's \"position\" in a network? **Embeddings** solve this by encoding graph structure into dense vectors. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s567-002-new] Let's look at this diagram. It illustrates the challenge of representing graph structures as fixed-size feature vectors and how embeddings address this issue, showing the transition from a graph to a fixed-size vector representation.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 568,
+    "title": "What are Node Embeddings?",
+    "text": "In node embeddings, each node is assigned a fixed-length vector, say 128 dimensions. The beauty of this is that similar nodes end up with similar vectors, and the graph structure is encoded within these vectors. This makes them ready for machine learning algorithms. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s568-003-new] Here, you can see nodes in a graph and their corresponding embeddings, emphasizing similarity and structure encoding. Notice how similar nodes have similar vector representations.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 569,
+    "title": "Why FastRP?",
+    "text": "There are several alternatives to FastRP, like Node2Vec, GraphSAGE, and DeepWalk. However, each has its drawbacks. Node2Vec requires random walks and is slower. GraphSAGE involves deep learning and needs training data, while DeepWalk is similar to Node2Vec with random walks. FastRP, on the other hand, is fast, scalable, and feature-aware. It handles millions of nodes and doesn't require training, thanks to its deterministic algorithm.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 570,
+    "title": "How FastRP Works",
+    "text": "FastRP creates embeddings through a four-step process. First, it **initializes** random vectors for each node. Then, it **propagates** information along edges over multiple iterations. Next, it **combines** these propagated vectors with configurable weights. Finally, it **projects** to the final dimension using random projection. Nodes connected to similar neighbors end up with similar embeddings. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s570-005-new] This flowchart shows the four steps of FastRP: initialization, propagation, combination, and projection, illustrating the flow of information.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 571,
+    "title": "The mechanics",
+    "text": "Imagine two papers cited by similar papers. They're likely about similar topics, even if they don't cite each other directly. FastRP captures this by letting nodes \"absorb\" information from their neighbors. After a few rounds, nodes in similar network positions end up with similar vectors. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s571-006-new] This diagram illustrates how FastRP encodes similarity between nodes based on shared citations, even without direct links.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 572,
+    "title": "FastRP: Initialization",
+    "text": "FastRP starts by **initializing** random vectors for each node. These vectors don't need to be meaningful initially; they just need to be distinct from each other. The meaning emerges during propagation. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s572-000-existing] Here, you see a graph with 5 nodes, each labeled with a random vector, depicted as small bar charts next to each node.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 573,
+    "title": "FastRP: Propagation",
+    "text": "In the propagation step, FastRP **propagates** information along edges over multiple iterations. Each node averages its vector with its neighbors' vectors. After several rounds, nodes in similar network positions end up with similar vectors, even if they're not directly connected. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s573-001-existing] This image shows the same 5-node graph with arrows indicating the flow of information along edges.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 574,
+    "title": "FastRP: Combination",
+    "text": "FastRP then **combines** the propagated vectors using configurable weights. These weights determine how far the algorithm \"looks.\" For instance, a weight of 0.0 on iteration 0 ignores self-information, while higher weights on later iterations emphasize broader neighborhood structure. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s574-002-existing] Here, you see three stacked vectors labeled Iteration 1, Iteration 2, and Iteration 3, with weights shown next to each, being summed into a single combined vector.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 575,
+    "title": "FastRP: Projection",
+    "text": "Finally, FastRP **projects** to the final dimension using random projection. While this compression might seem like it should lose information, high-dimensional geometry is counterintuitive. Random projections preserve distances between points surprisingly well. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s575-003-existing] This image shows a tall vector being compressed through a funnel-shaped random projection matrix into a shorter vector.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 576,
+    "title": "FastRP: Results",
+    "text": "The result of FastRP is that nodes connected to similar neighbors end up with similar embeddings. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s576-004-existing] On the left, you see the original graph with nodes colored by research area, and on the right, a 2D scatter plot of embeddings where nodes of the same color appear close together, showing how graph proximity translates to embedding proximity.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 577,
+    "title": "Feature Engineering First",
+    "text": "Before diving into embeddings, we need to prepare our features. These features have very different ranges. For example, the `features` array contains word frequencies between 0 and 1, while betweenness scores range from 0 to thousands, and PageRank scores range from 0 to about 20. Without scaling, algorithms would be dominated by the high-magnitude features.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 578,
+    "title": "Why We Need to Scale",
+    "text": "Machine learning algorithms treat all dimensions equally. If Betweenness values are 1000 times larger than word frequencies, the algorithm will effectively ignore the word frequencies. Scaling brings all features to comparable ranges, ensuring they contribute equally.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 579,
+    "title": "Available Scalers in GDS",
+    "text": "GDS offers several scaling options. For example, MinMax scaling outputs values in the range [0, 1], which is great for bounded, interpretable values. Max scaling ranges from [-1, 1], preserving sign, while Mean scaling centers around the average. Standard scaling provides statistical normalization with z-scores, and Log scaling is useful for exponential distributions.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 580,
+    "title": "We'll Use MinMax Scaling",
+    "text": "MinMax scaling transforms values to the range [0, 1], where 0 represents the minimum value and 1 represents the maximum. This method works well with embedding algorithms like FastRP, and the results are easy to interpret.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 581,
+    "title": "Creating a New Projection for ML",
+    "text": "To use scaleProperties, we need a projection that includes all the properties we want to scale. Here's how you can create a projection with all necessary properties using Python: [source,python,role=noplay nocopy] ---- G2, result = gds.graph.project( 'cora-graph-ml', { 'Paper': { 'properties': { 'features': {'property': 'features'}, 'betweenness': {'property': 'betweenness', 'defaultValue': 0.0}, 'pageRank': {'property': 'pageRank', 'defaultValue': 0.0} } } }, { 'CITES': { 'orientation': 'UNDIRECTED', 'aggregation': 'SINGLE' } } ) ----",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 582,
+    "title": "Scaling Properties with GDS",
+    "text": "Now, let's use `gds.scaleProperties.mutate()` to scale and combine our features. Here's the code: [source,python,role=noplay nocopy] ---- scaled_result = gds.scaleProperties.mutate( G2, nodeProperties=['features', 'betweenness', 'pageRank'], scaler='MinMax', mutateProperty='scaledFeatures' ) print(f\"Scaled properties for {scaled_result['nodePropertiesWritten']:} papers\") ---- This process scales our features and prepares them for FastRP.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 583,
+    "title": "Understanding the Scaled Output",
+    "text": "The scaleProperties procedure combines all input properties into a single feature vector. Our 1,433-dimensional word frequency vector, plus Betweenness and PageRank, becomes a 1,435-dimensional scaled feature vector. All values are now in the [0, 1] range and ready for FastRP. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s583-012-new] This diagram shows how multiple input properties are combined into a single scaled feature vector, illustrating the dimensionality reduction.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 584,
+    "title": "Running FastRP",
+    "text": "Now, let's create embeddings using our scaled features. Here's the code: [source,python,role=noplay nocopy] ---- result = gds.fastRP.mutate( G2, mutateProperty='embedding', embeddingDimension=128, featureProperties=['scaledFeatures'], randomSeed=42, iterationWeights=[0.0, 1.0, 1.0] ) print(f\"Created {result['nodePropertiesWritten']:} embeddings\") ---- The `featureProperties` parameter incorporates our scaled node properties into the embeddings.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 585,
+    "title": "Key Parameters",
+    "text": "Let's go over some key parameters for FastRP. The `embeddingDimension` is set to 128, which determines the size of the output vectors. The `featureProperties` parameter is optional and specifies node properties to incorporate. `iterationWeights` are set to [0.0, 1.0, 1.0], which control the weights for each propagation step. The `randomSeed` ensures reproducibility, and `normalizationStrength` is set to 0.0 for L2 normalization of embeddings.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 586,
+    "title": "Iteration Weights Explained",
+    "text": "`iterationWeights = [0.0, 1.0, 1.0]` means that in Iteration 0, self-information is ignored, while Iteration 1 includes 1-hop neighbors, and Iteration 2 includes 2-hop neighbors. More iterations capture longer-range structure. For broader context, you might use: [source,python,role=noplay nocopy] ---- iterationWeights=[0.0, 0.5, 1.0, 1.0, 0.5] ---- [IMAGE: img-3-python-client-9-fastrp-deep-dive-s586-014-new] This flowchart explains the effect of different iteration weights in FastRP, showing how information is propagated across hops.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 587,
+    "title": "Embedding Dimension",
+    "text": "Common dimensions for embeddings are 64, 128, and 256. Higher dimensions offer more capacity but can be slower and risk overfitting. Lower dimensions are faster but may lose information. For the Cora dataset with 2,708 nodes, 128 is reasonable. For millions of nodes, consider 64 or 128.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 588,
+    "title": "What the Embedding Encodes",
+    "text": "Our embedding captures multiple signals: **Content** from word frequencies, **Influence** from PageRank, **Connectivity** from Betweenness, and **Structure** from graph topology. All these are compressed from 1,435 dimensions into 128 dimensions. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s588-016-new] This diagram shows how embeddings capture various signals, compressing them into fewer dimensions.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 589,
+    "title": "Clustering with K-Means",
+    "text": "Now, let's use the embeddings to cluster papers. Here's the code: [source,python,role=noplay nocopy] ---- result = gds.kmeans.write( G2, nodeProperty='embedding', k=7, writeProperty='kmeans7_cluster', randomSeed=42 ) print(f\"Created {result['communityCount']} clusters\") ---- We use k=7 to match the number of official subject categories.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 590,
+    "title": "K-Means vs Louvain",
+    "text": "Let's compare K-Means with Louvain from Lesson 8. Louvain uses graph structure only, while K-Means on embeddings incorporates structure, content, and centrality. Louvain finds clusters automatically, whereas you specify k for K-Means. Louvain is best for finding natural communities, while K-Means is great for comparing to known categories.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 591,
+    "title": "Analyzing Cluster Quality",
+    "text": "To analyze cluster quality, compare K-Means clusters to official subject labels. Here's a query to do that: [source,python,role=noplay nocopy] ---- q = \"\"\" MATCH (p:Paper) WHERE p.kmeans7_cluster IS NOT NULL RETURN p.kmeans7_cluster AS cluster, p.subject AS subject, count(*) AS count ORDER BY cluster, count DESC \"\"\" df = gds.run_cypher(q) ---- **Cluster purity** measures how well clusters align with known labels. High purity suggests the embedding captured meaningful structure. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s591-019-new] This chart shows the comparison of K-Means clusters to official subject labels, illustrating cluster purity and alignment.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 592,
+    "title": "Interpreting Cluster Results",
+    "text": "When analyzing clusters, look for **pure clusters** with more than 70% alignment, indicating tightly focused areas. **Mixed clusters** with less than 50% alignment suggest interdisciplinary areas. **Mismatches** may reveal research groupings not captured by formal labels. This is powerful because clusters emerge from citation patterns, content, and centrality. [IMAGE: img-3-python-client-9-fastrp-deep-dive-s592-020-new] This diagram illustrates different types of clusters and their implications for research areas and subject alignment.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 593,
+    "title": "Other Uses for Embeddings",
+    "text": "Embeddings enable many downstream tasks beyond clustering. You can perform **similarity search** to find papers most similar to a given paper using KNN, **classification** to train ML models to predict paper subjects, and **link prediction** to predict future citations. In this lesson, we focused on clustering to compare with known labels.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 594,
+    "title": "Reproducibility",
+    "text": "To ensure consistent results, use `randomSeed`. Here's how: [source,python,role=noplay nocopy] ---- gds.fastRP.mutate(G2, ..., randomSeed=42) ---- This is crucial for debugging, reproducible experiments, and production consistency. Without a seed, results will vary slightly between runs.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 595,
+    "title": "Common Pitfalls",
+    "text": "Let's discuss some common pitfalls. **Pitfall 1:** Missing features. If `featureProperties` references non-existent properties, FastRP fails. Check with `G2.node_properties()`. **Pitfall 2:** Unscaled features. A mix of large and small values can dominate FastRP. Always scale first. **Pitfall 3:** Wrong dimension. Too small loses information, too large risks overfitting and slows computation. Start with 128. **Pitfall 4:** Wrong interpretation. FastRP encodes the structure of the graph but doesn't encode localized behavior by default. Sometimes users confuse proximal structure with structural roles.",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 596,
+    "title": "Summary",
+    "text": "In this lesson, you learned how to scale features with `scaleProperties` to prepare for machine learning, create 128-dimensional embeddings with FastRP that combine structure, content, and centrality, and cluster papers with K-Means to compare with official subjects. You've also seen how embeddings enable many downstream ML tasks. This completes Module 5, where you've built a full GDS workflow from data loading through embeddings and clustering.",
+    "estimated_duration_seconds": 30.0
+  }
+]

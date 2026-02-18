@@ -1,6 +1,7 @@
 = Project a graph
 :type: lesson
 :order: 2
+:sandbox: true
 
 [.transcript]
 == Introduction
@@ -72,11 +73,46 @@ This is standard Cypher. You're matching a pattern in your database:
 - `target` nodes with the `Movie` label  
 - `ACTED_IN` relationships connecting them
 
-The variable names `source` and `target` are Cypher variables—you'll reference them in the projection call. While you could technically use any variable names, we consistently use `source` and `target` because:
+The variable names `source` and `target` are important—you'll reference them in the projection. 
 
-- They clearly indicate directionality in the pattern
-- Many GDS configuration options reference these conventions
-- Descriptive names improve code readability and maintainability
+However, just like the `writeProperty` value we created in the previous lesson, these variables are inherently arbitrary.
+
+We could run the following, equally valid projection:
+
+NOTE: While this works, we recommend using descriptive names like `source` and `target` in production code for clarity and maintainability.
+
+[source,cypher]
+.Projection with custom variable names
+----
+MATCH (bananas:Actor)-[:ACTED_IN]->(cabbages:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'bananas-cabbages', // <3>
+  bananas, // <4>
+  cabbages // <5>
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <6>
+----
+
+[TIP]
+.Projection breakdown
+====
+1. Match Actor and Movie nodes with arbitrary variable names
+2. Call the GDS projection function
+3. Name the projection 'actors-graph'
+4. Include bananas (Actor) nodes in the projection
+5. Include cabbages (Movie) nodes in the projection
+6. Return projection statistics
+====
+
+The query returns the projection statistics: the graph name 'bananas-cabbages', the number of nodes (sum of Actor and Movie nodes), and the number of ACTED_IN relationships projected.
+
+The variables you use for the nodes in your Cypher query, are the variables you will call as nodes in the graph projection.
+
+image::images/bananas_and_cabbages.png[a Cypher projection, in which the node variables are named 'bananas' and 'cabbages']
+
+As a general standard we use `source` and `target` only because many other projection configuration settings will refer to the first variable as `source` and the second as `target`. 
+
+Defaulting to `source` and `target` for the initial variables just makes it easier to keep track.
 
 
 
@@ -162,18 +198,91 @@ This returns metadata about your projection:
 - The graph name for verification
 
 
+== Try it yourself
+
+Now that you understand how projections work, copy and paste the following query into the sandbox.
+
+Replace the `?????` placeholders with the correct values and run it to project a graph of Actors who ACTED_IN Movies:
+
+[source,cypher,role=noplay]
+.Complete the projection (replace ????? with correct values)
+----
+MATCH (source:?????)-[r:ACTED_IN]->(target:?????) // <1>
+WITH gds.graph.project( // <2>
+  'my-projection', // <3>
+  ?????, // <4>
+  ????? // <5>
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <6>
+----
+
+[TIP]
+.Projection breakdown
+====
+1. Match source and target nodes (fill in the labels)
+2. Call the GDS projection function
+3. Name the projection 'my-projection'
+4. Include source nodes (fill in the variable)
+5. Include target nodes (fill in the variable)
+6. Return projection statistics
+====
+
+Once you've completed the query, run it to verify your projection was created successfully.
+
+If you need help filling in the query, open the dropdown below for the full solution.
+
+[%collapsible]
+====
+[source,cypher,role=nocopy noplay]
+.Solution: Complete projection
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
+WITH gds.graph.project( // <2>
+  'my-projection', // <3>
+  source, // <4>
+  target // <5>
+) AS g
+RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels // <6>
+----
+
+[TIP]
+.Projection breakdown
+====
+1. Match Actor nodes connected to Movie nodes via ACTED_IN relationships
+2. Call the GDS projection function
+3. Name the projection 'my-projection'
+4. Include source (Actor) nodes in the projection
+5. Include target (Movie) nodes in the projection
+6. Return projection statistics
+====
+
+**Key points:**
+
+- `source:Actor` matches Actor nodes
+- `target:Movie` matches Movie nodes  
+- Pass `source` and `target` variables into `gds.graph.project()`
+- The ACTED_IN relationships are automatically inferred from your MATCH pattern
+====
+
+== What's next
+
+You now understand how Cypher projections work: you match a pattern with standard Cypher, then pipe it into `gds.graph.project()` to create an in-memory graph.
+
+But there's an important detail about what you've just projected that might surprise you. 
+
+In the next lesson, you'll learn about different graph structure types and discover what type of graph your actors-movies projection actually created.
+
+
 [.quiz]
 == Check your understanding
 
 include::questions/1-projection-components.adoc[leveloffset=+1]
 
-include::questions/2-complete-projection.adoc[leveloffset=+1]
-
 
 [.summary]
 == Summary
 
-You now understand how Cypher projections work: you match a pattern with standard Cypher, then pipe it into `gds.graph.project()` to create an in-memory graph.
+Cypher projections use standard MATCH patterns to define which nodes and relationships to project into memory. The basic syntax is: `MATCH (source)-[r]->(target) WITH gds.graph.project('name', source, target)`.
 
 A projection has three components:
 
@@ -181,4 +290,4 @@ A projection has three components:
 2. **Projection call** - `WITH gds.graph.project()` piping the matched pattern into GDS
 3. **Return statement** - Returns metadata about the created projection
 
-But there's an important detail about what you've just projected that might surprise you. In the next lesson, you'll learn about different graph structure types and discover what type of graph your actors-movies projection actually created.
+In the next lesson, you'll learn about different graph structure types and how GDS handles them.

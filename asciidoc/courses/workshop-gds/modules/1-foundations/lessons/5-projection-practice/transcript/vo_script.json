@@ -1,0 +1,164 @@
+[
+  {
+    "section_index": 74,
+    "title": "Introduction",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 75,
+    "title": "Practice: Graph Projections",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 76,
+    "title": "Introduction",
+    "text": "Now it's time to put your knowledge into practice. You'll be creating both types of projections that you've learned about. First, we have the monopartite transformations, where we connect nodes through shared neighbors. Then, there are the labelled bipartite projections, which preserve the two-partition structures. [IMAGE: img-1-foundations-5-projection-practice-s076-000-new] As you can see in this diagram, it illustrates the difference between monopartite transformations and labelled bipartite projections, focusing on the structural differences and node relationships.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 77,
+    "title": "What You'll Learn",
+    "text": "By the end of this lesson, you'll be able to transform bipartite graphs into monopartite networks by traversing intermediate nodes. You'll also create labelled bipartite projections that preserve node types. Additionally, you'll learn to match projection strategies to algorithm requirements and recognize why projecting \"everything\" rarely produces meaningful results.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 78,
+    "title": "Exercise 1: Monopartite Transformation",
+    "text": "Your database has a bipartite structure: `(:Actor)-[:ACTED_IN]->(:Movie)`. Your task is to transform this into a monopartite Actor-to-Actor network by connecting actors through shared movies. You have five minutes to try this. If you need help, feel free to pop a message in the chat. This pattern traverses Movie nodes without capturing them, creating direct Actor-to-Actor connections. The result is a true monopartite graph where any actor can potentially connect to any other actor.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 79,
+    "title": "Exercise 1: Solution",
+    "text": "Here's how you can achieve the transformation: \n\n```cypher\nMATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)\nWITH gds.graph.project('actor-collab', source, target) AS g\nRETURN g.graphName, g.nodeCount, g.relationshipCount\n```\n\nThe key insight here is to traverse *through* Movie nodes without including them in `source` or `target`.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 80,
+    "title": "Why This Works for PageRank",
+    "text": "In your Actor-to-Actor network, only Actor nodes exist, and they connect directly to other Actors. This allows importance to flow freely between nodes, with no rank sinks—meaning PageRank can do its job effectively. [IMAGE: img-1-foundations-5-projection-practice-s080-003-new] Notice how this diagram illustrates an Actor-to-Actor network, showing direct connections and the flow of importance, which is ideal for explaining why PageRank works so well here.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 81,
+    "title": "Exercise 2: Run PageRank",
+    "text": "Now, let's run PageRank on the `actor-collab` graph in **write mode**, storing the result as a `pageRank` property. Then, query the database to find the top 10 actors by PageRank score. Give it a try on your own for five minutes.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 82,
+    "title": "Exercise 2: Solution",
+    "text": "Here's how you can run PageRank and query the results:\n\n**Step 1 — Run PageRank in write mode:**\n\n```cypher\nCALL gds.pageRank.write('actor-collab', {\n  writeProperty: 'pageRank'\n})\nYIELD nodePropertiesWritten\nRETURN nodePropertiesWritten\n```\n\n**Step 2 — Query the results:**\n\n```cypher\nMATCH (a:Actor)\nWHERE a.pageRank IS NOT NULL\nRETURN a.name AS actor, a.pageRank AS score\nORDER BY score DESC\nLIMIT 10\n```",
+    "estimated_duration_seconds": 30.0
+  },
+  {
+    "section_index": 83,
+    "title": "Examine the Results",
+    "text": "You should see meaningful rankings—actors ranked by their importance in the collaboration network. Compare this to the bipartite structure where PageRank produced nearly identical scores for all nodes.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 84,
+    "title": "Exercise 3: Movie Network",
+    "text": "Next, create a monopartite Movie-to-Movie network by connecting movies through shared actors. Take a few minutes to work on this.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 85,
+    "title": "Exercise 3: Solution",
+    "text": "Here's the solution:\n\n```cypher\nMATCH (source:Movie)<-[:ACTED_IN]-(:Actor)-[:ACTED_IN]->(target:Movie)\nWITH gds.graph.project('movie-collab', source, target) AS g\nRETURN g.graphName, g.nodeCount, g.relationshipCount\n```\n\nIt's the same pattern, just reversed: traverse through Actor nodes to connect Movies.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 86,
+    "title": "Exercise 4: Labelled Bipartite Projection",
+    "text": "Now, create a bipartite projection of `(:User)-[:RATED]->(:Movie)`, preserving node labels. Give it a try for five minutes. The configuration parameters preserve the User and Movie labels, so GDS knows which nodes belong to which partition. [IMAGE: img-1-foundations-5-projection-practice-s086-006-new] This diagram shows the bipartite projection process, illustrating how User and Movie nodes are connected and how labels are preserved.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 87,
+    "title": "Exercise 4: Solution",
+    "text": "Here's how you can create the bipartite projection:\n\n```cypher\nMATCH (source:User)-[r:RATED]->(target:Movie)\nWITH gds.graph.project(\n  'user-movie-bipartite',\n  source,\n  target,\n  {\n    sourceNodeLabels: labels(source),\n    targetNodeLabels: labels(target),\n    relationshipType: type(r)\n  },\n  {}\n) AS g\nRETURN g.graphName, g.nodeCount, g.relationshipCount\n```",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 88,
+    "title": "What Have We Modelled?",
+    "text": "What insights can we glean from a graph of `(:User)-[:RATED]->(:Movie)`? Take a moment to discuss. Expected answers might include user preferences, taste profiles, recommendation foundations, and collaborative filtering data. [IMAGE: img-1-foundations-5-projection-practice-s088-007-new] This illustration depicts potential insights from a User-Movie graph, such as user preferences and recommendation foundations.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 89,
+    "title": "Node Similarity",
+    "text": "Node Similarity compares nodes based on shared neighbors across the bipartite structure. In this case, it's about finding users with overlapping taste in movies. [IMAGE: img-1-foundations-5-projection-practice-s089-000-existing] Here, you can see a bipartite structure with SIMILAR relationships between nodes on one side, illustrating how users with overlapping taste in movies are identified.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 90,
+    "title": "Exercise 5: Run Node Similarity",
+    "text": "Run Node Similarity on the `user-movie-bipartite` graph in **write mode**. Use `SIMILAR` as the relationship type and `score` as the property name. Take a few minutes to work on this.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 91,
+    "title": "Exercise 5: Solution",
+    "text": "Here's how you can run Node Similarity:\n\n```cypher\nCALL gds.nodeSimilarity.write('user-movie-bipartite', {\n  writeRelationshipType: 'SIMILAR',\n  writeProperty: 'score'\n})\nYIELD nodesCompared, relationshipsWritten\nRETURN nodesCompared, relationshipsWritten\n```\n\nThis creates SIMILAR relationships between Users who rated the same Movies, and between Movies rated by the same Users.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 92,
+    "title": "Verify the Results",
+    "text": "Check the similar users that Node Similarity found:\n\n```cypher\nMATCH (u1:User)-[s:SIMILAR]->(u2:User)\nRETURN u1.name AS user1, u2.name AS user2, s.score AS similarity\nORDER BY s.score DESC\nLIMIT 10\n```\n\nThese are users with similar movie rating patterns—the foundation of collaborative filtering.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 93,
+    "title": "What Happens with Multipartite?",
+    "text": "Node Similarity works well on bipartite structures. But what if you project the *entire* graph? Let's find out. [IMAGE: img-1-foundations-5-projection-practice-s093-008-new] This diagram compares the effectiveness of Node Similarity on bipartite versus full graph projections, highlighting the challenges with the latter.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 94,
+    "title": "Project the Full Graph",
+    "text": "Project everything: Actors, Movies, Users, and their relationships:\n\n```cypher\nMATCH (source)-[r]->(target)\nWITH gds.graph.project(\n  'everything',\n  source,\n  target\n) AS g\nRETURN g.graphName, g.nodeCount, g.relationshipCount\n```",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 95,
+    "title": "Run Node Similarity on Everything",
+    "text": "Now, run Node Similarity on this full graph:\n\n```cypher\nCALL gds.nodeSimilarity.stream('everything')\nYIELD node1, node2, similarity\nWITH gds.util.asNode(node1) AS n1,\n     gds.util.asNode(node2) AS n2,\n     similarity\nRETURN labels(n1) AS label1,\n       coalesce(n1.name, n1.title) AS node1,\n       labels(n2) AS label2,\n       coalesce(n2.name, n2.title) AS node2,\n       similarity\nORDER BY similarity DESC\nLIMIT 10\n```",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 96,
+    "title": "Unexpected Results",
+    "text": "Problems with the \"everything\" projection include the algorithm taking significantly longer to run, the query to interpret results being unnecessarily complex, and the results being conceptually meaningless. The algorithm has no concept of node types. It just sees nodes with shared neighbors—regardless of whether those comparisons are meaningful. [IMAGE: img-1-foundations-5-projection-practice-s096-009-new] This flowchart illustrates the issues encountered when projecting the entire graph, showing the steps and where inefficiencies and complexities arise.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 97,
+    "title": "Why This Happens",
+    "text": "Node Similarity compares nodes based on shared neighbors. On a multipartite graph, an Actor and a User might both connect to the same Movie, and the algorithm sees them as \"similar\"—even though that comparison is nonsensical. **The data model represents the question**—the more specific your projection, the higher-quality your output. [IMAGE: img-1-foundations-5-projection-practice-s097-001-existing] This image shows an Actor and User both connected to a Movie, marked as \"similar\", illustrating the nonsensical comparison in a multipartite graph.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 98,
+    "title": "The Lesson",
+    "text": "**Match your projection to your algorithm's expectations.** Node Similarity expects bipartite, so project bipartite. PageRank expects monopartite, so project monopartite. Projecting \"everything\" rarely gives meaningful results.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 99,
+    "title": "Cleanup",
+    "text": "Before moving on, let's drop the projections we created:\n\n```cypher\nCALL gds.graph.list()\nYIELD graphName\nCALL gds.graph.drop(graphName)\nYIELD graphName AS droppedGraphs\nRETURN droppedGraphs\n```",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 100,
+    "title": "Practice Summary",
+    "text": "In this lesson, you practiced both projection approaches: **Monopartite transformations** for algorithms like PageRank that need single-type networks, and **Labelled bipartite projections** for algorithms like Node Similarity that work with two-partition structures. Remember, the same data can answer different questions depending on how you project it. Choose your approach based on what your algorithm expects and what insights you're seeking.",
+    "estimated_duration_seconds": 20.0
+  }
+]
