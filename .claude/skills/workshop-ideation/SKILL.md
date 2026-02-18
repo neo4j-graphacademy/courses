@@ -33,7 +33,7 @@ When planning workshops, focus on building something valuable with Neo4j:
 - Plan visual diagram comparisons (ERD vs Graph model) when they help explain structure
 - Use code comparisons (SQL, other tech) when they effectively demonstrate value - especially for final solution
 - Don't overdo it - focus on teaching graph thinking and building with Neo4j
-- Be factual about advantages (O(k) traversal, lines of code) not salesy
+- Be factual about advantages (pointer traversal, lines of code, cost scales with connections) not salesy—do not use Big O or O(n) style notation; use natural language
 
 **Remember:** The goal is to teach learners to build valuable things with Neo4j. They should leave with something that works, demonstrates value, and can be built upon. Make it hands-on and fun.
 

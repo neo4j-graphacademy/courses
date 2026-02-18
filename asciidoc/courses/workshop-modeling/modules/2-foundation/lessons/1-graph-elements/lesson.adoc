@@ -284,7 +284,7 @@ Relationships are represented with arrows and square brackets.  Here is a patter
 MATCH path = (c:Customer)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)  // <1>
 WHERE c.customerId = 'ALFKI'  // <2>
 RETURN c.name AS company, p.name AS product, count(*) AS count // <3>
-LIMIT 5;
+LIMIT 5
 ----
 ====
 
@@ -314,8 +314,8 @@ Every graph query follows two steps:
 The query engine needs a place to start. This is typically done by:
 
 * Finding a node by a property value: `WHERE c.customerId = 'ALFKI'`
-* Using an index for fast lookup: O(1) constant time
-* Without an index: Scanning all nodes O(n) linear time
+* With an index: The engine uses the index to find the node directly, which is much more performant
+* Without an index: The engine must scan all nodes of that label, which slows down as the graph grows
 ====
 
 [.col]
@@ -325,8 +325,8 @@ The query engine needs a place to start. This is typically done by:
 Once the anchor nodes are found, the query follows relationships by type and direction:
 
 * Relationships are pre-materialized pointers stored with each node
-* Traversing is O(k) where k = number of connections
-* Much faster than computing JOINs in SQL
+* Following relationships is pointer chasing in memory—the engine only touches the connections you traverse, not the whole graph
+* Much more efficient than computing JOINs, which require repeated index lookups and materializing intermediate result sets
 ====
 
 [.slide.col-2]
@@ -336,26 +336,24 @@ Once the anchor nodes are found, the query follows relationships by type and dir
 ====
 **SQL approach:**
 
-1. Scan customers table → O(n)
-2. JOIN orders table → O(n × m)
-3. JOIN order_details → O(n × m × p)
-4. JOIN products → O(n × m × p × q)
+1. Scan customers table (or use an index, then join)
+2. JOIN orders table—each join does index lookups and builds intermediate result sets
+3. JOIN order_details—another round of lookups and materialization
+4. JOIN products—again, more index work and larger intermediate data
 
-
-Query cost grows with **table sizes**.
+Query cost grows with **table sizes** and the number of joins; each hop adds more index scans and join materialization.
 ====
 
 [.col]
 ====
 **Graph approach:**
 
-1. Index lookup customer → O(1)
-2. Follow PLACED pointers → O(k₁)
-3. Follow CONTAINS pointers → O(k₂)
-4. Return products → O(k₃)
+1. Index lookup finds the customer node (one index use; very fast)
+2. Follow PLACED pointers from that node—pointer chasing in memory, no extra index scans
+3. Follow CONTAINS pointers from each order—again, direct pointer follows
+4. Return products—only the nodes and relationships touched are read
 
-
-Query cost grows with **connections**, not table size.
+Query cost grows with **connections actually traversed**, not with total table or graph size. Graph databases store adjacency directly, so deep traversals are more predictable and often significantly faster than equivalent multi-join SQL.
 ====
 
 This is why the recommendation query you will build is fast - it only touches relevant data.

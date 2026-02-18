@@ -44,7 +44,7 @@ This skill writes **quiz lessons** that:
 - Graph modeling decisions (what should be a node? a relationship? a property?)
 - Cypher syntax and patterns
 - Graph traversal concepts (single-hop, multi-hop, bidirectional)
-- Performance characteristics (O(1) index lookup, O(k) traversal) - factual understanding
+- Performance characteristics in plain language (index lookup for start node, pointer traversal along relationships; cost scales with connections not table size)—do not use O(1), O(k), or Big O notation
 - Best practices for graph data modeling
 - Neo4j features and capabilities taught in the workshop
 
@@ -352,15 +352,15 @@ Focus on specific technical advantages related to how relationships work, not ge
 ====
 **A, C, and D are correct:**
 
-* **A is correct:** Graph databases store relationship pointers, enabling O(k) traversal complexity without scanning tables
-* **C is correct:** Traversal performance depends on connection count (k), not table sizes (n×m), so adding more hops doesn't exponentially increase complexity
+* **A is correct:** Graph databases store relationship pointers; traversals follow them in memory without scanning tables or materializing JOINs
+* **C is correct:** Traversal cost depends on how many connections you follow, not total table sizes, so adding more hops doesn't blow up the way multi-join SQL does
 * **D is correct:** Cypher patterns like `(Customer)-[:PLACED]->(Order)` mirror natural language questions
 
 **Why B is wrong:**
 * Not ALL queries are faster - graphs excel at connected data queries, but simple aggregations or full table scans may perform similarly to SQL
 * Performance depends on the query pattern and data structure
 
-**Recall Module 4:** We compared Cypher multi-hop traversals (O(k)) to SQL JOINs (O(n×m)) and showed specific advantages for relationship-heavy queries.
+**Recall Module 4:** We compared Cypher multi-hop traversals (pointer following, cost scales with connections) to SQL JOINs (repeated index scans and join materialization) and showed specific advantages for relationship-heavy queries.
 ====
 ```
 

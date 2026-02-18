@@ -11,6 +11,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 **When to use:** Workshop lesson requires proving the value of what learners just built.
 
 **Prerequisites:**
+
 - WORKSHOP-PLAN.md exists with validation details
 - Skeleton lesson.adoc file exists
 - Previous challenge lesson completed
@@ -22,6 +23,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 ## Overview
 
 This skill writes **validation/query lessons** that:
+
 - Query the data that was just imported/created (3-5 minutes)
 - Show SQL comparison side-by-side
 - Prove concrete value (performance, simplicity, readability)
@@ -38,10 +40,11 @@ This skill writes **validation/query lessons** that:
 
 - **Prove what they built works** - Show that the graph structure enables real business queries
 - **Use comparisons when they add value** - Visual diagrams (ERD vs Graph) or code comparisons can be helpful context
-- **Be factual, not salesy** - Show concrete metrics (lines of code, complexity) not vague superiority claims
+- **Be factual, not salesy** - Show concrete metrics (lines of code, what the engine does) not vague superiority claims. Do not use Big O or O(n), O(k), O(n×m); use natural language for performance (e.g. "cost scales with connections traversed", "pointer traversal vs table scans and joins").
 - **Make it satisfying** - They should see their work pay off with queries that actually work
 
 **Validation lesson approach:**
+
 1. Show the business question
 2. Show the Cypher query that answers it
 3. Explain what the query does (using graph concepts)
@@ -49,14 +52,16 @@ This skill writes **validation/query lessons** that:
 5. Optionally: Include comparisons (SQL, relational model) when they demonstrate value effectively
 
 **When comparisons are helpful:**
+
 - Final workshop solution (showing dramatic difference in simplicity)
 - Complex multi-hop traversals where alternatives are significantly more complex
 - Visual diagrams (ERD vs Graph model) to show structural differences
 - When teaching concepts where the comparison provides valuable context
 
 **Keep it balanced:**
+
 - Don't compare constantly - teach graph query patterns on their own merits
-- When comparing, use facts (lines of code, O(k) vs O(n×m)) not marketing language
+- When comparing, use facts (lines of code, pointer traversal vs table scans/joins, cost scales with connections not table size) not marketing language—no Big O or O(n) notation
 - Focus on proving their work produces something valuable
 
 ---
@@ -64,6 +69,7 @@ This skill writes **validation/query lessons** that:
 ## Phase 1: Understand What to Validate (5 min)
 
 ### Checklist: Gather Information
+
 - [ ] Read WORKSHOP-PLAN.md for validation objectives
 - [ ] Read previous challenge lesson (what was built)
 - [ ] Identify business questions to answer
@@ -101,6 +107,7 @@ REFERENCE:
 ## Phase 2: Plan Validation Structure (10 min)
 
 ### Checklist: Lesson Outline
+
 - [ ] Opening references what was just built
 - [ ] 2-4 business questions identified
 - [ ] Queries progress from simple to complex
@@ -151,6 +158,7 @@ Start simple, build complexity:
 ## Phase 3: Write Opening (5 min)
 
 ### Checklist: Introduction
+
 - [ ] References what was just built in challenge
 - [ ] States what will be validated/proven
 - [ ] Mentions business value
@@ -183,6 +191,7 @@ In this lesson, you will answer business questions using multi-hop traversals an
 ## Phase 4: Write Query Sections (30 min)
 
 ### Checklist: Query Section Structure
+
 - [ ] Business question in plain language
 - [ ] Context before code (why this query)
 - [ ] Cypher query with title
@@ -261,7 +270,7 @@ ORDER BY p.productName;
 
 * **Cypher:** 2 relationship hops, reads like the question
 * **SQL:** 3 JOIN operations scanning intermediate tables
-* **Performance:** Graph traversal is O(k) where k = number of connections; SQL JOIN is O(n×m) where n,m = table sizes
+* **Performance:** Graph traversal follows pointers in memory (cost scales with connections traversed); SQL JOIN repeatedly scans indexes and materializes result sets (cost scales with table sizes)
 ```
 
 ### SQL Comparison Patterns
@@ -332,6 +341,7 @@ GROUP BY c.companyName
 ## Phase 5: Create Metrics Table (10 min)
 
 ### Checklist: Comparison Metrics
+
 - [ ] Table shows Cypher vs SQL
 - [ ] Includes: Lines, JOINs, Complexity
 - [ ] Optional: Performance, Readability
@@ -350,7 +360,7 @@ GROUP BY c.companyName
 
 | Lines of code | [N] | [M]
 | JOIN operations | 0 | [N]
-| Complexity | O(k) | O(n×m)
+| Cost scales with | Connections traversed | Table sizes and number of JOINs
 | Readability | Matches question structure | Multiple JOIN clauses
 |===
 
@@ -370,7 +380,7 @@ GROUP BY c.companyName
 | Lines of code | 4 | 8
 | JOIN operations | 0 | 3
 | Tables accessed | 0 | 4 (customers, orders, order_details, products)
-| Complexity | O(k) - k relationships | O(n×m×p) - table sizes
+| Cost scales with | Connections traversed | Table sizes and JOIN count
 | Readability | Path-based, visual | Multiple JOIN conditions
 |===
 
@@ -382,6 +392,7 @@ GROUP BY c.companyName
 ## Phase 6: Explain Advantages (10 min)
 
 ### Checklist: Value Proposition
+
 - [ ] Explains WHY graph is better for THIS pattern
 - [ ] Uses concrete metrics (lines, JOINs, complexity)
 - [ ] Avoids sales language ("powerful", "amazing")
@@ -397,16 +408,16 @@ GROUP BY c.companyName
 == Performance Advantage
 
 **Relational approach:**
-* Scans entire tables for JOIN conditions
+* Scans entire tables (or large index ranges) for JOIN conditions
 * Creates intermediate result sets
-* Complexity grows with table sizes: O(n×m)
+* Cost grows with table sizes and number of JOINs
 
 **Graph approach:**
-* Follows direct relationship pointers
-* No table scans or intermediate results
-* Complexity grows with connection count: O(k)
+* Follows direct relationship pointers in memory
+* No repeated table scans or join materialization
+* Cost grows with how many connections you traverse, not total graph size
 
-For highly connected data, graph traversal maintains constant performance as data volume increases.
+For highly connected data, graph traversal stays predictable as data volume increases because it only touches the paths it follows.
 ```
 
 **Simplicity explanation:**
@@ -430,21 +441,25 @@ For highly connected data, graph traversal maintains constant performance as dat
 ### Anti-Patterns to AVOID
 
 ❌ **Vague sales claims:**
+
 ```
 Graphs are powerful and provide amazing performance.
 ```
 
 ✅ **Concrete technical facts:**
+
 ```
-Graph traversal is O(k) where k = number of relationships, vs SQL JOIN which is O(n×m) where n,m = table sizes.
+Graph traversal follows pointers in memory; cost scales with connections traversed. SQL JOIN repeatedly scans indexes and materializes result sets; cost scales with table sizes and number of joins.
 ```
 
 ❌ **Generic statements:**
+
 ```
 Cypher is easier to read and write.
 ```
 
 ✅ **Specific comparison:**
+
 ```
 Cypher: 4 lines, 0 JOINs. SQL: 8 lines, 3 JOINs scanning 4 tables.
 ```
@@ -454,6 +469,7 @@ Cypher: 4 lines, 0 JOINs. SQL: 8 lines, 3 JOINs scanning 4 tables.
 ## Phase 7: Connect to Workshop Goal (5 min)
 
 ### Checklist: Goal Connection
+
 - [ ] Explains how this enables the final goal
 - [ ] References recommendation query or end deliverable
 - [ ] Shows progression from current state to end goal
@@ -490,6 +506,7 @@ This multi-hop traversal pattern is the foundation for collaborative filtering.
 ## Phase 8: Write Summary (5 min)
 
 ### Checklist: Summary Section
+
 - [ ] Lists queries covered
 - [ ] States what was proven
 - [ ] Includes SQL comparison summary
@@ -525,7 +542,7 @@ In this lesson, you validated the Customer → Order → Product path by answeri
 * **Popular products** - Identified most frequently ordered items
 * **Order totals** - Calculated spending per customer
 
-**Cypher vs SQL:** 4 lines vs 8 lines, 3 JOINs eliminated, O(k) vs O(n×m) complexity
+**Cypher vs SQL:** 4 lines vs 8 lines, 3 JOINs eliminated; graph cost scales with connections traversed, SQL with table sizes and joins
 
 In the next lesson, you will learn how to find similar customers using bidirectional traversals.
 ```
@@ -535,6 +552,7 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 ## Phase 9: Apply Style Rules (10 min)
 
 ### Checklist: Technical Requirements
+
 - [ ] Two line breaks between ALL sections
 - [ ] [.slide.discrete] for introduction
 - [ ] [.slide] for main sections
@@ -550,6 +568,7 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 ### Code Block Requirements
 
 **Every Cypher query:**
+
 - Context before (why this query)
 - Descriptive title
 - Explanation after (what it does)
@@ -557,6 +576,7 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 - Experiment suggestions (optional)
 
 **Every SQL query:**
+
 - Shown for comparison
 - Same business question
 - No "Click Run" (not executable in workshop)
@@ -566,6 +586,7 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 ## Phase 10: Review and Refine (10 min)
 
 ### Checklist: Self-Review
+
 - [ ] Re-read lesson aloud
 - [ ] Check timing (3-5 minutes to read)
 - [ ] All queries tested and correct
@@ -616,14 +637,16 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 ### What These Files Demonstrate
 
 **4-multi-hop-traversals/lesson.adoc:**
+
 - Shows queries on data just imported
 - Includes SQL comparison side-by-side
 - Provides metrics table (Lines | JOINs | Performance | Readability)
-- Explains advantages concretely (O(k) vs O(n×m))
+- Explains advantages concretely in natural language (pointer traversal vs table scans/joins; cost scales with connections not table size)
 - Multiple query examples building in complexity
 - Connects pattern to final recommendation goal
 
 **Key patterns:**
+
 - Business questions as headers
 - Cypher query with `.Title`
 - SQL equivalent in separate block
@@ -638,12 +661,14 @@ In the next lesson, you will learn how to find similar customers using bidirecti
 ### Single-Hop Traversal
 
 **Cypher:**
+
 ```cypher
 MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(o:Order)
 RETURN c.name, o.id, o.date;
 ```
 
 **SQL:**
+
 ```sql
 SELECT c.companyName, o.orderId, o.orderDate
 FROM customers c
@@ -658,6 +683,7 @@ WHERE c.customerId = 'ALFKI';
 ### Multi-Hop Traversal
 
 **Cypher:**
+
 ```cypher
 MATCH (c:Customer {id: 'ALFKI'})
       -[:PLACED]->(:Order)
@@ -666,6 +692,7 @@ RETURN DISTINCT p.name;
 ```
 
 **SQL:**
+
 ```sql
 SELECT DISTINCT p.productName
 FROM customers c
@@ -682,6 +709,7 @@ WHERE c.customerId = 'ALFKI';
 ### Bidirectional Traversal
 
 **Cypher:**
+
 ```cypher
 MATCH (c1:Customer {id: 'ALFKI'})
       -[:PLACED]->(:Order)
@@ -693,6 +721,7 @@ RETURN c2.name, count(DISTINCT p) AS sharedProducts;
 ```
 
 **SQL:**
+
 ```sql
 SELECT c2.companyName, COUNT(DISTINCT p2.productId)
 FROM customers c1
@@ -706,7 +735,7 @@ WHERE c1.customerId = 'ALFKI' AND c1.customerId <> c2.customerId
 GROUP BY c2.companyName;
 ```
 
-**Comparison:** 7 lines vs 11 lines, 6 JOINs, exponential complexity
+**Comparison:** 7 lines vs 11 lines, 6 JOINs; each extra JOIN in SQL adds more index scans and materialization—cost grows quickly with depth
 
 ---
 
