@@ -1,0 +1,260 @@
+[
+  {
+    "section_index": 193,
+    "title": "Introduction",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 194,
+    "title": "Louvain Community Detection",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 195,
+    "title": "Introduction",
+    "text": "In Lesson 1, you explored the fraud dataset and saw how fraudsters connect through transactions and shared infrastructure. Now let's understand the algorithm that we'll use to find communities of connected suspects: Louvain. We'll practice on the familiar Movies graph first, then apply what we learn to fraud detection. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s195-000-new] As you can see here, we transition from understanding fraud connections to applying the Louvain algorithm for community detection.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 196,
+    "title": "What You'll Learn",
+    "text": "By the end of this lesson, you'll be able to explain how Louvain finds communities using modularity optimization, interpret modularity scores to assess community quality, configure Louvain for different use cases using maxLevels and includeIntermediateCommunities, and recognize when Louvain is (and isn't) the right choice.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 197,
+    "title": "What Louvain Does",
+    "text": "Louvain is a community detection algorithm. It finds groups of nodes that are more densely connected to each other than to the rest of the network. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s197-000-existing] As you can see in this image, the network is divided into distinct communities, each highlighted in a different color, showing how the Louvain algorithm identifies groups of nodes more densely connected internally than externally.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 198,
+    "title": "The Core Concept: Modularity",
+    "text": "Louvain optimizes modularity—a measure of community quality. High modularity means dense connections within communities and sparse connections between them, while low modularity indicates connections spread randomly across the network. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s198-002-new] Notice in this diagram how high modularity is illustrated with dense intra-community links, whereas low modularity shows random connections.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 199,
+    "title": "Interpreting Modularity Scores",
+    "text": "Modularity scores help us interpret the strength of community structures. Scores below 0.3 suggest weak community structure, possibly just noise. Scores between 0.3 and 0.5 indicate moderate structure, usable but potentially noisy. Scores from 0.5 to 0.7 reflect good community structure, and anything above 0.7 suggests strong, well-defined communities, though this could be suspiciously high depending on the dataset. Generally, scores above 0.4 typically indicate meaningful groupings worth investigating.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 200,
+    "title": "How Louvain Works",
+    "text": "Louvain iteratively moves nodes between communities to maximize modularity. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s200-001-existing] In this illustration, you can see a node initially in one community, then moved to another community where it has more connections. The algorithm asks, 'Would moving this node to a neighboring community increase overall modularity?' If yes, it moves the node. This continues until no beneficial moves remain.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 201,
+    "title": "The Algorithm: Two Phases",
+    "text": "Louvain repeats two phases until modularity stops improving. In Phase 1, each node considers joining neighboring communities and joins whichever community increases modularity the most. In Phase 2, once no more moves improve modularity, each community is collapsed into a single 'super-node' and Phase 1 is repeated. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s201-004-new] This flowchart shows the iterative process of these two phases: Local Optimization and Aggregation.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 202,
+    "title": "A Metaphor: Party Guests",
+    "text": "Imagine a party where guests naturally cluster into conversation groups. In Phase 1, each person drifts toward the group where they know the most people. In Phase 2, once groups stabilize, imagine each group as a single unit. These large group-units merge together based on whether more people would know each other in aggregate. The result is a hierarchy of social clusters—friend groups within larger social circles.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 203,
+    "title": "Hierarchical Communities",
+    "text": "This two-phase process creates a hierarchy: Level 1 consists of many small, tight-knit communities; Level 2 sees small communities merge into medium ones; and Level 3 has medium communities merge into larger ones. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s203-002-existing] This diagram illustrates communities merging at successive levels, each representing a different granularity of community structure. You can choose which level suits your analysis—or access all levels at once.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 204,
+    "title": "Part 1: Hands-On with the Movies Graph",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 205,
+    "title": "The Movies Dataset",
+    "text": "Before applying Louvain to fraud, let's practice on familiar data. The Movies graph contains Actor and Movie nodes, User and Genre nodes, and ACTED_IN, RATED, and IN_GENRE relationships. We'll find communities of actors who frequently work together. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s205-006-new] This diagram of the Movies dataset shows the different types of nodes and relationships, including actors, movies, users, and genres with their respective connections.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 206,
+    "title": "Project the Actor Collaboration Network",
+    "text": "Create a projection of actors connected through shared movies. This creates an undirected graph where actors are connected if they've appeared in the same movie. The collaborations property counts how many movies they've shared.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 207,
+    "title": "Run Louvain in Stats Mode",
+    "text": "Run this query to preview what Louvain will find. In this case, we're not specifying YIELD or RETURN -- this way we get to see the entire dataframe.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 208,
+    "title": "Interpreting Stats Results",
+    "text": "You should get a table with similar results to this: Modularity is 0.66, indicating a good community structure. The modularities are [0.64, 0.66, 0.66], one per level. There are 3 ranLevels, 681 communities, and the community distribution ranges from a minimum of 2 to a maximum of 10,604, with a mean of 54 and a median of 8. The computation took approximately 3,560 milliseconds.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 209,
+    "title": "Run Louvain in Stream Mode",
+    "text": "See which community each actor belongs to. You should notice that some groups are extremely large, and of our approximately 680 communities, only a few contain a large number of actors.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 210,
+    "title": "Visualize a Community",
+    "text": "See how actors in a community connect through movies. This shows the movies connecting actors within the largest community. Notice how densely connected they are—that's why Louvain grouped them together. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s210-010-new] This network diagram highlights the dense connections that define a community.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 211,
+    "title": "Part 2: Configuration Options",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 212,
+    "title": "Key Configuration: maxLevels",
+    "text": "The maxLevels parameter controls how many hierarchy levels Louvain runs. Low maxLevels (1-2) result in many small, specific communities, while high maxLevels (10+) lead to fewer, larger communities. The default is 10, but Louvain stops early if modularity stops improving.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 213,
+    "title": "Experiment with maxLevels",
+    "text": "Compare results with different maxLevels. Notice how more levels produce fewer, larger communities. The modularity may be slightly higher with more levels, as the algorithm has more opportunities to optimize.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 214,
+    "title": "Choosing maxLevels",
+    "text": "Use fewer levels when you need granular, specific groups, you're doing detailed investigation of tight clusters, or your communities are naturally small. Use more levels when you want to cast a wide net, you're looking for large-scale structure, or many group members are unknown, like in fraud detection.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 215,
+    "title": "Alternative: includeIntermediateCommunities",
+    "text": "Instead of guessing maxLevels, set includeIntermediateCommunities: true. This stores community IDs at every level. You should notice how the community members get moved into new communities with each iteration.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 216,
+    "title": "Examine the results",
+    "text": "The resulting table should look something like this: It lists actor names alongside their community IDs at different levels, showing how they transition from one community to another.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 217,
+    "title": "Check intermediateCommunity sizes",
+    "text": "Run the following query to see the increasing sizes of the communities at each level. You should notice how the communities become larger with each new level.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 218,
+    "title": "Community consolidation",
+    "text": "Your results should look something like this table: It shows the level, community count, average size, minimum size, and maximum size of communities, demonstrating how they grow larger with each level.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 219,
+    "title": "Weighted Relationships",
+    "text": "Louvain can use relationship weights to influence community assignment. Let's see this in action by running Louvain twice—once unweighted, once weighted—and comparing the results. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s219-018-new] This diagram illustrates the concept of weighted vs unweighted relationships in Louvain community detection.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 220,
+    "title": "Run Unweighted Louvain",
+    "text": "First, run Louvain without weights. This will give us a baseline to compare against when we introduce weights.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 221,
+    "title": "Run Weighted Louvain",
+    "text": "Now run Louvain using collaboration counts as weights. Compare the community counts and modularity scores. Weighting by collaboration strength often produces different groupings—actors with many shared movies pull harder on each other.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 222,
+    "title": "Find Actors Split by Weighting",
+    "text": "Find actors who were together in the unweighted run but split apart when weights were applied. These actors were grouped together based on network structure alone, but when we accounted for collaboration strength, their weak connection wasn't enough to keep them together.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 223,
+    "title": "The wider network",
+    "text": "Here they are in their wider network. See if you can spot them. They are actually quite far apart from each other. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s223-020-new] This network diagram shows the wider network context of actors split by weighting.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 224,
+    "title": "Find Actors Joined by Weighting",
+    "text": "Find actors who were in different communities unweighted, but joined together when weights were applied. These actors were in separate communities based on structure alone, but their strong collaboration history pulled them into the same community when weights were considered. You should see that they have collaborated on many movies together.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 225,
+    "title": "The wider network",
+    "text": "Here they are in their wider network. When we visualize them in a force-directed graph, they should appear relatively close together—if not side-by-side. [IMAGE: img-2-community-detection-fraud-2-louvain-deep-dive-s225-022-new] This network diagram illustrates how weighting can bring nodes together into the same community.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 226,
+    "title": "What This Demonstrates",
+    "text": "Unweighted community assignment is based purely on connection structure, while weighted assignments allow stronger connections to have more influence on grouping. Actors with few shared movies may be split apart when weights are applied, while those with many shared movies may be pulled together despite structural separation. For fraud detection, weighting by transaction amounts or frequency can help distinguish casual connections from meaningful relationships.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 227,
+    "title": "The tolerance parameter",
+    "text": "Louvain stops when modularity improvements become negligible. The tolerance parameter controls what 'negligible' means. Lower tolerance means more iterations and potentially better modularity but slower performance. Higher tolerance results in fewer iterations and faster performance but may stop early. The default tolerance of 0.0001 works well for most cases.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 228,
+    "title": "High tolerance",
+    "text": "Let's see what happens if we up the tolerance to 1.0. Our overall modularity has gone down while our community count has risen. This happens because the algorithm considers itself 'converged' once the modularity stops increasing more than 1.0.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 229,
+    "title": "Lower tolerance",
+    "text": "You can also lower the tolerance past 0.00001. In our case, the graph converges fairly quickly, so the difference is not huge. However, let's run it anyway and see what we get. It's worth noting here that we can write floats in GDS using scientific notation.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 230,
+    "title": "Clean Up",
+    "text": "Drop the projection. This step is important to ensure that our workspace is tidy and ready for the next set of analyses.",
+    "estimated_duration_seconds": 10.0
+  },
+  {
+    "section_index": 231,
+    "title": "Part 3: When to Use Louvain",
+    "text": "",
+    "estimated_duration_seconds": 0
+  },
+  {
+    "section_index": 232,
+    "title": "When Louvain Works Well",
+    "text": "Louvain is ideal when you need fast results on large networks with millions of nodes, you want to explore community structure broadly, communities have varying sizes, and you're doing initial investigation rather than final assignment.",
+    "estimated_duration_seconds": 15.0
+  },
+  {
+    "section_index": 233,
+    "title": "Limitations",
+    "text": "Louvain has some important limitations. The resolution limit may miss very small communities in large networks. If you need to find 3-person fraud cells in a million-node graph, Louvain might merge them into larger groups. It's also non-deterministic, meaning results can vary slightly between runs due to node processing order. Community IDs will differ, but community membership is usually stable. These limitations don't make Louvain wrong for fraud detection—they make it a tool for exploration, not final judgment. In Lesson 5, you'll learn how to use WCC for deterministic, explainable community assignment.",
+    "estimated_duration_seconds": 25.0
+  },
+  {
+    "section_index": 234,
+    "title": "Transfer: From Movies to Fraud",
+    "text": "You've practiced Louvain on actor collaborations. Now let's apply it to fraud detection. In the Movies graph, we have Actor nodes and shared movies representing collaborations. In fraud detection, we have User nodes and shared identifiers like cards or devices. Finding acting ensembles is akin to finding fraud rings, where a community represents frequent collaborators or potentially coordinated actors.",
+    "estimated_duration_seconds": 20.0
+  },
+  {
+    "section_index": 235,
+    "title": "Summary",
+    "text": "Louvain finds communities by optimizing modularity through iterative local optimization and aggregation. Key points include that modularity scores above 0.4 indicate useful community structure, maxLevels controls granularity, and using includeIntermediateCommunities offers flexibility. The relationshipWeightProperty allows stronger connections to influence grouping, and tolerance controls convergence sensitivity. Louvain is fast and effective but non-deterministic. In the next lesson, you'll run Louvain on the fraud network and reduce your search space by 98%.",
+    "estimated_duration_seconds": 25.0
+  }
+]
