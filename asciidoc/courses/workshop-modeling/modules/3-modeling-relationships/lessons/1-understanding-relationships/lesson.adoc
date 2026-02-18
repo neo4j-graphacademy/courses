@@ -40,7 +40,7 @@ Every relationship has:
 
 * **Type** - A name that describes the connection (PLACED, ORDERS, SUPPLIES)
 * **Direction** - Points from one node to another (Customer **placed an** Order)
-* **Properties** - Optional attributes that describe the relationship (orderDate, quantity)
+* **Properties** - Optional attributes that describe the relationship (quantity, discount)
 
 
 [.slide]
@@ -141,14 +141,9 @@ graph LR
 ====
 
 [.slide]
-== Understanding O(n) notation
+== Why graph traversals scale well
 
-
-Big O notation describes how performance scales as data grows:
-
-* **O(1)** - Constant time: Performance stays the same regardless of data size
-* **O(n)** - Linear time: Performance degrades proportionally (2x data = 2x slower)
-* **O(n²)** - Quadratic time: Performance degrades exponentially (2x data = 4x slower)
+Graph databases optimize for relationship-heavy workloads by storing adjacency directly. That reduces the need for global index lookups and join materialization, making deep traversals more predictable and often significantly faster than equivalent multi-join relational queries—especially when relationship depth increases.
 
 [.slide]
 === SQL JOINs compound
@@ -158,17 +153,17 @@ Each JOIN adds another index scan. With large tables:
 * 1 JOIN: Scan 2 indexes, match keys
 * 2 JOINs: Scan 3 indexes, match keys twice
 * 3 JOINs: Scan 4 indexes, match keys three times
-* **Result:** Performance degrades with each hop (approaching O(n²))
+* **Result:** Cost grows with each hop as the database repeatedly scans indexes and materializes joins
 
 [.slide]
-=== Graph traversals stay constant
+=== Graph traversals follow pointers
 
-Each relationship is a direct pointer in memory:
+Each relationship is a direct pointer stored with the node. Following it is pointer chasing in memory:
 
-* 1 hop: Follow 1 pointer
-* 2 hops: Follow 2 pointers
-* 3 hops: Follow 3 pointers
-* **Result:** O(1) per hop - same speed regardless of database size
+* 1 hop: Follow one pointer from the current node
+* 2 hops: Follow two pointers in sequence
+* 3 hops: Follow three pointers in sequence
+* **Result:** Each hop is a direct memory follow; speed stays consistent regardless of total database size
 
 [.slide]
 === The performance gap
@@ -268,29 +263,25 @@ graph LR
 
 
 [.slide]
-== Using relationship properties
+== Order dates as node properties
 
 Relationships can have properties that describe the connection:
 
 [source,cypher]
 .Query relationship properties
 ----
-MATCH (c:Customer)-[r:PLACED]->(o:Order)  // <1>
-WHERE r.orderDate = '1996-07-04'          // <2>
-RETURN c.companyName, o.orderId, r.shipCountry
+MATCH (c:Customer)-[:PLACED]->(o:Order)           // <1>
+WHERE datetime('1997-07-01') <= o.date <= datetime('1996-07-04') // <2>
+RETURN c.companyName, o.id, o.shipCountry         // <3>
 LIMIT 5
 ----
 
-<1> **Relationship variable** - `r` captures the relationship so you can access its properties
-<2> **Filter by property** - Use relationship properties in WHERE clauses
+<1> **Match pattern** - Find customers and their orders
+<2> **Filter by date** - Filter orders by date range using the datetime() function
+<3> **Return properties** - Show customer name, order ID, and ship country
 
-// **Why use relationship properties?**
 
-// * Data belongs to the **connection**, not either node
-// * Example: `orderDate` belongs to the act of placing, not to Customer or Order alone
-// * Example: `quantity` belongs to the Order-Product connection (we'll see this in Module 4)
-
-Relationship properties provide context on the connection itself, rather than the nodes it connects.
+Order dates are properties of the Order node, representing when that specific order was placed.
 
 
 [.slide]
@@ -310,11 +301,12 @@ To recommend products, you need to know:
 In this lesson, you learned about relationships in Neo4j:
 
 * **Relationships connect nodes** - They have a type, direction, and optional properties
-* **Performance advantage** - Direct memory pointers vs SQL JOINs; O(1) traversals vs O(n) index scans
+* **Performance advantage** - Graph databases store adjacency directly; traversals follow pointers in memory instead of repeated index scans and join materialization, so deep traversals are more predictable and often much faster than equivalent multi-join SQL
 * **Multi-hop queries** - Graphs excel when traversing 3+ relationships (Customer→Order→Product→Category)
 * **PLACED relationship** - Connects Customer to Order (Customer→Order) for the recommendation path
 * **Direction flexibility** - Query in any direction regardless of how it's stored
-* **Relationship properties** - Data that belongs to the connection itself (orderDate, quantity)
+* **Node properties** - Data like dates belong to the entity itself (Order.date)
+* **Relationship properties** - Data that belongs to the connection (quantity on CONTAINS - coming in Module 4)
 * **Naming conventions** - Use verbs in UPPER_SNAKE_CASE (PLACED, CONTAINS, IN_CATEGORY)
 * **Connection to goal** - Customer→Order→Product path enables recommendations
 

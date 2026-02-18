@@ -36,7 +36,7 @@ This skill writes **concept/theory lessons** that:
 
 - **Teach Neo4j on its own merits** - Explain nodes, relationships, properties, traversals, and Cypher as graph-native concepts
 - **Use comparisons when helpful** - SQL, relational, or other tech comparisons can provide context, but don't overdo it
-- **Be factual, not salesy** - Demonstrate features with real examples, stick to facts (O(1) lookups, O(k) traversals)
+- **Be factual, not salesy** - Demonstrate features with real examples, stick to facts (index lookups, pointer traversal, lines of code)—do not use Big O or complexity notation (e.g. O(1), O(n), O(k)); use natural language for performance
 - **Make it hands-on and fun** - Users should enjoy building something that works
 - **Deliver working value** - By the end, they have something that demonstrates value and can be built upon
 
@@ -44,7 +44,7 @@ This skill writes **concept/theory lessons** that:
 - Use visual diagrams (ERD vs Graph) to show structural differences when helpful
 - Show SQL comparison for final solution if it demonstrates dramatic value
 - Don't compare constantly - teach graph thinking on its own terms first
-- When comparing, focus on facts (lines of code, complexity, performance) not vague claims
+- When comparing, focus on facts (lines of code, what the engine does, performance in plain language) not vague claims—do not use O(n), O(k), or other Big O notation; explain in natural language (e.g. "follows pointers in memory", "cost scales with connections traversed")
 
 ---
 
