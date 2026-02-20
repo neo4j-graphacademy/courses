@@ -1,0 +1,61 @@
+= Optional: Build an Agent with the Movies Dataset
+:order: 0
+:type: challenge
+:optional: true
+:disable-cache: true
+
+If you prefer the **Movies** dataset over Northwind, complete this challenge to create embeddings and build an agent for movies.
+
+
+== What You Will Do
+
+. Use your existing **Movies** dataset (Movie, Person, ACTED_IN) from link:/courses/aura-fundamentals/[Aura Fundamentals^]
+. Create embeddings on Movie nodes using `text-embedding-ada-002`
+. Create a vector index for semantic search
+. Build an agent with tools for Movie and Person nodes
+
+
+== Create Embeddings for Movie Nodes
+
+Run this Cypher in the Query tool. You need an link:https://platform.openai.com/api-keys[OpenAI API key^]. The GenAI plugin is enabled by default in Aura.
+
+[source,cypher,role=noplay nocopy]
+----
+MATCH (m:Movie)
+WHERE m.title IS NOT NULL AND m.embedding IS NULL
+CALL {
+  WITH m
+  WITH m, substring(coalesce(m.tagline, '') + "\n" + m.title, 0, 1000) AS movieText
+  WITH m, genai.vector.encode(
+    movieText,
+    "OpenAI",
+    { token: "sk-...", model: "text-embedding-ada-002" }) AS vector
+  SET m.embedding = vector
+} IN TRANSACTIONS OF 5 ROWS
+ON ERROR CONTINUE
+RETURN count(m) AS updated
+----
+
+Replace `token: "sk-..."` with your OpenAI API key.
+
+== Create the Vector Index
+
+Create a vector index on `Movie.embedding`:
+
+* Dimensions: 1536 (for `text-embedding-ada-002`)
+* Similarity: cosine
+
+
+== Build Your Agent
+
+Adapt the Northwind Analyst pattern for Movies:
+
+* **Tools**: Get Movie, Get Person, Movies by Actor, Actors in Movie, Similar Movies (vector search)
+* **Instructions**: Describe the Movie/Person schema and when to use each tool
+* **Test questions**: "Find movies similar to The Matrix", "Which actors appeared in action movies?"
+
+
+[.summary]
+== Summary
+
+You built an agent using the Movies dataset with ada embeddings. If you complete this path, you can skip the Northwind setup and proceed to the publishing challenge.
