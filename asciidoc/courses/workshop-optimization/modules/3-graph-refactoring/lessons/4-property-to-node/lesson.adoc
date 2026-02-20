@@ -3,6 +3,112 @@
 
 In this lesson, you will learn how to refactor your graph by normalizing properties into separate nodes to reduce data duplication and improve data modeling consistency.
 
+
+== Employee role
+
+// employee role
+MATCH (employee:Employee) RETURN employee.firstName, employee.title
+
+// normalize employee role to a separate node
+MATCH (employee:Employee)
+MERGE (role:Role {title: employee.title})
+MERGE (employee)-[r:HAS_ROLE]->(role)
+REMOVE employee.title
+RETURN employee, r, role
+
+// get roles
+MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
+RETURN employee.firstName, role.title
+
+// get employees and their managers
+// optional match to include employees without managers
+MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
+OPTIONAL MATCH (employee)-[:REPORTS_TO]->(manager:Manager)
+RETURN employee.firstName, role.title, manager.firstName as Manager
+
+// revert back to original model
+// detach delete will delete the role node and the HAS_ROLE relationship
+MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
+SET employee.title = role.title
+DETACH DELETE role
+
+
+
+
+== Addresses
+
+
+// order shipping addresses
+MATCH (order:Order)
+RETURN DISTINCT
+  order.shipAddress,
+  order.shipCity,
+  order.shipRegion,
+  order.shipPostalCode,
+  order.shipCountry
+
+
+// normalize shipping address to a separate address node
+MATCH (order:Order)
+MERGE (address:Address {
+  address: order.shipAddress,
+  city: order.shipCity,
+  region: order.shipRegion,
+  postalCode: order.shipPostalCode,
+  country: order.shipCountry})
+REMOVE 
+  order.shipAddress,
+  order.shipCity,
+  order.shipRegion,
+  order.shipPostalCode,
+  order.shipCountry
+MERGE (order)-[s:SHIPPED_TO]->(address)
+RETURN order, s, address
+
+[NOTE]
+.Merge on address properties
+====
+The merge is happening on all the address properties to ensure that you only create one `Address` node for each unique address.
+====
+
+// normalized shipping addresses
+MATCH (order:Order)-[:SHIPPED_TO]->(address:Address)
+RETURN 
+  order.orderID, 
+  address.address, 
+  address.city, 
+  address.region, 
+  address.postalCode, 
+  address.country
+
+
+Use case around providing a discount for new orders to a specific address. 
+
+
+
+// revert back to original model
+MATCH (order:Order)-[:SHIPPED_TO]->(address:Address)
+SET 
+  order.shipAddress = address.address,
+  order.shipCity = address.city,
+  order.shipRegion = address.region,
+  order.shipPostalCode = address.postalCode,
+  order.shipCountry = address.country
+DETACH DELETE address
+RETURN
+  order.shipAddress,
+  order.shipCity,
+  order.shipRegion,
+  order.shipPostalCode,
+  order.shipCountry
+
+
+
+Refactor `Employee`, `Customer`, and `Supplier` nodes to normalize the address properties to separate `Address` nodes.
+
+Write a query to determine the percentage of orders shipped to the customer's address vs a different address.
+
+
 read::Complete[]
 
 [.summary]
