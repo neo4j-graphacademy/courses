@@ -10,6 +10,36 @@ echo "Checking for modified courses..."
 # Get list of staged files
 STAGED_FILES=$(git diff --cached --name-only)
 
+# Check that all include::questions/... references in staged lesson files
+# are backed by files that are tracked by git (staged or committed).
+# This catches the common mistake of writing includes for question files
+# that exist locally but were never git-added.
+STAGED_LESSONS=$(echo "$STAGED_FILES" | grep "lesson\.adoc$")
+if [ -n "$STAGED_LESSONS" ]; then
+    UNTRACKED_QUESTIONS=""
+    for LESSON in $STAGED_LESSONS; do
+        LESSON_DIR=$(dirname "$LESSON")
+        # Extract filenames from: include::questions/foo.adoc[...] or include::./questions/foo.adoc[...]
+        INCLUDES=$(grep -o 'include::\./questions/[^[]*\|include::questions/[^[]*' "$LESSON" 2>/dev/null \
+            | sed 's|include::\./||;s|include::||' || true)
+        for INCLUDE in $INCLUDES; do
+            QUESTION_PATH="$LESSON_DIR/$INCLUDE"
+            if ! git ls-files "$QUESTION_PATH" | grep -q .; then
+                UNTRACKED_QUESTIONS="$UNTRACKED_QUESTIONS\n  $QUESTION_PATH  (referenced in $LESSON)"
+            fi
+        done
+    done
+    if [ -n "$UNTRACKED_QUESTIONS" ]; then
+        echo ""
+        echo "❌ The following question files are referenced in lessons but are not tracked by git:"
+        printf "$UNTRACKED_QUESTIONS\n"
+        echo ""
+        echo "These files may exist on disk but have not been staged."
+        echo "Stage each file with 'git add <path>' and then commit again."
+        exit 1
+    fi
+fi
+
 # Extract unique course slugs from staged files in asciidoc/courses/
 MODIFIED_COURSES=$(echo "$STAGED_FILES" | grep "^asciidoc/courses/" | sed 's|^asciidoc/courses/||' | cut -d'/' -f1 | sort -u | tr '\n' ',')
 

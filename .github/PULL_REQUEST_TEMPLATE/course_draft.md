@@ -4,6 +4,7 @@
 
 - [ ] Write course content (modules, lessons, questions, challenges)
 - [ ] Add any required images and includes to lesson folders
+- [ ] Ensure all `include::questions/...` files are staged and tracked by git (`git status` shows no untracked files in `questions/` folders)
 - [ ] Set course status to `:status: draft` in course.adoc
 - [ ] Follow existing course structure (used recent course as template)
 - [ ] Include proper course metadata (categories, duration, etc.)
