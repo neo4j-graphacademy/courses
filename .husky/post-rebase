@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# After a rebase, check if any lesson files in affected courses have
+# include::questions/... references to files that are no longer tracked by git.
+#
+# This can happen when a rebase drops or skips a commit that added question
+# files -- the lesson.adoc keeps its [.quiz] include directives but the
+# question files disappear from the git index (they may still be on disk as
+# untracked files, which is why local QA tests pass but CI fails).
+
+HOOK_DIR=$(dirname "$0")
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$GIT_ROOT" ]; then
+    exit 0
+fi
+
+# Find courses whose lesson files changed during the rebase.
+# ORIG_HEAD is set by git to where HEAD was before the rebase.
+CHANGED_COURSES=$(git diff --name-only ORIG_HEAD..HEAD 2>/dev/null \
+    | grep "^asciidoc/courses/" \
+    | sed 's|^asciidoc/courses/||' \
+    | cut -d'/' -f1 \
+    | sort -u)
+
+if [ -z "$CHANGED_COURSES" ]; then
+    exit 0
+fi
+
+# Collect all lesson.adoc paths in affected courses and pipe to the shared helper
+UNTRACKED_QUESTIONS=$(
+    for COURSE in $CHANGED_COURSES; do
+        find "$GIT_ROOT/asciidoc/courses/$COURSE" -name "lesson.adoc" 2>/dev/null
+    done | sh "$HOOK_DIR/_/check-question-refs.sh"
+)
+
+if [ -n "$UNTRACKED_QUESTIONS" ]; then
+    echo ""
+    echo "⚠️  WARNING: Rebase may have dropped question files that are still referenced in lessons."
+    echo "   The following files are included in lessons but are NOT tracked by git:"
+    echo "$UNTRACKED_QUESTIONS" | sed 's/^/  /'
+    echo ""
+    echo "   These files may still exist on disk (run 'git status' to check)."
+    echo "   If they are there:  git add <path> && git commit -m 'Restore question files lost in rebase'"
+    echo "   If they are gone:   recreate them, then git add && git commit"
+    echo ""
+fi

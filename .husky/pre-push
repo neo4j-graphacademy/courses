@@ -40,6 +40,43 @@ if ! git rev-list --count "$COMMIT_RANGE" >/dev/null 2>&1; then
   exit 0
 fi
 
+# Block push if any lesson in the push range references question files that are
+# not tracked by git.  This is the last safety net before CI sees the code and
+# catches files that were dropped during a merge or rebase (they may still exist
+# on disk as untracked files, which fools the local QA filesystem check).
+HOOK_DIR=$(dirname "$0")
+CHANGED_LESSONS=$(git diff --name-only "$COMMIT_RANGE" | grep "lesson\.adoc$" || true)
+# Also include lessons whose questions/ folder changed (e.g. a question file was deleted)
+while IFS= read -r Q_DIR; do
+    [ -z "$Q_DIR" ] && continue
+    LESSON_FILE="$Q_DIR/lesson.adoc"
+    if [ -f "$LESSON_FILE" ]; then
+        CHANGED_LESSONS=$(printf "%s\n%s" "$CHANGED_LESSONS" "$LESSON_FILE")
+    fi
+done <<EOF
+$(git diff --name-only "$COMMIT_RANGE" \
+    | grep "/questions/.*\.adoc$" \
+    | sed 's|/questions/.*||' \
+    | sort -u || true)
+EOF
+CHANGED_LESSONS=$(echo "$CHANGED_LESSONS" | sort -u | grep -v '^$' || true)
+
+if [ -n "$CHANGED_LESSONS" ]; then
+    PUSH_UNTRACKED=$(echo "$CHANGED_LESSONS" | sh "$HOOK_DIR/_/check-question-refs.sh")
+    if [ -n "$PUSH_UNTRACKED" ]; then
+        echo ""
+        echo "❌ Push blocked: lesson files reference question files that are not tracked by git."
+        echo "   This often happens when a merge or rebase drops the commit that added these files."
+        echo "   The following question files are missing from git:"
+        echo "$PUSH_UNTRACKED" | sed 's/^/  /'
+        echo ""
+        echo "   Check if they still exist on disk:  git status"
+        echo "   If they are there:  git add <path> && git commit"
+        echo "   If they are gone:   recreate them, then git add && git commit"
+        exit 1
+    fi
+fi
+
 # Get course.adoc files that were added or modified
 # Separate newly added files from modified files
 NEW_COURSE_FILES=$(git diff --name-only --diff-filter=A "$COMMIT_RANGE" | grep "course\.adoc$" || true)
