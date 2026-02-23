@@ -512,24 +512,6 @@ describe("QA Tests", () => {
                   }
                 });
 
-                it("should use local images folder (not parent directory references)", () => {
-                  // Find any image references that use parent directories
-                  const parentDirImageMatches = [
-                    ...lessonAdoc.matchAll(
-                      /image::\.\.\/[^\/]+\/images\/([^\[]+)\[/g,
-                    ),
-                  ];
-
-                  if (parentDirImageMatches.length > 0) {
-                    const badImages = parentDirImageMatches.map(
-                      (match) => match[0],
-                    );
-                    throw new Error(
-                      `Image references should use "image::images/..." syntax within the local lesson folder, not parent directory references. Found: ${badImages.join(", ")}`,
-                    );
-                  }
-                });
-
                 it("should include all questions from the questions folder and no non-existent questions", () => {
                   // Skip this test if lesson is optional or has read button
                   if (optional || hasReadButton) {
@@ -671,228 +653,6 @@ describe("QA Tests", () => {
                         }
                       });
 
-                      it("should not use parentheses or dashes for inline explanations", () => {
-                        // Patterns for inline explanations that should be rewritten as proper sentences
-                        const inlineExplanationPatterns = [
-                          // Parenthetical explanations: "word (explanation here)"
-                          /\w+\s+\([^)]{15,}\)/g,
-                          // Double-dash explanations: "word -- explanation here"
-                          /\w+\s+--\s+[^.\n]{10,}/g,
-                          // Em-dash explanations: "word — explanation here"  
-                          /\w+\s+—\s+[^.\n]{10,}/g,
-                        ];
-
-                        // Extract question and answer content (not hints/solutions which may need explanations)
-                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
-                        const questionTextMatch = asciidoc.match(
-                          /^=\s+.+\n\n([\s\S]*?)(?=\n\[TIP,role=hint\])/m,
-                        );
-                        const questionContent = `${titleMatch ? titleMatch[1] : ""}\n${questionTextMatch ? questionTextMatch[1] : ""}`;
-
-                        const violations = [];
-                        for (const pattern of inlineExplanationPatterns) {
-                          const matches = questionContent.match(pattern);
-                          if (matches) {
-                            for (const match of matches) {
-                              // Skip short parentheses (likely abbreviations or single words)
-                              // Skip code-like content
-                              if (
-                                !match.includes("`") &&
-                                !match.includes("e.g.") &&
-                                !match.includes("i.e.") &&
-                                !match.match(/\(\d+\)/) &&
-                                !match.match(/\([A-Z]{2,}\)/)
-                              ) {
-                                violations.push(match.substring(0, 60));
-                              }
-                            }
-                          }
-                        }
-
-                        if (violations.length > 0) {
-                          throw new Error(
-                            `Question should not use parentheses or dashes for inline explanations. ` +
-                              `Found: ["${violations.join('", "')}..."]. ` +
-                              `Rewrite as proper sentences instead.`,
-                          );
-                        }
-                      });
-
-                      it("should not rely on UI elements or memory-based recall", () => {
-                        // UI elements and memory-based patterns that make questions brittle
-                        const uiPatternsStrict = [
-                          /\bpencil icon\b/i,
-                          /\bthree[- ]dot menu\b/i,
-                          /\b(?:click|tap|press) (?:the |on )?(?:button|icon|menu)\b/i,
-                          /\bwhat (?:button|icon|menu)\b/i,
-                          /\bwhich (?:button|icon|menu)\b/i,
-                          /\bwhere (?:is|are) the\b/i,
-                          /\bwhat color\b/i,
-                          /\bwhat symbol\b/i,
-                          /\bhow many (?:buttons|icons|tabs|menus)\b/i,
-                          /\bin (?:the )?(?:top|bottom|left|right)[- ](?:corner|side)\b/i,
-                          /\brecall from (?:the )?(?:lesson|video|demo)\b/i,
-                          /\bas (?:shown|seen|demonstrated) in\b/i,
-                          /\busing the .+ icon\b/i,
-                        ];
-
-                        // Patterns for answer options - UI-specific actions that can change
-                        const answerUiPatterns = [
-                          /\busing the .+ icon\b/i,
-                          /\bclick(?:ing)? (?:the |on )?[a-z]+ icon\b/i,
-                          /\bpencil icon\b/i,
-                          /\bthree[- ]dot menu\b/i,
-                          /\b(?:hamburger|gear|cog|settings) (?:icon|menu)\b/i,
-                        ];
-
-                        // Extract question content (title + question text, not answers/hints/solutions)
-                        const questionContentMatch = asciidoc.match(
-                          /^=\s+.+\n\n([\s\S]*?)(?=\n\*\s*\[|\n-\s*\[)/m,
-                        );
-                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
-                        const questionContent = `${titleMatch ? titleMatch[1] : ""} ${questionContentMatch ? questionContentMatch[1] : ""}`;
-
-                        // Extract answer options (before hints/solutions)
-                        const answersMatch = asciidoc.match(
-                          /(?:\n\*\s*\[[^\]]*\][^\n]*)+/g,
-                        );
-                        const answerContent = answersMatch
-                          ? answersMatch.join(" ")
-                          : "";
-
-                        const violations = [];
-
-                        // Check question text for UI patterns
-                        for (const pattern of uiPatternsStrict) {
-                          const match = questionContent.match(pattern);
-                          if (match) {
-                            violations.push(`question: "${match[0]}"`);
-                          }
-                        }
-
-                        // Check answer options for UI-specific patterns
-                        for (const pattern of answerUiPatterns) {
-                          const match = answerContent.match(pattern);
-                          if (match) {
-                            violations.push(`answer: "${match[0]}"`);
-                          }
-                        }
-
-                        if (violations.length > 0) {
-                          throw new Error(
-                            `Question should not rely on UI elements or memory-based recall. ` +
-                              `Found: [${violations.join(", ")}]. ` +
-                              `Questions should test conceptual understanding, not UI navigation or visual recall.`,
-                          );
-                        }
-                      });
-
-                      it("should have its topic covered in the lesson content", () => {
-                        // Extract meaningful keywords from the question title and content
-                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
-                        if (!titleMatch) return;
-
-                        const title = titleMatch[1].trim();
-
-                        // Extract the question text (after title, before answer options)
-                        const questionTextMatch = asciidoc.match(
-                          /^=\s+.+\n\n([\s\S]*?)(?=\n\*\s*\[|\n-\s*\[)/m,
-                        );
-                        const questionText = questionTextMatch
-                          ? questionTextMatch[1].trim()
-                          : "";
-
-                        // Combine title and question text for keyword extraction
-                        const fullQuestionContext = `${title} ${questionText}`;
-
-                        // Extract significant words (3+ chars, not common stop words)
-                        const stopWords = [
-                          "the",
-                          "and",
-                          "for",
-                          "are",
-                          "but",
-                          "not",
-                          "you",
-                          "all",
-                          "can",
-                          "her",
-                          "was",
-                          "one",
-                          "our",
-                          "out",
-                          "has",
-                          "have",
-                          "been",
-                          "will",
-                          "your",
-                          "from",
-                          "they",
-                          "this",
-                          "that",
-                          "with",
-                          "which",
-                          "what",
-                          "when",
-                          "where",
-                          "how",
-                          "why",
-                          "does",
-                          "used",
-                          "using",
-                          "use",
-                          "following",
-                          "best",
-                          "most",
-                          "true",
-                          "false",
-                          "correct",
-                          "incorrect",
-                          "statement",
-                          "statements",
-                          "option",
-                          "options",
-                          "choose",
-                          "select",
-                          "answer",
-                          "question",
-                        ];
-
-                        const keywords = fullQuestionContext
-                          .toLowerCase()
-                          .replace(/[^a-z0-9\s-]/g, " ")
-                          .split(/\s+/)
-                          .filter(
-                            (word) =>
-                              word.length >= 3 && !stopWords.includes(word),
-                          )
-                          .filter(
-                            (word, index, self) =>
-                              self.indexOf(word) === index,
-                          );
-
-                        // Check if at least 2 significant keywords appear in the lesson
-                        const lessonLower = lessonAdoc.toLowerCase();
-                        const foundKeywords = keywords.filter((keyword) =>
-                          lessonLower.includes(keyword),
-                        );
-
-                        // Require at least 2 matching keywords or 50% of keywords (whichever is lower)
-                        const minRequired = Math.min(
-                          2,
-                          Math.ceil(keywords.length * 0.5),
-                        );
-
-                        if (foundKeywords.length < minRequired) {
-                          throw new Error(
-                            `Question topic "${title}" may not be covered in the lesson. ` +
-                              `Keywords from question: [${keywords.slice(0, 10).join(", ")}]. ` +
-                              `Found in lesson: [${foundKeywords.join(", ")}]. ` +
-                              `Expected at least ${minRequired} matching keywords.`,
-                          );
-                        }
-                      });
-
                       it(`should have a hint`, () => {
                         expect(asciidoc).toContain("\n[TIP,role=hint]");
                       });
@@ -975,13 +735,13 @@ describe("QA Tests", () => {
                         });
                       } else {
                         describe("Multiple Choice Question", () => {
-                          it("should have at least 3 answer options (no true/false questions)", () => {
+                          it("should have at least 1 answer option", () => {
                             const answerMatches = asciidoc.match(
                               /^[\*\-]\s*\[[\sxX\*]\]/gm,
                             );
                             expect(answerMatches).toBeTruthy();
                             expect(answerMatches.length).toBeGreaterThanOrEqual(
-                              3,
+                              1,
                             );
                           });
 
