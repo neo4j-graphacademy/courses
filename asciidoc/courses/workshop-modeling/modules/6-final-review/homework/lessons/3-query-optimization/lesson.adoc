@@ -27,11 +27,11 @@ From anchor nodes, Neo4j traverses relationships to find connected data.
 [source,cypher]
 .Basic query execution flow
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
-RETURN c.companyName, count(o) AS orderCount
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.name, count(o) AS orderCount
 ----
 
-1. **Anchor:** Find Customer with customerId = 'ALFKI'
+1. **Anchor:** Find Customer with id = 'ALFKI'
 2. **Expand:** Follow PLACED relationships to Orders
 3. **Aggregate:** Count the orders
 4. **Return:** Display results
@@ -47,7 +47,7 @@ RETURN c.companyName, count(o) AS orderCount
 [source,text]
 .Query without index - linear scan
 ----
-Neo4j scans ALL Customer nodes → checks each customerId → finds match
+Neo4j scans ALL Customer nodes → checks each id → finds match
 Time grows with the number of customers (linear scan).
 ----
 
@@ -65,8 +65,8 @@ The index makes lookup fast and consistent regardless of how many customers exis
 [source,cypher]
 .Find a specific customer (try this)
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})
-RETURN c.companyName
+MATCH (c:Customer {id: 'ALFKI'})
+RETURN c.name
 ----
 
 If you created constraints during import, this uses an index automatically. Without constraints, it scans all 91 customers.
@@ -100,15 +100,15 @@ REQUIRE n.property IS UNIQUE
 ----
 CREATE CONSTRAINT customer_id_unique
 FOR (c:Customer)
-REQUIRE c.customerId IS UNIQUE
+REQUIRE c.id IS UNIQUE
 
-CREATE CONSTRAINT product_name_unique
+CREATE CONSTRAINT product_id_unique
 FOR (p:Product)
-REQUIRE p.productName IS UNIQUE
+REQUIRE p.id IS UNIQUE
 
 CREATE CONSTRAINT order_id_unique
 FOR (o:Order)
-REQUIRE o.orderId IS UNIQUE
+REQUIRE o.id IS UNIQUE
 ----
 
 **Note:** If you used the Import tool's "ID property" feature, these may already exist!
@@ -124,16 +124,16 @@ REQUIRE o.orderId IS UNIQUE
 SHOW CONSTRAINTS
 ----
 
-You should see constraints for Customer.customerId, Product.productName, and Order.orderId.
+You should see constraints for Customer.id, Product.id, and Order.id.
 
 **On your Northwind graph:**
 
 [source,cypher]
 .Query that benefits from constraints
 ----
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
-RETURN DISTINCT p.productName
-ORDER BY p.productName
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN DISTINCT p.name
+ORDER BY p.name
 ----
 
 **With constraint:** Instant lookup of 'ALFKI' → fast query
@@ -158,7 +158,7 @@ ORDER BY p.productName
 ----
 MATCH (p:Product)
 WHERE p.unitPrice > 50
-RETURN p.productName, p.unitPrice
+RETURN p.name, p.unitPrice
 ORDER BY p.unitPrice DESC
 ----
 
@@ -196,7 +196,7 @@ Now run the expensive products query again:
 ----
 MATCH (p:Product)
 WHERE p.unitPrice > 50
-RETURN p.productName, p.unitPrice
+RETURN p.name, p.unitPrice
 ORDER BY p.unitPrice DESC
 ----
 
@@ -246,7 +246,7 @@ ON (o.date);
 .Explain a product lookup
 ----
 EXPLAIN
-MATCH (p:Product {productName: 'Chai'})
+MATCH (p:Product {name: 'Chai'})
 RETURN p.unitPrice
 ----
 
@@ -275,8 +275,8 @@ RETURN p.unitPrice
 .Profile finding a customer's orders
 ----
 PROFILE
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(o:Order)
-RETURN c.companyName, count(o) AS orderCount
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(o:Order)
+RETURN c.name, count(o) AS orderCount
 ----
 
 **Reading the plan (bottom-to-top):**
@@ -305,7 +305,7 @@ DROP CONSTRAINT product_name_unique IF EXISTS
 [source,cypher]
 ----
 PROFILE
-MATCH (p:Product {productName: 'Chai'})
+MATCH (p:Product {name: 'Chai'})
 RETURN p.unitPrice
 ----
 
@@ -319,7 +319,7 @@ RETURN p.unitPrice
 ----
 CREATE CONSTRAINT product_name_unique
 FOR (p:Product)
-REQUIRE p.productName IS UNIQUE
+REQUIRE p.name IS UNIQUE
 ----
 
 **Step 4: Profile again**
@@ -327,7 +327,7 @@ REQUIRE p.productName IS UNIQUE
 [source,cypher]
 ----
 PROFILE
-MATCH (p:Product {productName: 'Chai'})
+MATCH (p:Product {name: 'Chai'})
 RETURN p.unitPrice
 ----
 
@@ -347,9 +347,9 @@ RETURN p.unitPrice
 .Profile customer to products
 ----
 PROFILE
-MATCH (c:Customer {customerId: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
-RETURN DISTINCT p.productName
-ORDER BY p.productName
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
+RETURN DISTINCT p.name
+ORDER BY p.name
 ----
 
 **Expected plan:**
@@ -375,7 +375,7 @@ ORDER BY p.productName
 ----
 PROFILE
 MATCH (c:Customer)-[:PLACED]->(:Order)-[:CONTAINS]->(p:Product)
-RETURN c.companyName, count(DISTINCT p) AS productCount
+RETURN c.name, count(DISTINCT p) AS productCount
 ORDER BY productCount DESC
 LIMIT 10
 ----
@@ -443,8 +443,8 @@ LIMIT 10
 .Check database hits
 ----
 PROFILE
-MATCH (c:Customer {customerId: 'ALFKI'})
-RETURN c.companyName
+MATCH (c:Customer {id: 'ALFKI'})
+RETURN c.name
 ----
 
 Expected: 1-2 database hits for 1 row (very efficient).
@@ -462,7 +462,7 @@ Expected: 1-2 database hits for 1 row (very efficient).
 [source,text]
 .Required constraints
 ----
-customerId, productId, orderId
+Customer.id, Product.id, Order.id
 ----
 
 ✅ **Indexes on filtered properties**
@@ -531,8 +531,9 @@ Use PROFILE to check for scans
 [source,text]
 .Constraints vs indexes decision guide
 ----
-Constraint: customerId (unique)
-Constraint: productName (unique)
+Constraint: Customer.id (unique)
+Constraint: Product.id (unique)
+Constraint: Order.id (unique)
 Index: unitPrice (not unique, range queries)
 Index: country (not unique, filtering)
 ----
