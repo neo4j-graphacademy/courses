@@ -3,63 +3,14 @@
 :order: 3
 
 
-In this lesson you will learn some of the common best practices for writing efficient Cypher queries including: 
+== Introduction
+
+In the following lessons you will learn some of the common best practices for writing efficient Cypher queries including:
 
 * Use of indexes
-* Reading early
+* Count stores
 * Using WITH to break down complex queries
-
-== Use of indexes
-
-Indexes are a powerful tool for improving query performance. Indexes allow Neo4j to quickly locate nodes based on their properties, which can significantly reduce the time it takes to find anchor nodes and traverse relationships.
-
-The following query finds the orders for a specific customer, "Ernst Handel".
-
-[source, cypher, role=noplay]
-----
-PROFILE MATCH (c:Customer {companyName: "Ernst Handel"})-[:PURCHASED]->(o:Order) 
-RETURN c.companyName, o.orderID, o.requiredDate
-ORDER BY o.requiredDate
-----
-
-Run the query, review the plan, and try to identify the operations being performed.
-
-The profile of this query shows that: 
-
-. Neo4j is performing a `NodeByLabelScan` operation on `Customer`. 
-. Before a `Filter` operation to find the specific customer.
-
-image::images/no-index-query-plan-labelscan-filter.png["Query plan showing NodeByLabelScan operation passing 91 rows to Filter which outputs 1 row"]
-
-Neo4j has to scan all `Customer` nodes to find the one with the matching `companyName`.
-
-You can improve the performance of this query by creating an index on the `companyName` property of the `Customer` label:
-
-[source, cypher, role=noplay]
-----
-CREATE INDEX customer_companyName 
-IF NOT EXISTS 
-FOR (c:Customer) ON (c.companyName)
-----
-
-Running the same query again after creating the index shows that Neo4j is now using a `NodeIndexSeek` operator to find the specific customer:
-
-[source, cypher, role=noplay]
-----
-PROFILE MATCH (c:Customer {companyName: "Ernst Handel"})-[:PURCHASED]->(o:Order) 
-RETURN c.companyName, o.orderID, o.requiredDate
-ORDER BY o.requiredDate
-----
-
-image::images/with-index-query-plan-nodeindexseek.png["Query plan showing NodeIndexSeek operation passing 1 row to Expand operation"]
-
-Creating an index on the `companyName` property allows Neo4j to quickly locate the specific customer node, which significantly improves the performance of the query.
-
-[TIP]
-.Text indexes
-====
-You can use a link:https://neo4j.com/docs/cypher-manual/current/indexes/search-performance-indexes/create-indexes/#create-text-index[text index^] to improve the performance of queries that involve partial matching of string properties using `CONTAINS`, `STARTS WITH`, or `ENDS WITH`. 
-====
+* Reading properties late
 
 // Potential examples we could use:
 
@@ -75,12 +26,26 @@ You can use a link:https://neo4j.com/docs/cypher-manual/current/indexes/search-p
 
 
 
+// TODO - DOES THIS GO HERE? Is it too early? There are a lot of new concepts, it might be better to have this at the end of the module as a checklist for query optimization?
+== Query Optimization Checklist
+
+When analyzing slow queries, check for these common issues:
+
+* **Variable length paths have upper limits**: Use `[\*1..5]` instead of `[*]` to prevent excessive traversals
+* **Node labels are specified**: Use `MATCH (u:User)` instead of `MATCH (u)` to avoid scanning all nodes
+* **Properties have indexes**: Create indexes on properties used in `WHERE` clauses and lookups
+* **Relationship types are specified**: Always provide relationship types to narrow traversals
+* **Relationship directions are specified**: Always specify the direction of the relationship when it is known
+* **Queries use parameters**: Replace literal values with `$parameter` to enable plan caching
+* **Return only needed properties**: Use `RETURN u.name, m.title` instead of `RETURN u, m` to reduce data transfer
+* **Result sets are limited**: Add `LIMIT` clauses to prevent returning excessive data
+
 
 read::Continue[]
 
 [.summary]
 == Lesson Summary
 
-In this lesson, you learned about query good practices, including how to structure queries efficiently, use indexes effectively, and avoid common performance anti-patterns.
+In this lesson, you learned ...
 
-In the next lesson, you will learn about investigating and resolving common query performance issues.
+In the next lesson, you will ...
