@@ -1,44 +1,150 @@
 = Property to node - normalizing a property to a node
 :order: 4
 
+== Introduction
+
 In this lesson, you will learn how to refactor your graph by normalizing properties into separate nodes to reduce data duplication and improve data modeling consistency.
 
+Traversing nodes and relationships is fast and efficient in Neo4j. Filtering properties by can be expensive (especially if they are not indexed). 
+
+The existence of a node or relationship in the graph can also be used to indicate a specific state or condition, for example, an `Order` node with a `SHIPPED` relationship to an `Address` node indicates that the order has been shipped to that address.
+
+[source,mermaid]
+.An order has been shipped
+----
+include::diagrams/order-address.mermaid[]
+----
 
 == Employee role
 
-// employee role
-MATCH (employee:Employee) RETURN employee.firstName, employee.title
+An `Employee` node has a `title` property that indicates the employee's role in the company.
 
-// normalize employee role to a separate node
+[source,cypher,role=noplay]
+.Employee roles
+----
+MATCH (employee:Employee) 
+RETURN employee.firstName, employee.title
+----
+
+You can get a list of all the unique titles with the following query:
+
+[source,cypher,role=noplay]
+.Unique employee titles
+----
 MATCH (employee:Employee)
-MERGE (role:Role {title: employee.title})
-MERGE (employee)-[r:HAS_ROLE]->(role)
-REMOVE employee.title
-RETURN employee, r, role
+RETURN DISTINCT employee.title
+----
 
-// get roles
-MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
-RETURN employee.firstName, role.title
+If you profile this query you will see that every `Employee` node is being scanned and the `title` property is accessed to determine if it is unique.
 
-// get employees and their managers
-// optional match to include employees without managers
-MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
-OPTIONAL MATCH (employee)-[:REPORTS_TO]->(manager:Manager)
-RETURN employee.firstName, role.title, manager.firstName as Manager
+=== Create Role nodes and HAS_ROLE relationships
 
-// revert back to original model
-// detach delete will delete the role node and the HAS_ROLE relationship
+To normalize this property, you can create a `Role` node for each unique title and connect the `Employee` nodes to their corresponding `Role` nodes with a `HAS_ROLE` relationship.
+
+[source,mermaid]
+----
+include::diagrams/employee-role.mermaid[]
+----
+
+The following Cypher query creates `Role` nodes and `HAS_ROLE` relationships based on the existing `title` property of `Employee` nodes:
+
+[source,cypher,role=noplay]
+.Create Role nodes and HAS_ROLE relationships
+----
+MATCH (employee:Employee)                              // <1>
+MERGE (role:Role {title: employee.title})              // <2>
+MERGE (employee)-[r:HAS_ROLE]->(role)                  // <3>
+REMOVE employee.title                                  // <4>
+RETURN employee, r, role                               // <5>
+----
+
+<1> Find all the employee nodes
+<2> Create a Role node for each title
+<3> Create a HAS_ROLE relationship between the `Employee` and `Role` nodes
+<4> Remove the title property from the Employee node
+<5> Return the employee, role, and relationship
+
+=== Add constraint and index
+
+The `title` property on the `Role` node is now a unique identifier for the role.
+
+You can add a link:https://neo4j.com/docs/cypher-manual/current/constraints/managing-constraints/#create-key-constraints[node key constraint^] to ensure data integrity and improve query performance:
+
+[source,cypher,role=noplay]
+.Add uniqueness constraint and index on Role title
+----
+CREATE CONSTRAINT title_Role_key IF NOT EXISTS
+FOR (r:Role) REQUIRE r.title IS NODE KEY
+----
+
+[NOTE]
+.Indexes and constraints
+====
+Creating a constraint will also create an index on the same label and property.
+====
+
+[TIP]
+.Viewing constraints
+====
+You can view the constraints in your database with the following query:
+
+[source, cypher, role=noplay]
+----
+SHOW CONSTRAINTS
+----
+
+You will see the `title_Role_key` constraint, along with other constraints that were created when the data was imported such as `categoryID_Category_uniq`.
+====
+
+
+=== Querying employees and roles
+
+Querying roles is now more efficient as you can use the `Role` label.
+
+[source,cypher,role=noplay]
+----
+MATCH (r:Role)
+RETURN r.title
+----
+
+Introducing a 1 step traversal to get the role of an employee is slightly more expensive, but it is more efficient to query for all employees with a specific role.
+
+[source,cypher,role=noplay]
+.Query employees with a specific role
+----
+MATCH (r:Role {title: "Sales Representative"})<-[:HAS_ROLE]-(e:Employee)
+RETURN r.title, e.firstName
+----
+
+[TIP]
+.Detach delete
+====
+You can use `DETACH DELETE` to delete a node and all its relationships in one step.
+
+To remove the `Role` nodes and `HAS_ROLE` relationships and revert back to the original model, you could use the following query:
+
+[source,cypher,role=noplay]
+.Remove Role nodes and HAS_ROLE relationships
+----
 MATCH (employee:Employee)-[:HAS_ROLE]->(role:Role)
 SET employee.title = role.title
 DETACH DELETE role
+----
 
-
-
+The `title` property is `SET` on the employee note and `DETACH DELETE` deletes the `Role` node and all `HAS_ROLE` relationships.
+====
 
 == Addresses
 
+The data model contains several addresses which are represented as properties on the `Order`, `Customer`, `Employee`, and `Supplier` nodes.
 
-// order shipping addresses
+These addresses are not connected to other nodes in the graph and are not easily queryable or comparable.
+
+The shipping address for an order is represented by the following properties on the `Order` node:
+
+[source, cypher, role=noplay]
+.Order shipping addresses
+----
 MATCH (order:Order)
 RETURN DISTINCT
   order.shipAddress,
@@ -46,24 +152,46 @@ RETURN DISTINCT
   order.shipRegion,
   order.shipPostalCode,
   order.shipCountry
+----
 
+The shipping address can be normalized to a separate `Address` node and connected to the `Order` node with a `SHIPPED_TO` relationship.
 
-// normalize shipping address to a separate address node
-MATCH (order:Order)
-MERGE (address:Address {
+[source, mermaid]
+----
+include::diagrams/order-address.mermaid[]
+----
+
+Normalizing the shipping address would allow you to easily query for all orders shipped to an address or compare addresses to find orders shipped to the same or new location.
+
+=== Creating shipping Address nodes
+
+The following Cypher query normalizes the shipping address to an `Address` node and creates a `SHIPPED_TO` relationship between the `Order` and `Address` nodes:
+
+[source, cypher, role=noplay]
+.Normalize shipping address to an Address node
+----
+MATCH (order:Order)                                        // <1>
+MERGE (address:Address {                                   // <2>
   address: order.shipAddress,
   city: order.shipCity,
   region: order.shipRegion,
   postalCode: order.shipPostalCode,
   country: order.shipCountry})
-REMOVE 
+REMOVE                                                     // <3>
   order.shipAddress,
   order.shipCity,
   order.shipRegion,
   order.shipPostalCode,
   order.shipCountry
-MERGE (order)-[s:SHIPPED_TO]->(address)
-RETURN order, s, address
+MERGE (order)-[s:SHIPPED_TO]->(address)                    // <4>
+RETURN order, s, address                                   // <5>
+----
+
+<1> Find all the `Order` nodes.
+<2> Create an `Address` node for each unique combination of address properties.
+<3> Remove the address properties from the `Order` node.
+<4> Create a `SHIPPED_TO` relationship between the `Order` and `Address` nodes.
+<5> Return the order, relationship, and address.
 
 [NOTE]
 .Merge on address properties
@@ -71,42 +199,171 @@ RETURN order, s, address
 The merge is happening on all the address properties to ensure that you only create one `Address` node for each unique address.
 ====
 
-// normalized shipping addresses
+=== Creating the address constraint 
+
+The combination of address properties can be used as a unique identifier for the `Address` node.
+
+The following query creates a node key constraint on all the address properties:
+
+[source, cypher, role=noplay]
+----
+CREATE CONSTRAINT Address_key IF NOT EXISTS
+FOR (a:Address) 
+REQUIRE (a.address, a.city, a.region, a.postalCode, a.country)
+IS NODE KEY
+----
+
+An index is also created on the address properties to improve query performance when searching for addresses.
+
+[IMPORTANT]
+.Create constraints before refactoring
+====
+It is best practice, particularly when dealing with large datasets, to create constraints before refactoring your graph. 
+
+Creating the constraint early will ensure data integrity and the index will improve query performance during the refactoring process.
+====
+
+=== Creating address indexes
+
+To further improve query performance on the `Address` nodes, you can create individual indexes on the properties that are commonly queried.
+
+For example, if you frequently query for addresses by country, you can create an index on the `country` property:
+
+[source, cypher, role=noplay]
+.Create Address country index
+----
+CREATE INDEX address_country
+IF NOT EXISTS
+FOR (a:Address) ON a.country
+----
+
+[TIP]
+.Viewing indexes
+====
+You can view indexes in your database with the following query:
+
+[source, cypher, role=noplay]
+.View indexes
+----
+SHOW INDEXES
+----
+====
+
+=== Querying addresses
+
+You can use the `Address` nodes and `SHIPPED_TO` relationships to query for orders shipped to a specific country or compare addresses:
+
+[source, cypher, role=noplay]
+.Orders shipped to the USA
+----
+MATCH (order:Order)-[:SHIPPED_TO]->(address:Address {country: "USA"})
+RETURN 
+  order.orderID,
+  address.address, 
+  address.city, 
+  address.region, 
+  address.postalCode
+----
+
+You can find the top shipped addresses by counting the number of orders shipped to each address:
+
+[source, cypher, role=noplay]
+.Top shipped addresses
+----
 MATCH (order:Order)-[:SHIPPED_TO]->(address:Address)
 RETURN 
-  order.orderID, 
   address.address, 
   address.city, 
   address.region, 
   address.postalCode, 
-  address.country
-
-
-Use case around providing a discount for new orders to a specific address. 
-
-
+  address.country,
+  count(order) AS ordersShipped
+ORDER BY ordersShipped DESC
+LIMIT 10
+----
 
 // revert back to original model
-MATCH (order:Order)-[:SHIPPED_TO]->(address:Address)
-SET 
-  order.shipAddress = address.address,
-  order.shipCity = address.city,
-  order.shipRegion = address.region,
-  order.shipPostalCode = address.postalCode,
-  order.shipCountry = address.country
-DETACH DELETE address
-RETURN
-  order.shipAddress,
-  order.shipCity,
-  order.shipRegion,
-  order.shipPostalCode,
-  order.shipCountry
+// MATCH (order:Order)-[:SHIPPED_TO]->(address:Address)
+// SET 
+//   order.shipAddress = address.address,
+//   order.shipCity = address.city,
+//   order.shipRegion = address.region,
+//   order.shipPostalCode = address.postalCode,
+//   order.shipCountry = address.country
+// DETACH DELETE address
+// RETURN
+//   order.shipAddress,
+//   order.shipCity,
+//   order.shipRegion,
+//   order.shipPostalCode,
+//   order.shipCountry
+
+== Refactor all addresses
+
+You challenge is to refactor all the addresses in the graph by normalizing the address properties on the `Employee`, `Customer`, and `Supplier` nodes to the `Address` nodes.
+
+[source, mermaid]
+.Address nodes and relationships
+----
+include::diagrams/addresses.mermaid[]
+----
+
+You will need to:
+
+. Identify the address properties on the `Employee`, `Customer`, and `Supplier` nodes.
+. Define a suitable relationship types for the `Address` to the `Employee`, `Customer`, and `Supplier` nodes.
+. Create a query (or queries) to refactor the graph by creating `Address` nodes and relationships to the `Employee`, `Customer`, and `Supplier` nodes.
+. Create queries to analyze the new graph structure and answer questions such as - `What orders are shipped to an address different to the customer's known address?`
 
 
+[%collapsible]
+.Click to reveal the solution
+====
+. The address properties on the `Employee`, `Customer`, and `Supplier` nodes are:
+** `address`
+** `city`
+** `region`
+** `postalCode`
+** `country`
 
-Refactor `Employee`, `Customer`, and `Supplier` nodes to normalize the address properties to separate `Address` nodes.
+. A suitable relationship type could be `LOCATED_AT`.
++
+[source, mermaid]
+----
+include::diagrams/addresses-solution.mermaid[]
+----
 
-Write a query to determine the percentage of orders shipped to the customer's address vs a different address.
+. The following query refactors the graph by creating `Address` nodes and `LOCATED_AT` relationships to the `Employee`, `Customer`, and `Supplier` nodes:
++
+[source, cypher, role=noplay]
+----
+MATCH (n:Employee|Customer|Supplier)
+MERGE (address:Address { 
+  address: n.address,
+  city: n.city,
+  region: n.region,
+  postalCode: n.postalCode,
+  country: n.country})
+REMOVE
+  n.address, 
+  n.city, 
+  n.region, 
+  n.postalCode, 
+  n.country
+MERGE (n)-[l:LOCATED_AT]->(address)
+RETURN n, l, address
+----
+
+. Find orders shipped to an address different than the customer's known address:
++
+[source, cypher, role=noplay]
+----
+MATCH (c:Customer)-[:LOCATED_AT]-(customerAddress)
+MATCH (c)-[:PURCHASED]->(o:Order)-[:SHIPPED_TO]->(shipAddress)
+WHERE customerAddress <> shipAddress
+RETURN o.orderID, customerAddress.address, shipAddress.address
+----
+====
 
 
 read::Complete[]

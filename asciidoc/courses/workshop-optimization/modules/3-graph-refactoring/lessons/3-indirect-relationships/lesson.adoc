@@ -1,54 +1,133 @@
 = Indirect relationships - adding indirect relationships between nodes
 :order: 3
 
-In this lesson, you will learn how to refactor your graph by adding indirect relationships between nodes to improve traversal performance and create more efficient query patterns.
+== Introduction
 
+In this lesson, you will learn how to refactor your graph by adding indirect relationships between nodes
 
-// employees in regions
+Adding indirect relationships between nodes can help improve traversal performance and create more efficient query patterns.
+
+[source, mermaid]
+.Indirect relationships between nodes
+----
+include::diagrams/indirect-relationship.mermaid[]
+----
+
+== Employees in regions
+
+Employees are associated with regions through their territories. 
+
+To find all employees in a region, you need to traverse from the `Employee` to the `Territory` and then to the `Region`.
+
+[source, cypher, role=noplay]
+.Employees in regions
+----
 MATCH (employee:Employee)-[:IN_TERRITORY]->(:Territory)-[:IN_REGION]->(region:Region)
 RETURN DISTINCT employee.firstName, region.regionDescription
+----
 
+=== An indirect relationship
 
-// create indirect relationships between employees and regions
-MATCH (employee:Employee)-[:IN_TERRITORY]->(:Territory)-[:IN_REGION]->(region:Region)
-MERGE (employee)-[p:PART_OF_REGION]->(region)
-RETURN employee, p, region
+To optimize this query, you can create an indirect relationship between the `Employee` and the `Region` nodes.
 
+[source, mermaid]
+.Indirect PART_OF_REGION relationship
+----
+include::diagrams/employee-region.mermaid[]
+----
 
-// employees in regions using indirect relationships
+=== Create the indirect relationship
+
+The following Cypher query creates a `PART_OF_REGION` relationship between `Employee` and `Region` nodes based on the existing relationships:
+
+[source, cypher, role=noplay]
+.Create PART_OF_REGION relationship
+----
+MATCH (employee:Employee)-[:IN_TERRITORY]->(:Territory)-[:IN_REGION]->(region:Region) // <1>
+MERGE (employee)-[p:PART_OF_REGION]->(region) // <2>
+RETURN employee, p, region // <3>
+----
+
+. Find the `Employee`, and `Region` nodes through the existing `IN_TERRITORY` and `IN_REGION` relationships.
+. Create a new `PART_OF_REGION` relationship between the `Employee` and `Region` nodes.
+. Return the employee, the new relationship, and the region to verify
+
+=== Query the new relationship
+
+You can now query for employees in regions using the new `PART_OF_REGION` relationship:
+
+[source, cypher, role=noplay]
+.Employees in regions
+----
 MATCH (employee:Employee)-[:PART_OF_REGION]->(region:Region)
 RETURN employee.firstName, region.regionDescription
-
+----
 
 Profile the original query and the refactored query to compare their performance.
 
+[TIP]
+.Deleting relationships
+====
+You can delete relationships using the `DELETE` clause. For example, to delete all `PART_OF_REGION` relationships:
 
-// tip - delete relationships
+[source, cypher, role=noplay]
+.Delete PART_OF_REGION relationships
+----
 MATCH (employee)-[p:PART_OF_REGION]->(region)
 DELETE p
+----
+====
 
+== Employees and customers
 
+Orders are connected to employees through the `SOLD` relationship and to customers through the `PURCHASED` relationship.
 
-Challenge - create an indirect relationship between the employee that sold the order and the customer who purchased the order.
+You challenge is to create an indirect `SOLD_TO` relationship between the `Employee` that sold an `Order` and the `Customer` who purchased the `Order`.
 
-// employees and the customers they sold to
+[source, mermaid]
+.SOLD_TO relationship between employees and customers
+----
+include::diagrams/employee-customer.mermaid[]
+----
+
+You will need to:
+
+. Identify the employees and customers connected through orders.
+. Create a new `SOLD_TO` relationship between the employee and customer nodes.
+. Query the new relationship to verify it was created correctly.
+. Profile the original query and the refactored query to compare their performance.
+
+[%collapsible]
+.Click to reveal the solution
+====
+. Identify the employees and customers connected through orders
++
+[source, cypher, role=noplay]
+.Employees and customer relationships
+----
 MATCH (employee:Employee)-[:SOLD]->(:Order)<-[:PURCHASED]-(customer:Customer)
 RETURN DISTINCT employee.firstName, customer.companyName
+----
 
-// create indirect relationships between employees and customers
+. Create a new `SOLD_TO` relationship between the employee and customer nodes
++
+[source, cypher, role=noplay]
+.Create indirect `SOLD_TO` relationships
+----
 MATCH (employee:Employee)-[:SOLD]->(:Order)<-[:PURCHASED]-(customer:Customer)
 MERGE (employee)-[s:SOLD_TO]->(customer)
 RETURN employee, s, customer
+----
 
-// employees and the customers they sold to using indirect relationships
+. Query the new relationship to verify it was created correctly
++
+[source, cypher, role=noplay]
+.Employees and the customers they sold to
+----
 MATCH (employee:Employee)-[s:SOLD_TO]->(customer:Customer)
 RETURN employee.firstName, customer.companyName
-
-
-
-
-
-
+----
+====
 
 read::Complete[]
 
