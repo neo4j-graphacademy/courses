@@ -30,11 +30,13 @@ Beyond choosing which nodes and relationships to include, two configuration opti
 image::images/directed_undirected_weighted.png[Diagram showing nodes with directed and weighted edges illustrating algorithm behavior.]
 
 [.slide]
-== Directed vs Undirected
+== Directed vs Undirected Projections
 
-By default, GDS projections are **directed**--relationships flow one way.
+By default, GDS projections are **directed** -- relationships flow one way, from source to target.
 
-Some algorithms require **undirected** relationships, where connections work both ways.
+Some algorithms require **undirected** projections, where every relationship works in both directions.
+
+This is a property of the projection itself, set at projection time -- not something you change when running an algorithm.
 
 [.slide]
 == When Direction Matters
@@ -63,17 +65,18 @@ image::images/leiden_attributes.png[Leiden's attributes showing it requires undi
 Leiden has a red mark for directed--it **requires** undirected relationships.
 
 [.slide.col-2]
-== Creating Undirected Projections
+== Projecting an Undirected Graph
 
-Add `undirectedRelationshipTypes` to your projection configuration:
+To make a projection undirected, add `undirectedRelationshipTypes` to the second config map:
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
+.Undirected projection of actors and movies
 ----
-MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor)
+MATCH (source:Actor)-[:ACTED_IN]->(target:Movie)
 WITH gds.graph.project(
-  'actor-network-undirected',
+  'actor-movie-undirected',
   source,
   target,
   {}, // <1>
@@ -85,11 +88,114 @@ RETURN g.graphName, g.nodeCount, g.relationshipCount
 
 [.col]
 ====
-<1> First config map (node/relationship properties)
-<2> Second config map--make all relationship types undirected
+<1> First config map (for node/relationship properties -- empty here)
+<2> Second config map -- make all relationship types undirected
 ====
 
-The `['*']` means all relationship types become undirected.
+The `['*']` means all relationship types in the projection become undirected.
+
+[.transcript-only]
+====
+In this projection, every Actor is connected to every Movie it appeared in, and every Movie is connected back to every Actor.
+
+In reality, GDS creates this as a bidirectional graph rather than a truly undirected one, but in practice the effect is the same.
+====
+
+[.slide.col-2]
+== Projecting a Directed Graph
+
+For comparison, let's project the same data as a directed graph:
+
+[.col]
+====
+[source,cypher]
+.Directed projection of actors and movies
+----
+MATCH (source:Actor)-[:ACTED_IN]->(target:Movie)
+WITH gds.graph.project(
+  'actor-movie-directed',
+  source,
+  target
+) AS g
+RETURN g.graphName, g.nodeCount, g.relationshipCount
+----
+====
+
+[.col]
+====
+This projection only has relationships flowing from Actor to Movie, matching the `ACTED_IN` direction in the database.
+====
+
+[slide.col-2]
+== Run degree centrality in both directed and undirected projections
+Now let's run degree centrality on both directed and undirected projections and compare the results.
+
+[.col]
+====
+[source,cypher]
+.Degree centrality in directed projection
+----
+CALL gds.degree.stream('actor-movie-directed')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 5
+----
+====
+
+[.col]
+====
+[source,cypher]
+.Degree centrality in undirected projection
+----
+CALL gds.degree.stream('actor-movie-undirected')
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 5
+----
+====
+
+You'll notice that both versions appear to return the same results. This is because, in our graph, actors connect to more movies than movies connect to actors.
+
+[.slide.col-2]
+== Comparing Directed vs Undirected
+However, let's now look at what happens if we only count the degree count for movies in each projection.
+
+[.col]
+====
+[source,cypher]
+.Degree centrality in directed projection
+----
+CALL gds.degree.stream('actor-movie-directed')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) as nodeType, score
+WHERE "Movie" IN labels(nodeType)
+RETURN nodeType.title AS title, score
+ORDER BY score DESC LIMIT 5
+----
+====
+
+[.col]
+====
+[source,cypher]
+.Degree centrality in undirected projection
+----
+CALL gds.degree.stream('actor-movie-undirected')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) as nodeType, score
+WHERE "Movie" IN labels(nodeType)
+RETURN nodeType.title AS title, score
+ORDER BY score DESC LIMIT 5
+----
+====
+
+You'll notice that the second version returns different results. In the first version we're counting all the outgoing rels from `Actor` to `Movie`, while in the second version we're counting in both directions.
+
+In the first version, only `Actor` nodes receive a score greater than 0, while in the second version all nodes with outgoing relationships receive a score greater than 0.
+
+[.transcript-only]
+====
+In the first version, Movies do not have any outgoing relationships, so their relationships are not counted. In the second version, all movies have outgoing relationships, so their relationships are counted.
+====
 
 [.slide.col-2]
 == Comparing Directed vs Undirected
@@ -109,47 +215,98 @@ image::images/diagram_comparing_directed_and_undirected.svg[Diagram comparing di
 
 For asymmetrical graphs (like followers), results will differ significantly.
 
-[.slide.col-2]
-== Degree Centrality and Direction
+[.slide]
+== Direction in the Projection vs Direction in the Algorithm
 
-Degree centrality counts **outgoing** relationships by default.
+It's important to distinguish between two different places where direction can come into play:
+
+1. **Projection-level direction** -- set when you create the projection using `undirectedRelationshipTypes`. This determines the structure of the in-memory graph.
+2. **Algorithm-level orientation** -- some algorithms (like degree centrality) let you choose which direction to traverse using an `orientation` parameter. This only works within the bounds of what the projection contains.
+
+
+[.slide.col-2]
+== Degree Centrality: Measuring Direction
+
+Degree centrality counts connections. On a directed projection, you can choose which connections to count using the `orientation` parameter.
 
 [.col]
 ====
 [source,cypher,role=noplay]
+.Counting outgoing connections (NATURAL)
 ----
-CALL gds.degree.stream('actor-network', {
+CALL gds.degree.stream('actor-movie-directed', {
   orientation: 'NATURAL' // <1>
 })
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name,
+       score
+ORDER BY score DESC LIMIT 5
 ----
 ====
 
 [.col]
 ====
-<1> `NATURAL` = outgoing (default), `REVERSE` = incoming, `UNDIRECTED` = both
+<1> `NATURAL` counts outgoing relationships (the default). For actors, this counts how many movies each actor appeared in.
 ====
 
 [.slide.col-2]
-== Direction on Bipartite Graphs
+== Degree Centrality: Reversing Direction
 
-Remember the Actor->Movie bipartite projection?
+On the same directed projection, you can reverse the traversal direction:
 
 [.col]
 ====
 [source,cypher,role=noplay]
+.Counting incoming connections (REVERSE)
 ----
-CALL gds.degree.stream('actor-movie-network', {
+CALL gds.degree.stream('actor-movie-directed', {
   orientation: 'REVERSE' // <1>
 })
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).title AS title,
+       score
+ORDER BY score DESC LIMIT 5
 ----
 ====
 
 [.col]
 ====
-<1> With `REVERSE`, you rank Movies by incoming actor connections instead of actors by movie count
+<1> `REVERSE` counts incoming relationships. For movies, this counts how many actors appeared in each movie.
 ====
 
-Direction determines *what* you're measuring.
+The same projection, different orientation -- and you're measuring something completely different.
+
+[.slide.col-2]
+== Reversing direction on an undirected projection
+Now let's run degree centrality on an undirected projection, both with and without reversing the direction.
+
+[.col]
+====
+[source,cypher]
+----
+CALL gds.degree.stream('actor-movie-undirected', {
+  orientation: 'NATURAL'
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 5
+====
+
+[.col]
+====
+[source,cypher]
+----
+CALL gds.degree.stream('actor-movie-undirected', {
+  orientation: 'REVERSE'
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS name, score
+ORDER BY score DESC LIMIT 5
+----
+====
+
+You'll notice that the results are the same in both cases. This is because the undirected projection is already bidirectional, so reversing the direction doesn't change the results.
+
 
 [.slide.col-2]
 == Relationship Weights

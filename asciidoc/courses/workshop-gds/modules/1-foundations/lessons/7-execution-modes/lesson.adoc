@@ -73,13 +73,31 @@ RETURN <what you want>
 The mode determines what gets yielded and where results are stored.
 
 [.slide.col-2]
+== Project a graph
+
+[source,cypher]
+----
+MATCH (source:Actor)-[r:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
+WITH gds.graph.project('actor-network', source, target) AS g // <2>
+RETURN g.graphName, g.nodeCount, g.relationshipCount // <3>
+----
+
+
+[.col]
+====
+<1> Project the graph
+<2> Assign the result to a variable `g`
+<3> Return the graph name, node count and relationship count from the variable `g`
+====
+
+[.slide.col-2]
 == Stream Mode
 
 Returns results directly in your query output. Nothing is stored.
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 CALL gds.pageRank.stream('actor-network', {}) // <1>
 YIELD nodeId, score // <2>
@@ -114,11 +132,11 @@ Runs the algorithm but returns only summary statistics--no individual node resul
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 CALL gds.louvain.stats('actor-network', {}) // <1>
 YIELD communityCount, modularity, ranLevels // <2>
-RETURN communityCount, modularity, ranLevels
+RETURN communityCount, modularity, ranLevels // <3>
 ----
 ====
 
@@ -126,6 +144,7 @@ RETURN communityCount, modularity, ranLevels
 ====
 <1> Run Louvain in stats mode--no per-node results
 <2> Yields aggregate metrics only
+<3> Return the community count, modularity and random levels
 ====
 
 [.slide]
@@ -145,19 +164,21 @@ Stores results as properties **in your projection**--not in your database.
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 CALL gds.pageRank.mutate('actor-network', {
   mutateProperty: 'pageRankScore' // <1>
 })
 YIELD nodePropertiesWritten // <2>
+RETURN nodePropertiesWritten // <3>
 ----
 ====
 
 [.col]
 ====
 <1> Property name for storing results in the projection
-<2> Returns count of properties written to the projection
+<2> Yields count of properties written to the projection
+<3> Return the count of properties written to the projection
 ====
 
 Results stay in memory until you drop the graph.
@@ -179,19 +200,21 @@ Persists results as properties **in your Neo4j database**.
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 CALL gds.pageRank.write('actor-network', {
   writeProperty: 'pageRank' // <1>
 })
 YIELD nodePropertiesWritten // <2>
+RETURN nodePropertiesWritten // <3>
 ----
 ====
 
 [.col]
 ====
 <1> Property name for persisting results to the database
-<2> Returns count of properties written to your database
+<2> Yields count of properties written to your database
+<3> Return the count of properties written to your database
 ====
 
 Results survive after dropping the projection.
@@ -213,19 +236,21 @@ Tells you memory requirements **without running the algorithm**.
 
 [.col]
 ====
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 CALL gds.pageRank.write.estimate('actor-network', { // <1>
   writeProperty: 'pageRank'
 })
 YIELD nodeCount, relationshipCount, requiredMemory // <2>
+RETURN nodeCount, relationshipCount, requiredMemory // <3>
 ----
 ====
 
 [.col]
 ====
 <1> Append `.estimate` to any execution mode
-<2> Returns graph size and memory requirements
+<2> Yields graph size and memory requirements
+<3> Return the node count, relationship count and required memory
 ====
 
 Every execution mode has an estimate variant: `gds.<algorithm>.<mode>.estimate()`
@@ -289,10 +314,12 @@ Available across most algorithms:
 Each algorithm has unique parameters:
 
 **PageRank:**
+
 * `maxIterations` -- how many passes (default: 20)
 * `dampingFactor` -- probability of following links (default: 0.85)
 
 **Louvain/Leiden:**
+
 * `maxLevels` -- hierarchy depth (default: 10)
 
 You'll learn specific parameters as you use each algorithm.

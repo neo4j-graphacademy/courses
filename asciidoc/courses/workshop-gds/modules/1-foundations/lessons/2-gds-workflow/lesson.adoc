@@ -55,12 +55,13 @@ However, the in-memory graph you create is optimized for topology and property l
 You can create a projection of your graph using Cypher or Native projection.
 
 [.col]
+====
 .Cypher Projection
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
 WITH gds.graph.project(
-  'actors-graph',
+  'actors-graph-cypher',
   source,
   target
 ) AS g
@@ -68,10 +69,13 @@ RETURN g.graphName AS graph,
       g.nodeCount AS nodes,
       g.relationshipCount AS rels
 ----
+====
 
 [.col]
+====
+[.col]
 .Native Projection
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 ----
 CALL gds.graph.project(
   'actors-graph-native',
@@ -82,6 +86,35 @@ YIELD graphName AS graph,
       nodeCount AS nodes,
       relationshipCount AS rels
 ----
+====
+
+[.transcript-only]
+====
+When you run both of these queries, you will notice a slight difference in the results.
+
+The reason for this is that native projection first projects the nodes and then finds the relevant relationships. 
+
+The Cypher projection matches only those nodes that have the required relationships. If you wanted to return the exact same results, you could run the following, instead:
+
+.Cypher Projection
+[source,cypher]
+----
+MATCH (source:Actor), (target:Movie)
+OPTIONAL MATCH (source)-[r:ACTED_IN]->(target)
+WITH gds.graph.project(
+  'actors-graph-cypher-all-nodes',
+  source,
+  target
+) AS g
+RETURN g.graphName AS graph,
+      g.nodeCount AS nodes,
+      g.relationshipCount AS rels
+----
+
+If you do run this, you will notice that it takes an age to run. That is because it is first fetching every `Actor` and `Movie` node in the graph, and then using the `OPTIONAL MATCH` clause to find the relevant relationships. `OPTIONAL MATCH` is a very expensive operation.
+
+In practice, for GDS, you will rarely, if ever, need to project orphaned nodes.
+====
 
 [.slide]
 == Cypher vs Native context
@@ -95,7 +128,7 @@ Generally, you will use Cypher projection in the Neo4j Browser and Native projec
 In this workshop, we will focus on Cypher projection first, and then introduce Native projection later.
 
 
-[.slide]
+[.slide.col-2]
 == Cypher projection
 
 A Cypher projection follows the same pattern as any other Cypher query you are used to running. However, instead of returning results, the `gds.graph.project()` procedure creates an in-memory representation based on the `MATCH` clause.
@@ -103,12 +136,12 @@ A Cypher projection follows the same pattern as any other Cypher query you are u
 [.col]
 ====
 
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Cypher projection example
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie) // <1>
 WITH gds.graph.project( // <2>
-  'actors-graph',
+  'actors-graph-cypher-v2',
   source,
   target
 ) AS g
@@ -140,11 +173,11 @@ To create a native production, use the `CALL` keyword to invoke the `gds.graph.p
 [.col]
 ====
 
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Native projection
 ----
 CALL gds.graph.project(
-  'actor-graph-native',
+  'actor-graph-native-v2',
   ['Actor', 'Movie'],   // <1>
   'ACTED_IN'            // <2>
 )
@@ -181,11 +214,11 @@ Ignore the `mode` for now. We will cover it in more detail in a moment.
 
 [.col]
 ====
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Running an algorithm
 ----
 CALL gds.degree.stream( // <1>
-  'actors-graph', // <2>
+  'actors-graph-cypher', // <2>
   {} // <3>
 )
 YIELD nodeId, score // <4>
@@ -216,10 +249,10 @@ There are five execution modes for algorithm commands:
 
 You can invoke each of these modes by appending the mode to the algorithm name.
 
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Invoking the stats mode
 ----
-CALL gds.degree.stats('actor-graph-native')
+CALL gds.degree.stats('actors-graph-native')
 ----
 
 
@@ -230,10 +263,10 @@ The `estimate` mode is used to estimate the memory requirements for an algorithm
 
 [.col]
 ====
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Estimate mode
 ----
-CALL gds.degree.stats.estimate('actors-graph', {}) // <1>
+CALL gds.degree.stats.estimate('actors-graph-cypher', {}) // <1>
 YIELD nodeCount, relationshipCount, // <2>
       bytesMin, bytesMax, requiredMemory
 ----
@@ -257,11 +290,11 @@ Ultimately, you will end most GDS sessions by writing your results back to the g
 
 [.col]
 ====
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Writing algorithm results directly to the database
 ----
 CALL gds.degree.write(
-  'actors-graph',
+  'actors-graph-cypher',
   {
     writeProperty: 'degree' // <1>
   }
@@ -287,11 +320,11 @@ You can also write results to your graph projection first, using `mutate` mode:
 
 [.col]
 ====
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Storing results in the projection using mutate mode
 ----
 CALL gds.degree.mutate(
-  'actors-graph',
+  'actors-graph-cypher',
   {
     mutateProperty: 'degree' // <1>
   }
@@ -318,11 +351,11 @@ image::images/flowchart_of_writing_node_properties_from_projecti.png[Flowchart o
 
 [.col]
 ====
-[source,cypher,role="noplay nocopy"]
+[source,cypher]
 .Writing node properties from projection to database
 ----
 CALL gds.graph.nodeProperties.write(
-  'actors-graph', // <1>
+  'actors-graph-cypher', // <1>
   ['degree'] // <2>
 )
 YIELD propertiesWritten
@@ -366,7 +399,7 @@ Once you've finished working on your projection, you can drop it from memory.
 [source,cypher]
 .Drop graphs
 ----
-CALL gds.graph.drop('actors-graph')
+CALL gds.graph.drop('actors-graph-cypher')
 ----
 
 [.slide]
