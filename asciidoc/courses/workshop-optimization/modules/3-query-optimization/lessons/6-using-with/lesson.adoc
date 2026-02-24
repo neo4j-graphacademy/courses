@@ -1,8 +1,108 @@
-= Using WITH 
+= Breaking down complex queries with WITH
 :type: lesson
 :order: 6
 
-In this lesson, you will learn how to use the `WITH` clause in Cypher to break down complex queries into smaller, more manageable parts, and to control the flow of data through your query for better performance and readability.
+In this lesson, you will learn how to use the `WITH` clause in Cypher to:
+
+* Break down complex queries into smaller, more manageable parts.
+* Control the flow of data through your query for better performance and readability.
+
+== Limiting results
+
+The following query returns data about the top 10 most popular products based on the number of orders:
+
+[source, cypher, role="noplay"]
+.Most popular products
+----
+PROFILE MATCH                                                   //<1>
+  (o:Order)-[:ORDERS]->(p:Product)<-[:SUPPLIES]-(s:Supplier),   
+  (p)-[:PART_OF]-(c:Category)
+RETURN DISTINCT                                                 //<2>
+  p.productName AS product, 
+  c.categoryName as category, 
+  s.companyName AS supplier, 
+  count (o) as orderCount                                       //<3> 
+ORDER BY orderCount DESC                                        //<4>
+LIMIT 10        
+----
+
+<1> The query matches orders, products, suppliers, and categories in a single step.
+<2> The `DISTINCT` keyword is used to eliminate duplicate rows, which can add overhead to the query execution.
+<3> The count of orders is calculated for all products.
+<4> Finally all the results are ordered and limited to the top 10.
+
+The profile of this query shows that all the orders are expanded before the count is ordered.
+
+image::images/popular-products-annotated.png["A snippet of the query profile showing that all orders are expanded before the count is ordered."]
+
+=== Break the query down 
+
+This query can be optimized by breaking it down into smaller parts: 
+
+* Finding the top 10 products
+* Pipelining just the top products and the order count using `WITH`
+* Matching the suppliers and categories for those top products
+* Returning the results
+
+The optimized query looks like this:
+
+[source, cypher, role="noplay"]
+.Optimized query using WITH
+----
+PROFILE MATCH (p:Product)                                     //<1>
+WITH p, count { (p)<-[:ORDERS]-() } as orderCount             //<2>
+ORDER BY orderCount DESC LIMIT 10
+
+MATCH (c:Category)<-[:PART_OF]-(p)<-[:SUPPLIES]-(s:Supplier)  //<3>
+RETURN                                                        //<4>
+  p.productName AS product,  
+  c.categoryName as category, 
+  s.companyName AS supplier, 
+  orderCount
+----
+
+<1> The query starts by matching all products.
+<2> `WITH` is used in conjunction with the count store `ORDER BY` and `LIMIT` to pipeline just the top 10 products.
+<3> The suppliers and categories are matched for just those top products.
+ 
+Review the profile of this query and compare it to the profile of the original query. You should notice that limiting the number of products early and using the count store significantly reduces the number of rows read and relationships expanded
+
+The execution plan of the optimized query would stay consistent as the data grew, while the original query would slow as more orders and products were added to the database.
+
+== Reading properties late
+
+This query returns the top 10 customers by quantity of products ordered:
+
+[source, cypher, role="noplay"]
+.Top customers by quantity ordered
+----
+PROFILE MATCH (c:Customer)-[:PURCHASED]->(o:Order)-[line:ORDERS]->(:Product)
+RETURN 
+  c.companyName,
+  c.contactName,
+  c.phone,
+  sum(line.quantity) as quantity
+ORDER BY quantity DESC LIMIT 10
+----
+
+All the properties of read before the results are ordered and limited. This can lead to unnecessary reads if there are many customers and orders in the database.
+
+The query can be optimized by reading the properties of the customers after the top customers have been identified:
+
+[source, cypher, role="noplay"]
+----
+PROFILE MATCH (c:Customer)-[:PURCHASED]->(o:Order)-[line:ORDERS]->(:Product)
+WITH c, sum(line.quantity) as quantity
+ORDER BY quantity DESC LIMIT 10
+
+RETURN 
+  c.companyName,
+  c.contactName,
+  c.phone,
+  quantity
+----
+
+The number of database reads is similar as the quantity is calculated for all orders, but the total allocated memory is significantly reduced as the properties of only the top customers are read.
 
 
 read::Continue[]
@@ -11,6 +111,6 @@ read::Continue[]
 [.summary]
 == Lesson Summary
 
-In this lesson, you learned about ..
+In this lesson, you learned how to split complex queries into smaller parts using the `WITH` clause. This allows you to control the flow of data through your query and optimize performance by limiting results early and reading properties late.
 
 In the next lesson, you will learn about ..
