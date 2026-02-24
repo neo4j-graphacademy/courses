@@ -16,12 +16,7 @@ In this lesson, you will learn how the Import tool is organized, the workflow fo
 
 
 [.slide.col-2]
-== Choosing the right import approach
-
-[.transcript-only]
-====
-Neo4j offers several ways to import data. The right choice depends on your data source, volume, and requirements.
-====
+== Why we're using the Import tool
 
 [.col]
 ====
@@ -37,35 +32,17 @@ Neo4j offers several ways to import data. The right choice depends on your data 
   },
   "flowchart": {
     "curve": "basis",
-    "nodeSpacing": 72,
-    "rankSpacing": 86,
+    "nodeSpacing": 50,
+    "rankSpacing": 60,
     "padding": 16
   }
 }}%%
-flowchart TD
-    Start["What are you importing?"]:::muted --> Source{Data Source?}
+flowchart LR
+    Start["Tabular Files<br/>CSV, TSV"]:::muted --> Volume{"< 1M rows?"}
 
-    Source -->|Tabular Files<br/>CSV, TSV| Volume1{Data Volume?}
-    Source -->|Relational DB<br/>PostgreSQL, MySQL| DBChoice{Volume &<br/>Complexity?}
-    Source -->|APIs/Real-time| Custom[Custom Application<br/>Neo4j Drivers]:::primary
-    Source -->|Multiple Sources| ETL[ETL Tool<br/>Apache Hop]:::primary
+    Volume -->|Yes| Import["Import tool ✓"]:::highlight
 
-    Volume1 -->|"< 1M rows"| Import["Import tool ⭐"]:::highlight
-    Volume1 -->|"1M - 10M rows"| LoadCSV[LOAD CSV<br/>in Cypher]:::primary
-    Volume1 -->|"> 10M rows"| Admin[neo4j-admin import<br/>Offline bulk load]:::primary
-
-    DBChoice -->|Few tables<br/>and simple<br/>volume/complexity| Import
-    DBChoice -->|Complex queries<br/>or transformations| ETL
-
-    Import --> Note1["✓ No-code visual interface<br/>✓ Upload tabular files<br/>✓ Define model visually<br/>✓ Best for learning"]:::forest
-    LoadCSV --> Note2["✓ Programmatic control<br/>✓ Cypher transformations<br/>✓ Batch processing"]:::muted
-    Admin --> Note3["✓ Fastest for large datasets<br/>✓ Requires database offline<br/>✓ Pre-formatted files"]:::muted
-    ETL --> Note4["✓ Multiple data sources<br/>✓ Complex transformations<br/>✓ Scheduled pipelines"]:::muted
-    Custom --> Note5["✓ Real-time integration<br/>✓ Complex business logic<br/>✓ Full control"]:::muted
-
-    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
     classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
-    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
     classDef muted fill:#ffffff,stroke:#e5e7eb,stroke-width:1px,color:#334155
     linkStyle default stroke:#94a3b8,stroke-width:1.25px
 ----
@@ -73,13 +50,17 @@ flowchart TD
 
 [.col]
 ====
-**Why we're using the Import tool in this workshop:**
+The Import tool is ideal for this workshop:
 
 * **Visual interface** - See your model as you build it
-* **Tabular files** - The Northwind dataset is in tabular file format
-* **Small dataset** - 91 customers, 830 orders, 77 products (< 1M rows)
-* **Learning focused** - Great for understanding and building graph modeling
+* **Tabular files** - Northwind data is in CSV format
+* **Small dataset** - Under 1M rows (91 customers, 830 orders, 77 products)
 * **No code required** - Focus on concepts, not syntax
+
+[NOTE]
+.Other import methods
+====
+Neo4j offers other import methods for larger datasets or different sources. See the link:https://neo4j.com/docs/getting-started/data-import/[Data Import documentation^] for options like LOAD CSV, neo4j-admin import, and ETL tools.
 ====
 
 
@@ -117,36 +98,76 @@ The Import tool consists of **three main tabs** that reflect the three stages of
 image::images/import-tool-empty.png[The import tool,align=center,role="no-padding"]
 ====
 
-[.slide.col-3]
-== Exploring the UI overview
+[.slide]
+== Exploring the Import Tool UI
+
+[NOTE]
+.Instructor Demo
+====
+**For instructor-led workshops:** Demo the Import tool live, walking through:
+
+1. **Data Sources tab** - Where you upload files or connect to databases
+2. **Graph Models tab** - Where you design your graph model on the canvas
+3. **Import Jobs tab** - Where you view import history and results
+
+Open the Import tool and show each tab briefly before moving to the hands-on import.
+====
+
+
+[.col-2,role=transcript-only]
+== 1. Data Sources tab
 
 [.col]
 ====
-**1. Data Sources**
+The **Data Sources** tab is where you connect to your data.
 
-* Connect to databases, data warehouses, or cloud storage
-* Upload local files
-* View data source previews showing columns and sample data
-* Manage multiple data sources for your import
+* Upload local CSV/TSV files
+* Connect to databases or cloud storage
+* Preview columns and sample data
+* Manage multiple data sources
 ====
 
 [.col]
 ====
-**2. Graph Models**
+image::images/data-sources.png[Data Sources panel,width=350,height=300,align=center]
+====
 
-* Visual canvas where you design your graph model
-* Create nodes and relationships
-* Map tables/files to graph elements
+
+[.col-2,role=transcript-only]
+== 2. Graph Models tab
+
+[.col]
+====
+The **Graph Models** tab is where you design your graph.
+
+* Visual canvas for creating nodes and relationships
+* Map data sources to graph elements
 * Configure properties and IDs
+* Preview your model before importing
 ====
 
 [.col]
 ====
-**3. Import Jobs**
+image::images/model-canvas.png[Graph Models canvas,width=350,height=300,align=center]
+====
 
-* View and manage import jobs
-* Monitor import progress and results
-* Review past imports and their status
+
+[.col-2,role=transcript-only]
+== 3. Import Jobs tab
+
+[.col]
+====
+The **Import Jobs** tab shows your import history.
+
+* View import progress and results
+* Review nodes created and properties set
+* Check for errors or warnings
+* Re-run previous imports
+====
+
+[.col]
+====
+image::images/import-jobs-result.jpg[Import results,width=400,align=center]
 ====
 // The workflow moves through these tabs: **Data Sources** → **Graph Models** → **Import Jobs**
 
@@ -224,36 +245,62 @@ Once you have a data source connected, switch to the **Graph Models** tab to des
 image::images/graph-models.png[Graph Models tab,width=630,align=center,role="no-padding"]
 
 
-[.slide.col-3]
-== The Canvas
+[.slide]
+== The Canvas Layout
 
-The canvas has three panels:
+[NOTE]
+.Instructor Demo
+====
+**For instructor-led workshops:** Demo the three-panel canvas layout:
+
+* **Left panel** - Data sources (your uploaded files)
+* **Center panel** - Model canvas (where you build your graph)
+* **Right panel** - Details panel (configure selected nodes/relationships)
+
+This will be covered hands-on in the next lesson when importing Products.
+====
+
+
+[role=transcript-only]
+== The Canvas: Data Source Panel (left)
+
+The **Data Source Panel** shows your connected data.
+
+* View all uploaded files or connected tables
+* Expand each source to preview columns
+* See sample data values
+
+image::images/data-sources.png[Data Source Panel,width=400,align=center]
+
+
+[role=transcript-only]
+== The Canvas: Model Canvas (center)
+
+The **Model Canvas** is your visual workspace.
+
+* Add nodes using the **+ Node Label** button
+* Create relationships by dragging between nodes
+* Green checkmarks indicate complete mappings
+
+image::images/model-canvas.png[Model Canvas,width=500,align=center]
+
+
+[.col-2,role=transcript-only]
+== The Canvas: Details Panel (right)
 
 [.col]
 ====
-**1. Data Source Panel (left)**
+The **Details Panel** configures selected elements.
 
-* Shows your connected tables/files
-* Expand to preview columns and sample data
-* Drag to reorder or manage sources
+* Set the node label or relationship type
+* Map to a data source table
+* Configure properties and data types
+* Set the unique ID property
 ====
 
 [.col]
 ====
-**2. Model Canvas (center)**
-
-* Visual workspace for designing your graph
-* Add nodes and relationships
-* Position and organize your model
-====
-
-[.col]
-====
-**3. Details Panel (right)**
-
-* Configure selected elements
-* Two tabs: Definition and Constraints & Indexes
-* Map tables/files to graph elements
+image::images/details-panel.png[Details Panel,width=320,align=center]
 ====
 
 [.slide.col-2]

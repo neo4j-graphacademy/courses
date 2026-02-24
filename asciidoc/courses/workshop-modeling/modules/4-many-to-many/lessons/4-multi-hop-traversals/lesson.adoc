@@ -66,7 +66,11 @@ ORDER BY p.name                                                                 
 
 Click **Run** to see all products ALFKI has ever purchased.
 
-**SQL equivalent (3 JOINs):**
+
+[.slide]
+== SQL equivalent (3 JOINs)
+
+The same query in SQL requires three table joins:
 
 [source,sql]
 .SQL query with three table joins
@@ -79,6 +83,8 @@ JOIN products p ON od.productID = p.productID
 WHERE c.customerID = 'ALFKI'
 ORDER BY p.productName;
 ----
+
+In Cypher, you follow relationships directly. In SQL, you must explicitly join every table along the path.
 
 
 [.slide]
@@ -111,24 +117,33 @@ Aggregate relationship properties across the path:
 [source,cypher]
 .ALFKI's most ordered products
 ----
-MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)        // <1>
-RETURN p.name,                                                                         // <2>
-       sum(r.quantity) AS totalQuantity,                                               // <3>
-       count(DISTINCT r) AS numberOfOrders,                                            // <4>
-       avg(r.unitPrice) AS avgPrice                                                    // <5>
-ORDER BY totalQuantity DESC                                                            // <6>
-LIMIT 10                                                                               // <7>
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)
+RETURN p.name,
+       sum(r.quantity) AS totalQuantity,
+       count(DISTINCT r) AS numberOfOrders,
+       avg(r.unitPrice) AS avgPrice
+ORDER BY totalQuantity DESC
+LIMIT 10
 ----
 
-<1> **Capture relationship** - Variable `r` accesses ORDERS properties
-<2> **Group by product** - Implicitly groups by productName
-<3> **Sum quantities** - Total units ordered across all orders
-<4> **Count orders** - How many times ordered
-<5> **Average price** - Mean unit price paid
-<6> **Sort** - Highest quantity first
-<7> **Limit** - Top 10 products
-
 Click **Run** to see ALFKI's favorite products by volume.
+
+
+[.slide]
+== Understanding the aggregation
+
+[source,cypher]
+----
+MATCH (c:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // <1>
+RETURN p.name,                                                                   // <2>
+       sum(r.quantity) AS totalQuantity,                                         // <3>
+       count(DISTINCT r) AS numberOfOrders                                       // <4>
+----
+
+<1> **Capture relationship** - Variable `r` accesses CONTAINS properties
+<2> **Group by product** - Implicitly groups by product name
+<3> **Sum quantities** - Total units ordered across all orders
+<4> **Count orders** - How many times this product was ordered
 
 
 [.slide]
@@ -139,22 +154,32 @@ Find the most popular products across all customers:
 [source,cypher]
 .Top 10 most ordered products
 ----
-MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product) // <1>
-RETURN p.name,                                                  // <2>
-       sum(r.quantity) AS totalQuantity,                        // <3>
-       count(DISTINCT r) AS timesOrdered                        // <4>
-ORDER BY totalQuantity DESC                                     // <5>
-LIMIT 10                                                        // <6>
+MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)
+RETURN p.name,
+       sum(r.quantity) AS totalQuantity,
+       count(DISTINCT r) AS timesOrdered
+ORDER BY totalQuantity DESC
+LIMIT 10
+----
+
+Click **Run** to see your bestsellers.
+
+
+[.slide]
+== Understanding product popularity query
+
+[source,cypher]
+----
+MATCH (:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(p:Product)  // <1>
+RETURN p.name,                                                    // <2>
+       sum(r.quantity) AS totalQuantity,                          // <3>
+       count(DISTINCT r) AS timesOrdered                          // <4>
 ----
 
 <1> **All customers** - No filter, traverse entire graph
 <2> **Group by product** - Aggregate per product
 <3> **Total quantity** - Sum across all orders from all customers
 <4> **Order count** - How many individual orders included this product
-<5> **Sort** - Highest quantity first
-<6> **Top 10** - Most popular products
-
-Click **Run** to see your bestsellers.
 
 
 [.slide]
@@ -165,22 +190,32 @@ Calculate total spending using relationship properties:
 [source,cypher]
 .Top spending customers
 ----
-MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product) // <1>
-RETURN c.name,                                                  // <2>
-       sum(r.quantity * r.unitPrice) AS totalSpent,             // <3>
-       count(DISTINCT r) AS itemsOrdered                        // <4>
-ORDER BY totalSpent DESC                                        // <5>
-LIMIT 10                                                        // <6>
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)
+RETURN c.name,
+       sum(r.quantity * r.unitPrice) AS totalSpent,
+       count(DISTINCT r) AS itemsOrdered
+ORDER BY totalSpent DESC
+LIMIT 10
+----
+
+Click **Run** to see your top customers by revenue.
+
+
+[.slide]
+== Understanding customer spending query
+
+[source,cypher]
+----
+MATCH (c:Customer)-[:PLACED]->(:Order)-[r:CONTAINS]->(:Product)  // <1>
+RETURN c.name,                                                    // <2>
+       sum(r.quantity * r.unitPrice) AS totalSpent,               // <3>
+       count(DISTINCT r) AS itemsOrdered                          // <4>
 ----
 
 <1> **Traverse path** - Customer through orders to products
 <2> **Group by customer** - Aggregate per customer
-<3> **Calculate spending** - Multiply quantity × unitPrice for each order item, sum total
+<3> **Calculate spending** - Multiply quantity × unitPrice, sum total
 <4> **Count items** - Total distinct products ordered
-<5> **Sort** - Highest spenders first
-<6> **Top 10** - Best customers
-
-Click **Run** to see your top customers by revenue.
 
 
 [.slide]
@@ -221,11 +256,9 @@ graph LR
 
 
 [.slide]
-== Comparing to SQL complexity
+== SQL complexity: 3 JOINs required
 
-Each of these queries requires 3 JOINs in SQL. Let's look at the customer spending query:
-
-**SQL (verbose, slow):**
+Each of these queries requires 3 JOINs in SQL:
 
 [source,sql]
 .Complex SQL with multiple JOINs and aggregation
@@ -241,7 +274,11 @@ ORDER BY totalSpent DESC
 LIMIT 10;
 ----
 
-**Cypher (concise, fast):**
+
+[.slide]
+== Cypher simplicity: Direct traversal
+
+The same query in Cypher:
 
 [source,cypher]
 .Simple Cypher traversal with aggregation

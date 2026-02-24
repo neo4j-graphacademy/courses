@@ -19,18 +19,16 @@ By the end of this workshop, you will build a **product recommendation system** 
 [.col]
 ====
 
-You will import data from the **Northwind dataset**—a fictitious food products company with customers, orders, products, suppliers, and employees.
+You will import data from the **Northwind dataset**—a fictitious food products company with customers, orders, products, and categories.
 
 * 91 customers
 * 830 orders
 * 77 products across 8 categories
-* 29 suppliers
-* 9 employees
 ====
 
 [.col]
 ====
-image::images/northwind.webp[Northwind data model showing interconnected customers, orders, products, suppliers, and employees]
+image::images/northwind.webp[Northwind data model showing interconnected customers, orders, products, and categories]
 ====
 
 
@@ -51,34 +49,36 @@ This is **collaborative filtering**—the algorithm behind recommendation system
 These questions are about **relationships and connections**, not just individual records.
 
 
-[.slide.col-2]
+[.slide]
 == The relational database approach
 
 In SQL, the recommendation query requires **38 lines of code** with 7 JOINs and 3 Common Table Expressions:
 
-[.col]
-====
 [source,sql]
-.Product recommendations in SQL (simplified)
+.Step 1: Define 3 CTEs to structure the logic
 ----
--- Find my products
 WITH my_products AS (
-  SELECT DISTINCT od.productID
-  FROM customers c
+  SELECT DISTINCT od.productID FROM customers c
   JOIN orders o ON c.customerID = o.customerID
   JOIN order_details od ON o.orderID = od.orderID
   WHERE c.customerID = 'ALFKI'
 ),
--- Find similar customers
 similar_customers AS (
-  SELECT DISTINCT c2.customerID
-  FROM customers c2
+  SELECT DISTINCT c2.customerID FROM customers c2
   JOIN orders o2 ON c2.customerID = o2.customerID
   JOIN order_details od2 ON o2.orderID = od2.orderID
   WHERE od2.productID IN (SELECT productID FROM my_products)
     AND c2.customerID <> 'ALFKI'
 ),
--- Find recommendations
+----
+
+
+[.slide]
+== The relational database approach (continued)
+
+[source,sql]
+.Step 2: Build recommendations and final SELECT
+----
 recommendations AS (
   SELECT od3.productID, COUNT(DISTINCT sc.customerID) as recommendedBy
   FROM similar_customers sc
@@ -87,25 +87,36 @@ recommendations AS (
   WHERE od3.productID NOT IN (SELECT productID FROM my_products)
   GROUP BY od3.productID
 )
-SELECT p.name, p.unitPrice, p.unitsInStock, r.recommendedBy
-FROM recommendations r
+SELECT p.name, r.recommendedBy FROM recommendations r
 JOIN products p ON r.productID = p.productID
 WHERE p.unitsInStock > 0
-ORDER BY r.recommendedBy DESC, p.unitPrice
-LIMIT 10;
+ORDER BY r.recommendedBy DESC LIMIT 10;
 ----
-====
 
-[.col]
-====
-**The problems:**
 
-* 38 lines of complex SQL
-* 7 JOIN operations across 4 tables
-* Multiple subqueries and CTEs
-* Performance degrades as data grows—each join adds index scans and materialized result sets, so cost scales with table sizes
-* Hard to write, read, and maintain
-====
+[.slide]
+== SQL complexity breakdown
+
+**The problems with this approach:**
+
+* **38 lines** of complex SQL
+* **7 JOIN operations** across 4 tables
+* **3 CTEs** (Common Table Expressions) just to structure the logic
+* **Performance degrades** as data grows—each join adds index scans and materialized result sets
+* **Hard to maintain**—modifying the query requires understanding all subqueries
+
+[.slide]
+== When do graph databases excel?
+
+Relational databases are excellent for structured, tabular data where queries focus on individual records or simple joins. However, certain applications benefit from a graph-first approach:
+
+* **Recommendations** - "What do people like me buy?" requires traversing purchase patterns across customers
+* **Fraud detection** - Finding suspicious rings of accounts sharing addresses, phone numbers, or transaction patterns
+* **Knowledge graphs** - Connecting concepts, documents, and entities for semantic search and discovery
+* **Network and IT operations** - Tracing dependencies between servers, services, and applications
+* **Supply chain** - Understanding multi-tier supplier relationships and impact analysis
+
+These are all relationship-intensive problems where the value comes from connections between entities, not just the entities themselves.
 
 [.slide.col-2]
 == Why graph databases?
@@ -188,16 +199,7 @@ Each module builds toward the recommendation query.
 * Multi-hop traversals for recommendations
 
 [.slide]
-=== Module 4: Completing the Model
-
-* Import Category nodes and create `IN_CATEGORY` relationships
-* Import Supplier nodes and create `SUPPLIES` relationships
-* Import Employee nodes with `REPORTS_TO` and `SOLD` relationships
-* Query hierarchical data with variable-length paths
-* Complete Northwind graph model
-
-[.slide]
-=== Module 5: Building Recommendations and Review
+=== Module 4: Building Recommendations and Review
 
 * Step-by-step query building - collaborative filtering
 * Find products I bought
@@ -207,61 +209,51 @@ Each module builds toward the recommendation query.
 * SQL vs Cypher comparison
 * Knowledge check quiz
 
-[.slide.col-2]
+[.slide]
 == Your Neo4j Instance Credentials
 
-[.col]
-====
-A Neo4j sandbox instance has been created for you to use throughout this workshop. Use these credentials when connecting from the Import tool or Query tool.
+A Neo4j sandbox instance has been created for you. Use these credentials when connecting from the Import tool or Query tool.
 
 [WARNING]
 .Use the sandbox credentials shown here
-=====
+====
 These credentials are specific to your GraphAcademy sandbox. If you also have a personal Aura account, do not use those credentials for this workshop.
-=====
+====
 
 [.credentials]
-// Browser URL:: link:https://{instance-host}/browser/[https://{instance-host}/browser/^]
-// Bolt URI:: [copy]#bolt://{instance-ip}:{instance-boltPort}#
 Connection URL:: [copy]#bolt+s://{instance-host}:{instance-boltPort}#
 Username:: [copy]#{instance-username}#
 Password:: [copy]#{instance-password}#
-Database:: [copy]#{instance-database}#
-====
 
-[.col]
-====
-[TIP]
-.Two ways to run queries
-=====
-**Integrated Query pane** (bottom right) - Convenient for quick queries while reading lessons. Click the link:#[Toggle Query pane,role=classroom-sandbox-toggle] button to open it.
 
-**Aura Query tool** (full screen) - Better for complex queries and exploring results. Click the console links throughout the course to open it in a new tab with your credentials pre-filled.
+[.slide]
+== Two ways to run queries
 
-Use whichever works best for the query at hand. The integrated pane can feel cramped for longer queries, so don't hesitate to switch to the full Query tool.
-=====
-====
+**Integrated Query pane** (bottom right)
+
+* Click the link:#[Toggle Query pane,role=classroom-sandbox-toggle] button to open it
+* Good for quick verification queries (1-3 lines)
+
+**Aura Query tool** (full screen)
+
+* Click the console links throughout the course to open in a new tab
+* **Recommended for most workshop queries** - more screen space for results and multi-line queries
+
+When in doubt, use the full Query tool.
 
 [.slide.col-2]
 == Importing tabular data into Neo4j
 
 [.col]
 ====
-The **Import** tool is a visual tool for importing tabular data into Neo4j.
+The **Import** tool is a visual, no-code interface for importing tabular data into Neo4j.
 
-**What you can do:**
-
-* Upload data files
+* Upload CSV/TSV files or connect to databases
 * Design your graph data model visually
-* Map table columns to nodes and relationships
-* Set up constraints and indexes
+* Map columns to nodes and relationships
 * Run the import with one click
 
 console::Open Import Tool[tool=import,connect-url={connect-url}]
-
-[NOTE]
-.Using the Import tool
-You will use the Import tool extensively in the next module when you design and import your own data model.
 ====
 
 [.col]
@@ -270,21 +262,27 @@ image::images/01_data_importer_main.jpg[Import Tool]
 ====
 
 
-[.slide]
+[.slide.col-2]
 == Querying your graph database
 
-The **Query** tool (also referred to as Neo4j Browser) lets you:
+[.col]
+====
+The **Query** tool lets you write and run Cypher queries:
 
-
-* Write and execute Cypher queries
+* Execute Cypher queries
 * Generate queries using AI assistance
-* Visualize query results as graphs or tables
+* Visualize results as graphs or tables
 * Explore your data interactively
-* Save and share queries
-
-You will use the Import tool to design your graph data model and the Query tool to query your graph database.
 
 console::Open Query Tool[tool=query,connect-url={connect-url}]
+====
+
+[.col]
+====
+[NOTE]
+.Workshop tools
+You will use the **Import tool** to design and load your graph model, then the **Query tool** to explore and query your data.
+====
 
 
 read::Mark as completed[]
@@ -299,7 +297,7 @@ In this lesson, you learned about the workshop goal:
 * **The solution** - Cypher does it in 10 lines with direct relationship traversals
 * **Performance** - Graph traversal follows pointers in memory; deep traversals are more predictable and often much faster than equivalent multi-join SQL, especially as relationship depth increases
 * **What you'll build** - Complete graph with Products, Customers, Orders, collaborative filtering algorithm
-* **Workshop structure** - 5 modules: Building Your Graph → Modeling Relationships → Many-to-Many → Completing the Model → Building Recommendations
+* **Workshop structure** - 4 modules: Building Your Graph → Modeling Relationships → Many-to-Many → Building Recommendations
 * **Dataset** - Real Northwind data (91 customers, 830 orders, 77 products)
 
 In the next module, you will learn graph fundamentals and import your first data.

@@ -24,7 +24,7 @@ In this lesson, you will learn how to:
 [NOTE]
 .Need the complete dataset?
 ====
-This lesson works with the core graph (`Customer`, `Order`, `Product`). If you completed the optional Module 5 lessons (`Category`, `Supplier`, `Employee`), that's great - but they're not required for recommendations.
+This lesson works with the core graph (`Customer`, `Order`, `Product`). If you also completed the optional Category import, that's great, but it's not required for recommendations.
 
 If you skipped earlier lessons or want to start fresh, download the complete model:
 
@@ -261,40 +261,62 @@ Now modify the recommendation query to exclude products in that category.
 
 [.col]
 ====
-You can use the `EXCLUDE` relationship to collect a list of categories the customer has excluded, and use the `NOT` and `any()` to filter out products in excluded categories.
+Use the `EXCLUDE` relationship to filter out products in excluded categories.
 
-[source,cypher]
+[source,cypher,role=noplay]
 ----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+MATCH (me:Customer {id: 'ALFKI'})
+      -[:PLACED]->(:Order)
+      -[:CONTAINS]->(myProduct:Product)
 WITH me,
-     collect(DISTINCT myProduct) AS myProducts,                                                   // <1>
-     [ (me)-[:EXCLUDE]->(cat) | cat ] AS excludedCategories                                       // <2>
-
-UNWIND myProducts AS product                                                                      // <3>
-
-MATCH (other)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)
-WHERE NOT p IN myProducts
-  AND NOT any(cat IN [ (p)-[:IN_CATEGORY]->(cat) | cat ]                                          // <4>
-              WHERE cat IN excludedCategories)
-
-RETURN p.name AS recommendation,                                                                  // <5>
-       [ (p)-[:IN_CATEGORY]->(c) | c.name ] AS categories,
-       count(DISTINCT o) AS orderCount
-ORDER BY orderCount DESC
-LIMIT 10
+  collect(DISTINCT myProduct) AS myProducts,
+  [(me)-[:EXCLUDE]->(cat)|cat] AS excluded
+UNWIND myProducts AS product
 ----
 ====
 
 [.col]
 ====
-<1> **Collect products** - Use `collect()` instead of list expression to aggregate products
-<2> **Get excluded categories** - New list expression to capture customer's category preferences
-<3> **Unwind products** - Unwind the list of products to check each one individually
-<4> **Category filter added** - Use `any()` to check if product belongs to an excluded category
-<5> **Return categories** - Show which categories each recommendation belongs to
+[source,cypher,role=noplay]
+----
+MATCH (other)-[:PLACED]->(o:Order)
+      -[:CONTAINS]->(p:Product)
+WHERE NOT p IN myProducts
+  AND NOT any(cat IN
+    [(p)-[:IN_CATEGORY]->(cat)|cat]
+    WHERE cat IN excluded)
+RETURN p.name AS recommendation,
+  count(DISTINCT o) AS orderCount
+ORDER BY orderCount DESC LIMIT 10
+----
+====
 
 
+[.slide.col-2]
+== Understanding category exclusions
 
+[.col]
+====
+[source,cypher,role=noplay]
+----
+WITH me,
+  collect(DISTINCT myProduct) AS myProducts,  // <1>
+  [(me)-[:EXCLUDE]->(cat)|cat] AS excluded    // <2>
+
+UNWIND myProducts AS product                  // <3>
+
+WHERE NOT any(cat IN                          // <4>
+  [(p)-[:IN_CATEGORY]->(cat)|cat]
+  WHERE cat IN excluded)
+----
+====
+
+[.col]
+====
+<1> **Collect products** - Aggregate with `collect()`
+<2> **Get exclusions** - List expression for preferences
+<3> **Unwind** - Check each product individually
+<4> **Category filter** - `any()` checks exclusions
 ====
 
 read::Mark as completed[]
