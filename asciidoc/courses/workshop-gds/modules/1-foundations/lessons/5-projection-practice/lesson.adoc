@@ -46,7 +46,7 @@ The following query traverses through Movie nodes without including them in `sou
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 MATCH (source:Actor)-[:ACTED_IN]->(:Movie)<-[:ACTED_IN]-(target:Actor) // <1>
 WITH gds.graph.project('actor-collab', source, target) AS g // <2>
@@ -87,7 +87,7 @@ The first query runs PageRank on the actor-collab graph and stores the results i
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 CALL gds.pageRank.write('actor-collab', { // <1>
   writeProperty: 'pageRank' // <2>
@@ -111,7 +111,7 @@ The second query retrieves the top 10 actors by PageRank score:
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 MATCH (a:Actor) // <1>
 WHERE a.pageRank IS NOT NULL // <2>
@@ -151,7 +151,7 @@ The following query traverses through Actor nodes to connect Movies.
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 MATCH (source:Movie)<-[:ACTED_IN]-(:Actor)-[:ACTED_IN]->(target:Movie) // <1>
 WITH gds.graph.project('movie-collab', source, target) AS g // <2>
@@ -193,7 +193,7 @@ The configuration parameters preserve the User and Movie labels. GDS now knows w
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 MATCH (source:User)-[r:RATED]->(target:Movie) // <1>
 WITH gds.graph.project(
@@ -254,7 +254,7 @@ Use `SIMILAR` as the relationship type and `score` as the property name.
 
 [.col]
 ====
-[source,cypher,role=noplay nocopy]
+[source,cypher,role=noplay]
 ----
 CALL gds.nodeSimilarity.write('user-movie-bipartite', { // <1>
   writeRelationshipType: 'SIMILAR', // <2>
@@ -283,7 +283,7 @@ This creates SIMILAR relationships between Users who rated the same Movies, and 
 
 Check the similar users that Node Similarity found:
 
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 MATCH (u1:User)-[s:SIMILAR]->(u2:User)
 RETURN u1.name AS user1, u2.name AS user2, s.score AS similarity
@@ -307,9 +307,11 @@ Let's find out.
 
 Project everything: Actors, Movies, Users, and their relationships:
 
-[source,cypher,role=noplay]
+[source,cypher]
 ----
 MATCH (source)-[r]->(target)
+WHERE source:Actor OR source:Movie OR source:User OR target:Actor OR target:Movie OR target:User
+LIMIT 100000
 WITH gds.graph.project(
   'everything',
   source,
@@ -318,16 +320,24 @@ WITH gds.graph.project(
 RETURN g.graphName, g.nodeCount, g.relationshipCount
 ----
 
+[.transcript-only]
+====
+This projects the entire graph, including all node types. However, note that we are limiting the number of relationships to ensure that node similarity runs faster for this demonstration.
+====
+
 [.slide]
 == Run Node Similarity on Everything
 
-[source,cypher,role=noplay]
+[source,cypher]
 ----
-CALL gds.nodeSimilarity.stream('everything')
+CALL gds.nodeSimilarity.stream('everything', {topK: 3})
 YIELD node1, node2, similarity
 WITH gds.util.asNode(node1) AS n1,
      gds.util.asNode(node2) AS n2,
      similarity
+WHERE similarity < 0.3 AND n1 < n2 
+  AND none(l IN labels(n1) WHERE l IN labels(n2))
+  AND none(l IN labels(n2) WHERE l IN labels(n1))
 RETURN labels(n1) AS label1,
        coalesce(n1.name, n1.title) AS node1,
        labels(n2) AS label2,

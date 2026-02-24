@@ -237,7 +237,7 @@ image::images/heterogeneous_graph.svg[The movie graph with Actor, Movie, User, a
 
 [.transcript-only]
 ====
-Our full Movies dataset has Actors, Movies, Users, and Genres. Movies can connect to all node types, meaning the connections can overlap.
+Our full Movies dataset has Actors, Movies, Users, and Genres. Movies can connect to all node types, meaning the connections do not overlap between node types. It is both heterogeneous and multipartite.
 ====
 
 [.slide]
@@ -247,7 +247,7 @@ PageRank ranks nodes by "importance" based on incoming connections from other im
 
 Let's see what happens when we run it on our unlabelled bipartite projection:
 
-[source,cypher,role=noplay nocopy]
+[source,cypher]
 ----
 CALL gds.pageRank.stream('actors-graph', {})
 YIELD nodeId, score
@@ -316,6 +316,14 @@ There is no meaningful way of separating the nodes into non-overlapping sets.
 
 Now PageRank can flow between nodes of the same type, producing meaningful importance rankings.
 
+[source,cypher]
+----
+CALL gds.pageRank.stream('actors-only', {})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name, score
+ORDER BY score DESC
+----
+
 [.slide]
 == Monopartite Structures
 
@@ -332,7 +340,7 @@ For some algorithms, you will want to retain node labels.
 
 Use configuration to preserve labels:
 
-[source,cypher,role=noplay nocopy]
+[source,cypher]
 ----
 MATCH (source:Actor)-[r:ACTED_IN]->(target:Movie)
 WITH gds.graph.project(
@@ -374,7 +382,7 @@ It works best on graphs that can be separated into distinct sets of nodes, such 
 
 The following projection creates a bipartite graph with preserved labels.
 
-[source,cypher,role=noplay nocopy]
+[source,cypher]
 ----
 MATCH (source:User)-[r:RATED]->(target:Movie)
 WITH gds.graph.project(
@@ -387,6 +395,40 @@ WITH gds.graph.project(
 RETURN g.graphName, g.nodeCount, g.relationshipCount
 ----
 
+[.transcript-only]
+====
+This creates a bipartite graph with preserved labels. When you run Node Similarity on this graph, it will compare Users based on their shared Movie connections.
+====
+
+[.slide.col-2]
+== Run Node Similarity
+Now we'll run Node Similarity on the `user-rated-movie` graph.
+
+[.col]
+====
+[source,cypher]
+----
+CALL gds.nodeSimilarity.stream('user-rated-movie', {
+  topK: 3 // <1>
+})
+YIELD node1, node2, similarity
+RETURN gds.util.asNode(node1).name AS user1, // <2>
+       gds.util.asNode(node2).name AS user2, // <3> 
+       similarity // <4>
+ORDER BY similarity DESC // <4>
+LIMIT 10 // <5>
+----
+====
+
+[.col]
+====
+<1> Stream Node Similarity on the user-rated-movie projection
+<2> Return the top 3 most similar nodes per node
+<3> Return the name of the first node
+<4> Return the name of the second node
+<5> Return the similarity score
+====
+
 [.slide]
 == Node Similarity Result
 
@@ -398,6 +440,8 @@ image::images/diagram_of_node_similarity_on_bipartite_graph_with.svg[Diagram of 
 
 ====
 The algorithm respects the bipartite structure: it compares nodes on one side based on their connections to the other side.
+
+Don't worry too much about the details of the algorithm for now—that comes later.
 ====
 
 [.slide]
