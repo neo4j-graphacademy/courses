@@ -583,6 +583,7 @@ describe("QA Tests", () => {
                         async () => {
                           if (
                             !link.includes("openai") &&
+                            !link.includes("workspace.neo4j.io") &&
                             !link.includes("example") &&
                             !link.includes("localhost")
                           ) {
