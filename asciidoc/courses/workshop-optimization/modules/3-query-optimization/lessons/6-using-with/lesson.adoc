@@ -2,13 +2,19 @@
 :type: lesson
 :order: 6
 
+[.slide.discrete]
+== Introduction
+
 In this lesson, you will learn how to use the `WITH` clause in Cypher to:
 
 * Break down complex queries into smaller, more manageable parts.
 * Control the flow of data through your query for better performance and readability.
 
+[.slide.col-2]
 == Limiting results
 
+[.col]
+====
 The following query returns data about the top 10 most popular products based on the number of orders:
 
 [source, cypher, role="noplay"]
@@ -25,25 +31,36 @@ RETURN DISTINCT                                                 //<2>
 ORDER BY orderCount DESC                                        //<4>
 LIMIT 10        
 ----
+====
 
+[.col]
+====
 <1> The query matches orders, products, suppliers, and categories in a single step.
 <2> The `DISTINCT` keyword is used to eliminate duplicate rows, which can add overhead to the query execution.
 <3> The count of orders is calculated for all products.
 <4> Finally all the results are ordered and limited to the top 10.
 
 The profile of this query shows that all the orders are expanded before the count is ordered.
+====
 
+[.transcript-only]
 image::images/popular-products-annotated.png["A snippet of the query profile showing that all orders are expanded before the count is ordered."]
 
+[.slide]
 === Break the query down 
 
-This query can be optimized by breaking it down into smaller parts: 
+The query can be optimized by breaking it down into smaller parts: 
 
 * Finding the top 10 products
 * Pipelining just the top products and the order count using `WITH`
 * Matching the suppliers and categories for those top products
 * Returning the results
 
+[.slide.discrete.col-2]
+=== Optimized query using WITH
+
+[.col]
+====
 The optimized query looks like this:
 
 [source, cypher, role="noplay"]
@@ -60,15 +77,22 @@ RETURN                                                        //<4>
   s.companyName AS supplier, 
   orderCount
 ----
+====
 
+[.col]
+====
 <1> The query starts by matching all products.
 <2> `WITH` is used in conjunction with the count store `ORDER BY` and `LIMIT` to pipeline just the top 10 products.
 <3> The suppliers and categories are matched for just those top products.
  
-Review the profile of this query and compare it to the profile of the original query. You should notice that limiting the number of products early and using the count store significantly reduces the number of rows read and relationships expanded
+Review the profile of this query and compare it to the profile of the original query. 
 
-The execution plan of the optimized query would stay consistent as the data grew, while the original query would slow as more orders and products were added to the database.
+Limiting the number of products early and using the count store significantly reduces the number of rows read and relationships expanded
 
+The execution plan of the optimized query would stay mostly consistent as the number of orders grew.
+====
+
+[.slide]
 == Reading properties late
 
 This query returns the top 10 customers by quantity of products ordered:
@@ -85,7 +109,10 @@ RETURN
 ORDER BY quantity DESC LIMIT 10
 ----
 
-All the properties of read before the results are ordered and limited. This can lead to unnecessary reads if there are many customers and orders in the database.
+All the properties of read before the results are ordered and limited - leading to unnecessary reads particularly if there are a lrage number of customers and orders in the database.
+
+[.slide.discrete]
+== Optimizing by reading properties late
 
 The query can be optimized by reading the properties of the customers after the top customers have been identified:
 
