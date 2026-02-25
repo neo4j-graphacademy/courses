@@ -49,113 +49,113 @@ This is **collaborative filtering**—the algorithm behind recommendation system
 These questions are about **relationships and connections**, not just individual records.
 
 
-[.slide]
-== The relational database approach
+// [.slide]
+// == The relational database approach
 
-In SQL, the recommendation query requires **38 lines of code** with 7 JOINs and 3 Common Table Expressions:
+// In SQL, the recommendation query requires **38 lines of code** with 7 JOINs and 3 Common Table Expressions:
 
-[source,sql]
-.Step 1: Define 3 CTEs to structure the logic
-----
-WITH my_products AS (
-  SELECT DISTINCT od.productID FROM customers c
-  JOIN orders o ON c.customerID = o.customerID
-  JOIN order_details od ON o.orderID = od.orderID
-  WHERE c.customerID = 'ALFKI'
-),
-similar_customers AS (
-  SELECT DISTINCT c2.customerID FROM customers c2
-  JOIN orders o2 ON c2.customerID = o2.customerID
-  JOIN order_details od2 ON o2.orderID = od2.orderID
-  WHERE od2.productID IN (SELECT productID FROM my_products)
-    AND c2.customerID <> 'ALFKI'
-),
-----
-
-
-[.slide]
-== The relational database approach (continued)
-
-[source,sql]
-.Step 2: Build recommendations and final SELECT
-----
-recommendations AS (
-  SELECT od3.productID, COUNT(DISTINCT sc.customerID) as recommendedBy
-  FROM similar_customers sc
-  JOIN orders o3 ON sc.customerID = o3.customerID
-  JOIN order_details od3 ON o3.orderID = od3.orderID
-  WHERE od3.productID NOT IN (SELECT productID FROM my_products)
-  GROUP BY od3.productID
-)
-SELECT p.name, r.recommendedBy FROM recommendations r
-JOIN products p ON r.productID = p.productID
-WHERE p.unitsInStock > 0
-ORDER BY r.recommendedBy DESC LIMIT 10;
-----
+// [source,sql]
+// .Step 1: Define 3 CTEs to structure the logic
+// ----
+// WITH my_products AS (
+//   SELECT DISTINCT od.productID FROM customers c
+//   JOIN orders o ON c.customerID = o.customerID
+//   JOIN order_details od ON o.orderID = od.orderID
+//   WHERE c.customerID = 'ALFKI'
+// ),
+// similar_customers AS (
+//   SELECT DISTINCT c2.customerID FROM customers c2
+//   JOIN orders o2 ON c2.customerID = o2.customerID
+//   JOIN order_details od2 ON o2.orderID = od2.orderID
+//   WHERE od2.productID IN (SELECT productID FROM my_products)
+//     AND c2.customerID <> 'ALFKI'
+// ),
+// ----
 
 
-[.slide]
-== SQL complexity breakdown
+// [.slide]
+// == The relational database approach (continued)
 
-**The problems with this approach:**
+// [source,sql]
+// .Step 2: Build recommendations and final SELECT
+// ----
+// recommendations AS (
+//   SELECT od3.productID, COUNT(DISTINCT sc.customerID) as recommendedBy
+//   FROM similar_customers sc
+//   JOIN orders o3 ON sc.customerID = o3.customerID
+//   JOIN order_details od3 ON o3.orderID = od3.orderID
+//   WHERE od3.productID NOT IN (SELECT productID FROM my_products)
+//   GROUP BY od3.productID
+// )
+// SELECT p.name, r.recommendedBy FROM recommendations r
+// JOIN products p ON r.productID = p.productID
+// WHERE p.unitsInStock > 0
+// ORDER BY r.recommendedBy DESC LIMIT 10;
+// ----
 
-* **38 lines** of complex SQL
-* **7 JOIN operations** across 4 tables
-* **3 CTEs** (Common Table Expressions) just to structure the logic
-* **Performance degrades** as data grows—each join adds index scans and materialized result sets
-* **Hard to maintain**—modifying the query requires understanding all subqueries
 
-[.slide]
-== When do graph databases excel?
+// [.slide]
+// == SQL complexity breakdown
 
-Relational databases are excellent for structured, tabular data where queries focus on individual records or simple joins. However, certain applications benefit from a graph-first approach:
+// **The problems with this approach:**
 
-* **Recommendations** - "What do people like me buy?" requires traversing purchase patterns across customers
-* **Fraud detection** - Finding suspicious rings of accounts sharing addresses, phone numbers, or transaction patterns
-* **Knowledge graphs** - Connecting concepts, documents, and entities for semantic search and discovery
-* **Network and IT operations** - Tracing dependencies between servers, services, and applications
-* **Supply chain** - Understanding multi-tier supplier relationships and impact analysis
+// * **38 lines** of complex SQL
+// * **7 JOIN operations** across 4 tables
+// * **3 CTEs** (Common Table Expressions) just to structure the logic
+// * **Performance degrades** as data grows—each join adds index scans and materialized result sets
+// * **Hard to maintain**—modifying the query requires understanding all subqueries
 
-These are all relationship-intensive problems where the value comes from connections between entities, not just the entities themselves.
+// [.slide]
+// == When do graph databases excel?
 
-[.slide.col-2]
-== Why graph databases?
+// Relational databases are excellent for structured, tabular data where queries focus on individual records or simple joins. However, certain applications benefit from a graph-first approach:
 
-Graph databases store relationships as first-class citizens, making connected data queries natural and fast.
+// * **Recommendations** - "What do people like me buy?" requires traversing purchase patterns across customers
+// * **Fraud detection** - Finding suspicious rings of accounts sharing addresses, phone numbers, or transaction patterns
+// * **Knowledge graphs** - Connecting concepts, documents, and entities for semantic search and discovery
+// * **Network and IT operations** - Tracing dependencies between servers, services, and applications
+// * **Supply chain** - Understanding multi-tier supplier relationships and impact analysis
 
-[.col]
-====
-**The recommendation query in Cypher (10 lines):**
+// These are all relationship-intensive problems where the value comes from connections between entities, not just the entities themselves.
 
-[source,cypher]
-.Product recommendations
-----
-MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
-MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
-WHERE other <> me
-MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
-WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
-  AND rec.unitsInStock > 0
-RETURN rec.name, rec.unitPrice,
-       count(DISTINCT other) AS recommendedBy
-ORDER BY recommendedBy DESC
-LIMIT 10
-----
-====
+// [.slide.col-2]
+// == Why graph databases?
 
-[.col]
-====
-**The advantages:**
+// Graph databases store relationships as first-class citizens, making connected data queries natural and fast.
 
-* **10 lines** vs 38 lines SQL
-* **No JOINs**—relationships are pre-materialized pointers; the engine follows them in memory
-* **Cost scales with connections traversed**—not with total table size; graph databases store adjacency directly
-* **Index lookup** finds the anchor node (one fast index use), then the query follows pointers instead of doing repeated index scans and join materialization
-* **Readable**—reads like the problem statement
-* **Maintainable**—easy to modify and extend
+// [.col]
+// ====
+// **The recommendation query in Cypher (10 lines):**
 
-You'll learn why this performance difference exists and how to leverage it.
-====
+// [source,cypher]
+// .Product recommendations
+// ----
+// MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+// MATCH (myProduct)<-[:CONTAINS]-(:Order)<-[:PLACED]-(other:Customer)
+// WHERE other <> me
+// MATCH (other)-[:PLACED]->(:Order)-[:CONTAINS]->(rec:Product)
+// WHERE NOT (me)-[:PLACED]->(:Order)-[:CONTAINS]->(rec)
+//   AND rec.unitsInStock > 0
+// RETURN rec.name, rec.unitPrice,
+//        count(DISTINCT other) AS recommendedBy
+// ORDER BY recommendedBy DESC
+// LIMIT 10
+// ----
+// ====
+
+// [.col]
+// ====
+// **The advantages:**
+
+// * **10 lines** vs 38 lines SQL
+// * **No JOINs**—relationships are pre-materialized pointers; the engine follows them in memory
+// * **Cost scales with connections traversed**—not with total table size; graph databases store adjacency directly
+// * **Index lookup** finds the anchor node (one fast index use), then the query follows pointers instead of doing repeated index scans and join materialization
+// * **Readable**—reads like the problem statement
+// * **Maintainable**—easy to modify and extend
+
+// You'll learn why this performance difference exists and how to leverage it.
+// ====
 
 [.slide]
 == What you'll build

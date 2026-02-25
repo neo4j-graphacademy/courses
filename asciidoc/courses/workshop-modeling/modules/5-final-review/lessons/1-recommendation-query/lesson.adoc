@@ -28,7 +28,7 @@ This lesson works with the core graph (`Customer`, `Order`, `Product`). If you a
 
 If you skipped earlier lessons or want to start fresh, download the complete model:
 
-1. Download link:https://cdn.graphacademy.neo4j.com/courses/workshop-modeling/modules/6-final-review/lessons/1-recommendation-query/data/complete-model.zip[complete-model.zip^]
+1. Download link:https://cdn.graphacademy.neo4j.com/courses/workshop-modeling/modules/5-final-review/lessons/1-recommendation-query/data/complete-model.zip[complete-model.zip^]
 2. In the Import tool, click the 3-dot menu (...) and select **Open model (with data)**
 3. Select the downloaded zip file
 4. Click the **Run Import** button to load the data
@@ -263,60 +263,31 @@ Now modify the recommendation query to exclude products in that category.
 ====
 Use the `EXCLUDE` relationship to filter out products in excluded categories.
 
-[source,cypher,role=noplay]
+[source,cypher]
 ----
-MATCH (me:Customer {id: 'ALFKI'})
-      -[:PLACED]->(:Order)
-      -[:CONTAINS]->(myProduct:Product)
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
 WITH me,
-  collect(DISTINCT myProduct) AS myProducts,
-  [(me)-[:EXCLUDE]->(cat)|cat] AS excluded
-UNWIND myProducts AS product
-----
-====
-
-[.col]
-====
-[source,cypher,role=noplay]
-----
-MATCH (other)-[:PLACED]->(o:Order)
-      -[:CONTAINS]->(p:Product)
+     collect(DISTINCT myProduct) AS myProducts,                      // <1>
+     [ (me)-[:EXCLUDE]->(cat) | cat ] AS excludedCategories          // <2>
+UNWIND myProducts AS product                                         // <3>
+MATCH (other)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)
 WHERE NOT p IN myProducts
-  AND NOT any(cat IN
-    [(p)-[:IN_CATEGORY]->(cat)|cat]
-    WHERE cat IN excluded)
-RETURN p.name AS recommendation,
-  count(DISTINCT o) AS orderCount
-ORDER BY orderCount DESC LIMIT 10
-----
-====
-
-
-[.slide.col-2]
-== Understanding category exclusions
-
-[.col]
-====
-[source,cypher,role=noplay]
-----
-WITH me,
-  collect(DISTINCT myProduct) AS myProducts,  // <1>
-  [(me)-[:EXCLUDE]->(cat)|cat] AS excluded    // <2>
-
-UNWIND myProducts AS product                  // <3>
-
-WHERE NOT any(cat IN                          // <4>
-  [(p)-[:IN_CATEGORY]->(cat)|cat]
-  WHERE cat IN excluded)
+  AND NOT any(cat IN [ (p)-[:IN_CATEGORY]->(cat) | cat ]             // <4>
+              WHERE cat IN excludedCategories)
+RETURN p.name AS recommendation,                                     // <5>
+       count(DISTINCT o) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10
 ----
 ====
 
 [.col]
 ====
-<1> **Collect products** - Aggregate with `collect()`
-<2> **Get exclusions** - List expression for preferences
-<3> **Unwind** - Check each product individually
-<4> **Category filter** - `any()` checks exclusions
+<1> **Collect products** - Use `collect()` to aggregate products
+<2> **Get excluded categories** - List expression for customer preferences
+<3> **Unwind products** - Check each product individually
+<4> **Category filter** - Use `any()` to check excluded categories
+<5> **Return results** - Show recommendations with order count
 ====
 
 read::Mark as completed[]
@@ -331,13 +302,6 @@ In this lesson, you built a recommendation query step by step:
 * **Finding what those customers purchased** - Forward traversal to find recommendations
 * **Excluding the customer's products** - Filter out products already owned
 * **Optimizing the query** - Use list expressions to reduce database accesses by 80%
-
-**Key insights:**
-
-* Build queries incrementally to understand traversal patterns
-* Every row from early matches multiplies the work downstream
-* Use aggregations and list expressions early for better performance
-* `PROFILE` shows how much work a query does
 
 **You've modeled your data and written an efficient recommendation query by thinking about how graph traversals work!**
 
