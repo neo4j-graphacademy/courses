@@ -52,6 +52,12 @@ RETURN DISTINCT employee.title
 ----
 
 If you profile this query you will see that every `Employee` node is being scanned and the `title` property is accessed to determine if it is unique.
+
+[TIP]
+.DISTINCT and performance
+=====
+The use of `DISTINCT` is expensive as Neo4j needs to read all the values and determine the unique set.
+=====
 ====
 
 [.slide]
@@ -166,15 +172,20 @@ The `title` property is `SET` on the employee note and `DETACH DELETE` deletes t
 =====
 ====
 
-[.slide]
+[.slide.col-2]
 == Addresses
 
+[.col]
+====
 The data model contains several addresses which are represented as properties on the `Order`, `Customer`, `Employee`, and `Supplier` nodes.
 
 These addresses are not connected to other nodes in the graph and are not easily queryable or comparable.
 
 The shipping address for an order is represented by the following properties on the `Order` node:
+====
 
+[.col]
+====
 [source, cypher, role=noplay]
 .Order shipping addresses
 ----
@@ -186,6 +197,10 @@ RETURN DISTINCT
   order.shipPostalCode,
   order.shipCountry
 ----
+====
+
+[.slide.discrete]
+=== Normalizing shipping addresses
 
 The shipping address can be normalized to a separate `Address` node and connected to the `Order` node with a `SHIPPED_TO` relationship.
 
@@ -196,12 +211,12 @@ include::diagrams/order-address.mermaid[]
 
 Normalizing the shipping address would allow you to easily query for all orders shipped to an address or compare addresses to find orders shipped to the same or new location.
 
-[.slide.col-2]
+[.slide.col-60-40]
 === Creating shipping Address nodes
 
 [.col]
 ====
-The following Cypher query normalizes the shipping address to an `Address` node and creates a `SHIPPED_TO` relationship between the `Order` and `Address` nodes:
+The following Cypher query normalizes the shipping address creating `Address` nodes and `SHIPPED_TO` relationships:
 
 [source, cypher, role=noplay]
 .Normalize shipping address to an Address node
@@ -214,10 +229,8 @@ MERGE (address:Address {                                   // <2>
   postalCode: order.shipPostalCode,
   country: order.shipCountry})
 REMOVE                                                     // <3>
-  order.shipAddress,
-  order.shipCity,
-  order.shipRegion,
-  order.shipPostalCode,
+  order.shipAddress, order.shipCity,
+  order.shipRegion, order.shipPostalCode,
   order.shipCountry
 MERGE (order)-[s:SHIPPED_TO]->(address)                    // <4>
 RETURN order, s, address                                   // <5>
@@ -232,6 +245,10 @@ RETURN order, s, address                                   // <5>
 <4> Create a `SHIPPED_TO` relationship between the `Order` and `Address` nodes.
 <5> Return the order, relationship, and address.
 
+====
+
+[.transcript-only]
+====
 [NOTE]
 .Merge on address properties
 =====
@@ -293,6 +310,7 @@ You can view indexes in your database with the following query:
 SHOW INDEXES
 ----
 
+[.slide]
 === Querying addresses
 
 You can use the `Address` nodes and `SHIPPED_TO` relationships to query for orders shipped to a specific country or to compare addresses:
