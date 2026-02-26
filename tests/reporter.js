@@ -57,32 +57,28 @@ class CleanReporter {
 
     const stripped = failureMessages[0].replace(/\x1B\[[0-9;]*m/g, "");
 
-    // Thrown Error (e.g. from our custom checks): use the message text directly
-    const errorMatch = stripped.match(
-      /Error:\s*(.+?)(\n\s*at |\n\s*\d+\s*[|>]|$)/s,
-    );
-    if (errorMatch) {
-      return errorMatch[1].split("\n")[0].trim();
+    // Check expect() matcher patterns first — the Received string may contain
+    // arbitrary HTML including words like "Error:", so check these before errorMatch
+    const notContainMatch = stripped.match(/Expected substring: not "([^"]+)"/);
+    if (notContainMatch) return `Unexpected content found: "${notContainMatch[1]}"`;
+
+    const containMatch = stripped.match(/Expected substring: "([^"]+)"/);
+    if (containMatch) return `Missing expected text: "${containMatch[1]}"`;
+
+    // Thrown Error (e.g. from our custom throw new Error(...) checks)
+    // Collect all lines between "Error:" and the first stack trace line
+    const lines = stripped.split("\n");
+    const errorIdx = lines.findIndex((l) => /^Error:/.test(l));
+    if (errorIdx !== -1) {
+      const messageLines = [];
+      for (let i = errorIdx; i < lines.length; i++) {
+        if (/^\s+at /.test(lines[i])) break;
+        messageLines.push(lines[i]);
+      }
+      return messageLines.join("\n").replace(/^Error:\s*/, "").trim();
     }
 
-    // expect().not.toContain() failure: extract what string was unexpectedly found
-    const containMatch = stripped.match(/Expected substring: not "([^"]+)"/);
-    if (containMatch) {
-      return `Unexpected content found: "${containMatch[1]}"`;
-    }
-
-    // expect().toContain() failure
-    const missingMatch = stripped.match(/Expected substring: "([^"]+)"/);
-    if (missingMatch) {
-      return `Expected content not found: "${missingMatch[1]}"`;
-    }
-
-    return (
-      stripped
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean)[0] || ""
-    );
+    return stripped.split("\n").map((l) => l.trim()).filter(Boolean)[0] || "";
   }
 }
 

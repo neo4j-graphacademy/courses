@@ -14,7 +14,7 @@ export interface TestFailure {
   message: string;
 }
 
-// Extract ⚠️ warning blocks, keeping only the asciidoctor error lines (not progress/stats)
+// Extract ⚠️ warning blocks, keeping only the asciidoctor error lines
 export function parseWarnings(output: string): Warning[] {
   const warnings: Warning[] = [];
   let current: Warning | null = null;
@@ -26,7 +26,6 @@ export function parseWarnings(output: string): Warning[] {
     } else if (current && /^\s+asciidoctor:/i.test(line)) {
       current.lines.push(line.trim());
     } else if (current && line.trim() && !line.startsWith(" ") && !line.startsWith("\t")) {
-      // Non-indented non-empty line ends the warning block
       warnings.push(current);
       current = null;
     }
@@ -36,39 +35,22 @@ export function parseWarnings(output: string): Warning[] {
   return warnings;
 }
 
-// Parse Jest "● ..." failure blocks into clean { file, testName, message } objects
+// Parse the clean reporter output format:
+//   <file path>
+//   <test name>
+//   <message>
 export function parseTestFailures(output: string): TestFailure[] {
   const failures: TestFailure[] = [];
-  const blocks = output.split(/\n(?=  ● )/);
 
+  const section = output.match(/❌ Failures:\n([\s\S]*?)(?:─{3,}|$)/);
+  if (!section) return failures;
+
+  const blocks = section[1].trim().split(/\n\s*\n/);
   for (const block of blocks) {
-    const headerMatch = block.match(/● .+? › (.+?) › (.+)/);
-    if (!headerMatch) continue;
-
-    const file = headerMatch[1].replace(/.*build\/html\//, "");
-    const testName = headerMatch[2].trim();
-
-    let message = "";
     const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
-
-    for (const line of lines) {
-      if (/^at /.test(line)) break;                         // stop at stack trace
-      if (/^\d+\s*[|>]/.test(line)) break;                 // stop at code snippet
-      if (/^Expected substring: not "(.+)"/.test(line)) {
-        message = `Contains unexpected text: "${line.match(/not "(.+)"/)![1]}"`;
-        break;
-      }
-      if (/^Expected substring: "(.+)"/.test(line)) {
-        message = `Missing expected text: "${line.match(/"(.+)"/)![1]}"`;
-        break;
-      }
-      if (/^Error:/.test(line)) {
-        message = line.replace(/^Error:\s*/, "");
-        break;
-      }
+    if (lines.length >= 2) {
+      failures.push({ file: lines[0], testName: lines[1], message: lines[2] || "" });
     }
-
-    failures.push({ file, testName, message: message || testName });
   }
 
   return failures;
@@ -82,65 +64,41 @@ export function parseJestSummary(output: string): string {
     .join("\n");
 }
 
-export function formatComment(options: {
-  buildOutcome: "success" | "failure" | "skipped";
-  testOutcome: "success" | "failure" | "skipped";
-  buildOutput: string;
-  testOutput: string;
-}): string {
-  const { buildOutcome, testOutcome, buildOutput, testOutput } = options;
+export function formatComment(buildOutput: string, testOutput: string): string {
+  const warnings = parseWarnings(buildOutput);
+  const failures = parseTestFailures(testOutput);
+  const jestSummary = parseJestSummary(testOutput);
+
+  const hasIssues = warnings.length > 0 || failures.length > 0;
   const sections: string[] = [];
 
-  if (buildOutcome === "failure") {
-    sections.push("❌ **Build failed.**\n");
-    const tail = buildOutput.trim().slice(-3000);
-    sections.push(`\`\`\`\n${tail}\n\`\`\``);
-  } else if (testOutcome === "failure") {
-    sections.push("❌ **Tests failed.**\n");
-    const failures = parseTestFailures(testOutput);
+  if (!hasIssues) {
+    sections.push("✅ **HTML build and tests passed.**");
+  } else {
+    sections.push("❌ **HTML check failed.**");
     if (failures.length) {
       const lines = failures.map((f) => `- **${f.file}** — ${f.message}`);
-      sections.push(lines.join("\n"));
+      sections.push(`\n**Test failures:**\n${lines.join("\n")}`);
     }
-  } else if (testOutcome === "skipped") {
-    sections.push("❌ **Build failed** — tests were skipped.\n");
-    const tail = buildOutput.trim().slice(-3000);
-    sections.push(`\`\`\`\n${tail}\n\`\`\``);
-  } else {
-    sections.push("✅ **HTML build and tests passed.**");
   }
 
-  const jestSummary = parseJestSummary(testOutput);
   if (jestSummary) {
     sections.push(`\n**Test results:**\n\`\`\`\n${jestSummary}\n\`\`\``);
   }
 
-  const warnings = parseWarnings(buildOutput);
   if (warnings.length > 0) {
     const warningBlocks = warnings.map((w) => {
       const detail = w.lines.join("\n");
       return `<details><summary>${w.header}</summary>\n\n\`\`\`\n${detail}\n\`\`\`\n</details>`;
     });
-    sections.push(
-      `\n⚠️ **Build warnings (${warnings.length}):**\n\n${warningBlocks.join("\n")}`,
-    );
+    sections.push(`\n⚠️ **Build warnings (${warnings.length}):**\n\n${warningBlocks.join("\n")}`);
   }
 
   return sections.join("\n");
 }
 
-type Outcome = "success" | "failure" | "skipped";
-
-function detectOutcome(output: string, knownOutcome?: string): Outcome {
-  if (knownOutcome === "failure") return "failure";
-  if (knownOutcome === "success") return "success";
-  if (!output.trim()) return "skipped";
-  return output.includes("FAIL ") ? "failure" : "success";
-}
-
 // Run directly: ts-node src/commands/format-pr-comment.ts
 // Reads build-output.txt and test-output.txt from the project root.
-// Set BUILD_OUTCOME / TEST_OUTCOME env vars to override detection (used by CI).
 if (require.main === module) {
   const buildOutput = existsSync(join(root, "build-output.txt"))
     ? readFileSync(join(root, "build-output.txt"), "utf8")
@@ -149,10 +107,7 @@ if (require.main === module) {
     ? readFileSync(join(root, "test-output.txt"), "utf8")
     : "";
 
-  const buildOutcome = detectOutcome(buildOutput, process.env.BUILD_OUTCOME);
-  const testOutcome = detectOutcome(testOutput, process.env.TEST_OUTCOME);
-
-  const comment = formatComment({ buildOutcome, testOutcome, buildOutput, testOutput });
+  const comment = formatComment(buildOutput, testOutput);
 
   const outPath = join(root, "pr-comment.md");
   writeFileSync(outPath, comment);

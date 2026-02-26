@@ -10,8 +10,31 @@ describe("html generation", () => {
       it("should not have an unresolved directive", () => {
         const buffer = readFileSync(file);
         const text = buffer.toString();
+        const lower = text.toLowerCase();
 
-        expect(text.toLowerCase()).not.toContain("unresolved directive");
+        const found = [];
+        let searchFrom = 0;
+        while (true) {
+          const idx = lower.indexOf("unresolved directive", searchFrom);
+          if (idx === -1) break;
+
+          const lineNumber = text.substring(0, idx).split("\n").length;
+
+          // Extract the enclosing <p> text for context
+          const pStart = text.lastIndexOf("<p>", idx);
+          const pEnd = text.indexOf("</p>", idx);
+          const paragraph =
+            pStart !== -1 && pEnd !== -1
+              ? text.substring(pStart + 3, pEnd).trim()
+              : text.substring(idx, idx + 120).trim();
+
+          found.push(`Line ${lineNumber}: ${paragraph}`);
+          searchFrom = idx + 1;
+        }
+
+        if (found.length) {
+          throw new Error(found.join("\n"));
+        }
       });
 
       it("should not have broken headers", () => {
