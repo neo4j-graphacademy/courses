@@ -1,6 +1,4 @@
 module.exports = {
-  moduleFileExtensions: [
-    "js",
-    "adoc"
-  ],
+  moduleFileExtensions: ["js", "adoc"],
+  reporters: [["./tests/reporter.js", {}]],
 };
