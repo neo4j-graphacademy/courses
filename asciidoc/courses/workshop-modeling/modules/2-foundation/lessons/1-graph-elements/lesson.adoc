@@ -1,7 +1,7 @@
 = Graph Elements
 :type: lesson
 :order: 1
-:duration: 8
+:duration: 10
 
 // Source: workshop-importing/modules-backup-original/2-data-modeling/lessons/1-what-is-modeling
 // Source: workshop-importing/modules-backup-original/4-querying-data/lessons/1-intro-cypher
@@ -15,16 +15,16 @@ Before importing data, you need to understand how graph databases store informat
 In this lesson, you will learn the components of a Neo4j graph and basic Cypher query syntax.
 
 
-[.slide]
-== Understanding the goal
+// [.slide]
+// == Understanding the goal
 
-By the end of this workshop, you will build a query that answers:
+// By the end of this workshop, you will build a query that answers:
 
-**"What products do people like me buy, that I haven't bought yet?"**
+// **"What products do people like me buy, that I haven't bought yet?"**
 
-This is the kind of query that requires complex JOINs and subqueries in SQL, but is natural and performant in a graph database.
+// This is the kind of query that requires complex JOINs and subqueries in SQL, but is natural and performant in a graph database.
 
-Each module adds a piece to this solution.
+// Each module adds a piece to this solution.
 
 
 [.slide]
@@ -45,26 +45,34 @@ Let's explore each one.
 
 [.col]
 ====
-**Nodes** represent entities that exist independently in your domain.
+**Nodes** represent entities that exist independently.
 
-* Think of these as the "things" or "objects" in your business
-* **Nodes are typically nouns**: Customer, Product, Order, Employee
-* Each node represents a distinct entity
-* Nodes are the foundation of your graph
+* The "things" in your business domain
+* **Typically nouns**: Customer, Product, Order
+* Each node is a distinct entity
 ====
 
 [.col]
 ====
 [source,mermaid]
 ----
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 graph TB
-    Customer((Customer))
-    Product((Product))
-    Order((Order))
+    Customer((Customer)):::primary
+    Product((Product)):::forest
+    Order((Order)):::highlight
 
-    style Customer fill:#4C8EDA
-    style Product fill:#FCC644
-    style Order fill:#7CCFA9
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
 ----
 ====
 
@@ -76,23 +84,32 @@ graph TB
 **Labels** categorize nodes into types.
 
 * Written with a colon prefix: `:Customer`, `:Product`, `:Order`
-* Help organize and query your data efficiently
-* Multiple labels are possible: a node can be both `:Product` and `:DiscontinuedItem`
-* Labels make queries faster and more specific
+* Every node has at least one label
+* Multiple labels are possible: `:Product` and `:DiscontinuedItem`
+* Labels make queries faster by narrowing what to search
 ====
 
 [.col]
 ====
 [source,mermaid]
 ....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 graph TB
-    C((":Customer"))
-    P((":Product"))
-    O((":Order"))
+    C((":Customer")):::primary
+    P((":Product")):::forest
+    O((":Order")):::highlight
 
-    style C fill:#4C8EDA
-    style P fill:#FCC644
-    style O fill:#7CCFA9
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
 ....
 ====
 
@@ -104,29 +121,33 @@ graph TB
 **Relationships** connect nodes together.
 
 * Always have a **type** and a **direction**
-* **Relationships are typically verbs**: `PLACED`, `CONTAINS`, `SUPPLIES`, `REPORTS_TO`
-* **Direction** holds the semantic meaning of the relationship. A customer placed an order, the order did not place the customer.
-* Can store **properties** to capture details about the connection
-
-
-The following pattern describes that Order #10248 contains 12 units of Product named Chai, at a price of 14.00 each.
-
-
-
+* **Typically verbs**: `PLACED`, `CONTAINS`, `IN_CATEGORY`
+* **Direction** shows meaning: Customer placed Order
+* Can have **properties** like `quantity`
 ====
 
 [.col]
 ====
 [source,mermaid]
 ....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 graph LR
-    O((Order<br/>orderId: 10248))
-    P((Product<br/>name: 'Chai'))
+    O((Order 10248)):::highlight
+    P((Chai)):::forest
 
-    O -->|"CONTAINS<br/>{quantity: 12,<br/>unitPrice: 14.00}"| P
+    O -->|"CONTAINS<br/>quantity: 12"| P
 
-    style O fill:#7CCFA9
-    style P fill:#FCC644
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+    linkStyle default stroke:#94a3b8,stroke-width:1.25px
 ....
 
 
@@ -139,24 +160,31 @@ graph LR
 
 [.col]
 ====
-**Properties** are attributes that describe nodes or relationships.
+**Properties** are key-value pairs that describe nodes or relationships.
 
-* Stored as key-value pairs
-* Node examples: `name`, `price`, `email`, `orderDate`
-* Relationship examples: `quantity`, `since`, `rating`
-* Hold the detailed data about your entities and connections
+* Node examples: `name`, `price`, `orderDate`
+* Relationship examples: `quantity`, `discount`
 
-**Node vs. relationship properties**: Start with properties on nodes. Place properties on relationships when they describe the connection itself (for example, the `quantity` in a CONTAINS relationship, or `startDate` when a relationship changes over time).
+**Tip:** Start with properties on nodes. Put properties on relationships when they describe the connection itself.
 ====
 
 [.col]
 ====
 [source,mermaid]
 ....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 graph LR
-    P(("Product<br/>name: 'Chai'<br/>unitPrice: 18.00"))
+    P(("Product<br/>name: 'Chai'<br/>unitPrice: 18.00")):::forest
 
-    style P fill:#FCC644
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
 ....
 ====
 
@@ -164,30 +192,45 @@ graph LR
 [.slide]
 == Thinking in patterns
 
-The golden rule of graph modeling is to think of nodes as nouns and relationships as verbs.
+**Nodes are nouns, relationships are verbs.**
 
-* **Nodes are nouns** - `Customer`, `Product`, `Order`, `Category`
-* **Relationships are verbs** - `PLACED`, `CONTAINS`, `BELONGS_TO`, `SUPPLIES`
+Read these patterns like sentences:
 
-This makes reasoning about the graph model more natural and allows you to use the language of your business or domain to describe the data.
+[source]
+----
+(Customer)-[:PLACED]->(Order)       → "Customer PLACED Order"
+(Order)-[:CONTAINS]->(Product)      → "Order CONTAINS Product"
+(Product)-[:IN_CATEGORY]->(Category) → "Product IN_CATEGORY Category"
+----
 
-This leads to a data model that is more expressive and easier to understand.
-
-* `(Customer)-[:PLACED]->(Order)` - "Customer PLACED Order"
-* `(Order)-[:CONTAINS]->(Product)` - "Order CONTAINS Product"
-* `(Product)-[:BELONGS_TO]->(Category)` - "Product BELONGS_TO Category"
+This natural language mapping is why graph models are intuitive to design and query.
 
 
 
 [.slide.col-2]
-== Combining the elements
+== Combining the elements: Relational approach
 
 [.col]
 ====
+In SQL, many-to-many relationships require a join table (`ProductOrder`).
 
+The join table stores the foreign keys from both tables, plus any properties of the connection (like `quantity`).
+====
+
+[.col]
+====
 [source,mermaid]
 .Relational Model (Many-to-Many)
 ....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 erDiagram
     Order ||--o{ ProductOrder : contains
     Product ||--o{ ProductOrder : "ordered in"
@@ -207,31 +250,258 @@ erDiagram
         float unitPrice
     }
 ....
-
 ====
 
 
-[.col]
-====
+[.slide]
+== Combining the elements: Graph approach
+
+In Neo4j, a single relationship connects two nodes directly. The properties of the relationship provide context on how the two nodes are connected.
 
 [source,mermaid]
 .Graph Model (Direct Connection)
 ....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
 graph LR
-    O((Order))
-    P((Product))
+    O((Order)):::highlight
+    P((Product)):::forest
 
     O -->|"CONTAINS<br/>{quantity: 10}"| P
 
-    style O fill:#7CCFA9
-    style P fill:#FCC644
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+    linkStyle default stroke:#94a3b8,stroke-width:1.25px
 ....
 
-In SQL, many-to-many relationships require a join table (`ProductOrder`).
+There is no concept of a many-to-many relationship in graphs - just direct connections between nodes.
 
-In Neo4j, a single relationship connects two nodes directly, so there is no concept of a many-to-many relationship.  The properties of the relationship provide context on how the two nodes are connected.
 
+[.slide.col-2]
+== Nodes and labels work together
+
+[.col]
 ====
+A **node** is an individual instance. A **label** is the category it belongs to.
+
+Think of it like objects and classes: the node is the object, the label is its class.
+
+Each circle below is a **node**. They all share the **label** `:Customer`.
+====
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph LR
+    subgraph ":Customer label"
+    C1(("ALFKI")):::primary
+    C2(("BERGS")):::primary
+    C3(("CACTU")):::primary
+    end
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+....
+====
+
+
+[.slide.col-2]
+== Relationship types work the same way
+
+[.col]
+====
+A **relationship** is an individual connection. A **type** categorizes it.
+
+Each arrow is a **relationship instance**. They all share the **type** `:PLACED`.
+====
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph TB
+    C1((ALFKI)):::primary -->|PLACED| O1((10643)):::highlight
+    C1 -->|PLACED| O2((10692)):::highlight
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
+    linkStyle default stroke:#94a3b8,stroke-width:1.25px
+....
+====
+
+
+
+
+[.slide.col-2]
+== Decision guide: Node or Property?
+
+[.col]
+====
+**Category as a NODE:**
+
+Multiple products share the same category. You can ask "What products are in Beverages?"
+====
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph LR
+    P1((Chai)):::forest -->|IN_CATEGORY| Cat((Beverages)):::primary
+    P2((Chang)):::forest -->|IN_CATEGORY| Cat
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+....
+====
+
+
+[.slide.col-2]
+== Decision guide: Node or Property? (continued)
+
+[.col]
+====
+**Country as a PROPERTY:**
+
+Country is a property - you filter BY it, but don't navigate FROM countries to customers.
+
+**Rule of thumb:** If multiple nodes share it and you'd query FROM it, make it a node.
+====
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph LR
+    C1(("ALFKI<br/>country: Germany")):::primary
+    C2(("BERGS<br/>country: Sweden")):::primary
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,stroke-width:1.25px,color:#0b5c7a
+....
+====
+
+
+[.slide.col-2]
+== Decision guide: Node Property or Relationship Property?
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph LR
+    P(("Product<br/>name: Chai<br/>unitPrice: 18.00")):::forest
+
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+....
+
+**Node property:** The product's list price is intrinsic to the product - it doesn't depend on who buys it.
+====
+
+[.col]
+====
+[source,mermaid]
+....
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#eef6f9",
+    "primaryBorderColor": "#c7e0ec",
+    "lineColor": "#94a3b8",
+    "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"
+  }
+}}%%
+graph LR
+    O((Order<br/>10248)):::highlight -->|"CONTAINS<br/>quantity: 12<br/>unitPrice: 14.00"| P((Chai)):::forest
+
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,stroke-width:1.25px,color:#3730a3
+    classDef forest fill:#edf6e8,stroke:#b7df9c,stroke-width:1.25px,color:#2f5d1e
+    linkStyle default stroke:#94a3b8,stroke-width:1.25px
+....
+
+**Relationship property:** Quantity and purchase price exist because of THIS order-product connection.
+====
+
+**Rule of thumb:** If the value varies per connection, put it on the relationship.
+
+
+[.slide]
+== Quick decision guide
+
+When in doubt, ask yourself:
+
+[options="header"]
+|===
+| Question | Answer | Graph Element
+
+| Is this a distinct "thing" I can connect to?
+| Yes → Customer "ALFKI", Order #10248
+| **Node**
+
+| What type/category is this node?
+| `:Customer`, `:Product`, `:Order`
+| **Label**
+
+| Does this describe how two things are connected?
+| PLACED, CONTAINS, IN_CATEGORY
+| **Relationship**
+
+| Is this a simple attribute?
+| name, price, quantity
+| **Property**
+|===
+
 
 [.slide]
 == Introducing Cypher
@@ -299,66 +569,20 @@ LIMIT 5
 ====
 
 
-[.slide.col-2]
-== Anchor nodes and traversal
-
-[.transcript-only]
-====
-Understanding how graph queries execute helps you build efficient models.
+[.slide]
+== How graph queries work
 
 Every graph query follows two steps:
+
+1. **Find the anchor node** - Use an index to locate the starting point (e.g., `WHERE c.id = 'ALFKI'`)
+2. **Traverse relationships** - Follow pointers directly from node to node
+
+[NOTE]
+.Instructor demo
+====
+Show this visually by running a query and explaining how Neo4j finds the starting customer, then follows the PLACED and CONTAINS pointers - only touching relevant data, not scanning entire tables.
 ====
 
-[.col]
-====
-**Step 1: Find the anchor node (starting point)**
-
-The query engine needs a place to start. This is typically done by:
-
-* Finding a node by a property value: `WHERE c.id = 'ALFKI'`
-* With an index: The engine uses the index to find the node directly, which is much more performant
-* Without an index: The engine must scan all nodes of that label, which slows down as the graph grows
-====
-
-[.col]
-====
-**Step 2: Traverse relationships**
-
-Once the anchor nodes are found, the query follows relationships by type and direction:
-
-* Relationships are pre-materialized pointers stored with each node
-* Following relationships is pointer chasing in memory—the engine only touches the connections you traverse, not the whole graph
-* Much more efficient than computing JOINs, which require repeated index lookups and materializing intermediate result sets
-====
-
-[.slide.col-2]
-== Why graphs perform well
-
-[.col]
-====
-**SQL approach:**
-
-1. Scan customers table (or use an index, then join)
-2. JOIN orders table—each join does index lookups and builds intermediate result sets
-3. JOIN order_details—another round of lookups and materialization
-4. JOIN products—again, more index work and larger intermediate data
-
-Query cost grows with **table sizes** and the number of joins; each hop adds more index scans and join materialization.
-====
-
-[.col]
-====
-**Graph approach:**
-
-1. Index lookup finds the customer node (one index use; very fast)
-2. Follow PLACED pointers from that node—pointer chasing in memory, no extra index scans
-3. Follow CONTAINS pointers from each order—again, direct pointer follows
-4. Return products—only the nodes and relationships touched are read
-
-Query cost grows with **connections actually traversed**, not with total table or graph size. Graph databases store adjacency directly, so deep traversals are more predictable and often significantly faster than equivalent multi-join SQL.
-====
-
-This is why the recommendation query you will build is fast - it only touches relevant data.
 
 [.slide]
 == Indexes and constraints
@@ -407,11 +631,18 @@ read::Mark as completed[]
 [.summary]
 == Summary
 
-In this lesson, you learned the graph fundamentals and Cypher basics:
+In this lesson, you learned:
 
-* **Graph components** - Nodes (entities), labels (categories), relationships (connections), properties (attributes)
-* **Cypher syntax** - Nodes `()`, relationships `-[:TYPE]->`, patterns that match graph structures
-* **Basic queries** - MATCH finds patterns, WHERE filters results, RETURN specifies output
+* **Graph components** - Nodes (things), labels (types), relationships (connections), properties (attributes)
+* **How to differentiate:**
+  ** **Node** - A distinct instance you can connect to (customer ALFKI, order #10248)
+  ** **Label** - The type/category (`:Customer`, `:Order`) - nodes have labels
+  ** **Relationship** - A connection between nodes, typically a verb (`PLACED`, `CONTAINS`)
+  ** **Property** - An attribute on a node or relationship (`name`, `quantity`)
+* **Decision rules:**
+  ** Node vs. property → If multiple things share it and you'd query FROM it, make it a node
+  ** Node property vs. relationship property → If the value varies per connection, put it on the relationship
+* **Cypher basics** - MATCH finds patterns, WHERE filters, RETURN specifies output
 
 Next, you can optionally test your understanding with a quick Cypher patterns quiz, or continue to learn how to identify what should be a node in your graph model.
 

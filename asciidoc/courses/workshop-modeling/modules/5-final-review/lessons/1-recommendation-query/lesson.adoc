@@ -1,0 +1,309 @@
+= Building the Recommendation Query
+:type: lesson
+:order: 1
+:duration: 15
+
+[.slide.discrete]
+== Introduction
+
+You've built the core `Customer`→`Order`→`Product` graph and learned how to query it.
+
+Now you'll build a complete recommendation query that answers: **"What products do people like me buy, that I haven't bought yet?"**
+
+In this lesson, you will learn how to:
+
+* Build queries incrementally to understand traversal patterns
+* Optimize graph queries using list expressions
+* Measure query performance with `PROFILE`
+
+// TODO: use reset script?
+
+[.slide.discrete]
+== Loading the complete dataset
+
+[NOTE]
+.Need the complete dataset?
+====
+This lesson works with the core graph (`Customer`, `Order`, `Product`). If you also completed the optional Category import, that's great, but it's not required for recommendations.
+
+If you skipped earlier lessons or want to start fresh, download the complete model:
+
+1. Download link:https://cdn.graphacademy.neo4j.com/courses/workshop-modeling/modules/6-final-review/lessons/1-recommendation-query/data/complete-model.zip[complete-model.zip^]
+2. In the Import tool, click the 3-dot menu (...) and select **Open model (with data)**
+3. Select the downloaded zip file
+4. Click the **Run Import** button to load the data
+
+This model includes all entities from the workshop (core and optional).
+====
+
+
+[.slide]
+== Understanding the recommendation algorithm
+
+**Collaborative filtering** finds recommendations based on similar customers:
+
+1. **Find the customer's products** - What they've purchased
+2. **Find customers who bought those products** - Who else bought the same items
+3. **What did those customers purchase?** - Their other purchases
+4. **Exclude the customer's products** - Only show things they haven't bought
+5. **Optimize the query** - Make it efficient for production
+
+You will build this query step by step, running each version to see how it works.
+
+
+[.slide]
+== Finding the customer's products
+
+Start by finding what customer ALFKI has purchased.
+
+[.col]
+====
+
+[source,cypher]
+----
+MATCH path = (me:Customer {id: 'ALFKI'})-[:PLACED]->(order:Order)-[:CONTAINS]->(product:Product) // <1>
+RETURN path                                                                                       // <2>
+LIMIT 10
+----
+====
+
+[.col]
+====
+<1> **Start at customer** - Find `ALFKI` and traverse through orders to products
+<2> **Return the path** - Shows the full visualization of customer, orders, and products
+====
+
+// How would you extend this pattern to find other customers who bought the same products?
+
+
+[.slide]
+== Finding customers who bought those products
+
+Extend the pattern to traverse from the customer's products back to other customers.
+
+[source,cypher]
+----
+MATCH path = (me:Customer {id: 'ALFKI'})-[:PLACED]->(order:Order)-[:CONTAINS]->(product:Product)
+             <-[:CONTAINS]-(other:Order)<-[:PLACED]-(otherCustomer)                              // <1>
+RETURN path                                                                                      // <2>
+LIMIT 10
+----
+<1> **Backward traversal** - From products, follow `:CONTAINS` back to other orders, then `:PLACED` back to other customers
+
+
+// How would you find what those other customers purchased?
+
+
+[.slide]
+== Finding what those customers purchased
+
+Add another traversal to find what similar customers bought.
+
+[source,cypher]
+----
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(order:Order)-[:CONTAINS]->(product:Product)
+      <-[:CONTAINS]-(other:Order)<-[:PLACED]-(otherCustomer)
+MATCH (otherCustomer)-[:PLACED]->(otherOrder)-[:CONTAINS]->(otherProduct)                  // <1>
+WHERE product <> otherProduct                                                              // <2>
+RETURN product.name AS product,
+       otherProduct.name AS boughtWith,
+       count(*) AS count                                                                   // <3>
+ORDER BY count DESC
+LIMIT 20
+----
+
+[.col]
+====
+<1> **Forward traversal** - From similar customers, traverse to their orders and products
+<2> **Exclude same product** - Don't recommend the product they already share
+<3> **Count occurrences** - How many times this product pair appears across all customers
+
+====
+
+[.slide]
+== Excluding the customer's products
+
+Add a filter to only show products the customer hasn't bought yet.
+
+[source,cypher]
+----
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(order:Order)-[:CONTAINS]->(product:Product)
+      <-[:CONTAINS]-(other:Order)<-[:PLACED]-(otherCustomer)
+MATCH (otherCustomer)-[:PLACED]->()-[:CONTAINS]->(otherProduct)
+WHERE product <> otherProduct
+  AND NOT (me)-[:PLACED|CONTAINS*2]->(otherProduct)                                               // <1>
+RETURN otherProduct.name AS recommendation,                                                       // <2>
+       count(*) AS score
+ORDER BY score DESC
+LIMIT 20
+----
+<1> **Exclusion filter added** - Check if customer already purchased this product using a 2-hop pattern match
+<2> **Changed return** - Now only returns new recommendations, not products already owned
+
+
+[.slide]
+== Optimizing the query
+
+The query works, but it's inefficient. Every row returned from the first `MATCH` multiplies the work downstream.
+
+To optimize the query, you can retrieve the list of products the customer has bought _once_ at the start of the query, rather than once per product purchased.
+
+To do this in a single line, you can use a **list expression**.
+
+[.slide.discrete]
+=== Pre-calculating the customer's products
+
+[source,cypher]
+----
+MATCH (me:Customer {id: 'ALFKI'})
+WITH me, [ (me)-[:PLACED|CONTAINS*2]->(product) | product ] AS myProducts                        // <1>
+
+MATCH (me)-[:PLACED]->()-[:CONTAINS]->(product:Product)<-[:CONTAINS]-()
+          <-[:PLACED]-(otherCustomer)
+MATCH (otherCustomer)-[:PLACED]->()-[:CONTAINS]->(otherProduct)
+WHERE product <> otherProduct
+  AND NOT otherProduct IN myProducts                                                              // <2>
+RETURN otherProduct.name AS recommendation,
+       count(*) AS score
+ORDER BY score DESC
+LIMIT 20
+----
+
+<1> **Pre-calculate products** - The list expression calculates all customer's products once at query start
+<2> **Simpler exclusion check** - The combination of `NOT` and `IN` filters out products matched in the list expression
+
+
+
+[.slide.col-2]
+== Measuring query performance
+
+[.col]
+====
+Prefixing `PROFILE` to a query shows will execute the query and return the results along with the query plan and execution statistics.
+
+[source,cypher]
+----
+PROFILE
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->()-[:CONTAINS]->(product:Product)
+      <-[:CONTAINS]-()<-[:PLACED]-(otherCustomer)
+MATCH (otherCustomer)-[:PLACED]->()-[:CONTAINS]->(otherProduct)
+WHERE product <> otherProduct
+  AND NOT (me)-[:PLACED|CONTAINS*2]->(otherProduct)
+RETURN otherProduct.name, count(*) AS score
+ORDER BY score DESC
+LIMIT 20
+----
+
+====
+
+[TIP,role="col"]
+.Understanding PROFILE
+====
+The profile returns:
+
+* **Database accesses** - How many times the query reads from storage
+* **Allocated memory** - Memory used during execution
+* **Time** - Total execution time (varies based on cache)
+
+Lower database accesses mean better performance, especially on larger datasets.
+====
+
+
+[.slide]
+== Performance improvement
+
+The optimized query reduces database accesses by **80%**:
+
+[options="header"]
+|===
+| Metric                 | Before        | After         | Improvement
+| Database accesses      | 366,128       | 49,177        | 80% reduction
+| Allocated memory       | 387,560 bytes | 214,204 bytes | 45% reduction
+| Time                   | 138 ms        | 137 ms        | ~same
+|===
+
+[NOTE]
+.Timing
+====
+While database access and allocated memory metrics stay the same, the timing of the query may vary due to the page cache.
+Running the query a second time will reduce the execution time as the data will be cached in memory.
+
+You can learn more about the page cache and performance optimization in the link:/courses/aura-administration/[Aura In Production course^].
+====
+
+
+
+[.slide]
+== Combining with content-based filtering
+
+You can combine collaborative filtering with content-based filtering by excluding categories.
+
+First, create an `EXCLUDE` relationship for customer ALFKI who doesn't want dairy products.
+
+Run this query to add the exclusion:
+
+[source,cypher]
+----
+MATCH (c:Customer {id: 'ALFKI'})
+MATCH (cat:Category {name: "Dairy Products"})
+MERGE (c)-[:EXCLUDE]->(cat)
+----
+
+Now modify the recommendation query to exclude products in that category.
+
+// [TIP]
+// .Optional data
+// ====
+// This requires the `Category` nodes from Module 5. If you skipped that module, you can still learn the concept by reviewing the query structure below.
+// ====
+
+
+[.slide.col-2]
+== Recommendations with category exclusions
+
+[.col]
+====
+Use the `EXCLUDE` relationship to filter out products in excluded categories.
+
+[source,cypher]
+----
+MATCH (me:Customer {id: 'ALFKI'})-[:PLACED]->(:Order)-[:CONTAINS]->(myProduct:Product)
+WITH me,
+     collect(DISTINCT myProduct) AS myProducts,                      // <1>
+     [ (me)-[:EXCLUDE]->(cat) | cat ] AS excludedCategories          // <2>
+UNWIND myProducts AS product                                         // <3>
+MATCH (other)-[:PLACED]->(o:Order)-[:CONTAINS]->(p:Product)
+WHERE NOT p IN myProducts
+  AND NOT any(cat IN [ (p)-[:IN_CATEGORY]->(cat) | cat ]             // <4>
+              WHERE cat IN excludedCategories)
+RETURN p.name AS recommendation,                                     // <5>
+       count(DISTINCT o) AS orderCount
+ORDER BY orderCount DESC
+LIMIT 10
+----
+====
+
+[.col]
+====
+<1> **Collect products** - Use `collect()` to aggregate products
+<2> **Get excluded categories** - List expression for customer preferences
+<3> **Unwind products** - Check each product individually
+<4> **Category filter** - Use `any()` to check excluded categories
+<5> **Return results** - Show recommendations with order count
+====
+
+read::Mark as completed[]
+
+[.summary]
+== Summary
+
+In this lesson, you built a recommendation query step by step:
+
+* **Finding the customer's products** - Starting point for the traversal
+* **Finding customers who bought those products** - Backward traversal to similar customers
+* **Finding what those customers purchased** - Forward traversal to find recommendations
+* **Excluding the customer's products** - Filter out products already owned
+* **Optimizing the query** - Use list expressions to reduce database accesses by 80%
+
+**You've modeled your data and written an efficient recommendation query by thinking about how graph traversals work!**
+
