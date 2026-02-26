@@ -40,7 +40,43 @@ describe("html generation", () => {
             .map(({ line, text }) => `Line ${line}: "${text.trim()}"`)
             .join("\n");
           throw new Error(
-            `Broken header lines found outside <code> blocks:\n${errorLines}`
+            `Broken header lines found outside <code> blocks:\n${errorLines}`,
+          );
+        }
+      });
+
+      it("should not have unrendered AsciiDoc section markers", () => {
+        const buffer = readFileSync(file);
+        const text = buffer.toString();
+
+        const CODE_BLOCK_REGEX = /<code[^>]*>[\s\S]*?<\/code>/gi;
+        const PRE_BLOCK_REGEX = /<pre[^>]*>[\s\S]*?<\/pre>/gi;
+        const textWithoutCode = text
+          .replace(CODE_BLOCK_REGEX, "")
+          .replace(PRE_BLOCK_REGEX, "");
+
+        const matches = [];
+
+        const NEWLINE_EQ_REGEX = /\n==/g;
+        let match;
+        while ((match = NEWLINE_EQ_REGEX.exec(textWithoutCode)) !== null) {
+          const lineNumber = textWithoutCode
+            .substring(0, match.index)
+            .split("\n").length;
+          matches.push(`Line ${lineNumber}: "\\n==" found`);
+        }
+
+        const P_EQ_REGEX = /<p>==/g;
+        while ((match = P_EQ_REGEX.exec(textWithoutCode)) !== null) {
+          const lineNumber = textWithoutCode
+            .substring(0, match.index)
+            .split("\n").length;
+          matches.push(`Line ${lineNumber}: "<p>==" found`);
+        }
+
+        if (matches.length) {
+          throw new Error(
+            `Unrendered AsciiDoc section markers found:\n${matches.join("\n")}`,
           );
         }
       });
