@@ -11,7 +11,7 @@ describe("html generation", () => {
         const buffer = readFileSync(file);
         const text = buffer.toString();
 
-        expect(text).not.toContain("unresolved directive");
+        expect(text.toLowerCase()).not.toContain("unresolved directive");
       });
 
       it("should not have broken headers", () => {
