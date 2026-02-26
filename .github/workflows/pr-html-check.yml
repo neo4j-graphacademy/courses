@@ -1,0 +1,97 @@
+name: PR Tests
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  html_check:
+    name: Build and test HTML
+    if: |
+      (github.event_name == 'pull_request' && github.event.label.name == 'Ready') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request != null && contains(github.event.comment.body, '@html-check'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+          else
+            PR_NUMBER=${{ github.event.issue.number }}
+            SHA=$(gh api repos/${{ github.repository }}/pulls/${PR_NUMBER} --jq '.head.sha')
+            echo "number=${PR_NUMBER}" >> $GITHUB_OUTPUT
+            echo "sha=${SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "16"
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      - name: Build HTML
+        id: build
+        run: npm run html:build 2>&1 | tee build-output.txt
+        continue-on-error: true
+
+      - name: Test HTML
+        id: test
+        if: steps.build.outcome == 'success'
+        run: npm run html:test 2>&1 | tee test-output.txt
+        continue-on-error: true
+
+      - name: Post results to PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const buildOutcome = '${{ steps.build.outcome }}';
+            const testOutcome  = '${{ steps.test.outcome }}';
+            const allPassed = buildOutcome === 'success' && testOutcome === 'success';
+
+            let body;
+            if (allPassed) {
+              body = '✅ HTML build and tests passed.';
+            } else {
+              const sections = ['❌ **HTML check failed.**\n'];
+
+              if (buildOutcome === 'failure') {
+                const output = fs.existsSync('build-output.txt')
+                  ? fs.readFileSync('build-output.txt', 'utf8').trim().slice(-3000)
+                  : '(no output captured)';
+                sections.push(`**Build errors:**\n\`\`\`\n${output}\n\`\`\``);
+              }
+
+              if (testOutcome === 'failure') {
+                const output = fs.existsSync('test-output.txt')
+                  ? fs.readFileSync('test-output.txt', 'utf8').trim().slice(-3000)
+                  : '(no output captured)';
+                sections.push(`**Test errors:**\n\`\`\`\n${output}\n\`\`\``);
+              }
+
+              if (testOutcome === 'skipped') {
+                sections.push('_Tests were skipped because the build failed._');
+              }
+
+              body = sections.join('\n');
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.pr.outputs.number }},
+              body,
+            });
