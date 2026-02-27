@@ -17,16 +17,26 @@ if (!LINEAR_API_KEY) {
 }
 
 const CYPHER = `
-MATCH (f:NegativeFeedback)-[:FOR_LESSON]->(l:Lesson)
+MATCH (u:User)-[:PROVIDED_FEEDBACK]->(f:NegativeFeedback)-[:FOR_LESSON]->(l:Lesson)
 WHERE f.createdAt >= datetime() - duration('P30D') AND l.status = 'active'
   AND (l.updatedAt IS NULL OR f.createdAt >= l.updatedAt)
 
+WITH l, f,
+    '***@' + split(u.email, '@')[1] AS emailDomain,
+    exists { (u)-[:HAS_ENROLMENT]->()-[:COMPLETED_LESSON]->(l) } AS completed
+
 WITH l,
     COUNT { (pf:PositiveFeedback)-[:FOR_LESSON]->(l) WHERE pf.createdAt >= datetime() - duration('P30D') } AS positive,
-    COUNT (*) AS negative,
-    collect({reason: f.reason, additional: f.additional}) AS reasons
+    COUNT (f) AS negative,
+    collect({
+      feedbackId: coalesce(f.id, elementId(f)),
+      reason: f.reason,
+      additional: f.additional,
+      emailDomain: emailDomain,
+      completed: completed
+    }) AS reasons
 
-WHERE positive + negative >= 5
+//WHERE positive + negative >= 5
 WITH l, positive, negative, reasons,
      toFloat(negative) / (positive + negative) * 100 AS negativePercentage
 ORDER BY negativePercentage DESC
@@ -34,13 +44,16 @@ LIMIT 5
 MATCH (c:Course)-[:HAS_MODULE]->(m:Module)-[:HAS_LESSON]->(l)
 
 RETURN l.title AS lesson, l.id AS lessonId, c.title AS course, c.slug AS courseSlug,
-       m.title AS module, positive, negative, round(negativePercentage, 1) AS negativePercent,
+       m.title AS module, m.slug AS moduleSlug, l.slug AS lessonSlug, positive, negative, round(negativePercentage, 1) AS negativePercent,
        reasons
 `;
 
 interface FeedbackReason {
+  feedbackId: string;
   reason: string;
   additional: string | null;
+  emailDomain: string;
+  completed: boolean;
 }
 
 interface LessonFeedback {
@@ -49,6 +62,8 @@ interface LessonFeedback {
   course: string;
   courseSlug: string;
   module: string;
+  moduleSlug: string;
+  lessonSlug: string;
   positive: number;
   negative: number;
   negativePercent: number;
@@ -60,27 +75,27 @@ function formatTitle(row: LessonFeedback): string {
 }
 
 function formatDescription(row: LessonFeedback): string {
-  const url = `https://graphacademy.neo4j.com/courses/${row.courseSlug}/`;
+  const lessonUrl = `https://graphacademy.neo4j.com/courses/${row.courseSlug}/${row.module}/${row.lesson}`;
+  const adminBase = `https://graphacademy.neo4j.com/api/v1/feedback`;
 
-  const reasonLines = row.reasons.map((r) => {
-    const lines = [`- **${r.reason || "No reason given"}**`];
-    if (r.additional?.trim()) {
-      lines.push(`  > ${r.additional.trim()}`);
-    }
-    return lines.join("\n");
+  const tableRows = row.reasons.map((r) => {
+    const additional = (r.additional?.trim() ?? "")
+      .replace(/\|/g, "\\|")
+      .replace(/\n+/g, " ");
+    return `| \`${r.emailDomain}\` | ${r.reason || "—"} | ${additional} | ${r.completed ? "👍" : "🚫"} | ([view])(${adminBase}/${r.feedbackId}) |`;
   });
 
   return [
     `## Lesson Feedback Summary`,
     ``,
-    `| | |`,
-    `|---|---|`,
-    `| **Lesson** | ${row.course} → ${row.module} → [${row.lesson}](${url}) |`,
-    `| **Feedback** | ${row.positive} positive, ${row.negative} negative (${row.negativePercent}%) |`,
+    `* **Lesson**: ${row.course} → ${row.module} → [${row.lesson}](${lessonUrl})`,
+    `* **Feedback**: ${row.positive} positive, ${row.negative} negative (${row.negativePercent}%)`,
     ``,
     `## Recent feedback`,
     ``,
-    ...reasonLines,
+    `| User | Reason | Additional | Completed | |`,
+    `|---|---|---|:---:|---|`,
+    ...tableRows,
     ``,
   ].join("\n");
 }
@@ -156,8 +171,12 @@ async function findOrCreateProject(
   return undefined;
 }
 
+const dryRun = process.argv.includes("--dry-run");
+
 async function run(): Promise<void> {
   const start = Date.now();
+
+  if (dryRun) console.log("🧪 Dry run — no issues will be created\n");
 
   await initNeo4j(NEO4J_HOST, NEO4J_USERNAME, NEO4J_PASSWORD);
   console.log(`🔍 Running feedback triage query...`);
@@ -165,22 +184,25 @@ async function run(): Promise<void> {
   const result = await read(CYPHER);
   await close();
 
-  const rows: LessonFeedback[] = result.records.map((record) => ({
-    lesson: record.get("lesson"),
-    lessonId: record.get("lessonId"),
-    course: record.get("course"),
-    courseSlug: record.get("courseSlug"),
-    module: record.get("module"),
-    positive: record.get("positive"),
-    negative: record.get("negative"),
-    negativePercent: record.get("negativePercent"),
-    reasons: record.get("reasons"),
-  }));
+  const rows: LessonFeedback[] = result.records.map(
+    (record) => record.toObject() as LessonFeedback,
+  );
 
   console.log(`📊 Found ${rows.length} lessons with high negative feedback`);
 
   if (rows.length === 0) {
     console.log("✅ Nothing to triage");
+    return;
+  }
+
+  if (dryRun) {
+    for (const row of rows) {
+      console.log(`\n${"─".repeat(60)}`);
+      console.log(`TITLE: ${formatTitle(row)}`);
+      console.log(`\n${formatDescription(row)}`);
+    }
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`\n🧪 ${rows.length} issue(s) would be created`);
     return;
   }
 
