@@ -86,3 +86,7 @@ export const WORKSPACE_URL =
   process.env.WORKSPACE_URL || "https://workspace-preview.neo4j.io";
 export const CONSOLE_URL =
   process.env.CONSOLE_URL || "https://console.neo4j.io";
+
+// Linear
+export const LINEAR_API_KEY: string = process.env.LINEAR_API_KEY as string;
+export const LINEAR_TEAM_KEY: string = process.env.LINEAR_TEAM_KEY || "GRAC";
