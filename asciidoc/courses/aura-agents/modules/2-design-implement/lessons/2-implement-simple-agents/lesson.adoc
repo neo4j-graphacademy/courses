@@ -1,13 +1,13 @@
-= Implementing Simple Agents with Cypher and Tools
+= Implementing a Simple Aura Agent
 :order: 2
 :type: lesson
 == Introduction
 
-You designed an agent with prompts and scope in the previous lesson. Next, you create that agent in the Aura console and add Cypher Template, Similarity Search, and Text2Cypher tools.
+In the Design Agents lesson, you defined role, scope, and tool selection for a Northwind retail analyst. Now you create that agent in the Aura Console: configure name and instructions, add the Cypher Template tools such as Get Customer, Top Customers by Order Count, and Products by Category, and optionally Similarity Search and Text2Cypher.
 
-In this lesson, you will build a Northwind Analyst agent step by step.
+In this lesson, you will build the Northwind Analyst agent from your design and test it.
 
-**Prerequisites**: Complete the previous lesson so you have Northwind loaded with embeddings and tool authentication enabled.
+**Prerequisites**: Northwind loaded, tool authentication enabled, and the agent design from the previous lesson.
 
 
 == What You Will Build
@@ -16,7 +16,7 @@ A "Northwind Analyst" agent configured with:
 
 * Name, description, and instructions that define its role
 * Cypher Template tools for querying customers, orders, and products
-* Optional GraphRAG for community summarization
+* Optional Text2Cypher for ad-hoc questions
 
 
 == Available Tool Types
@@ -38,68 +38,31 @@ For Northwind, Cypher Template tools handle most queries. The key to good tool s
 
 == When to Use Each Tool
 
+For questions you can anticipate, use a **Cypher Template** so the agent retrieves consistent, curated data every time. Use multi-hop traversals in your template to pull all relevant information about a node. For unpredictable or ad-hoc questions, use **Text2Cypher**. "Top 10 products by revenue" is an aggregation question that fits Text2Cypher; if you often ask it by category, a Cypher Template with a category parameter is a reasonable alternative.
+
 [cols="1,2,2"]
 |===
 |Tool |Best For |Example Questions
 
 |**Cypher Template**
-|Predictable queries with known parameters
-|"Get customer ALFKI", "Top 10 products by revenue"
+|Predictable queries with known parameters; ensures consistent retrieval
+|"Get customer ALFKI", "List products in the Beverages category"
 
 |**Text2Cypher**
-|Unpredictable queries, ad-hoc exploration
-|"How many orders shipped late last month?", "Which suppliers serve multiple regions?"
+|Unpredictable queries, aggregations, ad-hoc exploration
+|"Top 10 products by revenue", "How many orders shipped late last month?", "Which suppliers serve multiple regions?"
 
 |**Similarity Search**
-|Semantic matching, finding related items
+|Semantic matching when embeddings exist
 |"Products similar to spicy condiments", "Find items like hot sauce"
 |===
 
-Start with Cypher Templates for your core use cases. Add Text2Cypher as a fallback for questions you did not anticipate. Add Similarity Search when you have embeddings and need semantic retrieval.
+Start with Cypher Templates for your core use cases. Add Text2Cypher as a fallback for unpredictable questions. This course focuses on Cypher Template and Text2Cypher; Similarity Search is optional when you have embeddings.
 
 
-== How Tools Connect to the Knowledge Graph
+== How the Agent Uses Tools
 
-[source,mermaid]
-.Knowledge graph to tools to result
-----
-%%{init: {
-  "theme": "base",
-  "securityLevel": "strict",
-  "fontFamily": "Public Sans, Arial, Helvetica, sans-serif",
-  "themeVariables": {
-    "background": "#F5F7FA",
-    "primaryTextColor": "#014063",
-    "fontSize": "14px",
-    "primaryColor": "#eef6f9",
-    "primaryBorderColor": "#014063",
-    "lineColor": "#485662"
-  }
-}}%%
-flowchart LR
-    KG["Knowledge Graph"]
-
-    SIM["Similarity Search"]
-    TTQ["Text to Query"]
-    PT["Parameterized Templates"]
-
-    RESULT["Result"]
-
-    KG --> SIM
-    KG --> TTQ
-    KG --> PT
-    SIM --> RESULT
-    TTQ --> RESULT
-    PT --> RESULT
-
-    style KG fill:#edf6e8,stroke:#006E58
-    style SIM fill:#E7FAFB,stroke:#006E58
-    style TTQ fill:#E7FAFB,stroke:#006E58
-    style PT fill:#E7FAFB,stroke:#006E58
-    style RESULT fill:#014063,stroke:#014063,color:#fff
-----
-
-The agent receives the question and determines which tool to call. Each tool retrieves data from the knowledge graph in a different way: **Similarity Search** uses vector distances, **Text2Cypher** generates Cypher from natural language, and **Cypher Template** runs predefined queries with user-provided values. The agent observes the tool results before constructing an answer.
+The agent receives the question, reasons about which tool to call, and invokes it. Each tool retrieves data from your knowledge graph in a different way: **Similarity Search** uses vector distances, **Text2Cypher** generates Cypher from natural language, and **Cypher Template** runs predefined queries with user-provided values. The agent observes the tool results, then constructs an answer.
 
 
 == Lab: Create the Northwind Analyst Agent
@@ -108,7 +71,6 @@ The agent receives the question and determines which tool to call. Each tool ret
 === Step 1: Open Aura Console and Start Agent Creation
 
 . Go to the link:https://console.neo4j.io/graphacademy[Aura Console^]
-. Confirm **Generative AI assistance** is enabled under Organization settings
 . Navigate to **Data Services** → **Agents** → **Create Agent**
 
 image::images/create-from-scratch-menu.png[Create Agent menu showing Create from scratch and Create with AI options]
@@ -116,18 +78,16 @@ image::images/create-from-scratch-menu.png[Create Agent menu showing Create from
 You have two options:
 
 * **Create from scratch**: Configure everything manually
-* **Create with AI**: Describe your use case and let Neo4j generate a starting configuration
+* **Create with AI**: Describe your use case; Neo4j inspects your graph schema and generates a starting configuration with tools
 
-image::images/create-agent-with-ai.png[Agents panel showing Create with AI option highlighted]
-
-For this lab, you will create the agent manually using **Create from scratch**.
+In this lab, you will create the agent manually to practice configuring each tool.
 
 
 === Step 2: Configure the Agent
 
 Select your Northwind instance from the list. If it does not appear, check that tool authentication is enabled.
 
-image::images/create-agent-from-scratch.png[Create Agent dialog selecting the Northwind with embeddings instance]
+image::images/create-agent-from-scratch.png[Create Agent dialog selecting the Northwind instance]
 
 Fill in the basic configuration:
 
@@ -162,7 +122,7 @@ image::images/agent-preview.png[Agent configuration page showing name, descripti
 
 === Step 3: Add Tools
 
-Click **Add Tools** to open the tool configuration. You will add several Cypher Template tools and optionally a Similarity Search tool.
+Click **Add Tools** to open the tool configuration. You will add Cypher Template tools and optionally Text2Cypher.
 
 ==== Cypher Template Tools
 
@@ -178,60 +138,100 @@ After adding parameters, you can edit them to refine the description or change t
 
 image::images/edit-cypher-template-tool-parameter.png[Editing a parameter in a Cypher Template tool]
 
-Add the following tools. Click **Save** after each one.
+Add Cypher Template tools first. Click **Save** after each one. Copy from the blocks below.
 
 **Get Customer**
 
-* Parameter: `customer_id` (string)
-* Purpose: Return customer details and recent orders
+[source,text]
+.Copy this configuration
+----
+Name: Get Customer
+Description: Return customer details and recent orders for a customer ID, for example ALFKI.
+Parameter: customer_id, string, the customer ID to look up
+----
 
-[source,cypher]
+[source,cypher,options="nowrap"]
+.Copy this Cypher query
 ----
-MATCH (c:Customer {customerID: $customer_id})-[:PLACED]->(o:Order)
-RETURN c.customerID, c.companyName, c.contactName, collect(o.orderID)[0..5] AS recentOrders
+MATCH (c:Customer {customerID: $customer_id})
+  -[:PURCHASED]->(o:Order) // <1>
+RETURN c.customerID, c.companyName, c.contactName,
+  collect(o.orderID)[0..5] AS recentOrders // <2>
 ----
+
+<1> Match the Customer by ID and traverse PURCHASED relationships to their Orders
+<2> Return customer fields and up to 5 recent order IDs
 
 **Top Customers by Order Count**
 
-* Parameter: `limit` (int, default 10)
-* Purpose: Return customers with the most orders
+[source,text]
+.Copy this configuration
+----
+Name: Top Customers by Order Count
+Description: Return customers with the most orders, limited by a count.
+Parameter: limit, int, default 10, number of top customers to return
+----
 
-[source,cypher]
+[source,cypher,options="nowrap"]
+.Copy this Cypher query
 ----
-MATCH (c:Customer)-[:PLACED]->(o:Order)
-WITH c, count(o) AS orderCount
+MATCH (c:Customer)-[:PURCHASED]->(o:Order) // <1>
+WITH c, count(o) AS orderCount // <2>
 RETURN c.companyName, c.customerID, orderCount
-ORDER BY orderCount DESC LIMIT $limit
+ORDER BY orderCount DESC LIMIT $limit // <3>
 ----
+
+<1> Match customers and their orders via PURCHASED
+<2> Group by customer and count orders
+<3> Sort by order count descending, limit by parameter
 
 **Products by Category**
 
-* Parameter: `category` (string)
-* Purpose: List products in a category
-
-[source,cypher]
+[source,text]
+.Copy this configuration
 ----
-MATCH (p:Product)-[:PART_OF]->(c:Category)
-WHERE c.categoryName CONTAINS $category
+Name: Products by Category
+Description: List products in a category, supports partial name match such as Beverages or Beverage.
+Parameter: category, string, category name or partial name to match
+----
+
+[source,cypher,options="nowrap"]
+.Copy this Cypher query
+----
+MATCH (p:Product)-[:PART_OF]->(c:Category) // <1>
+WHERE c.categoryName CONTAINS $category // <2>
 RETURN p.productName, c.categoryName
 LIMIT 20
 ----
 
+<1> Match products and their category via PART_OF
+<2> Filter by category name, supports partial match
+
 **Get Product**
 
-* Parameter: `product_id` (string)
-* Purpose: Return product details and category
+[source,text]
+.Copy this configuration
+----
+Name: Get Product
+Description: Return product details and category for a product ID.
+Parameter: product_id, string, the product ID to look up
+----
 
-[source,cypher]
+[source,cypher,options="nowrap"]
+.Copy this Cypher query
 ----
-MATCH (p:Product)-[:PART_OF]->(c:Category)
-WHERE p.productID = $product_id
-RETURN p.productID, p.productName, p.unitPrice, c.categoryName
+MATCH (p:Product)-[:PART_OF]->(c:Category) // <1>
+WHERE p.productID = $product_id // <2>
+RETURN p.productID, p.productName, p.unitPrice,
+  c.categoryName
 ----
+
+<1> Match product and its category via PART_OF
+<2> Filter by product ID parameter
 
 Add more tools as needed: **Get Orders for Customer**, **Top Products by Revenue**, **Customers with Multiple Suppliers**.
 
-==== Similarity Search Tool (Optional)
+==== Similarity Search Tool, Optional
 
 If your graph has embeddings and a vector index, add a Similarity Search tool. This tool finds semantically related nodes.
 
@@ -239,14 +239,14 @@ image::images/similarity-search-tool.png[Similarity Search tool configuration sh
 
 Configure the embedding provider, model, vector index name (`product_text_embeddings`), and how many results to return.
 
-==== Text2Cypher Tool (Optional)
+==== Text2Cypher Tool, Optional
 
 A Text2Cypher tool converts natural language to Cypher at runtime. This is useful when you cannot predict all possible questions.
 
 [NOTE]
 .Text-to-Cypher or Cypher Template?
 ====
-Text2Cypher relies on an LLM and can produce inconsistent results, so it is not recommended for critical queries.  For more predictable results, or commonly asked questions, use a Cypher Template.
+Text2Cypher relies on an LLM and produces probabilistic output. If your agent repeatedly handles the same type of question, codify it into a Cypher Template tool for deterministic behavior; the same query runs every time. Reserve Text2Cypher for ad-hoc or unpredictable questions.
 ====
 
 image::images/text-2-cypher-tool.png[Text2Cypher tool configuration showing name and description]
@@ -291,4 +291,4 @@ include::questions/1-tools.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, you learned how to implement a simple agent with Cypher Template, Similarity Search, and Text2Cypher tools.
+In this lesson, you learned how to implement a simple Aura Agent with Cypher Template, Similarity Search, and Text2Cypher tools.

@@ -3,24 +3,24 @@
 :type: lesson
 == Introduction
 
-Aura Agents let you build GraphRAG-style agents in the Aura console without writing code. Understanding what they are and when to use them helps you choose the right approach for your application.
+Aura Agents let you build agents that query your knowledge graph from the Aura console without writing code. Understanding what they are and when to use them helps you choose the right approach for your application.
 
-In this lesson, you will learn what Aura Agents are, when to use them, and how they fit into the Neo4j ecosystem.
+In this lesson, you will learn what Aura Agents are, when to use them, the agent lifecycle, and how they fit into the Neo4j ecosystem.
 
 == What are Aura Agents?
 
-A **Neo4j Aura Agent** is a no/low-code agent platform built into the Aura console. It is backed by a knowledge graph stored in AuraDB, interpreting user questions and invoking the right tools to retrieve answers.
+A **Neo4j Aura Agent** is a no/low-code agent platform built into the Aura console. It queries a knowledge graph stored in AuraDB, your graph data, and interprets user questions, invoking the right tools to retrieve answers.
 
 The agent interprets your question, finds relevant information in the graph, and invokes the appropriate tool: Similarity Search, Text2Cypher, or Cypher Template.
 
 An Aura Agent consists of:
 
 * **LLM** for planning, reasoning, and tool selection
-* **Tools** for querying the knowledge graph: Cypher Template, Similarity Search, and Text2Cypher (read-only)
-* **Knowledge graph** — your data stored in AuraDB
+* **Tools** for querying the knowledge graph: Cypher Template, Text2Cypher, and Similarity Search, all read-only
+* **Knowledge graph**, your data stored in AuraDB
 * **Orchestrator** to coordinate the workflow
 
-Conversation history is not currently persisted between sessions. For the full reference, see link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^].
+An Aura Agent retrieves information from the graph; it does not learn from or persist data across sessions. For the full reference, see link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^].
 
 
 == Prerequisites and Pricing
@@ -29,7 +29,7 @@ To create an Aura Agent:
 
 * Have a knowledge graph in a **running AuraDB instance**
 * Enable **Generative AI assistance** in your Organization settings
-* Toggle on **Aura Agent** (available when Generative AI assistance is enabled)
+* Toggle on **Aura Agent**, available when Generative AI assistance is enabled
 
 [WARNING]
 .Keep Generative AI assistance enabled
@@ -37,12 +37,14 @@ To create an Aura Agent:
 Disabling Generative AI assistance automatically disables Aura Agent.
 ====
 
-**Visibility**: Your agent has two visibility options — **Internal** or **External**.
+**Visibility**: Your agent has two visibility options: **Internal** or **External**.
 
-* **Internal** (default, free): You can create the agent, add tools, and test it within the Aura console. Only members of your Aura project can use it.
-* **External** (incurs charges): The agent is exposed via an Aura API endpoint and/or an MCP server endpoint, so you can integrate it into your AI application or connect it to an MCP client such as Claude Desktop or Cursor. See link:https://neo4j.com/pricing/[Neo4j pricing^] for details.
+When your agent is Internal, you can create it, add tools, and test it within the Aura Console. When your agent is External, you get endpoints such as MCP or Aura API so you can integrate your Aura Agent into your AI application.
 
-**Location**: All Aura Agents run in Belgium (GCP `europe-west1`). All agent interactions route through this region, including internal testing in the console.
+* **Internal**, default and free: Create, add tools, and test within the Aura Console. Only members of your Aura project can use it.
+* **External**, incurs charges: Your agent is exposed via REST API or MCP server endpoints for integration into your application or hosts such as Claude Desktop or Cursor. See link:https://neo4j.com/pricing/[Neo4j pricing^] for details.
+
+**Location**: All Aura Agents run in Belgium, GCP `europe-west1`. Agent interactions route through this region whether your agent is Internal, console only, or External with API or MCP endpoints.
 
 **AI models**: Aura Agent uses a curated set of AI models for planning, reasoning, retrieval, and explainability. See link:https://neo4j.com/docs/reference/license/agent-ai-model/[How Aura Agent uses AI models^].
 
@@ -50,19 +52,59 @@ Disabling Generative AI assistance automatically disables Aura Agent.
 == Agentic Concepts
 
 * **Agents**: Systems that perceive, reason, and act to answer questions grounded in your knowledge graph
-* **Tools**: Capabilities the agent invokes: Cypher Template, Similarity Search, and Text2Cypher
-* **Retrieval**: GraphRAG and vector search to fetch relevant context from your AuraDB graph
+* **Tools**: Capabilities the agent invokes: Cypher Template, Text2Cypher, and Similarity Search
+* **Retrieval**: Tools query your graph to fetch relevant context from AuraDB
+
+Aura Agents do not store persistent context such as short- or long-term memory in Neo4j; that is a future feature.
+
+
+== The Aura Agent Lifecycle
+
+An Aura Agent does not answer in one step. It follows five steps:
+
+. **Receive**: User query or message
+. **Reason**: LLM plans which tools to use and in what order
+. **Act**: Invoke tools: Cypher Template, Similarity Search, or Text2Cypher
+. **Observe**: Incorporate tool results into context
+. **Respond**: Generate final answer or take next action
+
+The diagram below illustrates this workflow effectively: from user input through reasoning, tool selection and execution, to final output.
+
+image::images/agent-process.svg[Agent workflow: user input, reasoning, tool selection, tool execution, and final output]
+
+The agent must understand user intent before acting. The LLM selects the right tool for the query. Tools execute and return structured results. The agent adds tool output to its context for the next reasoning step, then synthesizes context into a natural language answer.
+
+
+== Trace Through a Query
+
+Imagine your agent has "Get Customer", "Top Customers by Order Count", and Text2Cypher. A user asks: "Who has ordered Pavlova repeatedly?"
+
+The first two tools return customers by ID or a ranked list. Neither finds repeat Pavlova buyers. The agent selects Text2Cypher to generate and run a query that answers the question.
+
+. **Receive**: The agent receives the question
+. **Reason**: The LLM identifies that finding repeat Pavlova buyers requires order history and customer details, so it chooses Text2Cypher
++
+image::images/reasoning-pavlova-repeatedly-text2cypher.png[Agent reasoning panel showing thought process and Text2Cypher selection]
+. **Act**: The agent invokes Text2Cypher, which generates Cypher and executes it
++
+image::images/reasoning-who-has-ordered-pavlova-repeatedly.png[Agent applying Text2Cypher with customer names and order counts]
+. **Observe**: The agent adds customer names and order counts to context
+. **Respond**: The LLM formats a natural language answer
+
+The reasoning panel in the Aura Console shows each step, making tool selection transparent and debuggable.
+
 
 Aura Agents are useful when:
 
-* Users ask natural language questions over complex, connected data in AuraDB
-* Queries require multi-hop reasoning across relationships in the graph
-* You want to expose graph knowledge to an external application or MCP client without writing code
+* You want to expose knowledge graph data via natural language, without writing application code
+* You need to integrate graph-backed answers into Claude Desktop, Cursor, or your app via REST API or MCP
+
+Aura Agent tools query only your graph. To combine graph data with external APIs, build a separate AI application or multi-agent system.
 
 [TIP]
 .Two paths to Neo4j agents
 ====
-This course uses **Aura Agents**, a no/low-code visual approach to create, configure, and test agents directly in the Aura console. For a code-based approach with Python and LangChain, take the link:https://graphacademy.neo4j.com/courses/workshop-genai/[Neo4j and Generative AI Workshop^].
+This course uses **Aura Agents**, a no/low-code approach with a visual UI to create, configure, and test agents in the Aura Console. You can write Cypher templates, but the agent is built and tested without code. For a code-based approach with Python and LangChain, see link:/courses/genai-integration-langchain/[Using Neo4j with LangChain^] or link:/courses/genai-fundamentals/[Neo4j and GenAI Fundamentals^].
 ====
 
 
@@ -71,8 +113,10 @@ This course uses **Aura Agents**, a no/low-code visual approach to create, confi
 
 include::questions/1-agents.adoc[leveloffset=+1]
 
+include::questions/1-lifecycle.adoc[leveloffset=+1]
+
 
 [.summary]
 == Summary
 
-In this lesson, you learned what Aura Agents are, their components, visibility options, and when to use them.
+In this lesson, you learned what Aura Agents are, their components, visibility options, the agent lifecycle, and when to use them.
