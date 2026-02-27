@@ -1,0 +1,101 @@
+= Tools and Components
+:order: 2
+:type: lesson
+== Introduction
+
+The core components of an Aura Agent are primarily the tools: Cypher Template, Text2Cypher, and Similarity Search. These tools query the knowledge graph; the LLM and orchestrator coordinate their use. This lesson covers the tools in detail, the other components, and how the graph grounds responses.
+
+
+== The Three Tool Types
+
+Aura Agents support exactly three read-only tools:
+
+* **Cypher Template**: Runs a predefined Cypher query with parameters you specify. Deterministic; use for predictable queries like "Get customer ALFKI" or "List products in Beverages."
+* **Text2Cypher**: Converts natural language to Cypher at runtime. Use for ad-hoc questions like "Top 10 products by revenue" or "Which suppliers serve multiple regions?"
+* **Similarity Search**: Finds nodes by vector similarity when embeddings exist. Use for concept search like "products like spicy condiments."
+
+Clear tool descriptions help the LLM select the right tool. If your agent repeatedly handles the same question type, add a Cypher Template for deterministic behavior.
+
+
+== Core Components
+
+An Aura Agent consists of four main components. The tools are the primary retrieval mechanism.
+
+* **LLM**: Interprets user intent, selects tools, and generates natural language answers
+* **Tools**: Cypher Template, Similarity Search, Text2Cypher. All are read-only.
+* **Knowledge graph**: The AuraDB graph stores facts. Tools retrieve them via Cypher and vector search.
+* **Orchestrator**: Coordinates reasoning, tool calls, and response generation
+
+The agent workflow diagram in the previous lesson shows how these components work together: the orchestrator passes input to the LLM, the LLM selects tools, tools query the graph, and results flow back to the LLM for response generation.
+
+
+[source,mermaid]
+.Agent components
+----
+flowchart TD
+    A["AGENTS<br/>Perceive, Reason, Act"]:::agent
+    T["TOOLS<br/>Cypher Template, Similarity Search, Text2Cypher"]:::tool
+    R["TOOLS QUERY<br/>Data and Vectors"]:::retrieval
+    KG["AURADB<br/>Nodes and relationships"]:::graph
+
+    A -->|Invokes capabilities| T
+    A -->|Fetches context| R
+    A -->|Queries| KG
+    R -.->|Retrieves from| KG
+
+    classDef agent fill:#014063,stroke:#014063,color:#fff
+    classDef tool fill:#0369a1,stroke:#7dd3fc,color:#fff
+    classDef graph fill:#166534,stroke:#86efac,color:#fff
+    classDef retrieval fill:#b45309,stroke:#fcd34d,color:#fff
+----
+
+The agent receives input, reasons about which tools to use, and invokes them. Each tool retrieves data from your AuraDB graph in a different way: Cypher Template runs predefined queries, Text2Cypher generates Cypher from natural language, and Similarity Search uses vector indexes when configured. The agent observes tool output before constructing an answer.
+
+
+== How the Graph Grounds Responses
+
+An Aura Agent grounds its responses by querying data stored in your AuraDB instance. Instead of relying solely on what the LLM knows, the agent retrieves relevant facts from the graph and uses them as context when generating an answer.
+
+The graph stores:
+
+* **Structured, connected data**: nodes and relationships that tools query with Cypher
+* **Facts and domain state**: the specific data about your business or domain that makes answers accurate and relevant
+
+
+== How Tools Use the Graph
+
+Your AuraDB graph stores connected data that Aura Agent tools traverse:
+
+* **Cypher Template and Text2Cypher** let agents run relationship-aware queries. For example, "find all customers who ordered from this supplier" traverses relationships directly.
+* **Similarity Search**, when embeddings exist, finds semantically similar nodes; you can then combine with graph traversal for multi-hop questions.
+
+Your application stores facts in the graph; tools query them. Aura Agent does not persist conversation history.
+
+
+[source,cypher,options="nowrap"]
+----
+MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) // <1>
+RETURN m.title, collect(a.name)[0..3] AS actors // <2>
+LIMIT 5
+----
+
+<1> Match a Movie and actors connected via ACTED_IN
+<2> Return title and up to 3 actor names; adapt to your schema
+
+For Northwind, a "Get Customer" tool might run: `MATCH (c:Customer {customerID: $id}) RETURN c.companyName, c.contactName, ...`
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-tools.adoc[leveloffset=+1]
+
+include::questions/1-components.adoc[leveloffset=+1]
+
+include::questions/1-graph.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned the three tool types, the core components, and how data stored in AuraDB grounds an agent's responses.
