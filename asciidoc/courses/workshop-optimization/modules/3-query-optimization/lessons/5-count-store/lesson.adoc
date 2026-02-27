@@ -1,0 +1,188 @@
+= Count Store
+:type: lesson
+:order: 5
+
+[.slide.discrete]
+== Introduction
+
+In this lesson, you will learn about the transactional count store and how you can use it to optimize certain queries.
+
+Neo4j maintains a transactional count store that keeps track of the number of nodes and relationships in the graph. This allows Neo4j to quickly return counts without having to scan the entire graph.
+
+[.slide.col-60-40]
+== Count all nodes
+
+[.col]
+====
+Run the following query to profile a count of all the nodes in the graph:
+
+[source, cypher, role="noplay"]
+.Count all nodes
+----
+PROFILE MATCH (n)
+RETURN count(n)
+----
+
+You can see from the profile that Neo4j is reading from the count store and only reading 1 row. 
+
+Depending on how you write your query, Neo4j can use the count store and wont have to scan the graph to calculate the count.
+====
+
+[.col]
+image::images/all-nodes-profile-annotated.png["Profile result of counting all nodes"]
+
+[.slide.col-60-40]
+== Counting customer's orders
+
+[.col]
+====
+Profile the following query that returns a count of how many order and customer has purchased:
+
+[source, cypher, role="noplay"]
+.Count of orders by customer
+----
+PROFILE MATCH (c:Customer)-[:PURCHASED]-(o:Order)
+RETURN 
+    c.customerID, 
+    count(o)
+----
+
+All the `Customer` nodes are read, then all the `PURCHASED` relationships are expanded to calculate the count of orders per customer.
+====
+
+[.col]
+image::images/customer-order-count-annotated.png["Profile result of counting orders per customer"]
+
+[.slide.col-60-40]
+=== Optimizing with the count store
+
+[.col]
+====
+An alternative approach is to use the count store to get how many `PURCHASED` relationships each `Customer` has.
+
+[source, cypher, role="noplay"]
+.Count of orders per customer using count store
+----
+PROFILE MATCH (c:Customer)   // <1>
+RETURN 
+  c.customerID, 
+  count{(c)-[:PURCHASED]-()} // <2>
+----
+
+<1> All the customers are found, but no relationships are expanded.
+<2> The count store is used to get the count of `PURCHASED` relationships for each customer. 
+====
+
+[.col]
+image::images/customer-order-count-store-annotated.png["Profile result of counting orders per customer using the count store"]
+
+[.transcript-only]
+====
+The `getDegree` function is used to read the count store and return the count of relationships for each customer. This allows Neo4j to return the count without having to expand the relationships.
+====
+
+[.slide.col-2]
+== Counting products per order
+
+[.col]
+====
+The following query counts how many products are in each order:
+
+[source, cypher, role="noplay"]
+.Count of products per order
+----
+MATCH (o:Order)-[:ORDERS]->(p:Product)
+RETURN o.orderID, count(p)
+----
+====
+
+[.col]
+====
+You challenge is to optimize this query to use the count store:
+
+. Profile the query and note how many rows are read and how many relationships are expanded.
+. Rewrite the query to use the count store and profile it again.
+. Compare the results.
+====
+
+[.transcript-only]
+====
+[%collapsible]
+.Click to reveal the solution
+=====
+. Profiling the query shows that it reads all the `Order` nodes and expands all the `ORDERS` relationships to count the products:
++
+[source, cypher, role="noplay"]
+.Profile the query
+----
+PROFILE MATCH (o:Order)-[:ORDERS]->(p:Product)
+RETURN o.orderID, count(p)
+----
+
+. The query can be rewritten to use the count store to get the count of `ORDERS` relationships for each order:
++
+[source, cypher, role="noplay"]
+.Optimized query using the count store
+----
+PROFILE MATCH (o:Order)
+RETURN o.orderID, count{(o)-[:ORDERS]->()}
+----
+
+. Profiling the optimized query shows that it reads all the `Order` nodes but does not expand any relationships and reduces database reads significantly.
+=====
+
+====
+
+[.slide.col-2]
+== Exists
+
+[.col]
+====
+You can use the count store to check if a node has any relationships using `exists`. 
+
+For example, you can check if a `Customer` has made any purchases:
+
+[source, cypher, role="noplay"]
+.Customers with no purchases
+----
+MATCH (c:Customer)
+WHERE not exists{(c)-[:PURCHASED]-()}
+RETURN c.customerID
+----
+====
+
+[.col]
+====
+The alternative approach would be to use an `OPTIONAL MATCH`, check for null values, and use `DISTINCT` to remove duplicates:
+
+[source, cypher, role="noplay"]
+.Customers with no purchases
+----
+MATCH (c:Customer)
+OPTIONAL MATCH (c)-[:PURCHASED]->(o)
+WITH c,o
+WHERE o IS NULL
+RETURN c.customerID
+----
+
+Review and compare the profile for both these queries and identify the performance difference. 
+====
+
+[.transcript-only]
+====
+[TIP]
+.Learn more
+=====
+You can learn more about the count store in the Neo4j Knowledge Base article link:https://neo4j.com/developer/kb/fast-counts-using-the-count-store/[Fast counts using the count store^].
+=====
+====
+
+read::Continue[]
+
+
+[.summary]
+== Lesson Summary
+
+In this lesson, you learned about the count store and how it can be used to optimize queries that count or check for the existence of nodes and relationships. 
+
+In the next lesson, you will learn how to use `WITH` to break down complex queries and optimize them by controlling the flow of data and the execution plan.
