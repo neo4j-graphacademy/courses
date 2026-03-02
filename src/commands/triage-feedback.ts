@@ -80,6 +80,7 @@ function formatDescription(row: LessonFeedback): string {
 
   const tableRows = row.reasons.map((r) => {
     const additional = (r.additional?.trim() ?? "")
+      .replace(/\\/g, "\\\\")
       .replace(/\|/g, "\\|")
       .replace(/\n+/g, " ");
     return `| \`${r.emailDomain}\` | ${r.reason || "—"} | ${additional} | ${r.completed ? "👍" : "🚫"} | ([view])(${adminBase}/${r.feedbackId}) |`;
