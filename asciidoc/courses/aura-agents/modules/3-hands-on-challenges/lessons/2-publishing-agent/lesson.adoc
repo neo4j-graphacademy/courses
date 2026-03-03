@@ -1,5 +1,5 @@
 = Publishing an Agent
-:order: 2
+:order: 1
 :type: challenge
 :disable-cache: true
 
@@ -8,7 +8,7 @@ In this challenge, you will publish your agent so it can be called from external
 
 == Goal
 
-Make your agent accessible via an MCP server endpoint, then connect to it from a host application such as Claude Desktop or Cursor.
+Make your agent accessible through an MCP server endpoint, then connect to it from a host application such as Claude Desktop or Cursor.
 
 
 == What Is MCP?
@@ -16,7 +16,7 @@ Make your agent accessible via an MCP server endpoint, then connect to it from a
 The **Model Context Protocol**, MCP, is an open protocol that lets AI applications, called hosts, connect to external data sources and tools, called servers. When you enable MCP on an Aura Agent, Neo4j runs an MCP server that exposes your agent to host applications.
 
 [source,mermaid]
-.Configuration and invocation: three ways to connect to your agent
+.Configuration and invocation: two ways to connect to your agent
 ----
 %%{init: {
   "theme": "base",
@@ -34,34 +34,27 @@ The **Model Context Protocol**, MCP, is an open protocol that lets AI applicatio
 flowchart LR
     subgraph IN["Configuration & Invocation"]
         CONSOLE["Aura Console UI<br/>Create, configure, test"]
-        API["Customer Application<br/>API HTTP Endpoint"]
-        MCP["Customer MCP Client<br/>via Aura Agent MCP Server"]
+        MCP["Customer MCP Client<br/>through Aura Agent MCP Server"]
     end
 
     AGENT["Aura Agent"]
 
     CONSOLE --> AGENT
-    API --> AGENT
     MCP --> AGENT
 
     style AGENT fill:#014063,stroke:#014063,color:#fff
     style CONSOLE fill:#eef6f9,stroke:#014063
-    style API fill:#eef6f9,stroke:#014063
     style MCP fill:#eef6f9,stroke:#014063
 ----
 
 MCP host applications include Claude Desktop and Cursor. When you add your agent's MCP endpoint to a host, that application sends user messages to your agent and receives graph-backed responses. Your agent's tools run against your AuraDB instance; the host never sees your schema or credentials directly.
 
 
-=== When to Use MCP vs REST API
-
-* **MCP**: Use when you want your agent inside Claude Desktop, Cursor, or another MCP-compatible host. The host handles the MCP protocol; you add the endpoint and use the agent through the host's interface.
-* **REST API**: Use when you call the agent from your own application, script, or a tool that does not support MCP. You send HTTP requests to the agent's REST endpoint.
-
-
 === MCP Endpoint and Authentication
 
-The MCP endpoint URL is unique to your agent. Copy it from the agent menu after enabling External access and the MCP server toggle. The endpoint includes authentication. When you add it to a host, the host uses it to establish a session. See link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^] for authentication details and host-specific setup.
+The MCP endpoint URL is unique to your agent. Copy it from the agent menu after enabling External access and the MCP server toggle.
+
+MCP uses OAuth: the first time a host application invokes your agent, it opens a login prompt asking you to authenticate with your Aura Console credentials. See link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^] for host-specific setup details.
 
 
 == Internal and External Access
@@ -72,11 +65,13 @@ Agents have two access modes:
 
 image::images/enable-internal-agent.png[Access settings showing Internal selected, available to members of this Aura project]
 
-**External**: The agent is exposed via REST API or MCP server. External agents incur charges per link:https://neo4j.com/pricing/[Neo4j pricing^].
+**External**: The agent is exposed through an MCP server endpoint. External agents incur charges per link:https://neo4j.com/pricing/[Neo4j pricing^].
 
 image::images/make-external-enable-mcp-server.png[Access settings showing External selected with Enable MCP server toggle]
 
 For this challenge, you need External access with MCP server enabled.
+
+image::images/agent-tools-with-mcp.png[Complete agent configuration showing Enable MCP server toggle on and the full list of agent tools]
 
 
 == Steps
@@ -93,17 +88,6 @@ image::images/configure-agent-menu.png[Agent menu showing Configure, Copy Extern
 . Send a test message to confirm the agent responds
 
 
-== Connecting to Claude Desktop
-
-. Open Claude Desktop settings or configuration file
-. Add your agent's MCP endpoint
-. Configure authentication if required
-. Restart Claude Desktop
-. Send a test question to your agent
-
-See link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^] for detailed Claude Desktop setup instructions.
-
-
 == Connecting to Cursor
 
 . Open the **Cursor** menu from the top-left, then **Settings...**, then **Cursor Settings**
@@ -113,7 +97,7 @@ image::images/mcp/cursor-settings-menu.png[Cursor menu with Settings and Cursor 
 . Under **Installed MCP Servers**, click **+ New MCP Server**
 +
 image::images/mcp/cursor-tools-mcp-settings.png[Tools & MCP settings showing Installed MCP Servers and New MCP Server option]
-. Add your agent's MCP endpoint. If you edit `mcp.json` directly, use this structure. Replace `<your-mcp-url>` with your agent's MCP endpoint from the agent menu, Copy MCP server endpoint:
+. Add your agent's MCP endpoint. If you edit `mcp.json` directly, replace `<your-mcp-url>` with your agent's MCP endpoint from the agent menu:
 
 [source,json]
 ----
@@ -121,15 +105,55 @@ image::images/mcp/cursor-tools-mcp-settings.png[Tools & MCP settings showing Ins
   "mcpServers": {
     "neo4j-graphacademy-agent": {
       "url": "<your-mcp-url>",
-      "type": "http"
+      "transport": "streamable-http"
     }
-  },
-  "inputs": []
+  }
 }
 ----
 
 . Save and reload Cursor
-. Use the agent through Cursor's interface
+. Your agent appears in the **Tools & MCP** list with a **Needs authentication** status. Click **Connect**
++
+image::images/mcp/cursor-agent-needs-authentication.png[Tools and MCP panel showing neo4j-graphacademy-agent with Needs authentication status and a Connect button]
+. Cursor asks permission to open the Aura MCP authentication website. Click **Open**
++
+image::images/mcp/cursor-open-aura-mcp-website.png[macOS dialog asking whether to open the aura-mcp.eu.auth0.com authorization URL in a browser]
+. The login page opens in your browser. Click **Continue with Neo4j Aura**
++
+image::images/mcp/aura-mcp-login.png[Login page for aura-mcp showing a Continue with Neo4j Aura button]
+. On the authorization screen, click **Accept** to grant Cursor access to your Aura MCP account
++
+image::images/mcp/cursor-authorize-aura-mcp.png[Authorize App screen showing Cursor requesting access to the aura-mcp account with Accept and Decline buttons]
+. Return to Cursor — your agent is now connected and available as a tool
+
+For connecting other hosts such as Claude Desktop, see link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^].
+
+
+== Test your agent in Cursor
+
+With the agent connected, open a new Cursor chat in **Agent** mode and ask it a question. Address the agent by its MCP server name — for example:
+
+----
+Using the neo4j-graphacademy-agent, find the top 10 orders
+----
+
+Cursor routes the request to your agent, which queries your AuraDB instance and returns the results.
+
+image::images/mcp/cursor-agent-response-top-orders.png[Cursor chat showing the agent returning a table of 10 orders with Order ID, Customer, Order Date, and Freight columns]
+
+The agent returns what its tools can retrieve. In this example, the Northwind Analyst returns the first 10 orders by order ID — not ranked by value, since no Cypher Template or Text2Cypher query for that ranking was added. This is expected behavior: the agent's answers are bounded by the tools you configured.
+
+Try these additional prompts to explore what your agent can do:
+
+----
+Using the neo4j-graphacademy-agent, list all products in the Seafood category
+----
+
+----
+Using the neo4j-graphacademy-agent, who are the top 5 customers by number of orders?
+----
+
+Each prompt exercises a different tool. Comparing the **Thought** sections across prompts shows you how the agent selects between Cypher Templates and Text2Cypher depending on which tool description best matches the question.
 
 
 [.summary]
