@@ -1,18 +1,26 @@
-import { ManagedTransaction, Session } from "neo4j-driver"
-import { STATUS_DISABLED } from "../../constants"
-import { CourseToImport } from "./load-courses"
+import { ManagedTransaction, Session } from "neo4j-driver";
+import { STATUS_DISABLED } from "../../constants";
+import { CourseToImport } from "./load-courses";
 
 /**
  * Transaction Functions
  */
-export const disableAllCourses = (tx: ManagedTransaction, valid: string[]) => tx.run(`
+export const disableAllCourses = (tx: ManagedTransaction, valid: string[]) =>
+  tx.run(
+    `
   MATCH (c:Course)
   WHERE NOT c.status IN $valid AND not c:Certification
   SET c.status = $status
-`, { valid, status: STATUS_DISABLED })
+`,
+    { valid, status: STATUS_DISABLED },
+  );
 
-export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImport[]) => {
-  tx.run(`
+export const mergeCourseDetails = (
+  tx: ManagedTransaction,
+  courses: CourseToImport[],
+) => {
+  tx.run(
+    `
       UNWIND $courses AS course
       MERGE (c:Course {slug: course.slug})
       SET
@@ -32,7 +40,8 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
         c.branch = course.branch,
         c.video = course.video,
         c.link = '/courses/'+ c.slug +'/',
-        c.updatedAt = datetime(),
+        c.updatedAt = CASE WHEN c.hash IS NULL OR c.hash <> course.hash THEN datetime() ELSE coalesce(c.updatedAt, datetime()) END,
+        c.hash = course.hash,
         c.classmarkerId = course.classmarkerId,
         c.classmarkerReference = course.classmarkerReference,
         c.questions = toInteger(course.questions),
@@ -64,10 +73,13 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
       MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
       MERGE (c)-[r:IN_CATEGORY]->(cat)
       SET r.order = toInteger(row.order)
-  `, { courses })
+  `,
+    { courses },
+  );
 
   // Translations
-  tx.run(`
+  tx.run(
+    `
       UNWIND $courses AS course
       MATCH (c:Course {slug: course.slug})
 
@@ -75,10 +87,13 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
         MERGE (t:Course {slug: slug})
         MERGE (c)-[:HAS_TRANSLATION]->(t)
       )
-  `, { courses })
+  `,
+    { courses },
+  );
 
   // Next Courses
-  tx.run(`
+  tx.run(
+    `
       UNWIND $courses AS course
       MATCH (c:Course {slug: course.slug})
 
@@ -86,10 +101,14 @@ export const mergeCourseDetails = (tx: ManagedTransaction, courses: CourseToImpo
         MERGE (t:Course {slug: slug})
         MERGE (c)-[:PROGRESS_TO]->(t)
       )
-  `, { courses })
-}
+  `,
+    { courses },
+  );
+};
 
-export const mergeModuleDetails = (tx: ManagedTransaction, modules: any) => tx.run(`
+export const mergeModuleDetails = (tx: ManagedTransaction, modules: any) =>
+  tx.run(
+    `
   UNWIND $modules AS module
     MATCH (c:Course {slug: module.course.slug})
 
@@ -102,7 +121,8 @@ export const mergeModuleDetails = (tx: ManagedTransaction, modules: any) => tx.r
     m.status = 'active',
     m.duration = module.duration,
     m.link = '/courses/'+ c.slug + '/'+ module.slug +'/',
-    m.updatedAt = datetime()
+    m.updatedAt = CASE WHEN m.hash IS NULL OR m.hash <> module.hash THEN datetime() ELSE coalesce(m.updatedAt, datetime()) END,
+    m.hash = module.hash
 
   // Restore current modules
   REMOVE m:DeletedModule
@@ -113,9 +133,13 @@ export const mergeModuleDetails = (tx: ManagedTransaction, modules: any) => tx.r
   FOREACH (m IN [ (m)-[:HAS_LESSON]->(l) | l ] | SET m:DeletedLesson )
   FOREACH (r IN [ (m)-[r:HAS_LESSON]->() | r ] | DELETE r )
 
-`, { modules })
+`,
+    { modules },
+  );
 
-export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.run(`
+export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) =>
+  tx.run(
+    `
   UNWIND $lessons AS lesson
     MATCH (m:Module {link: lesson.module.link})
 
@@ -136,7 +160,8 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
     l.lab = lesson.lab,
     l.link = m.link + lesson.slug +'/',
     l.disableCache = lesson.disableCache,
-    l.updatedAt = CASE WHEN lesson.updatedAt IS NOT NULL THEN datetime(lesson.updatedAt) ELSE null END
+    l.updatedAt = CASE WHEN l.hash IS NULL OR l.hash <> lesson.hash THEN datetime() ELSE coalesce(l.updatedAt, datetime()) END,
+    l.hash = lesson.hash
 
   REMOVE l:DeletedLesson
 
@@ -154,9 +179,13 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) => tx.r
   FOREACH (r IN [ (l)-[r:HAS_QUESTION]->() | r ] |
       DELETE r
   )
-`, { lessons })
+`,
+    { lessons },
+  );
 
-export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) => tx.run(`
+export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) =>
+  tx.run(
+    `
   UNWIND $questions AS question
   MATCH (l:Lesson {link: question.lessonLink})
 
@@ -165,21 +194,30 @@ export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) => 
 
   REMOVE q:DeletedQuestion
   MERGE (l)-[:HAS_QUESTION]->(q)
-`, { questions })
+`,
+    { questions },
+  );
 
 // Integrity Checks
-export const checkSchema = (session: Session) => session.executeRead(async tx => {
-  // Next Links?
-  const next = await tx.run(`
+export const checkSchema = (session: Session) =>
+  session.executeRead(async (tx) => {
+    // Next Links?
+    const next = await tx.run(`
       MATCH (a)-[:NEXT]->(b)
       WITH a, b, count(*) AS count
 
       WHERE count > 1
 
       RETURN *
-  `)
+  `);
 
-  if (next.records.length > 1) {
-    throw new Error(`Too many next links: \n ${JSON.stringify(next.records.map(row => row.toObject()), null, 2)}`)
-  }
-})
+    if (next.records.length > 1) {
+      throw new Error(
+        `Too many next links: \n ${JSON.stringify(
+          next.records.map((row) => row.toObject()),
+          null,
+          2,
+        )}`,
+      );
+    }
+  });

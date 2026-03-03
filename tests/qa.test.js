@@ -58,8 +58,111 @@ describe("QA Tests", () => {
     const status = getAttribute(courseAdoc, "status");
     const certification = getAttribute(courseAdoc, "certification");
 
-    if (["active", "draft"].includes(status) && certification !== "true") {
-      describe(slug, () => {
+    describe(slug, () => {
+      it("all :prerequisites: should reference existing courses", () => {
+        const prereqs = getAttribute(courseAdoc, "prerequisites");
+        if (prereqs) {
+          const slugs = prereqs
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s !== "");
+          const missing = slugs.filter(
+            (refSlug) =>
+              !existsSync(
+                join(
+                  __dirname,
+                  "..",
+                  "asciidoc",
+                  "courses",
+                  refSlug,
+                  "course.adoc",
+                ),
+              ) &&
+              !existsSync(
+                join(
+                  __dirname,
+                  "..",
+                  "asciidoc",
+                  "certifications",
+                  refSlug,
+                  "course.adoc",
+                ),
+              ),
+          );
+          if (missing.length > 0) {
+            throw new Error(
+              `The following prerequisite courses do not exist: ${missing.join(", ")}`,
+            );
+          }
+        }
+      });
+
+      it("all :next: should reference existing courses", () => {
+        const next = getAttribute(courseAdoc, "next");
+        if (next) {
+          const slugs = next
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s !== "");
+          const missing = slugs.filter(
+            (refSlug) =>
+              !existsSync(
+                join(
+                  __dirname,
+                  "..",
+                  "asciidoc",
+                  "courses",
+                  refSlug,
+                  "course.adoc",
+                ),
+              ) &&
+              !existsSync(
+                join(
+                  __dirname,
+                  "..",
+                  "asciidoc",
+                  "certifications",
+                  refSlug,
+                  "course.adoc",
+                ),
+              ),
+          );
+          if (missing.length > 0) {
+            throw new Error(
+              `The following next courses do not exist: ${missing.join(", ")}`,
+            );
+          }
+        }
+      });
+
+      it("all :categories: should reference existing category files", () => {
+        const categories = getAttribute(courseAdoc, "categories");
+        if (categories) {
+          const slugs = categories
+            .split(",")
+            .map((s) => s.split(":")[0].trim())
+            .filter((s) => s !== "");
+          const missing = slugs.filter(
+            (catSlug) =>
+              !existsSync(
+                join(
+                  __dirname,
+                  "..",
+                  "asciidoc",
+                  "categories",
+                  `${catSlug}.adoc`,
+                ),
+              ),
+          );
+          if (missing.length > 0) {
+            throw new Error(
+              `The following categories do not exist: ${missing.join(", ")}`,
+            );
+          }
+        }
+      });
+
+      if (["active", "draft"].includes(status) && certification !== "true") {
         const modulePaths = globSync(
           globJoin(
             __dirname,
@@ -763,7 +866,7 @@ describe("QA Tests", () => {
             }
           });
         }
-      });
-    }
+      }
+    });
   }
 });
