@@ -1,101 +1,118 @@
-= Tools and Components
+= Available Tools
 :order: 2
 :type: lesson
 == Introduction
 
-The core components of an Aura Agent are primarily the tools: Cypher Template, Text2Cypher, and Similarity Search. These tools query the knowledge graph; the LLM and orchestrator coordinate their use. This lesson covers the tools in detail, the other components, and how the graph grounds responses.
+The tools you configure on an Aura Agent determine what data it can retrieve and how. Choosing the correct tool for each question type is the primary design decision when building an agent.
+
+In this lesson, you will learn what each tool does, when to use it, and what to put in a tool description so the LLM selects correctly.
+
+From the **Agent tools** panel, click **Add tool** to see the three tool types:
+
+image::images/add-tool-menu.png[Agent tools panel showing Add tool dropdown with Cypher Template, Text2Cypher, and Similarity Search options]
 
 
-== The Three Tool Types
+== Cypher Template
 
-Aura Agents support exactly three read-only tools:
+A **Cypher Template** is a pre-written, parameterized Cypher query. You define the query once; the LLM extracts parameter values from the user's question and runs it.
 
-* **Cypher Template**: Runs a predefined Cypher query with parameters you specify. Deterministic; use for predictable queries like "Get customer ALFKI" or "List products in Beverages."
-* **Text2Cypher**: Converts natural language to Cypher at runtime. Use for ad-hoc questions like "Top 10 products by revenue" or "Which suppliers serve multiple regions?"
-* **Similarity Search**: Finds nodes by vector similarity when embeddings exist. Use for concept search like "products like spicy condiments."
+Use a Cypher Template for common, repeated questions with known structure: "Get customer ALFKI", "List products in Beverages", "Top 10 customers by order count." Because the query is pre-written, results are deterministic — the same question always runs the same Cypher.
 
-Clear tool descriptions help the LLM select the right tool. If your agent repeatedly handles the same question type, add a Cypher Template for deterministic behavior.
+The tool description tells the LLM when to invoke this tool. State what the tool returns, what kinds of questions trigger it, and what parameters it accepts.
 
+image::images/cypher-template-tool-edit.png[Edit tool dialog for a Cypher Template showing Type, Name, Description, Parameters, and Cypher query fields]
 
-== Core Components
+Each parameter has a name, data type, and description. The LLM uses the description to extract the correct value from the user's question.
 
-An Aura Agent consists of four main components. The tools are the primary retrieval mechanism.
+image::images/edit-parameter.png[Edit parameter popover showing name, data type, and description fields for a companyName string parameter]
 
-* **LLM**: Interprets user intent, selects tools, and generates natural language answers
-* **Tools**: Cypher Template, Similarity Search, Text2Cypher. All are read-only.
-* **Knowledge graph**: The AuraDB graph stores facts. Tools retrieve them via Cypher and vector search.
-* **Orchestrator**: Coordinates reasoning, tool calls, and response generation
-
-The agent workflow diagram in the previous lesson shows how these components work together: the orchestrator passes input to the LLM, the LLM selects tools, tools query the graph, and results flow back to the LLM for response generation.
-
-
-[source,mermaid]
-.Agent components
+Example description for a "Get Customer" tool:
 ----
-flowchart TD
-    A["AGENTS<br/>Perceive, Reason, Act"]:::agent
-    T["TOOLS<br/>Cypher Template, Similarity Search, Text2Cypher"]:::tool
-    R["TOOLS QUERY<br/>Data and Vectors"]:::retrieval
-    KG["AURADB<br/>Nodes and relationships"]:::graph
-
-    A -->|Invokes capabilities| T
-    A -->|Fetches context| R
-    A -->|Queries| KG
-    R -.->|Retrieves from| KG
-
-    classDef agent fill:#014063,stroke:#014063,color:#fff
-    classDef tool fill:#0369a1,stroke:#7dd3fc,color:#fff
-    classDef graph fill:#166534,stroke:#86efac,color:#fff
-    classDef retrieval fill:#b45309,stroke:#fcd34d,color:#fff
+Return customer details and recent orders for a customer ID such as ALFKI.
+Parameter: customer_id — the Northwind customer ID to look up.
 ----
 
-The agent receives input, reasons about which tools to use, and invokes them. Each tool retrieves data from your AuraDB graph in a different way: Cypher Template runs predefined queries, Text2Cypher generates Cypher from natural language, and Similarity Search uses vector indexes when configured. The agent observes tool output before constructing an answer.
+*Best practice*: Start with Cypher Templates for your core question types. Each template you add reduces how often the agent needs to generate Cypher dynamically.
 
 
-== How the Graph Grounds Responses
+== Text2Cypher
 
-An Aura Agent grounds its responses by querying data stored in your AuraDB instance. Instead of relying solely on what the LLM knows, the agent retrieves relevant facts from the graph and uses them as context when generating an answer.
+**Text2Cypher** converts a natural language question into a Cypher query at runtime and executes it against your graph.
 
-The graph stores:
+Use Text2Cypher as a fallback for ad-hoc questions, aggregations, and structural queries that vary too much to write templates for: "Which suppliers deliver to more than three regions?", "Top products by revenue last month."
 
-* **Structured, connected data**: nodes and relationships that tools query with Cypher
-* **Facts and domain state**: the specific data about your business or domain that makes answers accurate and relevant
+Text2Cypher uses a fine-tuned LLM to generate Cypher at runtime. That makes it flexible but probabilistic — the generated query may not always be correct. Reserve it for questions where a Cypher Template is not practical.
 
+The tool description needs to do two things: tell the agent when to use this tool and when not to, and include schema hints — node labels and relationship types — so the generated Cypher matches your graph structure.
 
-== How Tools Use the Graph
+image::images/text2cypher-tool-edit.png[Edit tool dialog for a Text2Cypher tool showing Type, Name, and Description fields]
 
-Your AuraDB graph stores connected data that Aura Agent tools traverse:
-
-* **Cypher Template and Text2Cypher** let agents run relationship-aware queries. For example, "find all customers who ordered from this supplier" traverses relationships directly.
-* **Similarity Search**, when embeddings exist, finds semantically similar nodes; you can then combine with graph traversal for multi-hop questions.
-
-Your application stores facts in the graph; tools query them. Aura Agent does not persist conversation history.
-
-
-[source,cypher,options="nowrap"]
+Example:
 ----
-MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) // <1>
-RETURN m.title, collect(a.name)[0..3] AS actors // <2>
-LIMIT 5
+Use this tool only when no other tool covers the question.
+The graph contains: Customer, Order, Product, Category, Supplier nodes.
+Relationships: PURCHASED (Customer→Order), PART_OF (Product→Category), SUPPLIES (Supplier→Product).
 ----
 
-<1> Match a Movie and actors connected via ACTED_IN
-<2> Return title and up to 3 actor names; adapt to your schema
+[NOTE]
+.Text2Cypher in production
+====
+Text2Cypher relies on a language model and can produce queries with errors. Test generated queries in the reasoning panel before relying on them for production use.
+====
 
-For Northwind, a "Get Customer" tool might run: `MATCH (c:Customer {customerID: $id}) RETURN c.companyName, c.contactName, ...`
+
+== Similarity Search
+
+**Similarity Search** finds graph nodes that are semantically similar to the user's question using vector embeddings.
+
+Similarity Search fits concept or content questions where exact keyword matching is not enough: "Products like spicy condiments", "Find items similar to this description."
+
+image::images/similarity-search-tool-edit.png[Edit tool dialog for a Similarity Search tool showing Type, Name, Description, Embedding provider, Embedding model, Index, and Top K fields]
+
+*Requirement*: Your graph must have vector embeddings on the nodes you want to search, and a vector index must exist. Supported embedding providers include OpenAI (through Azure) and Vertex AI.
+
+This course focuses on Cypher Template and Text2Cypher. Similarity Search is available when your graph has embeddings; no hands-on challenge is included for it here.
+
+
+== Choosing Between Tools
+
+The key question is whether you can anticipate the question in advance.
+
+If you can, a Cypher Template is the better choice: it runs the same Cypher every time, so the information retrieved is consistent and predictable. Templates also let you use multi-hop traversals — for example, a "Get Customer" template can follow `PURCHASED` to orders, then `ORDERS` to products in a single query, returning everything the agent needs to answer the question without relying on the LLM to generate the correct traversal.
+
+If the question varies too much to write a template for, use Text2Cypher. Aggregations like "Top 10 products by revenue" are a natural fit: the structure changes depending on what the user asks, so generating Cypher at runtime is more practical. That said, if "top products" is a common question in your use case, you can parameterize it — a Cypher Template with a `category` parameter handles "top products in Beverages" consistently and is often a better choice than generating the aggregation each time.
+
+[cols="1,2,2"]
+|===
+|Tool |Best for |Example
+
+|**Cypher Template**
+|Predictable questions with known parameters; multi-hop retrievals that need consistent results
+|"Get customer ALFKI", "List products in Beverages", "Top products in [category]"
+
+|**Text2Cypher**
+|Ad-hoc questions and aggregations that vary too much to template
+|"Top 10 products by revenue across all categories", "Which suppliers serve multiple regions?"
+
+|**Similarity Search**
+|Concept and semantic matching (requires embeddings)
+|"Products similar to spicy condiments"
+|===
+
+Start with Cypher Templates for your known question types. Add Text2Cypher as a fallback. Add Similarity Search only when your graph has embeddings.
 
 
 [.quiz]
 == Check Your Understanding
 
-include::questions/1-tools.adoc[leveloffset=+1]
-
 include::questions/1-components.adoc[leveloffset=+1]
 
 include::questions/1-graph.adoc[leveloffset=+1]
+
+include::questions/1-tools.adoc[leveloffset=+1]
 
 
 [.summary]
 == Summary
 
-In this lesson, you learned the three tool types, the core components, and how data stored in AuraDB grounds an agent's responses.
+In this lesson, you learned the three available tools: Cypher Template for deterministic queries, Text2Cypher for dynamic generation, and Similarity Search for semantic matching. Clear tool descriptions are how you guide the LLM to select the correct tool.
