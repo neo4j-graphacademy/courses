@@ -43,8 +43,8 @@ ORDER BY negativePercentage DESC
 LIMIT 5
 MATCH (c:Course)-[:HAS_MODULE]->(m:Module)-[:HAS_LESSON]->(l)
 
-RETURN l.title AS lesson, l.id AS lessonId, c.title AS course, c.slug AS courseSlug,
-       m.title AS module, m.slug AS moduleSlug, l.slug AS lessonSlug, positive, negative, round(negativePercentage, 1) AS negativePercent,
+RETURN l.title AS lessonTitle, l.id AS lessonId, c.title AS courseTitle, c.slug AS courseSlug,
+       m.title AS moduleTitle, m.slug AS moduleSlug, l.slug AS lessonSlug, positive, negative, round(negativePercentage, 1) AS negativePercent,
        reasons
 `;
 
@@ -57,11 +57,11 @@ interface FeedbackReason {
 }
 
 interface LessonFeedback {
-  lesson: string;
+  lessonTitle: string;
   lessonId: string;
-  course: string;
+  courseTitle: string;
   courseSlug: string;
-  module: string;
+  moduleTitle: string;
   moduleSlug: string;
   lessonSlug: string;
   positive: number;
@@ -71,11 +71,11 @@ interface LessonFeedback {
 }
 
 function formatTitle(row: LessonFeedback): string {
-  return `Lesson feedback: "${row.lesson}" — ${row.negativePercent}% negative (last 30 days)`;
+  return `Lesson feedback: "${row.lessonTitle}" — ${row.negativePercent}% negative (last 30 days)`;
 }
 
 function formatDescription(row: LessonFeedback): string {
-  const lessonUrl = `https://graphacademy.neo4j.com/courses/${row.courseSlug}/${row.module}/${row.lesson}`;
+  const lessonUrl = `https://graphacademy.neo4j.com/courses/${row.courseSlug}/${row.moduleSlug}/${row.lessonSlug}`;
   const adminBase = `https://graphacademy.neo4j.com/api/v1/feedback`;
 
   const tableRows = row.reasons.map((r) => {
@@ -83,13 +83,13 @@ function formatDescription(row: LessonFeedback): string {
       .replace(/\\/g, "\\\\")
       .replace(/\|/g, "\\|")
       .replace(/\n+/g, " ");
-    return `| \`${r.emailDomain}\` | ${r.reason || "—"} | ${additional} | ${r.completed ? "👍" : "🚫"} | ([view])(${adminBase}/${r.feedbackId}) |`;
+    return `| \`${r.emailDomain}\` | ${r.reason || "—"} | ${additional} | ${r.completed ? "Y" : "N"} | ([view](${adminBase}/${r.feedbackId})) |`;
   });
 
   return [
     `## Lesson Feedback Summary`,
     ``,
-    `* **Lesson**: ${row.course} → ${row.module} → [${row.lesson}](${lessonUrl})`,
+    `* **Lesson**: ${row.courseTitle} → ${row.moduleTitle} → [${row.lessonTitle}](${lessonUrl})`,
     `* **Feedback**: ${row.positive} positive, ${row.negative} negative (${row.negativePercent}%)`,
     ``,
     `## Recent feedback`,
@@ -253,7 +253,7 @@ async function run(): Promise<void> {
 
     if (existing.nodes.length > 0) {
       console.log(
-        `⏭️  Skipping "${row.lesson}" — open issue already exists (${existing.nodes[0].identifier})`,
+        `⏭️  Skipping "${row.lessonTitle}" — open issue already exists (${existing.nodes[0].identifier})`,
       );
       skipped++;
       continue;
@@ -262,7 +262,7 @@ async function run(): Promise<void> {
     const projectId = await findOrCreateProject(
       linear,
       team.id,
-      row.course,
+      row.courseTitle,
       projectCache,
     );
 
@@ -278,11 +278,11 @@ async function run(): Promise<void> {
     if (payload.success) {
       const issue = await payload.issue;
       console.log(
-        `✅ Created ${issue?.identifier}: "${row.lesson}" (${row.negativePercent}% negative)`,
+        `✅ Created ${issue?.identifier}: "${row.lessonTitle}" (${row.negativePercent}% negative)`,
       );
       created++;
     } else {
-      console.log(`❌ Failed to create issue for "${row.lesson}"`);
+      console.log(`❌ Failed to create issue for "${row.lessonTitle}"`);
     }
   }
 
