@@ -1,91 +1,165 @@
-import path from 'path'
-import { Asciidoctor } from "@asciidoctor/core/types"
-import { ASCIIDOC_DIRECTORY, ATTRIBUTE_ORDER, COURSE_DIRECTORY, PUBLIC_DIRECTORY } from "./constants"
+import path from "path";
+import { createHash } from "crypto";
+import { readFileSync, existsSync, readdirSync } from "fs";
+import { Asciidoctor } from "@asciidoctor/core/types";
+import {
+  ASCIIDOC_DIRECTORY,
+  ATTRIBUTE_ORDER,
+  COURSE_DIRECTORY,
+  PUBLIC_DIRECTORY,
+} from "./constants";
+
+function collectAdocFiles(dirPath: string): string[] {
+  const entries = readdirSync(dirPath, { withFileTypes: true });
+  return entries
+    .flatMap((entry) => {
+      const fullPath = path.join(dirPath, entry.name);
+      return entry.isDirectory() ? collectAdocFiles(fullPath) : [fullPath];
+    })
+    .filter((f) => f.endsWith(".adoc"));
+}
+
+export function computeFileHash(filePath: string): string {
+  const hash = createHash("sha256");
+  if (existsSync(filePath)) {
+    hash.update(readFileSync(filePath, "utf8"));
+  }
+  return hash.digest("hex");
+}
+
+export function computeDirHash(dirPath: string): string {
+  const hash = createHash("sha256");
+  if (!existsSync(dirPath)) {
+    return hash.digest("hex");
+  }
+  for (const file of collectAdocFiles(dirPath).sort()) {
+    hash.update(readFileSync(file, "utf8"));
+  }
+  return hash.digest("hex");
+}
 
 export const padOrder = (order: string | number): string => {
-    return ('0000' + order).slice(-4)
-}
+  return ("0000" + order).slice(-4);
+};
 
-export const getOrderAttribute = (folder: string, file: Asciidoctor.Document): number => {
-    let order = file.getAttribute(ATTRIBUTE_ORDER, null)
+export const getOrderAttribute = (
+  folder: string,
+  file: Asciidoctor.Document,
+): number => {
+  let order = file.getAttribute(ATTRIBUTE_ORDER, null);
 
-    if (typeof order === 'string') {
-        order = padOrder(order)
-    }
+  if (typeof order === "string") {
+    order = padOrder(order);
+  }
 
-    // If order is undefined, use the first part of folder name to order
-    // eg: 1-first or 10-tenth
-    if (order === undefined) {
-        const folderParts = folder.split('/')
-        const folderName = folderParts[folderParts.length - 1]
+  // If order is undefined, use the first part of folder name to order
+  // eg: 1-first or 10-tenth
+  if (order === undefined) {
+    const folderParts = folder.split("/");
+    const folderName = folderParts[folderParts.length - 1];
 
-        const orderParts = folderName.split('-')
-        order = padOrder(orderParts[0])
-    }
+    const orderParts = folderName.split("-");
+    order = padOrder(orderParts[0]);
+  }
 
-    return parseInt(order)
-}
+  return parseInt(order);
+};
 
-export const getDateAttribute = (file: Asciidoctor.Document, attribute: string): string | undefined => {
-    const date = file.getAttribute(attribute)
+export const getDateAttribute = (
+  file: Asciidoctor.Document,
+  attribute: string,
+): string | undefined => {
+  const date = file.getAttribute(attribute);
 
-    return date !== undefined ? new Date(date.replace(/\s/g, '')).toISOString() : undefined
-}
+  return date !== undefined
+    ? new Date(date.replace(/\s/g, "")).toISOString()
+    : undefined;
+};
 
 export function courseOverviewPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'course.adoc')
+  return path.join(COURSE_DIRECTORY, slug, "course.adoc");
 }
 
 export function courseSummaryPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'summary.adoc')
+  return path.join(COURSE_DIRECTORY, slug, "summary.adoc");
 }
 
 export function moduleOverviewPath(course: string, module: string): string {
-    return path.join(COURSE_DIRECTORY, course, 'modules', module, 'module.adoc')
+  return path.join(COURSE_DIRECTORY, course, "modules", module, "module.adoc");
 }
 
 export function courseBadgePath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'badge.svg')
+  return path.join(COURSE_DIRECTORY, slug, "badge.svg");
 }
 
 export function coursePublicBadgePath(slug: string): string {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'badges', `${slug}.svg`)
+  return path.join(PUBLIC_DIRECTORY, "img", "courses", "badges", `${slug}.svg`);
 }
 
 export function courseIllustrationPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'illustration.svg')
+  return path.join(COURSE_DIRECTORY, slug, "illustration.svg");
 }
 
 export function coursePublicIllustrationPath(slug: string): string {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'illustrations', `${slug}.svg`)
+  return path.join(
+    PUBLIC_DIRECTORY,
+    "img",
+    "courses",
+    "illustrations",
+    `${slug}.svg`,
+  );
 }
 
 export function courseBackgroundPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'background.png')
+  return path.join(COURSE_DIRECTORY, slug, "background.png");
 }
 
 export function coursePublicBackgroundPath(slug: string): string {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'backgrounds', `${slug}.png`)
+  return path.join(
+    PUBLIC_DIRECTORY,
+    "img",
+    "courses",
+    "backgrounds",
+    `${slug}.png`,
+  );
 }
 
 export function courseBannerPath(slug: string): string {
-    return path.join(COURSE_DIRECTORY, slug, 'banner.png')
+  return path.join(COURSE_DIRECTORY, slug, "banner.png");
 }
 
 export function coursePublicBannerPath(slug: string): string {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'courses', 'banners', `${slug}.png`)
+  return path.join(
+    PUBLIC_DIRECTORY,
+    "img",
+    "courses",
+    "banners",
+    `${slug}.png`,
+  );
 }
 
 export function categoryOverviewPath(slug: string) {
-    return path.join(ASCIIDOC_DIRECTORY, 'categories', `${slug}.adoc`)
+  return path.join(ASCIIDOC_DIRECTORY, "categories", `${slug}.adoc`);
 }
 
 export function categoryBadgePath(slug: string): string {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'categories', 'badges', `${slug}.svg`)
+  return path.join(
+    PUBLIC_DIRECTORY,
+    "img",
+    "categories",
+    "badges",
+    `${slug}.svg`,
+  );
 }
 
 export function categoryBannerPath(slug: string) {
-    return path.join(PUBLIC_DIRECTORY, 'img', 'categories', 'banners', `${slug}.png`)
+  return path.join(
+    PUBLIC_DIRECTORY,
+    "img",
+    "categories",
+    "banners",
+    `${slug}.png`,
+  );
 }
 
 /**
@@ -95,7 +169,7 @@ export function categoryBannerPath(slug: string) {
  * @return {string}  A URL to append the branch and file path to
  */
 export function repositoryLink(value: string) {
-    return `https://github.com/${value}`
+  return `https://github.com/${value}`;
 }
 
 /**
@@ -105,7 +179,7 @@ export function repositoryLink(value: string) {
  * @return {string}  A URL to append the branch and file path to
  */
 export function repositoryRawUrl(value: string) {
-    return `https://raw.githubusercontent.com/${value}`
+  return `https://raw.githubusercontent.com/${value}`;
 }
 
 /**
@@ -115,7 +189,7 @@ export function repositoryRawUrl(value: string) {
  * @return {string}  A URL to append the branch and file path to
  */
 export function repositoryBlobUrl(value: string) {
-    return `https://github.com/${value}/blob`
+  return `https://github.com/${value}/blob`;
 }
 
 /**
@@ -125,30 +199,38 @@ export function repositoryBlobUrl(value: string) {
  * @returns boolean
  */
 export function isTruthy(value: any): boolean {
-    if (typeof value === 'boolean') {
-        return value
-    }
-    if (typeof value === 'string' && value === 'true') {
-        return true
-    }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string" && value === "true") {
+    return true;
+  }
 
-    return false
+  return false;
 }
 
-export function attributeMayBeTruthy(file: Asciidoctor.Document, attribute: string, defaultValue: any = null) {
-    const value = file.getAttribute(attribute, defaultValue)
-    const truthy = isTruthy(value)
+export function attributeMayBeTruthy(
+  file: Asciidoctor.Document,
+  attribute: string,
+  defaultValue: any = null,
+) {
+  const value = file.getAttribute(attribute, defaultValue);
+  const truthy = isTruthy(value);
 
-    if (!truthy && value !== null && value !== undefined && value !== 'false') {
-        return value
-    }
+  if (!truthy && value !== null && value !== undefined && value !== "false") {
+    return value;
+  }
 
-    return truthy
+  return truthy;
 }
 
-export function attributeIsTruthy(file: Asciidoctor.Document, attribute: string, defaultValue: any = null) {
-    const value = file.getAttribute(attribute, defaultValue)
-    return isTruthy(value)
+export function attributeIsTruthy(
+  file: Asciidoctor.Document,
+  attribute: string,
+  defaultValue: any = null,
+) {
+  const value = file.getAttribute(attribute, defaultValue);
+  return isTruthy(value);
 }
 
 /**
@@ -157,20 +239,23 @@ export function attributeIsTruthy(file: Asciidoctor.Document, attribute: string,
  * @param target
  * @param ...sources
  */
-export function mergeDeep(target: Record<string, any> = {}, ...sources: Record<string, any>[]): Record<string, any> {
-    const output = Object.assign({}, target)
+export function mergeDeep(
+  target: Record<string, any> = {},
+  ...sources: Record<string, any>[]
+): Record<string, any> {
+  const output = Object.assign({}, target);
 
-    while (sources.length) {
-        const source = sources.shift()
+  while (sources.length) {
+    const source = sources.shift();
 
-        for (const key in source) {
-            if (!output.hasOwnProperty(key)) {
-                Object.assign(output, { [key]: source[key] })
-            } else {
-                Object.assign(output[key], source[key])
-            }
-        }
+    for (const key in source) {
+      if (!output.hasOwnProperty(key)) {
+        Object.assign(output, { [key]: source[key] });
+      } else {
+        Object.assign(output[key], source[key]);
+      }
     }
+  }
 
-    return output
+  return output;
 }
