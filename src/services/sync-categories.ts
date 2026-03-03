@@ -14,6 +14,7 @@ import {
   CATEGORY_DIRECTORY,
   DEFAULT_LANGUAGE,
   Language,
+  ATTRIBUTE_LAYOUT,
 } from "../constants";
 import { categoryOverviewPath } from "../utils";
 
@@ -23,6 +24,7 @@ interface CategoryWithParents {
   title: string;
   language: Language;
   link: string;
+  layout: "path" | "workshops" | "default";
   caption: string;
   description: string;
   shortName: string;
@@ -48,6 +50,7 @@ const loadCategory = (slug: string): CategoryWithParents => {
   const link = file.getAttribute(ATTRIBUTE_LINK, null);
   const language = file.getAttribute(ATTRIBUTE_LANGUAGE, DEFAULT_LANGUAGE);
   const redirect = file.getAttribute(ATTRIBUTE_REDIRECT, null);
+  const layout = file.getAttribute(ATTRIBUTE_LAYOUT, "default");
 
   const parents = file
     .getAttribute(ATTRIBUTE_PARENT, "")
@@ -63,6 +66,7 @@ const loadCategory = (slug: string): CategoryWithParents => {
 
   return {
     slug,
+    layout,
     status,
     title: file.getTitle() as string,
     redirect,
@@ -90,7 +94,7 @@ export async function syncCategories(): Promise<void> {
       `
             UNWIND $categories AS row
             MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
-            SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .redirect, .link }
+            SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .redirect, .link, .layout }
 
             FOREACH (parent in row.parents |
                 MERGE (p:Category {id: apoc.text.base64Encode(parent.category)})

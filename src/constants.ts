@@ -59,6 +59,7 @@ export const ATTRIBUTE_CLASSMARKER_ID = "classmarker-id";
 export const ATTRIBUTE_CLASSMARKER_REFERENCE = "classmarker-reference";
 export const ATTRIBUTE_TYPE = "type";
 export const ATTRIBUTE_ORDER = "order";
+export const ATTRIBUTE_LAYOUT = "layout";
 
 export const ATTRIBUTE_DURATION = "duration";
 export const ATTRIBUTE_SANDBOX = "sandbox";
