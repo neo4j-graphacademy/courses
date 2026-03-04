@@ -3,98 +3,103 @@
 :type: challenge
 :disable-cache: true
 
-In this challenge, you will create an Aura Agent connected to the Northwind knowledge graph and ask it questions. The goal is to see a working agent before diving into full tool configuration in Module 2.
+Try creating an agent on your own AuraDB instance and test it with Text2Cypher.
+
+If you need to load a dataset, download the Northwind model, then open the Import tool, click the **...** menu, select **Open model (with data)**, and click **Run Import**.
+
+link:https://cdn.graphacademy.neo4j.com/courses/workshop-modeling/modules/6-final-review/lessons/1-recommendation-query/data/complete-model.zip[Download Northwind dataset^, role="btn"]
+
+console::Open Import Tool[tool=import,connect-url={connect-url}]
 
 
-== Goal
+== Explore your data
 
-Create an agent with a single Text2Cypher tool and verify it can answer questions over Northwind data.
+Before creating an agent, spend a few minutes in the Query tool getting to know your graph.
 
-
-== Step 1: Create an AuraDB Instance
-
-If you do not already have a running AuraDB instance, create one:
-
-. Go to link:https://console.neo4j.io/graphacademy[Aura Console^] and click **New Instance**
-. Select **AuraDB Free** and follow the prompts
-. Save your credentials when prompted — you will need them if you connect to the instance directly
-
-
-== Step 2: Load Northwind Data
-
-Open the **Query** tool for your instance and run the Northwind setup script. Copy the URL below and paste it into your browser to open the raw Cypher file, then copy its contents into the Query tool:
-
-link:https://raw.githubusercontent.com/neo4j-graph-examples/northwind/main/import/northwind-data.cypher[northwind-data.cypher^]
-
-image::images/query-tool-northwind.png[Query tool open with the northwind-data.cypher script pasted in, ready to run]
-
-After running the script, verify the data loaded correctly by running this query:
+List all node labels:
 
 [source,cypher]
 ----
-MATCH (n)
-RETURN labels(n)[0] AS label, count(n) AS count
-ORDER BY count DESC
+CALL db.labels();
 ----
 
-You should see rows for Customer, Order, Product, Category, and Supplier.
+image::images/northwind-labels.png[Query results listing all node labels: Product, Category, Supplier, Customer, Order, Address]
 
+See all properties and their types across every label:
 
-== Step 3: Enable Tool Authentication
+[source,cypher]
+----
+CALL db.schema.nodeTypeProperties();
+----
 
-Before creating an agent, confirm the required settings are active in your Aura organization.
+image::images/northwind-node-properties.png[Query results showing nodeType, nodeLabels, propertyName, propertyTypes, and mandatory columns for Category and Supplier nodes]
 
-Click your organization name in the top-left, then select **Settings** from the left sidebar:
+Query the relationship patterns to see how labels connect and how many of each relationship exist:
 
-image::images/organization-settings-menu.png[Aura Console left sidebar showing organization navigation options including Settings highlighted at the bottom]
+[source,cypher]
+----
+MATCH (a)-[r]->(b)
+RETURN labels(a) AS fromLabels, type(r) AS relType, labels(b) AS toLabels, count(*) AS cnt
+ORDER BY cnt DESC
+LIMIT 25;
+----
 
-Under **Preferences**, check that both toggles are **on**:
+image::images/northwind-relationship-patterns.png[Query results showing Northwind relationship patterns: ORDER_CONTAINS, ORDERED, SHIPPED_TO, BELONGS_TO, and SUPPLIED_BY with node counts]
 
-* **Generative AI assistance**
-* **Aura Agent**
+Traverse a specific relationship to see the data in graph form:
 
-image::images/settings-genai-aura-agent.png[Preferences section showing Generative AI assistance and Aura Agent toggles both enabled]
+[source,cypher]
+----
+MATCH (a:Order)-[r:SHIPPED_TO]->(b:Address)
+RETURN a, r, b
+LIMIT 100;
+----
 
-These are on by default for most organizations. If either is off, enable it before continuing.
+image::images/northwind-orders-shipped-to.png[Query tool graph view showing Order nodes connected to an Address node through SHIPPED_TO relationships, with the node details panel open showing address, city, country, and name properties]
 
-Then, under your Northwind instance's **Security Settings**, enable **Allow tools to connect**. This lets agents query your instance.
+Explore the neighbourhood around a Customer to see orders, products, and addresses within 1–2 hops:
 
-video::https://cdn.graphacademy.neo4j.com/courses/ai-agents/tool-authentication.mp4["Tool Authentication", role="cdn", width=100%]
+[source,cypher]
+----
+MATCH (c:Customer)
+WITH c LIMIT 1
+MATCH p=(c)-[*1..2]-(n)
+RETURN p
+LIMIT 80;
+----
 
+image::images/northwind-customer-neighbourhood.png[Graph visualization showing a Customer node connected to Orders, Products, and Addresses within 1-2 hops]
 
-== Create the Agent
+Do the same centered on a Product to surface supplier and category connections:
 
-. Navigate to **Data Services** → **Agents** → **Create Agent**
-. Select **Create from scratch**
-. Select your Northwind instance
-. Fill in:
-** **Name**: `Northwind Analyst`
-** **Description**: `Answers questions about the Northwind retail dataset — customers, orders, products, and suppliers.`
-** **Instructions**: `You are a Northwind retail analyst. Answer questions about customers, orders, products, categories, and suppliers using the tools available.`
-. Leave access as **Internal**
-. Click **Add Tools** and add a **Text2Cypher** tool:
-** **Name**: `Query Northwind`
-** **Description**: `Use this tool for any question about the Northwind graph. The graph contains: Customer, Order, Product, Category, Supplier nodes. Relationships: PURCHASED (Customer→Order), PART_OF (Product→Category), SUPPLIES (Supplier→Product), ORDERS (Order→Product).`
-. Click **Save Agent**
+[source,cypher]
+----
+MATCH (p:Product)
+WITH p LIMIT 1
+MATCH path=(p)-[*1..2]-(n)
+RETURN path
+LIMIT 150;
+----
 
+image::images/northwind-product-neighbourhood.png[Graph visualization showing a Product node connected to its supplier, category, and related orders within 1-2 hops]
 
-== Try It
+Use this pattern as a template to explore any relationship in your graph:
 
-Ask your agent these questions in the preview panel:
+----
+MATCH (a:SomeLabel)-[r:SOME_REL]->(b:OtherLabel)
+RETURN a, r, b
+LIMIT 100;
+----
 
-* "Which customers have placed the most orders?"
-* "What products are in the Beverages category?"
-* "Which suppliers provide products in more than one category?"
-* "How many orders were shipped to Germany?"
-* "Which products have never been ordered?"
+== Create your agent
 
-Expand the **Thought** section on each response to see which tool the agent selected and what Cypher it generated. Because this agent has only a Text2Cypher tool, every question generates Cypher at runtime — check the generated queries to verify they match your intent before trusting the answers.
+Once you are comfortable with the data, create a new agent, add a Text2Cypher tool, and ask it a question in natural language.
 
 
 [.summary]
 == Summary
 
-You created your first Aura Agent and ran it against real graph data. In Module 2, you will build a more complete agent with Cypher Template tools for consistent, deterministic retrieval.
+In Module 2, you will build a fully configured agent with Cypher Template and Text2Cypher tools.
 
 
 read::Mark as completed[]
