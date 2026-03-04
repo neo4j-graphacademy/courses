@@ -5,7 +5,15 @@
 
 The tools you configure on an Aura Agent determine what data it can retrieve and how. Choosing the correct tool for each question type is the primary design decision when building an agent.
 
-In this lesson, you will learn what each tool does, when to use it, and what to put in a tool description so the LLM selects correctly.
+The knowledge graph your agent queries contains two kinds of information:
+
+* **Structured, connected data**: nodes and relationships that tools query with Cypher
+* **Facts and domain state**: the specific data about your business or domain that makes answers accurate and relevant
+
+In this lesson, you will learn:
+
+* What each tool does and when to use it
+* What to put in a tool description so the LLM selects correctly
 
 From the **Agent tools** panel, click **Add tool** to see the three tool types:
 
@@ -16,7 +24,7 @@ image::images/add-tool-menu.png[Agent tools panel showing Add tool dropdown with
 
 A **Cypher Template** is a pre-written, parameterized Cypher query. You define the query once; the LLM extracts parameter values from the user's question and runs it.
 
-Use a Cypher Template for common, repeated questions with known structure: "Get customer ALFKI", "List products in Beverages", "Top 10 customers by order count." Because the query is pre-written, results are deterministic — the same question always runs the same Cypher.
+Use a Cypher Template for common, repeated questions with known structure: "Get customer ALFKI", "List products in Beverages", "Top 10 customers by order count." Because the query is pre-written, results are deterministic: the same question always runs the same Cypher.
 
 The tool description tells the LLM when to invoke this tool. State what the tool returns, what kinds of questions trigger it, and what parameters it accepts.
 
@@ -32,16 +40,16 @@ Return customer details and recent orders for a customer ID such as ALFKI.
 Parameter: customer_id — the Northwind customer ID to look up.
 ----
 
-*Best practice*: Start with Cypher Templates for your core question types. Each template you add reduces how often the agent needs to generate Cypher dynamically.
+Start with Cypher Templates for your core question types. Each template you add reduces how often the agent needs to generate Cypher dynamically.
 
 
 == Text2Cypher
 
-**Text2Cypher** converts a natural language question into a Cypher query at runtime and executes it against your graph.
+Text2Cypher converts a natural language question into a Cypher query at runtime and executes it against your graph.
 
 Use Text2Cypher as a fallback for ad-hoc questions, aggregations, and structural queries that vary too much to write templates for: "Which suppliers deliver to more than three regions?", "Top products by revenue last month."
 
-Text2Cypher uses a fine-tuned LLM to generate Cypher at runtime. That makes it flexible but probabilistic — the generated query may not always be correct. Reserve it for questions where a Cypher Template is not practical.
+Text2Cypher uses a fine-tuned LLM to generate Cypher at runtime. That makes it flexible but probabilistic. The generated query may not always be correct, and the same question can produce different Cypher across calls. It is also more computationally expensive than running a pre-written template, so avoid it for questions you can anticipate. Reserve Text2Cypher for questions where a Cypher Template is not practical.
 
 The tool description needs to do two things: tell the agent when to use this tool and when not to, and include schema hints — node labels and relationship types — so the generated Cypher matches your graph structure.
 
@@ -63,24 +71,32 @@ Text2Cypher relies on a language model and can produce queries with errors. Test
 
 == Similarity Search
 
-**Similarity Search** finds graph nodes that are semantically similar to the user's question using vector embeddings.
+Similarity Search finds graph nodes that are semantically similar to the user's question using vector embeddings. It converts the user's input into a vector embedding, then compares it against embeddings stored as node properties to surface semantically related results.
 
-Similarity Search fits concept or content questions where exact keyword matching is not enough: "Products like spicy condiments", "Find items similar to this description."
+Similarity Search works well when you can't describe what you're looking for with exact words — for example, "products like spicy condiments" or "find items similar to this description."
 
 image::images/similarity-search-tool-edit.png[Edit tool dialog for a Similarity Search tool showing Type, Name, Description, Embedding provider, Embedding model, Index, and Top K fields]
 
-*Requirement*: Your graph must have vector embeddings on the nodes you want to search, and a vector index must exist. Supported embedding providers include OpenAI (through Azure) and Vertex AI.
+Your graph must have vector embeddings on the nodes you want to search, and a vector index must exist. Supported embedding providers include OpenAI (through Azure) and Vertex AI.
 
 This course focuses on Cypher Template and Text2Cypher. Similarity Search is available when your graph has embeddings; no hands-on challenge is included for it here.
 
 
 == Choosing Between Tools
 
-The key question is whether you can anticipate the question in advance.
+When you can anticipate a question in advance, use a Cypher Template. For Northwind, a "Get Customer" tool might run:
 
-If you can, a Cypher Template is the better choice: it runs the same Cypher every time, so the information retrieved is consistent and predictable. Templates also let you use multi-hop traversals — for example, a "Get Customer" template can follow `PURCHASED` to orders, then `ORDERS` to products in a single query, returning everything the agent needs to answer the question without relying on the LLM to generate the correct traversal.
+[source,cypher]
+----
+MATCH (c:Customer {customerID: $id})
+RETURN c.companyName, c.contactName, c.city, c.country
+----
+
+The query is pre-written and runs identically every time, so the information retrieved is consistent and predictable.
 
 If the question varies too much to write a template for, use Text2Cypher. Aggregations like "Top 10 products by revenue" are a natural fit: the structure changes depending on what the user asks, so generating Cypher at runtime is more practical. That said, if "top products" is a common question in your use case, you can parameterize it — a Cypher Template with a `category` parameter handles "top products in Beverages" consistently and is often a better choice than generating the aggregation each time.
+
+For questions that require traversing relationships, a Cypher Template is more reliable than Similarity Search. A "Get Customer Orders" template can follow `PURCHASED` to orders, then `ORDERS` to products in a single query, returning exactly the connected data the agent needs. Similarity Search finds semantically similar nodes but does not traverse relationships. It answers "what is similar?" not "what is connected?"
 
 [cols="1,2,2"]
 |===
@@ -103,7 +119,7 @@ Start with Cypher Templates for your known question types. Add Text2Cypher as a 
 
 
 [.quiz]
-== Check Your Understanding
+== Check your understanding
 
 include::questions/1-components.adoc[leveloffset=+1]
 
