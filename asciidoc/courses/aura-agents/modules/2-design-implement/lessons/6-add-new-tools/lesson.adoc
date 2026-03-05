@@ -1,0 +1,85 @@
+= Add More Tools
+:order: 6
+:type: challenge
+:disable-cache: true
+
+The Northwind Analyst agent you built in the Create from Scratch lesson handles customers, products, categories, and ad-hoc queries.
+In this challenge, you will extend it by adding three new Cypher Template tools that cover supplier and order data, without step-by-step guidance.
+
+== Goal
+
+Add tools that let the agent answer questions about suppliers and order details that the existing tools cannot handle.
+
+== Before You Start
+
+Make sure you have a Northwind Analyst agent with the tools from the Create from Scratch lesson.
+Open it in the Aura Console and click **Add Tool** → **Cypher Template** for each tool below.
+After adding all three tools, click **Update agent** before testing.
+
+== Tool 1: Get Supplier
+
+Name: [copy]#Get Supplier#
+
+Description: [copy]#Return supplier details and the products they supply. Use this tool when the question asks about a supplier by name or ID.#
+
+Parameter: name [copy]#supplier_name#, type **string**, description [copy]#The supplier company name or partial name to look up#
+
+[source,cypher,role=noplay]
+----
+MATCH (s:Supplier)-[:SUPPLIES]->(p:Product)
+WHERE toLower(s.name) CONTAINS toLower($supplier_name)
+RETURN s.id, s.name, s.contactName, s.country,
+  collect(p.name) AS products
+----
+
+== Tool 2: Products by Supplier
+
+Name: [copy]#Products by Supplier#
+
+Description: [copy]#List all products supplied by a specific supplier. Use this tool when the question asks what products a supplier provides.#
+
+Parameter: name [copy]#supplier_id#, type **string**, description [copy]#The supplier ID to look up#
+
+[source,cypher,role=noplay]
+----
+MATCH (s:Supplier {id: $supplier_id})-[:SUPPLIES]->(p:Product)-[:IN_CATEGORY]->(c:Category)
+RETURN p.name, p.unitPrice, c.name
+ORDER BY c.name, p.name
+----
+
+== Tool 3: Recent Orders for Customer
+
+Name: [copy]#Recent Orders for Customer#
+
+Description: [copy]#Return the most recent orders placed by a customer, including the products in each order. Use this tool when the question asks about a customer's order history or recent purchases.#
+
+Parameter: name [copy]#customer_id#, type **string**, description [copy]#The customer ID, for example ALFKI#
+
+[source,cypher,role=noplay]
+----
+MATCH (c:Customer {id: $customer_id})-[:PLACED]->(o:Order)
+RETURN o.orderId, o.orderDate,
+  [(o)-[:CONTAINS]->(p:Product) | p.name] AS products
+ORDER BY o.orderDate DESC
+LIMIT 10
+----
+
+== Test your new tools
+
+Run these questions and verify each one uses the correct new tool:
+
+* [copy]#What products does Exotic Liquids supply?#
+* [copy]#Show me all products from supplier EXOTIC#
+* [copy]#What has customer ALFKI ordered recently?#
+
+Expand the **Thought** section on each response.
+If a new tool was not selected, check whether its description is specific enough to distinguish it from the existing tools and Text2Cypher.
+
+read::Mark as completed[]
+
+[.summary]
+== Summary
+
+You extended the Northwind Analyst agent with three new Cypher Template tools covering supplier and order data.
+
+In Module 3, you will publish your agent so it can be called from Cursor or another MCP host application.
