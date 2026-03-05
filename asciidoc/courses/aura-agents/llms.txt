@@ -55,10 +55,10 @@ Parameter: customer_id, string, the customer ID to look up
 ```
 
 ```cypher
-MATCH (c:Customer {customerID: $customer_id})
-  -[:PURCHASED]->(o:Order)
-RETURN c.customerID, c.companyName, c.contactName,
-  collect(o.orderID)[0..5] AS recentOrders
+MATCH (c:Customer {id: $customer_id})
+  -[:PLACED]->(o:Order)
+RETURN c.id, c.companyName, c.contactName,
+  collect(o.orderId)[0..5] AS recentOrders
 ```
 
 Multi-hop traversals are a key strength: a single Cypher Template can follow multiple relationships in one query, returning everything the agent needs without relying on the LLM to generate the traversal.
@@ -70,9 +70,9 @@ Parameter: category, string, category name or partial name to match
 ```
 
 ```cypher
-MATCH (p:Product)-[:PART_OF]->(c:Category)
-WHERE c.categoryName CONTAINS $category
-RETURN p.productName, c.categoryName
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category)
+WHERE c.name CONTAINS $category
+RETURN p.name, c.name
 LIMIT 20
 ```
 
@@ -86,8 +86,7 @@ Use as a fallback for ad-hoc and aggregation questions that vary too much to wri
 Name: Query Northwind
 Description: Use this tool ONLY when no other tool covers the question.
 The graph contains: Customer, Order, Product, Category, Supplier nodes.
-Relationships: PURCHASED (Customer→Order), PART_OF (Product→Category),
-SUPPLIES (Supplier→Product), ORDERS (Order→Product).
+Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product).
 ```
 
 Text2Cypher is probabilistic — always test generated queries in the reasoning panel. Reserve for questions you cannot anticipate. If a question recurs frequently, convert it to a Cypher Template.
@@ -256,9 +255,9 @@ MCP uses OAuth — the first connection opens a login prompt for Aura Console cr
 ### Top Customers by Order Count
 
 ```cypher
-MATCH (c:Customer)-[:PURCHASED]->(o:Order)
+MATCH (c:Customer)-[:PLACED]->(o:Order)
 WITH c, count(o) AS orderCount
-RETURN c.companyName, c.customerID, orderCount
+RETURN c.companyName, c.id, orderCount
 ORDER BY orderCount DESC LIMIT $limit
 ```
 
@@ -267,9 +266,9 @@ Parameters: `limit` (int, default 10)
 ### Get Product
 
 ```cypher
-MATCH (p:Product)-[:PART_OF]->(c:Category)
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category)
 WHERE p.productID = $product_id
-RETURN p.productID, p.productName, p.unitPrice, c.categoryName
+RETURN p.id, p.name, p.unitPrice, c.name
 ```
 
 Parameters: `product_id` (string)
