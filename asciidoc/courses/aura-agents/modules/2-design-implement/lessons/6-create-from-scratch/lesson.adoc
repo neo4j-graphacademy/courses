@@ -1,0 +1,233 @@
+= Create an Agent from Scratch
+:order: 7
+:type: lesson
+
+Creating an agent from scratch gives you full control over every tool, parameter, and instruction from the start.
+Use this approach when you have a clear design in mind and want precise tool coverage rather than a generated draft.
+
+// == Available tools
+
+// Every tool you add to an agent is one of three types.
+// This lesson covers Cypher Template and Text2Cypher, the two tools you will configure hands-on:
+
+// [cols="1,2,2"]
+// |===
+// |Tool |Best for |Requires
+
+// |**Cypher Template**
+// |Predictable questions with known parameters: "Get customer ALFKI", "Top 10 customers by order count"
+// |A pre-written parameterized Cypher query
+
+// |**Text2Cypher**
+// |Ad-hoc questions where the query structure changes: "Which suppliers serve more than three regions?"
+// |Schema context in the description (node labels and relationship types)
+// |===
+
+// A third tool type, **Similarity Search**, is available when your graph has vector embeddings and a vector index.
+// The Northwind dataset does not include embeddings, so it is covered conceptually in Module 1 but not configured here.
+
+== Step 1: Create the agent
+
+Go to Aura Console → **Data Services** → **Agents** → **Create Agent** → **Create from scratch**.
+
+image::images/create-from-scratch-menu.png[Create Agent menu showing Create from scratch and Create with AI options]
+
+Select your Northwind instance.
+
+image::images/create-agent-from-scratch.png[Create Agent dialog with the Northwind instance selected]
+
+Set the **Agent Name**:
+
+[copy]#Northwind Analyst#
+
+Set the **Description**:
+
+[copy]#A retail analyst agent with access to the Northwind knowledge graph.#
+
+Set the **Instructions**:
+
+[copy]
+----
+You are a Northwind retail analyst with access to a knowledge graph of products, customers, orders, suppliers, and categories.
+The graph contains these node labels: Customer, Order, Product, Category, Supplier, Address.
+Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product), SHIPPED_TO (Order→Address).
+Answer questions about customers, orders, products, categories, suppliers, and their relationships.
+If the question is off-topic or harmful, politely decline.
+----
+
+The configuration page includes a live preview panel where you can test prompts before saving.
+
+image::images/agent-preview.png[Agent configuration page showing name, description, instructions, and live preview panel]
+
+
+== Step 2: Add Cypher Template tools
+
+Click **Add Tool** → **Cypher Template**. For each tool, fill in the name, description, parameters, and Cypher query, then click **Save**.
+
+image::images/get-customer-orders-cypher-template-tool.png[Cypher Template tool configuration showing name, description, parameters, and Cypher query]
+
+Each saved tool appears in the tool list with a pencil icon to edit it and a trash icon to delete it:
+
+image::images/tool-edit-delete.png[Tool list item showing List Products by Category with edit and delete icons]
+
+Click **+ Add parameter** to open the edit dialog, then fill in the name, data type, and description:
+
+image::images/edit-parameter-dialog.png[Edit parameter dialog showing the Name, Data type, and Description fields for a companyName parameter]
+
+Once saved, the parameter appears in the Parameters list. Click the pencil icon to edit it:
+
+image::images/parameter-list.png[Parameters section showing the saved companyName parameter with edit and delete icons]
+
+
+**Get Customer**
+
+Name: [copy]#Get Customer#
+
+Description: [copy]#Return customer details and recent orders for a customer ID, for example ALFKI.#
+
+Parameter: name [copy]#customer_id#, type **string**, description [copy]#The customer ID to look up#
+
+[source,cypher,role=noplay,options="nowrap"]
+----
+MATCH (c:Customer {id: $customer_id})
+  -[:PLACED]->(o:Order) // <1>
+RETURN c.id, c.companyName, c.contactName,
+  collect(o.orderId)[0..5] AS recentOrders // <2>
+----
+
+<1> Match the Customer by ID and traverse PLACED relationships to their Orders
+<2> Return customer fields and up to 5 recent order IDs
+
+
+**Top Customers by Order Count**
+
+Name: [copy]#Top Customers by Order Count#
+
+Description: [copy]#Return customers with the most orders, limited by a count.#
+
+Parameter: name [copy]#limit#, type **int**, description [copy]#Number of top customers to return#
+
+[source,cypher,role=noplay,options="nowrap"]
+----
+MATCH (c:Customer)-[:PLACED]->(o:Order) // <1>
+WITH c, count(o) AS orderCount // <2>
+RETURN c.companyName, c.id, orderCount
+ORDER BY orderCount DESC LIMIT $limit // <3>
+----
+
+<1> Match customers and their orders through PLACED
+<2> Group by customer and count orders
+<3> Sort by order count descending, limit by parameter
+
+
+**Products by Category**
+
+Name: [copy]#Products by Category#
+
+Description: [copy]#List products in a category, supports partial name match such as Beverages or Beverage.#
+
+Parameter: name [copy]#category#, type **string**, description [copy]#Category name or partial name to match#
+
+[source,cypher,role=noplay,options="nowrap"]
+----
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category) // <1>
+WHERE c.name CONTAINS $category // <2>
+RETURN p.name, c.name
+LIMIT 20
+----
+
+<1> Match products and their category through IN_CATEGORY
+<2> Filter by category name, supports partial match
+
+
+**Get Product**
+
+Name: [copy]#Get Product#
+
+Description: [copy]#Return product details and category for a product ID.#
+
+Parameter: name [copy]#product_id#, type **string**, description [copy]#The product ID to look up#
+
+[source,cypher,role=noplay,options="nowrap"]
+----
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category) // <1>
+WHERE p.id = $product_id // <2>
+RETURN p.id, p.name, p.unitPrice,
+  c.name
+----
+
+<1> Match product and its category through IN_CATEGORY
+<2> Filter by product ID parameter
+
+
+== Step 3: Add a Text2Cypher tool
+
+A Text2Cypher tool handles questions your Cypher Templates do not cover.
+Add it as a fallback: the last tool the agent reaches for when no template covers the question.
+
+[NOTE]
+.Cypher Template vs. Text2Cypher
+====
+Use a Cypher Template when you can write the complete Cypher now, with only `$parameter` slots for variable values. The `MATCH` pattern and `RETURN` clause must be fixed.
+Use Text2Cypher when the query structure itself changes: different filter combinations, dynamic aggregations, or traversal patterns you cannot pre-define.
+Text2Cypher generates Cypher at runtime and may produce queries with errors or incorrect relationship types.
+====
+
+image::images/text-2-cypher-tool.png[Text2Cypher tool configuration showing name and description fields]
+
+Name: [copy]#Query Northwind#
+
+Description:
+
+[copy]
+----
+Use this tool ONLY when no other tool covers the question. The graph contains: Customer, Order, Product, Category, Supplier nodes. Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product).
+----
+
+The description must tell the LLM when to use this tool.
+A description like "answer any question" will cause the agent to use Text2Cypher for everything, bypassing your templates.
+Listing the schema inside the description gives Text2Cypher the context it needs to generate valid Cypher.
+
+
+== Step 4: Update and test
+
+Once you have added all tools, click **Update agent** to apply your changes.
+
+image::images/update-agent.jpeg[Agent configuration page showing the Update agent button in the top right corner]
+
+Then test with these questions:
+
+* [copy]#Who has ordered Pavlova repeatedly?#
+* [copy]#Which are the top 5 most ordered products?#
+* [copy]#List products in the Beverages category#
+
+image::images/who-has-ordered-pavlova-repeatedly.png[Agent response listing customers who ordered Pavlova repeatedly with order counts]
+
+Expand the **Thought** section on each response to trace the full reasoning path: the LLM's reasoning, the tool it selected, and the Cypher it executed.
+
+image::images/agent-reasoning.png[Reasoning panel showing the LLM reasoning text and the tool being applied]
+
+
+If the agent selects the wrong tool, read the reasoning text to understand why, then tighten the tool description that was incorrectly chosen.
+Specific, distinct descriptions reduce wrong-tool selection.
+
+
+image::images/reasoning-text2cypher-detail.png[Text2Cypher tool application showing the natural language input and the generated Cypher query and results]
+
+
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-parameters.adoc[leveloffset=+1]
+
+include::questions/2-cypher-template-vs-text2cypher.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You designed and built a Northwind Analyst agent from scratch with four Cypher Template tools and a Text2Cypher fallback.
+
+In the next challenge, you will add three new Cypher Template tools without step-by-step guidance.

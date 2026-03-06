@@ -1,0 +1,108 @@
+= Design an Agent
+:order: 5
+:type: lesson
+
+Before building an agent, you need a clear design.
+An agent with poorly scoped tools, vague descriptions, or missing relationship context will give inconsistent results even with good data.
+This lesson covers the three decisions that determine whether an agent works well: role and scope, question types, and tool descriptions.
+
+== Role and scope
+
+Define what the agent does and, equally important, what it does not do.
+One focused agent per task works better than a general-purpose agent.
+A narrow scope makes tool selection easier for the LLM and makes the agent's behavior more predictable.
+
+For example, a Northwind Analyst agent answers questions about customers, orders, products, categories, and suppliers.
+It does not answer questions about pricing strategy, HR, or anything outside the graph.
+Encoding that boundary in the instructions ("politely decline off-topic requests") keeps the agent on task.
+
+== Question types
+
+Apply this test to each question type: can you write the complete Cypher query right now, with only `$parameter` slots for variable values?
+
+[cols="1,2,2"]
+|===
+|Test result |Best tool |Example
+
+|**Yes**: the `MATCH` pattern, `WHERE` conditions, and `RETURN` clause are fixed. Only the values change.
+|Cypher Template
+|"Top 10 customers by order count" → fixed `COUNT`, `ORDER BY`, `LIMIT $n`. Write it as a template.
+
+|**No**: the query structure itself changes depending on what the user asks
+|Text2Cypher
+|"Which customers ordered products from more than 2 different suppliers?" → the filter count, the multi-hop path, and the aggregation all depend on the question. The structure cannot be pre-written.
+|===
+
+== Tool descriptions
+
+The LLM selects tools based solely on their descriptions. It never inspects the Cypher query or the parameter names.
+A description like "get customer data" is too vague to be useful: if three tools all retrieve data, the LLM has no basis for choosing between them.
+
+Write descriptions that answer two questions:
+
+* What does this tool return?
+* When should the LLM use it instead of the other tools?
+
+Compare these two descriptions for the same tool:
+
+[cols="1,2"]
+|===
+|Description |Problem
+
+|`Get customer data`
+|Too vague: could match any question mentioning a customer
+
+|`Return customer details and recent orders for a specific customer ID, for example ALFKI`
+|Specific: names the parameter type, gives an example value, scopes what it returns
+|===
+
+For your Text2Cypher fallback, the description must also include schema context.
+List the node labels and relationship types so the LLM generates valid Cypher instead of hallucinating relationship names.
+
+[source,text]
+----
+Use this tool ONLY when no other tool covers the question.
+The graph contains: Customer, Order, Product, Category, Supplier nodes.
+Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product).
+----
+
+The "ONLY when no other tool covers" constraint prevents the LLM from defaulting to Text2Cypher for questions your templates handle.
+
+== The Northwind Analyst agent design
+
+Applying these principles to the Northwind graph produces this design:
+
+[cols="1,3"]
+|===
+|Element |Value
+
+|**Role**
+|Northwind retail analyst
+
+|**Scope**
+|Questions about customers, orders, products, categories, and suppliers. Decline off-topic or harmful requests.
+
+|**Cypher Template tools**
+|Get Customer, Top Customers by Order Count, Products by Category, Get Product
+
+|**Text2Cypher tool**
+|Fallback for ad-hoc questions not covered by the templates above
+|===
+
+In the next lessons, you will learn to configure tools, then build an agent from scratch.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-tool-selection.adoc[leveloffset=+1]
+
+include::questions/2-tool-description.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+A well-designed agent has a narrow scope, uses Cypher Templates for predictable questions, and has specific tool descriptions that give the LLM enough context to make the correct selection.
+
+In the next lessons, you will learn to configure tools, then build an agent from scratch.
