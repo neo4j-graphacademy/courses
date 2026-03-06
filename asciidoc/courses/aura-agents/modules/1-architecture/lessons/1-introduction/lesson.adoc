@@ -3,34 +3,28 @@
 :type: lesson
 == Introduction
 
-Aura Agents let you build agents that query your knowledge graph from the Aura console without writing code. Understanding what they are and when to use them helps you choose the correct approach for your application.
+Aura Agents let you build agents that query your knowledge graph from the Aura console without writing code.
 
 In this lesson, you will learn:
 
-* What Aura Agents are and their components
-* The agent lifecycle
+* What Aura Agents are
 * When to use Aura Agents
+* How Aura Agents work
 
 == What are Aura Agents?
 
-A **Neo4j Aura Agent** is a no/low-code agent platform built into the Aura Console. The orchestration, reasoning, and graph queries all run inside Aura's infrastructure with no external API integration or application code required. You connect the agent to an AuraDB instance, configure tools in the console, and the agent handles the rest.
+A **Neo4j Aura Agent** is a no/low-code platform in the Aura Console where reasoning and graph queries run inside Aura's infrastructure. You connect the agent to an AuraDB instance, give a prompt, and the agent handles the rest.
 
-Conversation history is not stored between sessions.
+Aura Agents are useful when you want to expose knowledge graph data using natural language, without writing application code
+
+[TIP,role=hint]
+.Integrating with external applications
+====
+You can integrate agents into external applications like Cursor or Claude Desktop through the Model Context Protocol (MCP).
+====
 
 
-Here is a short example of an agent answering a question over a Northwind knowledge graph:
-
-video::https://cdn.graphacademy.neo4j.com/courses/ai-agents/agents-example.mp4["Aura Agent answering a question over Northwind", role="cdn", width=100%]
-
-
-== When to use Aura Agents
-
-Aura Agents are useful when:
-
-* You want to expose knowledge graph data using natural language, without writing application code
-* You need to integrate graph-backed answers into Claude Desktop or Cursor through MCP
-
-Aura Agent tools query only your knowledge graph at an instance level. To combine your knowledge graph data with external APIs, build a separate AI application or a multi-agent system.
+// Aura Agent tools query only your knowledge graph at an instance level. To combine your knowledge graph data with external APIs, build a separate AI application or a multi-agent system.
 
 
 // === Agent processing and planning
@@ -47,32 +41,58 @@ Aura Agent tools query only your knowledge graph at an instance level. To combin
 // The model is managed and updated by Neo4j. See link:https://neo4j.com/docs/reference/license/agent-ai-model/[How Aura Agent uses AI models^] for the full model reference.
 
 
-== Aura Agent architecture
+== How Aura Agents Work
 
-Aura Agents have four components:
+Aura Agents use reasoning to break down each request into a sequence of steps.
 
-* **LLM** for planning, reasoning, and tool selection
-* **Tools** for querying the structured data in AuraDB (read-only)
-* **Knowledge graph**, the nodes and relationships your tools traverse
-* **Orchestrator** to coordinate the workflow
+This is often called chain-of-thought or multi-step reasoning: the model doesn’t jump straight to an answer, it reasons step by step and can use tools in between.
 
-An Aura Agent's role is strictly **retrieval**: it selects the correct tool, queries the structured data in your graph's nodes and relationships, and returns an answer grounded in data you control, not in what the LLM was trained on.
+In the context of Aura Agents, the steps are:
 
-== The Aura Agent lifecycle
+* **Interpret user input**: Obtain the request, decide what information is needed, and determine which tool is most likely to answer.
+* **Execute tools**: Run the selected tools, retrieve results, and decide whether to run more tools or generate a final answer.
+* **Generate response**: Generate a natural language response based on the retrieved data.
 
-An Aura Agent does not answer in one step. It follows five steps:
+== Tool Types
 
-. **Receive**: User query or message
-. **Reason**: LLM plans which tools to use and in what order
-. **Act**: Invoke one of the available tools: a Cypher Template runs a pre-written Cypher query, Text2Cypher generates Cypher from the user's question at runtime, or Similarity Search finds nodes by vector similarity
-. **Observe**: Incorporate tool results into context
-. **Respond**: Generate final answer or take next action
+Aura Agents use three read-only tool types to query your graph:
 
-The diagram below illustrates this workflow: from user input through reasoning, tool selection and execution, to final output.
+* **Cypher Template**: Runs predefined Cypher queries with parameters you define.
+* **Text2Cypher**: Generates Cypher from natural language at runtime using your schema.
+* **Similarity Search**: Finds nodes by similarity using vector embeddings.
 
-image::images/agent-process.svg[Agent workflow: user input, reasoning, tool selection, tool execution, and final output]
+Vectors are numeric representations of data that can be used when you want to compare or search for similarities.
 
-At each step, the agent is building context: it identifies what the user needs, picks the tool most likely to answer it, runs the query, and incorporates the results into its context before generating a response.
+Embeddings are those vectors produced by a model so that similar things end up close together.
+
+If your data contains vector embeddings, mark the "This data has vector embeddings" checkbox, and the agent will be able to create a Similarity Search tool to find nodes that are similar to the user's question.
+
+
+The user's question is converted to a vector and compared against embeddings stored as node properties, so the agent can answer "what is like this?" without exact keyword matches. This is useful when you want to find nodes that are similar to the user's question, but you don't know the exact keywords to use.
+
+
+// An Aura Agent does not answer in one step. It follows four steps:
+
+// * **Receive user input**: User prompt 
+// * **Translate user input into a query**: Translate the user input into a query for the knowledge graph
+// * **Retrieve data**: Query the knowledge graph
+// * **Generate response**: Generate a natural language response based on the retrieved data
+
+// The diagram below illustrates this workflow: from user input through reasoning, tool selection and execution, to final output.
+
+// image::images/agent-process.svg[Agent workflow: user input, reasoning, tool selection, tool execution, and final output]
+
+// At each step, the agent builds context: it identifies what the user needs, picks the tool most likely to answer it, runs the query, and incorporates the results before generating a response.
+
+== Quick Start
+
+The **Create with AI** option generates a working agent from a given prompt and your instance schema.
+
+Your prompt and schema drive what gets created. The agent maps your described use case to node labels, relationship types, and properties in the schema to build tools that query the right parts of your graph. 
+
+In the end you will have a working agent that can answer questions about your data.
+
+video::https://cdn.graphacademy.neo4j.com/courses/ai-agents/create-with-ai.mp4["Create with AI", role="cdn", width=100%]
 
 
 // When a user asks "Who has ordered Pavlova repeatedly?", the agent does not answer from its training data.
@@ -88,8 +108,6 @@ At each step, the agent is building context: it identifies what the user needs, 
 ====
 The Aura Agents covered in this course are no/low-code agents built, configured, and tested in the Aura Console. For a code-based approach with Python and LangChain, see link:/courses/genai-integration-langchain/[Using Neo4j with LangChain^] or link:/courses/genai-fundamentals/[Neo4j and GenAI Fundamentals^].
 ====
-
-For the full reference, see link:https://neo4j.com/docs/aura/aura-agent/[Aura Agent documentation^].
 
 
 [.quiz]
@@ -107,6 +125,6 @@ include::questions/1-lifecycle.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-In this lesson, you learned what Aura Agents are, their components, the agent lifecycle, and when to use them.
+In this lesson, you learned what Aura Agents are, how they work, and when to use them.
 
-In the next lesson ...
+In the next lesson you will set up your AuraDB instance and enable Generative AI.
