@@ -13,13 +13,16 @@ class CleanReporter {
 
       // Derive a short path relative to the build/html directory
       for (const test of failed) {
-        // ancestorTitles: ["html generation", "/abs/path/to/file.html"]
-        const htmlPath = (test.ancestorTitles[1] || suite.testFilePath).replace(
+        // ancestorTitles: ["QA Tests", courseSlug, moduleSlug, lessonSlug, ...]
+        // or for HTML tests: ["html generation", "/abs/path/to/file.html"]
+        const rawPath = (test.ancestorTitles[1] || suite.testFilePath).replace(
           /.*build\/html\//,
           "",
         );
+        const extraCrumbs = test.ancestorTitles.slice(2).join(" > ");
+        const filePath = extraCrumbs ? `${rawPath} > ${extraCrumbs}` : rawPath;
         const message = this._cleanMessage(test.failureMessages);
-        failures.push({ filePath: htmlPath, testName: test.title, message });
+        failures.push({ filePath, testName: test.title, message });
       }
     }
 
