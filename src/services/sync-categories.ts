@@ -5,6 +5,8 @@ import { loadFile } from "../modules/asciidoc";
 import { writeTransaction } from "../modules/neo4j";
 import {
   ATTRIBUTE_CAPTION,
+  ATTRIBUTE_CALL_TO_ACTION,
+  ATTRIBUTE_CERTIFICATION,
   ATTRIBUTE_LANGUAGE,
   ATTRIBUTE_LINK,
   ATTRIBUTE_PARENT,
@@ -24,11 +26,13 @@ interface CategoryWithParents {
   title: string;
   language: Language;
   link: string;
-  layout: "path" | "workshops" | "default";
+  layout: "path" | "workshops" | "default" | "homepage";
   caption: string;
   description: string;
   shortName: string;
   redirect: string | undefined;
+  callToAction: string | undefined;
+  certification: string | undefined;
   parents: { category: string; order: number }[];
 }
 
@@ -51,6 +55,8 @@ const loadCategory = (slug: string): CategoryWithParents => {
   const language = file.getAttribute(ATTRIBUTE_LANGUAGE, DEFAULT_LANGUAGE);
   const redirect = file.getAttribute(ATTRIBUTE_REDIRECT, null);
   const layout = file.getAttribute(ATTRIBUTE_LAYOUT, "default");
+  const callToAction = file.getAttribute(ATTRIBUTE_CALL_TO_ACTION, null);
+  const certification = file.getAttribute(ATTRIBUTE_CERTIFICATION, null);
 
   const parents = file
     .getAttribute(ATTRIBUTE_PARENT, "")
@@ -75,6 +81,8 @@ const loadCategory = (slug: string): CategoryWithParents => {
     caption,
     description,
     shortName,
+    callToAction,
+    certification,
     parents,
   };
 };
@@ -93,16 +101,16 @@ export async function syncCategories(): Promise<void> {
     await tx.run(
       `
             UNWIND $categories AS row
-            MERGE (c:Category {id: apoc.text.base64Encode(row.slug)})
-            SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .redirect, .link, .layout }
+            MERGE (c:Category {slug: row.slug})
+            SET c += row { .slug, .status, .title, .description, .caption, .shortName, .language, .redirect, .link, .layout, .callToAction, .certification }
 
             FOREACH (parent in row.parents |
-                MERGE (p:Category {id: apoc.text.base64Encode(parent.category)})
+                MERGE (p:Category {slug: parent.category})
                 MERGE (p)-[r:HAS_CHILD]->(c)
                 SET r.order = parent.order
             )
         `,
-      { categories }
+      { categories },
     );
 
     console.log(`🎒 ${categories.length} Categories merged into graph`);
