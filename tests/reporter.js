@@ -11,15 +11,21 @@ class CleanReporter {
       const failed = suite.testResults.filter((t) => t.status === "failed");
       if (!failed.length) continue;
 
-      // Derive a short path relative to the build/html directory
+      const isQaTest = suite.testFilePath.includes("qa");
       for (const test of failed) {
-        // ancestorTitles: ["html generation", "/abs/path/to/file.html"]
-        const htmlPath = (test.ancestorTitles[1] || suite.testFilePath).replace(
-          /.*build\/html\//,
-          "",
-        );
+        let filePath;
+        if (isQaTest && test.ancestorTitles.length > 1) {
+          // QA test: ancestorTitles are ["QA Tests", courseSlug, moduleSlug?, lessonSlug?]
+          filePath = test.ancestorTitles.slice(1).join(" > ");
+        } else {
+          // Other suites: e.g. ["html generation", "/abs/path/to/file.html"]
+          filePath = (test.ancestorTitles[1] || suite.testFilePath).replace(
+            /.*build\/html\//,
+            "",
+          );
+        }
         const message = this._cleanMessage(test.failureMessages);
-        failures.push({ filePath: htmlPath, testName: test.title, message });
+        failures.push({ filePath, testName: test.title, message });
       }
     }
 
@@ -60,7 +66,8 @@ class CleanReporter {
     // Check expect() matcher patterns first — the Received string may contain
     // arbitrary HTML including words like "Error:", so check these before errorMatch
     const notContainMatch = stripped.match(/Expected substring: not "([^"]+)"/);
-    if (notContainMatch) return `Unexpected content found: "${notContainMatch[1]}"`;
+    if (notContainMatch)
+      return `Unexpected content found: "${notContainMatch[1]}"`;
 
     const containMatch = stripped.match(/Expected substring: "([^"]+)"/);
     if (containMatch) return `Missing expected text: "${containMatch[1]}"`;
@@ -75,10 +82,18 @@ class CleanReporter {
         if (/^\s+at /.test(lines[i])) break;
         messageLines.push(lines[i]);
       }
-      return messageLines.join("\n").replace(/^Error:\s*/, "").trim();
+      return messageLines
+        .join("\n")
+        .replace(/^Error:\s*/, "")
+        .trim();
     }
 
-    return stripped.split("\n").map((l) => l.trim()).filter(Boolean)[0] || "";
+    return (
+      stripped
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)[0] || ""
+    );
   }
 }
 
