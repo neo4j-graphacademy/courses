@@ -32,9 +32,7 @@ describe("QA Tests", () => {
   const exclude = ["30-days", "how-we-teach"];
   let coursePaths = globSync(
     globJoin(__dirname, "..", "asciidoc", "courses", "*"),
-  )
-    .filter((path) => !exclude.some((folder) => path.endsWith(folder)))
-    .filter((path) => existsSync(join(path, "course.adoc")));
+  ).filter((path) => existsSync(join(path, "course.adoc")));
 
   if (process.env.COURSES) {
     const targetCourses = process.env.COURSES.split(",").map((c) =>
@@ -48,6 +46,10 @@ describe("QA Tests", () => {
       `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
         coursePaths.length
       })`,
+    );
+  } else {
+    coursePaths = coursePaths.filter(
+      (path) => !exclude.some((folder) => path.endsWith(folder)),
     );
   }
 
