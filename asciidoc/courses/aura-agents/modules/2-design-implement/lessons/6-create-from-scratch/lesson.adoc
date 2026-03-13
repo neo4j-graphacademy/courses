@@ -1,9 +1,14 @@
 = Create an Agent from Scratch
-:order: 7
-:type: lesson
+:order: 6
+:type: challenge
 
-Creating an agent from scratch gives you full control over every tool, parameter, and instruction from the start.
-Use this approach when you have a clear design in mind and want precise tool coverage rather than a generated draft.
+In this challenge, you will build an agent from scratch using your own knowledge graph. You define the role, add Cypher Template tools and a Text2Cypher tool that match your schema, then test the agent. Creating from scratch gives you full control over every tool, parameter, and instruction.
+
+== Before You Start
+
+* Have an AuraDB instance with your knowledge graph loaded (or Northwind if you are using the example).
+* Complete the Design an Agent lesson (lesson 5) so you have a role, scope, and tool design to implement.
+* You will create a new agent in this challenge, not edit an existing one.
 
 // == Available tools
 
@@ -32,19 +37,16 @@ Go to Aura Console → **Data Services** → **Agents** → **Create Agent** →
 
 image::images/create-from-scratch-menu.png[Create Agent menu showing Create from scratch and Create with AI options]
 
-Select your Northwind instance.
+Select your AuraDB instance (the one that has your knowledge graph).
 
-image::images/create-agent-from-scratch.png[Create Agent dialog with the Northwind instance selected]
+image::images/create-agent-from-scratch.png[Create Agent dialog with instance selected]
 
-Set the **Agent Name**:
+Set the **Agent Name** and **Description** to match your design from the Design an Agent lesson. Set **Instructions** to define the agent's role, list the node labels and relationship types in your graph (so the LLM can generate valid Cypher), and state that the agent should decline off-topic or harmful requests.
 
-[copy]#Northwind Analyst#
-
-Set the **Description**:
-
-[copy]#A retail analyst agent with access to the Northwind knowledge graph.#
-
-Set the **Instructions**:
+[NOTE]
+.Example (Northwind)
+====
+For Northwind you could use **Agent Name** `Northwind Analyst`, **Description** `A retail analyst agent with access to the Northwind knowledge graph.`, and **Instructions**:
 
 [copy]
 ----
@@ -54,6 +56,7 @@ Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGOR
 Answer questions about customers, orders, products, categories, suppliers, and their relationships.
 If the question is off-topic or harmful, politely decline.
 ----
+====
 
 The configuration page includes a live preview panel where you can test prompts before saving.
 
@@ -62,7 +65,7 @@ image::images/agent-preview.png[Agent configuration page showing name, descripti
 
 == Step 2: Add Cypher Template tools
 
-Click **Add Tool** → **Cypher Template**. For each tool, fill in the name, description, parameters, and Cypher query, then click **Save**.
+Click **Add Tool** → **Cypher Template**. Add tools that match your design from lesson 5: for each tool, fill in the name, description, parameters, and Cypher query (using your schema's labels and relationship types), then click **Save**.
 
 image::images/get-customer-orders-cypher-template-tool.png[Cypher Template tool configuration showing name, description, parameters, and Cypher query]
 
@@ -78,6 +81,7 @@ Once saved, the parameter appears in the Parameters list. Click the pencil icon 
 
 image::images/parameter-list.png[Parameters section showing the saved companyName parameter with edit and delete icons]
 
+If you are using Northwind, you can add the following four Cypher Template tools as a working example:
 
 **Get Customer**
 
@@ -162,8 +166,7 @@ RETURN p.id, p.name, p.unitPrice,
 
 == Step 3: Add a Text2Cypher tool
 
-A Text2Cypher tool handles questions your Cypher Templates do not cover.
-Add it as a fallback: the last tool the agent reaches for when no template covers the question.
+Add a Text2Cypher tool as a fallback for questions your Cypher Templates do not cover. The tool description must state when to use it (e.g. "only when no other tool covers the question") and include your graph's node labels and relationship types so the LLM can generate valid Cypher.
 
 [NOTE]
 .Cypher Template vs. Text2Cypher
@@ -175,6 +178,8 @@ Text2Cypher generates Cypher at runtime and may produce queries with errors or i
 
 image::images/text-2-cypher-tool.png[Text2Cypher tool configuration showing name and description fields]
 
+Give the tool a name (e.g. "Query graph" or "Ad-hoc query") and a description that lists your node labels and relationship types. Example for Northwind:
+
 Name: [copy]#Query Northwind#
 
 Description:
@@ -184,8 +189,7 @@ Description:
 Use this tool ONLY when no other tool covers the question. The graph contains: Customer, Order, Product, Category, Supplier nodes. Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product).
 ----
 
-The description must tell the LLM when to use this tool.
-A description like "answer any question" will cause the agent to use Text2Cypher for everything, bypassing your templates.
+A description like "answer any question" will cause the agent to use Text2Cypher for everything; keep the "ONLY when no other tool covers" constraint.
 Listing the schema inside the description gives Text2Cypher the context it needs to generate valid Cypher.
 
 
@@ -195,7 +199,7 @@ Once you have added all tools, click **Update agent** to apply your changes.
 
 image::images/update-agent.jpeg[Agent configuration page showing the Update agent button in the top right corner]
 
-Then test with these questions:
+Test with questions that fit your graph and exercise different tools. If you are using Northwind, you can try:
 
 * [copy]#Who has ordered Pavlova repeatedly?#
 * [copy]#Which are the top 5 most ordered products?#
@@ -215,19 +219,78 @@ Specific, distinct descriptions reduce wrong-tool selection.
 image::images/reasoning-text2cypher-detail.png[Text2Cypher tool application showing the natural language input and the generated Cypher query and results]
 
 
+== Step 5: Extend with more tools
+
+Extend your agent with additional Cypher Template tools that fit your schema and design. Add them without step-by-step guidance: open the agent, click **Add Tool** → **Cypher Template**, and define name, description, parameters, and Cypher for each. Then click **Update agent** and test.
+
+If you built the Northwind example agent, you can add the following three tools as a working example:
+
+== Tool 1: Get Supplier (Northwind example)
+
+Name: [copy]#Get Supplier#
+
+Description: [copy]#Return supplier details and the products they supply. Use this tool when the question asks about a supplier by name or ID.#
+
+Parameter: name [copy]#supplier_name#, type **string**, description [copy]#The supplier company name or partial name to look up#
+
+[source,cypher,role=noplay]
+----
+MATCH (s:Supplier)-[:SUPPLIES]->(p:Product)
+WHERE toLower(s.name) CONTAINS toLower($supplier_name)
+RETURN s.id, s.name, s.contactName, s.country,
+  collect(p.name) AS products
+----
+
+== Tool 2: Products by Supplier (Northwind example)
+
+Name: [copy]#Products by Supplier#
+
+Description: [copy]#List all products supplied by a specific supplier. Use this tool when the question asks what products a supplier provides.#
+
+Parameter: name [copy]#supplier_id#, type **string**, description [copy]#The supplier ID to look up#
+
+[source,cypher,role=noplay]
+----
+MATCH (s:Supplier {id: $supplier_id})-[:SUPPLIES]->(p:Product)-[:IN_CATEGORY]->(c:Category)
+RETURN p.name, p.unitPrice, c.name
+ORDER BY c.name, p.name
+----
+
+== Tool 3: Recent Orders for Customer (Northwind example)
+
+Name: [copy]#Recent Orders for Customer#
+
+Description: [copy]#Return the most recent orders placed by a customer, including the products in each order. Use this tool when the question asks about a customer's order history or recent purchases.#
+
+Parameter: name [copy]#customer_id#, type **string**, description [copy]#The customer ID, for example ALFKI#
+
+[source,cypher,role=noplay]
+----
+MATCH (c:Customer {id: $customer_id})-[:PLACED]->(o:Order)
+RETURN o.orderId, o.orderDate,
+  [(o)-[:CONTAINS]->(p:Product) | p.name] AS products
+ORDER BY o.orderDate DESC
+LIMIT 10
+----
+
+== Test your new tools
+
+Run questions that exercise the new tools and verify the agent selects the correct one. If you added the Northwind example tools above, try:
+
+* [copy]#What products does Exotic Liquids supply?#
+* [copy]#Show me all products from supplier EXOTIC#
+* [copy]#What has customer ALFKI ordered recently?#
+
+Expand the **Thought** section on each response.
+If a new tool was not selected, check whether its description is specific enough to distinguish it from the existing tools and Text2Cypher.
 
 
-[.quiz]
-== Check your understanding
 
-include::questions/1-parameters.adoc[leveloffset=+1]
-
-include::questions/2-cypher-template-vs-text2cypher.adoc[leveloffset=+1]
-
+read::Mark as completed[]
 
 [.summary]
 == Summary
 
-You designed and built a Northwind Analyst agent from scratch with four Cypher Template tools and a Text2Cypher fallback.
+You built an agent from scratch with Cypher Template tools and a Text2Cypher fallback (and optionally extended it with more tools), using your own knowledge graph or the Northwind example.
 
-In the next challenge, you will add three new Cypher Template tools without step-by-step guidance.
+In Module 3, you will publish your agent and connect it to Cursor.
