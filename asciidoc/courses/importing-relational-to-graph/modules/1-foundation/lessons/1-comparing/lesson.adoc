@@ -56,16 +56,20 @@ In this course, you will work with the **Northwind** database, a classic sample 
 [.slide.discrete]
 === Implicit relationships in Northwind
 
-The relationships are implicit through foreign keys:
+In a relational schema, relationships come from two places:
+
+* **Foreign keys** — A column in one table references the primary key of another (e.g. `Orders.CustomerID` → `Customers.CustomerID`, `Products.CategoryID` → `Categories.CategoryID`).
+* **Join tables** — A table whose main role is to link two others (e.g. `OrderDetails` links `Orders` and `Products` via `OrderID` and `ProductID`).
+
+In Northwind, the relationship structure is:
 
 * `Orders.CustomerID` references `Customers.CustomerID`
 * `Orders.EmployeeID` references `Employees.EmployeeID`
-* `OrderDetails.OrderID` references `Orders.OrderID`
-* `OrderDetails.ProductID` references `Products.ProductID`
+* `OrderDetails.OrderID` references `Orders.OrderID` and `OrderDetails.ProductID` references `Products.ProductID` (join table)
 * `Products.CategoryID` references `Categories.CategoryID`
 * `Products.SupplierID` references `Suppliers.SupplierID`
 
-image::images/ER.png[Northwind Entity-Relationship Diagram showing all tables and their relationships,width=800,align=center]
+image::images/ER.png[Northwind Entity-Relationship Diagram: tables and their relationships—foreign keys and join tables such as OrderDetails link the entities.,width=800,align=center]
 
 [.slide.discrete]
 === Northwind schema links
@@ -106,26 +110,30 @@ Graph databases use **nodes** (entities), **relationships** (links between them)
 image::images/graph-model.png[Graph data model showing nodes connected by relationships,width=800,align=center]
 
 [.slide.discrete]
-=== Example graph model
+=== Example graph model: nodes
 
-The equivalent Northwind data in a graph would have:
+The equivalent Northwind data in a graph would have these **nodes**:
 
-* `Customer` nodes with properties: `companyName`, `contactName`, `city`, `country`
-* `Order` nodes with properties: `orderDate`, `shipCity`
-* `Product` nodes with properties: `productName`, `unitPrice`
-* `Category` nodes with properties: `categoryName`, `description`
-* `Supplier` nodes with properties: `companyName`, `contactName`, `city`, `country`
-* `Employee` nodes with properties: `firstName`, `lastName`, `title`
-* `PLACED` relationships from `Customer` to `Order`
-* `CONTAINS` relationships from `Order` to `Product` with properties: `quantity`, `unitPrice`, `discount`
-* `BELONGS_TO` relationships from `Product` to `Category`
-* `SUPPLIES` relationships from `Supplier` to `Product`
+* `Customer` — properties: `companyName`, `contactName`, `city`, `country`
+* `Order` — properties: `orderDate`, `shipCity`
+* `Product` — properties: `productName`, `unitPrice`
+* `Category` — properties: `categoryName`, `description`
+* `Supplier` — properties: `companyName`, `contactName`, `city`, `country`
+* `Employee` — properties: `firstName`, `lastName`, `title`
+* `Shipper` — properties for the delivery companies
 
 [.slide.discrete]
-=== Northwind graph model (continued)
+=== Example graph model: relationships
 
-* `SOLD` relationships from `Employee` to `Order`
-* `REPORTS_TO` relationships from `Employee` to `Employee` for the management hierarchy
+And these **relationships**:
+
+* `PLACED` from `Customer` to `Order`
+* `CONTAINS` from `Order` to `Product` (with properties: `quantity`, `unitPrice`, `discount`)
+* `BELONGS_TO` from `Product` to `Category`
+* `SUPPLIES` from `Supplier` to `Product`
+* `SOLD` from `Employee` to `Order`
+* `REPORTS_TO` from `Employee` to `Employee` (management hierarchy)
+* `SHIPPED_BY` from `Order` to `Shipper`
 
 
 [.slide]
@@ -194,27 +202,30 @@ JOIN cost grows with tables and data size. Graph traversal stays roughly constan
 [.slide]
 == When to use each model
 
-Use these criteria to decide when to use relational vs graph:
+With unstructured data in the mix, a key differentiator is **schema**: relational is static and defined upfront; graph is flexible and can evolve. Use this comparison to choose:
 
-[.slide.discrete]
-=== Use relational when:
+[cols="1,1"]
+|===
+| Relational
+| Graph
 
-* Data is tabular; relationships are simple
-* Queries are mostly aggregations
-* Schema is stable
+| **Schema:** Fixed upfront; columns and tables defined before data
+| **Schema:** Optional and dynamic; add labels and properties as you go
 
-[.slide.discrete]
-=== Use graph when:
+| Data is tabular; relationships are simple
+| Relationships matter and are complex
 
-* Relationships matter and are complex
-* You traverse paths often
-* You find patterns (recommendations, fraud, networks)
-* Schema may evolve
+| Queries are mostly aggregations
+| You traverse paths often; you look for patterns (recommendations, fraud, networks)
+
+| Best when structure is stable
+| Best when structure may evolve or vary by entity
+|===
 
 [.slide]
 == Migration considerations
 
-* **Not everything belongs in a graph** — Keep some data in relational storage.
+* **Not everything belongs in a graph** — A **hybrid storage pattern** is common: keep tabular or low-connection data in relational storage and move only the access patterns that benefit from graph (traversals, pattern matching) into the graph. This incremental approach reduces risk and lets you validate value before migrating more.
 * **Transform, don't copy** — Design a graph model for your use case; don't mirror tables 1:1.
 * **Foreign keys → relationships** — They become first-class links with optional properties.
 * **Some duplication is OK** — Graphs can duplicate data to speed up queries.
@@ -238,10 +249,19 @@ Avoid these common misconceptions. Each of these is a big consideration and is c
 * Entity tables (customers, products, orders) → Nodes
 * Junction tables (order_details) → Relationships with properties
 * Lookup tables (status codes) → Often become properties, not nodes
-* Audit tables → May not belong in the graph at all
+* Audit tables → May not belong in the graph at all (see below)
 ====
 
 Northwind's `order_details` links orders to products with quantity and price. It becomes a `CONTAINS` relationship between Order and Product, not an OrderDetail node.
+
+[.slide.discrete]
+=== Why audit tables may stay out of the graph
+
+Audit tables (who changed what, when) are a trade-off. Keeping them in the relational store can make sense for:
+
+* **Polyglot persistence** — Use the right store per access pattern: relational for append-only audit trails and compliance queries; graph for connectivity and pattern analysis.
+* **Migration scope** — Leaving audit data in place avoids moving high-volume, low-graph-value data and keeps the graph focused on core entities and relationships.
+* **Operational complexity** — Running both relational and graph adds operational cost; the benefit of putting audit data in the graph should be clear (e.g. you need to analyze it as a graph). If you only need sequential or aggregate audit queries, keeping audit in relational (or a dedicated log store) is often simpler.
 
 
 [.slide.discrete]
@@ -287,7 +307,7 @@ Example: For "products bought by customers in the same region," add a `SAME_REGI
 **Reality:** Migrate only what benefits from being a graph. Logs, archives, and simple lookups often stay in relational storage or get omitted.
 ====
 
-Example: An `audit_log` or `us_states` lookup table rarely benefits. Keep them in the database or omit them.
+Example: A `us_states` lookup table rarely benefits from being in the graph. Keep it in the relational database or omit it. Audit tables may stay in relational storage unless you need to analyze them as a graph (see "Why audit tables may stay out of the graph" above).
 
 [IMPORTANT]
 .Design for your use case, not for schema replication
@@ -298,7 +318,7 @@ Design a graph model that serves your project—don't replicate the relational s
 
 [.slide]
 [.quiz]
-== Check your understanding
+== Check Your Understanding
 
 include::questions/1-differences.adoc[leveloffset=+1]
 
@@ -311,6 +331,9 @@ include::questions/1-differences.adoc[leveloffset=+1]
 * Choose graph when your queries follow paths between entities.
 * Migrate only what benefits; design for your use case, not schema replication.
 
-Next: prerequisites and tools for importing relational data into Neo4j.
+In the next lesson, you will learn how to:
+
+* Identify the tools and setup needed for the course
+* Use the Neo4j Data Importer and Northwind CSV files
 
 read::Continue[]

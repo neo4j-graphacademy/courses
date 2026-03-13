@@ -1,1 +1,1 @@
-MATCH (:Person)-[:DIRECTED]->(:Movie) RETURN true as outcome LIMIT 1
+MATCH (:Customer)-[:PLACED]->(:Order) RETURN true AS outcome LIMIT 1
