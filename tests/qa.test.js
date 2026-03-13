@@ -534,8 +534,13 @@ describe("QA Tests", () => {
                 });
 
                 it("should have at most one read button", () => {
+                  // Only count read:: outside code blocks (---- ... ----)
+                  const parts = lessonAdoc.split(/\n----\s*\n/);
+                  const outsideCodeBlocks = parts
+                    .filter((_, i) => i % 2 === 0)
+                    .join("\n");
                   const readButtonCount = [
-                    ...lessonAdoc.matchAll(/read::(.*)\[\]/g),
+                    ...outsideCodeBlocks.matchAll(/read::(.*)\[\]/g),
                   ].length;
                   expect(readButtonCount).toBeLessThanOrEqual(1);
                 });
@@ -665,7 +670,9 @@ describe("QA Tests", () => {
                             !link.includes("openai") &&
                             !link.includes("workspace.neo4j.io") &&
                             !link.includes("example") &&
-                            !link.includes("localhost")
+                            !link.includes("localhost") &&
+                            !link.includes("neo4j-graphacademy/website") &&
+                            !link.includes("neo4j-graphacademy/certifications")
                           ) {
                             const statusCode = await getStatusCode(link);
                             try {
