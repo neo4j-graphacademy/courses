@@ -1,20 +1,22 @@
 = Comparing relational and graph data
-:order: 1
+:order: 2
 :type: lesson
 
-In this lesson, you will explore the differences between relational and graph data models and how they affect migration.
+== Introduction
 
-[.slide]
+Relational and graph data models represent data differently; the choice affects how you query data and how you plan a migration.
+
+In this lesson, you will learn how to compare relational and graph models and see why some questions are easier in a graph. Examples use the **Northwind** sample schema so you have a concrete reference; you will apply the same thinking to your own database.
+
 == What you will learn
 
 In this lesson, you will:
 
-* Understand the differences between relational and graph data models
-* Learn about the Northwind dataset used in this course
+* Compare relational and graph data models
 * See example questions that are difficult in SQL but straightforward in a graph
+* Use a sample schema (Northwind) as an optional reference for your own migration
 
 
-[.slide]
 == Business problems graphs solve
 
 These business questions are easier to answer with graphs:
@@ -28,22 +30,19 @@ These business questions are easier to answer with graphs:
 
 If your queries follow paths between entities, a graph database may fit better.
 
-[.slide]
 == Understanding relational and graph data models
 
-Use this comparison to choose the right model and plan your migration.
+This lesson is the **foundational comparison** for the course: it establishes how relational and graph models differ and how to map one to the other. Use this comparison to choose the right model and plan your migration.
 
-[.slide]
 == Relational data model
 
 Relational databases store data in **tables**: **rows** (records), **columns** (attributes), and **foreign keys** linking tables. You connect data at query time with JOINs. Schema is fixed upfront; normalization spreads data across tables. Relationship-heavy queries can get expensive.
 
 image::images/relational-model.png[Relational data model showing tables connected by foreign keys,width=700,align=center]
 
-[.slide.discrete]
-=== Example relational schema: Northwind
+=== Example relational schema (Northwind)
 
-In this course, you will work with the **Northwind** database, a classic sample that represents a company selling food products. It includes tables such as:
+The course uses **Northwind** as an optional working example—a classic sample schema (company selling food products). You can use it to follow along or ignore it and work with your own schema. Northwind includes tables such as:
 
 * `Customers`: `CustomerID`, `CompanyName`, `ContactName`, `City`, `Country`
 * `Orders`: `OrderID`, `CustomerID`, `EmployeeID`, `OrderDate`, `ShipCity`
@@ -53,7 +52,6 @@ In this course, you will work with the **Northwind** database, a classic sample 
 * `Suppliers`: `SupplierID`, `CompanyName`, `ContactName`, `City`, `Country`
 * `Employees`: `EmployeeID`, `FirstName`, `LastName`, `Title`, `ReportsTo`
 
-[.slide.discrete]
 === Implicit relationships in Northwind
 
 In a relational schema, relationships come from two places:
@@ -71,20 +69,18 @@ In Northwind, the relationship structure is:
 
 image::images/ER.png[Northwind Entity-Relationship Diagram: tables and their relationships—foreign keys and join tables such as OrderDetails link the entities.,width=800,align=center]
 
-[.slide.discrete]
+// TODO: Check Northwind diagram sizing for consistent display; consider adding Rafael's database as an alternate example once available.
 === Northwind schema links
 
 The Northwind schema originates from Microsoft. For the canonical relational schema and official diagram, see link:https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs[Microsoft sql-server-samples northwind-pubs^] and link:https://support.microsoft.com/en-us/office/northwind-database-diagram-cd422d47-e4e3-4819-8100-cdae6aaa0857[Microsoft Northwind database diagram^].
 
-[.slide]
-== Course dataset: Northwind
+== Optional working example: Northwind
 
-Throughout this course, you will work with the **Northwind** database, a classic relational database sample that represents a company selling food products.
+Challenges and examples in this course are open-ended: you can use **your own** relational data. If you want a ready-made example, **Northwind** is a classic relational sample (company selling food products) available as CSV or SQL so you can run every step without preparing your own data.
 
-[.slide.discrete]
-=== What the Northwind database contains
+=== What Northwind contains (if you use it)
 
-The Northwind database includes data about:
+The Northwind sample includes data about:
 
 * **Customers** - Companies that purchase products
 * **Orders** - Purchase transactions with dates and shipping information
@@ -94,22 +90,17 @@ The Northwind database includes data about:
 * **Employees** - Staff members who process orders
 * **Shippers** - Delivery companies
 
-[.slide.discrete]
-=== Northwind data sources
+=== Northwind data sources (optional)
 
-You can download the SQL script for the Northwind dataset from: link:https://github.com/pthom/northwind_psql[Northwind SQL script^]
-
-If you are ready to import the data into Neo4j, this repository contains the CSV files: link:https://github.com/neo4j-graph-examples/northwind/tree/main/imported[Northwind CSV files^]
+If you use Northwind as your working example: download the SQL script from link:https://github.com/pthom/northwind_psql[Northwind SQL script^], or use the CSV export for Neo4j: link:https://github.com/neo4j-graph-examples/northwind/tree/main/import[Northwind CSV files^].
 
 
-[.slide]
 == Graph data model
 
 Graph databases use **nodes** (entities), **relationships** (links between them), and **properties** (key-value pairs). Relationships are stored directly—you follow them instead of JOINing. Schema is flexible; traversal cost stays roughly constant as the graph grows.
 
 image::images/graph-model.png[Graph data model showing nodes connected by relationships,width=800,align=center]
 
-[.slide.discrete]
 === Example graph model: nodes
 
 The equivalent Northwind data in a graph would have these **nodes**:
@@ -122,7 +113,6 @@ The equivalent Northwind data in a graph would have these **nodes**:
 * `Employee` — properties: `firstName`, `lastName`, `title`
 * `Shipper` — properties for the delivery companies
 
-[.slide.discrete]
 === Example graph model: relationships
 
 And these **relationships**:
@@ -136,7 +126,6 @@ And these **relationships**:
 * `SHIPPED_BY` from `Order` to `Shipper`
 
 
-[.slide]
 == Main differences
 
 Summary of how the two models differ:
@@ -162,7 +151,17 @@ Summary of how the two models differ:
 | Structure matches how you think about connections
 |===
 
-[.slide.col-2]
+== Mapping: tables to nodes, foreign keys to relationships
+
+When moving from relational to graph, use this mapping:
+
+* **Tables (entity tables)** → **Nodes** — Each row becomes a node; the table name becomes the node label (e.g. `Customers` → `:Customer`).
+* **Foreign keys** → **Relationships** — A column that references another table becomes a relationship type (e.g. `Orders.CustomerID` → `(Customer)-[:PLACED]->(Order)`).
+* **Join tables** (e.g. `OrderDetails`) → **Relationships with properties** — The junction table does not become a node; it becomes a relationship type between the two entities, with any extra columns as relationship properties (e.g. `quantity`, `unitPrice`).
+* **Primary keys** → **Unique constraint + property** — The primary key column becomes a node property and gets a unique constraint for MERGE and lookups.
+
+This mapping is expanded in the step-by-step module (Identifying nodes, Mapping relationships, and the dedicated lesson on join tables).
+
 == Query comparison: same result, different approach
 
 Compare these queries side by side. Both should return a customer's orders and products.
@@ -194,15 +193,17 @@ RETURN c.companyName, o.orderDate,
 
 SQL joins by keys; Cypher follows the path. More hops = heavier SQL; Cypher stays consistent.
 
-[.slide.discrete]
+The module **Evaluating your queries** includes additional side-by-side Cypher vs. SQL comparisons at both simple and multi-join complexity levels so you can compare real query patterns.
+
 === Performance
 
 JOIN cost grows with tables and data size. Graph traversal stays roughly constant per hop—path length matters, not graph size.
 
-[.slide]
 == When to use each model
 
 With unstructured data in the mix, a key differentiator is **schema**: relational is static and defined upfront; graph is flexible and can evolve. Use this comparison to choose:
+
+For use case examples and when to choose a graph database over an RDBMS (and vice versa), see the Neo4j documentation: link:https://neo4j.com/docs/operations-manual/current/introduction/[Neo4j Introduction^] and link:https://neo4j.com/use-cases/[Neo4j use cases^].
 
 [cols="1,1"]
 |===
@@ -222,7 +223,6 @@ With unstructured data in the mix, a key differentiator is **schema**: relationa
 | Best when structure may evolve or vary by entity
 |===
 
-[.slide]
 == Migration considerations
 
 * **Not everything belongs in a graph** — A **hybrid storage pattern** is common: keep tabular or low-connection data in relational storage and move only the access patterns that benefit from graph (traversals, pattern matching) into the graph. This incremental approach reduces risk and lets you validate value before migrating more.
@@ -232,12 +232,10 @@ With unstructured data in the mix, a key differentiator is **schema**: relationa
 * **Schema can change** — Evolve your model as needs change.
 
 
-[.slide]
 == Common Misconceptions
 
-Avoid these common misconceptions. Each of these is a big consideration and is covered in depth in later lessons (Module 2: Identifying Nodes, Mapping Relationships, and related topics).
+Avoid these common misconceptions. Each of these is a big consideration and is covered in depth in later lessons (Identifying Nodes, Mapping Relationships, and related topics in the step-by-step module).
 
-[.slide.discrete]
 === Misconception 1: "Every table becomes a node"
 
 [IMPORTANT]
@@ -254,7 +252,6 @@ Avoid these common misconceptions. Each of these is a big consideration and is c
 
 Northwind's `order_details` links orders to products with quantity and price. It becomes a `CONTAINS` relationship between Order and Product, not an OrderDetail node.
 
-[.slide.discrete]
 === Why audit tables may stay out of the graph
 
 Audit tables (who changed what, when) are a trade-off. Keeping them in the relational store can make sense for:
@@ -264,7 +261,6 @@ Audit tables (who changed what, when) are a trade-off. Keeping them in the relat
 * **Operational complexity** — Running both relational and graph adds operational cost; the benefit of putting audit data in the graph should be clear (e.g. you need to analyze it as a graph). If you only need sequential or aggregate audit queries, keeping audit in relational (or a dedicated log store) is often simpler.
 
 
-[.slide.discrete]
 === Misconception 2: "Rows become nodes, columns become relationships"
 
 [IMPORTANT]
@@ -282,7 +278,6 @@ Audit tables (who changed what, when) are a trade-off. Keeping them in the relat
 Example: `customer_id` in `orders` becomes a `PLACED` relationship to Customer, not an Order property. `company_name` becomes a `companyName` property on Customer.
 
 
-[.slide.discrete]
 === Misconception 3: "The graph should mirror the relational schema"
 
 [IMPORTANT]
@@ -296,7 +291,6 @@ Example: `customer_id` in `orders` becomes a `PLACED` relationship to Customer, 
 Example: For "products bought by customers in the same region," add a `SAME_REGION` relationship between Customer nodes. It doesn't exist in the relational schema but makes the query simpler.
 
 
-[.slide.discrete]
 === Misconception 4: "All data must be migrated"
 
 [IMPORTANT]
@@ -316,13 +310,11 @@ Design a graph model that serves your project—don't replicate the relational s
 ====
 
 
-[.slide]
 [.quiz]
 == Check Your Understanding
 
 include::questions/1-differences.adoc[leveloffset=+1]
 
-[.slide]
 [.summary]
 == Summary
 
@@ -334,6 +326,4 @@ include::questions/1-differences.adoc[leveloffset=+1]
 In the next lesson, you will learn how to:
 
 * Identify the tools and setup needed for the course
-* Use the Neo4j Data Importer and Northwind CSV files
-
-read::Continue[]
+* Use the Neo4j Data Importer with your own data or the optional Northwind CSV files
