@@ -22,35 +22,48 @@ interface AsanaSection {
   resource_type: string;
 }
 
+interface AsanaListSectionsResponse {
+  data?: AsanaSection[];
+  next_page?: {
+    uri?: string | null;
+  } | null;
+}
+
 async function listSections(projectGid: string, apiKey: string): Promise<void> {
-  const res = await fetch(
-    `${ASANA_API_BASE}/projects/${projectGid}/sections`,
-    {
+  const allSections: AsanaSection[] = [];
+  let url = `${ASANA_API_BASE}/projects/${projectGid}/sections`;
+
+  while (url) {
+    const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
-    },
-  );
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Asana API error ${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Asana API error ${res.status}: ${text}`);
+    }
+
+    const json = (await res.json()) as AsanaListSectionsResponse;
+    const sections = json.data ?? [];
+    allSections.push(...sections);
+
+    const nextUri = json.next_page?.uri ?? null;
+    url = nextUri ?? "";
   }
 
-  const json = (await res.json()) as { data?: AsanaSection[] };
-  const sections = json.data ?? [];
-
-  if (sections.length === 0) {
+  if (allSections.length === 0) {
     console.log("No sections found for this project.");
     return;
   }
 
   const nameWidth = Math.max(
-    ...sections.map((s) => s.name.length),
+    ...allSections.map((s) => s.name.length),
     "Section".length,
   );
   const gidWidth = Math.max(
-    ...sections.map((s) => s.gid.length),
+    ...allSections.map((s) => s.gid.length),
     "GID".length,
   );
 
@@ -59,7 +72,7 @@ async function listSections(projectGid: string, apiKey: string): Promise<void> {
   );
   console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(gidWidth)}`);
 
-  for (const section of sections) {
+  for (const section of allSections) {
     console.log(
       `${section.name.padEnd(nameWidth)}  ${section.gid.padEnd(gidWidth)}`,
     );
