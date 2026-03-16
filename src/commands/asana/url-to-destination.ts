@@ -68,33 +68,58 @@ async function fetchSections(
   projectGid: string,
   apiKey: string,
 ): Promise<AsanaSection[]> {
-  const res = await fetch(`${ASANA_API_BASE}/projects/${projectGid}/sections`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Asana API error ${res.status}: ${text}`);
+  const sections: AsanaSection[] = [];
+  let url: string | null = `${ASANA_API_BASE}/projects/${projectGid}/sections`;
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Asana API error ${res.status}: ${text}`);
+    }
+    const json = (await res.json()) as {
+      data?: AsanaSection[];
+      next_page?: { uri?: string | null };
+    };
+    if (json.data) {
+      sections.push(...json.data);
+    }
+    url = json.next_page?.uri ?? null;
   }
-  const json = (await res.json()) as { data?: AsanaSection[] };
-  return json.data ?? [];
+
+  return sections;
 }
 
 async function fetchUsers(
   workspaceGid: string,
   apiKey: string,
 ): Promise<AsanaUser[]> {
+  const users: AsanaUser[] = [];
   const params = new URLSearchParams();
   params.set("opt_fields", "name,email");
-  const res = await fetch(
-    `${ASANA_API_BASE}/workspaces/${workspaceGid}/users?${params}`,
-    { headers: { Authorization: `Bearer ${apiKey}` } },
-  );
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Asana API error ${res.status}: ${text}`);
+  let url: string | null = `${ASANA_API_BASE}/workspaces/${workspaceGid}/users?${params}`;
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Asana API error ${res.status}: ${text}`);
+    }
+    const json = (await res.json()) as {
+      data?: AsanaUser[];
+      next_page?: { uri?: string | null };
+    };
+    if (json.data) {
+      users.push(...json.data);
+    }
+    url = json.next_page?.uri ?? null;
   }
-  const json = (await res.json()) as { data?: AsanaUser[] };
-  return json.data ?? [];
+
+  return users;
 }
 
 function findSectionByName(
