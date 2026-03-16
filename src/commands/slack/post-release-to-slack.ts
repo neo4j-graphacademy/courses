@@ -47,7 +47,8 @@ function renderTemplate(templatePath: string, meta: CourseMetadata): string {
 
 /** Strip complete and incomplete HTML tags (e.g. <a href=""> and <script) to prevent injection. */
 function stripHtmlTags(s: string): string {
-  return s.replace(/<[^>]*>?/g, "");
+  // Delegate to the robust striptags library to avoid incomplete multi-character sanitization issues.
+  return striptags(s);
 }
 
 /**
