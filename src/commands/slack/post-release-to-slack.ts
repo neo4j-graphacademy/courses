@@ -13,6 +13,9 @@ import { readFileSync, existsSync } from "fs";
 import { config } from "dotenv";
 import { WebClient } from "@slack/web-api";
 
+import striptags from "striptags";
+import he from "he";
+
 import { loadFile, convert } from "../../modules/asciidoc";
 import {
   ASCIIDOC_DIRECTORY,
@@ -98,15 +101,10 @@ function renderTemplate(templatePath: string, meta: CourseMetadata): string {
 }
 
 /**
- * Decode a subset of HTML entities in a safe order so that '&' is unescaped last.
+ * Decode HTML entities using a robust library implementation.
  */
 function decodeHtmlEntities(value: string): string {
-  return value
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&");
+  return he.decode(value);
 }
 
 /**
@@ -118,15 +116,16 @@ function htmlToSlackText(html: string): string {
   text = text.replace(
     /<a\s+href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_match, url: string, label: string) => {
-      const plain = decodeHtmlEntities(
-        label.replace(/<[^>]+>/g, ""),
-      ).trim();
+      const plain = decodeHtmlEntities(striptags(label)).trim();
       return `<${url.trim()}|${plain}>`;
     },
   );
+  // Convert basic formatting tags to Slack equivalents before stripping remaining tags.
   text = text.replace(/<(strong|b)>([^<]*)<\/\1>/gi, "*$2*");
   text = text.replace(/<(em|i)>([^<]*)<\/\1>/gi, "_$2_");
-  text = text.replace(/<[^>]+>/g, "");
+  // Remove any remaining HTML tags in a robust way.
+  text = striptags(text);
+  // Decode any HTML entities into plain text.
   text = decodeHtmlEntities(text);
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
