@@ -1,0 +1,42 @@
+name: Post release to Asana
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  post-to-asana:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'Release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Get merged course slugs
+        id: courses
+        run: |
+          SLUGS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            | jq -r '.[].filename' | grep -E '^asciidoc/courses/[^/]+/course\.adoc$' | sed 's|asciidoc/courses/||;s|/course\.adoc||' | sort -u || true)
+          echo "course_paths<<EOF" >> $GITHUB_OUTPUT
+          echo "$SLUGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Post course metadata to Asana
+        if: steps.courses.outputs.course_paths != ''
+        env:
+          ASANA_API_KEY: ${{ secrets.ASANA_API_KEY }}
+          ASANA_CONFIG: release
+          COURSE_PATHS: ${{ steps.courses.outputs.course_paths }}
+          GRAPHACADEMY_BASE_URL: https://graphacademy.neo4j.com
+        run: npm run release:asana
