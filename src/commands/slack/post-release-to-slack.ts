@@ -98,6 +98,18 @@ function renderTemplate(templatePath: string, meta: CourseMetadata): string {
 }
 
 /**
+ * Decode a subset of HTML entities in a safe order so that '&' is unescaped last.
+ */
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+/**
  * Convert HTML from AsciiDoc render to Slack mrkdwn.
  * Slack does not accept HTML; it uses *bold*, _italic_, and <url|text> for links.
  */
@@ -106,26 +118,16 @@ function htmlToSlackText(html: string): string {
   text = text.replace(
     /<a\s+href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_match, url: string, label: string) => {
-      const plain = label
-        .replace(/<[^>]+>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .trim();
+      const plain = decodeHtmlEntities(
+        label.replace(/<[^>]+>/g, ""),
+      ).trim();
       return `<${url.trim()}|${plain}>`;
     },
   );
   text = text.replace(/<(strong|b)>([^<]*)<\/\1>/gi, "*$2*");
   text = text.replace(/<(em|i)>([^<]*)<\/\1>/gi, "_$2_");
   text = text.replace(/<[^>]+>/g, "");
-  text = text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+  text = decodeHtmlEntities(text);
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
