@@ -48,27 +48,41 @@ async function listUsers(
   apiKey: string,
   search?: string,
 ): Promise<AsanaUser[]> {
-  const params = new URLSearchParams();
-  params.set("opt_fields", "name,email");
-  const url = `${ASANA_API_BASE}/workspaces/${workspaceGid}/users?${params}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Asana API error ${res.status}: ${text}`);
-  }
-  const json = (await res.json()) as { data?: AsanaUser[] };
-  let users = json.data ?? [];
+  const users: AsanaUser[] = [];
+  let offset: string | undefined;
+
+  do {
+    const params = new URLSearchParams();
+    params.set("opt_fields", "name,email");
+    if (offset) {
+      params.set("offset", offset);
+    }
+    const url = `${ASANA_API_BASE}/workspaces/${workspaceGid}/users?${params}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Asana API error ${res.status}: ${text}`);
+    }
+    const json = (await res.json()) as {
+      data?: AsanaUser[];
+      next_page?: { offset?: string | null };
+    };
+    users.push(...(json.data ?? []));
+    offset = json.next_page?.offset ?? undefined;
+  } while (offset);
+
+  let filteredUsers = users;
   if (search?.trim()) {
     const q = search.trim().toLowerCase();
-    users = users.filter(
+    filteredUsers = filteredUsers.filter(
       (u) =>
         u.name.toLowerCase().includes(q) ||
         (u.email && u.email.toLowerCase().includes(q)),
     );
   }
-  return users;
+  return filteredUsers;
 }
 
 function printUsers(users: AsanaUser[]): void {
