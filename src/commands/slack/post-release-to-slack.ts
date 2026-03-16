@@ -11,6 +11,7 @@
 import path from "path";
 import { readFileSync, existsSync } from "fs";
 import { config } from "dotenv";
+import { WebClient } from "@slack/web-api";
 
 import { loadFile, convert } from "../../modules/asciidoc";
 import {
@@ -22,8 +23,6 @@ import {
 import { courseOverviewPath, courseBannerPath } from "../../utils";
 
 config({ path: process.env.ENV_FILE ?? ".env" });
-
-const SLACK_API_BASE = "https://slack.com/api";
 
 interface CourseMetadata {
   title: string;
@@ -142,7 +141,7 @@ function looksLikeChannelId(channel: string): boolean {
  */
 async function resolveChannelId(
   channel: string,
-  apiKey: string,
+  web: WebClient,
 ): Promise<string> {
   const name = channel.replace(/^#/, "").trim();
   if (looksLikeChannelId(name)) {
@@ -150,26 +149,19 @@ async function resolveChannelId(
   }
   let cursor: string | undefined;
   do {
-    const url = new URL(`${SLACK_API_BASE}/conversations.list`);
-    url.searchParams.set("types", "public_channel,private_channel");
-    url.searchParams.set("limit", "200");
-    if (cursor) url.searchParams.set("cursor", cursor);
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const result = await web.conversations.list({
+      types: "public_channel,private_channel",
+      limit: 200,
+      cursor,
     });
-    const json = (await res.json()) as {
-      ok?: boolean;
-      channels?: Array<{ id: string; name: string }>;
-      response_metadata?: { next_cursor?: string };
-    };
-    if (!json.ok || !Array.isArray(json.channels)) {
+    if (!result.ok || !result.channels) {
       return channel;
     }
-    const match = json.channels.find(
+    const match = result.channels.find(
       (ch) => ch.name === name || ch.name === channel,
     );
-    if (match) return match.id;
-    cursor = json.response_metadata?.next_cursor;
+    if (match?.id) return match.id;
+    cursor = result.response_metadata?.next_cursor;
   } while (cursor);
   return channel;
 }
@@ -177,37 +169,26 @@ async function resolveChannelId(
 /**
  * Upload the course banner image to the channel using Slack's external file upload flow:
  * getUploadURLExternal → POST file to upload_url → completeUploadExternal.
+ * The SDK handles getUploadURLExternal and completeUploadExternal; we still POST the binary to the upload URL.
  */
 async function uploadBannerToChannel(
   channelId: string,
   bannerPath: string,
-  apiKey: string,
+  web: WebClient,
 ): Promise<void> {
   const buf = readFileSync(bannerPath);
   const length = buf.length;
   const filename = "banner.png";
 
-  const getRes = await fetch(`${SLACK_API_BASE}/files.getUploadURLExternal`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ filename, length: String(length) }).toString(),
-  });
-  const getJson = (await getRes.json()) as {
-    ok?: boolean;
-    error?: string;
-    upload_url?: string;
-    file_id?: string;
-  };
-  if (!getRes.ok || !getJson.ok || !getJson.upload_url || !getJson.file_id) {
+  const getResult = await web.files.getUploadURLExternal({ filename, length });
+  if (!getResult.ok || !getResult.upload_url || !getResult.file_id) {
     throw new Error(
-      `Slack getUploadURLExternal error: ${getJson.error ?? getRes.status}`,
+      `Slack getUploadURLExternal error: ${getResult.error ?? "missing upload_url or file_id"}`,
     );
   }
+  const { upload_url, file_id } = getResult;
 
-  const uploadRes = await fetch(getJson.upload_url, {
+  const uploadRes = await fetch(upload_url, {
     method: "POST",
     headers: {
       "Content-Type": "application/octet-stream",
@@ -219,32 +200,18 @@ async function uploadBannerToChannel(
     throw new Error(`Slack file upload error ${uploadRes.status}: ${t}`);
   }
 
-  // completeUploadExternal requires channel_id to be an ID (e.g. C0NF841BK), not a name.
-  // resolveChannelId (conversations.list) turns names into IDs when the app has channels:read.
-  const completeBody: Record<string, unknown> = {
-    files: [{ id: getJson.file_id, title: filename }],
+  const completeOpts = {
+    files: [{ id: file_id, title: filename }] as [
+      { id: string; title: string },
+      ...Array<{ id: string; title: string }>,
+    ],
+    ...(channelId &&
+      looksLikeChannelId(channelId) && { channel_id: channelId }),
   };
-  if (channelId && looksLikeChannelId(channelId)) {
-    completeBody.channel_id = channelId;
-  }
-  const completeRes = await fetch(
-    `${SLACK_API_BASE}/files.completeUploadExternal`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify(completeBody),
-    },
-  );
-  const completeJson = (await completeRes.json()) as {
-    ok?: boolean;
-    error?: string;
-  };
-  if (!completeRes.ok || !completeJson.ok) {
+  const completeResult = await web.files.completeUploadExternal(completeOpts);
+  if (!completeResult.ok) {
     throw new Error(
-      `Slack completeUploadExternal error: ${completeJson.error ?? completeRes.status}`,
+      `Slack completeUploadExternal error: ${completeResult.error ?? "unknown"}`,
     );
   }
 }
@@ -252,47 +219,34 @@ async function uploadBannerToChannel(
 async function postToSlack(
   channel: string,
   text: string,
-  apiKey: string,
+  web: WebClient,
   courseLink?: string,
   bannerPath?: string,
 ): Promise<void> {
-  const payload: Record<string, unknown> = {
+  const result = await web.chat.postMessage({
     channel,
     text,
     unfurl_links: false,
     unfurl_media: false,
-  };
-  if (courseLink) {
-    payload.attachments = [
-      {
-        title: "Take the course",
-        title_link: courseLink,
-      },
-    ];
-  }
-  const res = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    ...(courseLink && {
+      attachments: [
+        {
+          title: "Take the course",
+          title_link: courseLink,
+        },
+      ],
+    }),
   });
-
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Slack API error ${res.status}: ${t}`);
-  }
-
-  const json = (await res.json()) as { ok?: boolean; error?: string };
-  if (!json.ok) {
-    throw new Error(`Slack API error: ${json.error ?? "unknown"}`);
+  if (!result.ok) {
+    throw new Error(
+      `Slack API error: ${(result as { error?: string }).error ?? "unknown"}`,
+    );
   }
   // Banner upload disabled for now. Set to true to upload course banner.png to the channel.
   const uploadBannerEnabled = false;
   if (uploadBannerEnabled && bannerPath) {
-    const channelId = await resolveChannelId(channel, apiKey);
-    await uploadBannerToChannel(channelId, bannerPath, apiKey);
+    const channelId = await resolveChannelId(channel, web);
+    await uploadBannerToChannel(channelId, bannerPath, web);
   }
 }
 
@@ -345,6 +299,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const web = new WebClient(apiKey);
   const channels = loadConfig(configName);
   if (channels.length === 0) {
     console.error(
@@ -380,7 +335,7 @@ async function main(): Promise<void> {
     const text = renderTemplate(templatePath, meta);
 
     for (const channel of channels) {
-      await postToSlack(channel, text, apiKey, meta.link, meta.bannerPath);
+      await postToSlack(channel, text, web, meta.link, meta.bannerPath);
       console.log(`Posted to #${channel.replace(/^#/, "")} for: ${meta.title}`);
     }
   }
