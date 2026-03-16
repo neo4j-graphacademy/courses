@@ -16,25 +16,17 @@ import path from "path";
 import { readFileSync, existsSync } from "fs";
 import { config } from "dotenv";
 
-import { loadFile } from "../../modules/asciidoc";
 import {
-  ATTRIBUTE_CAPTION,
-  ATTRIBUTE_CATEGORIES,
-  ATTRIBUTE_KEY_POINTS,
-} from "../../constants";
-import { courseOverviewPath } from "../../utils";
+  type CourseMetadata,
+  readCourseMetadata,
+  resolveCoursePath,
+} from "../release/course-metadata";
 
 config({ path: process.env.ENV_FILE ?? ".env" });
 
 const ASANA_API_BASE = "https://app.asana.com/api/1.0";
 
-export interface CourseMetadata {
-  title: string;
-  caption: string;
-  link: string;
-  keyPoints: string;
-  categories: string;
-}
+export type { CourseMetadata };
 
 /** Board, optional section, optional assignee, and optional name (metadata) per destination. */
 export interface AsanaDestination {
@@ -53,41 +45,7 @@ function formatNotes(meta: CourseMetadata): string {
   return parts.join("\n").trim();
 }
 
-/**
- * Load course.adoc with the asciidoc module and return metadata for Asana.
- * Link is built from baseUrl and course slug (directory name containing course.adoc).
- */
-export function readCourseMetadata(
-  courseAdocPath: string,
-  baseUrl: string = "https://graphacademy.neo4j.com",
-): CourseMetadata {
-  const resolved = path.isAbsolute(courseAdocPath)
-    ? courseAdocPath
-    : path.resolve(process.cwd(), courseAdocPath);
-
-  const file = loadFile(resolved, { parse_header_only: true });
-
-  const title = (file.getTitle() as string) ?? "Untitled course";
-  const caption = file.getAttribute(ATTRIBUTE_CAPTION, null) ?? "";
-  const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, "") ?? "";
-
-  let keyPoints = file.getAttribute(ATTRIBUTE_KEY_POINTS, null);
-  if (Array.isArray(keyPoints)) {
-    keyPoints = keyPoints.join(", ");
-  }
-  const keyPointsStr = keyPoints ?? "";
-
-  const slug = path.basename(path.dirname(resolved));
-  const link = `${baseUrl.replace(/\/$/, "")}/courses/${slug}`;
-
-  return {
-    title,
-    caption,
-    link,
-    keyPoints: keyPointsStr,
-    categories,
-  };
-}
+export { readCourseMetadata } from "../release/course-metadata";
 
 /**
  * Create one Asana task per destination with the course metadata (each task can
@@ -260,18 +218,6 @@ async function main(): Promise<void> {
     const metadata = readCourseMetadata(resolved, baseUrl);
     await postCourseMetadataToAsana(metadata, destinations, apiKey);
   }
-}
-
-/** Resolve a course slug (e.g. aura-agents) or path to a course.adoc file path. */
-function resolveCoursePath(slugOrPath: string): string {
-  if (path.isAbsolute(slugOrPath)) {
-    return slugOrPath;
-  }
-  const hasPathSep = slugOrPath.includes(path.sep) || slugOrPath.includes("/");
-  if (!hasPathSep && !slugOrPath.endsWith(".adoc")) {
-    return courseOverviewPath(slugOrPath);
-  }
-  return path.resolve(process.cwd(), slugOrPath);
 }
 
 main().catch((err) => {

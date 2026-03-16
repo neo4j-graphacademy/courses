@@ -17,69 +17,14 @@ import striptags from "striptags";
 import he from "he";
 
 import { loadFile, convert } from "../../modules/asciidoc";
+import { ASCIIDOC_DIRECTORY } from "../../constants";
 import {
-  ASCIIDOC_DIRECTORY,
-  ATTRIBUTE_CAPTION,
-  ATTRIBUTE_CATEGORIES,
-  ATTRIBUTE_KEY_POINTS,
-} from "../../constants";
-import { courseOverviewPath, courseBannerPath } from "../../utils";
+  type CourseMetadata,
+  readCourseMetadata,
+  resolveCoursePath,
+} from "../release/course-metadata";
 
 config({ path: process.env.ENV_FILE ?? ".env" });
-
-interface CourseMetadata {
-  title: string;
-  caption: string;
-  link: string;
-  bannerPath?: string;
-  keyPoints: string;
-  categories: string;
-}
-
-function readCourseMetadata(
-  courseAdocPath: string,
-  baseUrl: string = "https://graphacademy.neo4j.com",
-): CourseMetadata {
-  const resolved = path.isAbsolute(courseAdocPath)
-    ? courseAdocPath
-    : path.resolve(process.cwd(), courseAdocPath);
-
-  const file = loadFile(resolved, { parse_header_only: true });
-
-  const title = (file.getTitle() as string) ?? "Untitled course";
-  const caption = file.getAttribute(ATTRIBUTE_CAPTION, null) ?? "";
-  const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, "") ?? "";
-
-  let keyPoints = file.getAttribute(ATTRIBUTE_KEY_POINTS, null);
-  if (Array.isArray(keyPoints)) {
-    keyPoints = keyPoints.join(", ");
-  }
-  const keyPointsStr = keyPoints ?? "";
-
-  const slug = path.basename(path.dirname(resolved));
-  const link = `${baseUrl.replace(/\/$/, "")}/courses/${slug}`;
-  const bannerPath = courseBannerPath(slug);
-
-  return {
-    title,
-    caption,
-    link,
-    bannerPath: existsSync(bannerPath) ? bannerPath : undefined,
-    keyPoints: keyPointsStr,
-    categories,
-  };
-}
-
-function resolveCoursePath(slugOrPath: string): string {
-  if (path.isAbsolute(slugOrPath)) {
-    return slugOrPath;
-  }
-  const hasPathSep = slugOrPath.includes(path.sep) || slugOrPath.includes("/");
-  if (!hasPathSep && !slugOrPath.endsWith(".adoc")) {
-    return courseOverviewPath(slugOrPath);
-  }
-  return path.resolve(process.cwd(), slugOrPath);
-}
 
 /**
  * Render the AsciiDoc template with course metadata. Title is merged from the
@@ -98,6 +43,11 @@ function renderTemplate(templatePath: string, meta: CourseMetadata): string {
   });
   const html = convert(doc) as string;
   return htmlToSlackText(html);
+}
+
+/** Strip complete and incomplete HTML tags (e.g. <a href=""> and <script) to prevent injection. */
+function stripHtmlTags(s: string): string {
+  return s.replace(/<[^>]*>?/g, "");
 }
 
 /**
@@ -123,8 +73,10 @@ function htmlToSlackText(html: string): string {
   // Convert basic formatting tags to Slack equivalents before stripping remaining tags.
   text = text.replace(/<(strong|b)>([^<]*)<\/\1>/gi, "*$2*");
   text = text.replace(/<(em|i)>([^<]*)<\/\1>/gi, "_$2_");
+
   // Remove any remaining HTML tags in a robust way.
   text = striptags(text);
+
   // Decode any HTML entities into plain text.
   text = decodeHtmlEntities(text);
   return text.replace(/\n{3,}/g, "\n\n").trim();
