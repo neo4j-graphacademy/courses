@@ -106,7 +106,10 @@ export async function postCourseMetadataToAsana(
 
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 14);
-  const dueOn = dueDate.toISOString().slice(0, 10);
+  const year = dueDate.getFullYear();
+  const month = String(dueDate.getMonth() + 1).padStart(2, "0");
+  const day = String(dueDate.getDate()).padStart(2, "0");
+  const dueOn = `${year}-${month}-${day}`;
 
   for (const d of destinations) {
     const project = d.project.trim();
