@@ -20,9 +20,22 @@ jobs:
       - name: Get merged course slugs
         id: courses
         run: |
-          SLUGS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-            | jq -r '.[].filename' | grep -E '^asciidoc/courses/[^/]+/course\.adoc$' | sed 's|asciidoc/courses/||;s|/course\.adoc||' | sort -u || true)
+          SLUGS=$(
+            page=1
+            while :; do
+              RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files?per_page=100&page=${page}")
+              COUNT=$(echo "$RESPONSE" | jq 'length')
+              if [ "$COUNT" -eq 0 ]; then
+                break
+              fi
+              echo "$RESPONSE" | jq -r '.[].filename'
+              if [ "$COUNT" -lt 100 ]; then
+                break
+              fi
+              page=$((page + 1))
+            done | grep -E '^asciidoc/courses/[^/]+/course\.adoc$' | sed 's|asciidoc/courses/||;s|/course\.adoc||' | sort -u || true
+          )
           echo "course_paths<<EOF" >> $GITHUB_OUTPUT
           echo "$SLUGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
