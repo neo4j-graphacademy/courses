@@ -1,6 +1,6 @@
 /**
  * Parse an Asana project URL and optional section/assignee names into a
- * destination object for release.json (or draft.json etc).
+ * destination object for config/promo/release.json (asana.destinations).
  *
  * Usage:
  *   ASANA_API_KEY=... npm run asana:url-to-destination -- --url "https://app.asana.com/.../project/123/list/456" --section "Marquee Assets in Production" --assignee "Greg Posten"
@@ -277,11 +277,11 @@ async function main(): Promise<void> {
     console.log("Assignee: (not found – see list above)");
   }
   console.log("");
-  console.log("Destination for release.json / draft.json:");
+  console.log("Destination for config/promo/release.json (asana.destinations):");
   console.log("");
   console.log(JSON.stringify(clean, null, 2));
   console.log("");
-  console.log("Single line (for pasting into a destinations array):");
+  console.log("Single line (for pasting into asana.destinations array):");
   console.log(JSON.stringify(clean));
 }
 

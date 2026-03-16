@@ -1,5 +1,5 @@
 /**
- * List user GIDs for a workspace or project (to use as assignee in release.json / draft.json etc).
+ * List user GIDs for a workspace or project (to use as assignee in config/promo/release.json etc).
  *
  * Usage:
  *   ASANA_API_KEY=... npm run asana:list-assignees -- <workspace_gid>
@@ -113,7 +113,7 @@ function printUsers(users: AsanaUser[]): void {
 
   console.log("");
   console.log(
-    'Use a GID as "assignee" in asana release.json (or draft.json, etc.) destinations.',
+    'Use a GID as "assignee" in config/promo/release.json (asana.destinations).',
   );
 }
 

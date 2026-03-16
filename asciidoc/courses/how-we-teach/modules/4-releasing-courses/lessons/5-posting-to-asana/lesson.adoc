@@ -32,40 +32,45 @@ The workflow:
 
 * Finds which `course.adoc` files were changed in the PR
 * Derives the course slug(s) (e.g. `aura-agents`)
-* Loads the matching config file (e.g. `release.json` for the Release label)
+* Loads the matching config file from `config/promo/` (e.g. `release.json` for the Release label)
 * For each destination in that config, creates an Asana task with the course title, caption, link, key points, and categories, and assigns it to the right board, section, and assignee
 
 
 === Config files
 
-Destination boards and assignees are defined in JSON config files in `src/commands/asana/`. Each label type can have its own config:
+Destination boards, assignees, and Slack channels are defined in combined JSON config files in `config/promo/`. Each label type can have its own config:
 
 * `release.json` – used when the **Release** label is merged
 * `draft.json` – for a **Draft** label (create one if needed)
 * `enhancement.json` – for an **Enhancement** label (create one if needed)
 
-The workflow chooses the file from the merged PR’s label and the `ASANA_CONFIG` variable (default `release`).
+The workflow chooses the file from the merged PR’s label and the `ASANA_CONFIG` / `SLACK_CONFIG` variables (default `release`). The same file contains `asana.destinations` and `slack.channels`.
 
-Each config file has a `destinations` array. Each destination has:
+Each entry in `asana.destinations` has:
 
 * `project` – Asana project (board) GID
 * `section` – optional section (column) GID
 * `assignee` – optional user GID
 * `name` – optional label for that destination (e.g. "GraphAcademy Marketing")
 
-Example:
+Example (`config/promo/release.json`):
 
 [source,json]
 ----
 {
-  "destinations": [
-    {
-      "name": "GraphAcademy Marketing",
-      "project": "1208974749704120",
-      "section": "1208974749704126",
-      "assignee": "1202055636798551"
-    }
-  ]
+  "asana": {
+    "destinations": [
+      {
+        "name": "GraphAcademy Marketing",
+        "project": "1208974749704120",
+        "section": "1208974749704126",
+        "assignee": "1202055636798551"
+      }
+    ]
+  },
+  "slack": {
+    "channels": ["graphacademy"]
+  }
 }
 ----
 
@@ -79,7 +84,7 @@ You need three GIDs per destination: **project** (board), **section** (column), 
 
 ==== Easiest: build a destination from the board URL
 
-If you have the Asana board URL and know the section name and assignee name, use the combined command. It looks up all GIDs and prints the destination JSON ready to paste into `release.json` (or `draft.json`):
+If you have the Asana board URL and know the section name and assignee name, use the combined command. It looks up all GIDs and prints the destination JSON ready to paste into `config/promo/release.json` (under `asana.destinations`):
 
 [source,sh]
 ----
@@ -153,9 +158,32 @@ Use `ASANA_CONFIG` to choose the config file (e.g. `release`, `draft`, `config.e
 === Workflow summary
 
 * **Trigger:** PR merged with a label (e.g. Release)
-* **Config:** `src/commands/asana/{ASANA_CONFIG}.json` (e.g. `release.json`)
+* **Config:** `config/promo/{ASANA_CONFIG}.json` (e.g. `release.json`), section `asana.destinations`
 * **Metadata:** Read from each merged course’s `course.adoc` (title, caption, key points, categories); link is built from the course slug
 * **Output:** One Asana task per destination, with due date in two weeks
+
+
+== Posting to Slack
+
+The same Release workflow posts a promo message to Slack. The message is built from an AsciiDoc template in which course attributes are replaced, then sent to each channel in the config.
+
+
+=== Template and config
+
+* **Template** – `asciidoc/shared/release/{SLACK_CONFIG}.adoc` (e.g. `release.adoc`). The title is merged from the course document's `getTitle()` (available in the template as `{doctitle}`); other attributes are `{caption}`, `{link}`, `{key-points}`, `{categories}`. The template is rendered by the same AsciiDoc processor used elsewhere in the repo; the output is then converted to Slack-friendly text.
+* **Config** – The same file `config/promo/release.json` has a `slack.channels` array: channel names (e.g. `graphacademy`) or channel IDs. The workflow uses `SLACK_CONFIG=release` and the secret `SLACK_BOT_TOKEN` (Bot User OAuth Token with `chat:write`).
+
+
+=== Running locally
+
+To post the Slack promo for a course without merging a PR:
+
+[source,sh]
+----
+SLACK_CONFIG=release npm run release:slack -- <course_slug>
+----
+
+Ensure `SLACK_BOT_TOKEN` is set (e.g. in `.env`). The same template and config are used as in the workflow.
 
 
 read::Continue[]
@@ -164,6 +192,6 @@ read::Continue[]
 [.summary]
 == Summary
 
-In this lesson, you learned how to promote a release internally: post to Asana (with optional automatic tasks from the repo), Slack (#graphacademy), and team or SME channels, and include a blog post in your promotion plan.
+In this lesson, you learned how to promote a release internally: post to Asana (with optional automatic tasks from the repo), Slack using the release template and channel config, and team or SME channels, and include a blog post in your promotion plan.
 
-For Asana, config files in `src/commands/asana/` define which boards and sections receive tasks and who is assigned. Use `asana:url-to-destination` with a board URL, section name, and assignee name to get a ready-to-paste destination, or use `asana:list-sections` and `asana:list-assignees` to look up GIDs manually. Run `release:asana` locally with a course slug to test.
+Config in `config/promo/` (e.g. `release.json`) holds both `asana.destinations` and `slack.channels`. Use `asana:url-to-destination`, `asana:list-sections`, and `asana:list-assignees` to build Asana entries. Edit `asciidoc/shared/release/release.adoc` for the Slack message; run `release:asana` and `release:slack` locally with a course slug to test.

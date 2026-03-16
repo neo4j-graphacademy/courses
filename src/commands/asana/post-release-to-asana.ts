@@ -2,9 +2,8 @@
  * Post course release metadata from course.adoc to Asana.
  * Used when a PR with a label (e.g. Release, Draft, Enhancement) is merged.
  *
- * Destinations are read from a label-matched JSON file in this directory (e.g. release.json,
- * draft.json, enhancement.json), or from ASANA_DESTINATIONS env. Set ASANA_CONFIG to the
- * config base name (default "release") to choose the file: {ASANA_CONFIG}.json.
+ * Destinations are read from config/promo/{ASANA_CONFIG}.json (asana.destinations), or from
+ * ASANA_DESTINATIONS env. Set ASANA_CONFIG to the config base name (default "release").
  * Each destination: project, section?, assignee?, name? (metadata).
  * Use `npm run asana:list-sections -- <project_gid>` and `npm run asana:list-assignees -- --project <project_gid>` to find GIDs.
  *
@@ -184,29 +183,27 @@ function parseDestinations(raw: string): AsanaDestination[] {
   return parsed.map((item, i) => parseDestinationItem(item, i));
 }
 
-/** Load destinations from {configName}.json in the same directory as this script. */
+/** Load destinations from config/promo/{configName}.json (asana.destinations or top-level destinations). */
 function loadDestinationsFromConfig(
   configName: string = "release",
 ): AsanaDestination[] | null {
   const safeName = configName.replace(/[^a-z0-9_.-]/gi, "") || "release";
-  const configPath = path.join(__dirname, `${safeName}.json`);
+  const configPath = path.join(process.cwd(), "config", "promo", `${safeName}.json`);
   if (!existsSync(configPath)) {
     return null;
   }
   const raw = readFileSync(configPath, "utf-8");
-  const parsed = JSON.parse(raw) as unknown;
-  if (
-    parsed === null ||
-    typeof parsed !== "object" ||
-    !("destinations" in parsed) ||
-    !Array.isArray((parsed as { destinations: unknown }).destinations)
-  ) {
-    throw new Error(
-      `${path.basename(configPath)} must contain a "destinations" array of { project, section?, assignee?, name? }`,
-    );
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const arr =
+    parsed?.asana && typeof parsed.asana === "object" && Array.isArray((parsed.asana as { destinations?: unknown }).destinations)
+      ? (parsed.asana as { destinations: unknown[] }).destinations
+      : Array.isArray(parsed?.destinations)
+        ? parsed.destinations
+        : null;
+  if (!arr || arr.length === 0) {
+    return null;
   }
-  const arr = (parsed as { destinations: unknown[] }).destinations;
-  return arr.map((item, i) => parseDestinationItem(item, i));
+  return arr.map((item: unknown, i: number) => parseDestinationItem(item, i));
 }
 
 async function main(): Promise<void> {
@@ -227,7 +224,7 @@ async function main(): Promise<void> {
       const fromConfig = loadDestinationsFromConfig(configName);
       if (!fromConfig || fromConfig.length === 0) {
         console.error(
-          `No destinations found. Set ASANA_DESTINATIONS or create src/commands/asana/${configName}.json with a "destinations" array.`,
+          `No destinations found. Set ASANA_DESTINATIONS or create config/promo/${configName}.json with an "asana.destinations" array.`,
         );
         process.exit(1);
       }
