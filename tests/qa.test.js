@@ -617,7 +617,7 @@ describe("QA Tests", () => {
 
                 it("should include all questions from the questions folder and no non-existent questions", () => {
                   // Skip this test if lesson is optional or has read button
-                  if (optional || hasReadButton) {
+                  if (optional) {
                     return;
                   }
 
