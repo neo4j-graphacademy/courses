@@ -52,25 +52,44 @@ function decodeHtmlEntities(value: string): string {
   return he.decode(value);
 }
 
+/** Placeholder used for Slack links so striptags() does not remove <url|label>. No angle brackets. */
+const SLACK_LINK_PLACEHOLDER_PREFIX = "\u200B\u200B\u200B"; // zero-width spaces
+const SLACK_LINK_PLACEHOLDER_SUFFIX = "\u200B\u200B\u200B";
+
 /**
  * Convert HTML from AsciiDoc render to Slack mrkdwn.
  * Slack does not accept HTML; it uses *bold*, _italic_, and <url|text> for links.
  */
 function htmlToSlackText(html: string): string {
+  const slackLinks: string[] = [];
   let text = html;
+  // Replace anchors with a placeholder (no angle brackets) so striptags() won't strip them later.
   text = text.replace(
     /<a\s+href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
     (_match, url: string, label: string) => {
       const plain = decodeHtmlEntities(striptags(label)).trim();
-      return `<${url.trim()}|${plain}>`;
+      const slackLink = `<${url.trim()}|${plain}>`;
+      const index = slackLinks.length;
+      slackLinks.push(slackLink);
+      return `${SLACK_LINK_PLACEHOLDER_PREFIX}${index}${SLACK_LINK_PLACEHOLDER_SUFFIX}`;
     },
   );
-  // Convert basic formatting tags to Slack equivalents before stripping remaining tags.
+  // Convert inline formatting to mrkdwn.
   text = text.replace(/<(strong|b)>([^<]*)<\/\1>/gi, "*$2*");
   text = text.replace(/<(em|i)>([^<]*)<\/\1>/gi, "_$2_");
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, "$1\n\n");
 
-  // Remove any remaining HTML tags in a robust way.
+  // Remove any remaining HTML tags (keeps text content). No mrkdwn equivalent for <p>, <ul>, etc.
   text = striptags(text);
+
+  // Restore Slack link syntax from placeholders.
+  slackLinks.forEach((link, i) => {
+    text = text.replace(
+      `${SLACK_LINK_PLACEHOLDER_PREFIX}${i}${SLACK_LINK_PLACEHOLDER_SUFFIX}`,
+      link,
+    );
+  });
 
   // Decode any HTML entities into plain text.
   text = decodeHtmlEntities(text);
