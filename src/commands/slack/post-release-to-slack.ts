@@ -45,12 +45,6 @@ function renderTemplate(templatePath: string, meta: CourseMetadata): string {
   return htmlToSlackText(html);
 }
 
-/** Strip complete and incomplete HTML tags (e.g. <a href=""> and <script) to prevent injection. */
-function stripHtmlTags(s: string): string {
-  // Delegate to the robust striptags library to avoid incomplete multi-character sanitization issues.
-  return striptags(s);
-}
-
 /**
  * Decode HTML entities using a robust library implementation.
  */
