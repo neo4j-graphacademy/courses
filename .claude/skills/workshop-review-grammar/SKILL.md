@@ -293,6 +293,7 @@ This is a note.
 ### Checklist: Style Compliance
 - [ ] Uses "you will" not "we will" or "you'll"
 - [ ] Active voice (not passive)
+- [ ] UI elements described by what they enable, not what they are ("Use X to..." not "X is a Y where you can...")
 - [ ] No AI artifacts ("comprehensive", "delve into")
 - [ ] No sales language ("powerful", "amazing", "seamlessly")
 - [ ] Sentence case headers (not title case for sections)
