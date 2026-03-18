@@ -64,6 +64,7 @@ export type CourseToImport = {
   prerequisiteSlugs: string[];
   progressToSlugs: string[];
   translationSlugs: string[];
+  categories: CategoryWithOrder[];
   attributes: Record<string, any>;
   repositories: Record<string, string>;
 };
