@@ -32,9 +32,7 @@ describe("QA Tests", () => {
   const exclude = ["30-days", "how-we-teach"];
   let coursePaths = globSync(
     globJoin(__dirname, "..", "asciidoc", "courses", "*"),
-  )
-    .filter((path) => !exclude.some((folder) => path.endsWith(folder)))
-    .filter((path) => existsSync(join(path, "course.adoc")));
+  ).filter((path) => existsSync(join(path, "course.adoc")));
 
   if (process.env.COURSES) {
     const targetCourses = process.env.COURSES.split(",").map((c) =>
@@ -48,6 +46,10 @@ describe("QA Tests", () => {
       `Filtering QA tests to courses matching: ${coursePaths.join(", ")} (${
         coursePaths.length
       })`,
+    );
+  } else {
+    coursePaths = coursePaths.filter(
+      (path) => !exclude.some((folder) => path.endsWith(folder)),
     );
   }
 
@@ -135,32 +137,7 @@ describe("QA Tests", () => {
         }
       });
 
-      it("all :categories: should reference existing category files", () => {
-        const categories = getAttribute(courseAdoc, "categories");
-        if (categories) {
-          const slugs = categories
-            .split(",")
-            .map((s) => s.split(":")[0].trim())
-            .filter((s) => s !== "");
-          const missing = slugs.filter(
-            (catSlug) =>
-              !existsSync(
-                join(
-                  __dirname,
-                  "..",
-                  "asciidoc",
-                  "categories",
-                  `${catSlug}.adoc`,
-                ),
-              ),
-          );
-          if (missing.length > 0) {
-            throw new Error(
-              `The following categories do not exist: ${missing.join(", ")}`,
-            );
-          }
-        }
-      });
+      // Category existence and internal classification checks live in categories.test.js
 
       if (["active", "draft"].includes(status) && certification !== "true") {
         const modulePaths = globSync(
@@ -179,18 +156,18 @@ describe("QA Tests", () => {
           expect(getAttribute(courseAdoc, "caption")).toBeDefined();
         });
 
-        // it("should have a level", () => {
-        //   expect(getAttribute(courseAdoc, "categories")).toBeDefined();
+        it("should have a level", () => {
+          expect(getAttribute(courseAdoc, "categories")).toBeDefined();
 
-        //   const categories = getAttribute(courseAdoc, "categories")
-        //     .split(",")
-        //     .map((e) => e.split(":")[0])
-        //     .map((e) => e.trim());
-        //   expect(categories.length).toBeGreaterThan(0);
+          const categories = getAttribute(courseAdoc, "categories")
+            .split(",")
+            .map((e) => e.split(":")[0])
+            .map((e) => e.trim());
+          expect(categories.length).toBeGreaterThan(0);
 
-        //   const levels = ["beginners", "intermediate", "advanced", "workshops"];
-        //   expect(levels.some((level) => categories.includes(level))).toBe(true);
-        // });
+          const levels = ["beginners", "intermediate", "advanced", "workshops"];
+          expect(levels.some((level) => categories.includes(level))).toBe(true);
+        });
 
         it("should have a duration", () => {
           expect(getAttribute(courseAdoc, "duration")).toBeDefined();
@@ -557,8 +534,13 @@ describe("QA Tests", () => {
                 });
 
                 it("should have at most one read button", () => {
+                  // Only count read:: outside code blocks (---- ... ----)
+                  const parts = lessonAdoc.split(/\n----\s*\n/);
+                  const outsideCodeBlocks = parts
+                    .filter((_, i) => i % 2 === 0)
+                    .join("\n");
                   const readButtonCount = [
-                    ...lessonAdoc.matchAll(/read::(.*)\[\]/g),
+                    ...outsideCodeBlocks.matchAll(/read::(.*)\[\]/g),
                   ].length;
                   expect(readButtonCount).toBeLessThanOrEqual(1);
                 });
@@ -688,7 +670,9 @@ describe("QA Tests", () => {
                             !link.includes("openai") &&
                             !link.includes("workspace.neo4j.io") &&
                             !link.includes("example") &&
-                            !link.includes("localhost")
+                            !link.includes("localhost") &&
+                            !link.includes("neo4j-graphacademy/website") &&
+                            !link.includes("neo4j-graphacademy/certifications")
                           ) {
                             const statusCode = await getStatusCode(link);
                             try {

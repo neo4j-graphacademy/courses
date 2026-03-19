@@ -5,7 +5,7 @@ const { sep, join } = require("path");
 require("isomorphic-fetch");
 
 const getAttribute = (asciidoc, attribute) => {
-  const pattern = new RegExp(`:${attribute}: (.*)`);
+  const pattern = new RegExp(`^:${attribute}: (.*)`, "m");
   const match = asciidoc.match(pattern);
 
   return match ? match[1] : undefined;

@@ -67,7 +67,7 @@ npm run dev:watch
 
 All content lives in the `asciidoc/` directory.  As you modify the content, a process will sync the course structure to Neo4j.
 
-* `categories/` - Category information
+* `categories/` - Category information (see <<category-structure,Category Structure>> below)
 * `courses/` - All courses are organised into the own folder structure with modules and lessons
 * `emails/` - The emails sent to users on enrolment, completion and a reminder email when the user has been inactive for 7 days
 * `languages/` - i18n phrases for courses in languages other than English.
@@ -75,6 +75,30 @@ All content lives in the `asciidoc/` directory.  As you modify the content, a pr
 * `shared/` - Content shared across courses
 * `statuses/` - Meta data around course statuses
 
+
+=== Posting releases to Asana
+
+When a PR with a label (e.g. **Release**) is merged, course metadata is posted to Asana and Slack using the combined config in `config/promo/` (e.g. `release.json`). The file has `asana.destinations` (project/section/assignee GIDs) and `slack.channels`.
+
+**Build a destination from an Asana URL** (paste the board URL, section name, and assignee name; the script looks up GIDs and prints JSON for your config):
+
+[source,sh]
+----
+npm run asana:url-to-destination -- \
+  --url "https://app.asana.com/.../project/123/list/456" \
+  --section "Marquee Assets in Production" \
+  --assignee "Greg Posten" \
+  --name "Marquee Production"
+----
+
+**Other Asana helpers:**
+
+* `npm run asana:list-sections -- <project_gid>` – list section GIDs for a board
+* `npm run asana:list-assignees -- --project <project_gid>` – list user GIDs (for assignee)
+* `ASANA_CONFIG=release npm run release:asana -- <course_slug>` – post one course’s metadata to Asana locally
+* **Slack** – The same workflow posts a promo to Slack using the AsciiDoc template `asciidoc/shared/release/release.adoc` and `slack.channels` from `config/promo/release.json`. Use `SLACK_CONFIG=release npm run release:slack -- <course_slug>` locally; set `SLACK_BOT_TOKEN` in the workflow and `.env` (and `SLACK_APP_TOKEN` if you use Socket Mode or other app-level features).
+
+Full flow (config files, workflow trigger, finding GIDs) is documented in the _Releasing courses_ module in the How We Teach course.
 
 === Course Structure
 
@@ -95,6 +119,128 @@ asciidoc
                  | question-1.adoc
                  | question-2.adoc
 ----
+
+
+[[category-structure]]
+=== Category Structure
+
+Categories are defined as `.adoc` files in `asciidoc/categories/`.
+Courses are assigned to categories via the `:categories:` attribute in `course.adoc`:
+
+[source,asciidoc]
+----
+:categories: developer:1, context-engineer:3, coredb
+----
+
+Each entry is a category slug with an optional display order (`slug:order`).
+The order controls where the course appears within that category's listing.
+
+==== Parent categories
+
+Five top-level parent categories organise everything else.
+The website queries these parents directly — never the parents themselves, only their children.
+
+[cols="1,1,3", options="header"]
+|===
+| Slug | Status | Purpose
+
+| `persona`
+| active
+| Groups courses by role.
+Children: `developer`, `data-scientist`, `context-engineer`, `data-engineer`, `administrator`.
+
+| `paths`
+| active
+| Curated start-to-finish learning progressions.
+Children: `neo4j-app`, `graphrag-assistant`, `deploy-with-aura`.
+
+| `homepage`
+| disabled
+| The four learning-path cards shown on the GraphAcademy homepage, in order.
+Children: `cypher-neo4j-fundamentals` (0), `graph-data-science` (1), `app-development` (2), `generative-ai` (3).
+
+| `internal`
+| disabled
+| Internal classifications required on every course.
+Children: `coredb`, `gds`, `genai`, `beginners`, `intermediate`, `advanced`.
+
+| `languages`
+| disabled
+| Localised landing pages.
+Children: `pt`, `es`.
+|===
+
+==== Category attributes
+
+The following attributes are available on a category `.adoc` file:
+
+[cols="1,1,3", options="header"]
+|===
+| Attribute | Required | Description
+
+| `:parent:`
+| No
+| Comma-separated list of parent slugs with optional order (`parent:order`).
+A category can have multiple parents: `:parent: topic:1, homepage:2`.
+
+| `:caption:`
+| No
+| Short description shown on category cards.
+
+| `:call-to-action:`
+| No
+| Button label for homepage and path cards (e.g. `Start learning`).
+
+| `:link:`
+| No
+| Override URL for the category card link.
+
+| `:layout:`
+| No
+| Rendering hint for the website.
+Values: `default` (default), `path`, `workshops`, `homepage`.
+
+| `:certification:`
+| No
+| Certification slug or name that learners can expect to earn by completing this path.
+
+| `:shortname:`
+| No
+| Short display name used where space is limited.
+
+| `:redirect:`
+| No
+| Redirect the category page to another URL.
+
+| `:status:`
+| No
+| `active` (default) or `disabled`.
+Disabled categories are synced to the graph but hidden from all listings.
+
+| `:lang:`
+| No
+| BCP 47 language code (e.g. `pt`, `es`).
+Defaults to `en`.
+|===
+
+==== Internal classifications
+
+Every course *must* include at least one internal classification in its `:categories:` attribute.
+This is enforced by the `tests/categories.test.js` test suite.
+
+[cols="1,3", options="header"]
+|===
+| Slug | Use for
+
+| `coredb`
+| Core Neo4j database courses (Cypher, modeling, importing, application development, administration)
+
+| `gds`
+| Graph Data Science courses
+
+| `genai`
+| Generative AI and GraphRAG courses
+|===
 
 
 == Workshops

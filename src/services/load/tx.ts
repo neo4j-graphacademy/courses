@@ -50,7 +50,6 @@ export const mergeCourseDetails = (
 
       FOREACH (_ IN CASE WHEN course.certification THEN [1] ELSE [] END | SET c:Certification)
       FOREACH (r IN [(c)-[r:IN_CATEGORY]->(n) WHERE NOT n.slug IN [ x IN course.categories | x.category ] | r] | DELETE r)
-      FOREACH (r IN [(c)-[r:HAS_TRANSLATION]->(n) WHERE NOT n.slug IN course.translations | r] | DELETE r)
       FOREACH (r IN [(c)-[r:PROGRESS_TO]->(n) WHERE NOT n.slug IN course.progressToSlugs | r] | DELETE r)
       FOREACH (r IN [(c)-[r:HAS_PREREQUISITE]->(n) WHERE NOT n.slug IN course.prerequisiteSlugs | r] | DELETE r)
       // Set all modules to deleted and detach
@@ -70,7 +69,7 @@ export const mergeCourseDetails = (
       }
 
       UNWIND course.categories AS row
-      MERGE (cat:Category {id: apoc.text.base64Encode(row.category)})
+      MERGE (cat:Category {slug: row.category})
       MERGE (c)-[r:IN_CATEGORY]->(cat)
       SET r.order = toInteger(row.order)
   `,
