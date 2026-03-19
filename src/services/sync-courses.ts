@@ -1,101 +1,108 @@
 /* tslint:disable:no-console */
-import { getDriver } from '../modules/neo4j';
-import { checkSchema, disableAllCourses, mergeCourseDetails, mergeLessonDetails, mergeModuleDetails, mergeQuestionDetails } from './load/tx';
-import load from './load';
+import { getDriver } from "../modules/neo4j";
+import {
+  checkSchema,
+  disableAllCourses,
+  mergeCourseDetails,
+  mergeLessonDetails,
+  mergeModuleDetails,
+  mergeQuestionDetails,
+} from "./load/tx";
+import load from "./load";
 
 export async function syncCourses(): Promise<void> {
-    const { courses, modules, lessons, questions } = await load()
+  const { courses, modules, lessons, questions } = await load();
 
-    const driver = getDriver()
-    const session = driver.session()
+  const driver = getDriver();
+  const session = driver.session();
 
-    const courseCount = await session.executeWrite(async tx => {
-        // Disable all courses
-        const valid = courses.map(course => course.slug!)
-        await disableAllCourses(tx, valid)
+  const courseCount = await session.executeWrite(async (tx) => {
+    // Disable all courses
+    const valid = courses.map((course) => course.slug!);
+    await disableAllCourses(tx, valid);
 
-        await mergeCourseDetails(tx, courses)
+    await mergeCourseDetails(tx, courses);
 
-        return courses.length
-    })
-    console.log(`📚 ${courseCount} Courses merged into graph`);
+    return courses.length;
+  });
+  console.log(`📚 ${courseCount} Courses merged into graph`);
 
-    const moduleCount = await session.executeWrite(async tx => {
-        await mergeModuleDetails(tx, modules)
+  const moduleCount = await session.executeWrite(async (tx) => {
+    await mergeModuleDetails(tx, modules);
 
-        return modules.length
-    })
-    console.log(`   -- 📦 ${moduleCount} modules`);
+    return modules.length;
+  });
+  console.log(`   -- 📦 ${moduleCount} modules`);
 
-    const lessonCount = await session.executeWrite(async tx => {
-        const remaining = lessons.slice(0)
-        const batchSize = 100
+  const lessonCount = await session.executeWrite(async (tx) => {
+    const remaining = lessons.slice(0);
+    const batchSize = 100;
 
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
+    while (remaining.length) {
+      const batch = remaining.splice(0, batchSize);
 
-            await mergeLessonDetails(tx, batch)
-        }
+      await mergeLessonDetails(tx, batch);
+    }
 
-        return lessons.length
-    })
-    console.log(`   -- 📄 ${lessonCount} lessons`);
+    return lessons.length;
+  });
+  console.log(`   -- 📄 ${lessonCount} lessons`);
 
-    const questionCount = await session.executeWrite(async tx => {
-        const remaining = questions.slice(0)
-        const batchSize = 1000
+  const questionCount = await session.executeWrite(async (tx) => {
+    const remaining = questions.slice(0);
+    const batchSize = 1000;
 
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
+    while (remaining.length) {
+      const batch = remaining.splice(0, batchSize);
 
-            await mergeQuestionDetails(tx, batch)
-        }
+      await mergeQuestionDetails(tx, batch);
+    }
 
-        return questions.length
-    })
+    return questions.length;
+  });
 
-    console.log(`   -- 🤨 ${questionCount} questions`);
+  console.log(`   -- 🤨 ${questionCount} questions`);
 
-
-    // Clean {FIRST|LAST|NEXT}_{MODULE|LESSON}
-    await session.executeWrite(async tx => {
-        // Recreate (:Lesson) NEXT chain
-        await tx.run(`
+  // Clean {FIRST|LAST|NEXT}_{MODULE|LESSON}
+  await session.executeWrite(async (tx) => {
+    // Recreate (:Lesson) NEXT chain
+    await tx.run(`
             MATCH (:Module)-[r:FIRST_LESSON|LAST_LESSON|NEXT_MODULE]->()
             DELETE r
-        `)
-    })
-    console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|NEXT_MODULE]-> chain`);
+        `);
+  });
+  console.log(`   -- Removed -[:FIRST_LESSON|LAST_LESSON|NEXT_MODULE]-> chain`);
 
-    // Clean {FIRST|LAST|NEXT}_MODULE
-    await session.executeWrite(async tx => {
-        // Recreate (:Lesson) NEXT chain
-        await tx.run(`
+  // Clean {FIRST|LAST|NEXT}_MODULE
+  await session.executeWrite(async (tx) => {
+    // Recreate (:Lesson) NEXT chain
+    await tx.run(`
             MATCH (:Course)-[r:FIRST_MODULE|LAST_MODULE]->()
             DELETE r
-        `)
-    })
-    console.log(`   -- Removed -[:FIRST_MODULE|LAST_MODULE]-> chain`);
+        `);
+  });
+  console.log(`   -- Removed -[:FIRST_MODULE|LAST_MODULE]-> chain`);
 
-    // Clean NEXT chain
-    await session.executeWrite(async tx => {
-        // Recreate (:Lesson) NEXT chain
-        await tx.run(`
+  // Clean NEXT chain
+  await session.executeWrite(async (tx) => {
+    // Recreate (:Lesson) NEXT chain
+    await tx.run(`
             MATCH (:Lesson|Module)-[r:NEXT]->()
             DELETE r
-        `)
-    })
-    console.log(`   -- Removed -[:NEXT]-> chain`);
+        `);
+  });
+  console.log(`   -- Removed -[:NEXT]-> chain`);
 
-    await session.executeWrite(async tx => {
-        const remaining = courses.slice(0).map(course => course.slug)
-        const batchSize = 10
+  await session.executeWrite(async (tx) => {
+    const remaining = courses.slice(0).map((course) => course.slug);
+    const batchSize = 10;
 
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
+    while (remaining.length) {
+      const batch = remaining.splice(0, batchSize);
 
-            // Recreate (:Module) NEXT chain
-            await tx.run(`
+      // Recreate (:Module) NEXT chain
+      await tx.run(
+        `
                 MATCH (c:Course)-[:HAS_MODULE]->(m)
                 WHERE c.slug IN $batch AND NOT m:DeletedModule
                 WITH c, m ORDER BY m.order ASC
@@ -109,20 +116,23 @@ export async function syncCourses(): Promise<void> {
                 UNWIND range(0, size(modules)-2) AS idx
                 WITH modules[idx] AS last, modules[idx+1] AS next
                 MERGE (last)-[:NEXT_MODULE]->(next)
-            `, { batch })
-        }
-    })
-    console.log(`   -- Recreated (:Module)-[:NEXT_MODULE]->() chain`);
+            `,
+        { batch },
+      );
+    }
+  });
+  console.log(`   -- Recreated (:Module)-[:NEXT_MODULE]->() chain`);
 
-    await session.executeWrite(async tx => {
-        const remaining = modules.slice(0).map(module => module!.link)
-        const batchSize = 1000
+  await session.executeWrite(async (tx) => {
+    const remaining = modules.slice(0).map((module) => module!.link);
+    const batchSize = 1000;
 
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
+    while (remaining.length) {
+      const batch = remaining.splice(0, batchSize);
 
-            // Recreate (:Lesson) NEXT chain
-            await tx.run(`
+      // Recreate (:Lesson) NEXT chain
+      await tx.run(
+        `
                 MATCH (m:Module)-[:HAS_LESSON]->(l)
                 WHERE m.link IN $batch AND NOT l:DeletedModule AND NOT l:DeletedLesson
                 WITH m, l ORDER BY l.order ASC
@@ -140,30 +150,32 @@ export async function syncCourses(): Promise<void> {
                 WITH lessons[idx] AS last, lessons[idx+1] AS next
                 MERGE (last)-[:NEXT]->(next)
 
-            `, { batch })
-        }
-    })
-    console.log(`   -- Recreated (:Lesson) NEXT chain`);
+            `,
+        { batch },
+      );
+    }
+  });
+  console.log(`   -- Recreated (:Lesson) NEXT chain`);
 
-
-    await session.executeWrite(async tx => {
-        // Create -[:NEXT]-> between last (:Lesson) and next (:Module)
-        await tx.run(`
+  await session.executeWrite(async (tx) => {
+    // Create -[:NEXT]-> between last (:Lesson) and next (:Module)
+    await tx.run(`
             MATCH (last:Lesson)<-[:LAST_LESSON]-()-[:NEXT_MODULE]->(next)
             MERGE (last)-[:NEXT]->(next)
-        `)
-    })
-    console.log(`   -- Recreated (:Module)-[:NEXT]->(:Lesson)`);
+        `);
+  });
+  console.log(`   -- Recreated (:Module)-[:NEXT]->(:Lesson)`);
 
-    await session.executeWrite(async tx => {
-        const remaining = courses.slice(0).map(course => course.slug)
-        const batchSize = 100
+  await session.executeWrite(async (tx) => {
+    const remaining = courses.slice(0).map((course) => course.slug);
+    const batchSize = 100;
 
-        while (remaining.length) {
-            const batch = remaining.splice(0, batchSize)
+    while (remaining.length) {
+      const batch = remaining.splice(0, batchSize);
 
-            // Calculate progressPercentage
-            await tx.run(`
+      // Calculate progressPercentage
+      await tx.run(
+        `
                 MATCH p = (c:Course)-[:FIRST_MODULE]->()-[:NEXT*..200]->(end:Lesson)
                 WHERE c.slug IN $batch
                 AND NOT (end)-[:NEXT]->()
@@ -174,11 +186,13 @@ export async function syncCourses(): Promise<void> {
                 WHERE NOT node:Course
 
                 SET node.progressPercentage = round((1.0 * idx / size) * 100)
-            `, { batch })
-        }
-    })
-    console.log(`   -- Calculated progressPercentage`);
+            `,
+        { batch },
+      );
+    }
+  });
+  console.log(`   -- Calculated progressPercentage`);
 
-    // Integrity Checks
-    await checkSchema(session)
+  // Integrity Checks
+  await checkSchema(session);
 }
