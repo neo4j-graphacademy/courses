@@ -666,15 +666,48 @@ describe("QA Tests", () => {
                       it(
                         link,
                         async () => {
-                          if (
-                            !link.includes("openai") &&
-                            !link.includes("workspace.neo4j.io") &&
-                            !link.includes("example") &&
-                            !link.includes("localhost") &&
-                            !link.includes("dev.graphacademy.neo4j.com") &&
-                            !link.includes("neo4j-graphacademy/website") &&
-                            !link.includes("neo4j-graphacademy/certifications")
-                          ) {
+                          const shouldSkipLink = (urlString) => {
+                            let hostname;
+                            try {
+                              const parsed = new URL(urlString);
+                              hostname = parsed.hostname;
+                            } catch (e) {
+                              // If the URL cannot be parsed, fall back to not skipping.
+                              return false;
+                            }
+
+                            // Skip links to any OpenAI-related hosts (e.g. *.openai.com).
+                            if (hostname.includes("openai")) {
+                              return true;
+                            }
+
+                            // Skip specific known hosts.
+                            const skipHosts = new Set([
+                              "workspace.neo4j.io",
+                              "localhost",
+                              "dev.graphacademy.neo4j.com",
+                            ]);
+                            if (skipHosts.has(hostname)) {
+                              return true;
+                            }
+
+                            // Skip example domains (e.g. example.com, www.example.com).
+                            if (hostname === "example.com" || hostname.endsWith(".example.com")) {
+                              return true;
+                            }
+
+                            // Skip specific repository/path links by substring on full URL.
+                            if (
+                              urlString.includes("neo4j-graphacademy/website") ||
+                              urlString.includes("neo4j-graphacademy/certifications")
+                            ) {
+                              return true;
+                            }
+
+                            return false;
+                          };
+
+                          if (!shouldSkipLink(link)) {
                             const statusCode = await getStatusCode(link);
                             try {
                               expect([200, 401, 402, 403, 408, 429]).toContain(
