@@ -4,7 +4,12 @@
 
 When you release a course, promote it internally so the right teams and stakeholders know it is live and can share it with learners.
 
-In this lesson, you will learn where to post and how to set up automatic posting to Asana when a labelled PR is merged.
+In this lesson, you will learn how to:
+
+* Promote a release to the right internal teams
+* Post course metadata to Asana automatically on merge
+* Send a Slack promo when a PR with the **Release** label is merged
+* Request SME feedback on Slack when the **sme-review** label is applied
 
 
 == Where to promote
@@ -187,12 +192,49 @@ SLACK_CONFIG=release npm run release:slack -- <course_slug>
 Ensure `SLACK_BOT_TOKEN` is set (e.g. in `.env`). The same template and config are used as in the workflow.
 
 
+== Requesting SME review
+
+Before merging a PR, you can request subject-matter expert feedback by applying the **sme-review** label to the PR. A GitHub Actions workflow detects the label and posts a review request to the **#graphacademy** Slack channel.
+
+The message includes the course title, caption, and a link to the course on GraphAcademy, and asks reviewers to share corrections or suggestions in thread.
+
+
+=== How it works
+
+* Applying the **sme-review** label triggers the `sme-review-slack.yml` workflow
+* The workflow finds which `course.adoc` files are in the PR and derives the course slug(s)
+* It posts using the template `asciidoc/shared/release/sme-review.adoc` and sends the message to the channels defined in `config/promo/sme-review.json`
+
+Edit `asciidoc/shared/release/sme-review.adoc` to change the message wording, and edit `config/promo/sme-review.json` to add or remove channels.
+
+
+=== Running locally
+
+To send an SME review request for a course without applying a label to a PR:
+
+[source,sh]
+----
+npm run review:slack -- <course_slug>
+----
+
+Example:
+
+[source,sh]
+----
+npm run review:slack -- aura-agents
+----
+
+Ensure `SLACK_BOT_TOKEN` is set (e.g. in `.env`).
+
+
 read::Continue[]
 
 
 [.summary]
 == Summary
 
-In this lesson, you learned how to promote a release internally: post to Asana (with optional automatic tasks from the repo), Slack using the release template and channel config, and team or SME channels, and include a blog post in your promotion plan.
+In this lesson, you learned how to promote a release internally and request pre-release feedback using GitHub PR labels.
 
-Config in `config/promo/` (e.g. `release.json`) holds both `asana.destinations` and `slack.channels`. Use `asana:url-to-destination`, `asana:list-sections`, and `asana:list-assignees` to build Asana entries. Edit `asciidoc/shared/release/release.adoc` for the Slack message; run `release:asana` and `release:slack` locally with a course slug to test.
+* **Asana** – Merging a PR with the **Release** label posts course metadata to the boards and assignees configured in `config/promo/release.json` (`asana.destinations`). Use `asana:url-to-destination`, `asana:list-sections`, and `asana:list-assignees` to build destination entries.
+* **Slack release promo** – The same merge posts to the channels in `config/promo/release.json` (`slack.channels`) using the template at `asciidoc/shared/release/release.adoc`. Run `release:slack <slug>` locally to test.
+* **SME review request** – Applying the **sme-review** label to an open PR posts a feedback request to the channels in `config/promo/sme-review.json` using the template at `asciidoc/shared/release/sme-review.adoc`. Run `review:slack <slug>` locally to test.

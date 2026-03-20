@@ -1,0 +1,59 @@
+name: SME review request
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  sme-review-slack:
+    permissions:
+      contents: read
+      pull-requests: read
+    if: github.event.label.name == 'sme-review'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get course slugs from PR files
+        id: courses
+        run: |
+          SLUGS=$(
+            page=1
+            while :; do
+              RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files?per_page=100&page=${page}")
+              COUNT=$(echo "$RESPONSE" | jq 'length')
+              if [ "$COUNT" -eq 0 ]; then
+                break
+              fi
+              echo "$RESPONSE" | jq -r '.[].filename'
+              if [ "$COUNT" -lt 100 ]; then
+                break
+              fi
+              page=$((page + 1))
+            done | grep -E '^asciidoc/courses/[^/]+/course\.adoc$' | sed 's|asciidoc/courses/||;s|/course\.adoc||' | sort -u || true
+          )
+          if [ -n "$SLUGS" ]; then
+            {
+              echo "course_paths<<EOF"
+              echo "$SLUGS"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Post SME review request to Slack
+        if: steps.courses.outputs.course_paths != ''
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          COURSE_PATHS: ${{ steps.courses.outputs.course_paths }}
+          GRAPHACADEMY_BASE_URL: https://graphacademy.neo4j.com
+        run: npm run review:slack

@@ -671,6 +671,7 @@ describe("QA Tests", () => {
                             !link.includes("workspace.neo4j.io") &&
                             !link.includes("example") &&
                             !link.includes("localhost") &&
+                            !link.includes("dev.graphacademy.neo4j.com") &&
                             !link.includes("neo4j-graphacademy/website") &&
                             !link.includes("neo4j-graphacademy/certifications")
                           ) {
