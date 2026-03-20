@@ -23,6 +23,7 @@ import {
   readCourseMetadata,
   resolveCoursePath,
 } from "../release/course-metadata";
+import { looksLikeChannelId, resolveChannelId } from "./slack-utils";
 
 config({ path: process.env.ENV_FILE ?? ".env" });
 
@@ -94,43 +95,6 @@ function htmlToSlackText(html: string): string {
   // Decode any HTML entities into plain text.
   text = decodeHtmlEntities(text);
   return text.replace(/\n{3,}/g, "\n\n").trim();
-}
-
-/** Slack channel IDs are C... (public) or G... (private). Names do not start with C or G. */
-function looksLikeChannelId(channel: string): boolean {
-  const c = channel.trim();
-  return c.length > 0 && (c.startsWith("C") || c.startsWith("G"));
-}
-
-/**
- * Resolve channel name to ID using conversations.list (needs channels:read scope).
- * Returns the original string if it already looks like an ID or resolution fails.
- */
-async function resolveChannelId(
-  channel: string,
-  web: WebClient,
-): Promise<string> {
-  const name = channel.replace(/^#/, "").trim();
-  if (looksLikeChannelId(name)) {
-    return name;
-  }
-  let cursor: string | undefined;
-  do {
-    const result = await web.conversations.list({
-      types: "public_channel,private_channel",
-      limit: 200,
-      cursor,
-    });
-    if (!result.ok || !result.channels) {
-      return channel;
-    }
-    const match = result.channels.find(
-      (ch) => ch.name === name || ch.name === channel,
-    );
-    if (match?.id) return match.id;
-    cursor = result.response_metadata?.next_cursor;
-  } while (cursor);
-  return channel;
 }
 
 /**

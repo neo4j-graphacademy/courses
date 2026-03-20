@@ -1,0 +1,286 @@
+# Building Agents in Neo4j Aura
+
+Learn to build and publish agentic systems in Neo4j Aura: no/low-code agents that query a knowledge graph stored in AuraDB, configured and tested entirely in the Aura Console.
+
+[Learn more about this course](https://graphacademy.neo4j.com/courses/aura-agents)
+
+## Concepts
+
+* **Aura Agent** - A no/low-code agent platform built into the Aura Console. The orchestration, reasoning, and graph queries run inside Aura's infrastructure — no external API integration or application code required.
+* **Orchestrator** - Coordinates the agent workflow: receives a user query, selects which tools to invoke, incorporates tool results into context, and synthesizes the final response.
+* **Cypher Template** - A pre-written, parameterized Cypher query registered as a tool. The LLM extracts parameter values from the user's question and runs the fixed query. Results are deterministic.
+* **Text2Cypher** - A tool that generates a Cypher query from a natural language question at runtime and executes it. Flexible but probabilistic — the generated query may have errors.
+* **Similarity Search** - A tool that finds graph nodes semantically similar to the user's question using vector embeddings and a vector index.
+* **Tool Description** - The text that tells the LLM when to invoke a tool and what parameters it accepts. Vague descriptions cause wrong tool selection.
+* **MCP (Model Context Protocol)** - An open protocol that lets AI host applications connect to external data sources and tools. Enabling MCP on an Aura Agent exposes it as an MCP server endpoint.
+* **Internal access** - Default agent visibility. Only members of the Aura project can use the agent. Free.
+* **External access** - Makes the agent accessible through an MCP server endpoint. Incurs charges per Neo4j pricing.
+* **Tool authentication** - The "Allow tools to connect" toggle on an AuraDB instance's Security Settings. Must be enabled for agents to query the instance.
+
+## Agent Architecture
+
+An Aura Agent has four components:
+
+- **LLM** - Handles planning, reasoning, and tool selection
+- **Tools** - Query structured data in AuraDB (read-only). Types: Cypher Template, Text2Cypher, Similarity Search
+- **Knowledge graph** - The nodes and relationships in your AuraDB instance
+- **Orchestrator** - Coordinates the workflow
+
+The agent does not learn from queries, update the graph, or store conversation history between sessions.
+
+[Reference: Architecture > Introduction to Aura Agents](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/1-introduction)
+
+## Agent Lifecycle
+
+Every Aura Agent follows five steps per query:
+
+1. **Receive** - User query or message arrives
+2. **Reason** - LLM plans which tools to use and in what order
+3. **Act** - Invoke selected tools (Cypher Template, Text2Cypher, or Similarity Search)
+4. **Observe** - Incorporate tool results into context
+5. **Respond** - Generate final natural language answer
+
+[Reference: Architecture > Introduction to Aura Agents](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/1-introduction)
+
+## Tool Types and When to Use Them
+
+### Cypher Template
+
+Use when you can anticipate the question in advance and the query structure is fixed:
+
+```
+Name: Get Customer
+Description: Return customer details and recent orders for a customer ID, for example ALFKI.
+Parameter: customer_id, string, the customer ID to look up
+```
+
+```cypher
+MATCH (c:Customer {id: $customer_id})
+  -[:PLACED]->(o:Order)
+RETURN c.id, c.companyName, c.contactName,
+  collect(o.orderId)[0..5] AS recentOrders
+```
+
+Multi-hop traversals are a key strength: a single Cypher Template can follow multiple relationships in one query, returning everything the agent needs without relying on the LLM to generate the traversal.
+
+```
+Name: Products by Category
+Description: List products in a category, supports partial name match such as Beverages or Beverage.
+Parameter: category, string, category name or partial name to match
+```
+
+```cypher
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category)
+WHERE c.name CONTAINS $category
+RETURN p.name, c.name
+LIMIT 20
+```
+
+[Reference: Architecture > Available Tools](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/2-tools-and-components)
+
+### Text2Cypher
+
+Use as a fallback for ad-hoc and aggregation questions that vary too much to write templates for:
+
+```
+Name: Query Northwind
+Description: Use this tool ONLY when no other tool covers the question.
+The graph contains: Customer, Order, Product, Category, Supplier nodes.
+Relationships: PLACED (Customer→Order), CONTAINS (Order→Product), IN_CATEGORY (Product→Category), SUPPLIES (Supplier→Product).
+```
+
+Text2Cypher is probabilistic — always test generated queries in the reasoning panel. Reserve for questions you cannot anticipate. If a question recurs frequently, convert it to a Cypher Template.
+
+[Reference: Architecture > Available Tools](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/2-tools-and-components)
+
+### Similarity Search
+
+Use for concept or semantic matching questions where exact keyword matching is insufficient. Requires vector embeddings on the target nodes and a vector index in AuraDB. Supported embedding providers: OpenAI (through Azure), Vertex AI.
+
+```
+Name: Find Similar Products
+Description: Find products semantically similar to a description or concept.
+Index: product-embeddings
+Top K: 5
+```
+
+[Reference: Architecture > Available Tools](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/2-tools-and-components)
+
+## Tool Selection Guide
+
+| Question type | Best tool | Example |
+|---------------|-----------|---------|
+| Predictable, parameterized | Cypher Template | "Get customer ALFKI", "List products in Beverages" |
+| Ad-hoc aggregation | Text2Cypher | "Top 10 products by revenue across all categories" |
+| Recurring aggregation | Cypher Template (parameterized) | "Top products in [category]" |
+| Semantic/concept matching | Similarity Search | "Products similar to spicy condiments" |
+
+**Decision rule**: Start with Cypher Templates for all questions you can anticipate. Add Text2Cypher as a fallback. Add Similarity Search only when your graph has vector embeddings.
+
+[Reference: Architecture > Available Tools](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/2-tools-and-components)
+
+## Agent Design Process
+
+Before creating an agent in the console, define three things:
+
+1. **Role and scope** - What does this agent do and what is out of bounds? One focused task per agent works better than a multi-purpose agent.
+2. **Question types** - Group into predictable queries (Cypher Templates) and ad-hoc queries (Text2Cypher).
+3. **Tool descriptions** - The LLM selects tools based solely on their descriptions. Vague descriptions cause wrong tool selection.
+
+**Northwind Analyst example design**:
+
+| Element | Value |
+|---------|-------|
+| Role | Northwind retail analyst |
+| Scope | Customers, orders, products, categories, suppliers. Decline off-topic requests. |
+| Cypher Template tools | Get Customer, Top Customers by Order Count, Products by Category, Get Product |
+| Text2Cypher tool | Fallback for ad-hoc questions not covered by templates |
+
+[Reference: Design and Implementation > Design and Implement an Agent](https://graphacademy.neo4j.com/courses/aura-agents/2-design-implement/2-implement-simple-agents)
+
+## Creating an Agent
+
+### From scratch
+
+1. Go to Aura Console → Data Services → Agents → Create Agent
+2. Select **Create from scratch**
+3. Select your AuraDB instance
+4. Configure name, description, and instructions
+5. Add tools one by one
+
+**Instructions template for Northwind Analyst**:
+
+```
+You are a Northwind retail analyst with access to a knowledge graph of products,
+customers, orders, suppliers, and categories. You can answer questions about
+customers, orders, products, categories, suppliers, and their relationships.
+If the question is off-topic or harmful, politely decline.
+```
+
+Include node labels and relationship types in your instructions — this helps Text2Cypher generate valid Cypher.
+
+### With AI
+
+Select **Create with AI**, describe your agent's purpose, and Aura generates an initial set of tools and instructions based on your instance schema. Review each generated tool, check descriptions and Cypher queries, and adjust to match your use case. Useful when you want a working draft to iterate from.
+
+[Reference: Design and Implementation > Design and Implement an Agent](https://graphacademy.neo4j.com/courses/aura-agents/2-design-implement/2-implement-simple-agents)
+
+## Tool Description Best Practices
+
+### DO
+
+- State exactly what the tool returns and what types of questions trigger it
+- List accepted parameters with their expected format and examples
+- Include schema hints in Text2Cypher descriptions (node labels, relationship types)
+- Tell Text2Cypher when NOT to be used: "Use this tool ONLY when no other tool covers the question"
+
+### DON'T
+
+- Use vague descriptions like "answers user questions"
+- Omit parameter descriptions — the LLM uses them to extract values
+- Skip relationship types in Text2Cypher descriptions
+
+### Cypher Template parameter format
+
+```
+Parameter name: customer_id
+Data type: string
+Description: The Northwind customer ID to look up, for example ALFKI
+```
+
+[Reference: Design and Implementation > Design and Implement an Agent](https://graphacademy.neo4j.com/courses/aura-agents/2-design-implement/2-implement-simple-agents)
+
+## Debugging with the Reasoning Panel
+
+Every agent response in the preview panel has a **Thought** section. Expand it to see:
+
+- **Reasoning** - The LLM's internal thought process as it decides which tool to invoke
+- **Applying agent tool** - The tool name, the input sent to it, and the output returned (including generated Cypher for Text2Cypher)
+
+If the agent selects the wrong tool, read the reasoning text to understand why, then improve the tool descriptions so the LLM can distinguish between them.
+
+[Reference: Design and Implementation > Design and Implement an Agent](https://graphacademy.neo4j.com/courses/aura-agents/2-design-implement/2-implement-simple-agents)
+
+## Setup: Enabling Tool Authentication
+
+Before creating an agent:
+
+1. In Aura Console, click your organization name → **Settings** (left sidebar)
+2. Under **Preferences**, verify both toggles are **on**:
+   - **Generative AI assistance**
+   - **Aura Agent**
+3. On your AuraDB instance, open **Security Settings** and enable **Allow tools to connect**
+
+Disabling Generative AI assistance automatically disables Aura Agent.
+
+[Reference: Architecture > Your First Agent](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/3-first-agent)
+
+## Publishing an Agent with MCP
+
+### Access modes
+
+- **Internal** (default) - Accessible to Aura project members only. Free.
+- **External** - Exposed through an MCP server endpoint. Incurs charges.
+
+### Steps to publish
+
+1. Open your agent in Aura Console
+2. Click the agent menu → **Configure**
+3. Under Access, select **External**
+4. Enable the **MCP server** toggle
+5. Click **Save**
+6. From the agent menu, copy the **MCP server endpoint**
+
+### Connecting to Cursor
+
+Add the MCP endpoint to Cursor's `mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "neo4j-graphacademy-agent": {
+      "url": "<your-mcp-url>",
+      "transport": "streamable-http"
+    }
+  }
+}
+```
+
+MCP uses OAuth — the first connection opens a login prompt for Aura Console credentials.
+
+[Reference: Publishing Agents > Publishing an Agent](https://graphacademy.neo4j.com/courses/aura-agents/3-hands-on-challenges/2-publishing-agent)
+
+## Complete Cypher Template Reference (Northwind)
+
+### Top Customers by Order Count
+
+```cypher
+MATCH (c:Customer)-[:PLACED]->(o:Order)
+WITH c, count(o) AS orderCount
+RETURN c.companyName, c.id, orderCount
+ORDER BY orderCount DESC LIMIT $limit
+```
+
+Parameters: `limit` (int, default 10)
+
+### Get Product
+
+```cypher
+MATCH (p:Product)-[:IN_CATEGORY]->(c:Category)
+WHERE p.productID = $product_id
+RETURN p.id, p.name, p.unitPrice, c.name
+```
+
+Parameters: `product_id` (string)
+
+### Verify data load
+
+```cypher
+MATCH (n)
+RETURN labels(n)[0] AS label, count(n) AS count
+ORDER BY count DESC
+```
+
+Expected: rows for Customer, Order, Product, Category, Supplier.
+
+[Reference: Architecture > Your First Agent](https://graphacademy.neo4j.com/courses/aura-agents/1-architecture/3-first-agent)
