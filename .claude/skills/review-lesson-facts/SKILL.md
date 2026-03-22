@@ -1,7 +1,7 @@
 ---
 name: review-lesson-facts
 description: Fact-check a single lesson against Neo4j documentation using the neo4j-docs MCP. Fixes inaccurate claims inline and appends a WHY report.
-allowed-tools: Read, Edit, Grep, WebSearch, WebFetch, mcp_neo4j-docs_read_page, mcp_neo4j-docs_list_manual_pages
+allowed-tools: Read, Edit, Grep, mcp_neo4j-docs_read_page, mcp_neo4j-docs_list_manual_pages, mcp_neo4j-docs_read_course
 ---
 
 # Review: Fact Checking
@@ -13,6 +13,7 @@ allowed-tools: Read, Edit, Grep, WebSearch, WebFetch, mcp_neo4j-docs_read_page, 
 **Input:** Path to a lesson folder (e.g. `asciidoc/courses/my-course/modules/1-intro/lessons/1-overview/`)
 
 **Output:**
+
 - `lesson.adoc` — fixed in place where claims are confirmed wrong
 - `REVIEW-REPORT.md` in the lesson folder — created or appended with a fact-check section
 
@@ -27,25 +28,6 @@ This review:
 3. **Categorises findings** — Accurate / Needs clarification / Unverified / Incorrect
 4. **Fixes confirmed errors** — changes text that contradicts documentation
 5. **Softens unverified recommendations** — adds qualifying language where claims are not in docs
-
----
-
-## Third-party library courses
-
-When fact-checking a lesson about a third-party library (not Neo4j core), the neo4j-docs MCP does not cover it. Use `WebSearch` and `WebFetch` instead to build a live API baseline before Phase 1.
-
-**For `neo4j-agent-memory`:**
-
-1. Search for the library: `WebSearch "neo4j-agent-memory python library site:github.com OR site:pypi.org"`
-2. Fetch the PyPI page and GitHub README to get the current public API surface, configuration objects, and graph schema
-3. Key facts to establish before reviewing any lesson:
-   - How many and which configuration objects are required (`MemorySettings`, `Neo4jConfig`, `EmbeddingConfig` — all three)
-   - The correct relationship name between `Message` and `Entity` nodes (direction and type)
-   - Which classes and functions are exported at the top-level vs sub-modules
-   - Whether any `deps` argument is required when calling `agent.run()` with `create_memory_tools()`
-   - What fields the `get_context()` return object exposes
-
-Do not rely on what the lesson says the library does — fetch the authoritative source first, then compare.
 
 ---
 
@@ -68,29 +50,26 @@ Read `lesson.adoc` in full. Build a list of technical claims to verify:
 
 ## Phase 2: Determine Relevant Documentation
 
-### Neo4j core docs — use the `neo4j-docs` MCP
+Map each claim to the appropriate manual. Use `mcp_neo4j-docs_list_manual_pages` to find relevant pages.
 
-The project includes a local MCP server (`neo4j-docs`) that fetches and caches neo4j.com documentation. Use it for all Neo4j core claims:
+**Available manuals:**
 
-- **Find pages in a manual:** `mcp_neo4j-docs_list_manual_pages(manual_name)` — returns a list of URLs in that manual's sitemap
-- **Read a page:** `mcp_neo4j-docs_read_page(url)` — fetches and strips the page to plain text
+| Manual               | Content                                                      |
+| -------------------- | ------------------------------------------------------------ |
+| `aura`               | Aura cloud service — metrics, tiers, console, performance    |
+| `operations-manual`  | Self-managed Neo4j — config, monitoring, metrics, clustering |
+| `cypher-manual`      | Cypher language reference — clauses, functions, syntax       |
+| `graph-data-science` | GDS library — algorithms, procedures, syntax                 |
+| `java-reference`     | Java API, JVM settings                                       |
+| `cdc`                | Change Data Capture                                          |
 
-Available manuals (pass the exact string to `list_manual_pages`):
+**Key documentation URLs to check directly:**
 
-| Manual name | Content |
-|-------------|---------|
-| `aura` | Aura cloud service — metrics, tiers, console, performance |
-| `operations-manual` | Self-managed Neo4j — config, monitoring, metrics, clustering |
-| `cypher-manual` | Cypher language reference — clauses, functions, syntax |
-| `graph-data-science` | GDS library — algorithms, procedures, syntax |
-| `java-reference` | Java API, JVM settings |
-| `cdc` | Change Data Capture |
-
-If you already know the URL, call `read_page` directly rather than listing the sitemap first.
-
-### Third-party libraries — use WebSearch + WebFetch
-
-The `neo4j-docs` MCP only covers neo4j.com. For third-party libraries, fetch their PyPI page or GitHub README via `WebSearch` + `WebFetch` before starting (see "Third-party library courses" section above).
+- Aura metrics view: `https://neo4j.com/docs/aura/metrics/view-metrics/`
+- Aura metrics reference: `https://neo4j.com/docs/aura/metrics/metrics-integration/reference/`
+- Self-managed essential metrics: `https://neo4j.com/docs/operations-manual/current/monitoring/metrics/essential/`
+- Self-managed metrics reference: `https://neo4j.com/docs/operations-manual/current/monitoring/metrics/reference/`
+- Cypher manual (current): `https://neo4j.com/docs/cypher-manual/current/`
 
 ---
 
@@ -100,12 +79,12 @@ For each claim, use `mcp_neo4j-docs_read_page` to read the relevant documentatio
 
 Categorise each finding:
 
-| Symbol | Meaning |
-|--------|---------|
-| ✅ Accurate | Directly confirmed by documentation |
-| ⚠️ Needs clarification | Correct but could be more precise |
-| ❓ Unverified | Not found in docs — may be a best practice |
-| ❌ Incorrect | Contradicts documentation |
+| Symbol                 | Meaning                                    |
+| ---------------------- | ------------------------------------------ |
+| ✅ Accurate            | Directly confirmed by documentation        |
+| ⚠️ Needs clarification | Correct but could be more precise          |
+| ❓ Unverified          | Not found in docs — may be a best practice |
+| ❌ Incorrect           | Contradicts documentation                  |
 
 ---
 
@@ -183,12 +162,12 @@ After reviewing, create or append `REVIEW-REPORT.md` in the lesson folder.
 
 ### Claims Verified
 
-| Claim | Status | Source |
-|-------|--------|--------|
-| Cache hit rate metric name `neo4j.page_cache.hits` | ✅ Accurate | operations-manual/monitoring/metrics/reference |
-| "Available in all Aura tiers" | ⚠️ Needs clarification | Aura Free has limited metrics — updated to "Aura Professional and above" |
-| Threshold "above 98%" for cache hits | ❓ Unverified | Not in docs — qualified with "as a general guideline" |
-| Procedure name `gds.beta.kmeans` | ❌ Incorrect | Graduated to `gds.kmeans` in GDS 2.3 — fixed |
+| Claim                                              | Status                 | Source                                                                   |
+| -------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ |
+| Cache hit rate metric name `neo4j.page_cache.hits` | ✅ Accurate            | operations-manual/monitoring/metrics/reference                           |
+| "Available in all Aura tiers"                      | ⚠️ Needs clarification | Aura Free has limited metrics — updated to "Aura Professional and above" |
+| Threshold "above 98%" for cache hits               | ❓ Unverified          | Not in docs — qualified with "as a general guideline"                    |
+| Procedure name `gds.beta.kmeans`                   | ❌ Incorrect           | Graduated to `gds.kmeans` in GDS 2.3 — fixed                             |
 
 ### Changes Made
 

@@ -13,6 +13,7 @@ allowed-tools: Read, Edit, Glob, Grep
 **Input:** Path to a lesson folder (e.g. `asciidoc/courses/my-course/modules/1-intro/lessons/1-overview/`)
 
 **Output:**
+
 - `lesson.adoc` — fixed in place
 - `REVIEW-REPORT.md` in the lesson folder — created or appended with a technical section
 
@@ -48,6 +49,7 @@ Read `lesson.adoc` in full before making changes. Note:
 There must be a blank line between a paragraph and any list (ordered or unordered).
 
 ❌
+
 ```asciidoc
 Here is some text.
 * Item 1
@@ -55,6 +57,7 @@ Here is some text.
 ```
 
 ✅
+
 ```asciidoc
 Here is some text.
 
@@ -67,6 +70,7 @@ Here is some text.
 There must be **two** blank lines between section blocks (before a `[.slide]` marker or a `==` header).
 
 ❌
+
 ```asciidoc
 [.slide]
 == Section One
@@ -77,6 +81,7 @@ Content here.
 ```
 
 ✅
+
 ```asciidoc
 [.slide]
 == Section One
@@ -92,26 +97,28 @@ Content here.
 
 Replace any markdown that has crept in:
 
-| Markdown (wrong) | AsciiDoc (correct) |
-|------------------|-------------------|
-| `## Heading` | `== Heading` |
-| `**bold**` | `*bold*` |
-| `` ```lang `` / ` ``` ` | `[source,lang]\n----\n----` |
-| `[link text](url)` | `link:url[link text]` |
-| `> blockquote` | `[quote]\n____\ntext\n____` |
-| `---` (horizontal rule) | `'''` |
+| Markdown (wrong)        | AsciiDoc (correct)          |
+| ----------------------- | --------------------------- |
+| `## Heading`            | `== Heading`                |
+| `**bold**`              | `*bold*`                    |
+| ` ```lang ` / ` ``` `   | `[source,lang]\n----\n----` |
+| `[link text](url)`      | `link:url[link text]`       |
+| `> blockquote`          | `[quote]\n____\ntext\n____` |
+| `---` (horizontal rule) | `'''`                       |
 
 ### Ordered lists — dot notation
 
 Use `.` for ordered list items, not explicit numbers.
 
 ❌
+
 ```asciidoc
 1. First step
 2. Second step
 ```
 
 ✅
+
 ```asciidoc
 . First step
 . Second step
@@ -167,6 +174,7 @@ Links within the course (to other lessons or modules) do not need `^` and should
 Code blocks must use four hyphens `----`, not backticks.
 
 ❌
+
 ````asciidoc
 ```cypher
 MATCH (n) RETURN n;
@@ -174,6 +182,7 @@ MATCH (n) RETURN n;
 ````
 
 ✅
+
 ```asciidoc
 [source,cypher]
 .Find all nodes
@@ -203,6 +212,7 @@ Callouts in code blocks use angle-bracket notation with a `//` comment:
 ✅ `MATCH (n) RETURN n; // <1>`
 
 The callout list below the code block uses:
+
 ```asciidoc
 <1> Explanation of this part
 <2> Explanation of this part
@@ -218,6 +228,7 @@ Every code block must have both:
 A code block with only an introduction but no follow-up is incomplete — the learner sees the code but does not know what to expect from it.
 
 ❌ (introduction only, no effect):
+
 ```asciidoc
 Add a user preference to long-term memory:
 
@@ -233,6 +244,7 @@ read::Continue[]
 ```
 
 ✅ (introduction + effect):
+
 ```asciidoc
 Add a user preference to long-term memory:
 
@@ -248,6 +260,7 @@ This creates a `Preference` node linked to the current user. On future sessions,
 ```
 
 ❌ (no introduction, code appears directly after prose):
+
 ```asciidoc
 Your AuraDB graph stores connected data.
 
@@ -258,7 +271,6 @@ RETURN m.title
 ----
 ```
 
-✅ (introduction + effect):
 ```asciidoc
 A Cypher Template stores a fixed query with one or more parameters the LLM fills at runtime.
 A "Get Customer" tool might look like this:
@@ -290,11 +302,13 @@ If the code is intentionally incomplete, move it into a callout explanation rath
 Every Python code block must be self-contained or clearly part of a continuation. Any class, function, or variable used in a code block must be either defined in that block or imported in that block.
 
 ❌ (uses `MemoryDependency` without import or definition — NameError at runtime)
+
 ```python
 result = await agent.run("Hello", deps=MemoryDependency(memory=memory))
 ```
 
 ✅ (all names are either imported or clearly part of the library's public API)
+
 ```python
 result = await agent.run("Hello")
 ```
@@ -314,6 +328,7 @@ Flag any code block that references an undefined name. Do not guess at what the 
 AsciiDoc definition lists (`term::` / body) must be converted to bullet points with the term bolded inline. Definition lists render inconsistently and are harder to read on screen.
 
 ❌
+
 ```asciidoc
 Context injection::
 The most recent messages are retrieved and injected into each new prompt automatically.
@@ -323,6 +338,7 @@ Past messages are embedded and indexed.
 ```
 
 ✅
+
 ```asciidoc
 * *Context injection* — the most recent messages are retrieved and injected into each new prompt automatically.
 * *Semantic search* — past messages are embedded and indexed.
@@ -337,10 +353,12 @@ Past messages are embedded and indexed.
 A `[source,cypher]` block that shows node definitions (`(:Label {props})`) or relationship patterns without a `MATCH`/`CREATE`/`RETURN` clause is a schema diagram, not executable Cypher. Schema diagrams must use `[source,mermaid]` so the platform renders them as graphs.
 
 **How to identify a schema block vs executable Cypher:**
+
 - Schema: contains `(:Label {prop})` node definitions or bare relationship patterns like `(a)-[:REL]->(b)` without `MATCH`, `CREATE`, `MERGE`, `RETURN`
 - Executable: contains Cypher clauses (`MATCH`, `CREATE`, `WITH`, `RETURN`, etc.) — keep as `[source,cypher]`
 
 ❌ Schema shown as Cypher (wrong):
+
 ```asciidoc
 [source,cypher]
 .Short-term memory schema
@@ -352,6 +370,7 @@ A `[source,cypher]` block that shows node definitions (`(:Label {props})`) or re
 ```
 
 ✅ Schema shown as Mermaid (correct):
+
 ```asciidoc
 [source,mermaid]
 ----
@@ -360,13 +379,14 @@ graph LR
 ----
 ```
 
-When converting, replace node definitions with Mermaid node syntax and keep the key properties inline using ` \n ` line breaks. Use `graph LR` for linear chains and `graph TB` for multi-layer schemas with subgraphs.
+When converting, replace node definitions with Mermaid node syntax and keep the key properties inline using `\n` line breaks. Use `graph LR` for linear chains and `graph TB` for multi-layer schemas with subgraphs.
 
 ## Phase 4c: Mermaid Diagrams
 
 Mermaid diagrams must use the `[source,mermaid]` block attribute, **not** `[mermaid]` alone.
 
 ❌
+
 ```asciidoc
 [mermaid]
 ----
@@ -376,6 +396,7 @@ graph LR
 ```
 
 ✅
+
 ```asciidoc
 [source,mermaid]
 ----
@@ -391,16 +412,22 @@ If a lesson contains `[mermaid]` without `source,`, replace it with `[source,mer
 Inside Mermaid node labels, `\n` must have a space on both sides to render as a line break. Without surrounding spaces, the text runs together.
 
 ❌
+
 ```
 M1([Message\nrole: user])
 ```
 
 ✅
+
 ```
 M1([Message \n role: user])
 ```
 
 If a diagram contains `\n` without surrounding spaces inside node labels, add them.
+
+=======
+
+> > > > > > > fa056e45f (update claude skills)
 
 ---
 
@@ -409,6 +436,7 @@ If a diagram contains `\n` without surrounding spaces inside node labels, add th
 Every admonition (`[NOTE]`, `[TIP]`, `[WARNING]`, `[CAUTION]`, `[IMPORTANT]`) must have a title:
 
 ❌
+
 ```asciidoc
 [NOTE]
 =====
@@ -417,6 +445,7 @@ This is important.
 ```
 
 ✅
+
 ```asciidoc
 [NOTE]
 .Important
@@ -436,6 +465,7 @@ The title should be brief and descriptive, not just repeat the admonition type.
 A lesson **cannot** have both a `read::` button and questions. If a `questions/` folder exists with `.adoc` files, remove the `read::` button.
 
 ❌ (lesson has both)
+
 ```asciidoc
 read::Let's move on[]
 
@@ -443,6 +473,7 @@ include::questions/1-question.adoc[leveloffset=+1]
 ```
 
 ✅ (keep only the include)
+
 ```asciidoc
 include::questions/1-question.adoc[leveloffset=+1]
 ```
@@ -481,6 +512,7 @@ If the lesson contains any `[.slide` markers, it has slide view enabled and requ
 The lesson must begin with a level-2 header immediately after the attributes. Text before the first header is not shown in slide view.
 
 ❌
+
 ```asciidoc
 = Lesson Title
 :order: 1
@@ -489,6 +521,7 @@ Some opening text without a header.
 ```
 
 ✅ (header visible in slide view)
+
 ```asciidoc
 = Lesson Title
 :order: 1
@@ -501,6 +534,7 @@ Some opening text.
 ```
 
 ✅ (header hidden in read view with discrete)
+
 ```asciidoc
 = Lesson Title
 :order: 1

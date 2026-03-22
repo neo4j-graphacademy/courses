@@ -13,6 +13,7 @@ allowed-tools: Read, Edit, Glob, Grep
 **Input:** Path to a lesson folder (e.g. `asciidoc/courses/my-course/modules/1-intro/lessons/1-overview/`)
 
 **Output:**
+
 - `lesson.adoc` — fixed in place where possible
 - `REVIEW-REPORT.md` in the lesson folder — created or appended with a structure section
 
@@ -59,11 +60,11 @@ If the lesson has more than 3 topics, flag them for splitting — do not split a
 
 Each topic section should be **150–250 words** (target: 200 words).
 
-| Lesson word count | Status |
-|-------------------|--------|
-| 450–750 words | ✅ Acceptable |
-| < 450 words | ⚠️ May be too thin — check topic count |
-| > 750 words | ⚠️ Likely needs splitting — flag for review |
+| Lesson word count | Status                                      |
+| ----------------- | ------------------------------------------- |
+| 450–750 words     | ✅ Acceptable                               |
+| < 450 words       | ⚠️ May be too thin — check topic count      |
+| > 750 words       | ⚠️ Likely needs splitting — flag for review |
 
 **Important:** Do not split automatically. If a lesson is over 750 words, report the word count and topic count so the author can decide. Only flag as a definite problem if there are clearly 4+ distinct topics.
 
@@ -78,6 +79,7 @@ The introduction must follow a strict **two-part pattern**:
 Choose the appropriate pattern:
 
 - **Option A — Direct continuation**: If this lesson builds directly on the previous one.
+
   ```
   In the previous lesson, you learned how to use MATCH to read data from the graph. To modify the graph, you need to learn how to create nodes and relationships.
   ```
@@ -98,37 +100,48 @@ In this lesson, you will learn how to use the CREATE clause to add data to your 
 ### Common opening failures to fix
 
 ❌ Combining context and objective into one sentence:
+
 ```
 Now that you understand MATCH, you'll learn how to use CREATE to add nodes.
 ```
+
 ✅ Split into two separate sentences.
 
 ❌ Generic opening with no connection to course context:
+
 ```
 In modern databases, data modification is important.
 In this lesson, you will learn about CREATE.
 ```
+
 ✅ Replace Part 1 with something specific to what was just learned or why this topic matters now.
 
 ❌ Learning objective that doesn't start with "In this lesson, you will learn":
+
 ```
 This lesson covers the CREATE clause.
 ```
+
 ✅ Rewrite to the standard form.
 
 ❌ Bare "You learned..." without specifying when:
+
 ```
 You learned how to use MATCH to read data from the graph.
 ```
+
 ✅ Always specify the referent — "In the previous lesson" makes the callback concrete:
+
 ```
 In the previous lesson, you learned how to use MATCH to read data from the graph.
 ```
 
 ❌ Explicit scaffold header:
+
 ```
 == Building on What You Know
 ```
+
 ✅ Remove the header; fold the content into the introduction paragraph.
 
 ---
@@ -140,14 +153,14 @@ All `==` headers (other than the lesson title) must be:
 1. **Action-oriented** — describe what the learner will do or understand, not just the noun
 2. **Sentence case** — first word and proper nouns capitalised only
 
-| ❌ Avoid | ✅ Use instead |
-|----------|----------------|
-| `== Node labels` | `== Understanding node labels` |
-| `== The CREATE Clause` | `== Creating nodes with CREATE` |
-| `== What Are Indexes?` | `== Understanding indexes` |
-| `== Core Concept 1: Relationships` | `== Modelling relationships` |
-| `== Why it matters` | `== How indexes eliminate full scans` _(name the specific capability)_ |
-| `== Why this is important` | `== How short-term memory preserves conversation context` _(describe what it does)_ |
+| ❌ Avoid                           | ✅ Use instead                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `== Node labels`                   | `== Understanding node labels`                                                      |
+| `== The CREATE Clause`             | `== Creating nodes with CREATE`                                                     |
+| `== What Are Indexes?`             | `== Understanding indexes`                                                          |
+| `== Core Concept 1: Relationships` | `== Modelling relationships`                                                        |
+| `== Why it matters`                | `== How indexes eliminate full scans` _(name the specific capability)_              |
+| `== Why this is important`         | `== How short-term memory preserves conversation context` _(describe what it does)_ |
 
 Headers must describe what the concept **does**, not announce that it is significant. "Why it matters" and similar phrases are empty — replace them with the specific behaviour, capability, or outcome being explained.
 
@@ -166,7 +179,7 @@ If a lesson covers multiple parallel items — types, layers, stages, patterns, 
 
 This applies whenever the lesson has N parallel sections explaining N items and the learning objective refers to them collectively ("the three layers", "the four stages", "the five patterns"). The learner must see all N names before any section begins.
 
-**How to fix:** Add a brief sentence or bullet list immediately after the learning objective that names all items. One sentence is enough: "The three layers are: *short-term memory*, *long-term memory*, and *reasoning memory*."
+**How to fix:** Add a brief sentence or bullet list immediately after the learning objective that names all items. One sentence is enough: "The three layers are: _short-term memory_, _long-term memory_, and _reasoning memory_."
 
 ### Per-section checks
 
@@ -178,6 +191,7 @@ For each concept section, verify:
 - [ ] There is no assumed knowledge that hasn't been covered in a prior lesson
 
 To check for assumed knowledge, look at:
+
 - `../../course.adoc` for the prerequisite courses listed
 - Sibling lesson files for what was covered earlier
 
@@ -207,10 +221,13 @@ If this is not the first lesson in the module, the opening should reference what
 The summary or a closing teaser should mention what comes next. This is usually a challenge lesson.
 
 ❌ Salesy or dramatic teasers:
+
 ```
 In the next lesson, you will discover the transformational power of graph traversals!
 ```
+
 ✅ Plain forward reference:
+
 ```
 In the next lesson, you will use these concepts to build a query that finds all products ordered by a customer.
 ```

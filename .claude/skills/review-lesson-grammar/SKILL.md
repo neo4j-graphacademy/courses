@@ -36,6 +36,7 @@ When in doubt, read the sentence out loud. If it sounds unnatural or doesn't mak
 **Input:** Path to a lesson folder (e.g. `asciidoc/courses/my-course/modules/1-intro/lessons/1-overview/`)
 
 **Output:**
+
 - `lesson.adoc` — fixed in place
 - `REVIEW-REPORT.md` in the lesson folder — created or appended with a grammar section
 
@@ -69,21 +70,21 @@ This review checks and fixes:
 
 Scan for and correct British/non-US spellings:
 
-| British | US English |
-|---------|-----------|
-| colour | color |
-| behaviour | behavior |
-| analyse/analyse | analyze |
-| optimise | optimize |
-| centre | center |
-| realise | realize |
-| honour | honor |
-| neighbour | neighbor |
-| programme | program |
-| focussed | focused |
-| travelling | traveling |
-| modelling | modeling |
-| labelling | labeling |
+| British         | US English |
+| --------------- | ---------- |
+| colour          | color      |
+| behaviour       | behavior   |
+| analyse/analyse | analyze    |
+| optimise        | optimize   |
+| centre          | center     |
+| realise         | realize    |
+| honour          | honor      |
+| neighbour       | neighbor   |
+| programme       | program    |
+| focussed        | focused    |
+| travelling      | traveling  |
+| modelling       | modeling   |
+| labelling       | labeling   |
 
 Fix each occurrence directly in the file.
 
@@ -117,22 +118,22 @@ Lessons should use **present tense** for descriptions of what the learner is doi
 
 Replace all first-person plural with second person. Never use "we", "we'll", "we use", "let's", or similar.
 
-| Replace | With |
-|---------|------|
-| `We'll walk you through...` | `This lesson walks you through...` |
-| `We use the same dataset...` | `The course uses the same dataset...` |
-| `Let's look at...` | `Look at...` or `You will see...` |
-| `In this module we look at...` | `In this module you will look at...` |
+| Replace                        | With                                  |
+| ------------------------------ | ------------------------------------- |
+| `We'll walk you through...`    | `This lesson walks you through...`    |
+| `We use the same dataset...`   | `The course uses the same dataset...` |
+| `Let's look at...`             | `Look at...` or `You will see...`     |
+| `In this module we look at...` | `In this module you will look at...`  |
 
 ### Direct instructions
 
 Replace optional/passive phrasing with direct instructions:
 
-| Replace | With |
-|---------|------|
-| `You can create a node...` | `Create a node...` |
-| `If you want to change the styling...` | `To change the styling...` |
-| `It is possible to...` | Direct statement of the action |
+| Replace                                | With                           |
+| -------------------------------------- | ------------------------------ |
+| `You can create a node...`             | `Create a node...`             |
+| `If you want to change the styling...` | `To change the styling...`     |
+| `It is possible to...`                 | Direct statement of the action |
 
 ### No bold labels at the start of sentences
 
@@ -142,6 +143,7 @@ Bold is for inline emphasis on a term within a sentence — not for labelling a 
 ❌ `**Visibility** controls who can access your agent.`
 
 Convert bold labels to:
+
 - A proper header (`==` or `===`) if the content warrants its own section
 - A NOTE or TIP admonition with a title if the content is supplementary reference information
 - A plain sentence with the concept woven in naturally: `Your agent's visibility controls who can access it.`
@@ -176,84 +178,84 @@ Informal and colloquial words weaken instructional credibility and sound unprofe
 
 **Vague or colloquial verbs**
 
-| Replace | With |
-|---------|------|
-| `get` / `grab` | `retrieve`, `obtain`, `receive`, or `fetch` depending on context |
-| `put` | `place`, `insert`, or `store` |
-| `spin up` | `create`, `start`, or `launch` |
-| `check out` | `see`, `review`, or `examine` |
-| `hook up` / `plug in` | `connect` or `integrate` |
-| `work with` | `use` or `interact with` |
-| `deal with` | `handle` or `process` |
-| `figure out` | `determine` or `identify` |
-| `come up with` | `create`, `generate`, or `produce` |
-| `end up` | rewrite to state the result directly |
-| `make sure` | `ensure` |
-| `the right X` | `the correct X` |
+| Replace               | With                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| `get` / `grab`        | `retrieve`, `obtain`, `receive`, or `fetch` depending on context |
+| `put`                 | `place`, `insert`, or `store`                                    |
+| `spin up`             | `create`, `start`, or `launch`                                   |
+| `check out`           | `see`, `review`, or `examine`                                    |
+| `hook up` / `plug in` | `connect` or `integrate`                                         |
+| `work with`           | `use` or `interact with`                                         |
+| `deal with`           | `handle` or `process`                                            |
+| `figure out`          | `determine` or `identify`                                        |
+| `come up with`        | `create`, `generate`, or `produce`                               |
+| `end up`              | rewrite to state the result directly                             |
+| `make sure`           | `ensure`                                                         |
+| `the right X`         | `the correct X`                                                  |
 
 **Minimising and filler words — remove entirely**
 
-| Word | Why |
-|------|-----|
-| `just` | Minimises the step; remove it |
-| `simply` | Condescending; implies the learner should find it easy |
-| `basically` | Vague; say what you mean directly |
-| `essentially` | Same as basically |
-| `quick` / `quickly` | Subjective; omit or quantify |
-| `easy` / `easily` | Subjective; omit or explain why |
-| `straightforward` | Omit; show don't tell |
-| `go ahead` | Filler before an instruction; remove |
-| `feel free to` | Omit; give the direct instruction |
-| `kind of` / `sort of` | Be precise; remove hedging |
-| `a bit` | Quantify or remove |
-| `pretty` (as in "pretty fast") | Quantify or remove |
-| `quite` | Remove |
-| `primarily` | Hedges a factual claim; rewrite to say precisely what is true |
-| `largely` / `mainly` / `mostly` | Same as primarily — state the specific case or rewrite |
-| `generally` | Vague; state the specific rule, or use "in most cases" only when exceptions genuinely exist |
-| `nice` | Omit; describe the specific benefit |
-| `handy` | Replace with `useful` or describe why |
+| Word                            | Why                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `just`                          | Minimises the step; remove it                                                               |
+| `simply`                        | Condescending; implies the learner should find it easy                                      |
+| `basically`                     | Vague; say what you mean directly                                                           |
+| `essentially`                   | Same as basically                                                                           |
+| `quick` / `quickly`             | Subjective; omit or quantify                                                                |
+| `easy` / `easily`               | Subjective; omit or explain why                                                             |
+| `straightforward`               | Omit; show don't tell                                                                       |
+| `go ahead`                      | Filler before an instruction; remove                                                        |
+| `feel free to`                  | Omit; give the direct instruction                                                           |
+| `kind of` / `sort of`           | Be precise; remove hedging                                                                  |
+| `a bit`                         | Quantify or remove                                                                          |
+| `pretty` (as in "pretty fast")  | Quantify or remove                                                                          |
+| `quite`                         | Remove                                                                                      |
+| `primarily`                     | Hedges a factual claim; rewrite to say precisely what is true                               |
+| `largely` / `mainly` / `mostly` | Same as primarily — state the specific case or rewrite                                      |
+| `generally`                     | Vague; state the specific rule, or use "in most cases" only when exceptions genuinely exist |
+| `nice`                          | Omit; describe the specific benefit                                                         |
+| `handy`                         | Replace with `useful` or describe why                                                       |
 
 **Non-specific nouns — name the thing**
 
-| Replace | With |
-|---------|------|
-| `stuff` | Name the specific items |
-| `things` | Name the specific items |
-| `a lot of` | `many` or a specific quantity |
+| Replace         | With                              |
+| --------------- | --------------------------------- |
+| `stuff`         | Name the specific items           |
+| `things`        | Name the specific items           |
+| `a lot of`      | `many` or a specific quantity     |
 | `big` / `small` | Quantify or describe specifically |
 
 ### No filler phrases
 
-| Replace | With |
-|---------|------|
-| `Think about...` | Provide the direct explanation |
-| `Think of X as...` | `X is...` or `X acts as...` |
-| `to do this,` (at start of sentence) | remove and state the action |
-| `it goes without saying` | omit entirely |
+| Replace                              | With                           |
+| ------------------------------------ | ------------------------------ |
+| `Think about...`                     | Provide the direct explanation |
+| `Think of X as...`                   | `X is...` or `X acts as...`    |
+| `to do this,` (at start of sentence) | remove and state the action    |
+| `it goes without saying`             | omit entirely                  |
 
 ### No abbreviations or Latin shorthand
 
 Spell everything out. Abbreviations are informal and can break non-native readers.
 
-| Replace | With |
-|---------|------|
-| `via` | `through` or `using` (`exposed via API` → `exposed through the API`; `query via natural language` → `query using natural language`) |
-| `vs` / `vs.` | `versus` or restructure as a comparison |
-| `etc.` | list the remaining items, or end with "and similar" |
-| `e.g.` | `for example` |
-| `i.e.` | `that is` |
-| `w/` | `with` |
-| `w/o` | `without` |
+| Replace      | With                                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `via`        | `through` or `using` (`exposed via API` → `exposed through the API`; `query via natural language` → `query using natural language`) |
+| `vs` / `vs.` | `versus` or restructure as a comparison                                                                                             |
+| `etc.`       | list the remaining items, or end with "and similar"                                                                                 |
+| `e.g.`       | `for example`                                                                                                                       |
+| `i.e.`       | `that is`                                                                                                                           |
+| `w/`         | `with`                                                                                                                              |
+| `w/o`        | `without`                                                                                                                           |
 
 ### No contractions
 
-| Replace | With |
-|---------|------|
-| `you'll` | `you will` |
-| `it's` (instructional) | `it is` |
-| `don't` (instructional) | `do not` |
-| `we've`, `we're` | rewrite in second person |
+| Replace                 | With                     |
+| ----------------------- | ------------------------ |
+| `you'll`                | `you will`               |
+| `it's` (instructional)  | `it is`                  |
+| `don't` (instructional) | `do not`                 |
+| `we've`, `we're`        | rewrite in second person |
 
 ---
 
@@ -299,13 +301,16 @@ The same principle applies to prerequisites, configuration steps, and pricing ti
 A paragraph that summarises what a following bullet list will say is redundant. The list itself carries the information. Remove the prose and let the list lead-in sentence do the framing.
 
 ❌
+
 ```
 When your agent is Internal, you can create and test it. When it is External, you get API endpoints.
 
 * **Internal**: Create and test in the Console.
 * **External**: Exposes API endpoints.
 ```
+
 ✅
+
 ```
 Your agent has two visibility options:
 
@@ -318,16 +323,19 @@ Your agent has two visibility options:
 If two sentences or clauses cover the same ground, keep the more specific one and remove or merge the other.
 
 ❌
+
 ```
 It queries a knowledge graph stored in AuraDB and invokes the right tools to retrieve answers.
 
 The agent interprets your question, finds relevant information in the graph, and invokes the appropriate tool: Similarity Search, Text2Cypher, or Cypher Template.
 ```
+
 ✅ Remove "and invokes the right tools to retrieve answers" from the first sentence — the second sentence says this more precisely.
 
 ### No sentences that add nothing
 
 Remove sentences that:
+
 - Restate the section heading in prose form ("In this section, you will learn about X")
 - Say something is useful without explaining why ("This is a useful feature")
 - Bridge between ideas without carrying meaning ("Now that you know X, you can learn Y")
@@ -358,13 +366,13 @@ The lesson-level intro and summary (first and last paragraphs) are intentionally
 
 ### Product names — always exact
 
-| Incorrect | Correct |
-|-----------|---------|
-| AuraDB free | AuraDB Free |
-| on-premises, on-prem | Self-Managed |
-| integrated Query tool | Query tool |
-| platform (for pricing) | tier |
-| database (Aura deployment) | instance |
+| Incorrect                  | Correct      |
+| -------------------------- | ------------ |
+| AuraDB free                | AuraDB Free  |
+| on-premises, on-prem       | Self-Managed |
+| integrated Query tool      | Query tool   |
+| platform (for pricing)     | tier         |
+| database (Aura deployment) | instance     |
 
 ### Tool names — always capitalised as shown
 
@@ -407,8 +415,8 @@ Use `==` for major sections and `===` for sub-topics within a section.
 
 All level-2+ headers (`==`, `===`) must be in **sentence case** — only the first word and proper nouns are capitalised.
 
-❌ `== Installing the Neo4j Driver`  ← "Installing" is first word, "Neo4j Driver" is a proper noun — this is fine
-❌ `== How To Use MATCH Queries`  ← "To" and "Use" should be lowercase
+❌ `== Installing the Neo4j Driver` ← "Installing" is first word, "Neo4j Driver" is a proper noun — this is fine
+❌ `== How To Use MATCH Queries` ← "To" and "Use" should be lowercase
 ✅ `== How to use MATCH queries`
 
 Action-oriented headers use the gerund form:
@@ -418,7 +426,7 @@ Action-oriented headers use the gerund form:
 
 ### No generic "why it matters" language in headers or sentences
 
-Headers and sentences must describe what the thing *does*, not use generic phrases like "why it matters", "why this is important", or "the value of X". Those phrases are empty — they announce that something is important without saying what it does.
+Headers and sentences must describe what the thing _does_, not use generic phrases like "why it matters", "why this is important", or "the value of X". Those phrases are empty — they announce that something is important without saying what it does.
 
 ❌ `== Why it matters`
 ❌ `== Why this is important`
@@ -448,6 +456,7 @@ If a section contains two or more admonitions:
    - **Suggest removal** if the content is already covered by the prose or by the remaining admonition. Flag this in the report as a manual review item rather than deleting it silently.
 
 ❌
+
 ```asciidoc
 == Prerequisites and pricing
 
@@ -463,6 +472,7 @@ All agents run in Belgium.
 Aura Agent uses curated AI models.
 ====
 ```
+
 ✅ Keep the more critical note; move or absorb the other — or flag for manual review if both are needed.
 
 ### Admonitions must have a title
@@ -470,6 +480,7 @@ Aura Agent uses curated AI models.
 Every `[NOTE]`, `[TIP]`, `[WARNING]`, `[CAUTION]`, and `[IMPORTANT]` block must have a title on the line immediately after the type marker.
 
 ❌
+
 ```asciidoc
 [WARNING]
 =====
@@ -478,6 +489,7 @@ Restoring a snapshot overwrites all current data.
 ```
 
 ✅
+
 ```asciidoc
 [WARNING]
 .Overwriting existing data
