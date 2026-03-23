@@ -1,0 +1,110 @@
+= Querying the Trace Graph
+:type: lesson
+:order: 5
+:duration: 5
+
+In the previous lesson, you learned how to use `create_memory_tools()` and `record_agent_trace()` to record a complete reasoning trace automatically in Neo4j. Now you will query that trace to understand what the agent did and why.
+
+In this lesson, you will learn four ways to query an agent's reasoning trace: retrieving all tool calls in order, traversing across memory layers, finding similar past traces, and retrieving full provenance.
+
+== Retrieving all tool calls in order
+
+This query retrieves the full ordered sequence of tool calls from a single reasoning trace:
+
+[source,cypher]
+.Get every tool call and agent thought, ordered by step
+----
+MATCH (t:ReasoningTrace)-[:HAS_STEP]->(step:ReasoningStep)-[:USED_TOOL]->(tc:ToolCall)
+RETURN t.task AS task,
+       step.order AS step_order,
+       step.thought AS thought,
+       tc.tool_name AS tool,
+       tc.duration_ms AS duration_ms,
+       tc.status AS status
+ORDER BY t.created_at DESC, step.order ASC
+----
+
+This is your agent's decision log — every thought and every action, in order.
+
+== Traversing across memory layers
+
+Follow the full causal chain from tool call back to the originating entity:
+
+[source,cypher]
+.Follow the causal chain from tool call back to the originating entity
+----
+MATCH (tc:ToolCall)
+    <-[:USED_TOOL]-(step:ReasoningStep)
+    <-[:HAS_STEP]-(trace:ReasoningTrace)
+    <-[:TRIGGERED]-(msg:Message)
+    -[:MENTIONS]->(entity:Entity)
+RETURN tc.tool_name AS tool_called,
+       step.thought AS agent_thought,
+       msg.content AS original_message,
+       labels(entity) AS entity_type,
+       entity.name AS entity_name
+----
+
+This single query explains: which tool was called, why the agent called it, what the user originally said, and which entity was involved.
+
+== Finding similar past traces
+
+Use the built-in API to find traces where the agent handled a semantically similar task:
+
+[source,python]
+.Find traces for similar tasks using the built-in API
+----
+similar = await memory.reasoning.get_similar_traces(
+    task="What do you know about me?",
+    limit=3
+)
+for trace in similar:
+    print(trace.task, trace.status)
+----
+
+`get_similar_traces()` embeds the query task, queries the `reasoning_trace_embedding` vector index, and returns the closest matching traces — letting you compare how the agent reasoned about related tasks over time.
+
+If you need to run the similarity search in raw Cypher, pass the query embedding as a parameter rather than iterating over stored embeddings. The correct pattern uses a single query vector `$query_embedding` from outside the query:
+
+[source,cypher]
+.Find similar traces using a query embedding parameter
+----
+CALL db.index.vector.queryNodes('reasoning_trace_embedding', 5, $query_embedding)
+YIELD node AS similar_trace, score
+RETURN similar_trace.task, similar_trace.status, score
+ORDER BY score DESC
+----
+
+Pass the embedding of your search string as `$query_embedding` when running this query. The `$query_embedding` parameter holds the vector for the task you are searching for — it is computed outside Neo4j (by your embedding model) and passed in as a query parameter.
+
+== Getting the full provenance
+
+Use `get_trace_provenance()` to retrieve everything the system recorded for a single agent decision — the originating message, every step, every tool call, and the final outcome:
+
+[source,python]
+.Retrieve the complete causal chain for a reasoning trace
+----
+provenance = await memory.reasoning.get_trace_provenance(trace.id)
+# Returns the complete causal chain:
+# - The originating message
+# - Every step and thought
+# - Every tool call with parameters and results
+# - Entities retrieved during reasoning
+# - The final outcome
+----
+
+This is the audit report for a single agent decision — everything needed to explain what happened and why.
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned four ways to query the agent's reasoning trace:
+
+* *Tool call log* — `MATCH (trace)-[:HAS_STEP]->(step)-[:USED_TOOL]->(tc:ToolCall)` ordered by `step.order` gives every thought and action in sequence
+* *Cross-memory traversal* — a single Cypher query follows `ToolCall → ReasoningStep → ReasoningTrace → Message → Entity` across all three memory layers
+* *Similar traces* — `get_similar_traces()` uses vector similarity on `task_embedding` to find past traces for related tasks
+* *Full provenance* — `get_trace_provenance()` returns the complete causal chain: the originating message, every step and thought, every tool call, and the final outcome
+
+In the next challenge, you will build and run the agent yourself, then verify that all three layers of memory were written to Neo4j.

@@ -1,0 +1,102 @@
+= Entity Extraction Pipeline
+:type: lesson
+:order: 4
+:duration: 5
+
+In the previous lesson, you learned why a graph outperforms a pure vector store for long-term memory — multi-hop traversal, temporal validity, and combined vector-plus-graph search are all things a vector database cannot do. When you call `add_message()`, the library does more than store the message text — it automatically runs an entity extraction pipeline that connects short-term and long-term memory.
+
+In this lesson, you will learn how the three-stage pipeline works and how to configure the merge strategy. The three stages are *spaCy*, *GLiNER2*, and *LLM fallback* — each increasing in accuracy and cost.
+
+This is what keeps the three memory layers connected: a user message that mentions "Jessica Norris" automatically creates or merges an `EntityPerson` node, which can then be retrieved in future sessions.
+
+== Understanding the three-stage pipeline
+
+[%header,cols="1,1,2,1"]
+|===
+| Stage | Model | Capability | Cost
+
+| Stage 1
+| spaCy
+| Fast statistical Named Entity Recognition; strong on common types (persons, organizations, locations); pre-trained
+| Low
+
+| Stage 2
+| GLiNER2
+| Zero-shot NER — can identify entity types not seen during training; better on domain-specific vocabulary (financial instruments, medical terms)
+| Medium
+
+| Stage 3
+| LLM fallback
+| LLM-based extraction; most accurate for complex or ambiguous text; used when earlier stages produce low-confidence results
+| High
+|===
+
+The pipeline runs these stages in order and merges the results using a configurable strategy.
+
+== Configuring merge strategies
+
+To configure which stages run and how their results are combined, pass an `ExtractionConfig` to `MemorySettings`:
+
+[source,python]
+.Configure the extraction pipeline and merge strategy
+----
+from neo4j_agent_memory.extraction import ExtractionConfig
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(...),
+    extraction=ExtractionConfig(
+        stages=["spacy", "gliner", "llm"],
+        merge_strategy="confidence",  # union | confidence | cascade
+        deduplication=True,
+        enrichment=True
+    )
+)
+----
+
+This configuration enables all three stages, applies the `confidence` merge strategy, and turns on both deduplication and enrichment. The `merge_strategy` value controls how entities extracted by different stages are combined:
+
+[%header,cols="1,2"]
+|===
+| Strategy | Behavior
+
+| `union`
+| Include all entities found by any extractor — highest recall, may include duplicates
+
+| `confidence`
+| Weight entities by confidence score across extractors — balanced precision and recall
+
+| `cascade`
+| Use Stage 1; fall back to Stage 2 if empty; fall back to Stage 3 if still empty — fastest adequate result
+|===
+
+== Understanding deduplication and enrichment
+
+* *Deduplication* — resolves aliases. "Brian Chesky" and "Chesky" merge into the same `EntityPerson` node using fuzzy and semantic matching. This prevents entity graph fragmentation across sessions.
+* *Enrichment* — an optional step that performs a Wikipedia lookup to add structured metadata to entities, and geocoding to add coordinates to `EntityLocation` nodes.
+
+== Understanding when extraction runs
+
+Extraction runs automatically when:
+
+* `add_message()` is called with `role="user"` or `role="assistant"`
+* The message content contains text long enough to extract entities from
+
+You do not need to call the extraction pipeline explicitly — it runs as part of the message storage operation.
+
+[.quiz]
+=== Check your understanding
+
+include::questions/1-extraction-stage.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how entity extraction keeps the memory layers connected:
+
+* *Automatic extraction* — runs on every `add_message()` call without any additional code
+* *Three-stage pipeline* — spaCy (fast, low cost) → GLiNER2 (zero-shot) → LLM fallback (highest accuracy)
+* *Merge strategies* — `union`, `confidence`, and `cascade` let you trade off recall against cost
+* *Deduplication* — merges aliases such as "Chesky" and "Brian Chesky" to prevent entity fragmentation
+* *Enrichment* — optionally adds Wikipedia metadata and geocoordinates to extracted entities
+
+In the next lesson, you will use the long-term memory API to add entities and preferences directly.

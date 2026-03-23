@@ -1,0 +1,131 @@
+= Recording Reasoning Traces
+:type: lesson
+:order: 4
+:duration: 4
+
+In the previous lesson, you learned the reasoning memory schema — how `ReasoningTrace`, `ReasoningStep`, and `ToolCall` nodes connect, and how cross-memory relationships tie all three layers together in a single graph. Now you will use the Pydantic AI integration to record those traces automatically.
+
+In this lesson, you will learn how to use `create_memory_tools()` and `record_agent_trace()` to record a complete reasoning trace with minimal code.
+
+== Using the Pydantic AI integration
+
+`create_memory_tools()` returns 19 pre-built agent tools that expose all three memory types to a Pydantic AI agent. The agent can call these tools to store and retrieve memory as part of its normal reasoning process.
+
+[source,python]
+.Create memory tools and attach them to a Pydantic AI agent
+----
+import os
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config import Neo4jConfig, EmbeddingConfig
+from neo4j_agent_memory.integrations.pydantic_ai import create_memory_tools
+from pydantic_ai import Agent
+
+async with MemoryClient(settings) as memory:
+    # Returns 19 ready-to-use agent tools
+    tools = create_memory_tools(memory)
+
+    agent = Agent(
+        model="openai:gpt-4o-mini",
+        system_prompt="""You are a helpful assistant with persistent memory.
+        Use memory tools to recall past conversations and preferences.
+        Record your reasoning traces for auditability.""",
+        tools=tools
+    )
+----
+
+This creates a Pydantic AI agent with all 19 memory tools registered. When the agent runs, it can call any of these tools to store and retrieve memory as part of its reasoning process.
+
+== Using the record_agent_trace context manager
+
+For automatic trace recording, wrap your agent run with `record_agent_trace()`:
+
+[source,python]
+.Wrap an agent run to automatically capture all tool calls as a reasoning trace
+----
+from neo4j_agent_memory import record_agent_trace
+
+async with MemoryClient(settings) as memory:
+    session = await memory.add_session("user_123")
+
+    async with record_agent_trace(memory, session_id=session.id, task="Answer user question"):
+        result = await agent.run("What can you tell me about Jessica Norris?")
+        print(result.data)
+----
+
+When you use `create_memory_tools()`, the tools are closures that already hold a reference to `memory`. There is no need to pass `deps` to `agent.run()` — the tools handle memory access internally.
+
+Every tool call the agent makes inside the `record_agent_trace` block is automatically captured as a `ToolCall` node in Neo4j, linked to the current `ReasoningTrace`.
+
+== Understanding what gets written to Neo4j
+
+After one agent run, the following nodes will exist in your database:
+
+* One `Conversation` + one or more `Message` nodes (short-term)
+* Any extracted entities as `EntityPerson`, `EntityOrganization`, etc. (long-term)
+* One `ReasoningTrace` linked from the triggering `Message`
+* One `ReasoningStep` per reasoning iteration
+* One `ToolCall` per tool the agent invoked, with full parameters and results
+
+== Using the low-level reasoning API
+
+`record_agent_trace()` is a convenience wrapper around the four low-level methods. Use the low-level API when you need manual control — for example, when integrating with a framework other than Pydantic AI, or when you want to record a trace for a non-agent workflow:
+
+[source,python]
+.Record a reasoning trace manually using the low-level API
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings, record_agent_trace
+from neo4j_agent_memory.config import Neo4jConfig
+
+async with MemoryClient(settings) as memory:
+    session = await memory.add_session("user_123")
+
+    # 1. Start a trace — creates the ReasoningTrace node
+    trace = await memory.reasoning.start_trace(
+        task="Evaluate credit limit for Jessica Norris",
+        session_id=session.id
+    )
+
+    # 2. Record a reasoning step
+    step = await memory.reasoning.add_step(
+        trace_id=trace.id,
+        thought="Retrieving customer entity from long-term memory",
+        action="search_entities"
+    )
+
+    # 3. Record a tool call within the step
+    await memory.reasoning.record_tool_call(
+        trace_id=trace.id,
+        step_id=step.id,
+        tool_name="search_entities",
+        parameters={"query": "Jessica Norris", "limit": 5},
+        result={"entities": ["Jessica Norris (EntityPerson)"]},
+        duration_ms=42
+    )
+
+    # 4. Complete the trace with an outcome
+    await memory.reasoning.complete_trace(
+        trace_id=trace.id,
+        outcome="success",
+        result={"decision": "Approved — risk score within threshold"}
+    )
+----
+
+`start_trace()` returns a trace object whose `id` you pass to subsequent calls. `record_agent_trace()` calls all four of these automatically, wrapping your agent run so every tool call becomes a `ToolCall` node without any extra code.
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-memory-api.adoc[leveloffset=+1]
+
+include::questions/2-library.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned the key integration components:
+
+* *`create_memory_tools()`* — returns 19 Pydantic AI tools that expose all three memory types to the agent
+* *`record_agent_trace()`* — a context manager that automatically captures every tool call as a `ToolCall` node in Neo4j
+* *Single agent run* — after one run, all three memory layers are populated and cross-linked in Neo4j
+
+In the next lesson, you will query the reasoning trace to understand what the agent did and why.

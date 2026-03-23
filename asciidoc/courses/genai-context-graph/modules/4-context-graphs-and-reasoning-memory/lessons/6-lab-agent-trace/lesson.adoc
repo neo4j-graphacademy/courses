@@ -1,0 +1,69 @@
+= Build and run the agent
+:type: challenge
+:order: 6
+:duration: 6
+
+In the previous lesson, you learned how to use `create_memory_tools()` and `record_agent_trace()` to record reasoning traces automatically, and how to query those traces in Neo4j to follow the full causal chain of an agent's decisions.
+
+In this challenge, you will complete a pre-scaffolded Pydantic AI agent, run it against two test prompts, and verify that the reasoning trace was written to Neo4j.
+
+== Review the scaffold code
+
+The repository includes a starter file at `agent/memory_agent.py`. It has the imports and settings in place — you need to connect the `MemoryClient`, create a session, add the memory tools, and call `record_agent_trace`.
+
+[source,python]
+.agent/memory_agent.py — complete the TODOs to build the agent
+----
+# agent/memory_agent.py (starter — complete the TODOs)
+import asyncio
+import os
+from neo4j_agent_memory import MemoryClient, MemorySettings, record_agent_trace
+from neo4j_agent_memory.config import Neo4jConfig
+from neo4j_agent_memory.integrations.pydantic_ai import create_memory_tools
+from pydantic_ai import Agent
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri=os.environ["NEO4J_URI"],
+        username=os.environ["NEO4J_USERNAME"],
+        password=os.environ["NEO4J_PASSWORD"]
+    )
+)
+
+async def main():
+    # TODO 1: Open a MemoryClient using `async with`
+    # TODO 2: Create a session for "student_user"
+    # TODO 3: Call create_memory_tools() and pass to Agent
+    # TODO 4: Run two prompts inside record_agent_trace:
+    #   Prompt 1: "My name is Alex and I prefer concise answers."
+    #   Prompt 2: "What do you know about me?"
+    pass
+
+asyncio.run(main())
+----
+
+== Verify your results
+
+After running the agent, the following Cypher query should return at least one `ReasoningTrace` node:
+
+[source,cypher]
+.Check that reasoning traces were written to Neo4j
+----
+MATCH (t:ReasoningTrace)
+RETURN t.task, t.status, t.created_at
+ORDER BY t.created_at DESC
+LIMIT 5
+----
+
+The challenge verifier checks that your Neo4j instance contains the following node labels:
+
+* At least one `ReasoningTrace` node
+* At least one `ReasoningStep` node connected to that trace
+* At least one `ToolCall` node connected to a step
+
+include::./questions/verify.adoc[leveloffset=+1]
+
+[.summary]
+== Lesson Summary
+
+In this challenge, you connected a Pydantic AI agent to `neo4j-agent-memory`, ran it against two prompts, and verified that the complete reasoning trace — including `ReasoningTrace`, `ReasoningStep`, and `ToolCall` nodes — was written to Neo4j.

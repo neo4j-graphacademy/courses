@@ -1,0 +1,130 @@
+= Installation and Configuration
+:type: lesson
+:order: 4
+:duration: 4
+
+You now understand the three memory types and why Neo4j is the correct foundation for each of them. To use them in your own agent, you need the `neo4j-agent-memory` library.
+
+In this lesson, you will learn how to install the library, configure a `MemoryClient`, and connect it to your Neo4j instance.
+
+== Installing the library
+
+[source,bash]
+.Install with all framework integrations
+----
+# Full installation — all framework integrations
+pip install neo4j-agent-memory[all]
+
+# Framework-specific installs
+pip install neo4j-agent-memory[openai]
+pip install neo4j-agent-memory[google-adk]
+pip install neo4j-agent-memory[aws]
+pip install neo4j-agent-memory[mcp]       # MCP Server
+----
+
+For this course, use `neo4j-agent-memory[all]` to ensure all integrations are available.
+
+== Configuring the library
+
+The library is configured using three objects: `MemorySettings`, `Neo4jConfig`, and `EmbeddingConfig`.
+
+[source,python]
+.Create a MemorySettings object with your Neo4j connection details
+----
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config import Neo4jConfig
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri="bolt://localhost:7687",      # or your Aura connection URI
+        username="neo4j",
+        password="your-password"
+    )
+)
+----
+
+This creates a `settings` object that holds your Neo4j connection details, ready to pass to `MemoryClient`.
+
+== Configuring the embedding provider
+
+`EmbeddingConfig` sets the vector embedding model used to generate embeddings for semantic search. Add it to `MemorySettings` alongside `Neo4jConfig`:
+
+[source,python]
+.Add EmbeddingConfig to configure the embedding provider
+----
+from neo4j_agent_memory.config import Neo4jConfig, EmbeddingConfig
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri=os.environ["NEO4J_URI"],
+        username=os.environ["NEO4J_USERNAME"],
+        password=os.environ["NEO4J_PASSWORD"]
+    ),
+    embedding=EmbeddingConfig(
+        api_key=os.environ["OPENAI_API_KEY"]
+    )
+)
+----
+
+`EmbeddingConfig` defaults to OpenAI's `text-embedding-3-small` model. Pass `api_key` so the library can generate embeddings for semantic search on messages, entities, and reasoning traces. The same `OPENAI_API_KEY` used by your agent also works here.
+
+== Using the MemoryClient context manager
+
+`MemoryClient` is an async context manager. All memory operations happen inside the `async with` block:
+
+[source,python]
+.Open a MemoryClient and access all three memory types
+----
+async with MemoryClient(settings) as memory:
+    # Create a session
+    session = await memory.add_session("user_123")
+
+    # All three memory types are accessible from the same client
+    await memory.add_message(session.id, role="user", content="Hello")
+    await memory.long_term.add_entity(...)
+    await memory.reasoning.start_trace(...)
+----
+
+The client handles connection lifecycle, schema initialization, and vector index creation automatically on first run.
+
+== Storing credentials in environment variables
+
+For production use, store credentials in environment variables:
+
+[source,bash]
+.Set Neo4j connection credentials as environment variables
+----
+NEO4J_URI=neo4j+s://your-instance.databases.neo4j.io
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=your-password
+OPENAI_API_KEY=sk-...
+----
+
+[source,python]
+.Load Neo4j credentials from environment variables
+----
+import os
+from neo4j_agent_memory.config import Neo4jConfig
+
+neo4j_config = Neo4jConfig(
+    uri=os.environ["NEO4J_URI"],
+    username=os.environ["NEO4J_USERNAME"],
+    password=os.environ["NEO4J_PASSWORD"]
+)
+----
+
+This reads the three environment variables at runtime and passes them to `Neo4jConfig`, keeping credentials out of your source code. The `OPENAI_API_KEY` is used by both the Pydantic AI agent (to call the language model) and by `EmbeddingConfig` (to generate vector embeddings).
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to set up `neo4j-agent-memory`:
+
+* *Installation* — `pip install neo4j-agent-memory[all]` installs all framework integrations
+* *Configuration* — `MemorySettings` + `Neo4jConfig` takes the URI, username, and password for your Neo4j instance
+* *EmbeddingConfig* — sets the embedding provider and API key; defaults to OpenAI `text-embedding-3-small`
+* *MemoryClient* — all operations happen inside `async with MemoryClient(settings) as memory:` — the client handles schema initialization on first connection
+
+In the next lesson, you will see a complete tour of all Memory API methods across all three memory layers.

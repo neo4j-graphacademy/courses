@@ -1,0 +1,95 @@
+= The reasoning memory schema
+:type: lesson
+:order: 3
+:duration: 6
+
+In the previous lesson, you learned what a context graph is and how reasoning memory implements the "context" layer of that model. In this lesson, you will learn the reasoning memory node and relationship schema, the node properties that make traces auditable, and the cross-memory relationships that connect all three layers in a single queryable graph.
+
+== Understanding reasoning memory
+
+Reasoning memory captures the agent's complete thinking process — the tools it called, the order it called them, the results it received, and the intermediate conclusions it reached. This is the layer that makes decisions explainable, auditable, and reusable.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Reasoning Memory
+
+| Lifetime
+| Archival — permanent audit history
+
+| Access pattern
+| Trace lookup and vector similarity for precedent search
+
+| Primary question
+| "How did you reach this conclusion?"
+|===
+
+== Understanding the reasoning memory schema
+
+[source,mermaid]
+----
+graph LR
+    T([ReasoningTrace \n task, status \n task_embedding]) -->|HAS_STEP| S([ReasoningStep \n thought, action, order])
+    S -->|USED_TOOL| TC([ToolCall \n tool_name, result \n duration_ms])
+    TC -->|CALL_OF| TL([Tool \n name, description])
+----
+
+`task_embedding` stores a vector representation of the task description, enabling similarity search to find past traces for related tasks. `duration_ms` on `ToolCall` enables performance analysis across runs.
+
+== Connecting all three memory layers
+
+All three memory types share a single Neo4j database. This is the full schema:
+
+[source,mermaid]
+----
+graph TB
+    subgraph STM [Short-term memory]
+        C([Conversation]) -->|FIRST_MESSAGE| M([Message])
+        M -->|NEXT_MESSAGE| M2([Message])
+    end
+    subgraph LTM [Long-term memory]
+        P([EntityPerson]) -->|WORKS_AT| O([EntityOrganization])
+        P -->|OWNS| Ob([EntityObject])
+    end
+    subgraph RM [Reasoning memory]
+        T([ReasoningTrace]) -->|HAS_STEP| S([ReasoningStep])
+        S -->|USED_TOOL| TC([ToolCall])
+        TC -->|CALL_OF| TL([Tool])
+    end
+    M -->|TRIGGERED| T
+    M -->|MENTIONS| P
+    O -->|RETRIEVED_IN| S
+----
+
+== Traversing across memory layers
+
+The cross-memory relationships are the key architectural advantage. A single Cypher query can traverse from a tool call, back through the reasoning step that invoked it, through the message that triggered the trace, to the entity mentioned in that message:
+
+[source,cypher]
+.Trace a tool call back to its originating entity
+----
+MATCH (tc:ToolCall {tool_name: 'detect_fraud_patterns'})
+    <-[:USED_TOOL]-(step:ReasoningStep)
+    <-[:HAS_STEP]-(trace:ReasoningTrace)
+    <-[:TRIGGERED]-(msg:Message)
+    -[:MENTIONS]->(person:EntityPerson)
+RETURN tc.result, step.thought, msg.content, person.name
+----
+
+This query answers: "For every fraud detection tool call, what was the agent thinking, what message triggered it, and which person was it about?" That query is structurally impossible in a pure vector database or a relational system.
+
+[.quiz]
+=== Check your understanding
+
+include::questions/1-trace-query.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how all three memory layers connect in a single graph:
+
+* *Reasoning schema* — `ReasoningTrace → ReasoningStep → ToolCall → Tool`; `task_embedding` enables similarity search
+* *Complete schema* — all three layers share one Neo4j database; no joins, no separate systems
+* *Cross-memory relationships* — `TRIGGERED`, `MENTIONS`, and `RETRIEVED_IN` connect the three subgraphs
+* *Cross-memory traversal* — a single Cypher query follows the full causal chain from tool call back to originating entity
+
+In the next lesson, you will learn the reasoning memory Python API and how to record traces automatically.

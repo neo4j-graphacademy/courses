@@ -1,0 +1,113 @@
+= The Long-Term Memory API
+:type: lesson
+:order: 5
+:duration: 5
+
+In the previous lesson, you learned how the entity extraction pipeline automatically populates long-term memory from conversation messages. You can also add entities and preferences, and retrieve the knowledge graph directly using the long-term memory API.
+
+In this lesson, you will learn the six long-term memory methods and when to use each: `add_entity()`, `add_preference()`, `search_entities()`, `get_entity_graph()`, `add_fact()`, and `search_preferences()`.
+
+== Storing entities and preferences
+
+Use `add_entity()` to store a typed entity and `add_preference()` to record a user preference:
+
+[source,python]
+.Add a typed entity and a user preference to long-term memory
+----
+async with MemoryClient(settings) as memory:
+    # Add a typed entity using the POLE+O classification
+    await memory.long_term.add_entity(
+        name="Jessica Norris",
+        entity_type="PERSON",
+        subtype="CUSTOMER",
+        description="High-value customer, flagged for compliance review April 2025",
+        properties={"risk_score": 0.415}
+    )
+
+    # Add a user or agent preference
+    await memory.long_term.add_preference(
+        category="communication",
+        preference="Prefers concise responses",
+        context="Confirmed during onboarding"
+    )
+----
+
+`add_entity()` creates or merges an `:EntityPerson:Entity` node (or the appropriate POLE+O subtype). If a node with the same name already exists, the description and properties are updated rather than creating a duplicate.
+
+== Storing facts and searching preferences
+
+Use `add_fact()` to store a temporal fact that links two entities across time, and `search_preferences()` to retrieve stored preferences:
+
+[source,python]
+.Store a temporal fact and search for preferences
+----
+async with MemoryClient(settings) as memory:
+    # Store a fact with temporal validity
+    await memory.long_term.add_fact(
+        subject="Jessica Norris",
+        predicate="managed",
+        object="Acme Corp account",
+        valid_from="2024-01-01",
+        valid_to="2025-03-31"
+    )
+
+    # Retrieve preferences by category
+    prefs = await memory.long_term.search_preferences(
+        query="communication"
+    )
+----
+
+`add_fact()` creates a relationship between two entities with `valid_from` and `valid_to` timestamps — this is how the library records that "Jessica Norris managed the Acme Corp account from Q1 2024 to Q1 2025." `search_preferences()` returns preferences matching the query — the complement to `add_preference()`.
+
+== Searching for and retrieving entities
+
+Use `search_entities()` to find entities by semantic similarity and `get_entity_graph()` to retrieve the connected subgraph around a known entity:
+
+[source,python]
+.Search for entities and retrieve the entity knowledge graph
+----
+async with MemoryClient(settings) as memory:
+    # Semantic search across all entity types
+    entities = await memory.long_term.search_entities(
+        query="Jessica Norris accounts",
+        limit=10
+    )
+
+    # Retrieve the full neighborhood subgraph (2-hop by default)
+    subgraph = await memory.long_term.get_entity_graph(
+        entity_id="jessica-norris",
+        depth=2
+    )
+----
+
+`search_entities()` runs a vector similarity search over all entity embeddings. `get_entity_graph()` traverses the graph up to `depth` hops from the named entity and returns all connected nodes and relationships — useful for injecting rich context into an agent prompt.
+
+== API reference
+
+[%header,cols="2,3"]
+|===
+| Method | Purpose
+
+| `add_entity(name, entity_type, ...)` | Store or update a POLE+O typed entity
+| `search_entities(query, limit)` | Semantic search across the entity graph
+| `add_preference(category, preference, context)` | Store a user or agent preference
+| `get_entity_graph(entity_id, depth)` | Retrieve the neighborhood subgraph for an entity
+| `add_fact(subject, predicate, object, valid_from, valid_to)` | Store a temporal fact between two entities
+| `search_preferences(query)` | Retrieve preferences matching a query
+|===
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about the long-term memory API:
+
+* *`add_entity()`* — creates or merges a typed entity node; supports all POLE+O types
+* *`search_entities()`* — semantic search over entity embeddings; returns the most relevant nodes
+* *`add_preference()`* — stores user or agent preferences for cross-session personalization
+* *`get_entity_graph()`* — returns the subgraph around an entity for rich context injection
+* *`add_fact()`* — stores a temporal relationship between two named entities; supports `valid_from` / `valid_to` for time-aware queries
+* *`search_preferences()`* — retrieves preferences that match a query; the complement to `add_preference()`
+
+In the next lesson, you will check your understanding of POLE+O entity classification.
