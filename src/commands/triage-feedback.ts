@@ -20,6 +20,10 @@ const CYPHER = `
 MATCH (u:User)-[:PROVIDED_FEEDBACK]->(f:NegativeFeedback)-[:FOR_LESSON]->(l:Lesson)
 WHERE f.createdAt >= datetime() - duration('P30D') AND l.status = 'active'
   AND (l.updatedAt IS NULL OR f.createdAt >= l.updatedAt)
+  AND f.additional IS NOT NULL AND trim(f.additional) <> ''
+  AND NOT toLower(f.additional) CONTAINS 'sandbox'
+  AND NOT toLower(f.additional) CONTAINS 'connection'
+  AND NOT toLower(f.additional) CONTAINS 'timeout'
 
 WITH l, f,
     '***@' + split(u.email, '@')[1] AS emailDomain,
