@@ -7,7 +7,6 @@ This checklist ensures summary.adoc files follow GraphAcademy standards and prov
 ### ✅ Header and Introduction
 
 - [ ] **Course title** as main heading (`= Course Summary`)
-- [ ] **`:pdf-summary:` attribute** (required for PDF generation)
 - [ ] **Congratulatory opening** acknowledging course completion
 - [ ] **Brief recap** of what the course covered (1-2 sentences)
 
@@ -110,7 +109,7 @@ Congratulations message...
 == [Theme 1]
 Skills achieved...
 
-== [Theme 2] 
+== [Theme 2]
 Skills achieved...
 
 == Pro Tips
@@ -189,7 +188,7 @@ Course recommendations...
 
 - [ ] **Consistent AsciiDoc formatting** throughout
 - [ ] **Proper heading hierarchy** (= for title, == for sections, === for subsections)
-- [ ] **Bullet point consistency** (all * or all -)
+- [ ] **Bullet point consistency** (all \* or all -)
 - [ ] **No typos or grammatical errors**
 
 ### ✅ User Experience
