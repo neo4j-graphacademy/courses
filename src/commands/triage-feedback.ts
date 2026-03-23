@@ -155,8 +155,6 @@ async function findOrCreateProject(
     filter: { name: { eq: courseSlug } },
   });
 
-  console.log(existing.nodes);
-
   if (existing.nodes.length > 0) {
     const id = existing.nodes[0].id;
     console.log(`   📁 Found project: "${courseSlug}"`);
