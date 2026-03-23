@@ -416,6 +416,20 @@ Action-oriented headers use the gerund form:
 ❌ `== Node labels`
 ✅ `== Understanding node labels`
 
+### No generic "why it matters" language in headers or sentences
+
+Headers and sentences must describe what the thing *does*, not use generic phrases like "why it matters", "why this is important", or "the value of X". Those phrases are empty — they announce that something is important without saying what it does.
+
+❌ `== Why it matters`
+❌ `== Why this is important`
+❌ `== The value of graph traversal`
+❌ `This is why graph traversal matters.`
+
+✅ `== How graph traversal follows pointer chains in memory`
+✅ `Graph traversal scales with the number of connections, not the total data size.`
+
+If a header says "why X matters", rewrite it to name the specific capability, behaviour, or outcome that X provides. The header earns its place by telling the learner something concrete, not by signalling that something is significant.
+
 ---
 
 ## Phase 8: Admonitions

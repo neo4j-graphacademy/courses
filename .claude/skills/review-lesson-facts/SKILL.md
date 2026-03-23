@@ -1,7 +1,7 @@
 ---
 name: review-lesson-facts
 description: Fact-check a single lesson against Neo4j documentation using the neo4j-docs MCP. Fixes inaccurate claims inline and appends a WHY report.
-allowed-tools: Read, Edit, Grep, mcp_neo4j-docs_read_page, mcp_neo4j-docs_list_manual_pages, mcp_neo4j-docs_read_course
+allowed-tools: Read, Edit, Grep, WebSearch, WebFetch, mcp_neo4j-docs_read_page, mcp_neo4j-docs_list_manual_pages
 ---
 
 # Review: Fact Checking
@@ -30,6 +30,25 @@ This review:
 
 ---
 
+## Third-party library courses
+
+When fact-checking a lesson about a third-party library (not Neo4j core), the neo4j-docs MCP does not cover it. Use `WebSearch` and `WebFetch` instead to build a live API baseline before Phase 1.
+
+**For `neo4j-agent-memory`:**
+
+1. Search for the library: `WebSearch "neo4j-agent-memory python library site:github.com OR site:pypi.org"`
+2. Fetch the PyPI page and GitHub README to get the current public API surface, configuration objects, and graph schema
+3. Key facts to establish before reviewing any lesson:
+   - How many and which configuration objects are required (`MemorySettings`, `Neo4jConfig`, `EmbeddingConfig` — all three)
+   - The correct relationship name between `Message` and `Entity` nodes (direction and type)
+   - Which classes and functions are exported at the top-level vs sub-modules
+   - Whether any `deps` argument is required when calling `agent.run()` with `create_memory_tools()`
+   - What fields the `get_context()` return object exposes
+
+Do not rely on what the lesson says the library does — fetch the authoritative source first, then compare.
+
+---
+
 ## Phase 1: Read and Extract Claims
 
 Read `lesson.adoc` in full. Build a list of technical claims to verify:
@@ -49,12 +68,17 @@ Read `lesson.adoc` in full. Build a list of technical claims to verify:
 
 ## Phase 2: Determine Relevant Documentation
 
-Map each claim to the appropriate manual. Use `mcp_neo4j-docs_list_manual_pages` to find relevant pages.
+### Neo4j core docs — use the `neo4j-docs` MCP
 
-**Available manuals:**
+The project includes a local MCP server (`neo4j-docs`) that fetches and caches neo4j.com documentation. Use it for all Neo4j core claims:
 
-| Manual | Content |
-|--------|---------|
+- **Find pages in a manual:** `mcp_neo4j-docs_list_manual_pages(manual_name)` — returns a list of URLs in that manual's sitemap
+- **Read a page:** `mcp_neo4j-docs_read_page(url)` — fetches and strips the page to plain text
+
+Available manuals (pass the exact string to `list_manual_pages`):
+
+| Manual name | Content |
+|-------------|---------|
 | `aura` | Aura cloud service — metrics, tiers, console, performance |
 | `operations-manual` | Self-managed Neo4j — config, monitoring, metrics, clustering |
 | `cypher-manual` | Cypher language reference — clauses, functions, syntax |
@@ -62,13 +86,11 @@ Map each claim to the appropriate manual. Use `mcp_neo4j-docs_list_manual_pages`
 | `java-reference` | Java API, JVM settings |
 | `cdc` | Change Data Capture |
 
-**Key documentation URLs to check directly:**
+If you already know the URL, call `read_page` directly rather than listing the sitemap first.
 
-- Aura metrics view: `https://neo4j.com/docs/aura/metrics/view-metrics/`
-- Aura metrics reference: `https://neo4j.com/docs/aura/metrics/metrics-integration/reference/`
-- Self-managed essential metrics: `https://neo4j.com/docs/operations-manual/current/monitoring/metrics/essential/`
-- Self-managed metrics reference: `https://neo4j.com/docs/operations-manual/current/monitoring/metrics/reference/`
-- Cypher manual (current): `https://neo4j.com/docs/cypher-manual/current/`
+### Third-party libraries — use WebSearch + WebFetch
+
+The `neo4j-docs` MCP only covers neo4j.com. For third-party libraries, fetch their PyPI page or GitHub README via `WebSearch` + `WebFetch` before starting (see "Third-party library courses" section above).
 
 ---
 
@@ -186,3 +208,4 @@ After reviewing, create or append `REVIEW-REPORT.md` in the lesson folder.
 
 - `.cursor/rules/fact-check-lessons.mdc` — fact-check process, categories, handling recommendations
 - Neo4j docs MCP tools: `mcp_neo4j-docs_read_page`, `mcp_neo4j-docs_list_manual_pages`
+- For third-party libraries: use `WebSearch` + `WebFetch` to fetch PyPI and GitHub docs before reviewing

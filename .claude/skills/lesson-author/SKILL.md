@@ -318,10 +318,10 @@ Click **Run** to see how many orders this customer placed.
 
 ### Mermaid Diagrams
 
-**CRITICAL:** Graph nodes must be circles, not boxes.
+**CRITICAL:** Use `[source,mermaid]` — not `[mermaid]` alone. Graph nodes must be circles, not boxes. When using `\n` inside node labels for line breaks, surround it with spaces on both sides — `Message \n role: user`, not `Message\nrole: user`.
 
 ```asciidoc
-[mermaid]
+[source,mermaid]
 ----
 graph LR
     Customer((Customer)) -->|PLACED| Order((Order))

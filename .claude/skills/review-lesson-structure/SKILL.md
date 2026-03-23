@@ -79,7 +79,7 @@ Choose the appropriate pattern:
 
 - **Option A — Direct continuation**: If this lesson builds directly on the previous one.
   ```
-  You learned how to use MATCH to read data from the graph. To modify the graph, you need to learn how to create nodes and relationships.
+  In the previous lesson, you learned how to use MATCH to read data from the graph. To modify the graph, you need to learn how to create nodes and relationships.
   ```
 
 - **Option B — New/related topic**: If this lesson introduces something not directly built from the last.
@@ -116,6 +116,15 @@ This lesson covers the CREATE clause.
 ```
 ✅ Rewrite to the standard form.
 
+❌ Bare "You learned..." without specifying when:
+```
+You learned how to use MATCH to read data from the graph.
+```
+✅ Always specify the referent — "In the previous lesson" makes the callback concrete:
+```
+In the previous lesson, you learned how to use MATCH to read data from the graph.
+```
+
 ❌ Explicit scaffold header:
 ```
 == Building on What You Know
@@ -137,12 +146,29 @@ All `==` headers (other than the lesson title) must be:
 | `== The CREATE Clause` | `== Creating nodes with CREATE` |
 | `== What Are Indexes?` | `== Understanding indexes` |
 | `== Core Concept 1: Relationships` | `== Modelling relationships` |
+| `== Why it matters` | `== How indexes eliminate full scans` _(name the specific capability)_ |
+| `== Why this is important` | `== How short-term memory preserves conversation context` _(describe what it does)_ |
+
+Headers must describe what the concept **does**, not announce that it is significant. "Why it matters" and similar phrases are empty — replace them with the specific behaviour, capability, or outcome being explained.
 
 **Do not** use explicit "Core Concept N:" prefixes in headers.
 
 ---
 
 ## Phase 5: Concept Delivery
+
+### Preview before deep-dive (required for multi-item lessons)
+
+If a lesson covers multiple parallel items — types, layers, stages, patterns, steps — the introduction or an overview paragraph **must name all of them by name** before the first section header begins explaining any of them individually.
+
+❌ Opening says "you will learn about the three memory types" then immediately jumps to `== Understanding short-term memory` without ever listing what the three types are.
+✅ Opening or a brief paragraph after the learning objective names all three: "The three layers are short-term memory, long-term memory, and reasoning memory."
+
+This applies whenever the lesson has N parallel sections explaining N items and the learning objective refers to them collectively ("the three layers", "the four stages", "the five patterns"). The learner must see all N names before any section begins.
+
+**How to fix:** Add a brief sentence or bullet list immediately after the learning objective that names all items. One sentence is enough: "The three layers are: *short-term memory*, *long-term memory*, and *reasoning memory*."
+
+### Per-section checks
 
 For each concept section, verify:
 

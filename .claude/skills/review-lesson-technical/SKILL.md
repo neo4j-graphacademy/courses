@@ -210,9 +210,44 @@ The callout list below the code block uses:
 
 ### Code block context and explanation
 
-Every code block must be introduced by a sentence that explains **what the code demonstrates and why it is there**. A code block that appears directly after prose without a setup sentence is a missing explanation — flag it.
+Every code block must have both:
 
-❌
+1. **An introduction before it** — one sentence explaining what the code demonstrates and why it is there.
+2. **An effect explanation after it** — one sentence describing what running this code actually does: what it creates, returns, modifies, or produces.
+
+A code block with only an introduction but no follow-up is incomplete — the learner sees the code but does not know what to expect from it.
+
+❌ (introduction only, no effect):
+```asciidoc
+Add a user preference to long-term memory:
+
+[source,python]
+----
+await memory.long_term.add_preference(
+    category="communication",
+    preference="Prefers concise responses"
+)
+----
+
+read::Continue[]
+```
+
+✅ (introduction + effect):
+```asciidoc
+Add a user preference to long-term memory:
+
+[source,python]
+----
+await memory.long_term.add_preference(
+    category="communication",
+    preference="Prefers concise responses"
+)
+----
+
+This creates a `Preference` node linked to the current user. On future sessions, the agent retrieves matching preferences before generating a response.
+```
+
+❌ (no introduction, code appears directly after prose):
 ```asciidoc
 Your AuraDB graph stores connected data.
 
@@ -223,7 +258,7 @@ RETURN m.title
 ----
 ```
 
-✅
+✅ (introduction + effect):
 ```asciidoc
 A Cypher Template stores a fixed query with one or more parameters the LLM fills at runtime.
 A "Get Customer" tool might look like this:
@@ -233,6 +268,8 @@ A "Get Customer" tool might look like this:
 MATCH (c:Customer {customerID: $customerID})
 RETURN c.companyName, c.contactName
 ----
+
+This returns the company name and contact name for the customer matching the given ID.
 ```
 
 ### Code must use the course schema
@@ -247,6 +284,123 @@ Code shown in a `[source,...]` block or an inline backtick must be valid, runnab
 ✅ `` `MATCH (c:Customer {id: $id}) RETURN c.name, c.city` ``
 
 If the code is intentionally incomplete, move it into a callout explanation rather than the code itself.
+
+### All imports and referenced names must be present
+
+Every Python code block must be self-contained or clearly part of a continuation. Any class, function, or variable used in a code block must be either defined in that block or imported in that block.
+
+❌ (uses `MemoryDependency` without import or definition — NameError at runtime)
+```python
+result = await agent.run("Hello", deps=MemoryDependency(memory=memory))
+```
+
+✅ (all names are either imported or clearly part of the library's public API)
+```python
+result = await agent.run("Hello")
+```
+
+For each code block in a Python lesson, check that:
+
+- All `import` statements for the classes/functions used are present in the block or in a preceding "Setup" block clearly identified as shared
+- No class name appears that is not defined in the block, not imported, and not a documented library export
+- If a class is user-defined (e.g. a dataclass the learner must write), the definition appears before first use
+
+Flag any code block that references an undefined name. Do not guess at what the import might be — flag it as requiring manual review if the correct import is not clear.
+
+---
+
+## Phase 4a: No definition lists — use bullet points
+
+AsciiDoc definition lists (`term::` / body) must be converted to bullet points with the term bolded inline. Definition lists render inconsistently and are harder to read on screen.
+
+❌
+```asciidoc
+Context injection::
+The most recent messages are retrieved and injected into each new prompt automatically.
+
+Semantic search::
+Past messages are embedded and indexed.
+```
+
+✅
+```asciidoc
+* *Context injection* — the most recent messages are retrieved and injected into each new prompt automatically.
+* *Semantic search* — past messages are embedded and indexed.
+```
+
+**How to identify:** Look for lines ending in `::` followed by a body paragraph. Convert every occurrence.
+
+---
+
+## Phase 4b: Schema diagrams must use Mermaid, not Cypher
+
+A `[source,cypher]` block that shows node definitions (`(:Label {props})`) or relationship patterns without a `MATCH`/`CREATE`/`RETURN` clause is a schema diagram, not executable Cypher. Schema diagrams must use `[source,mermaid]` so the platform renders them as graphs.
+
+**How to identify a schema block vs executable Cypher:**
+- Schema: contains `(:Label {prop})` node definitions or bare relationship patterns like `(a)-[:REL]->(b)` without `MATCH`, `CREATE`, `MERGE`, `RETURN`
+- Executable: contains Cypher clauses (`MATCH`, `CREATE`, `WITH`, `RETURN`, etc.) — keep as `[source,cypher]`
+
+❌ Schema shown as Cypher (wrong):
+```asciidoc
+[source,cypher]
+.Short-term memory schema
+----
+(:Conversation {id, user_id})
+(:Message {id, role, content, embedding})
+(c:Conversation)-[:FIRST_MESSAGE]->(m:Message)
+----
+```
+
+✅ Schema shown as Mermaid (correct):
+```asciidoc
+[source,mermaid]
+----
+graph LR
+    C([Conversation \n id, user_id]) -->|FIRST_MESSAGE| M([Message \n role, embedding])
+----
+```
+
+When converting, replace node definitions with Mermaid node syntax and keep the key properties inline using ` \n ` line breaks. Use `graph LR` for linear chains and `graph TB` for multi-layer schemas with subgraphs.
+
+## Phase 4c: Mermaid Diagrams
+
+Mermaid diagrams must use the `[source,mermaid]` block attribute, **not** `[mermaid]` alone.
+
+❌
+```asciidoc
+[mermaid]
+----
+graph LR
+    A --> B
+----
+```
+
+✅
+```asciidoc
+[source,mermaid]
+----
+graph LR
+    A --> B
+----
+```
+
+If a lesson contains `[mermaid]` without `source,`, replace it with `[source,mermaid]`.
+
+### Mermaid line breaks require spaces on both sides
+
+Inside Mermaid node labels, `\n` must have a space on both sides to render as a line break. Without surrounding spaces, the text runs together.
+
+❌
+```
+M1([Message\nrole: user])
+```
+
+✅
+```
+M1([Message \n role: user])
+```
+
+If a diagram contains `\n` without surrounding spaces inside node labels, add them.
 
 ---
 
