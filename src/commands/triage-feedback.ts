@@ -146,6 +146,7 @@ async function findOrCreateProject(
   linear: LinearClient,
   teamId: string,
   courseSlug: string,
+  courseTitle: string,
   cache: Map<string, string>,
 ): Promise<string | undefined> {
   if (cache.has(courseSlug)) return cache.get(courseSlug);
@@ -165,6 +166,7 @@ async function findOrCreateProject(
 
   const payload = await linear.createProject({
     name: courseSlug,
+    description: courseTitle,
     teamIds: [teamId],
   });
 
@@ -272,6 +274,7 @@ async function run(): Promise<void> {
       linear,
       team.id,
       row.courseSlug,
+      row.courseTitle,
       projectCache,
     );
 
