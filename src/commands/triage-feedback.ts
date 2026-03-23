@@ -28,7 +28,6 @@ WHERE f.createdAt >= datetime() - duration('P30D') AND l.status = 'active'
 WITH *, split(u.email, '@') AS emailParts
 
 WITH l, f,
-
     left(emailParts[0], 2) + '***' + right(emailParts[0], 2) + '@' + emailParts[1] AS emailDomain,
     exists { (u)-[:HAS_ENROLMENT]->()-[:COMPLETED_LESSON]->(l) } AS completed
 
@@ -40,7 +39,8 @@ WITH l,
       reason: f.reason,
       additional: f.additional,
       emailDomain: emailDomain,
-      completed: completed
+      completed: completed,
+      createdAt: toString(f.createdAt)
     }) AS reasons
 
 //WHERE positive + negative >= 5
@@ -61,6 +61,7 @@ interface FeedbackReason {
   additional: string | null;
   emailDomain: string;
   completed: boolean;
+  createdAt: string;
 }
 
 interface LessonFeedback {
@@ -90,7 +91,8 @@ function formatDescription(row: LessonFeedback): string {
       .replace(/\\/g, "\\\\")
       .replace(/\|/g, "\\|")
       .replace(/\n+/g, " ");
-    return `| \`${r.emailDomain}\` | ${r.reason || "—"} | ${additional} | ${r.completed ? "Y" : "N"} | ([view](${adminBase}/${r.feedbackId})) |`;
+    const date = r.createdAt ? r.createdAt.slice(0, 10) : "—";
+    return `| \`${r.emailDomain}\` | ${date} | ${r.reason || "—"} | ${additional} | ${r.completed ? "Y" : "N"} | ([view](${adminBase}/${r.feedbackId})) |`;
   });
 
   return [
@@ -101,8 +103,8 @@ function formatDescription(row: LessonFeedback): string {
     ``,
     `## Recent feedback`,
     ``,
-    `| User | Reason | Additional | Completed | |`,
-    `|---|---|---|:---:|---|`,
+    `| User | Date | Reason | Additional | Completed | |`,
+    `|---|---|---|---|:---:|---|`,
     ...tableRows,
     ``,
   ].join("\n");
@@ -143,39 +145,39 @@ async function resolveFeedbackLabel(
 async function findOrCreateProject(
   linear: LinearClient,
   teamId: string,
-  courseName: string,
+  courseSlug: string,
   cache: Map<string, string>,
 ): Promise<string | undefined> {
-  if (cache.has(courseName)) return cache.get(courseName);
+  if (cache.has(courseSlug)) return cache.get(courseSlug);
 
   const existing = await linear.projects({
-    filter: { name: { eq: courseName } },
+    filter: { name: { eq: courseSlug } },
   });
 
   console.log(existing.nodes);
 
   if (existing.nodes.length > 0) {
     const id = existing.nodes[0].id;
-    console.log(`   📁 Found project: "${courseName}"`);
-    cache.set(courseName, id);
+    console.log(`   📁 Found project: "${courseSlug}"`);
+    cache.set(courseSlug, id);
     return id;
   }
 
   const payload = await linear.createProject({
-    name: courseName,
+    name: courseSlug,
     teamIds: [teamId],
   });
 
   if (payload.success) {
     const project = await payload.project;
     if (project) {
-      console.log(`   📁 Created project: "${courseName}"`);
-      cache.set(courseName, project.id);
+      console.log(`   📁 Created project: "${courseSlug}"`);
+      cache.set(courseSlug, project.id);
       return project.id;
     }
   }
 
-  console.warn(`   ⚠️  Could not find or create project for "${courseName}"`);
+  console.warn(`   ⚠️  Could not find or create project for "${courseSlug}"`);
   return undefined;
 }
 
@@ -269,7 +271,7 @@ async function run(): Promise<void> {
     const projectId = await findOrCreateProject(
       linear,
       team.id,
-      row.courseTitle,
+      row.courseSlug,
       projectCache,
     );
 
