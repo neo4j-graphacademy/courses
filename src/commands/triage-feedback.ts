@@ -25,8 +25,11 @@ WHERE f.createdAt >= datetime() - duration('P30D') AND l.status = 'active'
   AND NOT toLower(f.additional) CONTAINS 'connection'
   AND NOT toLower(f.additional) CONTAINS 'timeout'
 
+WITH *, split(u.email, '@') AS emailParts
+
 WITH l, f,
-    '***@' + split(u.email, '@')[1] AS emailDomain,
+
+    left(emailParts[0], 2) + '***' + right(emailParts[0], 2) + '@' + emailParts[1] AS emailDomain,
     exists { (u)-[:HAS_ENROLMENT]->()-[:COMPLETED_LESSON]->(l) } AS completed
 
 WITH l,
