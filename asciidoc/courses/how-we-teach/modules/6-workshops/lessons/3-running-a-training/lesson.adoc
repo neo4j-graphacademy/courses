@@ -1,0 +1,135 @@
+= Running a scheduled training
+:type: lesson
+:order: 3
+
+In the previous lesson, you learned how the practitioner series is structured and where to find instructor resources. When a new session is confirmed, three things need to happen before it starts: sandbox capacity must be requested, a Linear issue must be created to track the event, and the sandbox team must be notified through Slack.
+
+In this lesson, you will learn how to complete all three steps using the `events:practitioner` command.
+
+
+== What needs to happen before a session
+
+Workshops use pre-provisioned Neo4j sandbox instances. Unlike online courses — where sandboxes are created on demand as each learner starts — workshops require a fixed number of sandboxes to be available for the entire session window. The sandbox team needs advance notice to provision them.
+
+For each workshop session, you need to:
+
+* **Request sandbox capacity** — notify the sandbox team of the use case, participant count, and session window
+* **Create a Linear issue** — track the event with the correct labels, due date, and course link
+* **Use unique course links** — each training session uses a tracking URL with a `?ref=` parameter so enrollment from that session can be attributed correctly
+
+
+== Requesting sandbox capacity
+
+To request sandbox capacity, use the `/workshop` command in the *#sandbox-experience* Slack channel.
+
+[source]
+----
+/workshop {usecase} {participant-count} {start-date in UTC} {end-date in UTC}
+----
+
+. `usecase` is the use case of the workshop, e.g. `fraudmovies`
+. `participant-count` is the number of participants in the workshop
+. `start-date in UTC` is the start date of the workshop in UTC
+. `end-date in UTC` is the end date of the workshop in UTC
+
+The following example requests 20 sandbox instances for the `fraudmovies` use case from 14:00 UTC to 16:00 UTC on 2026-02-03.
+
+[source]
+----
+/workshop fraudmovies 20 2026-02-03 14:00 2026-02-03 16:00
+----
+
+== Using the practitioner command
+
+The `events:practitioner` npm script automates all three steps. It reads every course tagged `practitioner:N` from the repository, groups them by day, and for each course:
+
+. Creates a Linear issue with the `events > practitioner` label, the correct use-case label, the event date as the due date, and the course URL with a `?ref=` tracking parameter
+. Posts two messages to the *#sandbox-experience* Slack channel: a header identifying the training, and a `/workshop` command with the use case, participant count, and session window
+
+The command derives session times from the region you specify:
+
+* **APAC** — 03:00 UTC start
+* **EMEA** — 09:00 UTC start
+* **AMER** — 15:00 UTC start
+
+Sessions run for the duration of the workshop (or the combined duration of same-day workshops). All times are UTC.
+
+
+=== Basic usage
+
+[source,sh]
+----
+npm run events:practitioner -- --region EMEA --start-date 2026-03-24
+----
+
+`--region` and `--start-date` are both required. The start date is the date of Day 1; subsequent days are calculated automatically from the `practitioner:N` tag on each course.
+
+
+=== Testing before running for real
+
+Always run with `--dry-run` first to verify the output before creating issues or posting to Slack:
+
+[source,sh]
+----
+npm run events:practitioner -- --region EMEA --start-date 2026-03-24 --dry-run
+----
+
+To run one component for real while skipping the other, pass the component name to `--dry-run`:
+
+[source,sh]
+----
+# Create Linear issues, skip Slack
+npm run events:practitioner -- --region EMEA --start-date 2026-03-24 --dry-run slack
+
+# Post to Slack, skip Linear
+npm run events:practitioner -- --region EMEA --start-date 2026-03-24 --dry-run linear
+----
+
+
+=== Testing Slack output in a different channel
+
+Use `--slack-channel` to redirect output to a test channel before posting to *#sandbox-experience*:
+
+[source,sh]
+----
+npm run events:practitioner -- --region EMEA --start-date 2026-03-24 --slack-channel C1234567
+----
+
+Pass the Slack channel ID (not the name). Find it by right-clicking the channel in Slack and selecting *View channel details*.
+
+
+== What gets created
+
+For each workshop in the series, the command creates:
+
+**Linear issue**
+
+* Title: `{Course title} — {REGION} {date}`
+* Labels: `events > practitioner` and `usecase > {use-case}`
+* Due date: the date of that workshop day
+* Description: the course URL with `?ref=practitioner-{region}-{YYYY-MM}` appended
+
+**Slack messages** (posted to *#sandbox-experience*)
+
+[source]
+----
+Practitioner Training: {Course title} on {date}:
+/workshop {use-case} 30 {YYYY-MM-DD HH:MM} {YYYY-MM-DD HH:MM}
+----
+
+The `/workshop` command is handled by the sandbox team's bot. It provisions 30 sandbox instances for the specified use case and time window.
+
+
+read::Continue[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned how to prepare for a scheduled practitioner training session:
+
+* **Three steps required** — request sandbox capacity, create a Linear issue, and send the Slack notification; the `events:practitioner` command does all three automatically
+* **Dry-run first** — use `--dry-run`, `--dry-run slack`, or `--dry-run linear` to verify output before committing
+* **Unique tracking links** — each Linear issue description contains a course URL with a `?ref=practitioner-{region}-{YYYY-MM}` parameter for attribution
+
+For questions about upcoming sessions or trainer coordination, join *#neo4j-datacouch-practitioner-training* on Slack.

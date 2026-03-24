@@ -1,8 +1,10 @@
 /**
- * Shared Slack utilities: channel ID resolution helpers.
+ * Shared Slack utilities: channel ID resolution and message posting.
  */
 
 import { WebClient } from "@slack/web-api";
+
+export { parseArgs } from "../utils";
 
 /** Slack channel IDs are C... (public) or G... (private). Names do not start with C or G. */
 export function looksLikeChannelId(channel: string): boolean {
@@ -10,13 +12,13 @@ export function looksLikeChannelId(channel: string): boolean {
   return c.length > 0 && (c.startsWith("C") || c.startsWith("G"));
 }
 
+/** Milliseconds to wait between paginated Slack API calls to stay within rate limits. */
+const PAGE_DELAY_MS = 1000;
+
 /**
  * Resolve a channel name to its Slack ID using conversations.list (needs channels:read scope).
  * Returns the original string if it already looks like an ID or resolution fails.
  */
-/** Milliseconds to wait between paginated Slack API calls to stay within rate limits. */
-const PAGE_DELAY_MS = 1000;
-
 export async function resolveChannelId(
   channel: string,
   web: WebClient,
@@ -45,33 +47,29 @@ export async function resolveChannelId(
   return channel;
 }
 
+/**
+ * Post a plain-text message to a Slack channel.
+ * Throws if the API returns an error.
+ */
+export async function postMessage(
+  channel: string,
+  text: string,
+  web: WebClient,
+): Promise<void> {
+  const result = await web.chat.postMessage({
+    channel,
+    text,
+    unfurl_links: false,
+    unfurl_media: false,
+  });
+  if (!result.ok) {
+    throw new Error(
+      `Slack API error posting to ${channel}: ${(result as { error?: string }).error ?? "unknown"}`,
+    );
+  }
+}
+
 /** Pause execution for a given number of milliseconds. */
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Parse --key value or --key=value pairs from process.argv.
- * Returns a map of key → value (without the -- prefix).
- */
-export function parseArgs(argv: string[]): Map<string, string> {
-  const args = new Map<string, string>();
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
-    if (arg.startsWith("--")) {
-      const eqIdx = arg.indexOf("=");
-      if (eqIdx !== -1) {
-        args.set(arg.slice(2, eqIdx), arg.slice(eqIdx + 1));
-      } else {
-        const next = argv[i + 1];
-        if (next !== undefined && !next.startsWith("--")) {
-          args.set(arg.slice(2), next);
-          i++;
-        } else {
-          args.set(arg.slice(2), "true");
-        }
-      }
-    }
-  }
-  return args;
 }
