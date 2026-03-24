@@ -1,0 +1,101 @@
+= Why graphs over vector embeddings
+:type: lesson
+:order: 3
+:duration: 5
+
+In the previous lesson, you learned how the POLE+O model classifies entities and how relationships carry temporal validity. You might ask: why not rely on vector embeddings alone for long-term agent memory?
+
+In this lesson, you will learn what vector embeddings can and cannot do — and why multi-hop graph traversal answers questions that embeddings alone cannot.
+
+== What vector embeddings do well
+
+Vector embeddings are excellent at one thing: finding entities or documents that are semantically similar to a query. Given "high-risk financial customer", a vector search returns the entities whose descriptions are closest in meaning.
+
+This is useful. `neo4j-agent-memory` uses embeddings too — every entity node has an `embedding` property and a vector index. Semantic search works inside Neo4j.
+
+== What vector embeddings cannot do
+
+A pure embedding approach treats every record as an independent point in embedding space. It has no concept of relationships between records. Consider this question:
+
+[quote]
+____
+Show me the customer, all their accounts, the transactions on each account, the organization they work for, and any compliance flags linked to that organization.
+____
+
+With embeddings alone, this requires:
+
+. Query for the customer entity
+. Query for accounts (filtering by customer ID as metadata)
+. Query for transactions (filtering by account IDs)
+. Query for the organization (filtering by customer ID)
+. Query for compliance flags (filtering by organization ID)
+
+Five round-trips. Application-level joins. No native traversal.
+
+In Neo4j, this is a single Cypher query:
+
+[source,cypher]
+.Retrieve a customer's full two-hop context in one traversal
+----
+MATCH (c:EntityPerson {name: "Jessica Norris"})
+  -[:OWNS]->(a:EntityObject)
+  -[:HAS_TRANSACTION]->(t:EntityEvent)
+WITH c, a, collect(t) AS transactions
+MATCH (c)-[:WORKS_AT]->(org:EntityOrganization)
+  -[:HAS_FLAG]->(flag:EntityObject {type: "compliance"})
+RETURN c.name, a.name, transactions, org.name, flag.description
+----
+
+This returns the customer's name, account name, collected transactions, employer name, and compliance flag description in a single database call — no application-level joins required.
+
+== Querying temporal relationships
+
+An embedding approach stores metadata alongside vectors. To answer "who owned this account in Q3 2025?", you would need to store `valid_from` and `valid_to` as metadata and filter.
+
+In Neo4j, temporal validity is a property of the relationship itself:
+
+[source,cypher]
+.Find who owned an account during a specific time period
+----
+MATCH (person:EntityPerson)-[r:OWNS]->(account:EntityObject {id: $account_id})
+WHERE r.valid_from <= date("2025-09-30")
+  AND (r.valid_to IS NULL OR r.valid_to >= date("2025-07-01"))
+RETURN person.name, r.valid_from, r.valid_to
+----
+
+This returns every person who held an `OWNS` relationship to the account at any point during Q3 2025, along with the exact dates that ownership was valid.
+
+== Combining vector search and graph traversal
+
+`neo4j-agent-memory` uses both. Semantic search finds entities by meaning. Graph traversal answers structural questions about connections. You can combine them:
+
+[source,cypher]
+.Find semantically similar entities that are connected to a specific organization
+----
+CALL db.index.vector.queryNodes('entity_embedding', 5, $query_embedding) // <1>
+YIELD node AS entity, score // <2>
+MATCH (entity)-[:WORKS_AT]->(org:EntityOrganization {name: "Acme Corp"}) // <3>
+RETURN entity.name, score // <4>
+ORDER BY score DESC // <5>
+----
+<1> Search the vector index for the 5 entity nodes whose embeddings are closest to the query vector
+<2> Expose each matching node and its similarity score for use in the next clause
+<3> Filter to only the entities that have a `WORKS_AT` relationship to the named organization
+<4> Return the entity name and its similarity score
+<5> Show the closest matches first
+
+The vector search and the graph traversal run in the same query. With embeddings alone, the organization filter would require a separate lookup and application-level join.
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned why graphs complement vector embeddings for long-term agent memory:
+
+* *Vectors for similarity* — semantic search finds entities by meaning; Neo4j supports this natively through vector indexes
+* *Graphs for traversal* — multi-hop queries (customer → accounts → transactions → organization → flags) require following relationships, not joining metadata
+* *Temporal relationships* — `valid_from` and `valid_to` on relationships enable time-aware queries that vector metadata cannot match
+* *Combined queries* — Neo4j allows vector similarity and graph traversal in a single Cypher query
+
+In the next lesson, you will learn how the entity extraction pipeline populates the long-term memory graph automatically.

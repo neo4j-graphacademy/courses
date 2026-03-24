@@ -1,0 +1,140 @@
+= The Three Memory Types
+:type: lesson
+:order: 2
+:duration: 6
+
+In the previous lesson, you learned about the three gaps in modern AI agent systems. The `neo4j-agent-memory` library closes all three gaps using a single Neo4j database that contains three connected memory layers.
+
+In this lesson, you will learn what each layer stores, how long it persists, and how all three connect into one queryable graph.
+
+The three layers are:
+
+* *Short-term memory* — the active conversation; ephemeral, session-scoped
+* *Long-term memory* — a persistent entity knowledge graph; survives across sessions
+* *Reasoning memory* — an audit trail of every tool call and decision; permanent
+
+Each layer answers a different question about the agent's history and stores data in a different structure. The sections below cover each one in detail.
+
+== Understanding short-term memory
+
+Short-term memory stores the active conversation as a linked chain of message nodes.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Short-Term Memory
+
+| Lifetime
+| Ephemeral — exists for the duration of one session
+
+| Access pattern
+| Sequential — recent messages first; vector search for semantic recall
+
+| Primary question
+| "What was discussed?"
+|===
+
+[source,mermaid]
+----
+graph LR
+    C([Conversation]) -->|FIRST_MESSAGE| M1([Message \n role: user])
+    M1 -->|NEXT_MESSAGE| M2([Message \n role: assistant])
+    M2 -->|NEXT_MESSAGE| M3([Message \n role: user])
+----
+
+Messages form a linked list inside a conversation — sequential access from the front, plus vector search on the `embedding` property of each node.
+
+== Understanding long-term memory
+
+Long-term memory is a persistent knowledge graph of entities and their relationships. It survives across sessions and grows with every conversation.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Long-Term Memory
+
+| Lifetime
+| Persistent — indefinite retention
+
+| Access pattern
+| Semantic search + multi-hop graph traversal
+
+| Primary question
+| "What do you know about this entity?"
+|===
+
+The library classifies entities into five types — Person, Object, Location, Event, and Organization — a flexible set that covers the named entities found in most business conversations. Every entity node carries a vector embedding for semantic search.
+
+[source,mermaid]
+----
+graph LR
+    P([EntityPerson \n name:Alice]) -->|WORKS_AT| O([EntityOrganization \n name:Acme Corp])
+    P -->|OWNS| Ob([EntityObject \n name:Laptop])
+    P -->|ATTENDED| E([EntityEvent \n name:Demo Day])
+----
+
+Entities form a connected knowledge graph — relationships between them are stored as graph edges, enabling multi-hop traversal to answer questions like "which people work at the same company?"
+
+== Understanding reasoning memory
+
+Reasoning memory captures the agent's complete thinking process: every tool called, every intermediate thought, and the causal chain from user request to final answer.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Reasoning Memory
+
+| Lifetime
+| Archival — permanent audit history
+
+| Access pattern
+| Trace lookup + vector similarity for precedent search
+
+| Primary question
+| "How did you reach this conclusion?"
+|===
+
+The schema records: `(ReasoningTrace)-[:HAS_STEP]->(ReasoningStep)-[:USED_TOOL]->(ToolCall)`.
+
+[source,mermaid]
+----
+graph LR
+    T([ReasoningTrace]) -->|HAS_STEP| S([ReasoningStep \n thought: ...])
+    S -->|USED_TOOL| TC([ToolCall \n name:search_memory])
+    TC -->|CALL_OF| TL([Tool \n name:search_memory])
+----
+
+Every agent turn that involves tool use produces a trace like this — an auditable record of what the agent decided, which tool it called, and what the tool was.
+
+== Connecting the three memory layers
+
+Because the three schemas are complementary subgraphs, they fit naturally side by side in a single Neo4j database. Cross-memory relationships connect them:
+
+* `(Message)-[:TRIGGERED]->(ReasoningTrace)` — a message initiates a reasoning trace
+* `(Message)-[:MENTIONS]->(Entity)` — a message references a known entity
+* `(Entity)-[:RETRIEVED_IN]->(ReasoningStep)` — an entity is accessed during reasoning
+
+[source,mermaid]
+----
+graph LR
+    M([Message]) -->|TRIGGERED| T([ReasoningTrace])
+    M -->|MENTIONS| P([EntityPerson])
+    P -->|RETRIEVED_IN| S([ReasoningStep])
+    T -->|HAS_STEP| S
+----
+
+A single Cypher query can traverse from a tool call, back through the reasoning step that invoked it, through the message that triggered the trace, to the entity mentioned in that message. This is the architecture that makes agents explainable.
+
+[.quiz]
+=== Check your understanding
+
+include::questions/1-memory-type-lifetime.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how the three memory types work together:
+
+* *Short-term memory* — the conversation chain; ephemeral, session-scoped
+* *Long-term memory* — the persistent entity knowledge graph; survives across sessions
+* *Reasoning memory* — the audit layer; captures every tool call and the causal chain behind each decision
+* *One database* — all three are subgraphs in the same Neo4j instance, connected by cross-memory relationships
+
+In the next lesson, you will learn why a graph database is the correct architectural choice for all three layers.

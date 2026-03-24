@@ -1,0 +1,101 @@
+= The long-term memory schema
+:type: lesson
+:order: 2
+:duration: 5
+
+In the previous lesson, you learned why long-term memory is necessary — short-term memory disappears at session end, and entities, preferences, and facts need to persist and accumulate across conversations.
+
+In this lesson, you will learn how long-term memory is structured, how the POLE+O model classifies entities, and how preferences are stored across sessions.
+
+== Understanding the characteristics of long-term memory
+
+Long-term memory is a persistent knowledge graph of entities, relationships, and learned preferences. Information extracted from conversations is automatically promoted to this layer and linked *across sessions* — it does not reset when a conversation ends.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Long-Term Memory
+
+| Lifetime
+| Persistent — indefinite retention
+
+| Access pattern
+| Semantic search + graph traversal
+
+| Primary question
+| "What do you know about this entity?"
+|===
+
+== Classifying entities using the POLE+O model
+
+The library classifies entities using the *POLE+O model* — Person, Object, Location, Event, Organization. POLE+O is the classification scheme built into the library; other ontologies exist, but this is the one the library uses. The five types provide broad coverage for the named entities that appear in most business conversations, and each type supports configurable subtypes (for example, `Person/Customer`, `Location/Address`) for domain-specific precision.
+
+[%header,cols="1,2,1"]
+|===
+| Entity Type | Examples | Neo4j Label
+
+| Person
+| Customers, employees, stakeholders
+| `:EntityPerson:Entity`
+
+| Organization
+| Companies, teams, departments, regulators
+| `:EntityOrganization:Entity`
+
+| Location
+| Addresses, regions, countries, branches
+| `:EntityLocation:Entity`
+
+| Event
+| Transactions, decisions, meetings, incidents
+| `:EntityEvent:Entity`
+
+| Object
+| Accounts, products, documents, policies
+| `:EntityObject:Entity`
+|===
+
+== Examining the graph schema
+
+[source,mermaid]
+----
+graph LR
+    P([EntityPerson \n name, subtype \n embedding]) -->|WORKS_AT| O([EntityOrganization \n name, embedding])
+    P -->|OWNS| Ob([EntityObject \n name, embedding])
+    P -->|ATTENDED| E([EntityEvent \n name, embedding])
+    P -->|LOCATED_AT| L([EntityLocation \n name, coordinates])
+----
+
+Relationships carry `valid_from` and `valid_to` timestamps, enabling time-aware reasoning — you can ask "who owned this account in Q3 2025?" and get a correct answer even if ownership has since changed.
+
+== Storing learned preferences
+
+Long-term memory also stores agent and user *preferences* as typed nodes, enabling personalization across sessions:
+
+[source,python]
+.Add a user preference to long-term memory
+----
+await memory.long_term.add_preference(
+    category="communication",
+    preference="Prefers concise responses",
+    context="Confirmed during onboarding"
+)
+----
+
+This creates a `Preference` node in the graph linked to the current user. On future sessions, the agent retrieves matching preferences before generating a response — so a user who prefers concise answers gets shorter replies automatically, without being asked again.
+
+[.quiz]
+=== Check your understanding
+
+include::questions/1-pole-entity-type.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how long-term memory stores persistent knowledge:
+
+* *Long-term memory* is a persistent entity graph that survives across sessions
+* *POLE+O* is the library's built-in entity classification scheme — five types: Person, Object, Location, Event, Organization
+* Relationships carry *temporal validity timestamps* (`valid_from`, `valid_to`) for time-aware querying
+* *Preferences* can be stored and retrieved for cross-session personalization
+
+In the next lesson, you will learn why a property graph is a better fit for long-term agent memory than a vector database alone.

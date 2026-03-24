@@ -1,0 +1,71 @@
+= Short-Term Memory
+:type: lesson
+:order: 2
+:duration: 4
+
+In the previous lesson, you learned why short-term memory is necessary — without it, every prompt reaches the LLM cold, with no knowledge of what came before.
+
+In this lesson, you will learn how short-term memory is modeled as a graph, what properties each message node stores, and what the library does automatically when you add a message.
+
+== Understanding the characteristics of short-term memory
+
+Short-term memory has three defining characteristics that distinguish it from the other memory layers.
+
+[%header,cols="1,2"]
+|===
+| Characteristic | Short-Term Memory
+
+| Lifetime
+| Ephemeral — exists for the duration of a session
+
+| Access pattern
+| Sequential — recent messages first
+
+| Primary question
+| "What did you discuss?"
+|===
+
+== Examining the graph schema
+
+A `Conversation` node acts as the entry point and links to its messages through a chain of `FIRST_MESSAGE` and `NEXT_MESSAGE` relationships.
+
+[source,mermaid]
+.Short-term memory schema
+----
+graph LR
+    C([Conversation \n id, user_id, title]) -->|FIRST_MESSAGE| M1([Message \n role: user \n embedding])
+    M1 -->|NEXT_MESSAGE| M2([Message \n role: assistant])
+    M2 -->|NEXT_MESSAGE| M3([Message \n role: user])
+----
+
+Each `Message` node stores:
+
+* *role* — `user`, `assistant`, or `system`
+* *content* — the message text
+* *timestamp* — when the message was created
+* *session_id* — which session the message belongs to
+* *embedding* — a vector used for semantic search across message history
+
+== What happens automatically when a message is added
+
+When you add a message to short-term memory, the library performs these steps automatically:
+
+. Creates the `Message` node and links it into the `Conversation` chain
+. Runs the entity extraction pipeline on the message content
+. Promotes discovered entities into the long-term memory layer
+. Links the message to any extracted entities using `MENTIONS` relationships
+
+This automatic extraction connects short-term and long-term memory within the same graph.
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned how short-term memory works as a graph:
+
+* *Conversation → Message chain* — short-term memory stores the session's working context as a linked list of nodes
+* *Entity extraction* — each message is automatically processed and discovered entities are promoted to long-term memory
+* *Vector embeddings* — each `Message` node stores an embedding to support semantic search across message history
+
+In the next lesson, you will learn the short-term memory API methods and the Cypher each one generates.

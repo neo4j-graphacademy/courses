@@ -1,0 +1,355 @@
+= The Complete Memory API
+:type: lesson
+:order: 5
+:duration: 8
+
+In the previous lesson, you installed `neo4j-agent-memory` and configured the three configuration objects. In this lesson, you will learn every public method the library exposes — across all three memory layers — and see a single end-to-end example that uses them all in the order you would call them in a real application.
+
+The methods are grouped in call order: session management first, then short-term memory, then long-term memory, then context retrieval, then reasoning traces.
+
+== Setting up the environment
+
+Every example in this lesson uses the same settings object. Store your credentials in environment variables and build `MemorySettings` once:
+
+[source,python]
+.Configure the library from environment variables
+----
+import os
+import asyncio
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.config import Neo4jConfig, EmbeddingConfig
+
+settings = MemorySettings(
+    neo4j=Neo4jConfig(
+        uri=os.environ["NEO4J_URI"],
+        username=os.environ["NEO4J_USERNAME"],
+        password=os.environ["NEO4J_PASSWORD"]
+    ),
+    embedding=EmbeddingConfig(
+        api_key=os.environ["OPENAI_API_KEY"]
+    )
+)
+----
+
+All three configuration objects are required: `Neo4jConfig` (database connection), `EmbeddingConfig` (vector embeddings for semantic search), and `MemorySettings` (the container that binds them together). Set `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, and `OPENAI_API_KEY` in your environment before running any code in this course.
+
+== Session management
+
+Sessions are the entry point to short-term memory. Create a session before adding any messages:
+
+[source,python]
+.Create, list, and delete sessions
+----
+async with MemoryClient(settings) as memory:
+    # Create a session for a user
+    session = await memory.add_session("user_123")
+    print(session.id)   # A unique session identifier
+
+    # List all sessions (for a session history view or admin UI)
+    sessions = await memory.list_sessions()
+    for s in sessions:
+        print(s.id, s.user_id)
+
+    # Delete a session and all its messages when the conversation ends
+    await memory.delete_session(session.id)
+----
+
+`add_session()` creates a `Conversation` node in Neo4j and returns a session object. `list_sessions()` returns all stored `Conversation` nodes — useful for building a session history view or managing sessions across users. `delete_session()` removes the session and all its linked `Message` nodes.
+
+== Short-term memory
+
+Short-term memory stores the active conversation as a linked message chain. All five short-term methods operate on a session:
+
+[source,python]
+.Add, retrieve, search, and summarise messages
+----
+async with MemoryClient(settings) as memory:
+    session = await memory.add_session("user_123")
+
+    # Store messages as the conversation progresses
+    await memory.add_message(session.id, role="user",
+        content="Review Jessica Norris account for a credit limit increase")
+    await memory.add_message(session.id, role="assistant",
+        content="I will retrieve Jessica's full profile now.")
+
+    # Retrieve the N most recent messages (for context injection)
+    recent = await memory.get_recent_messages(session.id, limit=5)
+
+    # Semantic search over message history
+    results = await memory.search_messages(
+        query="credit limit increase",
+        session_id=session.id,
+        limit=10
+    )
+
+    # Auto-generate a plain-English summary of the conversation
+    summary = await memory.get_conversation_summary(session.id)
+    print(summary)
+----
+
+`add_message()` does more than store text — it runs the entity extraction pipeline on each message, creating or merging entity nodes in long-term memory and linking them back to the message. `get_conversation_summary()` uses the stored messages to produce a concise summary, useful for seeding long-term memory at session end.
+
+== Long-term memory
+
+Long-term memory stores a persistent entity knowledge graph that survives across sessions. The six long-term methods cover creating, enriching, and retrieving the graph:
+
+[source,python]
+.Store and retrieve entities, facts, and preferences
+----
+async with MemoryClient(settings) as memory:
+    # Store a typed entity using the POLE+O classification
+    await memory.long_term.add_entity(
+        name="Jessica Norris",
+        entity_type="PERSON",
+        subtype="CUSTOMER",
+        description="High-value customer, flagged for compliance review April 2025",
+        properties={"risk_score": 0.415}
+    )
+
+    # Store a temporal fact linking two entities
+    await memory.long_term.add_fact(
+        subject="Jessica Norris",
+        predicate="manages",
+        object="Acme Corp account",
+        valid_from="2024-01-01",
+        valid_to="2025-03-31"
+    )
+
+    # Store a user or agent preference
+    await memory.long_term.add_preference(
+        category="communication",
+        preference="Prefers concise responses",
+        context="Confirmed during onboarding"
+    )
+
+    # Semantic search across all entity types
+    entities = await memory.long_term.search_entities(
+        query="Jessica Norris accounts",
+        limit=10
+    )
+
+    # Retrieve preferences matching a query
+    prefs = await memory.long_term.search_preferences(query="communication")
+
+    # Retrieve the full neighborhood subgraph around an entity (2-hop by default)
+    subgraph = await memory.long_term.get_entity_graph(
+        entity_id="jessica-norris",
+        depth=2
+    )
+----
+
+`add_fact()` records a temporal relationship between two named entities — the `valid_from` and `valid_to` fields enable time-aware queries ("who managed this account in Q1 2024?"). `search_preferences()` is the retrieval half of `add_preference()` — you store preferences during setup and retrieve them at the start of each session to personalise the agent's behaviour.
+
+== Combined context retrieval
+
+`get_context()` is the top-level method that pulls from all three memory layers at once and formats the result for injection into an LLM prompt:
+
+[source,python]
+.Retrieve combined context for LLM prompt injection
+----
+async with MemoryClient(settings) as memory:
+    session = await memory.add_session("user_123")
+
+    context = await memory.get_context(
+        query="What do I know about Jessica Norris?",
+        session_id=session.id,
+        include_short_term=True,
+        include_long_term=True,
+        include_reasoning=True,
+        limit=10
+    )
+
+    # context.messages — recent messages from short-term memory
+    # context.entities — relevant entities from long-term memory
+    # context.preferences — matching preferences from long-term memory
+    # context.traces — relevant past reasoning traces
+    print(context.entities)
+----
+
+`get_context()` is the recommended method for injecting memory into a prompt when you are NOT using the Pydantic AI integration tools. Any agent framework (LangChain, CrewAI, a custom prompt builder) can call `get_context()` to retrieve the most relevant memory for the current query.
+
+== Reasoning traces
+
+Reasoning memory records the agent's full decision process. The four core methods form a start-record-complete lifecycle:
+
+[source,python]
+.Record a reasoning trace manually
+----
+async with MemoryClient(settings) as memory:
+    session = await memory.add_session("user_123")
+
+    # 1. Start a new trace — creates the ReasoningTrace node
+    trace = await memory.reasoning.start_trace(
+        task="Evaluate credit limit for Jessica Norris",
+        session_id=session.id
+    )
+
+    # 2. Record a reasoning step
+    step = await memory.reasoning.add_step(
+        trace_id=trace.id,
+        thought="Retrieving customer entity from long-term memory",
+        action="search_entities"
+    )
+
+    # 3. Record a tool call within the step
+    await memory.reasoning.record_tool_call(
+        trace_id=trace.id,
+        step_id=step.id,
+        tool_name="search_entities",
+        parameters={"query": "Jessica Norris", "limit": 5},
+        result={"entities": ["Jessica Norris (EntityPerson)"]},
+        duration_ms=42
+    )
+
+    # 4. Complete the trace with an outcome
+    await memory.reasoning.complete_trace(
+        trace_id=trace.id,
+        outcome="success",
+        result={"decision": "Approved — risk score within threshold"}
+    )
+----
+
+`start_trace()` creates the `ReasoningTrace` node and returns a trace object whose `id` you pass to all subsequent calls. `add_step()` records one reasoning iteration. `record_tool_call()` attaches a `ToolCall` node to a step. `complete_trace()` marks the trace as finished and records the outcome.
+
+When using the Pydantic AI integration, `record_agent_trace()` calls all four of these automatically — so you only need the low-level API when integrating with other frameworks or recording traces for non-agent workflows.
+
+== Querying and analysing traces
+
+Three additional methods let you analyse traces after they are recorded:
+
+[source,python]
+.Query and analyse reasoning traces
+----
+async with MemoryClient(settings) as memory:
+    # Find past traces for semantically similar tasks
+    similar = await memory.reasoning.get_similar_traces(
+        task="What do you know about me?",
+        limit=3
+    )
+
+    # List all traces, with optional filtering
+    traces = await memory.reasoning.list_traces()
+
+    # Retrieve pre-aggregated tool usage statistics
+    stats = await memory.reasoning.get_tool_stats()
+    for tool_name, count in stats.items():
+        print(f"{tool_name}: {count} calls")
+
+    # Retrieve the complete causal chain for one trace
+    provenance = await memory.reasoning.get_trace_provenance(trace.id)
+----
+
+`get_similar_traces()` uses vector similarity on `task_embedding` to find past traces for related tasks. `list_traces()` retrieves all traces and supports date and status filtering. `get_tool_stats()` returns pre-aggregated counts — how many times each tool has been called — without requiring a Cypher query. `get_trace_provenance()` returns the complete audit record for a single trace: originating message, every step and thought, every tool call with parameters and results, and the final outcome.
+
+== Complete API reference
+
+[%header,cols="1,2,3"]
+|===
+| Namespace | Method | Purpose
+
+| `memory`
+| `add_session(user_id)`
+| Create a new conversation session
+
+| `memory`
+| `list_sessions()`
+| List all sessions with optional pagination
+
+| `memory`
+| `delete_session(session_id)`
+| Remove a session and all its messages
+
+| `memory`
+| `add_message(session_id, role, content)`
+| Store a message and run entity extraction
+
+| `memory`
+| `get_recent_messages(session_id, limit)`
+| Retrieve the N most recent messages
+
+| `memory`
+| `search_messages(query, session_id, limit)`
+| Semantic search over message history
+
+| `memory`
+| `get_conversation_summary(session_id)`
+| Auto-generate a summary of the conversation
+
+| `memory`
+| `get_context(query, session_id, ...)`
+| Retrieve combined context from all three memory layers
+
+| `memory.long_term`
+| `add_entity(name, entity_type, ...)`
+| Store or update a POLE+O typed entity
+
+| `memory.long_term`
+| `add_fact(subject, predicate, object, valid_from, valid_to)`
+| Store a temporal fact between two entities
+
+| `memory.long_term`
+| `add_preference(category, preference, context)`
+| Store a user or agent preference
+
+| `memory.long_term`
+| `search_entities(query, limit)`
+| Semantic search across the entity graph
+
+| `memory.long_term`
+| `search_preferences(query)`
+| Retrieve preferences matching a query
+
+| `memory.long_term`
+| `get_entity_graph(entity_id, depth)`
+| Retrieve the neighborhood subgraph for an entity
+
+| `memory.reasoning`
+| `start_trace(task, session_id)`
+| Begin a new reasoning trace
+
+| `memory.reasoning`
+| `add_step(trace_id, thought, action)`
+| Record one reasoning step within a trace
+
+| `memory.reasoning`
+| `record_tool_call(trace_id, step_id, tool_name, ...)`
+| Attach a tool call to a reasoning step
+
+| `memory.reasoning`
+| `complete_trace(trace_id, outcome, result)`
+| Finalise a trace with its outcome
+
+| `memory.reasoning`
+| `get_similar_traces(task, limit)`
+| Find past traces for semantically similar tasks
+
+| `memory.reasoning`
+| `list_traces()`
+| List all traces with optional date and status filters
+
+| `memory.reasoning`
+| `get_tool_stats()`
+| Retrieve pre-aggregated tool usage counts
+
+| `memory.reasoning`
+| `get_trace_provenance(trace_id)`
+| Retrieve the complete causal chain for a trace
+|===
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-get-context.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned the complete `neo4j-agent-memory` API across all three memory layers:
+
+* *Session management* — `add_session()`, `list_sessions()`, `delete_session()` manage conversation lifecycle
+* *Short-term memory* — `add_message()`, `get_recent_messages()`, `search_messages()`, `get_conversation_summary()` store and retrieve the active conversation
+* *Long-term memory* — `add_entity()`, `add_fact()`, `add_preference()` write to the knowledge graph; `search_entities()`, `search_preferences()`, `get_entity_graph()` read from it
+* *Context retrieval* — `get_context()` combines all three layers into a single object ready to inject into an LLM prompt
+* *Reasoning traces* — `start_trace()`, `add_step()`, `record_tool_call()`, `complete_trace()` record the full decision lifecycle; `get_similar_traces()`, `list_traces()`, `get_tool_stats()`, `get_trace_provenance()` retrieve and analyse it
+
+In the next module, you will learn the short-term memory graph schema in detail and see the Cypher that each short-term method generates.

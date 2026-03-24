@@ -1,0 +1,59 @@
+= Why Graphs for Agent Memory
+:type: lesson
+:order: 3
+:duration: 5
+
+In the previous lesson, you learned that all three memory layers live in a single Neo4j graph. You might ask: why Neo4j? Why not a vector database, a relational database, or a document store?
+
+In this lesson, you will learn why graphs are the correct architecture for agent memory — and why the reasoning is different at each memory layer: short-term, long-term, and reasoning memory.
+
+== Understanding the graph advantage at each layer
+
+The correct answer to "why graphs?" is different for each memory type. Together they form a cumulative argument.
+
+=== Short-term memory: traversing chains, not sorting rows
+
+A relational table of messages ordered by timestamp can replay a conversation. What it cannot do is traverse it. The `(Message)-[:NEXT_MESSAGE]->(Message)` chain enables queries a flat table cannot express naturally:
+
+* "Find all messages in this session that mention a specific entity"
+* "Find the message that triggered a given reasoning trace"
+* "Count how many turns occurred before the agent reached a conclusion"
+
+These require following relationships — not sorting columns.
+
+=== Long-term memory: performing multi-hop traversal
+
+A vector database answers "which entity is semantically most similar to this query?" A graph answers "show me the customer, all their accounts, the transactions on each account, the organization they work for, and any compliance flags linked to that organization — in a single traversal."
+
+The multi-hop query is architecturally natural in Neo4j. In a vector database it requires multiple round-trips and application-level joins. In a relational database it requires multiple JOIN clauses whose cost scales with data size.
+
+=== Reasoning memory: representing causality, not sequences
+
+A flat log records what happened in sequence. A graph records why: this tool call produced this result, which informed this reasoning step, which produced this decision. Given a final answer, you can traverse backwards to find the exact tool call that sourced the data, and from that tool call, find the entity in the knowledge graph that was retrieved.
+
+This end-to-end provenance query is only possible in a database that makes relationships first-class citizens.
+
+== Comparing graphs and vector databases
+
+Vector databases are excellent at semantic similarity. They are not designed for:
+
+* Multi-hop traversal across entity relationships
+* Causal chain queries (what led to what)
+* Temporal reasoning (who owned this account in Q3 2025?)
+* Structural pattern matching across node types
+
+`neo4j-agent-memory` uses vector embeddings too — every `Message` and `Entity` node has an `embedding` property for semantic search. The difference is that Neo4j stores those embeddings alongside relationships, so you can combine "semantically similar to X" with "connected to Y within 2 hops" in a single query.
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned why graphs are the correct architecture for agent memory:
+
+* *Short-term* — a linked chain enables traversal and multi-hop queries that a sorted table cannot express
+* *Long-term* — multi-hop graph traversal answers questions that require multiple round-trips in a vector or relational database
+* *Reasoning* — only a graph can represent causality: the path from a final decision back to the evidence and tool calls that produced it
+* *Vectors included* — Neo4j stores embeddings alongside relationships, combining semantic search with graph traversal in one query
+
+In the next lesson, you will install and configure the `neo4j-agent-memory` library.
