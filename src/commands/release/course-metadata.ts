@@ -10,7 +10,9 @@ import { loadFile } from "../../modules/asciidoc";
 import {
   ATTRIBUTE_CAPTION,
   ATTRIBUTE_CATEGORIES,
+  ATTRIBUTE_DURATION,
   ATTRIBUTE_KEY_POINTS,
+  ATTRIBUTE_USECASE,
 } from "../../constants";
 import { courseOverviewPath, courseBannerPath } from "../../utils";
 
@@ -20,6 +22,18 @@ export interface CourseMetadata {
   link: string;
   keyPoints: string;
   categories: string;
+  /** Course directory slug (e.g. "workshop-gds"). */
+  slug: string;
+  /** Sandbox use-case identifier (e.g. "blank-sandbox", "recommendations"). */
+  usecase: string;
+  /**
+   * Which day of a practitioner event series this course runs on (from
+   * `practitioner:N` in the categories attribute). Null if not a practitioner
+   * course.
+   */
+  practitionerDay: number | null;
+  /** Workshop duration in hours, parsed from the :duration: attribute. */
+  durationHours: number;
   /** Local path to course banner.png when it exists (used by Slack). */
   bannerPath?: string;
 }
@@ -54,7 +68,7 @@ export function readCourseMetadata(
 
   const title = (file.getTitle() as string) ?? "Untitled course";
   const caption = file.getAttribute(ATTRIBUTE_CAPTION, null) ?? "";
-  const categories = file.getAttribute(ATTRIBUTE_CATEGORIES, "") ?? "";
+  const categories = (file.getAttribute(ATTRIBUTE_CATEGORIES, "") ?? "") as string;
 
   let keyPoints = file.getAttribute(ATTRIBUTE_KEY_POINTS, null);
   if (Array.isArray(keyPoints)) {
@@ -66,12 +80,30 @@ export function readCourseMetadata(
   const link = `${baseUrl.replace(/\/$/, "")}/courses/${slug}`;
   const bannerPath = courseBannerPath(slug);
 
+  // use-case: some files use :usecase:, others :use-case:
+  const usecase = ((file.getAttribute(ATTRIBUTE_USECASE, null) ??
+    file.getAttribute("use-case", null) ??
+    "") as string);
+
+  // practitioner:N in categories → day N of the event series
+  const practitionerMatch = categories.match(/\bpractitioner:(\d+)\b/);
+  const practitionerDay = practitionerMatch ? parseInt(practitionerMatch[1], 10) : null;
+
+  // :duration: "4 hours" → 4
+  const durationRaw = (file.getAttribute(ATTRIBUTE_DURATION, "4") ?? "4") as string;
+  const durationMatch = String(durationRaw).match(/(\d+(?:\.\d+)?)/);
+  const durationHours = durationMatch ? parseFloat(durationMatch[1]) : 4;
+
   return {
     title,
     caption,
     link,
     keyPoints: keyPointsStr,
     categories,
+    slug,
+    usecase,
+    practitionerDay,
+    durationHours,
     bannerPath: existsSync(bannerPath) ? bannerPath : undefined,
   };
 }
