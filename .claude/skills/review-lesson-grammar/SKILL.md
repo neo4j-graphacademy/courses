@@ -190,8 +190,9 @@ Informal and colloquial words weaken instructional credibility and sound unprofe
 | `figure out`          | `determine` or `identify`                                        |
 | `come up with`        | `create`, `generate`, or `produce`                               |
 | `end up`              | rewrite to state the result directly                             |
-| `make sure`           | `ensure`                                                         |
-| `the right X`         | `the correct X`                                                  |
+| `make sure`                   | `ensure`                                                         |
+| `the right X`                 | `the correct X`                                                  |
+| `like X, Y` (giving examples) | `such as X, Y` or `for example, X and Y`                        |
 
 **Minimising and filler words — remove entirely**
 
@@ -287,6 +288,26 @@ When a sentence lists named things (tools, commands, nodes, properties, roles), 
 
 Apply this whenever proper names, quoted strings, or code-formatted terms appear in a list without an explicit type noun.
 
+### Named subsection items open with "A **Name** [type]..."
+
+When parallel named items each have their own `===` subsection, the opening sentence of each subsection must identify the item as an instance of its category before describing what it does. Use the form "A **Name** [type noun] [verb phrase]."
+
+❌
+```asciidoc
+=== Cypher Template
+
+Runs predefined Cypher queries with parameters you define.
+```
+
+✅
+```asciidoc
+=== Cypher Template
+
+A **Cypher Template** tool runs predefined Cypher queries with parameters you define.
+```
+
+This orients the reader to what category of thing is being described and reinforces the type noun, which helps when items have similar-sounding names.
+
 ### Content follows the user journey
 
 When describing a feature with multiple states, modes, or options, present them in the order the learner encounters them — default or simplest first, advanced or optional second. This mirrors how a user actually works: they start in the default state, then progress when they need more.
@@ -373,6 +394,26 @@ The lesson-level intro and summary (first and last paragraphs) are intentionally
 | integrated Query tool      | Query tool   |
 | platform (for pricing)     | tier         |
 | database (Aura deployment) | instance     |
+| Aura console               | Aura Console |
+| Aura Agents (product name) | Aura Agent   |
+| Neo4j Aura Agents          | Aura Agent   |
+
+**Aura Agent — singular product name, lowercase for instances**
+
+The product is **Aura Agent** (singular). An individual agent you create is an **agent** (lowercase). Never write "Aura Agents" to refer to the product or platform. Use "agents" (lowercase, plural) only when referring to multiple agent instances.
+
+✅ `Aura Agent lets you build retrieval systems...`
+✅ `An Aura Agent uses three read-only tool types...`
+✅ `The agents you create are listed under Data Services.`
+❌ `Aura Agents let you build retrieval systems...`
+❌ `Neo4j Aura Agents are useful when...`
+
+**MCP client vs MCP host**
+
+In Aura Agent content, call the consuming AI application an **MCP client** (e.g. Cursor, Claude Desktop). Do not use "MCP host" — the term is ambiguous in MCP architecture and was corrected by the product team.
+
+✅ `MCP clients such as Cursor and Claude Desktop can connect to your agent.`
+❌ `AI hosts such as Cursor can connect to your agent.`
 
 ### Tool names — always capitalised as shown
 
@@ -474,6 +515,15 @@ Aura Agent uses curated AI models.
 ```
 
 ✅ Keep the more critical note; move or absorb the other — or flag for manual review if both are needed.
+
+### Admonition titles are directives — no contrast phrases
+
+An admonition title must be a concise directive or noun phrase. Do not add contrast phrases like "not X", "vs X", or ", not Y" to the title — the contrast belongs in the body.
+
+❌ `.Write descriptions as instructions, not labels`
+✅ `.Write descriptions as instructions`
+
+The body explains what "instructions" means and what "labels" means. The title just names the rule.
 
 ### Admonitions must have a title
 

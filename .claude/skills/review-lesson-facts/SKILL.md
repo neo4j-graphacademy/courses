@@ -183,6 +183,26 @@ After reviewing, create or append `REVIEW-REPORT.md` in the lesson folder.
 
 ---
 
+## Aura Agent — platform-specific facts to verify
+
+### Text2Cypher tool description — schema is auto-supplied
+
+The Text2Cypher tool automatically receives the full database schema on every invocation. Lessons must **not** instruct learners to manually list all node labels and relationship types in the tool description.
+
+❌ `List the relevant node labels and relationship types. For Northwind: Customer, Order, Product connected by PLACED, CONTAINS...`
+✅ `Add context the schema does not provide: the shape of identifiers (for example, "Customer IDs are uppercase codes like ALFKI"), which categorical properties are useful for filtering, and which numeric properties are suitable for aggregation.`
+
+Repeating the schema in the description adds noise and creates maintenance burden as the schema evolves. The agent already has it.
+
+### Do not advise adding schema hints to fix Cypher generation errors
+
+The platform has built-in retry logic for hallucinated labels and relationship types. Do not advise learners to fix Text2Cypher errors by adding node labels or relationship types to the tool description.
+
+❌ `If the Text2Cypher tool produces Cypher with incorrect relationship types or node labels, try adding the correct nodes and relationship types to the tool description.`
+✅ Guide learners to inspect the reasoning panel, verify domain context (identifier shapes, aggregation fields), and trust the platform's retry mechanism for schema-level errors.
+
+---
+
 ## References
 
 - `.cursor/rules/fact-check-lessons.mdc` — fact-check process, categories, handling recommendations
