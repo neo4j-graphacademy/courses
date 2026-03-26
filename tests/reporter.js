@@ -8,6 +8,31 @@ class CleanReporter {
     const failures = [];
 
     for (const suite of results.testResults) {
+      // Suite-level failure (error thrown during describe() before any it() runs)
+      if (suite.testResults.length === 0 && suite.failureMessage) {
+        const stripped = suite.failureMessage.replace(/\x1B\[[0-9;]*m/g, "");
+        // Extract the error message lines (skip the "● Test suite failed to run" header and stack frames)
+        const lines = stripped.split("\n");
+        const errorIdx = lines.findIndex((l) => /^\s*(Error:|SyntaxError:|TypeError:|Cannot )/.test(l));
+        let message;
+        if (errorIdx !== -1) {
+          message = lines
+            .slice(errorIdx)
+            .filter((l) => !/^\s+at /.test(l))
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .join(" ");
+        } else {
+          message = lines.map((l) => l.trim()).filter(Boolean).slice(0, 5).join(" ");
+        }
+        failures.push({
+          filePath: suite.testFilePath,
+          testName: "suite failed to run",
+          message,
+        });
+        continue;
+      }
+
       const failed = suite.testResults.filter((t) => t.status === "failed");
       if (!failed.length) continue;
 
@@ -53,7 +78,7 @@ class CleanReporter {
     );
     console.log(`Time:        ${elapsed} s`);
 
-    if (!numFailedTests) {
+    if (!numFailedTests && !suiteFailed) {
       console.log("\n✅ All tests passed.");
     }
   }
