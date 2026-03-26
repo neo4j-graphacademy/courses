@@ -181,6 +181,46 @@ This applies whenever the lesson has N parallel sections explaining N items and 
 
 **How to fix:** Add a brief sentence or bullet list immediately after the learning objective that names all items. One sentence is enough: "The three layers are: _short-term memory_, _long-term memory_, and _reasoning memory_."
 
+### Parallel named items use `===` subsections, not bullets
+
+When a lesson section introduces 3 or more parallel named items — tool types, memory layers, algorithm families, access modes — and each item requires more than one sentence to explain, use `===` subsections rather than a flat bullet list.
+
+A bullet list is appropriate for items that can each be described in a single sentence. When each item has a definition, a "when to use" clarification, and possibly prerequisites or caveats, it needs its own subsection.
+
+❌ Three tool types described as a flat bullet list where each bullet contains multiple clauses
+✅ Three `===` subsections, one per tool type, each with a definition paragraph and a "when to use" paragraph
+
+The overview paragraph before the subsections should still name all items (see "Preview before deep-dive" above).
+
+### Best-practice TIP blocks with multiple bullets → dedicated section
+
+A `[TIP]` block that contains 4 or more best-practice bullet points is functioning as primary instructional content, not a supplementary note. Promote it to a dedicated `==` or `===` section with a descriptive title and prose introduction.
+
+TIP blocks are for one-sentence callouts, edge-case warnings, or optional follow-up references — not for the main teaching content of a section.
+
+❌
+```asciidoc
+[TIP]
+.Best practices
+====
+* **Scope** — Keep agents focused on one task.
+* **Descriptions** — State what each tool returns and when to use it.
+* **Fallback** — Reserve the dynamic tool for questions no template covers.
+* **Save** — Click Update after every change.
+====
+```
+
+✅
+```asciidoc
+== Best practices
+
+Keep each agent focused on one task. A narrow scope makes tool selection easier and behavior more predictable.
+
+* **Descriptions** — State what each tool returns and when to use it.
+* **Fallback** — Reserve the dynamic tool for questions no template covers.
+* **Save** — Click Update after every change.
+```
+
 ### Per-section checks
 
 For each concept section, verify:
@@ -207,6 +247,24 @@ To check for assumed knowledge, look at:
 If a theory lesson is asking learners to apply or create, flag it:
 
 > ⚠️ Section "Designing your own schema" asks learners to _create_, which is above the remember/understand level appropriate for a theory lesson. Consider moving this to a challenge lesson.
+
+### Learning outcome verbs — match the actual cognitive level
+
+Learning outcome bullets in `course.adoc`, `module.adoc`, and lesson openings must use verbs that reflect what the learner actually does — not verbs that imply the learner produces output for an audience.
+
+**"Describe" is wrong for product concepts.** It implies the learner narrates the product to someone else, which is not the course goal. Use the correct Bloom's verb for the intended outcome:
+
+| Wrong verb | Right verb | When |
+|------------|-----------|------|
+| `Describe what X is` | `Understand what X is` | Conceptual knowledge of a product or feature |
+| `Describe how X works` | `Explain how X works` | Mechanism or process knowledge |
+| `Describe the steps` | `Complete the steps` / `Follow the steps` | Procedural, hands-on |
+
+❌ `* Describe what Aura Agent is, when to use it, and how it works`
+✅ `* Understand what Aura Agent is, when to use it, and how it works`
+
+❌ `In this module, you will describe what Aura Agent is...`
+✅ `In this module, you will learn what Aura Agent is...`
 
 ---
 
