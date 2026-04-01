@@ -1,95 +1,230 @@
-# Module: What is MCP?
+# Agentic Systems and MCP
 
-## Overview
-This module introduces the core concepts of the Model Context Protocol (MCP) and how it enables agents to work together in a standardized way. Students learn about agentic systems, MCP architecture, and practical implementation through installing MCP servers.
+The Model Context Protocol has risen to prominence recently as a way to enable agents to work together in a standardized way. In this module you explore the core concepts of MCP, how it enables agents to work together, MCP architecture and components, and how to install the Neo4j MCP server and connect it to a Neo4j database.
 
-## Module Structure
-- **Title**: Agentic Systems and MCP
-- **Order**: 1
-- **Type**: Foundational module
-- **Duration**: 5 lessons
+[Learn more about this course](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools)
 
-## Learning Objectives
-By the end of this module, students will:
-1. Understand what agents are and how they work using the ReAct framework
-2. Explain the Model Context Protocol (MCP) and its role in agent communication
-3. Identify the key components of MCP architecture (Servers, Clients, Hosts, Tools)
-4. Configure and install MCP servers with environment variables
-5. Verify MCP server installation and tool availability
+## Concepts
 
-## Key Concepts Covered
+* **Model Context Protocol (MCP)** — Open protocol (Anthropic) so AI agents and assistants access **tools** and **resources** in a standard way; third-party servers can expose capabilities without baking every integration into the agent’s codebase.
+* **Agent** — For this course, a system that **acts independently** using **tool calling** to reach a **goal** (not only text completion).
+* **ReAct (Reason/Act)** — Common agent pattern: repeat **planning** (task breakdown, parameters), **reasoning** (pick tools from descriptions), **acting** (run tools, optionally in parallel), until the goal is met.
+* **MCP server** — Provides **tools** (id, description, parameters, expected outputs), optional **resources** (read-only URIs, like fixed endpoints), and **prompt templates**; may run locally or remotely.
+* **MCP client** — Maintains a **one-to-one**, **stateful** connection to a server; on start, requests available tools, resources, and templates.
+* **Transport** — **stdio** (host starts the server locally, communicates over standard input/output) or **HTTP** (remote server, e.g. SSE or HTTP streaming).
+* **MCP host** — Application (Claude Desktop, VS Code, Cursor, or your agent app) that holds session state, manages client(s), and decides **which** tool to invoke with **which** arguments; the client runs the tool on the host’s behalf.
+* **Tool** — Named capability with description and parameters; results can be text or Base64-encoded images.
+* **Configuration file** — Host-specific JSON that tells the host **how to start** the server (**command** + **args**), and **env** or **envFile** for `NEO4J_*` connection settings.
+* **Neo4j MCP server (`neo4j-mcp`)** — MCP server that exposes Neo4j-oriented tools (`get-schema`, `read-cypher`, `write-cypher`, `list-gds-procedures`) so agents can inspect schema and run Cypher under your policies.
 
-### Agents and ReAct Framework
-- **Agents**: Systems that act independently using tool calling to achieve specific goals
-- **ReAct Framework**: Continuous loop of planning, reasoning, and acting
-- **Planning**: Analyzing tasks, breaking into sub-tasks, extracting parameters
-- **Reasoning**: Selecting appropriate tools based on available descriptions
-- **Acting**: Executing tools in sequence or parallel to gather information
+---
 
-### Model Context Protocol (MCP)
-- **Definition**: Open protocol developed by Anthropic for standardized AI agent communication
-- **Purpose**: Enables agents to access tools and resources from third parties
-- **Architecture**: Client-server model similar to microservices
-- **Transport Methods**: stdio (local) and HTTP (remote)
+## ReAct loop and where MCP fits
 
-### MCP Architecture Components
+Agents can embed some tools in code; **MCP** standardizes consuming **external** tools (cloud APIs, local DB tools, stdio servers). Neo4j’s MCP server lets agents work with a live graph using shared tool contracts instead of custom one-off integrations.
 
-#### Servers
-- Provide capabilities through tools, resources, and prompt templates
-- Each tool has: unique identifier, description, parameter list
-- **Resources**: Read-only data with unique URIs
-- **Prompt Templates**: Pre-written prompts following best practices
+[Reference: What is MCP?](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
 
-#### Clients
-- Manage one-to-one connections to servers
-- Maintain stateful connections throughout lifecycle
-- Request lists of available tools, resources, and templates
+---
 
-#### Hosts
-- Applications managing one or more clients (Claude Desktop, VS Code, Cursor)
-- Maintain session state and context
-- Determine which tools to use and provide parameters
+## MCP architecture: servers, clients, hosts, tools
 
-#### Tools
-- Unique identifiers and descriptions
-- Defined parameters and expected outputs
-- Can return text or Base-64 encoded images
+**Servers** — Client–server style (similar to microservices). Each **tool** has metadata: id, when to use it, parameters, expected output. **Resources** are read-only, URI-addressable. **Prompt templates** supply vetted prompt text.
 
-### Configuration and Installation
-- **Configuration Files**: JSON documents specifying server details
-- **Environment Variables**: Settings passed to servers (credentials, URIs)
-- **Command Structure**: Separate command and arguments for proper execution
-- **Verification**: Using host commands to confirm server installation
+**Clients** — One connection per server; stateful for the session; fetches tool/resource/template lists after connect.
 
-## Practical Implementation
-Students practice with:
-- Neo4j Cypher MCP Server installation
-- Environment variable configuration
-- Tool verification and testing
-- Database connection setup
+**Hosts** — Orchestrate tools and parameters; often own the client connection list.
 
-## Assessment Methods
-- **Pop Quiz**: Multiple choice questions on MCP concepts
-- **Practical Challenge**: Installing and configuring MCP server
-- **Verification Tasks**: Confirming tool availability and functionality
+**Tools** — Example shape (conceptual):
 
-## Prerequisites
-- Basic understanding of databases (helpful but not required)
-- Familiarity with command-line interfaces
-- Access to VS Code or similar development environment
+```text
+id: search-web
+description: Search the web for information
+parameters:
+  query: string
+```
 
-## Tools and Technologies
-- **MCP Servers**: Neo4j Cypher MCP Server
-- **Package Managers**: uv/uvx for Python packages
-- **Development Environment**: VS Code with Copilot
-- **Database**: Neo4j (sandbox instance provided)
+[Reference: What is MCP?](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
 
-## Key Takeaways
-1. MCP standardizes how agents consume external tools
-2. Architecture separates concerns between servers, clients, and hosts
-3. Configuration requires both server details and environment variables
-4. Practical implementation involves specific installation and verification steps
-5. MCP enables agents to work with real data and systems, not just theoretical concepts
+[Reference: MCP Pop Quiz](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/2-pop-quiz)
 
-## Next Steps
-After completing this module, students advance to exploring the full capabilities of Neo4j Cypher MCP server tools and their practical applications in agent-based workflows. 
+---
+
+## Configuration files and environment variables
+
+**Configuration files** tell the host **where** the server binary is and **how** to start it. For Neo4j MCP you typically set:
+
+* Server **name** (identifier in the host)
+* **Command** and **args** (flags such as read-only mode, transport mode)
+* **Database credentials** through **`env`** or an **`envFile`**
+
+**Environment variables** are passed into the server process at startup. For the Neo4j Cypher server they usually include:
+
+* `NEO4J_URI` — e.g. `bolt://localhost:7687`
+* `NEO4J_USERNAME`, `NEO4J_PASSWORD`
+* `NEO4J_DATABASE` — e.g. `neo4j`
+
+**Command structure:** split **`command`** and **`args`** instead of one long shell string. Prefer:
+
+```json
+{
+  "command": "path/to/neo4j-mcp",
+  "args": ["--neo4j-read-only", "true"]
+}
+```
+
+over a single concatenated command string.
+
+[Reference: Installing an MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/3-installing-servers)
+
+---
+
+## Claude Desktop-style configuration (example)
+
+Host-specific JSON (paths and secrets are placeholders). This pattern matches the course: named server, executable, **args**, and **`env`**:
+
+```json
+{
+  "mcpServers": {
+    "neo4j-mcp": {
+      "command": "path/to/neo4j-mcp",
+      "args": [
+        "--neo4j-read-only",
+        "true",
+        "--neo4j-transport-mode",
+        "http"
+      ],
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "<your-password>",
+        "NEO4J_DATABASE": "neo4j"
+      }
+    }
+  }
+}
+```
+
+Use the transport mode your host and Neo4j MCP build expect (the course example uses **`http`** here; VS Code in a later step often uses **`stdio`** with the `neo4j-mcp` command).
+
+[Reference: Installing an MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/3-installing-servers)
+
+---
+
+## Installing the Neo4j MCP server (VS Code workflow)
+
+Typical steps (see Neo4j MCP installation docs for your OS):
+
+1. Install an MCP-capable **host** (e.g. VS Code).
+2. **Download** the Neo4j MCP server release for your platform from the Neo4j MCP GitHub releases page.
+3. **Install** the binary: extract, place the executable on your system, add its directory to **`PATH`**.
+4. **Configure** the host (e.g. `.vscode/mcp.json` in the course repository branch) and provide connection settings.
+
+**Sandbox / Codespace:** the course may ship the server preinstalled; still wire **credentials** the same way.
+
+**Workspace `mcp.json` (illustrative)** — matches the module narrative: server name (e.g. `neo4j`), **`type`: `stdio`**, **`command`**: `neo4j-mcp`, **`envFile`** loading a root **`.env`**:
+
+```json
+{
+  "mcpServers": {
+    "neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}
+```
+
+**`.env` template** (replace with your instance values):
+
+```bash
+NEO4J_URI="bolt://hostname:7687"
+NEO4J_USERNAME="neo4j"
+NEO4J_PASSWORD="your-password"
+NEO4J_DATABASE="neo4j"
+```
+
+[Reference: Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
+
+---
+
+## Neo4j MCP tools introduced in this module
+
+| Tool | Purpose |
+|------|---------|
+| `get-schema` | Labels, relationship types, property keys — gives models grounded context |
+| `read-cypher` | Read-only Cypher; rejects writes, schema/admin-style operations, and `PROFILE` (per course) |
+| `write-cypher` | Write-capable Cypher; can be disabled with `NEO4J_READ_ONLY=true` |
+| `list-gds-procedures` | Lists GDS procedures available on the instance |
+
+[Reference: Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
+
+---
+
+## Verify installation in the host
+
+1. **Start the server** — In VS Code: Command Palette → **MCP: List servers** → select your Neo4j server → **Start Server**.
+2. **Use Agent mode** — Open chat in **Agent** mode (tools are tied to agent workflows in the course).
+3. **Prompt the agent** — e.g. ask: `Which MCP tools are available? List their ID and description.`  
+   Confirm the agent reaches the MCP server and lists tools.
+
+```text
+Which MCP tools are available? List their ID and description.
+```
+
+[Reference: Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
+
+---
+
+## Multiple Neo4j connections in one host
+
+Register **more than one** `neo4j-mcp` entry under `mcpServers`, each with its own `env`. Optional **`NEO4J_NAMESPACE`** prefixes tool names so two databases do not collide:
+
+```json
+{
+  "mcpServers": {
+    "movies-neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "neo4j+s://demo.neo4jlabs.com",
+        "NEO4J_USERNAME": "recommendations",
+        "NEO4J_PASSWORD": "recommendations",
+        "NEO4J_DATABASE": "recommendations"
+      }
+    },
+    "local-neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_NAMESPACE": "local"
+      }
+    }
+  }
+}
+```
+
+[Reference: Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
+
+---
+
+## Optional: clarify misconceptions
+
+Use the **Clarity and explore** step to ask questions about MCP, the Neo4j server, or tool behavior (read-only access, how `read-cypher` relates to generated Cypher, and so on).
+
+[Reference: Clarity and explore](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/5-clarify)
+
+---
+
+## Official references (outside the module)
+
+* [Model Context Protocol](https://modelcontextprotocol.io/)
+* [Neo4j MCP server documentation](https://neo4j.com/docs/mcp/current/)
+* [Neo4j MCP installation](https://neo4j.com/docs/mcp/current/installation/)
+
+[Reference: What is MCP?](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
