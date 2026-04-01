@@ -1,0 +1,398 @@
+= Extracting with PyMuPDF
+:type: lesson
+:order: 6
+
+[.slide]
+
+== Introduction
+
+You know the extraction approaches available to you. Now it's time to apply the first — and fastest — tier: extracting embedded text layers.
+
+Open `1.1_extracting_with_pymupdf.ipynb` in your notebook environment to follow along.
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Extract text from a PDF using PyMuPDF's `get_text()` method
+* Distinguish between digital text, scanned-with-OCR, and image-only PDFs
+* Classify a dataset by PDF structure
+* Assess extraction speed and what it means for large datasets
+
+[.slide.col-2]
+
+== What is PyMuPDF?
+
+There are plenty of options for text extraction including PyMuPDF, pdfminer and pdfplumber. For this lesson, we'll use PyMuPDF.
+
+[.col]
+====
+**PyMuPDF** is a fast, lightweight Python library for reading PDF text layers. It reads embedded text directly — no OCR, no image processing, no external dependencies.
+
+In your notebook, run the first two cells to install PyMuPDF and configure the PDF directory.
+====
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Install and configure
+----
+%pip install pymupdf ipywidgets -q
+----
+
+[source,python,role=noplay nocopy]
+----
+import pymupdf
+from pathlib import Path
+
+PDF_DIR = Path("enron_pdfs")
+pdf_files = sorted(PDF_DIR.glob("*.pdf"))
+
+print(f"Found {len(pdf_files):,} PDFs in {PDF_DIR.resolve()}")
+----
+====
+
+[.slide.col-2]
+
+== When it works
+
+PyMuPDF works best on PDFs that were generated digitally — exported from email clients, saved from Word, or printed to PDF. In your notebook, run the next cell to extract a clean digital PDF.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Extract a clean PDF
+----
+clean_pdfs = [p for p in pdf_files
+              if p.stat().st_size < 50_000]
+sample_pdf = clean_pdfs[0]
+
+doc = pymupdf.open(sample_pdf)  # <1>
+page_count = len(doc)
+text = "\n\n".join(
+    page.get_text() for page in doc  # <2>
+)
+doc.close()
+
+print(text[:2000])
+----
+====
+
+[.col]
+====
+<1> Opens the PDF and reads its internal structure into memory
+<2> Iterates over each page, calling `get_text()` to read the embedded text layer
+
+The output should be clean, correctly ordered text. About 44% of our dataset looks like this.
+
+Run the following cell to extract a few more and confirm the pattern.
+====
+
+[.slide]
+
+== When the text layer has errors
+
+PyMuPDF can only read what's already there. It doesn't judge quality -- it faithfully returns whatever text is embedded, good or bad. In your notebook, run the next cell to extract a scanned PDF (`E00CF8AE9.pdf`).
+
+Compare the output to the clean digital extraction above. The text is mostly correct, but look closely:
+
+[cols="1,1,1", options="header"]
+|===
+| What it should say | What OCR produced | Error type
+
+| `Doc No. E00CF8AE9` | `Doc No. EOOCF8AE9` | `0` -> `O` (zero vs letter O)
+| `[REDACTED] B6` | `[REDACTED] Bé6` | Accent artifact
+|===
+
+These are typical OCR errors on clean B&W scans: character-level substitutions where visually similar shapes get confused. At 300 DPI, Tesseract gets most things right -- but `0`/`O`, `1`/`l`, `5`/`S` confusions are common.
+
+PyMuPDF did its job perfectly -- it extracted exactly what was embedded. The quality depends entirely on how the OCR was originally done.
+
+These may seem like small issues -- worth ignoring. But at scale, these data-quality issues can cascade, compound, and ultimately make life harder further down the road.
+
+[.slide]
+
+== OCR quality varies
+
+Not all scans are this clean. In your notebook, run the next cell to see three examples spanning the full range of OCR quality in the dataset.
+
+[.slide.col-2]
+
+== Good OCR
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Clean B&W scan at 300 DPI (E00CF8AE9.pdf)
+----
+CONFIDENTIAL // <1>
+Enron Corp.
+Case No. EC-2002-01038
+Doc No. EOOCF8AE9 // <2>
+Date: 01/15/2003
+From:
+Amr Ibrahim <amr.ibrahim@enron.com> // <3>
+Subject:
+Fireball Coal Project - RAC Meeting June 29
+----
+====
+
+[.col]
+====
+<1> Boilerplate reads correctly
+<2> `0` -> `O` -- the only error in this header block
+<3> Names, email addresses, dates and subjects are all intact
+
+The vast majority of scanned files in the dataset look like this. Subtle character-level errors, but the structure and content are preserved.
+====
+
+[.slide.col-2]
+
+== Moderate OCR
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Degraded scan (E61D04918.pdf)
+----
+CONFIDENTIAL
+Enron Corp.
+Case No. EC-26002-016038 // <1>
+Doc No. Es6lbo4918 // <2>
+Bate: O1/15/2003 // <3>
+ENRON CORE. - PRODUCED PURSUANT TO FERC SUBPOENA. // <4>
+SUBJECT TO EROTECTIVE ORDER. // <5>
+From:
+Kerri Thompson <kerri.thompson@enron,.
+com>
+----
+====
+
+[.col]
+====
+<1> Extra digits inserted in the case number
+<2> Doc number garbled -- `E61D04918` became `Es6lbo4918`
+<3> `Date` -> `Bate`
+<4> `CORP.` -> `CORE.`
+<5> `PROTECTIVE` -> `EROTECTIVE`
+
+The email address has been split across two lines with a stray comma: `kerri.thompson@enron,.com>`. The headers are still recognisable, but a parser would need to handle these errors.
+====
+
+[.slide.col-2]
+
+== Severe OCR
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Heavily degraded scan (ECD0D46C3.pdf)
+----
+COMP DDENTIAL // <1>
+Engen UlErR. // <2>
+Voge Marl // <3>
+EMURCN CURD. - CRUWICED LURSUANT To PERS svBRCEMA. // <4>
+From:
+Ward, Kim <kiwv warctenron.com> // <5>
+----
+====
+
+[.col]
+====
+<1> `CONFIDENTIAL` -> `COMP DDENTIAL`
+<2> `Enron Corp.` -> `Engen UlErR.`
+<3> Case number line completely garbled beyond recognition
+<4> Almost every word is corrupted -- `ENRON CORP.` -> `EMURCN CURD.`, `PRODUCED` -> `CRUWICED`
+<5> Email address garbled beyond use -- `kim.ward@enron.com` -> `kiwv warctenron.com`
+
+A human could not reconstruct the original from this text alone. These files will need either re-OCR on the page image, or an LLM to infer the content.
+====
+
+[.slide.col-2]
+
+== Image-only PDFs
+
+Sometimes, an organization will provide nothing more than a scan -- no attempt at OCR at all. In your notebook, run the next cell to see what PyMuPDF returns for an image-only file.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+----
+sample_empty = PDF_DIR / "E0033CF3B.pdf"
+
+doc = pymupdf.open(sample_empty)
+text = "\n\n".join(page.get_text() for page in doc)
+doc.close()
+
+print(f"File:       {sample_empty.name}")
+print(f"Characters: {len(text.strip())}")
+print(text[:200] if text.strip()
+      else "(empty — no text layer)")
+----
+
+These files need OCR to extract any content.
+====
+
+[.col]
+====
+image::images/example_pdf.png[Page 1 of a scanned email -- human-readable but PyMuPDF returns nothing]
+====
+
+[.slide.col-2]
+
+== Classifying PDFs by structure
+
+In the current dataset you can route PDFs to the correct extraction method based on their sizes, whether they have any embedded text and whether they have any embedded images.
+
+If a page contains both an image and embedded text, that text is likely a result of OCR. In that case, you will need to check the quality. If it is readable enough to process, extract it all as is. If, however, it is so corrupted as to be unreadable, you may want to run OCR again.
+
+In your notebook, run the next cell to classify every PDF in the dataset.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Structural classification
+----
+def classify_pdf(pdf_path):
+    doc = pymupdf.open(pdf_path)
+    page = doc[0]
+    has_text = bool(page.get_text().strip())
+    has_images = len(page.get_images()) > 0
+    doc.close()
+
+    if not has_images:
+        return "digital"      # <1>
+    elif has_text:
+        return "scanned"      # <2>
+    else:
+        return "image_only"   # <3>
+----
+====
+
+[.col]
+====
+<1> No embedded images -- text was generated directly (digital export, print-to-PDF)
+<2> Has page images + text layer -- scanned and previously OCR'd
+<3> Has page images but no text -- needs OCR
+====
+
+[.slide]
+
+== The dataset
+
+In our current dataset, we have the following categories:
+
+.Dataset breakdown
+[cols="2,1,1", options="header"]
+|===
+| Category | Count | %
+
+| Digital (text only) | 2,161 | 44%
+| Scanned (image + OCR text) | 1,955 | 40%
+| Image-only (no text layer) | 795 | 16%
+| **Total** | **4,911** |
+|===
+
+**Digital + scanned** files (84%) have text that `get_text()` can read -- fast. **Image-only** files (16%) need OCR -- slow but necessary.
+
+[TIP]
+.Classify your own files first
+====
+This 44/40/16 split is specific to our synthetic Enron dataset. Your corpus will likely look very different -- a Gmail export might be 100% digital, a FOIA release mostly scanned, a set of old legal filings mostly image-only. Run the classification cell on a representative sample of your own files before choosing an extraction strategy.
+====
+
+[.slide.col-2]
+
+== Speed
+
+In your notebook, run the speed test cell to benchmark PyMuPDF on the full dataset.
+
+[.col]
+====
+One of PyMuPDF's biggest advantages is raw speed. On commodity hardware, plain-text extraction runs at **hundreds of PDFs per second**.
+====
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Speed test
+----
+for pdf_path in batch:
+    doc = pymupdf.open(pdf_path)
+    total_pages += len(doc)
+    text = "\n\n".join(
+        page.get_text() for page in doc)
+    total_chars += len(text)
+    doc.close()
+
+elapsed = time.perf_counter() - start
+----
+
+[cols="1,1"]
+|===
+|**Dataset size** |**Estimated time**
+
+|5,000 PDFs
+|~15-20 seconds
+
+|100,000 PDFs
+|~5-7 minutes
+
+|1,000,000 PDFs
+|~1 hour
+|===
+====
+
+Later, we'll compare that to OCR and LLM speeds.
+
+[.slide.col-2]
+
+== A reusable function
+
+In your notebook, run the last two cells to define and test a reusable extraction function. You'll use this when we build the full pipeline later.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Extraction function
+----
+def extract_text_pymupdf(pdf_path):
+    doc = pymupdf.open(pdf_path) # <1>
+    text = "\n\n".join(
+        page.get_text() for page in doc
+    )
+    page_count = len(doc)
+    doc.close()
+    return text, page_count # <2>
+----
+====
+
+[.col]
+====
+<1> Opens the PDF -- cheap and fast since we're only reading the text layer
+<2> Returns both the extracted text and page count -- useful for tracking extraction statistics later
+====
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-pdf-classification.adoc[leveloffset=+1]
+include::questions/2-speed.adoc[leveloffset=+1]
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* PyMuPDF reads embedded text layers -- fast, free, and dependency-free
+* **Digital PDFs** (44%) have clean text -- `get_text()` just works
+* **Scanned PDFs with OCR** (40%) have text layers with varying quality -- from nearly perfect to severely garbled, depending on the original scan
+* **Image-only PDFs** (16%) have no text layer at all -- PyMuPDF returns nothing
+* Structural classification (has images? has text?) is enough to route documents through the pipeline
+* If old OCR is generally unusable, re-OCR everything with images; if it's mostly readable, let the parser handle the errors
+* Runs at hundreds of PDFs per second -- fast enough for million-document corpora
+
+**Next:** We'll use OCR to recover text from image-only PDFs, and explore what happens when we re-OCR the scanned files.

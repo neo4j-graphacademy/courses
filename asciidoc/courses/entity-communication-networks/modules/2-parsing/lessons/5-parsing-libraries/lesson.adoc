@@ -1,0 +1,421 @@
+= Parsing libraries
+:type: lesson
+:order: 5
+
+[.slide]
+
+== Introduction
+
+In the previous lesson, you saw how Docling can extract structured fields directly from PDFs using layout analysis. But your Module 1 pipeline already produced `.txt` files.
+
+In this lesson, you'll use a standard email parser to parse those text files -- and when it fails, reconstruct the structure it needs.
+
+[.slide]
+
+== The Enron corpus
+
+The Enron corpus was originally published as plaintext RFC email -- and in that native format, Python's standard email library can parse it completely, with no patterns or models required.
+
+Our corpus, due to its transformation to PDF and transition back to .txt, will have lost some of that structure. In this lesson, we'll try to recover some of that structure, and then parse it.
+
+[.transcript-only]
+====
+Open `2.3_parsing_libraries.ipynb` in your Codespace to follow along.
+====
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Parse RFC-format email files using Python's standard library
+* Identify the dual header system and the problems it creates
+* Identify the point at which standard parsing breaks down
+* Reconstruct RFC structure from PDF-extracted text to recover usable fields
+
+[.slide.col-2]
+
+== What RFC email looks like
+
+RFC 2822 defines a strict structure: headers as `Key: value` pairs (one per line), a blank line separator, then the body. In your notebook, run the first cell to import, and the second to load the embedded samples.
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Raw RFC 2822 email
+----
+Message-ID: <3950956.1075856435038...> // <1>
+Date: Mon, 7 May 2001 08:41:00 -0700
+From: vince.kaminski@enron.com // <2>
+To: stephen.stock@enron.com,
+    beth.perlman@enron.com
+Subject: A resume for Londom // <3>
+X-From: Vince J Kaminski // <4>
+X-To: Stephen Stock, Beth Perlman
+                                       // <5>
+This is a resume of one guy I met...
+----
+====
+
+[.col]
+====
+<1> RFC headers are `Key: value` pairs, one per line
+<2> `From` and `To` carry email addresses and display names
+<3> `Subject` is a plain string -- no special encoding
+<4> `X-From` and `X-To` are non-standard headers added by the Lotus Notes/Exchange relay -- they also carry email addresses and display names
+<5> A blank line separates headers from the body
+====
+
+[.transcript-only]
+====
+`email.parser` gives you all of them as strings. What you do with them depends on what each one contains.
+====
+
+[.transcript-only]
+====
+[NOTE]
+.Check both header systems for complete information
+In many cases the information displayed by the Lotus Notes/Exchange line may carry more or less information than the `From` and `To` lines. Later, you'll see how to handle cases where the total sum of information must be gathered from both types.
+====
+
+[.slide.col-2]
+
+== Parsing with email.parser
+
+Python's `email` module parses RFC 2822 email with a single function call. In your notebook, run the next cell to parse a sample and see the output.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Parsing a raw email
+----
+import email
+from email import policy
+
+msg = email.message_from_string(
+    raw_eml,
+    policy=policy.default   # <1>
+)
+
+print(msg["From"])      # <2>
+print(msg["To"])
+print(msg["Subject"])
+----
+====
+
+[.col]
+====
+<1> `policy.default` enables modern parsing with proper Unicode handling -- always use this instead of the legacy default
+<2> Direct field access -- no patterns, no models, no parsing logic. The structure is already there in the file.
+====
+
+[.slide.col-2]
+
+== Wrapping the parser
+
+In your notebook, run the next two cells to define and test a reusable parsing function.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Reusable parser
+----
+def parse_eml(raw_text):
+    msg = email.message_from_string(
+        raw_text, policy=policy.default)
+
+    body_part = msg.get_body(
+        preferencelist=("plain",))  # <1>
+    body = body_part.get_content()
+           if body_part else ""
+
+    return {
+        "from": msg["From"],
+        "to": msg["To"],         # <2>
+        "cc": msg["Cc"],
+        "date": msg["Date"],
+        "subject": msg["Subject"],
+        "body": body.strip(),
+    }
+----
+====
+
+[.col]
+====
+<1> `get_body()` handles multipart MIME and returns the plain-text part
+<2> Every field is a dictionary-style lookup -- `msg["From"]`, `msg["Subject"]`
+====
+
+[.slide]
+
+== The dual header system
+
+The Enron corpus carries two parallel header systems: `From`/`To` (standard RFC) and `X-From`/`X-To` (added by the Lotus Notes/Exchange relay). In your notebook, run the next cell to see five real permutations of what these headers contain.
+
+[.slide.col-2]
+
+== Permutation A: bare email vs name
+
+The most common pattern (~60% of the corpus).
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+----
+From:   jim.schwieger@enron.com // <1>
+X-From: Jim Schwieger           // <2>
+----
+====
+
+[.col]
+====
+<1> `From` carries only a bare email address
+<2> `X-From` carries only a display name -- no email
+
+To build a complete record, you need both.
+====
+
+[.slide.col-2]
+
+== Permutation B: bare email vs Name <email>
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+----
+From:   derekaberle@aec.ca                     // <1>
+X-From: "Aberle, Derek" <DerekAberle@aec.ca>   // <2>
+----
+====
+
+[.col]
+====
+<1> `From` has a bare email
+<2> `X-From` has both name and email in `"Name" <email>` format -- strictly more informative than `From`
+====
+
+[.slide.col-2]
+
+== Permutation C: bare email vs DN path
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+----
+From:   ed.mcmichael@enron.com               // <1>
+X-From: McMichael Jr., Ed </O=ENRON/OU=NA/...> // <2>
+----
+====
+
+[.col]
+====
+<1> `From` has a bare email
+<2> `X-From` has a Lotus Notes Distinguished Name path -- the name is extractable (`McMichael Jr., Ed`) but the path is not an email address
+====
+
+[.slide.col-2]
+
+== Permutation D: both bare email
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+----
+From:   members@realmoney.com // <1>
+X-From: members@realmoney.com // <2>
+----
+====
+
+[.col]
+====
+<1> Bare email only
+<2> Also bare email only -- no display name available anywhere
+
+Common with mailing lists and automated senders.
+====
+
+[.slide.col-2]
+
+== Permutation E: IMCEANOTES
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+----
+From:   master.amar@hoegh.no // <1>
+X-From: "LNG/C Hoegh Galleon - Master"
+  <master.amar@hoegh.no>@ENRON
+  <IMCEANOTES-+22LNG_C+20Hoegh...> // <2>
+----
+====
+
+[.col]
+====
+<1> `From` has a real email address
+<2> `X-From` contains an IMCEANOTES identifier -- an encoded name that needs URL-decoding (`+20` = space, `+22` = `"`)
+
+The display name is only recoverable from the encoded X-header.
+====
+
+[.slide]
+
+== What this means
+
+`email.parser` gives you clean access to both header systems. But building a complete sender or recipient record from them is a combining problem -- one we'll explore in the next notebook. For now, the parser gives you the raw material.
+
+[.slide]
+
+== Address utilities in the email module
+
+The `email` module also includes `email.utils` -- a set of lower-level utilities for working with addresses and dates outside the full parser. Two are worth knowing:
+
+* **`email.utils.parseaddr()`** -- splits a single `"Name" <email>` string into a `(name, email)` tuple. Useful when you have address strings from non-RFC sources.
+* **`email.utils.getaddresses()`** -- splits a comma-separated recipient list into a list of `(name, email)` tuples, correctly handling commas inside display names like `"McMichael Jr., Ed"`.
+
+In your notebook, run the next cell to see these in action. They'll become important later when you need to split flat recipient strings into structured records for the graph.
+
+[.slide]
+
+== Coverage on RFC email
+
+In your notebook, work through the next section of cells to parse all the notebook samples, measure field coverage, print the records, and see structured address access.
+
+In this corpus, `.addresses` returns emails but not display names -- because the Enron relay stored bare addresses in `From:`. In other datasets (Gmail, Outlook), `From:` often carries `"Name" <email>` format and `.addresses` returns both.
+
+[.slide]
+
+== Where it breaks
+
+Now apply `email.parser` to the PDF-extracted `.txt` files -- without any transformation. In your notebook, run the next section of cells to load the files, inspect one, attempt to parse it, and measure the failure rate.
+
+Every field returns `None`. The RFC structure doesn't survive PDF extraction.
+
+But the information IS there -- `From:` on one line, the sender name on the next, `Sent:` on one line, the date on the next. The structure is recoverable.
+
+[.slide.col-2]
+
+== Reconstructing RFC structure
+
+In your notebook, run the next cells to strip boilerplate and reassemble the label/value pairs into RFC format.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Reconstruction approach
+----
+def reconstruct_rfc(text):
+    # 1. Strip boilerplate lines  # <1>
+    # 2. Walk remaining lines
+    #    If line is a header label:
+    #      join with next line(s)  # <2>
+    #    After Subject: switch
+    #      to body mode           # <3>
+    # 3. Map Sent: -> Date:       # <4>
+----
+====
+
+[.col]
+====
+<1> Remove CONFIDENTIAL, Case No, Doc No, ENRON CORP, etc.
+<2> Reassemble `From:\nRob Bradley` into `From: Rob Bradley`
+<3> Subject is always the last header -- everything after is body
+<4> The PDF format uses `Sent:` where RFC expects `Date:`
+====
+
+[.slide]
+
+== Reconstruction coverage
+
+In your notebook, run the single-file reconstruction cell first, then the full corpus coverage comparison.
+
+[cols="1,1,1"]
+|===
+|**Field** |**Raw PDF text** |**After reconstruction**
+
+|From
+|0
+|~82%
+
+|Date
+|0
+|~82%
+
+|To
+|0
+|~80%
+
+|Subject
+|0
+|~81%
+|===
+
+From 0% to ~82% -- same parser, same files, just restructured.
+
+The remaining ~18% are files where the boilerplate or header layout doesn't match the reconstruction assumptions.
+
+[.slide]
+
+== Side by side
+
+In your notebook, run the next cell to see the same email parsed from both RFC and PDF-extracted formats.
+
+[.slide]
+
+== Other libraries
+
+Python's `email` module is the standard, but other libraries exist for specific situations:
+
+* **`mailparser`** -- parses RFC email with additional normalization (date parsing, address splitting)
+* **`flanker`** -- Mailgun's email parsing library, handles RFC edge cases and MIME quirks well
+* **`pyzmail`** -- decodes encoded headers and handles charset conversion
+* **`python-dateutil`** -- parses free-form date strings like `"Monday, June 26, 2000 05:20 AM"` into Python `datetime` objects. Not an email library, but the standard tool for the date-parsing problem you'll encounter when preparing records for the graph.
+
+All the email libraries share the same constraint: RFC-format input is required. The reconstruction approach shown here can help bridge that gap when your source isn't RFC-format.
+
+[.slide]
+
+== When to use a parsing library
+
+**Use a parsing library when:**
+
+* You have raw `.eml` or `.mbox` files
+* Your corpus comes from Gmail, Outlook, or any standard email client export
+* Your emails haven't been through a PDF conversion or other transformation
+
+**It faces its limits when:**
+
+* Your emails were extracted from PDFs
+* Headers span multiple columns or were printed-to-PDF or scanned
+
+If you are looking at your corpus and find that it could fit cleanly into RFC structure, and the scans are of a high-enough quality -- reconstruction and parsing could be the fastest path to graph.
+
+[TIP]
+.Inspect your own header format
+====
+The dual header system (RFC + Lotus Notes X-headers) and the five permutations shown here are specific to the Enron corpus. If your emails come from a different source -- Gmail, Outlook, a corporate Exchange server -- your header structure will be different. Before applying any parsing approach, inspect 20-30 of your own extracted text files to understand what headers you have, what format they're in, and whether `email.parser` can handle them directly. If you have raw `.eml` or `.mbox` files rather than PDFs, you may be able to skip reconstruction entirely.
+====
+
+In the next lesson, you'll learn how to use regex entirely alone to define patterns and parse emails, or use it in combination with the reconstruction we just did to handle only edge cases.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-rfc-vs-pdf.adoc[leveloffset=+1]
+include::questions/2-reconstruction-limitation.adoc[leveloffset=+1]
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* Python's `email.parser` handles RFC 2822 email completely -- headers, body, MIME -- with no patterns required. `email.utils.parseaddr` and `getaddresses` handle address strings outside the parser; `python-dateutil` handles free-form date strings.
+* The Enron corpus carries two parallel header systems (RFC + Lotus Notes X-headers), each with different information -- neither is reliably complete on its own
+* Five real permutations show the range: bare email + name, bare + Name <email>, bare + DN path, both bare, and IMCEANOTES
+* In this corpus, `From:` carries bare addresses; in other datasets `From:` often includes display names too
+* On raw PDF-extracted text, the parser returns nothing -- but restructuring the text recovers ~82% field coverage
+* The remaining ~18% need other approaches -- which the next notebooks explore
+
+**Next:** We'll use regex to define patterns and parse emails -- either standalone or in combination with the reconstruction approach.
+
+**Companion notebook:** `2.3_parsing_libraries.ipynb`

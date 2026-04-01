@@ -1,0 +1,144 @@
+= The hybrid pipeline
+:type: lesson
+:order: 10
+
+[.slide]
+
+== Combining templates, NER, and LLM
+
+You've built four parsing tools: regex templates, a finetuned NER model, an LLM prompt, and a zero-shot extractor. This notebook combines three of them into a pipeline that produces CSV files ready for cleaning and import.
+
+[.transcript-only]
+====
+Open `2.7_hybrid_pipeline.ipynb` in your Codespace to follow along.
+====
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Run the template parser on the full corpus and collect failures
+* Use NER to identify individual entities within template-extracted fields
+* Pair NER-detected names with their email addresses using document order
+* Merge LLM results for template failures into the same record format
+* Write node and relationship CSV files for graph import
+
+[.slide]
+
+== The pipeline
+
+. **Templates** -- identify which fields exist and where the header boundaries are. 98.5% of emails match.
+. **NER** -- run on every template-matched header to identify individual people and email addresses within the raw field strings.
+. **LLM** -- for the ~70 emails templates couldn't handle (from notebook 2.6), where entities are already split into arrays.
+. **Build records** -- assemble standardised records from NER entities and LLM results.
+. **CSV output** -- node and relationship files ready for cleaning and import.
+
+[.slide]
+
+== Step 1: template pass
+
+Run every email through the template parser. Templates identify which fields exist and where the header ends -- but the field values are raw strings that may contain multiple people, email addresses, and noise.
+
+In your notebook, run the template pass cell. ~98.5% match, ~70 fail.
+
+[.slide]
+
+== Step 2: NER pass
+
+The NER model runs on the header text of every template-matched email. It identifies individual entity spans -- each person's name, each email address, the date, and the subject -- tagged with their role (SENDER, RECIPIENT, CC_RECIPIENT, etc.).
+
+This is where multi-recipient strings like `"Buy, Rick, mark.e.haedicke@enron.com, Rieker, Paula"` get split into individual entities. The NER model understands that `Buy, Rick` is one person, not two.
+
+[.slide.col-2]
+
+== Pairing names with emails
+
+NER entities come out in document order: a RECIPIENT name is immediately followed by its RECIPIENT_EMAIL.
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.NER output (document order)
+----
+RECIPIENT        'Steven J Kean'
+RECIPIENT_EMAIL  'steven.kean@enron.com'
+RECIPIENT        'Richard Shapiro'
+RECIPIENT_EMAIL  'richard.shapiro@enron.com'
+RECIPIENT_EMAIL  'susan.j.mara@enron.com'  // <1>
+RECIPIENT        'Jeff Dasovich'
+RECIPIENT_EMAIL  'jeff.dasovich@enron.com'
+----
+====
+
+[.col]
+====
+<1> A bare email with no preceding name -- `susan.j.mara` had no display name in the original header
+
+The record builder walks this sequence and pairs each name with the email that follows it. Bare emails without a name become email-only entries.
+====
+
+[.slide]
+
+== Step 3: LLM results
+
+The ~70 template failures were sent to the LLM in notebook 2.6. The LLM already returns individuals in arrays (`RECIPIENT_NAMES: ["Alice", "Bob"]`), so no further entity detection is needed. Load the results and build records from the same flat format.
+
+[.slide]
+
+== Building records
+
+One function builds a record for template+NER emails, another for LLM emails. Both produce the same output format:
+
+* `doc_id`, `sender_name`, `sender_email`, `sender_domain`
+* `recipients` -- a list of `{name, email, type}` entries
+* `date_raw`, `date_parsed`, `subject`, `method`
+
+The template's `sent` field provides the raw date string. NER captures it too, but the template value is more reliable for date parsing.
+
+[.slide]
+
+== Validation
+
+Before writing CSV, check for systematic issues. In your notebook, run the validation cell to see null rates and the top sender domains.
+
+Missing sender names come from automated system emails. Missing sender emails come from OCR-garbled addresses. Missing dates come from severely corrupted scans. These are real gaps in the data, not parser bugs.
+
+[.slide]
+
+== CSV output
+
+Each node type and relationship type gets its own file:
+
+* **`emails.csv`** -- one row per email (doc_id, subject, date, method)
+* **`users.csv`** -- one row per unique name
+* **`mailboxes.csv`** -- one row per unique email address
+* **`domains.csv`** -- one row per unique domain
+* **`SENT.csv`**, **`RECEIVED.csv`**, **`CC_ON.csv`** -- who sent/received each email
+* **`USED.csv`** -- which users use which mailboxes
+* **`HAS_MAILBOX.csv`** -- which domains own which mailboxes
+
+Open these in a spreadsheet to inspect the data before the next step.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-ner-role.adoc[leveloffset=+1]
+include::questions/2-entity-pairing.adoc[leveloffset=+1]
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* Templates identify field boundaries for 98.5% of emails
+* NER identifies individual entities within those fields -- each person's name and email as a separate span
+* Entity pairing walks NER output in document order, matching each name with the email that follows it
+* The LLM handles the ~70 emails with OCR-garbled headers, returning individuals in arrays
+* One record format serves both sources -- template+NER and LLM produce identical output
+* CSV output provides a checkpoint before cleaning and import
+
+**Next:** Cleaning and normalization.
+
+**Companion notebook:** `2.7_hybrid_pipeline.ipynb`
