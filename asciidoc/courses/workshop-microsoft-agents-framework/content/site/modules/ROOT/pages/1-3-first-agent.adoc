@@ -1,0 +1,251 @@
+= Creating Your First Agent with Tools
+:branch: main
+
+In this lesson, you will create an AI agent using the Microsoft Agent Framework and give it a tool that looks up movie information.
+
+TIP: Complete this lesson hands-on by opening `labs/lab-1-first-agent.ipynb` in your Codespace.
+
+== Create the Client
+
+The `OpenAIResponsesClient` connects to the OpenAI API. It reads `OPENAI_API_KEY` and `OPENAI_RESPONSES_MODEL_ID` from your environment variables automatically:
+
+[source,python]
+----
+import asyncio
+from agent_framework.openai import OpenAIResponsesClient
+
+client = OpenAIResponsesClient()
+----
+
+== Define a Tool
+
+In MAF, tools are plain Python functions with docstrings. The agent reads the function **name** and **docstring** to decide when to call the tool. No decorators or registration required.
+
+First, define some hardcoded movie data:
+
+[source,python]
+----
+# Hardcoded movie data from the Neo4j recommendations dataset
+MOVIES = {
+    "INCEPTION": {
+        "title": "Inception",
+        "director": "Christopher Nolan",
+        "year": "2010",
+        "genres": ["Science Fiction", "Thriller"],
+        "plot_summary": "A skilled thief who steals corporate secrets through dream-sharing technology is given a chance to erase his criminal record by planting an idea in a target's subconscious.",
+    },
+    "THE MATRIX": {
+        "title": "The Matrix",
+        "director": "Lana Wachowski, Lilly Wachowski",
+        "year": "1999",
+        "genres": ["Science Fiction", "Action"],
+        "plot_summary": "A computer hacker learns about the true nature of his reality and his role in the war against its controllers.",
+    },
+    "PULP FICTION": {
+        "title": "Pulp Fiction",
+        "director": "Quentin Tarantino",
+        "year": "1994",
+        "genres": ["Crime", "Drama"],
+        "plot_summary": "The lives of two mob hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption.",
+    },
+    "THE DARK KNIGHT": {
+        "title": "The Dark Knight",
+        "director": "Christopher Nolan",
+        "year": "2008",
+        "genres": ["Action", "Crime", "Drama"],
+        "plot_summary": "When the menace known as the Joker wreaks havoc on Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+    },
+}
+
+----
+
+Then define the tool function:
+
+[source,python]
+----
+def get_movie_info(
+    movie_title: Annotated[str, Field(description="The movie title to look up")]
+) -> str:
+    """Look up information about a movie including its director, year, genres, and plot summary."""
+    key = movie_title.upper().strip()
+    info = MOVIES.get(key)
+    if not info:
+        for k, v in MOVIES.items():
+            if key in k or k in key:
+                info = v
+                break
+    if info:
+        return (
+            f"Title: {info['title']}\n"
+            f"Director: {info['director']}\n"
+            f"Year: {info['year']}\n"
+            f"Genres: {', '.join(info['genres'])}\n"
+            f"Plot: {info['plot_summary']}"
+        )
+    available = ", ".join(m["title"] for m in MOVIES.values())
+    return f"Movie '{movie_title}' not found. Available movies: {available}"
+
+----
+
+The `get_movie_info` function looks up a movie from a hardcoded dictionary and returns its details. When the agent receives a question about a specific movie, it recognizes this tool as relevant and calls it.
+
+== Create the Agent
+
+Use `client.as_agent()` to create a stateless agent with a name, instructions, and tools:
+
+[source,python]
+----
+async def main():
+    client = OpenAIResponsesClient()
+
+    agent = client.as_agent(
+        name="movie-info-agent",
+        instructions=(
+            "You are a helpful movie assistant. Use your tool to look up "
+            "movie information when asked about a specific movie. If the "
+            "user asks about a movie not in your database, let them know "
+            "which movies are available."
+        ),
+        tools=[get_movie_info],
+    )
+
+
+    query = "Tell me about Inception"
+    print(f"User: {query}\n")
+    print("Answer: ", end="", flush=True)
+    async for update in agent.run(query, stream=True):
+        if update.text:
+            print(update.text, end="", flush=True)
+    print()
+
+asyncio.run(main())
+
+----
+
+== Run with Streaming
+
+When you run this, the agent will:
+
+1. Receive the query "Tell me about Inception"
+2. Recognize that `get_movie_info` is relevant based on its name and docstring
+3. Call the tool with `movie_title="Inception"`
+4. Generate a response using the movie data (title, director, year, genres, plot)
+
+== The Limitation of Tools
+
+Try asking the agent a question that does not name a specific movie:
+
+[source,python]
+----
+await agent.run("What are some good sci-fi movies about time travel?")
+----
+
+The agent may or may not call `get_movie_info`. It depends on whether the LLM decides the tool is relevant to a general question. Tools are **reactive**: the agent must choose to call them, and for broad or exploratory queries, it often does not.
+
+This is fine for explicit lookups ("tell me about Inception"), but what if you want the agent to **always** have relevant movie data in its context, regardless of how the question is phrased? That is where context providers come in, which you will explore in the next module.
+
+[%collapsible]
+.Click to see the complete code
+====
+[source,python]
+----
+import asyncio
+import os
+from typing import Annotated
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from agent_framework.openai import OpenAIResponsesClient
+from pydantic import Field
+
+# Hardcoded movie data from the Neo4j recommendations dataset
+MOVIES = {
+    "INCEPTION": {
+        "title": "Inception",
+        "director": "Christopher Nolan",
+        "year": "2010",
+        "genres": ["Science Fiction", "Thriller"],
+        "plot_summary": "A skilled thief who steals corporate secrets through dream-sharing technology is given a chance to erase his criminal record by planting an idea in a target's subconscious.",
+    },
+    "THE MATRIX": {
+        "title": "The Matrix",
+        "director": "Lana Wachowski, Lilly Wachowski",
+        "year": "1999",
+        "genres": ["Science Fiction", "Action"],
+        "plot_summary": "A computer hacker learns about the true nature of his reality and his role in the war against its controllers.",
+    },
+    "PULP FICTION": {
+        "title": "Pulp Fiction",
+        "director": "Quentin Tarantino",
+        "year": "1994",
+        "genres": ["Crime", "Drama"],
+        "plot_summary": "The lives of two mob hitmen, a boxer, a gangster and his wife intertwine in four tales of violence and redemption.",
+    },
+    "THE DARK KNIGHT": {
+        "title": "The Dark Knight",
+        "director": "Christopher Nolan",
+        "year": "2008",
+        "genres": ["Action", "Crime", "Drama"],
+        "plot_summary": "When the menace known as the Joker wreaks havoc on Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+    },
+}
+
+def get_movie_info(
+    movie_title: Annotated[str, Field(description="The movie title to look up")]
+) -> str:
+    """Look up information about a movie including its director, year, genres, and plot summary."""
+    key = movie_title.upper().strip()
+    info = MOVIES.get(key)
+    if not info:
+        for k, v in MOVIES.items():
+            if key in k or k in key:
+                info = v
+                break
+    if info:
+        return (
+            f"Title: {info['title']}\n"
+            f"Director: {info['director']}\n"
+            f"Year: {info['year']}\n"
+            f"Genres: {', '.join(info['genres'])}\n"
+            f"Plot: {info['plot_summary']}"
+        )
+    available = ", ".join(m["title"] for m in MOVIES.values())
+    return f"Movie '{movie_title}' not found. Available movies: {available}"
+
+async def main():
+    client = OpenAIResponsesClient()
+
+    agent = client.as_agent(
+        name="movie-info-agent",
+        instructions=(
+            "You are a helpful movie assistant. Use your tool to look up "
+            "movie information when asked about a specific movie. If the "
+            "user asks about a movie not in your database, let them know "
+            "which movies are available."
+        ),
+        tools=[get_movie_info],
+    )
+
+
+    query = "Tell me about Inception"
+    print(f"User: {query}\n")
+    print("Answer: ", end="", flush=True)
+    async for update in agent.run(query, stream=True):
+        if update.text:
+            print(update.text, end="", flush=True)
+    print()
+
+asyncio.run(main())
+
+----
+====
+
+[.summary]
+== Lesson Summary
+
+You created an agent with a `get_movie_info` tool that looks up movie information. The agent uses the function name and docstring to decide when to call the tool.
+
+The limitation: tools are reactive. The agent must decide to call them, which means it might skip relevant context for general queries. The next module introduces context providers, MAF's mechanism for automatic context injection on every turn.
+
+xref:2-context-providers.adoc[Next Page ->]

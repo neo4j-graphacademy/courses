@@ -1,0 +1,304 @@
+= Memory as a Context Provider
+:branch: main
+
+TIP: Complete this lesson hands-on by opening `labs/lab-7-memory-provider.ipynb` in your Codespace.
+
+The `Neo4jContextProvider` from Module 3 injected knowledge graph data before every agent turn. The memory context provider does the same thing, but for memories the agent has accumulated during conversations. Before each turn, it retrieves relevant past messages, extracted entities, and user preferences. After each turn, it stores new messages and extracts entities automatically.
+
+The interface is `Neo4jMicrosoftMemory`, which wraps the memory client into a context provider and chat message store.
+
+== Configure Memory Settings
+
+Connect to Neo4j and create a memory client:
+
+[source,python]
+----
+settings = MemorySettings(
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": SecretStr(os.environ["NEO4J_PASSWORD"]),
+    },
+    extraction={
+        "enable_gliner": False,  # GLiNER disabled: downloads ~500MB model from HuggingFace, impractical in a workshop
+        "llm_model": os.getenv("OPENAI_RESPONSES_MODEL_ID", "gpt-5-mini"),
+    },
+)
+
+----
+
+The `llm_model` setting tells the extraction pipeline which model to use for LLM-based entity extraction. Without it, the library defaults to `gpt-4o-mini`, which may not match your deployment.
+
+NOTE: `MemorySettings` also supports automatic environment variable loading with the `NAM_` prefix (e.g., `NAM_NEO4J__URI`). The explicit configuration shown here reuses the same `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD` environment variables used by the Neo4j context provider lessons.
+
+Create a `MemoryClient` and connect to Neo4j:
+
+[source,python]
+----
+memory_client = MemoryClient(settings)
+await memory_client.connect()
+----
+
+Call `await memory_client.close()` when you are done to release the connection. The `MemoryClient` exposes the short-term, long-term, and reasoning memory APIs.
+
+== Create the Unified Memory
+
+`Neo4jMicrosoftMemory.from_memory_client()` takes the client and returns an object that provides both a context provider and a chat message store:
+
+[source,python]
+----
+async def main():
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
+
+    try:
+        # Create unified memory interface
+        session_id = "movie-chat-session"
+
+        memory = Neo4jMicrosoftMemory.from_memory_client(
+            memory_client=memory_client,
+            session_id=session_id,
+            include_short_term=True,
+            include_long_term=True,
+            include_reasoning=True,
+            extract_entities=True,
+        )
+
+
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="movie-memory-agent",
+            instructions=(
+                "You are a movie recommendation assistant with persistent "
+                "memory. You remember what users have told you about their "
+                "preferences, which movies you have discussed, and what "
+                "you recommended in past sessions."
+            ),
+            context_providers=[memory.context_provider],
+        )
+
+        session = agent.create_session()
+
+
+        queries = [
+            "I really enjoy sci-fi movies, especially ones about time travel.",
+            "What did I say my favorite genre was?",
+            "Can you recommend something I might like?",
+        ]
+
+        for query in queries:
+            print(f"\nUser: {query}")
+            response = await agent.run(query, session=session)
+            print(f"Assistant: {response.text}")
+
+
+        results = await memory.search_memory(
+            query="sci-fi movies",
+            include_messages=True,
+            include_entities=True,
+            include_preferences=True,
+            limit=5,
+        )
+
+        print("Messages:", results.get("messages", []))
+        print("Entities:", results.get("entities", []))
+        print("Preferences:", results.get("preferences", []))
+    finally:
+        await memory_client.close()
+
+asyncio.run(main())
+
+----
+
+The parameters control what gets injected and extracted:
+
+* **`session_id`** -- scopes the conversation. Messages and entities are grouped by session.
+* **`include_short_term`** -- injects recent and semantically relevant past messages before each turn
+* **`include_long_term`** -- injects extracted entities and preferences before each turn
+* **`include_reasoning`** -- injects similar past reasoning traces before each turn
+* **`extract_entities`** -- pulls entities (people, movies, genres) out of messages after each turn
+
+== Attach the Context Provider
+
+Pass `memory.context_provider` to the agent the same way you passed `Neo4jContextProvider` in Module 3:
+
+[source,python]
+----
+client = OpenAIResponsesClient()
+
+agent = client.as_agent(
+    name="movie-memory-agent",
+    instructions=(
+        "You are a movie recommendation assistant with persistent "
+        "memory. You remember what users have told you about their "
+        "preferences, which movies you have discussed, and what "
+        "you recommended in past sessions."
+    ),
+    context_providers=[memory.context_provider],
+)
+
+session = agent.create_session()
+----
+
+NOTE: The lab notebooks use a `get_client()` wrapper from `llm_provider` that switches between `OpenAIResponsesClient` and `AzureOpenAIResponsesClient` based on your environment. The lessons use `OpenAIResponsesClient` directly for clarity.
+
+== The Memory Lifecycle
+
+The provider follows the same `before_run()` / `after_run()` lifecycle from Module 3, applied to memory retrieval and storage.
+
+**`before_run()`** searches across memory types and injects what it finds as instructions. For a query about sci-fi recommendations, it might inject recent conversation messages mentioning sci-fi, a stored preference for Christopher Nolan films, and a past reasoning trace where the agent successfully recommended Interstellar.
+
+**`after_run()`** saves the new messages (both the user's input and the agent's response) to short-term memory with vector embeddings, then runs entity extraction. If the user mentioned "Inception," the extractor creates an entity node for that movie and links it to the conversation.
+
+None of this requires the agent to call a tool. The framework runs the provider automatically on every turn.
+
+== Run a Multi-Turn Conversation
+
+[source,python]
+----
+queries = [
+    "I really enjoy sci-fi movies, especially ones about time travel.",
+    "What did I say my favorite genre was?",
+    "Can you recommend something I might like?",
+]
+
+for query in queries:
+    print(f"\nUser: {query}")
+    response = await agent.run(query, session=session)
+    print(f"Assistant: {response.text}")
+----
+
+Walk through what happens on each turn:
+
+1. **Turn 1** -- The user states a preference. `after_run()` saves the message, generates a vector embedding, and extracts "sci-fi" and "time travel" as entities linked to the session.
+2. **Turn 2** -- The user asks what they said. `before_run()` retrieves the previous message from short-term memory (via semantic search on "favorite genre") and injects it as context. The agent answers accurately because the memory is in its context window.
+3. **Turn 3** -- The agent has both the conversation history and the extracted preference available. It can make a recommendation grounded in what the user actually said, not a generic suggestion.
+
+== Inspect Stored Memories
+
+After the conversation, verify what the provider stored by searching the memory directly:
+
+[source,python]
+----
+results = await memory.search_memory(
+    query="sci-fi movies",
+    include_messages=True,
+    include_entities=True,
+    include_preferences=True,
+    limit=5,
+)
+
+print("Messages:", results.get("messages", []))
+print("Entities:", results.get("entities", []))
+print("Preferences:", results.get("preferences", []))
+----
+
+This returns the messages, entities, and preferences that `after_run()` extracted and stored in Neo4j. You should see the conversation messages, entity nodes for "sci-fi" and "time travel," and potentially a preference record.
+
+[%collapsible]
+.Click to see the complete code
+====
+[source,python]
+----
+import asyncio
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from pydantic import SecretStr
+
+from agent_framework.openai import OpenAIResponsesClient
+
+from neo4j_agent_memory import MemoryClient, MemorySettings
+from neo4j_agent_memory.integrations.microsoft_agent import (
+    Neo4jMicrosoftMemory,
+)
+
+# Configure memory settings with Neo4j connection
+settings = MemorySettings(
+    neo4j={
+        "uri": os.environ["NEO4J_URI"],
+        "username": os.environ["NEO4J_USERNAME"],
+        "password": SecretStr(os.environ["NEO4J_PASSWORD"]),
+    },
+    extraction={
+        "enable_gliner": False,  # GLiNER disabled: downloads ~500MB model from HuggingFace, impractical in a workshop
+        "llm_model": os.getenv("OPENAI_RESPONSES_MODEL_ID", "gpt-5-mini"),
+    },
+)
+
+async def main():
+    memory_client = MemoryClient(settings)
+    await memory_client.connect()
+
+    try:
+        # Create unified memory interface
+        session_id = "movie-chat-session"
+
+        memory = Neo4jMicrosoftMemory.from_memory_client(
+            memory_client=memory_client,
+            session_id=session_id,
+            include_short_term=True,
+            include_long_term=True,
+            include_reasoning=True,
+            extract_entities=True,
+        )
+
+
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="movie-memory-agent",
+            instructions=(
+                "You are a movie recommendation assistant with persistent "
+                "memory. You remember what users have told you about their "
+                "preferences, which movies you have discussed, and what "
+                "you recommended in past sessions."
+            ),
+            context_providers=[memory.context_provider],
+        )
+
+        session = agent.create_session()
+
+
+        queries = [
+            "I really enjoy sci-fi movies, especially ones about time travel.",
+            "What did I say my favorite genre was?",
+            "Can you recommend something I might like?",
+        ]
+
+        for query in queries:
+            print(f"\nUser: {query}")
+            response = await agent.run(query, session=session)
+            print(f"Assistant: {response.text}")
+
+
+        results = await memory.search_memory(
+            query="sci-fi movies",
+            include_messages=True,
+            include_entities=True,
+            include_preferences=True,
+            limit=5,
+        )
+
+        print("Messages:", results.get("messages", []))
+        print("Entities:", results.get("entities", []))
+        print("Preferences:", results.get("preferences", []))
+    finally:
+        await memory_client.close()
+
+asyncio.run(main())
+
+----
+====
+
+[.summary]
+== Lesson Summary
+
+`Neo4jMicrosoftMemory` provides a context provider that retrieves relevant memories in `before_run()` and stores new messages and extracted entities in `after_run()`. The agent gets persistent memory across turns and sessions without calling any tools.
+
+In the next lesson, you will learn how the multi-stage entity extraction pipeline turns unstructured conversation text into the structured graph entities that this context provider retrieves.
+
+xref:4-3-entity-extraction.adoc[Next Page ->]
