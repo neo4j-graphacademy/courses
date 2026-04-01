@@ -1,0 +1,402 @@
+= Extracting with OCR
+:type: lesson
+:order: 7
+
+[.slide]
+
+== Introduction
+
+In the last lesson, we classified the dataset: 44% digital text, 40% scanned with OCR, and 16% image-only. PyMuPDF handles the first two categories, but the image-only files return nothing.
+
+In this lesson, we'll run fresh OCR on page images to recover text from those files, and compare what happens when we re-OCR files that already have a text layer.
+
+Open `1.2_extracting_with_ocr.ipynb` in your notebook environment to follow along.
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Run OCR on a PDF using PyMuPDF's built-in method and the Tesseract CLI
+* Explain the difference between the two approaches and when to use each
+* Understand what re-OCR can and can't fix
+* Build a three-tier extraction strategy for production pipelines
+
+[.slide]
+
+== Tesseract
+
+**Tesseract** is one of the most widely used open-source OCR engines. Originally developed by HP in the 1980s, it's now maintained by Google and remains the standard tool for extracting text from page images.
+
+It works at the character level -- recognising individual letter shapes and assembling them into words. Both of the OCR approaches we'll use rely on Tesseract under the hood. You'll need it installed on your machine:
+
+* **macOS:** `brew install tesseract`
+* **Linux:** `apt install tesseract-ocr`
+* **Codespace:** Pre-installed in the workshop environment
+
+In your notebook, run the first two cells to install PyMuPDF and configure the PDF paths.
+
+[.slide.col-2]
+
+== Recap
+
+In your notebook, run the next two cells to confirm what we saw in the previous lesson -- one file with a noisy OCR layer, and one with no text at all.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Extract the existing OCR text layer
+----
+doc = pymupdf.open(SAMPLE_PDF)
+page = doc[0]
+bad_text = page.get_text()
+
+print("=== Existing OCR text layer ===")
+print(bad_text[:1000])
+----
+
+`E61D04918.pdf` has character-level OCR errors: `Bate:` for `Date:`, `ENRON CORE.` for `ENRON CORP.`
+====
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Image-only -- no text layer
+----
+doc_empty = pymupdf.open(EMPTY_PDF)
+text = doc_empty[0].get_text()
+
+print(f"Characters: {len(text.strip())}")
+# 0 — no text layer at all
+----
+
+`E0033CF3B.pdf` was never OCR'd. PyMuPDF returns nothing. These files need OCR.
+====
+
+[.slide.col-2]
+
+== Option 1: PyMuPDF built-in OCR
+
+PyMuPDF wraps Tesseract through `get_textpage_ocr()`. In your notebook, run the next cell to try it.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Built-in OCR
+----
+page = doc[0]
+tp = page.get_textpage_ocr(
+    language="eng",
+    dpi=300,       # <1>
+    full=True      # <2>
+)
+builtin_text = page.get_text(textpage=tp)
+print(builtin_text[:1000])
+----
+====
+
+[.col]
+====
+<1> 300 DPI -- the industry standard minimum for OCR on scanned documents
+<2> `full=True` forces fresh OCR, ignoring any existing text layer
+
+The output fragments many words onto separate lines. This is because `get_textpage_ocr()` uses Tesseract's default page segmentation mode (PSM 3), which analyzes each text region independently.
+====
+
+[.slide.col-2]
+
+== Option 2: Render + Tesseract CLI
+
+For more control, render the page to an image and call Tesseract directly. In your notebook, run the next cell.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Tesseract CLI
+----
+page = doc[0]
+pix = page.get_pixmap(dpi=300)
+
+with tempfile.NamedTemporaryFile(
+        suffix=".png") as f:
+    pix.save(f.name)
+    result = subprocess.run(
+        ["tesseract", f.name,
+         "stdout",
+         "--psm", "6",  # <1>
+         "-l", "eng"],
+        capture_output=True,
+        text=True,
+    )
+    cli_text = result.stdout
+----
+====
+
+[.col]
+====
+<1> `--psm 6` assumes a single uniform block of text -- keeps lines intact instead of fragmenting them
+
+Both methods use Tesseract on the same image. The CLI gives you explicit control over page segmentation, which is useful when experimenting with difficult scans. For bulk extraction on clean images, the built-in method is simpler and faster -- no subprocess overhead, no temp files.
+====
+
+[.slide.col-2]
+
+== Side-by-side comparison
+
+In your notebook, run the next cell to see all three methods side by side on the same file.
+
+[.col]
+====
+The existing text layer (`get_text()`) returns garbled text -- `Bate:`, `ENRON CORE.`, `EROTECTIVE`. But re-OCR on the same page produces dramatically better results: `Date:`, `ENRON CORP.`, `PROTECTIVE`.
+
+The underlying page image is clean. The garbled text layer came from an older or lower-quality OCR pass. Modern Tesseract, running on the clean image, corrects the errors.
+====
+
+[.col]
+====
+This is a common situation in real document dumps: the embedded text layer is noisy, but the page image is fine. Re-OCR recovers what the original OCR missed.
+
+For image-only files (the 795 PDFs with no text layer at all), OCR is the only way to get any text.
+====
+
+[.slide.col-2]
+
+== What about a really bad scan?
+
+In your notebook, run the next cell to see what happens with a severely degraded file.
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Existing OCR on ECD0D46C3.pdf
+----
+COMP DDENTIAL // <1>
+Engen UlErR. // <2>
+Voge Marl // <3>
+EMURCN CURD. - CRUWICED LURSUANT // <4>
+From:
+Ward, Kim <kiwv warctenron.com> // <5>
+----
+
+<1> `CONFIDENTIAL` -> `COMP DDENTIAL`
+<2> `Enron Corp.` -> `Engen UlErR.`
+<3> Case number line completely garbled
+<4> `ENRON CORP. - PRODUCED PURSUANT` -> almost unrecognisable
+<5> Email address garbled beyond use
+====
+
+[.col]
+====
+The text layer is nearly unreadable. But re-OCR on the clean underlying image recovers the content: `CONFIDENTIAL`, `Enron Corp.`, `Ward, Kim <kim.ward@enron.com>`.
+
+Even severely garbled text layers can be fixed by re-OCR -- as long as the page image is clean. The quality ceiling is the image, not the existing text layer.
+====
+
+[.slide.col-2]
+
+== OCR on image-only PDFs
+
+In your notebook, run the next cell to OCR the image-only file that returned nothing in the previous lesson.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.OCR an image-only PDF
+----
+page = doc_empty[0]
+pix = page.get_pixmap(dpi=300)
+
+with tempfile.NamedTemporaryFile(
+        suffix=".png") as f:
+    pix.save(f.name)
+    result = subprocess.run(
+        ["tesseract", f.name,
+         "stdout",
+         "--psm", "6",
+         "-l", "eng"],
+        capture_output=True,
+        text=True,
+    )
+
+print(result.stdout[:1000])
+----
+====
+
+[.col]
+====
+This is where OCR adds the most value. The 795 image-only files had no text at all -- now they have usable content.
+
+The quality depends on the scan, but for clean B&W images at 300 DPI, Tesseract produces good results.
+====
+
+[.slide.col-2]
+
+== A tiered strategy
+
+In your notebook, run the next two cells to define and test a three-tier extraction function.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Three-tier extraction
+----
+def extract_text(pdf_path):
+    doc = pymupdf.open(pdf_path)
+    page_count = len(doc)
+    pages = []
+    ocr_pages = 0
+
+    for page in doc:
+        text = page.get_text().strip()
+        if text:
+            pages.append(text)       # <1>
+        else:
+            tp = page.get_textpage_ocr(
+                dpi=300,
+                language="eng")      # <2>
+            text = page.get_text(
+                textpage=tp).strip()
+            pages.append(text)
+            ocr_pages += 1
+
+    doc.close()
+    return "\n\n".join(pages),
+           page_count, ocr_pages
+----
+====
+
+[.col]
+====
+<1> Page has a text layer -- use it directly (near-instant)
+<2> No text layer -- fall back to built-in OCR at 300 DPI
+
+No file-size heuristic needed. Each page is tested individually: if `get_text()` returns content, use it. If not, OCR it. This handles mixed PDFs where some pages are digital and others are image-only.
+
+84% of pages have text layers and extract instantly. Only the 16% image-only pages trigger OCR.
+====
+
+[.slide.col-2]
+
+== Speed comparison
+
+In your notebook, run the speed comparison cell to benchmark all three methods.
+
+[.col]
+====
+[cols="1,1"]
+|===
+|**Method** |**Speed**
+
+|`get_text()` (existing layer)
+|~200-300 PDFs/sec
+
+|PyMuPDF built-in OCR
+|~1-3 PDFs/sec
+
+|Tesseract CLI
+|~0.3-1 PDFs/sec
+|===
+
+Plain text extraction is roughly **250-300x faster** than OCR.
+====
+
+[.col]
+====
+The tiered strategy keeps things fast:
+
+[cols="1,1,1"]
+|===
+|**Tier** |**Files** |**Estimated time**
+
+|Text layer (84%)
+|4,116
+|~15 seconds
+
+|OCR (16% image-only)
+|795
+|~15-30 minutes
+|===
+
+For larger corpora, you might parallelise the OCR step or consider a vision LLM for the hardest cases.
+====
+
+[.slide.col-2]
+
+== Alternative: EasyOCR
+
+[TIP]
+.Test OCR on your hardest files first
+====
+In our dataset, re-OCR works well because the underlying page images are clean -- the errors came from an older OCR pass. Your data may be different. If your scans are physically degraded (faded ink, creased pages, low resolution), re-OCR won't help much -- the quality ceiling is always the image. Test OCR on a small sample of your hardest files before committing to a full-corpus run. Also consider the language parameter (`-l eng`) -- if your documents contain non-English text, you'll need the appropriate Tesseract language pack.
+====
+
+**EasyOCR** is a powerful alternative -- pure `pip install`, no system dependencies. In your notebook, run the next two cells to install it and try it on the same file.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.EasyOCR extraction
+----
+import easyocr
+
+reader = easyocr.Reader(
+    ["en"], gpu=False  # <1>
+)
+
+pix = page.get_pixmap(dpi=300)
+with tempfile.NamedTemporaryFile(
+        suffix=".png") as f:
+    pix.save(f.name)
+    results = reader.readtext(
+        f.name,
+        detail=0,
+        paragraph=True  # <2>
+    )
+    text = "\n".join(results)
+----
+====
+
+[.col]
+====
+<1> Deep learning-based (CRAFT + CRNN) -- significantly faster with a GPU
+<2> `paragraph=True` groups detected text into natural paragraphs
+
+EasyOCR reads body text more naturally, but can struggle with structured header fields and is ~5x slower than Tesseract on CPU.
+
+If your data is corrupted to just the cusp of what Tesseract can handle, a deep-learning package like EasyOCR is always worth a shot.
+====
+
+[.slide]
+
+== Other OCR options
+
+Tesseract and EasyOCR are far from the only choices. Depending on your use case, you might also consider:
+
+* **docTR** -- deep learning OCR from Mindee, good accuracy, supports PyTorch and TensorFlow
+* **PaddleOCR** -- multilingual OCR from Baidu, strong on non-Latin scripts
+* **Surya** -- newer transformer-based OCR with layout detection
+* **Cloud APIs** -- Google Cloud Vision, AWS Textract, Azure AI Document Intelligence offer high accuracy at per-page cost
+* **Vision LLMs** -- GPT-4o, Claude, etc. can read scanned documents directly, with the best context understanding but the highest cost and lowest throughput
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-reocr-value.adoc[leveloffset=+1]
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* **OCR recovers text** from image-only PDFs that have no text layer -- this is where it adds the most value
+* **Re-OCR on clean images** produces dramatically better results when the existing text layer is garbled -- the quality ceiling is the image, not the old text layer
+* **Tesseract CLI** with `--psm 6` gives you control over page segmentation -- useful for experimentation on difficult scans
+* **PyMuPDF built-in OCR** is simpler and faster for bulk extraction -- no subprocess overhead, no temp files
+* **300 DPI** is the industry standard for OCR on scanned documents
+* **OCR is ~250-300x slower** than plain text extraction -- use it only where needed
+* **A three-tier strategy** (digital text -> existing OCR -> fresh OCR on image-only) balances speed and coverage
+* **EasyOCR** is a Python-only alternative -- no system install, better with a GPU, but slower on CPU
+
+**Next:** Before we run the full pipeline, we'll look at combined extraction packages that handle text reading, OCR, and layout analysis in a single tool.

@@ -1,0 +1,158 @@
+= Run the pipeline
+:type: lesson
+:order: 10
+
+[.slide]
+
+== Your turn
+
+You've now seen four approaches to extracting text from PDFs:
+
+* **PyMuPDF** -- fast, reliable on files with text layers
+* **Tesseract** -- OCRs image-only pages
+* **Combined packages** (Docling, Unstructured, etc.) -- one tool for the whole pipeline
+* **Vision models** -- highest quality, highest cost
+
+Time to put it into practice. Open `1.5_full_extraction.ipynb` in your notebook environment.
+
+[.slide.col-2]
+
+== The strategy
+
+The notebook processes all 4,911 PDFs using a per-page tiered strategy.
+
+[.col]
+====
+For each PDF:
+
+. Open it with PyMuPDF
+. Try `get_text()` on every page
+. If a page returns text, use it (fast)
+. If a page returns nothing, fall back to built-in OCR at 300 DPI (slower)
+. Write one `.txt` file per PDF to `data/extracted_text/`
+====
+
+[.col]
+====
+As we saw in the OCR lesson, both Tesseract CLI and PyMuPDF's built-in OCR produce comparable results on clean B&W scans. For bulk extraction, the built-in method avoids subprocess overhead across 795 files and keeps everything in a single dependency.
+====
+
+[.slide.col-2]
+
+== The extraction function
+
+In your notebook, run the first four cells to install dependencies, configure paths, and define the extraction function.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Per-page tiered extraction
+----
+def extract_text(pdf_path):
+    doc = pymupdf.open(pdf_path)
+    page_count = len(doc)
+    pages = []
+    ocr_pages = 0
+
+    for page in doc:
+        text = page.get_text().strip()
+        if text:
+            pages.append(text)  # <1>
+        else:
+            tp = page.get_textpage_ocr(
+                dpi=300,
+                language="eng")  # <2>
+            text = page.get_text(
+                textpage=tp).strip()
+            pages.append(text)
+            ocr_pages += 1
+
+    doc.close()
+    return "\n\n".join(pages),
+           page_count, ocr_pages
+----
+====
+
+[.col]
+====
+<1> Page has a text layer -- use it directly (near-instant)
+<2> Image-only page -- fall back to built-in OCR at 300 DPI
+
+The function returns the text, page count, and how many pages needed OCR -- useful for understanding the dataset split.
+====
+
+[.slide.col-2]
+
+== Run the extraction
+
+Pre-extracted text files are included in the repo. Run the next cell and it will confirm that all 4,911 files are present.
+
+[.col]
+====
+If you'd like to re-extract from scratch (~20 minutes), uncomment the two clear lines at the top of the cell. This deletes the existing files and re-runs the full extraction.
+
+Digital files are processed first (instant), then scanned files (may trigger OCR on image-only pages).
+====
+
+[.col]
+====
+[TIP]
+.Understand the speed split
+84% of files have text layers and extract instantly via `get_text()`. Only the 16% image-only files trigger OCR, which runs at ~1-3 pages/sec.
+
+The results summary in the next cell shows the method split.
+====
+
+[.slide]
+
+== Results summary
+
+In your notebook, run the next cell to see the extraction statistics -- how many files used each method, how many succeeded, and total characters extracted.
+
+Then run the verify cell to spot-check a few extracted files and confirm they look reasonable.
+
+[.slide]
+
+== Try your own data
+
+The extraction function works on any PDF dataset, not just Enron emails. If you have your own PDFs:
+
+. Drop them into a folder
+. Point `PDF_DIR` at that folder
+. Run the notebook
+
+The per-page strategy adapts automatically -- pages with text layers get fast extraction, image-only pages get OCR. No thresholds to tune.
+
+[.slide]
+
+== A note on real-world data
+
+Our dataset has a 44/40/16 split between digital, scanned, and image-only files. This is specific to our synthetic dataset. In a real document dump -- like the Clinton FOIA releases -- every file is typically a scanned image with an OCR text layer. There are no "digital" PDFs because the originals were physically printed and scanned.
+
+If the OCR text layers in your documents are good enough for your purposes, you can skip re-OCR entirely and extract with `get_text()` alone -- instant, no dependencies, no configuration. Run a few samples through your parsing pipeline first to check whether the existing OCR quality is sufficient.
+
+[.slide]
+
+== Going forward
+
+From this point on, we'll work with the **pre-extracted plain text files** rather than re-running extraction each time. The extraction step is a one-time cost -- once you have your `.txt` files, the rest of the pipeline operates on text.
+
+In the next module, we'll parse these text files into structured email records: From, To, Subject, date, and body.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-per-page-strategy.adoc[leveloffset=+1]
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* Run `1.5_full_extraction.ipynb` to extract the full Enron dataset
+* The per-page tiered strategy tries `get_text()` first, falling back to built-in OCR at 300 DPI only on image-only pages
+* Built-in OCR for bulk extraction -- comparable quality to Tesseract CLI on clean scans, simpler and faster at scale
+* 84% of files extract instantly via text layers; only 16% need OCR
+* The same approach works on your own PDF datasets -- no configuration needed
+* From here on, we work with the extracted plain text files -- extraction is a one-time step

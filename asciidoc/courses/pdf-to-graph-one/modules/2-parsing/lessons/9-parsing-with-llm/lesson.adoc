@@ -1,0 +1,183 @@
+= Parsing with an LLM
+:type: lesson
+:order: 9
+
+[.slide]
+
+== A different tool
+
+In the previous lessons, you built rule-based parsers and explored what ML models can do. An LLM takes a fundamentally different approach — it reads the text and returns structured fields based on comprehension rather than patterns.
+
+[.transcript-only]
+====
+Open `2.6_parsing_with_llm.ipynb` in your Codespace to follow along.
+====
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Design a prompt that returns predictable, parseable output from an LLM
+* Parse the LLM's text response into structured data
+* Compress output tokens by encoding words as numbers
+* Compare LLM results against the template parser on clean and noisy emails
+* Use the Batch API to process failures in bulk at reduced cost
+
+[.slide]
+
+== Prompt design
+
+The most important decision in LLM parsing is the output format. Rather than asking the LLM to return complex JSON, you can ask it to return one field per line — a field name followed by an array of values. The LLM's only job is to identify which values belong to which field. You handle the structuring on your end.
+
+A concrete example in the prompt shows the LLM exactly what correct output looks like. This produces more reliable results than verbose instructions about schemas and formats.
+
+[.slide.col-2]
+
+== The prompt
+
+[.col]
+====
+[source,text,role=noplay nocopy]
+.Parsing prompt (abbreviated)
+----
+Given this email text, extract the header fields.
+
+Return one field per line in this exact format:
+
+SENDER_NAME: ["Mary Cook"]
+SENDER_EMAIL: ["mary.cook@enron.com"]
+RECIPIENT_NAMES: ["Stephanie Panus", "Susan Bailey", "[REDACTED] B6"]
+RECIPIENT_EMAILS: []
+CC_NAMES: ["Tana Jones"]
+CC_EMAILS: ["tana.jones@enron.com"]
+DATE: ["Wed, 9 May 2001 02:52:00 -0700 (PDT)"]
+SUBJECT: ["Paralegal Lunch"]
+
+"Toa:" is OCR for "To:".      // <1>
+Extract every value as it appears.                  // <2>
+Use empty arrays [] for fields not present.          // <3>
+----
+====
+
+[.col]
+====
+<1> The prompt tells the LLM to correct OCR in field labels but not in values — `Toa:` becomes `To:`, but a misspelled name stays as it is
+<2> Redacted markers like `[REDACTED]` are extracted as values, not skipped
+<3> Empty arrays instead of null — makes downstream parsing simpler
+====
+
+[.slide]
+
+== Parsing the response
+
+The LLM returns plain text — not JSON, not structured data. Each line starts with a field name, a colon, and an array. Parsing is a split on `": ["` and `ast.literal_eval` on the array portion.
+
+In your notebook, the `parse_llm_response` function handles this in a few lines. The `parse_with_llm` function wraps the API call and the parsing together. Run the single-call test on one failure email and compare the raw text to the extracted fields.
+
+[.transcript-only]
+====
+[NOTE]
+.Keep LLM output simple for classification tasks
+Many LLM docs suggest users can have the LLM output structured JSON. Smaller models are often inconsistent on JSON outputs. For a document classification task like this, aim to use the absolute cheapest, smallest, fastest models available, and focus on reducing their cognitive load.
+====
+
+[.slide]
+
+== Compressing output with numbered encoding
+
+Output tokens can be up to 10x more expensive than input tokens. In a 100-word sentence, you might have 120 tokens.
+
+You can get creative with prompt design. 
+
+Rather than sending the raw email text and asking the LLM to return the values, you can number every word in the email and ask the LLM to return the numbers instead.
+
+The process:
+
+. Split the email text on spaces — every word gets its own number
+. Build a codebook mapping each number to its word
+. Send the codebook and the numbered email to the LLM
+. The LLM returns field arrays filled with numbers instead of text
+. Decode the numbers back to words using the codebook
+
+The advantage is token compression. A number like `42` is always one token, regardless of how long the word it represents is. At scale — thousands of emails — the savings on output tokens add up.
+
+In your notebook, run the encoding, prompt, and decode cells. Then run the token comparison to see how the two approaches differ.
+
+[.slide]
+
+== Clean vs noisy
+
+With both prompting approaches tested, the next question is when to use an LLM at all.
+
+On a clean email, the LLM returns the same fields the template parser already extracted — at higher cost and lower speed. On a noisy email where OCR has corrupted the field labels and garbled the text, the LLM succeeds where the template parser returned nothing.
+
+This tells you when the LLM is worth the cost: only on the inputs that other methods can't handle. In your notebook, run the comparison cell to see both cases side by side.
+
+[.slide]
+
+== Cost and speed
+
+[cols="1,1,1",options="header"]
+|===
+|  |Regex |LLM
+
+|Speed |~1,000/sec |~2-5/sec
+|Cost (5,000 emails) |Free |~$2-10
+|Determinism |Yes |No
+|Hallucination risk |None |Low but nonzero
+|Clean layouts |Extracts correctly |Same result, higher cost
+|OCR noise |Copies faithfully |Corrects through comprehension
+|===
+
+On clean text, the LLM adds cost but no value. On noisy text, it's the only tool that works. The two are complementary — each suited to different inputs.
+
+[.slide]
+
+== Batch API
+
+You have a small set of emails that the template parser couldn't handle. You could send them to the API one at a time, but many providers offer a Batch API that accepts all your requests in a single file. 
+
+It runs them asynchronously -- often at reduced cost compared to individual calls. The trade-off is that results arrive minutes to hours later, rather than immediately. However, at scale, a Batch API pipeline will always finish faster than a series of single API calls. 
+
+In your notebook, the batch section packages each failure into a JSONL file, uploads and submits it, then retrieves the results when the batch completes. 
+
+Pre-saved results from a previous run are included in the repo if you'd rather not wait.
+
+[.slide]
+
+== Batch results
+
+Each failure case now has a parsed result — sender, recipients, date, subject — extracted through comprehension rather than pattern matching.
+
+[.slide]
+
+== Merge and save
+
+The template parser handled the majority of emails. The LLM handled the remaining failures. The final section of the notebook loads the template results, adds the LLM results in the same flat format, and writes the combined dataset to `data/all_parsed_records.json`.
+
+Every email in the corpus now has a parsed result.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-prompt-design.adoc[leveloffset=+1]
+include::questions/2-when-to-use-llm.adoc[leveloffset=+1]
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* A prompt with a concrete example produces more reliable results than verbose instructions
+* Asking the LLM to return flat arrays (one per field) keeps the response predictable and easy to parse
+* Numbered word encoding compresses output tokens — every word becomes a single-token number, decoded on your end
+* On clean text, the LLM and the template parser produce the same result — the LLM adds cost with no benefit
+* On noisy text, the LLM corrects OCR artifacts through comprehension
+* The Batch API processes failures in bulk at reduced cost compared to individual calls
+* The combined dataset (template + LLM) is saved to `data/all_parsed_records.json`
+
+**Next:** Combining template and LLM parsing into a pipeline.
+
+**Companion notebook:** `2.6_parsing_with_llm.ipynb`

@@ -1,0 +1,338 @@
+= Layout-aware extraction
+:type: lesson
+:order: 4
+
+[.slide]
+
+== Introduction
+
+In Module 1, you used Docling's `export_to_text()` to pull text from PDFs. Alongside that text, Docling was simultaneously building a richer document model.
+
+`doc.texts` exposes the structured part of that model: an ordered list of discrete layout items, one per visual element on the page, with each email header label and value potentially sitting in its own separate slot.
+
+Open `2.2_layout_aware_extraction.ipynb` in your notebook environment to follow along.
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Access `doc.texts` from a Docling conversion and understand what it contains
+* Extract email header fields by walking the segmented layout items
+* Understand how segmentation varies across different PDFs
+* Use Docling's `DocumentExtractor` for schema-driven extraction via a local VLM
+* Decide when each approach is worth the speed cost
+
+[.slide.col-2]
+
+== Configuring Docling
+
+The configuration is identical to Module 1. In your notebook, run the first four cells to install, import, configure the converter, and pre-load the models.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Docling configuration
+----
+pipeline_options = PdfPipelineOptions()
+pipeline_options.do_ocr = True  # <1>
+pipeline_options.generate_picture_images = False
+
+converter = DocumentConverter(
+    format_options={
+        InputFormat.PDF: PdfFormatOption(
+            pipeline_options=pipeline_options
+        )
+    }
+)
+----
+====
+
+[.col]
+====
+<1> OCR on -- same as Module 1, so Docling can handle image-only pages
+
+Model loading takes 30-60 seconds. Everything after runs at ~1-3 emails/sec.
+====
+
+[.slide.col-2]
+
+== Inspecting doc.texts
+
+In your notebook, run the next two cells to convert a clean digital PDF and inspect the blocks.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Inspecting doc.texts
+----
+result = converter.convert("E0048ADF3.pdf")
+doc = result.document
+
+for i, item in enumerate(doc.texts[:10]):  # <1>
+    print(f"[{i}] {item.text!r}")
+----
+====
+
+[.col]
+====
+<1> `doc.texts` contains one item per layout element Docling identified on the page
+
+On a clean digital PDF, you should see `From:` as one block and the sender name as the next -- the structure that makes direct extraction possible.
+====
+
+[.transcript-only]
+====
+With flat text, every line is ambiguous -- a parser has to guess whether it's a label or a value. With discrete blocks, position carries the structure: block N is the label and block N+1 is the value.
+====
+
+[.slide.col-2]
+
+== Extracting email fields
+
+In your notebook, run the next cell to define and test the field extractor.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Field extraction from segmented blocks
+----
+FIELD_RE = re.compile(
+    r'^(From|Sent|To|Cc|Subject)\s*:',
+    re.IGNORECASE)
+
+def extract_fields(doc):
+    result = {}
+    items = [item.text.strip()
+             for item in doc.texts]
+    current = None
+
+    for text in items:
+        m = FIELD_RE.match(text)
+        if m:
+            label = m.group(1).lower()
+            current = FIELD_NAMES[label]
+            result[current] = text[m.end():]  # <1>
+        elif current:
+            result[current] += ' ' + text  # <2>
+
+        if current == 'subject' \
+                and result.get('subject'):
+            break
+    return result
+----
+====
+
+[.col]
+====
+<1> When a label is found, start collecting -- any text after the colon is the start of the value
+<2> Non-label blocks are continuations of the current field -- multi-line recipient lists span several blocks
+
+The extractor stops after `Subject:` to avoid collecting body text. Long Cc lists that wrap across blocks are joined automatically.
+====
+
+[.slide]
+
+== Scanned PDFs: where quality varies
+
+In your notebook, run the next two cells to compare two scanned files.
+
+Both scanned files segment into many blocks -- labels and values are separated. But the extracted values differ:
+
+* `E61D04918.pdf` (moderate OCR) -- 54 blocks, 4 fields found. OCR noise garbles the sender name: `Ker i Thompson` instead of `Kerri Thompson`, and the email address splits across two blocks.
+
+* `E00CF8AE9.pdf` (good OCR) -- 57 blocks, 4 fields found. Clean text, but multi-line To recipients wrap across blocks. The extractor joins them correctly.
+
+[.transcript-only]
+On these files, segmentation works. The problems come from OCR noise and from the unpredictability of how values split across blocks.
+
+At corpus scale, coverage drops -- in our sample, 70-85% of fields survived the extractor. Your numbers may vary with Docling version and OCR backend. The remaining fields are lost to blocks that don't match expected label patterns, merged values, or OCR errors that break the regex.
+
+[.slide.col-2]
+
+== Measuring field coverage
+
+In your notebook, run the next two cells to measure coverage on a sample and preview the results table.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Batch extraction
+----
+sample = pdf_files[:100]
+rows = []
+
+for pdf in sample:
+    result = converter.convert(str(pdf))  # <1>
+    fields = extract_fields(result.document)
+    fields["file"] = pdf.name
+    rows.append(fields)
+
+df = pd.DataFrame(rows)
+----
+====
+
+[.col]
+====
+<1> The full Docling pipeline runs on each PDF -- the expensive step, and why we measure on a sample first
+====
+
+[.transcript-only]
+====
+Coverage will vary by corpus. For our synthetic Enron dataset, digital PDFs extract well but scanned PDFs are inconsistent.
+====
+
+[.slide]
+
+== The speed cost
+
+Docling re-processes the PDFs from scratch -- the `.txt` files from Module 1 cannot be reused. In your notebook, run the speed comparison cell to see the difference.
+
+[cols="1,1,1,1"]
+|===
+|**Method** |**50 emails** |**5,000 emails** |**50,000 emails**
+
+|Docling (from PDF)
+|~50 sec
+|~80 min
+|~14 hours
+
+|Regex on `.txt`
+|< 0.1 sec
+|~10 sec
+|~2 min
+|===
+
+[.slide]
+
+== When to use Docling for parsing
+
+In your notebook, run the decision table cell to see the comparison side by side.
+
+[cols="1,1"]
+|===
+|**Use Docling when...** |**Use regex on .txt when...**
+
+|You don't have `.txt` files yet -- fresh pipeline
+|Module 1 already ran
+
+|Your documents have complex layouts (tables, multi-column)
+|Your documents are single-column emails
+
+|Regex coverage falls short of graph requirements
+|Regex coverage is already sufficient
+|===
+
+For this course, we build on the `.txt` files from Module 1 -- the parsing lessons that follow use the faster text-based approaches.
+
+[.slide.col-2]
+
+== Docling's structured extraction API
+
+Docling also offers a `DocumentExtractor` that takes a completely different approach. Instead of walking layout blocks, it renders each page as an image and sends it to a local VLM (NuExtract-2.0-2B) with a schema template. In your notebook, run the next cell to try it.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.Schema-driven extraction
+----
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from docling.document_extractor import (
+    DocumentExtractor
+)
+
+class EmailFields(BaseModel):
+    sender: Optional[str] = Field(
+        None, description="The From: field")
+    date: Optional[str] = Field(
+        None, description="The Sent: field")
+    recipients: Optional[List[str]] = Field(
+        None, description="The To: field")
+    subject: Optional[str] = Field(
+        None, description="The Subject:")
+
+extractor = DocumentExtractor(
+    allowed_formats=[InputFormat.PDF]
+)
+
+result = extractor.extract(
+    source="E00CF8AE9.pdf",  # <1>
+    template=EmailFields      # <2>
+)
+----
+====
+
+[.col]
+====
+<1> Any PDF file -- the VLM works directly from the page image, not from text layers
+<2> The Pydantic model defines what fields to extract -- the VLM reads the page image and fills them in
+
+The VLM extracts fields from every file. It also parses recipients into lists and converts dates to ISO format without being asked -- but check multi-page results for hallucinations.
+====
+
+[.slide.col-2]
+
+== VLM limitations and hardware
+
+On multi-page PDFs, the model extracts each page independently. Page 2 of `E00CF8AE9.pdf` misreads the boilerplate stamps as email fields -- it fills the schema from whatever it sees, and it doesn't know what boilerplate is. This is a non-deterministic limitation: like any LLM output, you cannot guarantee the results.
+
+[.col]
+====
+[cols="1,1"]
+|===
+|**Hardware** |**Approximate speed**
+
+|CPU only
+|~5-10 min/page
+
+|Apple Silicon (MPS)
+|~10-15 sec/page
+
+|CUDA GPU
+|<2-5 sec/page
+|===
+
+By default, Docling uses `load_in_8bit=True` which requires `bitsandbytes` (CUDA only). On Apple Silicon, it falls back to full-precision CPU unless you configure it explicitly.
+====
+
+[.col]
+====
+The `DocumentExtractor` runs a 2B parameter vision model (NuExtract-2.0-2B) locally. Speed depends on your hardware.
+
+The first run downloads the model (~1.4GB). Subsequent runs use the cached version.
+====
+
+[.slide]
+
+== Why we're not using it for this course
+
+At ~20-30 seconds per PDF, processing the full 5,000-file corpus would take ~1-2 days. For single-column emails where the text is already extracted, regex does the same job in seconds.
+
+`DocumentExtractor` excels where text-based approaches can't work -- invoices with checkbox fields, forms with irregular layouts, handwritten annotations. For those, a VLM reading the page image is the only viable approach short of a cloud API.
+
+If your dataset falls into that category, this is worth the speed cost. For our current dataset, it isn't.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-doc-texts-vs-export.adoc[leveloffset=+1]
+
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* `doc.texts` exposes the structured document model Docling builds -- one discrete item per layout element, labels already separated from values
+* The extractor walks those items in reading order: bare label blocks followed by value blocks, or inline label+value in one block
+* Segmentation on scanned PDFs is unpredictable -- OCR noise garbles values, multi-line fields split across blocks, and at corpus scale ~15-30% of fields are lost
+* Docling's `DocumentExtractor` uses a local VLM (NuExtract-2.0-2B) to extract fields from page images via a Pydantic schema -- bypasses segmentation entirely, but at ~15-30s per PDF and with non-deterministic results
+* `DocumentExtractor` excels on invoices, forms, and irregular layouts where text-based approaches can't work
+* The speed cost is ~1,000x: Docling layout analysis at ~1-3 emails/sec, regex on pre-extracted text at thousands/sec
+* Reach for Docling when you don't have `.txt` files, your documents have complex layouts, or text-based approaches can't cover your corpus
+
+**Next:** We'll parse RFC-format email files using Python's standard library.
+
+**Companion notebook:** `2.2_layout_aware_extraction.ipynb`

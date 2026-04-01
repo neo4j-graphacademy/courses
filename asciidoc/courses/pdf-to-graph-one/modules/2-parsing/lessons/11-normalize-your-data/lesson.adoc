@@ -1,0 +1,180 @@
+= Normalize your data
+:type: lesson
+:order: 11
+
+[.slide]
+
+== Raw values aren't merge-safe
+
+The CSV files from the pipeline contain raw extracted values. `Kay Mann` and `kay mann` would become two separate User nodes. `kay.mann@enron.com` and `Kay.Mann@Enron.com` would become two Mailbox nodes. OCR-garbled domains like `enror.corm` would never match `enron.com`.
+
+Before importing, we need normalized values to merge on. The raw values stay -- normalized values sit alongside them in `_norm` columns.
+
+[.transcript-only]
+====
+Open `2.8_cleaning_and_normalization.ipynb` in your Codespace to follow along.
+====
+
+[.slide]
+
+== What you'll learn
+
+By the end of this lesson, you'll be able to:
+
+* Inspect raw extracted data for systematic quality issues
+* Apply a standard NLP normalization pipeline: unicode decomposition, artifact stripping, lowercasing
+* Build a corpus-specific OCR domain correction table
+* Relocate misplaced email addresses rather than discarding them
+* Write normalized CSV files ready for Neo4j import
+
+[.slide]
+
+== The approach
+
+Create `_norm` columns alongside the raw values. Import merges on the normalized form; the raw value is preserved as a property for traceability.
+
+This approach works for this dataset -- few people share identical names among the few thousand who worked at Enron. For a larger or more ambiguous dataset (census data, for example), you would merge on the most unique identifier or constellation of identifiers.
+
+If you accidentally merge two different people with the same name (you won't), you can detach them later using the raw CSV as ground truth.
+
+[.slide]
+
+== Inspecting the raw data
+
+In your notebook, run the first section to load the CSV files and inspect the noise. The common issues:
+
+* **Email addresses in name fields** -- the NER model occasionally captured an email as a name span
+* **Semicolons** -- artifacts from the template's multi-line value join
+* **Angle brackets and quotes** -- fragments from OCR-garbled `Name <email>` pairs
+* **Inconsistent casing** -- `ALAN YUDKOWSKY`, `Kay Mann`, `kay mann`
+
+[.slide.col-2]
+
+== The name normalization pipeline
+
+[.col]
+====
+. **Unicode normalization** -- `e` for `e`
+. **Strip artifacts** -- angle brackets, semicolons, quotes
+. **Remove leaked emails** -- strip any `@` addresses from the name (relocated to the address field if it was the only reference)
+. **Collapse whitespace**
+. **Lowercase**
+. **Trim** -- strip leading/trailing punctuation
+====
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.normalize_name
+----
+normalize_name('"Barbara Denson"')
+# 'barbara denson'
+
+normalize_name('; Harry; Kingerski')
+# 'harry kingerski'
+
+normalize_name('[REDACTED] B6')
+# '[redacted] b6'
+----
+
+Redaction markers are preserved -- they're meaningful signals, not noise.
+====
+
+[.slide.col-2]
+
+== The email normalization pipeline
+
+Emails need different handling than names. In your notebook, run the email normalization test to see how each case is handled.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.normalize_email examples
+----
+normalize_email('chris.germany@enror.corm')
+# 'chris.germany@enron.com'           # <1>
+
+normalize_email(',adarm@enron.corm>, alex')
+# ''                                   # <2>
+
+normalize_email('.williams@enron.com')
+# '.williams@enron.com'                # <3>
+----
+====
+
+[.col]
+====
+<1> OCR domain correction -- `enror.corm` maps to `enron.com` via a lookup table
+<2> Rejected -- the value contains commas, so it's garbage from a misaligned NER span
+<3> Leading dots are preserved -- they indicate OCR truncation of the local part. Stripping the dot could falsely merge with a different person's mailbox
+====
+
+[.slide.col-2]
+
+== OCR domain correction
+
+A lookup table maps garbled domains to their correct form. Each entry is a specific OCR misreading observed in the corpus.
+
+[.col]
+====
+[source,python,role=noplay nocopy]
+.DOMAIN_CORRECTIONS (subset)
+----
+DOMAIN_CORRECTIONS = {
+    "enron.cam":   "enron.com",
+    "enron.cem":   "enron.com",
+    "enron.corm":  "enron.com",
+    "enror.com":   "enron.com",
+    "enror.corm":  "enron.com",   # <1>
+    "enrorn.com":  "enron.com",
+    "ernron.com":  "enron.com",
+    "erron.com":   "enron.com",
+    # ... 19 entries total
+}
+----
+====
+
+[.col]
+====
+<1> Built by listing all domains with three or fewer mailboxes, filtering for patterns that are obviously corrupted, and verifying each against the mailbox local parts
+
+For your own data, inspect the rare domains the same way -- sort by frequency, and the OCR variants will cluster at the bottom.
+====
+
+[.slide]
+
+== Relocating misplaced emails
+
+[TIP]
+.Build your own correction table
+====
+The OCR correction table and artifact patterns in this lesson are built from the Enron corpus. Your data will have its own systematic errors. To build your own correction table, sort extracted domains (or whatever your key identifiers are) by frequency -- OCR variants and typos cluster at the bottom with very low counts. Inspect those manually, map each to its correct form, and add them to your lookup table. The same principle applies to any normalisation: inspect your data's actual noise patterns rather than guessing.
+====
+
+When the name field contains an email address and the address field is empty, the normalization step moves the email to the address field rather than discarding it.
+
+This preserves the entity reference -- without relocation, those mailboxes would be lost entirely from the graph.
+
+In your notebook, run the apply, verify, and write sections to produce the final CSV files.
+
+
+[.quiz]
+== Check your understanding
+
+include::questions/1-why-normalize.adoc[leveloffset=+1]
+include::questions/2-leading-dot.adoc[leveloffset=+1]
+read::Mark as read[]
+
+[.summary]
+== Summary
+
+* Raw extracted values aren't safe to merge on -- casing, OCR noise, and artifacts create false duplicates
+* The normalization pipeline applies unicode decomposition, artifact stripping, lowercasing, and whitespace collapsing to names
+* Email normalization rejects garbage values and applies an OCR domain correction table built from corpus inspection
+* Leading dots in emails are preserved -- they indicate truncation, not noise
+* Misplaced emails are relocated from name fields to address fields rather than discarded
+* Raw values are preserved in the CSV alongside `_norm` columns -- import merges on normalized, stores both
+
+**Next:** Import the normalized CSVs into Neo4j.
+
+**Companion notebook:** `2.8_cleaning_and_normalization.ipynb`
