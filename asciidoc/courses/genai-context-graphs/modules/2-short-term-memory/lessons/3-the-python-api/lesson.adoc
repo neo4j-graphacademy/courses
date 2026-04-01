@@ -5,63 +5,61 @@
 
 In the previous lesson, you learned how the conversation graph schema is structured. The `neo4j-agent-memory` library manages this schema automatically through a simple async API.
 
-In this lesson, you will learn the seven short-term memory methods and the Cypher each one generates.
+In this lesson, you will learn the short-term memory methods and the Cypher the library generates under the hood.
 
-The seven methods are: `add_session()`, `add_message()`, `get_recent_messages()`, `search_messages()`, `delete_session()`, `list_sessions()`, and `get_conversation_summary()`.
 
-== Creating and managing sessions
+== Adding messages and managing sessions
 
-A session corresponds to one conversation. Create one before adding messages:
+A session corresponds to one conversation. You choose the session ID — any string works. The library creates the `Conversation` node automatically the first time you call `add_message()` with that ID:
 
 [source,python]
-.Create a session and add conversation messages
+.Add conversation messages and clear the session when done
 ----
 async with MemoryClient(settings) as memory:
-    # One session per user / conversation
-    session = await memory.add_session("user_123")
-
-    # Add messages as the conversation progresses
-    await memory.add_message(
-        session.id,
+    # Add messages — the session is created automatically on first use
+    await memory.short_term.add_message(
+        session_id="user_123",
         role="user",
         content="Review Jessica Norris account for credit limit increase"
     )
-    await memory.add_message(
-        session.id,
+    await memory.short_term.add_message(
+        session_id="user_123",
         role="assistant",
         content="I will retrieve Jessica's full profile now."
     )
 
     # Remove a session and all its messages when done
-    await memory.delete_session(session.id)
+    await memory.short_term.clear_session("user_123")
 ----
 
-This creates a session for `user_123`, stores two messages in sequence, then removes the session and all its linked message nodes when the conversation ends.
+Calling `add_message()` with a new `session_id` creates the `Conversation` node automatically. `clear_session()` removes the session and all its linked `Message` nodes when the conversation ends.
 
 == Retrieving and searching messages
 
-To retrieve recent messages for context injection, or search message history by semantic similarity:
+To retrieve a conversation and its messages, or search message history by semantic similarity:
 
 [source,python]
-.Retrieve recent messages and search by semantic similarity
+.Retrieve a conversation and search messages by semantic similarity
 ----
 async with MemoryClient(settings) as memory:
-    # Get the N most recent messages (for context injection)
-    recent = await memory.get_recent_messages(session.id, limit=5)
+    # Retrieve the full conversation and its messages
+    conversation = await memory.short_term.get_conversation("user_123")
+    for msg in conversation.messages:
+        print(msg.role, msg.content)
 
     # Semantic search over message history
-    results = await memory.search_messages(
+    results = await memory.short_term.search_messages(
         query="credit limit increase",
-        session_id=session.id,
+        session_id="user_123",
         limit=10
     )
 ----
 
-`get_recent_messages()` returns messages in reverse chronological order — the most recent first. `search_messages()` uses vector similarity on the `embedding` property of each `Message` node.
+`get_conversation()` returns the `Conversation` object with all linked messages in order. `search_messages()` uses vector similarity on the `embedding` property of each `Message` node.
 
-== Understanding the Cypher behind get_recent_messages
+== Understanding the message traversal query
 
-To understand what the library does, write the equivalent query manually:
+To understand the linked-list structure the library builds, write the equivalent query manually:
 
 [source,cypher]
 .Retrieve the five most recent messages for a session
@@ -79,30 +77,31 @@ Following `NEXT_MESSAGE` relationships traverses the linked list in order. This 
 
 == Listing sessions and retrieving summaries
 
-Use `list_sessions()` to retrieve all sessions for a user and `get_conversation_summary()` to generate a summary of what was discussed:
+Use `list_sessions()` to retrieve all sessions and `get_conversation_summary()` to generate a summary of what was discussed:
 
 [source,python]
 .List all sessions and get a conversation summary
 ----
 async with MemoryClient(settings) as memory:
-    # List all sessions for this user
-    sessions = await memory.list_sessions()
+    # List all sessions
+    sessions = await memory.short_term.list_sessions()
 
     # Auto-generate a plain-English summary of the conversation
-    summary = await memory.get_conversation_summary(session.id)
+    summary = await memory.short_term.get_conversation_summary("user_123")
 ----
 
 `list_sessions()` returns all `Conversation` nodes, useful for building session history views in a UI. `get_conversation_summary()` uses the stored messages to produce a concise summary of the conversation — useful for creating long-term memory from short-term context.
 
 == Short-term memory API reference
 
+All methods are on `memory.short_term`. Sessions are created automatically by `add_message()`.
+
 [%header,cols="2,3"]
 |===
 | Method | Purpose
 
-| `add_session(user_id)` | Create a new conversation session
-| `add_message(session_id, role, content)` | Store a message and run entity extraction
-| `get_recent_messages(session_id, limit)` | Retrieve the N most recent messages
+| `add_message(session_id, role, content)` | Store a message and run entity extraction (creates session automatically)
+| `get_conversation(session_id)` | Retrieve the full conversation and its messages
 | `search_messages(query, session_id, limit)` | Semantic search over message history
 | `delete_session(session_id)` | Remove a session and all its messages
 | `list_sessions()` | List all sessions
@@ -114,14 +113,13 @@ read::Continue[]
 [.summary]
 == Summary
 
-In this lesson, you learned the short-term memory API:
+In this lesson, you learned the short-term memory API on `memory.short_term`:
 
-* *`add_session()`* — creates a `Conversation` node and opens the message chain
-* *`add_message()`* — stores the message, generates an embedding, and runs entity extraction
-* *`get_recent_messages()`* — traverses the linked list in reverse to return the most recent messages
+* *`add_message()`* — creates the `Conversation` node automatically on first use, stores the message, generates an embedding, and runs entity extraction
+* *`get_conversation()`* — returns the `Conversation` object with all linked messages in order
 * *`search_messages()`* — uses vector similarity to find semantically related past messages
-* *`delete_session()`* — removes the session and all linked messages
-* *`list_sessions()`* — returns all sessions for the current user
+* *`clear_session()`* — removes the session and all linked messages
+* *`list_sessions()`* — returns all sessions
 * *`get_conversation_summary()`* — generates a plain-English summary of the conversation
 
 In the next lesson, you will learn how adding a message automatically seeds the long-term memory layer.
