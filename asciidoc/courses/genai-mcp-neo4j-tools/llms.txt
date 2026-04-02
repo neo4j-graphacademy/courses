@@ -1,55 +1,40 @@
 # Developing with Neo4j MCP Tools
 
-Learn how to use the Model Context Protocol to create intelligent AI applications
+Learn how to use the Neo4j MCP server and tools to create intelligent AI applications
 
-[Learn more about this course](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools)
+[Learn more about this course](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools)
 
 ## Concepts
 
-* **Model Context Protocol (MCP)** - An open standard designed to connect AI applications with tools and data sources, enabling AI agents to access and interact with external resources
-* **MCP Server** - Provides capabilities through tools, resources, and prompt templates that clients can discover and use
-* **MCP Client** - Manages one-to-one connections to servers and executes tools on behalf of the host
-* **MCP Host** - An application (like Claude Desktop, VS Code, or custom agents) that manages clients and determines which tools to use
-* **MCP Tools** - Discrete functions with unique identifiers, descriptions, and parameters that can be invoked by AI agents
-* **Agent** - A system that acts independently using tool calling to access information and take actions to achieve specific goals
-* **Neo4j Cypher MCP Server** - A specialized MCP server that provides AI agents with the ability to read and write data to Neo4j databases
-* **Schema Discovery** - The process of understanding database structure before generating queries to prevent AI hallucinations
-* **stdio Transport** - Communication method where client starts server locally and communicates through standard input/output streams
+* **Model Context Protocol (MCP)** — Open protocol (Anthropic) that lets AI agents discover and call external **tools** in a standard way, with **servers** exposing capabilities and **clients** maintaining stateful connections (**stdio** or **HTTP** with SSE/streaming).
+* **Agent** — System that acts toward a goal using tool calls; often structured with the **ReAct** loop: **planning** (break down tasks, pick tools), **reasoning** (choose tools from descriptions), **acting** (run tools, feed results back).
+* **MCP host** — Application (Claude Desktop, VS Code, Cursor, or your own app) that holds session context, manages clients, and decides **which** tool to run with **which** arguments.
+* **MCP server** — Process that registers **tools** (id, description, parameters), optional **resources** (read-only URIs), and **prompt templates**; can be local or remote.
+* **Neo4j MCP server (`neo4j-mcp`)** — MCP server that exposes Neo4j-focused tools so agents can inspect schema and run Cypher **read** and **write** paths under your host’s policies.
+* **`get-schema`** — Tool with **no inputs**; returns JSON describing labels, properties, and relationship patterns so the model does not invent labels or relationship types.
+* **`read-cypher`** — Runs **read-only** Cypher inside a read transaction; rejects writes, admin/schema operations, and `PROFILE` (per course); follows the DB **routing** policy in clusters.
+* **`write-cypher`** — Runs write-capable Cypher (`CREATE`, `MERGE`, `DELETE`, `SET`, …); can be disabled for the process with **`NEO4J_READ_ONLY=true`**.
+* **`list-gds-procedures`** — Lists **Graph Data Science** procedures available on the instance so the agent knows what GDS calls exist.
+* **Configuration** — Host-specific JSON (e.g. `.claude_desktop_config.json`, `.vscode/mcp.json`) naming the server, **command** + **`args`** (not one concatenated shell string), and **`env`** or **`envFile`** for secrets and connection details.
+* **Environment variables** — Typically `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`; optional `NEO4J_NAMESPACE` when running **multiple** server entries to prefix tool names.
 
-### ReAct Framework
+---
 
-A continuous loop of planning, reasoning, and acting that agents use to achieve specific goals:
+## Installation and host configuration
 
-1. **Planning** - Analyze the task and break it down into smaller, manageable sub-tasks
-2. **Reasoning** - Select the most appropriate tools and actions for each sub-task based on available capabilities
-3. **Acting** - Execute the selected tools and gather results from the actions taken
-4. **Evaluation** - Check if the goal has been achieved or if further iterations are needed
-5. **Feedback** - Use results to refine the approach and inform the next iteration of the loop
+Install the `neo4j-mcp` binary from the Neo4j MCP distribution, put it on your **PATH**, then register it in your host. Use separate **`command`** and **`args`** arrays (do not fold flags into a single executable string).
 
-### MCP Server Features
-
-MCP servers provide three main types of capabilities:
-
-* **Tools** - Discrete functions that can be invoked by AI agents to perform specific actions (e.g., database queries, API calls, file operations)
-* **Resources** - Static or dynamic content that can be read by clients (e.g., files, documents, configuration data)
-* **Prompts** - Pre-defined prompt templates that can be used to guide AI interactions and provide consistent context
-
-[Reference: What is MCP?](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
-
-
-## Installation and Configuration
-
-### VS Code MCP Configuration
+**Claude Desktop-style configuration** (illustrative; adjust paths and secrets):
 
 ```json
-// .vscode/mcp.json
 {
   "mcpServers": {
-    "neo4j-cypher": {
-      "command": "uvx",
+    "neo4j-mcp": {
+      "command": "path/to/neo4j-mcp",
       "args": [
-        "mcp-neo4j-cypher@0.2.3",
-        "--transport",
+        "--neo4j-read-only",
+        "true",
+        "--neo4j-transport-mode",
         "stdio"
       ],
       "env": {
@@ -62,30 +47,66 @@ MCP servers provide three main types of capabilities:
   }
 }
 ```
-[Reference: Building applications with MCP tools](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/4c-build-application)
 
-## Neo4j MCP Tools
+**VS Code** commonly uses `type: "stdio"`, the `neo4j-mcp` command, and an **`envFile`** pointing at a workspace `.env` so secrets stay out of JSON:
 
-### get-neo4j-schema Tool
+```json
+{
+  "mcpServers": {
+    "neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}
+```
 
-**Purpose**: Discovers the database schema including node labels, properties, and relationships.
+**`.env` for Neo4j** (placeholders match what you use in Aura or self-managed):
 
-**Input**: Natural language requests about the database structure:
-- "Describe the data model"
-- "What node labels and relationship types are available in the database?"
-- "How are User and Movie nodes related?"
+```bash
+# bolt:// or neo4j:// / neo4j+s:// depending on deployment
+NEO4J_URI="bolt://localhost:7687"
+NEO4J_USERNAME="neo4j"
+NEO4J_PASSWORD="your-password"
+NEO4J_DATABASE="neo4j"
+```
 
-**Output**:
+[Reference: Agentic Systems and MCP > Installing an MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/3-installing-servers)
+
+[Reference: Agentic Systems and MCP > Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
+
+---
+
+## Neo4j MCP tools (behavior and safety)
+
+| Tool | Purpose |
+|------|---------|
+| `get-schema` | Labels, relationship types, property keys — context for correct Cypher |
+| `read-cypher` | Read-only queries; no writes; rejects `PROFILE` and admin/schema-style use (per course) |
+| `write-cypher` | Mutating Cypher; honor approvals; disable with `NEO4J_READ_ONLY=true` if needed |
+| `list-gds-procedures` | Expose which GDS procedures exist on the server |
+
+**Operational notes**
+
+* In **VS Code**, start the server from the Command Palette (**MCP: List servers** → start your Neo4j entry). Tools are available when the chat is in **Agent** mode.
+* Approve tool access deliberately; **`read-cypher`** is constrained to read transactions so routine approval is lower risk than **`write-cypher`**.
+
+[Reference: Using Neo4j MCP Tools > Using the Neo4j Cypher MCP Server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
+
+---
+
+## Schema inspection (`get-schema`) and example JSON shape
+
+The agent calls **`get-schema`** (no parameters). The payload describes labels, properties (with type hints), and outgoing relationship patterns. Example structure (Movies-style graph):
+
 ```json
 [
   {
     "label": "Movie",
     "attributes": {
-      "budget": "INTEGER",
-      "movieId": "STRING unique indexed",
-      "imdbRating": "FLOAT indexed",
       "title": "STRING indexed",
-      "year": "INTEGER indexed",
+      "imdbRating": "FLOAT indexed",
       "revenue": "INTEGER"
     },
     "relationships": {
@@ -95,8 +116,8 @@ MCP servers provide three main types of capabilities:
   {
     "label": "User",
     "attributes": {
-      "name": "STRING indexed",
-      "userId": "STRING unique indexed"
+      "userId": "STRING unique indexed",
+      "name": "STRING indexed"
     },
     "relationships": {
       "RATED": "Movie"
@@ -105,140 +126,201 @@ MCP servers provide three main types of capabilities:
 ]
 ```
 
-[Reference: Using the Neo4j Cypher MCP Server](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
+[Reference: Using Neo4j MCP Tools > Using the Neo4j Cypher MCP Server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
 
-### read-neo4j-cypher Tool
+[Reference: Using Neo4j MCP Tools > Reading the Graph Schema](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/2c-reading-graph-schema)
 
-**Purpose**: Executes safe read-only Cypher queries that don't modify data.
+---
 
-// Example query for top movies by revenue:
+## Read path: `read-cypher` patterns
+
+Ask natural-language questions; the agent should emit parameterized Cypher. Examples from the course:
+
+**Top movies by revenue**
+
+```cypher
 MATCH (m:Movie)
 WHERE m.revenue IS NOT NULL
 RETURN m.title AS title, m.revenue AS revenue
 ORDER BY m.revenue DESC
 LIMIT 10
-
-**Output**:
-```json
-[
-  {
-    "title": "Avatar",
-    "revenue": 2847246203
-  },
-  {
-    "title": "Avengers: Endgame", 
-    "revenue": 2797501328
-  },
-  {
-    "title": "Titanic",
-    "revenue": 2257844554
-  }
-]
 ```
 
-### write-neo4j-cypher Tool
+**Highest IMDB rating** — filter out null ratings so ordering is meaningful:
 
-**Purpose**: Executes write operations that modify database data (requires user approval).
+```cypher
+MATCH (m:Movie)
+WHERE m.imdbRating IS NOT NULL
+RETURN m.title AS title, m.imdbRating AS rating
+ORDER BY m.imdbRating DESC
+LIMIT 1
+```
 
-**Input**: Natural language requests for data modification:
-- "Create a new user named Sarah"
-- "Add a 5-star rating from John to The Godfather"
-- "Update the movie budget for Titanic to 200000000"
+[Reference: Using Neo4j MCP Tools > Generating Cypher Statements](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/3c-generating-cypher-statements)
 
-**Output**:
+---
+
+## Write path: `write-cypher` with prior reads
+
+Agents often **`read-cypher`** first to disambiguate titles or ids, then **`write-cypher`**. Example pattern (conceptual): rate a movie for a user — match user and movie, `MERGE` the relationship, `SET` properties:
+
+```cypher
+MATCH (u:User { userId: $userId })
+MATCH (m:Movie { title: $title })
+MERGE (u)-[r:RATED]->(m)
+SET r.rating = $rating,
+    r.timestamp = toInteger(datetime().epochSeconds)
+RETURN u.name AS user, m.title AS movie, r.rating AS rating, r.timestamp AS timestamp
+```
+
+Pass parameters from the agent/tool layer as JSON alongside the query string when your integration supports it.
+
+[Reference: Using Neo4j MCP Tools > Using the Neo4j Cypher MCP Server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
+
+---
+
+## Python application: driver + validated Cypher (GraphRAG-style workflow)
+
+Install the driver:
+
+```bash
+pip install neo4j
+```
+
+The course challenge asks for a CLI that takes a **genre** and returns the **top 5** movies in that genre by **`imdbRating`**, using **non-null** ratings, after **schema understanding** and **query validation** with MCP tools.
+
+```python
+#!/usr/bin/env python3
+# Neo4j Python driver 5.x — CLI: top 5 movies in a genre by imdbRating (non-null)
+
+import os
+import sys
+from neo4j import GraphDatabase
+
+
+def get_top_movies_by_genre(genre_name: str) -> list[dict]:
+    # Cypher aligned with a Movie–Genre model: (Genre)<-[:IN_GENRE]-(Movie)
+    query = """
+    MATCH (g:Genre)<-[:IN_GENRE]-(m:Movie)
+    WHERE g.name = $genre_name AND m.imdbRating IS NOT NULL
+    RETURN m.title AS title, m.imdbRating AS imdbRating
+    ORDER BY m.imdbRating DESC
+    LIMIT 5
+    """
+
+    neo4j_uri = os.getenv("NEO4J_URI")
+    neo4j_username = os.getenv("NEO4J_USERNAME")
+    neo4j_password = os.getenv("NEO4J_PASSWORD")
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
+
+    if not all([neo4j_uri, neo4j_username, neo4j_password]):
+        raise RuntimeError("Set NEO4J_URI, NEO4J_USERNAME, and NEO4J_PASSWORD")
+
+    with GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password)) as driver:
+        driver.verify_connectivity()
+        eager = driver.execute_query(
+            query,
+            {"genre_name": genre_name},
+            database_=database,
+        )
+        return [r.data() for r in eager.records]
+
+
+def main() -> None:
+    genre_name = input("Enter a genre name: ").strip()
+    if not genre_name:
+        print("Error: Genre name cannot be empty", file=sys.stderr)
+        sys.exit(1)
+    try:
+        rows = get_top_movies_by_genre(genre_name)
+        if not rows:
+            print(f"No movies found for genre: {genre_name}")
+            return
+        print(f"\nTop 5 movies in '{genre_name}' by IMDB rating:")
+        for i, row in enumerate(rows, 1):
+            print(f"{i}. {row['title']} — {row['imdbRating']}")
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**Agent prompt pattern (from the course)** — forces schema use and **read-cypher** validation before coding:
+
+```text
+Create a simple command line application in python that:
+
+1. Connects to Neo4j using the Neo4j Python driver using environment variables: NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD, NEO4J_DATABASE.
+2. Accepts a Genre name as a text input
+3. Runs a Cypher statement that produces a list of the top five movies ordered by their imdbRating in descending order.
+
+Rules:
+
+* The query must filter on non-null values
+* You must use tools to understand the schema information
+* You must validate your Cypher statement on real data from the database before you write it to the application.
+```
+
+[Reference: Using Neo4j MCP Tools > Building applications with MCP tools](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/4c-build-application)
+
+---
+
+## Multiple databases in one host
+
+You can register **several** Neo4j MCP server blocks under `mcpServers`, each with its own `env` and optional **`NEO4J_NAMESPACE`** so tool names are prefixed and disambiguated:
+
 ```json
-[
-  {
-    "u": {
-      "identity": 1234,
-      "labels": ["User"],
-      "properties": {
-        "name": "Sarah",
-        "userId": "sarah123"
+{
+  "mcpServers": {
+    "movies-neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "neo4j+s://demo.neo4jlabs.com",
+        "NEO4J_USERNAME": "recommendations",
+        "NEO4J_PASSWORD": "recommendations",
+        "NEO4J_DATABASE": "recommendations"
+      }
+    },
+    "local-neo4j": {
+      "type": "stdio",
+      "command": "neo4j-mcp",
+      "env": {
+        "NEO4J_URI": "bolt://localhost:7687",
+        "NEO4J_USERNAME": "neo4j",
+        "NEO4J_PASSWORD": "password",
+        "NEO4J_DATABASE": "neo4j",
+        "NEO4J_NAMESPACE": "local"
       }
     }
   }
-]
-```
-
-[Reference: Using the Neo4j Cypher MCP Server](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/1-mcp-neo4j-cypher)
-
-## Building Applications with MCP
-
-* Use VSCode, Cursor, etc. to build an application with MCP tools.
-* The `mcp-neo4j-cypher` tool can inspect the database, generate Cypher queries and run them.
-* Agents can use MCP tools to generate a Cypher statement and validate it using real data before using it in an application.
-
-
-[Reference: Building applications with MCP tools](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/4c-build-application)
-
-
-## MCP Architecture Patterns
-
-### Client-Server Communication
-
-* MCP follows client-server architecture
-* Server provides tools, client executes them
-
-### Transport Methods
-
-#### stdio -
-
-Standard input/output - for local server communication
-
-Example stdio configuration:
-
-```json
-{
-  "command": "uvx",
-  "args": ["mcp-neo4j-cypher@0.2.3", "--transport", "stdio"]
 }
 ```
 
-#### HTTP
+[Reference: Agentic Systems and MCP > Installing the Neo4j MCP server](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/4c-install-mcp-neo4j-cypher)
 
-Remote server via Server-Sent Events (SSE) or Streaming HTTP.
+---
 
+## Production and security practices
 
-### Example tool definition structure
-```json
-{
-  "id": "write-neo4j-cypher",
-  "description": "Write data to the Neo4j database",
-  "parameters": {
-    "cypher": {"type": "string", "description": "The Cypher statement to execute"},
-    "params": {"type": "dict", "description": "The parameters to replace in the code"}
-  }  # No parameters required
-}
-```
+* **Review** MCP server implementations (especially community servers) before production use.
+* **Know** what each tool can do; grant **write** capabilities only when needed; prefer **`NEO4J_READ_ONLY=true`** when mutations must be impossible at the server.
+* **Test** tool outputs in safe environments; agents interact with **real** databases.
+* **Enforce** authentication and authorization at the database and network layers; **monitor** and **audit** tool usage.
 
-### ReAct Agent Framework
+[Reference: Using Neo4j MCP Tools > Summary & Next Steps](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/2-using-neo4j-mcp-tools/5-summary)
 
-```python
-# ReAct loop implementation concept:
-def react_agent_loop(user_input, available_tools):
-    """
-    Continuous loop of planning, reasoning, and acting
-    """
-    goal_achieved = False
+---
 
-    while not goal_achieved:
-        # PLANNING: Analyze task and break into sub-tasks
-        plan = analyze_task(user_input)
+## MCP fundamentals (quick reference)
 
-        # REASONING: Select appropriate tools for each sub-task
-        selected_tools = select_tools(plan, available_tools)
+**ReAct-style loop:** plan → pick tools → execute → feed results back until the goal is satisfied.
 
-        # ACTING: Execute tools and gather results
-        results = execute_tools(selected_tools)
+**Roles:** **Server** exposes tools; **Client** holds the connection; **Host** orchestrates which tool runs.
 
-        # EVALUATION: Check if goal is achieved
-        goal_achieved = evaluate_progress(results, user_input)
+[Reference: Agentic Systems and MCP > What is MCP?](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
 
-        # FEEDBACK: Use results to refine next iteration
-        user_input = incorporate_feedback(results, user_input)
-
-    return results
-```
-
-[Reference: What is MCP?](https://graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/1-getting-started)
+[Reference: Agentic Systems and MCP > MCP Pop Quiz](mdc:https:/graphacademy.neo4j.com/courses/genai-mcp-neo4j-tools/1-what-is-mcp/2-pop-quiz)
