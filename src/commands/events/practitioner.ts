@@ -23,10 +23,9 @@
 import path from "path";
 import { readdirSync, existsSync } from "fs";
 import { config } from "dotenv";
-import { WebClient } from "@slack/web-api";
-
+// import { WebClient } from "@slack/web-api";
 import { parseArgs } from "../utils";
-import { postMessage } from "../slack/slack-utils";
+// import { postMessage } from "../slack/slack-utils";
 import {
   createLinearClient,
   createIssue,
@@ -131,11 +130,8 @@ async function processWorkshop(
   region: string,
   linearClient: ReturnType<typeof createLinearClient>,
   backlogStateId: string,
-  slackClient: WebClient,
-  slackChannel: string,
   dryRunLinear: boolean,
-  dryRunSlack: boolean,
-): Promise<void> {
+): Promise<string[]> {
   const displayDate = formatDisplayDate(eventDate);
   const isoDate = formatDate(eventDate);
   const refRegion = region.toLowerCase();
@@ -171,15 +167,11 @@ async function processWorkshop(
     console.log(`          → ${issue.url}`);
   }
 
-  // ── Slack sandbox request ───────────────────────────────────────────────────
   const slackHeader = `[Practitioner] ${course.title} in ${region} on ${displayDate}:`;
   console.log(`  Slack:  ${slackHeader}`);
   console.log(`          ${slackMessage}`);
 
-  if (!dryRunSlack) {
-    await postMessage(slackChannel, slackHeader, slackClient);
-    await postMessage(slackChannel, slackMessage, slackClient);
-  }
+  return [slackHeader, slackMessage];
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -189,14 +181,14 @@ async function main(): Promise<void> {
 
   const region = args.get("region")?.toUpperCase();
   const startDate = args.get("start-date");
-  const slackChannel = args.get("slack-channel") ?? SLACK_SANDBOX_CHANNEL;
+  // const slackChannel = args.get("slack-channel") ?? SLACK_SANDBOX_CHANNEL;
 
   // --dry-run          → skip both
   // --dry-run slack    → skip Slack only
   // --dry-run linear   → skip Linear only
-  const dryRunValue = args.get("dry-run"); // "slack" | "linear" | "true" | undefined
+  const dryRunValue = args.get("dry-run");
   const dryRunLinear = dryRunValue === "linear" || dryRunValue === "true";
-  const dryRunSlack = dryRunValue === "slack" || dryRunValue === "true";
+  // const dryRunSlack = dryRunValue === "slack" || dryRunValue === "true";
 
   if (!region || !(region in REGION_START_HOUR)) {
     console.error(
@@ -217,20 +209,17 @@ async function main(): Promise<void> {
     ? ""
     : await fetchBacklogStateId(LINEAR_TEAM_ID, linearClient!);
 
-  const slackToken = process.env.SLACK_BOT_TOKEN;
-  if (!dryRunSlack && !slackToken) {
-    console.error("SLACK_BOT_TOKEN is required (set in .env or environment).");
-    process.exit(1);
-  }
+  // const slackToken = process.env.SLACK_BOT_TOKEN;
+  // if (!dryRunSlack && !slackToken) {
+  //   console.error("SLACK_BOT_TOKEN is required (set in .env or environment).");
+  //   process.exit(1);
+  // }
+  // const slackClient = dryRunSlack ? null : new WebClient(slackToken!);
 
-  const slackClient = dryRunSlack ? null : new WebClient(slackToken!);
   const startHour = REGION_START_HOUR[region];
 
-  if (dryRunLinear || dryRunSlack) {
-    const skipping = [dryRunLinear && "Linear", dryRunSlack && "Slack"]
-      .filter(Boolean)
-      .join(" and ");
-    console.log(`(dry run — skipping ${skipping})\n`);
+  if (dryRunLinear) {
+    console.log(`(dry run — skipping Linear)\n`);
   }
 
   const courses = loadPractitionerCourses();
@@ -249,6 +238,8 @@ async function main(): Promise<void> {
     byDay.set(course.practitionerDay, group);
   }
 
+  const slackMessages: string[] = [];
+
   for (const [day, dayCourses] of Array.from(byDay.entries()).sort(
     ([a], [b]) => a - b,
   )) {
@@ -259,7 +250,7 @@ async function main(): Promise<void> {
 
     for (const course of dayCourses) {
       console.log(`Day ${day}: ${course.title}`);
-      await processWorkshop(
+      const messages = await processWorkshop(
         course,
         eventDate,
         windowStart,
@@ -267,16 +258,22 @@ async function main(): Promise<void> {
         region,
         linearClient!,
         backlogStateId,
-        slackClient!,
-        slackChannel,
         dryRunLinear,
-        dryRunSlack,
       );
+      slackMessages.push(...messages);
       console.log();
     }
   }
 
-  console.log("Done.");
+  console.log("─".repeat(60));
+  console.log("Slack messages to send:");
+  console.log("─".repeat(60));
+  for (const message of slackMessages) {
+    console.log(message);
+    // await postMessage(slackChannel, message, slackClient!);
+  }
+  console.log("─".repeat(60));
+  console.log("\nDone.");
 }
 
 main().catch((err) => {
