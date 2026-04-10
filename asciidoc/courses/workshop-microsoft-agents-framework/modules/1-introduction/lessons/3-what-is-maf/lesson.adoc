@@ -1,0 +1,113 @@
+= What is the Microsoft Agent Framework?
+:order: 3
+:type: lesson
+
+The link:https://github.com/microsoft/agent-framework[Microsoft Agent Framework^] is a multi-language framework for building, orchestrating, and deploying AI agents. It supports Python and .NET, and works with multiple LLM providers including Azure OpenAI, OpenAI, Anthropic, and Ollama. This course uses **MAF** as shorthand for the framework.
+
+== History
+
+MAF is the direct successor to both link:https://github.com/microsoft/semantic-kernel[Semantic Kernel^] and link:https://github.com/microsoft/autogen[AutoGen^], created by the same teams at Microsoft. It takes AutoGen's straightforward agent abstractions and combines them with Semantic Kernel's enterprise features: session-based state management, type safety, middleware, and telemetry.
+
+Developers migrating from either framework have a clear upgrade path. The core patterns are familiar; the execution model is more structured.
+
+== Core Concepts
+
+The core concept in MAF is the **agent**. An agent is an LLM-backed entity that follows the ReAct pattern: Reasoning and Acting. It reasons about a user's input, decides which actions to take, observes the results, and repeats until it can provide a final response. The framework builds on this with four supporting concepts:
+
+[cols="1,3"]
+|===
+| Concept | Description
+
+| **Agent**
+| An LLM-backed entity that uses the ReAct pattern to reason about inputs, call tools, and generate responses.
+
+| **Tools**
+| Plain Python functions the agent can decide to call. The agent uses the function name and docstring to determine relevance. No decorators or registration required.
+
+| **Context Providers**
+| Components that run automatically before and after each agent invocation to inject or extract context. This is MAF's key differentiator.
+
+| **Sessions**
+| State containers that persist data across conversation turns.
+
+| **Workflows**
+| Graph-based orchestration connecting agents and functions for multi-step tasks.
+|===
+
+== Tools vs Context Providers
+
+=== What Are Tools?
+
+Tools are plain Python functions that an agent can decide to call. The agent uses the function name and docstring to determine relevance, and chooses when to invoke them. This works well for specific actions like "look up this movie" or "run this query," but poorly for background knowledge that should inform every response. The agent may not realize it should ask.
+
+=== What Are Context Providers?
+
+Context providers are components that can run automatically before, after, or both before and after each agent invocation. Before every LLM call, the framework calls each provider's `before_run()` method, which can inject relevant data into the conversation. After the LLM responds, `after_run()` can extract and store information. The agent never decides whether to use the provider; it just receives the context.
+
+=== Why Context Providers?
+
+This course focuses on context providers, the concept that sets MAF apart from other agent frameworks. The distinction from tools is central to everything that follows.
+
+[cols="1,2,2"]
+|===
+| | Tools | Context Providers
+
+| **When**
+| Agent decides to call
+| Runs automatically before every invocation
+
+| **How**
+| Agent sees function name and docstring
+| `before_run()` injects instructions or messages
+
+| **Use case**
+| On-demand actions (queries, mutations)
+| Always-available background knowledge
+
+| **Control**
+| Agent-managed
+| Framework-managed
+|===
+
+== The Agent Lifecycle
+
+Now that you understand both tools and context providers, here is how they fit into each agent invocation:
+
+[source]
+----
+Agent.run(query)
+    |
+    +-- 1. Context Providers: before_run()
+    |       +-- Inject instructions, messages, and tools
+    |
+    +-- 2. LLM Invocation
+    |       +-- Process instructions + context + query
+    |       +-- Decide which tools to call (if any)
+    |       +-- Generate response
+    |
+    +-- 3. Context Providers: after_run()
+            +-- Extract data, store messages, update state
+----
+
+== Self-Grounding Agents with Neo4j
+
+Context providers enable a powerful pattern: **self-grounding agents**. A self-grounding agent automatically receives relevant knowledge from a data source on every interaction, without relying on tools or custom orchestration code. The agent doesn't decide whether to look up information; it always has it.
+
+A Neo4j context provider searches for relevant graph data and injects it before every response. Ask about a movie, and the provider has already searched the graph for relevant movies, actors, and genres before the LLM generates its answer. The agent is grounded in real data on every turn.
+
+In this course, you will build self-grounding agents that:
+
+* Search Neo4j vector indexes for semantically relevant content
+* Traverse graph relationships for enriched context
+* Store and recall agent memories in Neo4j
+
+[.summary]
+== Lesson Summary
+
+The Microsoft Agent Framework succeeds Semantic Kernel and AutoGen, combining both into a single framework. Its key differentiator is context providers: components that run automatically before and after every LLM call to inject and extract context. Tools are reactive: the agent decides when to call them. Context providers are proactive, injecting relevant knowledge on every turn without the agent needing to ask. This enables self-grounding agents that are always informed by relevant data without requiring tool calls.
+
+In the next lesson, you will set up your development environment with OpenAI and Neo4j.
+
+link:../4-first-agent/[Next Page ->]
+
+read::Mark as read[]

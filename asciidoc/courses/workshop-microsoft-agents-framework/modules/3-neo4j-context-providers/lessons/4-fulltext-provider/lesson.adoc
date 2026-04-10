@@ -1,0 +1,195 @@
+= Fulltext Search with Neo4j Context Provider
+:order: 4
+:type: lesson
+
+:optional: true
+:branch: main
+
+TIP: Complete this lesson hands-on by opening `labs/lab-5-fulltext-provider.ipynb` in your Codespace.
+
+Neo4j fulltext search uses built-in Lucene indexes to match queries against text stored in node properties. It tokenizes the text into individual terms and ranks matches using BM25 scoring, with no embedder or external API required. Neo4j fulltext indexes support different Lucene analyzers that control how text is tokenized. The default analyzer lowercases text, removes common stop words, and splits on word boundaries.
+
+Where vector search finds content by semantic similarity ("stories about machines becoming conscious" matches movies about AI), fulltext search matches on the actual words in the query. "Christopher Nolan" finds plots containing those exact terms.
+
+== When to Use Fulltext Search
+
+Fulltext search is the better choice when:
+
+* You need exact term matching for proper nouns, technical terms, and identifiers that must match literally rather than semantically
+* You want keyword precision rather than semantic interpretation
+* You don't have or need vector embeddings on your nodes
+* No external API dependency: fulltext runs entirely inside Neo4j with no embedding service calls, cost, or rate limits
+
+Vector search is better when the query is conceptual ("feel-good movies about unlikely friendships") rather than keyword-based.
+
+== Create a Fulltext Index
+
+The recommendations sandbox includes movie plot text on `Movie` nodes. To use fulltext search, you need a fulltext index. If one doesn't already exist, create it:
+
+[source,cypher,role=noplay]
+----
+CREATE FULLTEXT INDEX moviePlotsFulltext IF NOT EXISTS
+FOR (m:Movie)
+ON EACH [m.plot]
+----
+
+This indexes the `plot` property of `Movie` nodes for fulltext search.
+
+== Configure the Provider
+
+Set `index_type` to `"fulltext"` and point to the fulltext index. No embedder is needed:
+
+[source,python]
+----
+# Load Neo4j settings from environment variables
+neo4j_settings = Neo4jSettings()
+
+----
+
+[source,python]
+----
+# Create context provider with fulltext search
+provider = Neo4jContextProvider(
+    uri=neo4j_settings.uri,
+    username=neo4j_settings.username,
+    password=neo4j_settings.get_password(),
+    index_name=neo4j_settings.fulltext_index_name,
+    index_type="fulltext",
+    top_k=5,
+    context_prompt=(
+        "## Knowledge Graph Context\n"
+        "Use the following information from the knowledge graph "
+        "to answer questions about movies, actors, and genres:"
+    ),
+)
+
+----
+
+`Neo4jSettings` reads `NEO4J_FULLTEXT_INDEX_NAME` from the environment. No embedder, no embedding model configuration.
+
+== Stop Word Filtering
+
+By default, the provider filters common stop words from the query before searching. Words like "what," "the," "is," and "about" are removed because they add noise to fulltext queries.
+
+For example, "What movies are about time travel?" becomes "movies time travel" before being sent to the fulltext index.
+
+You can disable this with `filter_stop_words=False` if you need exact query passthrough:
+
+[source,python]
+----
+provider = Neo4jContextProvider(
+    uri=neo4j_settings.uri,
+    username=neo4j_settings.username,
+    password=neo4j_settings.get_password(),
+    index_name=neo4j_settings.fulltext_index_name,
+    index_type="fulltext",
+    filter_stop_words=False,  # Pass raw query to index
+    top_k=5,
+)
+----
+
+== Run the Agent
+
+[source,python]
+----
+async def main():
+    async with provider:
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="fulltext-agent",
+            instructions=(
+                "You are a helpful assistant that answers questions about "
+                "movies using the provided knowledge graph context. "
+                "Be concise and cite specific information from the context "
+                "when available."
+            ),
+            context_providers=[provider],
+        )
+
+        session = agent.create_session()
+
+        query = "Christopher Nolan Batman"
+        print(f"User: {query}\n")
+        print("Answer: ", end="", flush=True)
+        response = await agent.run(query, session=session)
+        print(response.text)
+        print()
+
+asyncio.run(main())
+
+----
+
+The query "Christopher Nolan Batman" contains specific names and terms that match literally in movie plots. That is where fulltext search excels.
+
+[%collapsible]
+.Click to see the complete code
+====
+[source,python]
+----
+import asyncio
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from agent_framework.openai import OpenAIResponsesClient
+from agent_framework_neo4j import Neo4jContextProvider, Neo4jSettings
+
+# Load Neo4j settings from environment variables
+neo4j_settings = Neo4jSettings()
+
+# Create context provider with fulltext search
+provider = Neo4jContextProvider(
+    uri=neo4j_settings.uri,
+    username=neo4j_settings.username,
+    password=neo4j_settings.get_password(),
+    index_name=neo4j_settings.fulltext_index_name,
+    index_type="fulltext",
+    top_k=5,
+    context_prompt=(
+        "## Knowledge Graph Context\n"
+        "Use the following information from the knowledge graph "
+        "to answer questions about movies, actors, and genres:"
+    ),
+)
+
+async def main():
+    async with provider:
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="fulltext-agent",
+            instructions=(
+                "You are a helpful assistant that answers questions about "
+                "movies using the provided knowledge graph context. "
+                "Be concise and cite specific information from the context "
+                "when available."
+            ),
+            context_providers=[provider],
+        )
+
+        session = agent.create_session()
+
+        query = "Christopher Nolan Batman"
+        print(f"User: {query}\n")
+        print("Answer: ", end="", flush=True)
+        response = await agent.run(query, session=session)
+        print(response.text)
+        print()
+
+asyncio.run(main())
+
+----
+====
+
+[.summary]
+== Lesson Summary
+
+Fulltext search with `Neo4jContextProvider` uses `index_type="fulltext"` to match queries against a Neo4j fulltext index using BM25 ranking. It doesn't require an embedder, filters stop words by default, and works best for keyword-based queries with specific names or terms.
+
+In the next optional lesson, you will combine vector and fulltext search using hybrid mode.
+
+link:../5-hybrid-provider/[Next Page ->]
+
+read::Mark as read[]

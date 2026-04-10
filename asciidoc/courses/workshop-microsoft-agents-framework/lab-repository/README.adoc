@@ -1,0 +1,232 @@
+= Neo4j Context Providers for Microsoft Agent Framework
+
+This repository accompanies the link:https://graphacademy.neo4j.com/courses/genai-maf-context-providers/[Neo4j Context Providers for Microsoft Agent Framework workshop^] on link:https://graphacademy.neo4j.com[GraphAcademy^].
+
+== Getting Started
+
+The fastest way to get started is with GitHub Codespaces, which provides a pre-configured development environment with all dependencies installed.
+
+link:https://codespaces.new/neo4j-partners/genai-maf-context-providers[image:https://github.com/codespaces/badge.svg[Open in GitHub Codespaces]^]
+
+=== What happens when you launch
+
+. A cloud-based development environment starts with Python 3.12
+. All required packages are installed automatically (`agent-framework`, `openai`, `neo4j-graphrag`, Jupyter, etc.)
+. Setup instructions open in the editor
+
+=== After launching
+
+. **Create a Neo4j Sandbox**: Go to link:https://sandbox.neo4j.com[sandbox.neo4j.com^], sign in, and create a new instance with the **Recommendations** dataset
+. **Configure credentials**: Copy `.env.example` to `.env` and fill in your Neo4j credentials and either your OpenAI API key or the Azure credentials provided by your instructor (see <<Using Azure AI Foundry>>)
+. **Verify setup**: Run `python genai-maf-context-providers/test_environment.py`
+. **Start the labs**: Open `labs/lab-1-first-agent.ipynb` and follow along
+
+== Workshop Labs
+
+The `labs/` directory contains Jupyter notebooks for each hands-on exercise:
+
+* `lab-1-first-agent.ipynb`: Create your first agent with tools
+
+== Running Locally
+
+If you prefer to run locally instead of using Codespaces:
+
+. Clone the repository
++
+[source,sh]
+----
+git clone https://github.com/neo4j-partners/genai-maf-context-providers.git
+cd genai-maf-context-providers
+----
+. Create a virtual environment and install the requirements
++
+[source,sh]
+----
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+----
+. Create a `.env` file from `.env.example` and fill in your credentials
+. Run `python genai-maf-context-providers/test_environment.py` to verify setup
+. Run the setup script to load embeddings and create indexes (required for Labs 3+):
++
+[source,sh]
+----
+python genai-maf-context-providers/setup.py
+----
+. Open the notebooks in `labs/` with Jupyter or VS Code
+
+=== Choosing a Model
+
+The environment variable for selecting a model depends on your provider.
+
+**OpenAI direct**: set `OPENAI_RESPONSES_MODEL_ID` in `.env`:
+
+[source,sh]
+----
+# Recommended for workshops: best balance of cost and response quality
+OPENAI_RESPONSES_MODEL_ID=gpt-5-mini
+
+# Cheapest and fastest: suitable for quick iteration
+OPENAI_RESPONSES_MODEL_ID=gpt-5-nano
+
+# Higher capability, higher cost
+OPENAI_RESPONSES_MODEL_ID=gpt-4o
+----
+
+**Azure AI Foundry**: set `AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME` in `.env`:
+
+[source,sh]
+----
+AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME=gpt-5-mini
+----
+
+All solutions have been tested against `gpt-5-nano`, `gpt-5-mini`, and `gpt-4o`. We recommend **`gpt-5-mini`** for workshops. It provides better response quality for multi-turn tool-calling exercises at ~$1.20 per 100 participants. See link:TOKENS.adoc[TOKENS.adoc] for a detailed cost breakdown.
+
+To test a different model, change the variable in `.env` and re-run a solution:
+
+[source,sh]
+----
+python genai-maf-context-providers/solutions/simple_agent.py
+----
+
+== Using Azure AI Foundry
+
+Instead of individual OpenAI API keys, instructors can deploy a shared Azure AI Foundry resource and distribute a single API key to all participants. By default this provisions a `gpt-5-mini` chat deployment. To also deploy the `text-embedding-3-small` embedding model, set `deployEmbeddingModel` to `true` (see <<Deploy the infrastructure>>).
+
+=== Prerequisites
+
+* link:https://learn.microsoft.com/en-us/cli/azure/install-azure-cli[Azure CLI^] installed
+* link:https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd[Azure Developer CLI (`azd`)^] installed
+* An Azure subscription with access to Azure AI Services
+
+=== Deploy the infrastructure
+
+. Sign in to Azure and azd:
++
+[source,sh]
+----
+az login --use-device-code
+azd auth login --use-device-code
+----
+. Run the setup script to select a region and initialize the environment:
++
+[source,sh]
+----
+bash scripts/setup_azure.sh
+----
+. Deploy (chat model only, the default):
++
+[source,sh]
+----
+azd provision --no-prompt
+----
++
+To also deploy the embedding model, add the `deployEmbeddingModel` parameter:
++
+[source,sh]
+----
+azd provision --no-prompt --parameter deployEmbeddingModel=true
+----
+
+=== Configure credentials
+
+After deployment, run the configure script to retrieve the API key and endpoint from Azure and write them to `.env`:
+
+[source,sh]
+----
+bash scripts/configure_env_azure.sh
+----
+
+This sets `LLM_PROVIDER`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and the deployment names in `.env`, leaving any existing OpenAI and Neo4j settings untouched. If `.env` does not exist it is created from `.env.example`.
+
+=== Participant setup
+
+Share the API key and endpoint with participants. Each participant adds these to their `.env` file:
+
+[source,sh]
+----
+LLM_PROVIDER="azure"
+AZURE_OPENAI_API_KEY="<key from instructor>"
+AZURE_OPENAI_ENDPOINT="<endpoint from instructor>"
+AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME="gpt-5-mini"
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME="text-embedding-3-small"
+AZURE_OPENAI_API_VERSION="2025-03-01-preview"
+----
+
+=== Verify the connection
+
+[source,sh]
+----
+python genai-maf-context-providers/test_environment.py
+----
+
+The test suite detects the `LLM_PROVIDER` setting and validates the correct set of credentials.
+
+=== Tear down
+
+After the workshop, remove all Azure resources:
+
+[source,sh]
+----
+bash scripts/cleanup_azure.sh
+----
+
+== Admin Setup
+
+The `admin_setup/` directory contains scripts for course maintainers:
+
+=== run_all.sh
+
+Runs all solution scripts end-to-end to verify they work against the configured Neo4j instance. Requires a `.env` with valid credentials and the `.venv` virtual environment.
+
+[source,sh]
+----
+bash admin_setup/run_all.sh
+----
+
+Use the `--tokens` flag to run a token usage report across all solutions:
+
+[source,sh]
+----
+# Report using the model from .env
+bash admin_setup/run_all.sh --tokens
+
+# Report for a specific model
+bash admin_setup/run_all.sh --tokens --model gpt-5-nano
+bash admin_setup/run_all.sh --tokens --model gpt-5-mini
+
+# JSON output
+bash admin_setup/run_all.sh --tokens --model gpt-5-nano --json
+----
+
+Use `--log <dir>` to save each solution's detailed output to a separate log file alongside the report. This is useful for comparing runs across models or investigating why token counts differ between runs.
+
+[source,sh]
+----
+# Save logs and report to a directory
+bash admin_setup/run_all.sh --tokens --model gpt-5-mini --log logs/mini-run
+
+# Compare two models
+bash admin_setup/run_all.sh --tokens --model gpt-5-mini --log logs/mini-run
+bash admin_setup/run_all.sh --tokens --model gpt-4o --log logs/4o-run
+----
+
+The log directory will contain one `.log` file per solution (e.g., `simple_agent.log`, `reasoning_memory.log`) with the full LLM conversation output, plus a `report.txt` (or `report.json` with `--json`) containing the token usage report.
+
+See link:TOKENS.adoc[TOKENS.adoc] for the latest results.
+
+=== generate_embeddings.py
+
+One-time script used to generate `genai-maf-context-providers/data/movie_embeddings.csv`. Students do **not** need to run this. The pre-computed embeddings are included in the repo. Instead, students run `setup.py` to load them into Neo4j.
+
+[source,sh]
+----
+.venv/bin/python admin_setup/generate_embeddings.py
+----
+
+After generating new embeddings, reload them into Neo4j by re-running the setup script:
+
+[source,sh]
+----
+.venv/bin/python genai-maf-context-providers/setup.py
+----
