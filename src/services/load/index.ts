@@ -1,7 +1,10 @@
 import loadCourses, { CourseToImport } from "./load-courses";
 import loadLessons, { LessonToImport } from "./load-lessons";
 import loadModules, { ModuleToImport } from "./load-modules";
-import loadQuestions, { QuestionToImport } from "./load-questions";
+import loadQuestions, {
+  AnswerToImport,
+  QuestionToImport,
+} from "./load-questions";
 
 type LoadOutput = {
   courses: CourseToImport[];
@@ -9,6 +12,8 @@ type LoadOutput = {
   lessons: LessonToImport[];
   questions: QuestionToImport[];
 }
+
+export type { AnswerToImport, QuestionToImport };
 
 export default async function load(): Promise<LoadOutput> {
   const courses = await loadCourses()
