@@ -182,19 +182,84 @@ export const mergeLessonDetails = (tx: ManagedTransaction, lessons: any) =>
     { lessons },
   );
 
-export const mergeQuestionDetails = (tx: ManagedTransaction, questions: any) =>
-  tx.run(
+export const mergeQuestionDetails = async (
+  tx: ManagedTransaction,
+  questions: any,
+) => {
+  await tx.run(
     `
   UNWIND $questions AS question
   MATCH (l:Lesson {link: question.lessonLink})
 
   MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ question.id)})
-  SET q.slug = question.id, q.text = question.text, q.filename = question.filename
+  SET
+    q.slug = question.id,
+    q.title = question.title,
+    q.text = question.text,
+    q.filename = question.filename,
+    q.link = l.link + question.basename,
+    q.lessonLink = l.link,
+    q.type = question.type,
+    q.hint = question.hint,
+    q.solution = question.solution,
+    q.order = toInteger(question.order)
 
   REMOVE q:DeletedQuestion
   MERGE (l)-[:HAS_QUESTION]->(q)
+
+  WITH q, question, [x IN coalesce(question.answers, []) | x.id] AS validIds
+  MATCH (q)-[r:HAS_ANSWER]->(a:Answer)
+  WHERE NOT a.id IN validIds
+  SET a:DeletedAnswer
+  DELETE r
 `,
     { questions },
+  );
+
+  const answerRows = questions.flatMap((q: { answers?: unknown[]; lessonLink: string; id: string }) =>
+    (Array.isArray(q.answers) ? q.answers : []).map((a: any) => ({
+      lessonLink: q.lessonLink,
+      questionSlug: q.id,
+      id: a.id,
+      text: a.text,
+      correct: a.correct,
+      order: a.order,
+    })),
+  );
+
+  if (answerRows.length > 0) {
+    await tx.run(
+      `
+      UNWIND $rows AS row
+      MATCH (l:Lesson {link: row.lessonLink})
+      MERGE (q:Question {id: apoc.text.base64Encode(l.id +'--'+ row.questionSlug)})
+      MERGE (a:Answer {id: row.id})
+      SET a.text = row.text, a.correct = row.correct, a.order = toInteger(row.order)
+      REMOVE a:DeletedAnswer
+      MERGE (q)-[:HAS_ANSWER]->(a)
+    `,
+      { rows: answerRows },
+    );
+  }
+};
+
+export const markStaleQuestionsDeleted = (
+  tx: ManagedTransaction,
+  rows: { lessonLink: string; validQuestionIds: string[] }[],
+) =>
+  tx.run(
+    `
+    UNWIND $rows AS row
+    MATCH (q:Question)
+    WHERE q.lessonLink = row.lessonLink
+      AND NOT q.id IN row.validQuestionIds
+    SET q:DeletedQuestion
+    WITH q
+    MATCH (q)-[r:HAS_ANSWER]->(a:Answer)
+    SET a:DeletedAnswer
+    DELETE r
+    `,
+    { rows },
   );
 
 // Integrity Checks

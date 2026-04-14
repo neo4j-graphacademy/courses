@@ -3,11 +3,13 @@ import { getDriver } from "../modules/neo4j";
 import {
   checkSchema,
   disableAllCourses,
+  markStaleQuestionsDeleted,
   mergeCourseDetails,
   mergeLessonDetails,
   mergeModuleDetails,
   mergeQuestionDetails,
 } from "./load/tx";
+import { questionNodeId } from "./load/graph-ids";
 import load from "./load";
 
 export async function syncCourses(): Promise<void> {
@@ -48,6 +50,7 @@ export async function syncCourses(): Promise<void> {
   });
   console.log(`   -- 📄 ${lessonCount} lessons`);
 
+  let answerMergeCount = 0;
   const questionCount = await session.executeWrite(async (tx) => {
     const remaining = questions.slice(0);
     const batchSize = 1000;
@@ -56,12 +59,27 @@ export async function syncCourses(): Promise<void> {
       const batch = remaining.splice(0, batchSize);
 
       await mergeQuestionDetails(tx, batch);
+      answerMergeCount += batch.reduce(
+        (n, q) => n + (q.answers?.length ?? 0),
+        0,
+      );
     }
 
     return questions.length;
   });
 
-  console.log(`   -- 🤨 ${questionCount} questions`);
+  console.log(`   -- 🤨 ${questionCount} questions (${answerMergeCount} answer rows merged)`);
+
+  await session.executeWrite(async (tx) => {
+    const staleRows = lessons.map((lesson) => ({
+      lessonLink: lesson.link,
+      validQuestionIds: questions
+        .filter((q) => q.lessonLink === lesson.link)
+        .map((q) => questionNodeId(lesson.link, q.id)),
+    }));
+    await markStaleQuestionsDeleted(tx, staleRows);
+  });
+  console.log(`   -- 🧹 Stale question/answer labels reconciled per lesson`);
 
   // Clean {FIRST|LAST|NEXT}_{MODULE|LESSON}
   await session.executeWrite(async (tx) => {
