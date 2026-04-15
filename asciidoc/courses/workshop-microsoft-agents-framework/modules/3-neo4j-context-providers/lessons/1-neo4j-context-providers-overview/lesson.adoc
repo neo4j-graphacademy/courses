@@ -6,7 +6,18 @@ The context provider you built from scratch in Module 2 managed its own state an
 
 The link:https://github.com/neo4j-labs/neo4j-maf-provider[`agent-framework-neo4j`^] package provides `Neo4jContextProvider`, a ready-made context provider that connects to a Neo4j database, searches an index, and injects the results before every LLM call. It extends the same `BaseContextProvider` you used earlier but handles the search, embedding, and formatting internally.
 
-All retrieval is powered by the link:https://github.com/neo4j/neo4j-graphrag-python[`neo4j-graphrag-python`^] library, Neo4j's official Python package for building retrieval-augmented generation (RAG) pipelines. The `neo4j-graphrag` package provides retriever classes -- `VectorRetriever`, `HybridRetriever`, `VectorCypherRetriever`, and others -- that know how to query Neo4j vector and fulltext indexes and optionally enrich results with graph traversals. `Neo4jContextProvider` selects the right retriever based on your `index_type` configuration, wraps it in the MAF lifecycle, and handles the async execution. You configure the provider; `neo4j-graphrag` runs the search.
+All retrieval uses the link:https://github.com/neo4j/neo4j-graphrag-python[`neo4j-graphrag-python`^] library, Neo4j's official Python package for building retrieval-augmented generation (RAG) pipelines. The `neo4j-graphrag` package provides retriever classes such as `VectorRetriever`, `HybridRetriever`, `VectorCypherRetriever`, and others that know how to query Neo4j vector and fulltext indexes and optionally enrich results with graph traversals. `Neo4jContextProvider` selects the correct retriever based on your `index_type` configuration, wraps it in the MAF lifecycle, and handles the async execution. You configure the provider; `neo4j-graphrag` runs the search.
+
+[source,mermaid]
+----
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#eef6f9","primaryTextColor":"#0f172a","lineColor":"#94a3b8","fontFamily":"Public Sans, Arial, Helvetica, sans-serif"}}}%%
+flowchart TB
+  MAF["Microsoft Agent Framework<br/>before_run()"]
+  P["Neo4jContextProvider"]
+  G["neo4j-graphrag<br/>Vector, Fulltext, Hybrid, VectorCypher"]
+  N[(Neo4j database)]
+  MAF --> P --> G --> N
+----
 
 Beyond retrieval, `neo4j-graphrag-python` also provides a complete pipeline for _building_ knowledge graphs from unstructured text. Its `SimpleKGPipeline` automates the end-to-end process: splitting documents into chunks, using an LLM to extract entities and relationships guided by a schema, computing vector embeddings for semantic search, and storing everything in Neo4j. It even handles entity resolution to merge duplicates across the graph. This means the same library you use to query your knowledge graph can also construct it, taking raw PDFs, articles, or other text and turning them into the structured graph data that your retrievers search against.
 
@@ -69,16 +80,40 @@ Graph enrichment is what separates GraphRAG from standard vector RAG. The dedica
 
 == Key Parameters
 
-* **`uri`**, **`username`**, **`password`** -- Neo4j connection details. Falls back to `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` environment variables if not provided.
-* **`index_name`** -- The name of the Neo4j index to query. Required.
-* **`index_type`** -- One of `"vector"`, `"fulltext"`, or `"hybrid"`. Defaults to `"vector"`.
-* **`top_k`** -- Number of results to retrieve. Defaults to 5.
-* **`context_prompt`** -- Text prepended to search results to guide the LLM.
-* **`message_history_count`** -- Number of recent messages to include in the search query. Defaults to 10.
-* **`embedder`** -- Required for `"vector"` and `"hybrid"` modes. An object implementing the `neo4j-graphrag` `Embedder` interface.
-* **`fulltext_index_name`** -- Required for `"hybrid"` mode. The name of the fulltext index to combine with vector search.
-* **`filter_stop_words`** -- For `"fulltext"` mode. Removes common words (articles, prepositions, question words) before searching. Defaults to `True`.
-* **`retrieval_query`** -- Optional Cypher query for graph enrichment after index search. Works with all three modes.
+[cols="1,3",options="header"]
+|===
+| Parameter | Description
+
+| `uri`, `username`, `password`
+| Neo4j connection details. Falls back to `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` environment variables if not provided.
+
+| `index_name`
+| The name of the Neo4j index to query. Required.
+
+| `index_type`
+| One of `"vector"`, `"fulltext"`, or `"hybrid"`. Defaults to `"vector"`.
+
+| `top_k`
+| Number of results to retrieve. Defaults to 5.
+
+| `context_prompt`
+| Text prepended to search results to guide the LLM.
+
+| `message_history_count`
+| Number of recent messages to include in the search query. Defaults to 10.
+
+| `embedder`
+| Required for `"vector"` and `"hybrid"` modes. An object implementing the `neo4j-graphrag` `Embedder` interface.
+
+| `fulltext_index_name`
+| Required for `"hybrid"` mode. The name of the fulltext index to combine with vector search.
+
+| `filter_stop_words`
+| For `"fulltext"` mode. Removes common words (articles, prepositions, question words) before searching. Defaults to `True`.
+
+| `retrieval_query`
+| Optional Cypher query for graph enrichment after index search. Works with all three modes.
+|===
 
 == Learn More
 
