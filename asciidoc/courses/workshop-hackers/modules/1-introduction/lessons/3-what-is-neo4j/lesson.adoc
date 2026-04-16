@@ -1,0 +1,222 @@
+= Understanding Neo4j
+:type: lesson
+:order: 4
+:duration: 7
+
+// Source: Adapted from workshop-modeling/modules/2-foundation/lessons/1-graph-elements
+
+[.slide.discrete]
+== Introduction
+
+Neo4j is the database you will use to store and query the knowledge graph at the heart of your GraphRAG application.
+
+In this lesson, you will learn about Neo4j's four building blocks, how to decide between nodes and properties, and the rule that makes graph modeling intuitive.
+
+[.slide]
+== Neo4j stores connected data
+
+Neo4j is a *native graph database* — it stores data as a network of nodes connected by relationships.
+
+Unlike relational databases, which store data in rows and tables and join them at query time, Neo4j stores connections as physical pointers between nodes.
+
+This makes traversal fast regardless of data size, and makes your data model match how you actually think about the problem.
+
+[.slide]
+== Four building blocks
+
+Every Neo4j graph has four components:
+
+* **Nodes** — the things in your domain
+* **Labels** — the categories those things belong to
+* **Relationships** — the connections between things
+* **Properties** — attributes that describe nodes or relationships
+
+[.slide.col-2]
+== Nodes and labels
+
+[.col]
+====
+**Nodes** represent distinct entities — the nouns in your domain.
+
+**Labels** categorize them.
+
+* Labels use a colon prefix: `:Person`, `:Movie`, `:Product`
+* Every node has at least one label
+* Labels make queries faster by narrowing the search space
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph TB
+    A((":Person")):::primary
+    B((":Movie")):::forest
+    C((":Genre")):::highlight
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,color:#3730a3
+----
+====
+
+[.slide.col-2]
+== Relationships
+
+[.col]
+====
+**Relationships** connect nodes.
+
+* Always have a **type** (a verb) and a **direction**
+* They read like sentences: `(Person)-[:ACTED_IN]->(Movie)`
+* Can have **properties** that describe the connection itself
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph LR
+    P((Person)):::primary -->|"ACTED_IN<br/>role: 'Neo'"| M((Movie)):::forest
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    linkStyle default stroke:#94a3b8
+----
+====
+
+[.slide.col-2]
+== Properties
+
+[.col]
+====
+**Properties** are key-value pairs on nodes or relationships.
+
+* Node properties: facts about the entity (`name`, `releaseYear`)
+* Relationship properties: facts about the connection (`role`, `rating`, `quantity`)
+
+**Rule:** If the value varies per connection, put it on the relationship.
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph LR
+    U(("User<br/>username: 'ada'")):::primary -->|"RATED<br/>rating: 4.5<br/>ratedAt: DATE"| M(("Movie<br/>title: 'The Matrix'<br/>year: 1999")):::forest
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    linkStyle default stroke:#94a3b8
+----
+====
+
+[.slide]
+== Modeling decisions
+
+The most common question when designing a graph model: **should this be a node or a property?**
+
+If multiple things share the same value and you would navigate *from* it, make it a node.
+If you are just filtering by it but never traversing from it, keep it as a property.
+
+Example: if you want to find all movies in the _Action_ genre, `Genre` should be a node — because you traverse *from* genres to movies. But a movie's release year stays as a property, because you filter *by* year, not navigate *from* years.
+
+[.slide]
+== Nodes are nouns, relationships are verbs
+
+This simple rule helps you translate any domain into a graph model.
+
+[.slide.col-2.discrete]
+=== A Person acted in a Movie
+
+[.col]
+====
+**Tom** is a `Person` with `name: 'Tom Hanks'`.
+
+He `ACTED_IN` *Toy Story* — a `Movie` with `title: 'Toy Story'`.
+
+The relationship carries `role: 'Woody'` — a fact about the connection, not the person or the film.
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph LR
+    P(":Person<br/>name: 'Tom Hanks'"):::primary -->|"ACTED_IN<br/>role: 'Woody'"| M(":Movie<br/>title: 'Toy Story'"):::forest
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    linkStyle default stroke:#94a3b8
+----
+====
+
+[.slide.col-2.discrete]
+=== A Movie belongs to a Genre
+
+[.col]
+====
+*Toy Story* is a `Movie` with `title: 'Toy Story'`.
+
+It belongs to the `Genre` with `name: 'Animation'`.
+
+The `IN_GENRE` relationship has no properties — the connection itself is the fact.
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph LR
+    M(":Movie<br/>title: 'Toy Story'"):::forest -->|"IN_GENRE"| G(":Genre<br/>name: 'Animation'"):::highlight
+
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    classDef highlight fill:#f4f5ff,stroke:#c7d2fe,color:#3730a3
+    linkStyle default stroke:#94a3b8
+----
+====
+
+[.slide.col-2.discrete]
+=== A User rated a Movie
+
+[.col]
+====
+**Ada** is a `User` with `username: 'ada'`.
+
+She `RATED` *Toy Story* — a `Movie` with `title: 'Toy Story'`.
+
+The score lives on the relationship: `rating: 4.5` — because the same film can have a different rating from every user.
+====
+
+[.col]
+====
+[source,mermaid]
+----
+%%{init: {"theme": "base", "themeVariables": {"primaryColor": "#eef6f9", "primaryBorderColor": "#c7e0ec", "fontFamily": "Public Sans, Arial, Helvetica, sans-serif"}}}%%
+graph LR
+    U(":User<br/>username: 'ada'"):::primary -->|"RATED<br/>rating: 4.5"| M(":Movie<br/>title: 'Toy Story'"):::forest
+
+    classDef primary fill:#eef6f9,stroke:#c7e0ec,color:#0b5c7a
+    classDef forest fill:#edf6e8,stroke:#b7df9c,color:#2f5d1e
+    linkStyle default stroke:#94a3b8
+----
+====
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+* **Nodes** are entities (nouns) — `:Person`, `:Movie`, `:Product`
+* **Labels** categorize nodes and make queries fast
+* **Relationships** are connections (verbs) — `ACTED_IN`, `RATED`, `IN_GENRE`
+* **Properties** describe nodes and relationships — on nodes (intrinsic facts) or on relationships (facts about the connection)
+* Make something a node if multiple things share it and you would traverse from it — navigate *from* it, not just filter *by* it
+* Keep it as a property if you only filter by it, never navigate from it
+
+In the next lesson, you will apply this thinking to your own use case.
