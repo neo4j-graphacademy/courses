@@ -1,0 +1,85 @@
+= Running GraphAcademy locally (Docker)
+:type: lesson
+:order: 1
+
+The `courses` repository can run the GraphAcademy website against a **local Neo4j** instance so you can click through real URLs while you author AsciiDoc. That stack is easy to break when credentials, ports, or cached graph data get out of sync.
+
+In this lesson, you will learn how to:
+
+* Prepare **AWS ECR**, **`.env`**, and **Docker** before you run `npm run dev`
+* Recognize common startup failures (image pull, memory, ports, compose command)
+* **Reset local Neo4j data** and **resync** when a brand-new course returns **404** the first time you open it
+
+== What the stack does
+
+`docker-compose.yaml` starts:
+
+* **`neo4j`** - Enterprise image with APOC and GDS, data under **`.neo4j/`** in the repo root
+* **`app`** - Production GraphAcademy image from **AWS ECR**, with `./asciidoc` bind-mounted into the container
+* **`sync`** (only with `npm run dev`) - Builds the small `Dockerfile` image and runs `npm run dev:watch` so course structure is written into Neo4j when files change
+
+Full setup steps live in the repository **`README.adoc`** at the project root (AWS CLI, `docker login` to ECR, `.env` from your team). Treat those steps as **hard prerequisites**—without ECR access and a valid `.env`, the `app` container will not come up cleanly.
+
+
+== Common problems
+
+* **`docker login` to ECR fails or image pull is denied** - Run `aws ecr get-login-password ...` with an account that can read `715633473519` in **`us-east-1`**, then retry `npm run dev` or `docker compose --profile sync up`.
+* **`neo4j` never becomes healthy** - The compose file allocates **several GB of heap and page cache**. Raise **Docker Desktop memory**, close other heavy containers, or temporarily lower Neo4j memory settings only if you know how to validate the result.
+* **Ports already in use** - **3000**, **7474**, and **7687** must be free on the host before compose binds them.
+* **`docker-compose` not found** - Install **Compose V1** (`docker-compose`) or use **`docker compose`** (V2 plugin) and invoke the matching command your team standardizes on.
+* **`platform: linux/amd64` on Apple Silicon** - The website container may start **slower** under emulation; wait for health checks instead of assuming a hang.
+* **Dev Container networking** - The devcontainer shares the **Neo4j** service network namespace. Open **`http://localhost:3000` on your host** to browse the site; from **inside** the devcontainer shell, reach the app with **`http://app:3000`** (not `localhost:3000`).
+
+
+== New course shows 404 the first time you open it
+
+Symptoms: you added `asciidoc/courses/<slug>/`, the stack is running, but the browser shows **404** for that course (or modules look empty) even though AsciiDoc is on disk.
+
+Local Neo4j holds **synced course metadata** from the last successful import. Stale volume data, an interrupted first sync, or a password change can leave the graph **out of step** with what the website expects.
+
+When that happens, **wipe the local Neo4j volume and let the sync process rebuild the graph**.
+
+. Stop the stack (from the repo root):
+
++
+[source,bash]
+----
+docker compose down
+----
++
+If your machine still has the older binary name, use `docker-compose down` instead.
+
+. Delete the **`.neo4j`** folder in the **repository root** (this removes local database files and logs only—never delete team-owned secrets from **`.env`**):
+
++
+[source,bash]
+----
+rm -rf .neo4j
+----
+
+. Start again so Neo4j initializes a **fresh** store and the watcher re-imports courses:
+
++
+[source,bash]
+----
+npm run dev
+----
++
+That command brings up Neo4j, the website, and the **sync** profile so `dev:watch` runs. Wait until Neo4j is healthy and the sync process has finished at least one pass, then reload **`http://localhost:3000`** and open your new course.
+
+If you start containers without the sync profile (`npm run dev:up`), run a sync yourself once Neo4j is healthy—for example **`npm run dev:watch`** on the host with a working **`.env`**, or the equivalent your team documents—so the new slug is written into Neo4j before you judge 404s.
+
+[TIP]
+.Docker Compose command name
+====
+Scripts in `package.json` call **`docker-compose`**. If you only have **`docker compose`**, install Compose V1 or add a small shell alias so `npm run dev` keeps working.
+====
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+In this lesson, you learned what the **local Docker stack** is for, which **prerequisites** block most failures (ECR, `.env`, resources), and how to **delete `.neo4j`**, restart compose, and **resync** when a new course shows **404** because local graph state is stale.
+
+In the next lesson, you will learn how to run **automated QA tests** locally to validate course structure and content.
