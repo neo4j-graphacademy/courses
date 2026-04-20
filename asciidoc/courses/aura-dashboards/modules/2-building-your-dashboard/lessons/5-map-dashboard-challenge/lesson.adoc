@@ -1,0 +1,312 @@
+= Create a map dashboard
+:order: 7
+:type: challenge
+:optional: true
+
+Optional add-on after link:../4-visualise-aggregations/[Match chart types to your query^]—maps never showed up there.
+
+Here you plot **where** something lives (users, stores, offices) on a **Map** card, and usually pair it with a table or bar so the map is not floating without context. You will touch **Query** to add or check coordinates, then **Dashboards** to render them.
+
+Use **your own graph** if it already has coordinates or addresses you can turn into coordinates. If you do not have geographic data yet, use the **Movies recommendations** dataset and one of the seed queries in Path B to stamp coordinates onto nodes.
+
+== Before you start
+
+You should already be comfortable adding cards and switching chart types from link:../4-visualise-aggregations/[Match chart types to your query^]. Keep **Query** handy if you are stamping coordinates onto nodes, and **Dashboards** open for the Map card itself.
+
+Run `CALL db.schema.visualization` once — on the Movies track you should see **`User`**, **`RATED`**, **`Movie`**, **`Genre`**, **`Person`** and the other labels from the recommendations dataset.
+
+== What Map cards need
+
+// TODO: Screenshot — **Map** card with points on the map and **Settings** for spatial property.
+// TODO: Screenshot — Same page: **Map** plus one **Bar chart** or **Table** (paired context).
+
+A **Map** visualization plots **nodes** that carry coordinates. Dashboards resolve positions in this order on each node:
+
+. A property of type **`Point`** (WGS 84), or
+. Paired **`latitude`** and **`longitude`** properties, or
+. Paired **`lat`** and **`long`**
+
+See link:https://neo4j.com/docs/aura/dashboards/visualizations/map/[Map visualization^] for settings (map style, which `Point` property to use when a label has more than one).
+
+Use **`point({latitude: <degrees>, longitude: <degrees>})`** in Cypher. Latitudes are -90 to 90; longitudes -180 to 180. Use **decimal degrees**, not degree-minute-second strings.
+
+== Goal
+
+Create a **new dashboard page** (name it however you like) that tells a small **geographic story** about your data:
+
+. At least **one Map** card whose Cypher returns nodes (and relationships, if useful) that include coordinates.
+. At least **one non-map** card on the same page (for example **Bar chart**, **Table**, or **Single value**) that summarizes or ranks the same topic by region, count, or average—so the map is not floating without context.
+
+You choose the question—for example “where are reviewers concentrated?”, “which warehouses sit closest to suppliers?”, or “which offices log the most incidents?”—as long as it fits **your** labels and relationships.
+
+== Path A: Your own dataset
+
+. Inspect your schema in **Query** (`CALL db.schema.visualization` or the database information panel).
+. Decide which nodes represent **places** or **people at a place**, and add or reuse properties so Map can place them (`Point`, or `latitude`/`longitude`, or `lat`/`long`).
+. Write Cypher that returns those nodes (and paths you care about) with **`RETURN` shapes** the Map card can render (see the Map documentation).
+. In Dashboards, add a card → set **Visualization type** to **Map** → paste your query → adjust **Settings** if you must pick a spatial property.
+
+== Path B: Movies recommendations dataset
+
+The recommendations dataset does not ship coordinates. **This challenge focuses on one default path:** seed users to metro areas, then map them. Optional seeds for `Person` and `Movie` are in a collapsible section below.
+
+=== Seed 1: Users by metro area (fictional)
+
+Distributes `User` nodes across six US metro areas — not real addresses.
+
+[source,cypher]
+----
+// Fictional survey-style locations — not real user data.
+MATCH (u:User)
+WITH u ORDER BY coalesce(u.name, elementId(u))
+WITH collect(u) AS users
+UNWIND range(0, size(users) - 1) AS idx
+WITH users[idx] AS u, idx
+WITH u,
+  CASE idx % 6
+    WHEN 0 THEN {metro: 'New York',    lat:  40.7128, lon:  -74.0060}
+    WHEN 1 THEN {metro: 'Los Angeles', lat:  34.0522, lon: -118.2437}
+    WHEN 2 THEN {metro: 'Chicago',     lat:  41.8781, lon:  -87.6298}
+    WHEN 3 THEN {metro: 'Houston',     lat:  29.7604, lon:  -95.3698}
+    WHEN 4 THEN {metro: 'Phoenix',     lat:  33.4484, lon: -112.0740}
+    ELSE        {metro: 'Miami',       lat:  25.7617, lon:  -80.1918}
+  END AS geo
+SET u.home_location = point({latitude: geo.lat, longitude: geo.lon}),
+    u.metro_region   = geo.metro;
+----
+
+**Verify:**
+
+[source,cypher]
+----
+MATCH (u:User) WHERE u.home_location IS NOT NULL
+RETURN u.name AS user, u.metro_region AS metro, u.home_location AS coords
+LIMIT 5;
+----
+
+**Map card** — users with their rated movies:
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(m:Movie)
+WHERE u.home_location IS NOT NULL
+RETURN u, r, m;
+----
+
+**Companion bar chart** — average rating and volume by metro:
+
+[source,cypher]
+----
+MATCH (u:User)-[r:RATED]->(:Movie)
+WHERE u.metro_region IS NOT NULL
+RETURN u.metro_region             AS metro,
+       round(avg(r.rating), 1)    AS avg_rating,
+       count(r)                   AS total_ratings
+ORDER BY total_ratings DESC;
+----
+
+[%collapsible]
+.Optional seeds: Person birth country and Movie production country
+====
+
+=== Seed 2: People by birth country
+
+`Person` nodes carry a `bornIn` property (a free-text string like `"Los Angeles, California, USA"` or `"France"`). This seed maps common country strings to their capital or geographic centroid.
+
+[source,cypher]
+----
+// Country-centroid coordinates derived from bornIn — educational approximations only.
+MATCH (p:Person)
+WHERE p.bornIn IS NOT NULL
+WITH p,
+  CASE
+    WHEN p.bornIn CONTAINS 'USA' OR p.bornIn CONTAINS 'United States'
+      THEN {country: 'USA',         lat:  39.50, lon:  -98.35}
+    WHEN p.bornIn CONTAINS 'England' OR p.bornIn CONTAINS 'Britain'
+         OR p.bornIn CONTAINS 'Scotland' OR p.bornIn CONTAINS 'Wales'
+         OR (p.bornIn CONTAINS 'UK' AND NOT p.bornIn CONTAINS 'Ukraine')
+      THEN {country: 'UK',          lat:  51.51, lon:   -0.13}
+    WHEN p.bornIn CONTAINS 'France'
+      THEN {country: 'France',      lat:  48.85, lon:    2.35}
+    WHEN p.bornIn CONTAINS 'Germany'
+      THEN {country: 'Germany',     lat:  52.52, lon:   13.40}
+    WHEN p.bornIn CONTAINS 'Italy'
+      THEN {country: 'Italy',       lat:  41.90, lon:   12.50}
+    WHEN p.bornIn CONTAINS 'Japan'
+      THEN {country: 'Japan',       lat:  35.68, lon:  139.69}
+    WHEN p.bornIn CONTAINS 'Australia'
+      THEN {country: 'Australia',   lat: -33.87, lon:  151.21}
+    WHEN p.bornIn CONTAINS 'Canada'
+      THEN {country: 'Canada',      lat:  43.65, lon:  -79.38}
+    WHEN p.bornIn CONTAINS 'Spain'
+      THEN {country: 'Spain',       lat:  40.42, lon:   -3.70}
+    WHEN p.bornIn CONTAINS 'India'
+      THEN {country: 'India',       lat:  19.07, lon:   72.88}
+    WHEN p.bornIn CONTAINS 'Sweden'
+      THEN {country: 'Sweden',      lat:  59.33, lon:   18.07}
+    WHEN p.bornIn CONTAINS 'Ireland' AND NOT p.bornIn CONTAINS 'Northern'
+      THEN {country: 'Ireland',     lat:  53.33, lon:   -6.25}
+    WHEN p.bornIn CONTAINS 'China'
+      THEN {country: 'China',       lat:  39.91, lon:  116.39}
+    WHEN p.bornIn CONTAINS 'Mexico'
+      THEN {country: 'Mexico',      lat:  19.43, lon:  -99.13}
+    WHEN p.bornIn CONTAINS 'Denmark'
+      THEN {country: 'Denmark',     lat:  55.68, lon:   12.57}
+    WHEN p.bornIn CONTAINS 'Israel'
+      THEN {country: 'Israel',      lat:  31.77, lon:   35.22}
+    WHEN p.bornIn CONTAINS 'Poland'
+      THEN {country: 'Poland',      lat:  52.23, lon:   21.01}
+    WHEN p.bornIn CONTAINS 'Russia' OR p.bornIn CONTAINS 'Soviet'
+      THEN {country: 'Russia',      lat:  55.75, lon:   37.62}
+    WHEN p.bornIn CONTAINS 'South Korea' OR p.bornIn CONTAINS 'Korea'
+      THEN {country: 'South Korea', lat:  37.57, lon:  126.98}
+    WHEN p.bornIn CONTAINS 'Brazil'
+      THEN {country: 'Brazil',      lat: -23.55, lon:  -46.63}
+    WHEN p.bornIn CONTAINS 'Argentina'
+      THEN {country: 'Argentina',   lat: -34.60, lon:  -58.38}
+    ELSE NULL
+  END AS geo
+WHERE geo IS NOT NULL
+SET p.birth_location = point({latitude: geo.lat, longitude: geo.lon}),
+    p.birth_country  = geo.country;
+----
+
+**Verify:**
+
+[source,cypher]
+----
+MATCH (p:Person) WHERE p.birth_location IS NOT NULL
+RETURN p.name AS person, p.bornIn AS raw, p.birth_country AS country
+LIMIT 5;
+----
+
+**Map card** — actors plotted at their birth country centroid:
+
+[source,cypher]
+----
+MATCH (p:Person:Actor)
+WHERE p.birth_location IS NOT NULL
+RETURN p;
+----
+
+**Companion bar chart** — number of actors per country:
+
+[source,cypher]
+----
+MATCH (p:Person:Actor)
+WHERE p.birth_country IS NOT NULL
+RETURN p.birth_country AS country, count(p) AS actor_count
+ORDER BY actor_count DESC
+LIMIT 15;
+----
+
+=== Seed 3: Movies by production country
+
+`Movie` nodes have a `countries` list (e.g. `["USA", "UK"]`). This seed maps the primary production country to a point.
+
+[source,cypher]
+----
+// Primary production country centroid — first entry in the countries list.
+MATCH (m:Movie)
+WHERE m.countries IS NOT NULL AND size(m.countries) > 0
+WITH m, m.countries[0] AS country
+WITH m, country,
+  CASE
+    WHEN country CONTAINS 'USA' OR country CONTAINS 'United States'
+      THEN point({latitude:  39.50, longitude:  -98.35})
+    WHEN country CONTAINS 'United Kingdom' OR country CONTAINS 'UK'
+         OR country CONTAINS 'England' OR country CONTAINS 'Britain'
+      THEN point({latitude:  51.51, longitude:   -0.13})
+    WHEN country CONTAINS 'France'
+      THEN point({latitude:  48.85, longitude:    2.35})
+    WHEN country CONTAINS 'Germany' OR country = 'West Germany'
+      THEN point({latitude:  52.52, longitude:   13.40})
+    WHEN country CONTAINS 'Italy'
+      THEN point({latitude:  41.90, longitude:   12.50})
+    WHEN country CONTAINS 'Japan'
+      THEN point({latitude:  35.68, longitude:  139.69})
+    WHEN country CONTAINS 'Australia'
+      THEN point({latitude: -33.87, longitude:  151.21})
+    WHEN country CONTAINS 'Canada'
+      THEN point({latitude:  43.65, longitude:  -79.38})
+    WHEN country CONTAINS 'Spain'
+      THEN point({latitude:  40.42, longitude:   -3.70})
+    WHEN country CONTAINS 'India'
+      THEN point({latitude:  19.07, longitude:   72.88})
+    WHEN country CONTAINS 'Sweden'
+      THEN point({latitude:  59.33, longitude:   18.07})
+    WHEN country CONTAINS 'Ireland'
+      THEN point({latitude:  53.33, longitude:   -6.25})
+    WHEN country CONTAINS 'China' OR country CONTAINS 'Hong Kong'
+      THEN point({latitude:  39.91, longitude:  116.39})
+    WHEN country CONTAINS 'Mexico'
+      THEN point({latitude:  19.43, longitude:  -99.13})
+    WHEN country CONTAINS 'Denmark'
+      THEN point({latitude:  55.68, longitude:   12.57})
+    WHEN country CONTAINS 'Israel'
+      THEN point({latitude:  31.77, longitude:   35.22})
+    WHEN country CONTAINS 'Poland'
+      THEN point({latitude:  52.23, longitude:   21.01})
+    WHEN country CONTAINS 'Russia' OR country CONTAINS 'Soviet'
+      THEN point({latitude:  55.75, longitude:   37.62})
+    WHEN country CONTAINS 'South Korea' OR country CONTAINS 'Korea'
+      THEN point({latitude:  37.57, longitude:  126.98})
+    WHEN country CONTAINS 'Brazil'
+      THEN point({latitude: -23.55, longitude:  -46.63})
+    WHEN country CONTAINS 'Argentina'
+      THEN point({latitude: -34.60, longitude:  -58.38})
+    ELSE NULL
+  END AS coords
+WHERE coords IS NOT NULL
+SET m.production_location = coords,
+    m.production_country  = country;
+----
+
+**Verify:**
+
+[source,cypher]
+----
+MATCH (m:Movie) WHERE m.production_location IS NOT NULL
+RETURN m.title AS movie, m.production_country AS country, m.production_location AS coords
+LIMIT 5;
+----
+
+**Map card** — movies plotted at their primary production country:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.production_location IS NOT NULL
+RETURN m
+LIMIT 500;
+----
+
+**Companion bar chart** — average IMDb rating by production country:
+
+[source,cypher]
+----
+MATCH (m:Movie)
+WHERE m.production_country IS NOT NULL AND m.imdbRating IS NOT NULL
+RETURN m.production_country        AS country,
+       round(avg(m.imdbRating), 2) AS avg_imdb,
+       count(m)                    AS movie_count
+ORDER BY movie_count DESC
+LIMIT 15;
+----
+
+====
+
+== Stretch ideas
+
+* Add a **filter** on region, country, or genre using link:https://neo4j.com/docs/aura/dashboards/parameters-and-filters/[Filters and parameters^] so the map and companion chart update together.
+* Combine seeds on one page — for example, a map of actors overlaid with movies from the same country.
+* Add a **Text** card noting which coordinates are approximations (all three seeds use centroids, not precise locations).
+
+read::Mark as completed[]
+
+[.summary]
+== Summary
+
+You added coordinates the Map card can read and built at least one non-map card beside it so the page tells a whole story.
+
+When that page is ready for other people, head to link:/courses/aura-dashboards/3-sharing-dashboards/[Sharing dashboards^].
