@@ -125,3 +125,46 @@ export async function createIssue(
   }
   return { id: issue.id, url: issue.url, title: issue.title };
 }
+
+/**
+ * Find a Linear project by exact name (course slug), or create it on the team.
+ * Caches results by slug for a single run.
+ */
+export async function findOrCreateProject(
+  linear: LinearClient,
+  teamId: string,
+  projectSlug: string,
+  description: string,
+  cache: Map<string, string>,
+): Promise<string | undefined> {
+  if (cache.has(projectSlug)) return cache.get(projectSlug);
+
+  const existing = await linear.projects({
+    filter: { name: { eq: projectSlug } },
+  });
+
+  if (existing.nodes.length > 0) {
+    const id = existing.nodes[0].id;
+    console.log(`   📁 Found project: "${projectSlug}"`);
+    cache.set(projectSlug, id);
+    return id;
+  }
+
+  const payload = await linear.createProject({
+    name: projectSlug,
+    description,
+    teamIds: [teamId],
+  });
+
+  if (payload.success) {
+    const project = await payload.project;
+    if (project) {
+      console.log(`   📁 Created project: "${projectSlug}"`);
+      cache.set(projectSlug, project.id);
+      return project.id;
+    }
+  }
+
+  console.warn(`   ⚠️  Could not find or create project for "${projectSlug}"`);
+  return undefined;
+}

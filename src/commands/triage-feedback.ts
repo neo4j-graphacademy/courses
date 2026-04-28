@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { LinearClient } from "@linear/sdk";
 import initNeo4j, { close, read } from "../modules/neo4j";
+import { findOrCreateProject } from "./linear/linear-utils";
 import {
   NEO4J_HOST,
   NEO4J_USERNAME,
@@ -139,46 +140,6 @@ async function resolveFeedbackLabel(
   }
 
   return feedbackLabels[0].id;
-}
-
-// Find an existing project by name, or create one associated with the team
-async function findOrCreateProject(
-  linear: LinearClient,
-  teamId: string,
-  courseSlug: string,
-  courseTitle: string,
-  cache: Map<string, string>,
-): Promise<string | undefined> {
-  if (cache.has(courseSlug)) return cache.get(courseSlug);
-
-  const existing = await linear.projects({
-    filter: { name: { eq: courseSlug } },
-  });
-
-  if (existing.nodes.length > 0) {
-    const id = existing.nodes[0].id;
-    console.log(`   📁 Found project: "${courseSlug}"`);
-    cache.set(courseSlug, id);
-    return id;
-  }
-
-  const payload = await linear.createProject({
-    name: courseSlug,
-    description: courseTitle,
-    teamIds: [teamId],
-  });
-
-  if (payload.success) {
-    const project = await payload.project;
-    if (project) {
-      console.log(`   📁 Created project: "${courseSlug}"`);
-      cache.set(courseSlug, project.id);
-      return project.id;
-    }
-  }
-
-  console.warn(`   ⚠️  Could not find or create project for "${courseSlug}"`);
-  return undefined;
 }
 
 const dryRun = process.argv.includes("--dry-run");
