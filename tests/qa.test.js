@@ -597,6 +597,36 @@ describe("QA Tests", () => {
                   }
                 });
 
+                it("should reference images that exist in the repository", () => {
+                  // Find all image references in the lesson
+                  const imageMatches = [
+                    ...lessonAdoc.matchAll(/image::([^\[]+)\[/g),
+                  ];
+
+                  const missingImages = [];
+                  for (const match of imageMatches) {
+                    const imagePath = match[1];
+                    // Skip external URLs
+                    if (
+                      imagePath.startsWith("http://") ||
+                      imagePath.startsWith("https://")
+                    ) {
+                      continue;
+                    }
+                    // Resolve the image path relative to the lesson folder
+                    const fullImagePath = join(lessonPath, imagePath);
+                    if (!existsSync(fullImagePath)) {
+                      missingImages.push(imagePath);
+                    }
+                  }
+
+                  if (missingImages.length > 0) {
+                    throw new Error(
+                      `The following images are referenced but do not exist: ${missingImages.join(", ")}`,
+                    );
+                  }
+                });
+
                 it("should include all questions from the questions folder and no non-existent questions", () => {
                   // Skip this test if lesson is optional or has read button
                   if (optional) {
@@ -772,6 +802,159 @@ describe("QA Tests", () => {
                               `Question title "${title}" should not appear as a heading in the lesson content`,
                             );
                           }
+                        }
+                      });
+
+                      it("should not use parentheses or dashes for inline explanations", () => {
+                        // Patterns for inline explanations that should be rewritten as proper sentences
+                        const inlineExplanationPatterns = [
+                          // Parenthetical explanations: "word (explanation here)"
+                          /\w+\s+\([^)]{15,}\)/g,
+                          // Double-dash explanations: "word -- explanation here"
+                          /\w+\s+--\s+[^.\n]{10,}/g,
+                          // Em-dash explanations: "word — explanation here"  
+                          /\w+\s+—\s+[^.\n]{10,}/g,
+                        ];
+
+                        // Extract question and answer content (not hints/solutions which may need explanations)
+                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
+                        const questionTextMatch = asciidoc.match(
+                          /^=\s+.+\n\n([\s\S]*?)(?=\n\[TIP,role=hint\])/m,
+                        );
+                        const questionContent = `${titleMatch ? titleMatch[1] : ""}\n${questionTextMatch ? questionTextMatch[1] : ""}`;
+
+                        const violations = [];
+                        for (const pattern of inlineExplanationPatterns) {
+                          const matches = questionContent.match(pattern);
+                          if (matches) {
+                            for (const match of matches) {
+                              // Skip short parentheses (likely abbreviations or single words)
+                              // Skip code-like content
+                              if (
+                                !match.includes("`") &&
+                                !match.includes("e.g.") &&
+                                !match.includes("i.e.") &&
+                                !match.match(/\(\d+\)/) &&
+                                !match.match(/\([A-Z]{2,}\)/)
+                              ) {
+                                violations.push(match.substring(0, 60));
+                              }
+                            }
+                          }
+                        }
+
+                        if (violations.length > 0) {
+                          throw new Error(
+                            `Question should not use parentheses or dashes for inline explanations. ` +
+                              `Found: ["${violations.join('", "')}..."]. ` +
+                              `Rewrite as proper sentences instead.`,
+                          );
+                        }
+                      });
+
+                      it("should have its topic covered in the lesson content", () => {
+                        // Extract meaningful keywords from the question title and content
+                        const titleMatch = asciidoc.match(/^=\s+(.+)$/m);
+                        if (!titleMatch) return;
+
+                        const title = titleMatch[1].trim();
+
+                        // Extract the question text (after title, before answer options)
+                        const questionTextMatch = asciidoc.match(
+                          /^=\s+.+\n\n([\s\S]*?)(?=\n\*\s*\[|\n-\s*\[)/m,
+                        );
+                        const questionText = questionTextMatch
+                          ? questionTextMatch[1].trim()
+                          : "";
+
+                        // Combine title and question text for keyword extraction
+                        const fullQuestionContext = `${title} ${questionText}`;
+
+                        // Extract significant words (3+ chars, not common stop words)
+                        const stopWords = [
+                          "the",
+                          "and",
+                          "for",
+                          "are",
+                          "but",
+                          "not",
+                          "you",
+                          "all",
+                          "can",
+                          "her",
+                          "was",
+                          "one",
+                          "our",
+                          "out",
+                          "has",
+                          "have",
+                          "been",
+                          "will",
+                          "your",
+                          "from",
+                          "they",
+                          "this",
+                          "that",
+                          "with",
+                          "which",
+                          "what",
+                          "when",
+                          "where",
+                          "how",
+                          "why",
+                          "does",
+                          "used",
+                          "using",
+                          "use",
+                          "following",
+                          "best",
+                          "most",
+                          "true",
+                          "false",
+                          "correct",
+                          "incorrect",
+                          "statement",
+                          "statements",
+                          "option",
+                          "options",
+                          "choose",
+                          "select",
+                          "answer",
+                          "question",
+                        ];
+
+                        const keywords = fullQuestionContext
+                          .toLowerCase()
+                          .replace(/[^a-z0-9\s-]/g, " ")
+                          .split(/\s+/)
+                          .filter(
+                            (word) =>
+                              word.length >= 3 && !stopWords.includes(word),
+                          )
+                          .filter(
+                            (word, index, self) =>
+                              self.indexOf(word) === index,
+                          );
+
+                        // Check if at least 2 significant keywords appear in the lesson
+                        const lessonLower = lessonAdoc.toLowerCase();
+                        const foundKeywords = keywords.filter((keyword) =>
+                          lessonLower.includes(keyword),
+                        );
+
+                        // Require at least 2 matching keywords or 50% of keywords (whichever is lower)
+                        const minRequired = Math.min(
+                          2,
+                          Math.ceil(keywords.length * 0.5),
+                        );
+
+                        if (foundKeywords.length < minRequired) {
+                          throw new Error(
+                            `Question topic "${title}" may not be covered in the lesson. ` +
+                              `Keywords from question: [${keywords.slice(0, 10).join(", ")}]. ` +
+                              `Found in lesson: [${foundKeywords.join(", ")}]. ` +
+                              `Expected at least ${minRequired} matching keywords.`,
+                          );
                         }
                       });
 
