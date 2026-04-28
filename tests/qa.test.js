@@ -333,6 +333,7 @@ describe("QA Tests", () => {
               const includesSandbox = lessonAdoc.includes(
                 'sandbox.adoc[tags="summary',
               );
+              const lessonType = getAttribute(lessonAdoc, "type");
 
               describe(lessonSlug, () => {
                 const questionPaths = globSync(
@@ -571,6 +572,7 @@ describe("QA Tests", () => {
                 });
 
                 it("should have a mark as read button, one or more questions or be optional", () => {
+                  if (lessonType === "conversation") return;
                   expect(
                     optional ||
                       hasReadButton ||
