@@ -51,7 +51,7 @@ Remember the configuration parameters:
 ----
 MATCH (source:User)-[:RATED]->(:Movie)-[r:IN_GENRE]->(target:Genre) // <1>
 WITH gds.graph.project( // <2>
-  'users-genres', // <3>
+  'users-genre', // <3>
   source, // <4>
   target, // <5>
   {
@@ -85,10 +85,32 @@ RETURN g.graphName AS graph, g.nodeCount AS nodes, g.relationshipCount AS rels /
 ====
 
 
-== Find popular genres by user ratings
+== Find users with similar genre preferences
 
-Once you have completed the previous steps, run the following query to group users by their favorite genres:
+Now that your `users-genres` projection is in place, you can run node similarity on it to create `SIMILAR` relationships between users who share genre preferences.
 
+[source,cypher]
+.Write SIMILAR relationships between users
+----
+CALL gds.nodeSimilarity.write('users-genres', { // <1>
+  writeRelationshipType: 'SIMILAR', // <2>
+  writeProperty: 'score' // <3>
+})
+YIELD nodesCompared, relationshipsWritten // <4>
+RETURN nodesCompared, relationshipsWritten // <5>
+----
+
+[TIP]
+.Algorithm breakdown
+====
+1. Call node similarity in write mode on the 'users-genres' projection
+2. Name the written relationship type `SIMILAR`
+3. Store the similarity score on a `score` property
+4. Yield the number of nodes compared and relationships written
+5. Return those counts to confirm the write succeeded
+====
+
+With `SIMILAR` relationships now in your database, you can query them to find users who share genre tastes:
 
 [source,cypher]
 .Find users with similar genre preferences
@@ -96,6 +118,7 @@ Once you have completed the previous steps, run the following query to group use
 MATCH (u:User)-[:SIMILAR]-(u2:User) // <1>
 WITH u.name AS name, collect(DISTINCT u2.name) AS similar_users_by_genre // <2>
 RETURN name, similar_users_by_genre // <3>
+LIMIT 100 // <4>
 ----
 
 [TIP]
@@ -104,9 +127,10 @@ RETURN name, similar_users_by_genre // <3>
 1. Match pairs of User nodes connected by SIMILAR relationships
 2. Collect distinct similar user names for each user
 3. Return user name and their list of similar users
+4. Return only the top 100 rows
 ====
 
-This simple query now returns each user along with all the users who have similar tastes in genre.
+This query returns each user along with the users who share their genre preferences.
 
 
 [.quiz]
