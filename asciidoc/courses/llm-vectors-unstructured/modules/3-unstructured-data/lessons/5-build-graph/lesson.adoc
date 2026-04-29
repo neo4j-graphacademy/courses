@@ -26,18 +26,18 @@ The graph will contain the following nodes, properties, and relationships:
 - The `HAS_MODULE`, `HAS_LESSON`, and `CONTAINS` relationships will connect the nodes
 
 You can extract the `name` properties and `url` metadata from the directory structure of the lesson files.
-For example, the first lesson of the Neo4j & LLM Fundamentals course has the following path:
+For example, the first lesson of the Neo4j & Generative AI Fundamentals course has the following path:
 
 [source]
 ----
-courses\llm-fundamentals\modules\1-introduction\lessons\1-neo4j-and-genai\lesson.adoc
+courses\genai-fundamentals\modules\1-generative-ai\lessons\1-what-is-genai\lesson.adoc
 ----
 
 You can extract the following metadata from the path:
 
-- `Course.name` - `llm-fundamentals`
-- `Module.name` - `1-introduction`
-- `Lesson.name` - `1-neo4j-and-genai`
+- `Course.name` - `genai-fundamentals`
+- `Module.name` - `1-generative-ai`
+- `Lesson.name` - `1-what-is-genai`
 - `Lesson.url` - `graphacademy.neo4j.com/courses/{Course.name}/{Module.name}/{Lesson.name}`
 
 == Extracting the data
@@ -160,7 +160,7 @@ View the graph by running the following Cypher:
 
 [source, cypher]
 ----
-MATCH (c:Course)-[:HAS_MODULE]->(m:Module)-[:HAS_LESSON]->(l:Lesson)-[:CONTAINS]->(p:Paragraph)
+MATCH (c:Course)-[hm:HAS_MODULE]->(m:Module)-[hl:HAS_LESSON]->(l:Lesson)-[cp:CONTAINS]->(p:Paragraph)
 RETURN *
 ----
 
@@ -187,12 +187,19 @@ You can use the vector index and the graph to find a lesson to help with specifi
 [source, cypher]
 .Find a lesson
 ----
-WITH genai.vector.encode(
+WITH ai.text.embed(
     "How does RAG help ground an LLM?",
     "OpenAI",
-    { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('paragraphs', 6, userEmbedding)
-YIELD node, score
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS userEmbedding
+
+MATCH (node:Paragraph)
+SEARCH node IN (
+    VECTOR INDEX paragraphs
+    FOR userEmbedding
+    LIMIT 6
+) SCORE AS score
+
 MATCH (l:Lesson)-[:CONTAINS]->(node)
 RETURN l.name, l.url, score
 ----
