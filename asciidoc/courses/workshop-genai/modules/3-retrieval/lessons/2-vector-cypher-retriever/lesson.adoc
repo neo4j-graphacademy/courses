@@ -38,13 +38,20 @@ You can search the vector index by creating an embedding for a search term:
 
 [source, cypher]
 ----
-WITH genai.vector.encode(
+WITH ai.text.embed(
     "Retrieval Augmented Generation",
     "OpenAI",
-    { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('chunkEmbedding', 5, userEmbedding)
-YIELD node, score
-RETURN node.text, score
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS userEmbedding
+
+MATCH (chunk:Chunk)
+SEARCH chunk IN (
+  VECTOR INDEX chunkEmbedding
+  FOR userEmbedding
+  LIMIT 5
+) SCORE AS score
+
+RETURN chunk.text, score
 ----
 
 [.transcript-only]
@@ -52,7 +59,15 @@ RETURN node.text, score
 [IMPORTANT]
 .OpenAI token
 =====
-You will need to update the `$token` with your OpenAI API key.
+You will need to replace the `$token` with your OpenAI API key.
+
+You will receive a `GenAIProcedureException` if you do not provide a valid API key.
+
+[source]
+.GenAIProcedureException
+----
+Execution of the function ai.text.embed() failed due to org.neo4j.genai.util.GenAIProcedureException: Not authorized to make API request; check your credentials.
+----
 =====
 ====
 
