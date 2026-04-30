@@ -78,35 +78,35 @@ You can learn more about creating embeddings and vector indexes in the link:http
 
 [.col]
 ====
-You can query the `moviePlots` index using the link:https://neo4j.com/docs/cypher-manual/current/indexes/semantic-indexes/vector-indexes/#query-vector-index[`db.index.vector.queryNodes()`^] procedure.
+You can query the `moviePlots` index using the cypher link:https://neo4j.com/docs/cypher-manual/current/clauses/search/[`SEARCH`^] clause.
 
-The procedure returns the requested number of approximate nearest neighbor nodes and their similarity score, ordered by the score.
+The `SEARCH` clause constrains the results of a `MATCH` pattern to those that are similar to a given query vector, as determined by a specified vector index.
 
-.db.index.vector.queryNodes Syntax
+.SEARCH clause syntax
 [source,cypher,role=nocopy noplay]
 ----
-CALL db.index.vector.queryNodes(
-    indexName :: STRING,
-    numberOfNearestNeighbours :: INTEGER,
-    query :: LIST<FLOAT>
-) YIELD node, score
+[OPTIONAL] MATCH pattern
+  SEARCH binding_variable IN (
+    VECTOR INDEX index_name
+    FOR query_vector
+    [WHERE ...]
+    LIMIT top_k
+  ) [SCORE AS score_alias]
 ----
 ====
 
 [.col]
 ====
-The procedure accepts three parameters:
+The clause expects the following:
 
-. `indexName` - The name of the vector index
-. `numberOfNearestNeighbours` - The number of results to return
-. `query` - A list of floats that represent an embedding
+. `binding_variable` - a node or relationship in the `MATCH` pattern to which the search will be applied
+. `index_name` - the name of the vector index to query
+. `query_vector` - a vector value to compare against the vectors in the index
+. `top_k` - the number of most similar results to return
 
-The procedure yields two arguments:
+The clause optionally returns a `SCORE` which is a similarity score between the query vector and the vectors of the returned nodes or relationships. The score is a floating-point value between `0.0` and `1.0`, where `1.0` indicates the highest similarity.:
 
-. A `node` which matches the query
-. A similarity `score` ranging from `0.0` to `1.0`.
-
-You can use this procedure to find the closest embedding value to a given value.
+You can use `SEARCH` to find the closest embedding value to a given value.
 ====
 
 [.slide.col-60-40]
@@ -121,12 +121,16 @@ Review this Cypher before running it.
 [source,cypher]
 .Similar Plots
 ----
-MATCH (m:Movie {title: 'Toy Story'})
+MATCH (toyStory:Movie {title: 'Toy Story'})
 
-CALL db.index.vector.queryNodes('moviePlots', 6, m.plotEmbedding)
-YIELD node, score
+MATCH (node:Movie)
+SEARCH node IN (
+  VECTOR INDEX moviePlots
+  FOR toyStory.plotEmbedding
+  LIMIT 6
+) SCORE AS score
 
-RETURN node.title AS title, node.plot AS plot, score
+RETURN node.title as title, node.plot AS plot, score
 ----
 ====
 
@@ -134,7 +138,7 @@ RETURN node.title AS title, node.plot AS plot, score
 ====
 The query finds the _Toy Story_ `Movie` node and uses the `.plotEmbedding` property to find the most similar plots.
 
-The `db.index.vector.queryNodes()` procedure uses the `moviePlots` vector index to find similar embeddings.
+The `SEARCH` clause uses the `moviePlots` vector index to find the top `6` similar embeddings.
 ====
 
 [.transcript-only]
@@ -164,15 +168,16 @@ The similarity score is between `0.0` and `1.0`, with `1.0` being the most simil
 
 [.col]
 ====
-You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/cypher-manual/current/genai-integrations/#single-embedding[`genai.vector.encode`^] function:
+You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/genai/plugin/current/embeddings/#single-embedding[`ai.text.embed`^] function:
 
-.genai.vector.encode Syntax
+.ai.text.embed Syntax
 [source, cypher]
 ----
-WITH genai.vector.encode(
+WITH ai.text.embed(
     "Text to create embeddings for",
     "OpenAI",
-    { token: "sk-..." }) AS embedding
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS embedding
 RETURN embedding
 ----
 ====
@@ -183,6 +188,14 @@ RETURN embedding
 .API key required
 =====
 You will need to replace `token: "sk-..."` with an link:https://platform.openai.com/api-keys[OpenAI API key^].
+
+You will receive a `GenAIProcedureException` if you do not provide a valid API key.
+
+[source]
+.GenAIProcedureException
+----
+Execution of the function ai.text.embed() failed due to org.neo4j.genai.util.GenAIProcedureException: Not authorized to make API request; check your credentials.
+----
 =====
 ====
 
@@ -195,12 +208,19 @@ This query, creates and embedding for the text _"A mysterious spaceship lands Ea
 
 [source, cypher]
 ----
-WITH genai.vector.encode(
+WITH ai.text.embed(
     "A mysterious spaceship lands Earth",
     "OpenAI",
-    { token: "sk-..." }) AS myMoviePlot
-CALL db.index.vector.queryNodes('moviePlots', 6, myMoviePlot)
-YIELD node, score
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS myMoviePlot
+
+MATCH (node:Movie)
+SEARCH node IN (
+  VECTOR INDEX moviePlots
+  FOR myMoviePlot
+  LIMIT 6
+) SCORE AS score
+
 RETURN node.title, node.plot, score
 ----
 

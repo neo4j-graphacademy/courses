@@ -72,14 +72,19 @@ This returns every person who held an `OWNS` relationship to the account at any 
 [source,cypher]
 .Find semantically similar entities that are connected to a specific organization
 ----
-CALL db.index.vector.queryNodes('entity_embedding', 5, $query_embedding) // <1>
-YIELD node AS entity, score // <2>
+MATCH (entity:Entity) // <1>
+SEARCH entity IN ( // <2>
+  VECTOR INDEX entity_embedding
+  FOR $query_embedding
+  LIMIT 5
+) SCORE AS score
+
 MATCH (entity)-[:WORKS_AT]->(org:EntityOrganization {name: "Acme Corp"}) // <3>
 RETURN entity.name, score // <4>
 ORDER BY score DESC // <5>
 ----
-<1> Search the vector index for the 5 entity nodes whose embeddings are closest to the query vector
-<2> Expose each matching node and its similarity score for use in the next clause
+<1> Match all entity nodes as the starting point for the search
+<2> Search the vector index for the 5 entity nodes whose embeddings are closest to the query vector, exposing each matching node and its similarity score
 <3> Filter to only the entities that have a `WORKS_AT` relationship to the named organization
 <4> Return the entity name and its similarity score
 <5> Show the closest matches first

@@ -37,16 +37,22 @@ Review the query before running it and observing the results.
 [source, cypher]
 ----
 MATCH (q:Question {text: "What are the most touristic countries in the world?"})
-CALL db.index.vector.queryNodes('questions', 6, q.embedding)
-YIELD node, score
+
+MATCH (node:Question)
+SEARCH node IN (
+    VECTOR INDEX questions
+    FOR q.embedding
+    LIMIT 6
+) SCORE AS score
+
 RETURN node.text, score
 ----
 
 Breaking down the query, you can identify the following:
 
 . The `MATCH` clause finds the specific `Question` node.
-. The query uses the `db.index.vector.queryNodes` function to query the `questions` vector index with the `Question` node's embedding - `q.embedding`. The function returns the top `6` similar nodes.
-. `YIELD` obtain the `node` and similarity `score` returned by the function.
+. The query uses the `SEARCH` clause to query the `questions` vector index with the `Question` node's embedding - `q.embedding`. The query returns the top `6` similar nodes.
+. `SCORE` returns a similarity score for each matched `node`.
 . The query returns the `Question` node's `text` property and the similarity score.
 
 You can extend this query to return the answers to the most similar questions:
@@ -54,8 +60,12 @@ You can extend this query to return the answers to the most similar questions:
 [source, cypher]
 ----
 MATCH (q:Question {text: "What are the most touristic countries in the world?"})
-CALL db.index.vector.queryNodes('questions', 6, q.embedding)
-YIELD node, score
+MATCH (node:Question)
+SEARCH node IN (
+    VECTOR INDEX questions
+    FOR q.embedding
+    LIMIT 6
+) SCORE AS score
 MATCH (node)-[:ANSWERED_BY]->(a)
 RETURN a.text, score
 ----
@@ -72,28 +82,32 @@ To improve the user's experience when asking a new question, you could use the v
 
 To achieve this, you need to generate an embedding for the user's new question and use it to query the vector index.
 
-You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/cypher-manual/current/genai-integrations/#single-embedding[`genai.vector.encode`^] function:
+You can generate a new embedding in Cypher using the link:https://neo4j.com/docs/genai/plugin/current/embeddings/#single-embedding[`ai.text.embed`^] function:
 
-.genai.vector.encode syntax
-[source]
+.ai.text.embed syntax
+[source, cypher]
 ----
-genai.vector.encode(
-    resource :: STRING,
-    provider :: STRING,
-    configuration :: MAP = {}
-) :: LIST<FLOAT>
+ai.text.embed(
+    resource, 
+    provider, 
+    configuration = {}
+) :: VECTOR
 ----
 
-You pass the text you want to encode as the `resource` parameter.
+You pass the text you want to embed as the first parameter.
 
 You can use embedding models from different `providers`, such as OpenAI, Vertex AI, and Amazon Bedrock.
 Provider-specific details like, API keys, are passed in the `configuration` map.
 
-For example, you can use the `OpenAI` provider to generate an embedding passing the API key as `token` in the `configuration` map:
+For example, you can use the `OpenAI` provider to generate an embedding by passing the API key as `token` and `model` in the configuration map:
 
 [source, cypher]
 ----
-WITH genai.vector.encode("Test", "OpenAI", { token: "sk-..." }) AS embedding
+WITH ai.text.embed(
+    "Test", 
+    "OpenAI", 
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS embedding
 RETURN embedding
 ----
 
@@ -107,16 +121,22 @@ You can incorporate the embedding into your query to find similar questions:
 
 [source, cypher]
 ----
-WITH genai.vector.encode(
+WITH ai.text.embed(
     "What are good open source projects",
     "OpenAI",
-    { token: "sk-..." }) AS userEmbedding
-CALL db.index.vector.queryNodes('questions', 6, userEmbedding)
-YIELD node, score
+    { token: "sk-...", model: "text-embedding-ada-002" }
+) AS userEmbedding
+
+MATCH (node:Question)
+SEARCH node IN (
+    VECTOR INDEX questions
+    FOR userEmbedding
+    LIMIT 6
+) SCORE AS score
 RETURN node.text, score
 ----
 
-This query, creates an embedding using `genai.vector.encode` and then uses that embedding to query the `questions` vector index.
+This query creates an embedding using `ai.text.embed` and then uses that embedding to query the `questions` vector index.
 
 Try changing the text and observe the results.
 
