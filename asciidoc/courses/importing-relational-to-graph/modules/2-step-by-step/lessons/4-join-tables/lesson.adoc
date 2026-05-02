@@ -1,0 +1,59 @@
+= Mapping join tables to relationships
+:order: 4
+:type: lesson
+
+== Introduction
+
+Join tables (junction tables) in a relational schema link two entity tables in a many-to-many relationship. In a graph, they do **not** become nodes—they become **relationship types** between the two entity types, with optional properties from the join table's columns.
+
+In this lesson, you will learn how to map join tables to graph relationships and how to handle composite primary keys and extra columns.
+
+
+== Why join tables become relationships
+
+In the relational model, a join table has foreign keys to two (or more) entity tables. Each row represents one link between one row in table A and one row in table B. In the graph model, that link is a **relationship** between one node of type A and one node of type B. So:
+
+* One row in the join table → one relationship in the graph.
+* The table name is not a node label; it inspires the **relationship type** name (e.g. `order_details` → `CONTAINS`).
+* Any column in the join table that is not a foreign key becomes a **relationship property** (e.g. `quantity`, `unit_price`, `discount` on `CONTAINS`).
+
+
+== Composite primary keys and join tables
+
+Join tables often have a **composite primary key** (e.g. `(order_id, product_id)` in `order_details`). There is no single "row ID"—the pair of foreign keys uniquely identifies the row. In the graph:
+
+* You do **not** create a node for the join table.
+* The relationship is uniquely identified by the pair of nodes it connects (Order and Product) and, if needed, by relationship properties (e.g. order line number).
+* If your use case requires a stable identifier for "order line" (e.g. for updates or auditing), add a synthetic property on the relationship (e.g. `lineId`) or use the combination of `orderID` and `productID` in Cypher.
+
+
+== Example: order_details → CONTAINS
+
+For Northwind-style `order_details(order_id, product_id, quantity, unit_price, discount)`:
+
+* **Node labels:** `Order`, `Product` (already defined from `orders` and `products`).
+* **Relationship type:** `CONTAINS` (Order → Product).
+* **Relationship properties:** `quantity`, `unitPrice`, `discount` (and optionally `unitPrice` if you store it on the relationship).
+* **Cardinality:** One `CONTAINS` relationship per row in `order_details`; multiple relationships between the same Order and Product are possible if the schema allows (e.g. same product in same order with different quantities would be separate lines).
+
+
+== Example: pure junction table (no extra columns)
+
+If the join table has only the two foreign key columns (e.g. `employee_territories(employee_id, territory_id)`), the relationship has no properties. You still create one relationship per row; the relationship type name should reflect the semantics (e.g. `ASSIGNED_TO` from Employee to Territory).
+
+
+[.quiz]
+== Check Your Understanding
+
+include::questions/1-join-table-mapping.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+* Join table → relationship type between the two entity node labels.
+* Composite primary key on (FK1, FK2) → no node; relationship identified by the pair of nodes.
+* Extra columns → relationship properties.
+* One row in join table → one relationship instance.
+
+In the next lesson, you will map relationship types and properties in more detail (direction, naming, and multi-hop patterns).
