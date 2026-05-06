@@ -1,0 +1,193 @@
+= Querying with Cypher
+:type: lesson
+:order: 6
+:duration: 7
+:image-path: https://cdn.graphacademy.neo4j.com/courses/neo4j-fundamentals/modules/2-querying-graphs/lessons/2-pattern-matching/images
+
+// Source: Adapted from workshop-modeling/modules/2-foundation/lessons/1-graph-elements (Cypher section)
+// Pattern images from workshop-fundamentals/modules/1-neo4j-fundamentals/lessons/4-pattern-matching
+
+[.slide.discrete]
+== Introduction
+
+Cypher is Neo4j's declarative query language. It uses ASCII-art syntax to describe graph patterns, so queries read like the data they retrieve.
+
+In this lesson, you will learn how to:
+
+* Read and write basic Cypher patterns
+* Use `MATCH`, `WHERE`, and `MERGE` to query and write data
+* Create indexes and constraints to keep your graph performant
+* Traverse multi-hop paths — the foundation of GraphRAG retrieval
+
+[.slide]
+== Cypher patterns
+
+Cypher uses **ASCII-art syntax** to describe the shape of the data you want, and Neo4j finds it.
+
+image::{image-path}/pattern-1.png[(p:Person)-[r:ACTED_IN]->(m:Movie)]
+
+[.slide.discrete]
+== Nodes
+
+Nodes are expressed with parentheses — `( )`
+
+image::{image-path}/pattern-2.png[parentheses ( ) highlighted in the pattern]
+
+[.slide.discrete]
+== Labels
+
+Inside the parentheses you define the node's label — the type of thing it represents.
+
+image::{image-path}/pattern-3.png[:Person and :Movie labels highlighted]
+
+Labels are prefixed with a colon: `(:Label)`
+
+[.slide.discrete]
+== Relationships
+
+Relationships connect nodes using dashes and an arrow for direction.
+
+image::{image-path}/pattern-4.png[dashes and arrow highlighted in the pattern]
+
+[.slide.discrete]
+== Relationship types
+
+Relationship information goes inside square brackets — `[ ]`
+
+image::{image-path}/pattern-5.png[:ACTED_IN relationship type highlighted]
+
+The type is prefixed with a colon: `[:TYPE]`
+
+[.slide.discrete]
+== Variables
+
+Assign variables to nodes and relationships so you can reference them in `RETURN`.
+
+image::{image-path}/pattern-6.png[p, r, m variables highlighted]
+
+* `p` — the `:Person` node
+* `r` — the `:ACTED_IN` relationship
+* `m` — the `:Movie` node
+
+[.slide]
+== MATCH: finding patterns
+
+`MATCH` finds patterns in the graph.
+
+[source,cypher]
+.Find all movies and their actors
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie) // <1>
+RETURN p.name AS actor, m.title AS movie // <2>
+LIMIT 10 // <3>
+----
+<1> The pattern — find `Person` nodes connected to `Movie` nodes by an `ACTED_IN` relationship
+<2> Return the `name` property of the person and the `title` property of the movie, giving each an alias
+<3> Limit results to 10 rows
+
+[.slide]
+== WHERE: filtering results
+
+Add a `WHERE` clause to filter by property values.
+
+[source,cypher]
+.Find a specific person's movies
+----
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie)
+WHERE p.name = 'Tom Hanks'
+RETURN m.title, m.releaseYear
+ORDER BY m.releaseYear
+----
+
+[.slide]
+== MERGE: create or match
+
+`MERGE` is the standard command for writing data. It finds an existing node or relationship, or creates it if one does not exist.
+
+This prevents duplicates when loading data.
+
+[source,cypher]
+.Create or find a person
+----
+MERGE (p:Person {name: 'Ada Lovelace'})
+ON CREATE SET p.born = 1815
+RETURN p
+----
+
+[TIP]
+.Best practice
+====
+Use `MERGE` on a property that uniquely identifies the node (an ID or name). Never `MERGE` on multiple optional properties — this can create unintended duplicates.
+====
+
+[.slide.discrete]
+=== Create or find a relationship
+
+Use `MATCH` to find both nodes first, then `MERGE` the relationship between them.
+
+[source,cypher]
+.Create or find a relationship
+----
+MATCH (p:Person {name: 'Ada Lovelace'})
+MATCH (m:Movie {title: 'The Matrix'})
+MERGE (p)-[r:WATCHED]->(m)
+ON CREATE SET r.rating = 5
+----
+
+[NOTE]
+.Relationship MERGE
+====
+Do not put properties inside the `MERGE` pattern for relationships. If a `:WATCHED` relationship already exists with a different rating, Neo4j will create a second relationship rather than matching the existing one.
+====
+
+[.slide]
+== Indexes and constraints
+
+Neo4j uses indexes to find the starting node of a query quickly. Without an index, Neo4j must scan all nodes of that label.
+
+A **constraint** enforces uniqueness and automatically creates an index.
+
+[source,cypher]
+.Create a uniqueness constraint
+----
+CREATE CONSTRAINT person_name_unique IF NOT EXISTS
+FOR (p:Person)
+REQUIRE p.name IS UNIQUE
+----
+
+[source,cypher]
+.Create a plain index (for non-unique lookups)
+----
+CREATE INDEX movie_year IF NOT EXISTS
+FOR (m:Movie)
+ON (m.releaseYear)
+----
+
+Create constraints and indexes before loading data so the database uses them immediately.
+
+[.slide]
+== Multi-hop traversal
+
+Graph databases excel at multi-hop queries — following relationships across multiple steps.
+
+[source,cypher]
+.Who has acted with someone who acted with Tom Hanks?
+----
+MATCH (tom:Person {name: 'Tom Hanks'})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(coActor:Person)
+RETURN DISTINCT coActor.name AS colleague
+LIMIT 10
+----
+
+This pattern is the foundation of GraphRAG retrieval: start at a node, follow relationships, collect context.
+
+read::Continue[]
+
+[.summary]
+== Summary
+
+* **MATCH** finds patterns in the graph
+* **WHERE** filters by property values
+* **MERGE** creates a node or relationship if one does not already exist
+* **Constraints** enforce uniqueness; **indexes** speed up anchor node lookups
+* Multi-hop traversals follow relationship chains — the foundation of GraphRAG retrieval
+* During the hack session, your coding agent will write Cypher for you — but you will need to read and understand what it generates
