@@ -1,0 +1,217 @@
+= Vector Search with Neo4j Context Provider
+:order: 2
+:type: lesson
+
+TIP: Complete this lesson hands-on by opening `labs/lab-3-vector-provider.ipynb` in your Codespace.
+
+TIP: If you haven't already, run `python genai-maf-context-providers/setup.py` to load movie plot embeddings and create the required indexes. Without this step, the vector search will fail with a "No index with name moviePlots found" error. See the link:../../1-introduction/lessons/1-setup/[Setup] lesson for details.
+
+In the previous lesson, you saw the `Neo4jContextProvider` architecture and its three search modes. In this lesson, you will build your first self-grounding agent using vector search. The provider embeds the user's query (converts it into a numerical vector that captures its semantic meaning), then searches a Neo4j vector index for the most similar stored vectors and injects matching results before every LLM call. The agent is grounded in real graph data automatically.
+
+IMPORTANT: The data in your Neo4j database must be embedded using the same model and dimensions as the embedder used for search. If your stored vectors were created with `text-embedding-3-small`, the query embedder must also use `text-embedding-3-small`. Both must use the same dimension count, 1536. Mismatched models or dimensions will return poor or no results. The `neo4j-graphrag` library supports embedders for OpenAI, Azure OpenAI, Cohere, Mistral AI, Google Vertex AI, Ollama, and Sentence Transformers, so you can match whichever model was used to create your stored embeddings.
+
+
+== How Neo4j Context Provider Works
+
+`Neo4jContextProvider` extends `BaseContextProvider` and implements `before_run()` to:
+
+1. Take the user's recent messages
+2. Embed them using an embedder (for vector search)
+3. Search a Neo4j vector index for semantically similar content
+4. Inject the search results as context messages before the LLM is called
+
+The agent receives relevant movie data automatically on every turn, regardless of what the user asks.
+
+[source,mermaid]
+----
+%%{init:{"theme":"base","themeVariables":{"primaryColor":"#eef6f9","primaryTextColor":"#0f172a","lineColor":"#94a3b8","fontFamily":"Public Sans, Arial, Helvetica, sans-serif"}}}%%
+flowchart LR
+  M[User messages] --> E[Embedder]
+  E --> V["Vector index<br/>e.g. moviePlots"]
+  V --> K[Top-k chunks]
+  K --> I["Injected context<br/>before_run()"]
+----
+
+== Create an Embedder
+
+Vector search needs an embedder to convert text into vector representations. The `neo4j_graphrag` package provides `OpenAIEmbeddings`:
+
+[source,python]
+----
+# Create embedder for converting queries to vectors
+# Uses OPENAI_API_KEY from environment automatically
+embedder = OpenAIEmbeddings(model="text-embedding-3-small")
+
+----
+
+The embedder converts the user's query into a 1536-dimensional vector that can be compared against the `plotEmbedding` vectors stored on Movie nodes in your sandbox.
+
+== Create the Context Provider
+
+Configure the provider with your Neo4j connection details and the vector index.
+
+`Neo4jSettings` reads connection details and index names from environment variables (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, `NEO4J_VECTOR_INDEX_NAME`):
+
+[source,python]
+----
+# Load settings from environment variables
+neo4j_settings = Neo4jSettings()
+
+----
+
+[source,python]
+----
+# Create context provider with vector search
+provider = Neo4jContextProvider(
+    uri=neo4j_settings.uri,
+    username=neo4j_settings.username,
+    password=neo4j_settings.get_password(),
+    index_name=neo4j_settings.vector_index_name,
+    index_type="vector",
+    embedder=embedder,
+    top_k=5,
+    context_prompt=(
+        "## Semantic Search Results\n"
+        "Use the following semantically relevant movie plots from the "
+        "knowledge graph to answer questions about movies:"
+    ),
+)
+
+----
+
+Key parameters:
+
+* **`index_name`** -- The name of the Neo4j vector index. `Neo4jSettings` reads this from the `NEO4J_VECTOR_INDEX_NAME` environment variable.
+* **`index_type`** -- Set to `"vector"` for semantic search against plot embeddings.
+* **`embedder`** -- Generates query vectors using the same model (text-embedding-3-small) that created the stored embeddings.
+* **`top_k`** -- Number of results to retrieve. Five gives a good balance between context richness and token usage.
+* **`context_prompt`** -- Text prepended to search results to guide the LLM on how to use the injected data.
+
+== Run the Agent with the Provider
+
+The provider connects to Neo4j using an async context manager. Pass it to the agent's `context_providers` list:
+
+[source,python]
+----
+async def main():
+    async with provider:
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="vector-agent",
+            instructions=(
+                "You are a helpful assistant that answers questions about "
+                "movies using the provided semantic search context. "
+                "Be concise and accurate. When the context contains "
+                "relevant information, cite it in your response."
+            ),
+            context_providers=[provider],
+        )
+
+        session = agent.create_session()
+
+        query = "Find me movies about time travel"
+        print(f"User: {query}\n")
+        print("Answer: ", end="", flush=True)
+        response = await agent.run(query, session=session)
+        print(response.text)
+        print()
+
+asyncio.run(main())
+
+----
+
+When the agent receives "What are some good movies about time travel?":
+
+1. The framework calls `provider.before_run()`
+2. The provider embeds the query and searches `moviePlots` for movies with similar plot descriptions
+3. Matching movie data is injected as context messages
+4. The LLM generates a response grounded in actual movies from your database
+
+No tool call happened. The context was injected automatically.
+
+== With vs Without Context
+
+Without the context provider, the agent answers time travel questions from its training data. It might mention well-known movies but has no access to your specific database.
+
+With the provider, the agent's response is grounded in the movies that actually exist in your Neo4j graph. It can reference specific plots, mention less obvious films that match semantically, and give answers consistent with your data.
+
+This is the core value of context providers: consistent, automatic knowledge retrieval on every turn.
+
+[%collapsible]
+.Click to see the complete code
+====
+[source,python]
+----
+import asyncio
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from agent_framework.openai import OpenAIResponsesClient
+from agent_framework_neo4j import Neo4jContextProvider, Neo4jSettings
+from neo4j_graphrag.embeddings.openai import OpenAIEmbeddings
+
+# Load settings from environment variables
+neo4j_settings = Neo4jSettings()
+
+# Create embedder for converting queries to vectors
+# Uses OPENAI_API_KEY from environment automatically
+embedder = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Create context provider with vector search
+provider = Neo4jContextProvider(
+    uri=neo4j_settings.uri,
+    username=neo4j_settings.username,
+    password=neo4j_settings.get_password(),
+    index_name=neo4j_settings.vector_index_name,
+    index_type="vector",
+    embedder=embedder,
+    top_k=5,
+    context_prompt=(
+        "## Semantic Search Results\n"
+        "Use the following semantically relevant movie plots from the "
+        "knowledge graph to answer questions about movies:"
+    ),
+)
+
+async def main():
+    async with provider:
+        client = OpenAIResponsesClient()
+
+        agent = client.as_agent(
+            name="vector-agent",
+            instructions=(
+                "You are a helpful assistant that answers questions about "
+                "movies using the provided semantic search context. "
+                "Be concise and accurate. When the context contains "
+                "relevant information, cite it in your response."
+            ),
+            context_providers=[provider],
+        )
+
+        session = agent.create_session()
+
+        query = "Find me movies about time travel"
+        print(f"User: {query}\n")
+        print("Answer: ", end="", flush=True)
+        response = await agent.run(query, session=session)
+        print(response.text)
+        print()
+
+asyncio.run(main())
+
+----
+====
+
+[.summary]
+== Lesson Summary
+
+`Neo4jContextProvider` with `index_type="vector"` embeds the user's query, searches the `moviePlots` vector index in Neo4j, and injects matching results as context messages before the LLM generates a response. The agent receives relevant movie data automatically without calling any tool.
+
+In the next lesson, you will add graph-enriched retrieval to traverse relationships after the vector search, giving the agent structured metadata like genres, actors, and directors alongside plot text.
+
+link:../3-graph-enriched-provider/[Next Page ->]
+
+read::Mark as read[]

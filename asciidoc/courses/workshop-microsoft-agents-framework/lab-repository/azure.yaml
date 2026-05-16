@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: genai-maf-context-providers
+metadata:
+  template: genai-maf-context-providers@0.0.1
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+hooks:
+  preprovision:
+    shell: sh
+    run: |
+      # Azure AI Foundry serverless models are available in select regions.
+      ALLOWED_REGIONS="eastus2 swedencentral westus2 westus3"
+
+      if ! echo "$ALLOWED_REGIONS" | grep -qw "$AZURE_LOCATION"; then
+        echo ""
+        echo "ERROR: Region '$AZURE_LOCATION' is not supported."
+        echo ""
+        echo "Azure AI Foundry requires one of these regions:"
+        echo "  - eastus2       (East US 2)"
+        echo "  - swedencentral (Sweden Central)"
+        echo "  - westus2       (West US 2)"
+        echo "  - westus3       (West US 3)"
+        echo ""
+        echo "To fix, run: azd env set AZURE_LOCATION eastus2"
+        echo "Then retry:  azd up"
+        echo ""
+        exit 1
+      fi
+      echo "Region '$AZURE_LOCATION' is supported."
+  postprovision:
+    shell: sh
+    run: |
+      echo ""
+      echo "=========================================="
+      echo "  Azure AI Infrastructure deployed!"
+      echo "=========================================="
+      echo ""
+      echo "Retrieve the API key with:"
+      echo "  az cognitiveservices account keys list \\"
+      echo "    --name \$(azd env get-values | grep AZURE_AI_SERVICES_NAME | cut -d'=' -f2 | tr -d '\"') \\"
+      echo "    --resource-group \$(azd env get-values | grep AZURE_RESOURCE_GROUP | cut -d'=' -f2 | tr -d '\"') \\"
+      echo "    --query 'key1' -o tsv"
+      echo ""
+      echo "Share with participants:"
+      echo "  1. AZURE_OPENAI_API_KEY (the key above)"
+      echo "  2. AZURE_OPENAI_ENDPOINT (from azd env get-values)"
+      echo "  3. Set LLM_PROVIDER=azure in .env"
+      echo ""

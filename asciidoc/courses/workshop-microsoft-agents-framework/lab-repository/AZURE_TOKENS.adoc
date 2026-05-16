@@ -1,0 +1,218 @@
+= Azure AI Foundry Token Usage Report
+
+Token usage measured against a live Azure AI Services deployment using `gpt-5-mini` (GlobalStandard, capacity 1000) with the Responses API (`api-version=2025-03-01-preview`).
+
+== Per-Solution Breakdown (Azure GPT-5 Mini)
+
+[cols="2,1,1,1,1,1,1",options="header"]
+|===
+| Solution | API Calls | Chat Input | Chat Output | Embedding | Total
+
+| simple_agent.py | 2 | 439 | 912 | 0 | *1,351*
+
+| simple_context_provider.py | 5 | 657 | 1,164 | 0 | *1,821*
+
+| fulltext_context_provider.py | 1 | 1,200 | 575 | 0 | *1,775*
+
+| vector_context_provider.py | 1 | 1,336 | 805 | 0 | *2,141*
+
+| graph_enriched_provider.py | 1 | 596 | 1,024 | 0 | *1,620*
+
+| memory_context_provider.py | 24 | 2,763 | 1,710 | 806 | *5,279*
+
+| memory_tools_agent.py | 26 | 10,033 | 1,595 | 160 | *11,788*
+
+| hybrid_provider.py | 1 | 1,136 | 976 | 0 | *2,112*
+
+| entity_extraction.py | 16 | 0 | 0 | 38 | *38*
+
+| reasoning_memory.py | 3 | 0 | 0 | 18 | *18*
+
+| *TOTAL PER PARTICIPANT* | *80* | *18,160* | *8,761* | *1,022* | *~27,943*
+|===
+
+== Azure Cost Estimates
+
+Azure OpenAI **Global Standard** pricing is identical to OpenAI direct pricing. **Data Zone** deployments (EU/US data residency) add a ~10% premium. Both Azure and OpenAI use `text-embedding-3-small` ($0.02/1M tokens).
+
+=== Azure AI Foundry Pricing: Per 1M Tokens (March 2026)
+
+[cols="3,2,1,1,1",options="header"]
+|===
+| Model | Deployment | Input | Cached Input | Output
+
+| GPT-5 Nano | Global | $0.05 | $0.01 | $0.40
+
+| GPT-5 Nano | Data Zone | $0.06 | $0.01 | $0.44
+
+| GPT-5 Mini | Global | $0.25 | $0.03 | $2.00
+
+| GPT-5 Mini | Data Zone | $0.28 | $0.03 | $2.20
+
+| GPT-4o | Global | $2.50 | $1.25 | $10.00
+
+| GPT-4o | Data Zone/Regional | $2.75 | $1.375 | $11.00
+
+| GPT-4o-mini | Global | $0.15 | $0.075 | $0.60
+
+| GPT-4o-mini | Data Zone/Regional | $0.165 | $0.083 | $0.66
+|===
+
+=== Cost Per Participant (Global Standard)
+
+Token counts vary ±20% between runs due to non-deterministic LLM responses (see link:TOKENS.adoc#run-to-run-variance[TOKENS.adoc, Run-to-run variance^]). The estimates below use the higher of two measured runs (~38,000 tokens/participant).
+
+[cols="4,1,1,1,1",options="header"]
+|===
+| Model | Input ($/1M) | Output ($/1M) | Embedding ($/1M) | Cost Per Participant
+
+| GPT-5 Mini (Azure) | $0.25 | $2.00 | $0.10 | *~$0.031*
+|===
+
+=== Workshop Cost by Participant Count (Global Standard)
+
+[cols="1,1",options="header"]
+|===
+| Participants | GPT-5 Mini
+
+| 10 | $0.31
+
+| 25 | $0.78
+
+| 50 | $1.55
+
+| 100 | $3.10
+|===
+
+=== Data Zone Premium (~10%)
+
+For workshops requiring EU or US data residency, use Data Zone deployments. The cost increase is minimal:
+
+[cols="1,1",options="header"]
+|===
+| Participants | GPT-5 Mini (Data Zone)
+
+| 100 | $3.41
+|===
+
+=== Cached Input Pricing
+
+Azure offers discounted pricing for repeated prompt prefixes (cached input). Since workshop participants run similar prompts with identical system instructions and tool definitions, cached input pricing could reduce costs further. Cached input rates are 75-88% cheaper than standard input rates.
+
+The Azure infrastructure itself (AI Services S0 account) has no standing cost. You only pay for token consumption.
+
+== Capacity Planning for 100 Participants
+
+=== GlobalStandard Deployment (capacity=1000)
+
+The Bicep template deploys with `capacity=1000` which maps to:
+
+* *1,000,000 TPM* (tokens per minute) per model deployment
+* *6,000 RPM* (requests per minute) per model deployment
+
+The deployment was updated from `capacity=120` to `capacity=1000` to eliminate any risk of 429 rate-limit errors during peak workshop activity. Since Azure only charges for tokens consumed (not provisioned capacity), this increase has no cost impact under normal usage.
+
+=== Will 1000 Capacity Handle 100 Participants?
+
+*Yes, with massive headroom.* Here's why:
+
+* Total tokens per participant: ~38,000 (conservative upper bound across multiple runs)
+* At 100 participants running all 11 solutions: ~3.8M tokens total
+* Workshop duration: ~2 hours (participants work through labs at different paces)
+* Average token rate: ~3.8M / 120 min = ~31,667 TPM, well under the 1M TPM limit
+* Peak concurrent requests: even if 50 participants hit the API simultaneously, that's 50 RPM, well under 6,000 RPM
+
+*Burst handling:* Azure enforces rate limits in 1-second and 10-second windows. With 6,000 RPM, you can sustain 100 requests/second. Even during peak moments (e.g., all participants starting a lab at once), this provides ample headroom.
+
+=== Worst-Case Cost: Sustained Maximum Throughput
+
+If participants saturated the full 1M TPM capacity for the entire 2-hour workshop:
+
+* *Total tokens:* 1,000,000 TPM × 120 min = *120,000,000 tokens*
+* Using the measured input/output ratio (~67% input, ~33% output):
+
+[cols="3,1,1,1",options="header"]
+|===
+| | Tokens | Rate (GPT-5 Mini Global) | Cost
+
+| Input | ~80.9M | $0.25/1M | $20.23
+
+| Output | ~39.1M | $2.00/1M | $78.23
+
+| *Total* | *120M* | | *~$98.46*
+|===
+
+This worst case is extremely unlikely. It would require ~2,600+ concurrent participants running non-stop. The $500 budget alert in the Bicep template provides a safety net regardless.
+
+=== Scaling Down
+
+If you want tighter rate-limit guardrails, reduce `chatDeploymentCapacity` in `infra/main.bicep`:
+
+[cols="1,1,1,1",options="header"]
+|===
+| Capacity | TPM | RPM | Max Concurrent Participants
+
+| 120 | 120,000 | 720 | 100+
+
+| 240 | 240,000 | 1,440 | 200+
+
+| 500 | 500,000 | 3,000 | 500+
+
+| 1000 | 1,000,000 | 6,000 | 2,600+
+|===
+
+=== Quota Tiers
+
+Azure uses tiered quotas for GlobalStandard deployments. New subscriptions start at Tier 1:
+
+**gpt-5-mini (GlobalStandard):**
+
+[cols="1,1,1",options="header"]
+|===
+| Tier | RPM | TPM
+
+| 1 | 1,000 | 1,000,000
+
+| 2 | 2,000 | 2,000,000
+|===
+
+The `capacity=1000` deployment uses the full Tier 1 allocation. No tier upgrade is required.
+
+== API Version Requirement
+
+The Azure OpenAI Responses API requires `api-version=2025-03-01-preview` or later. Earlier API versions (e.g., `2024-12-01-preview`) return a 400 error:
+
+....
+Azure OpenAI Responses API is enabled only for api-version 2025-03-01-preview and later
+....
+
+All project files use `2025-03-01-preview` as the default.
+
+== High Usage Solutions
+
+* **memory_tools_agent.py**: 42% of total tokens (11,788), driven by 26 API calls across 3 multi-turn queries with streaming + memory tools
+* **memory_context_provider.py**: 19% of total tokens (5,279), 24 API calls with entity extraction
+
+These are consistent with the OpenAI direct results in link:TOKENS.adoc[TOKENS.adoc].
+
+== Running the Azure Token Report
+
+[source,bash]
+----
+# Human-readable report
+./admin_setup/run_all.sh --tokens
+
+# JSON output
+./admin_setup/run_all.sh --tokens --json
+
+# Direct Python invocation
+.venv/bin/python admin_setup/token_usage_report.py
+----
+
+Requires `.env` with `LLM_PROVIDER=azure`, valid `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME`, Neo4j credentials, and the `.venv` virtual environment.
+
+== Pricing Sources
+
+* link:https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/[Azure OpenAI Pricing^]
+* link:https://learn.microsoft.com/azure/foundry/openai/quotas-limits[Azure OpenAI Quotas and Limits^]
+* link:https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-5[GPT-5 Model Family (Azure)^]
