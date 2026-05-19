@@ -25,7 +25,7 @@ OPTIONS {indexConfig: {
 ----
 
 A vector index named `chunkEmbedding` will be created for nodes with a `Chunk` label, indexing the `embedding` property.
-The index is configured to 1536 dimensions (as provided by the `text-embedding-ada-002` embedding model) and use cosine similarity for distance calculations.
+The index is configured to 1536 dimensions (as provided by the `text-embedding-3-small` embedding model) and use cosine similarity for distance calculations.
 
 You can search the vector index by creating an embedding for a search term:
 
@@ -34,7 +34,7 @@ You can search the vector index by creating an embedding for a search term:
 WITH ai.text.embed(
     "Retrieval Augmented Generation",
     "OpenAI",
-    { token: "sk-...", model: "text-embedding-ada-002" }
+    { token: "sk-...", model: "text-embedding-3-small" }
 ) AS userEmbedding
 
 MATCH (node:Chunk)
@@ -141,10 +141,18 @@ This cypher query retrieves all related entities between the chunks:
 .Related entities
 ----
 MATCH (c:Chunk)<-[:FROM_CHUNK]-(entity)-[r]->(other)-[:FROM_CHUNK]->()
-RETURN DISTINCT 
-  labels(entity)[2], entity.name, entity.type, entity.description, 
-  type(r), 
-  labels(other)[2], other.name, other.type, other.description
+WITH
+  entity,
+  other,
+  r,
+  [l IN labels(entity)
+    WHERE NOT l IN ["__KGBuilder__", "__Entity__"]][0] AS entityLabel,
+  [l IN labels(other)
+    WHERE NOT l IN ["__KGBuilder__", "__Entity__"]][0] AS otherLabel
+RETURN DISTINCT
+  entityLabel, entity.name,
+  type(r),
+  otherLabel, other.name
 ----
 
 The output uses the node labels, properties, and relationship types to output rows which form statements such as:
