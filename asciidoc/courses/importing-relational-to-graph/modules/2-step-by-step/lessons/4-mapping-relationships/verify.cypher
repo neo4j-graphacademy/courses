@@ -1,0 +1,1 @@
+MATCH (:Customer)-[:PLACED]->(:Order) RETURN true AS outcome LIMIT 1
