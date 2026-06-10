@@ -1,0 +1,101 @@
+= Cross-Boundary Paths
+:type: challenge
+:order: 3
+:duration: 7
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+Dani's bay: a 2020 Falcon 2.0T, VIN `CM-FAL-2020-0451`, throwing misfire code `P0301`.
+You will answer the question that opened this workshop - with one traversal across both halves of the lakehouse.
+
+
+[.slide]
+== The money query
+
+For this symptom on this vehicle: what guidance covers it, what part does the guidance point at, and what actually happened when similar vehicles got that part?
+
+[source,cypher]
+.What fixed this on cars like this one?
+----
+MATCH (v:Vehicle {vin: 'CM-FAL-2020-0451'}), (code:DTC {code: 'P0301'})
+MATCH (doc:Document)-[:HAS_SECTION*]->(:Section)-[:REFERENCES_CODE]->(code)
+MATCH (doc)-[:HAS_SECTION*]->(:Section)-[:REFERENCES_PART]->(part:Part)
+MATCH (other:Vehicle {model: v.model, engine: v.engine})
+      -[:HAS_WORK_ORDER]->(wo:WorkOrder)-[:DIAGNOSED]->(code)
+MATCH (wo)-[:REPLACED]->(part)
+WITH doc, part, collect(DISTINCT wo) AS orders
+RETURN doc.title AS guidance, part.partNumber AS part, part.name AS partName,
+       size(orders) AS timesUsed,
+       size([o IN orders WHERE o.comeback]) AS comebacks
+ORDER BY comebacks, timesUsed DESC
+----
+
+Read the top row: the revised coil, recommended by bulletin TSB-21-114, used five times on Falcons with this engine and this code - **zero comebacks**.
+The original coil: four uses, four comebacks.
+
+The first two `MATCH` pairs walk the document side; the last two walk the warehouse side; the shared `code` and `part` nodes join them.
+No vector index can return this, and Text2SQL fails silently on the five joins it implies - this shape is why you built the graph.
+
+
+[.slide]
+== Recall exposure
+
+The coil recall is open.
+Which vehicles are in scope but never received the remedy part?
+
+[source,cypher]
+.In-scope vehicles missing the remedy
+----
+MATCH (r:RecallNotice {id: 'RC-2021-04'})-[:HAS_SECTION*]->(:Section)
+      -[:REFERENCES_PART]->(remedy:Part {partNumber: 'IC-2042-B'})
+MATCH (v:Vehicle {model: r.model, engine: '2.0T'})
+WHERE v.year IN [2019, 2020]
+  AND NOT EXISTS {
+    (v)-[:HAS_WORK_ORDER]->(:WorkOrder)-[:REPLACED]->(remedy)
+  }
+RETURN v.vin AS vin, v.year AS year
+----
+
+One vehicle comes back - look at the VIN.
+It is the car in Dani's bay.
+The misfire and the open recall were the same story all along, and the graph is the only place that story exists in one piece.
+
+
+[.slide]
+== Supersession chains
+
+One more shape that pays for itself in any parts-driven business - where does outdated guidance still point at a superseded part?
+
+[source,cypher]
+.Superseded parts still referenced in documents
+----
+MATCH (old:Part)-[:SUPERSEDED_BY]->(new:Part),
+      (s:Section)-[:REFERENCES_PART]->(old),
+      (d:Document)-[:HAS_SECTION*]->(s)
+RETURN old.partNumber AS supersededPart, new.partNumber AS currentPart,
+       d.title AS document, s.title AS section
+----
+
+The Falcon manual still tells technicians to fit the original coil - it predates the bulletin.
+An agent with this view warns the technician _and_ cites the newer document.
+
+Now answer the questions below from your results.
+
+include::questions/1-zero-comebacks.adoc[leveloffset=+1]
+
+include::questions/2-recall-exposure.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You crossed the boundary:
+
+* **The money query** - guidance from the PDFs ranked by real repair outcomes from the tables: the revised coil wins with zero comebacks
+* **Recall exposure** - in-scope vehicles missing the remedy; the answer is the car in the bay
+* **Supersession** - outdated guidance flagged by joining the parts catalog to document references
+
+In the final module, you will see how to port all three shapes to your own lakehouse.

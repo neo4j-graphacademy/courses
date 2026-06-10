@@ -1,0 +1,121 @@
+= Detect the Themes
+:type: challenge
+:order: 2
+:duration: 11
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+You will project the document links into Graph Data Science, run the Leiden algorithm, tune its resolution, and write each section's theme back to the graph.
+
+This completes **Building Block 2**: "Themes nobody named exist as data" ✓
+
+
+[.slide]
+== Step 1 - Project the graph
+
+Graph Data Science algorithms run on an in-memory projection.
+Project the `Section` nodes and the `LINKS_TO` relationships, treating links as undirected (sharing a key has no direction) and carrying `strength` as a weight:
+
+[source,cypher]
+.Project sections and links
+----
+CALL gds.graph.project(
+  'doc-links',
+  'Section',
+  {LINKS_TO: {orientation: 'UNDIRECTED', properties: 'strength'}}
+)
+----
+
+You should see a projection with 37 nodes and 84 relationships - each undirected link counts twice.
+
+
+[.slide]
+== Step 2 - Run Leiden in stream mode
+
+Stream mode shows results without writing anything - run it first to see what the algorithm finds:
+
+[source,cypher]
+.Stream Leiden communities
+----
+CALL gds.leiden.stream('doc-links', {relationshipWeightProperty: 'strength'})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).id) AS sections
+WHERE size(sections) > 1
+RETURN communityId, size(sections) AS members, sections
+ORDER BY members DESC
+----
+
+You should see around seven multi-member communities.
+Look closely at the top two: the ignition story is split - the coil-part sections and the misfire-code sections landed in separate communities.
+Structurally defensible, but a technician would call it one topic.
+
+
+[.slide]
+== Step 3 - Tune the resolution
+
+Leiden's `gamma` parameter controls granularity: lower values favor fewer, larger communities.
+Re-run with `gamma: 0.5`:
+
+[source,cypher]
+.Stream Leiden with lower resolution
+----
+CALL gds.leiden.stream('doc-links', {
+  relationshipWeightProperty: 'strength',
+  gamma: 0.5
+})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).id) AS sections
+WHERE size(sections) > 1
+RETURN communityId, size(sections) AS members, sections
+ORDER BY members DESC
+----
+
+Now six communities - and the largest one unites all nine ignition sections: Falcon manual, Osprey manual, bulletin TSB-21-114, and recall RC-2021-04.
+The other five map cleanly to charging, wheel-speed sensors, brake judder, catalyst, and the brake hose recall.
+
+There is no single correct resolution - it is a dial between fine-grained and broad themes, and the right setting depends on the questions you will ask.
+
+
+[.slide]
+== Step 4 - Write the themes back
+
+Make the themes part of the graph so any later query - or agent tool - can use them:
+
+[source,cypher]
+.Write communityId onto each Section
+----
+CALL gds.leiden.write('doc-links', {
+  writeProperty: 'communityId',
+  relationshipWeightProperty: 'strength',
+  gamma: 0.5
+})
+YIELD communityCount, nodeCount
+RETURN communityCount, nodeCount
+----
+
+Every `Section` node now has a `communityId` property.
+
+[NOTE]
+.Community IDs are labels, not constants
+====
+Leiden assigns arbitrary ID numbers, and they can differ between runs.
+Never hard-code a community ID - find a theme by its members or its keys, as you will in the next lesson.
+====
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You surfaced the themes:
+
+* **Projection** - sections and weighted, undirected links in memory
+* **Leiden stream** - default resolution found seven fine themes; `gamma: 0.5` found six that match how technicians think
+* **Write back** - `communityId` is now a property any query can use
+* **Building Block 2**: "Themes nobody named exist as data" ✓
+
+In the next lesson, you will turn the IDs into theme cards an agent can reason over.

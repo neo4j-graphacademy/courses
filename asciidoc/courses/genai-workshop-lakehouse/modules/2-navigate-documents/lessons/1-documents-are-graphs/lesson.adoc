@@ -1,0 +1,84 @@
+= Documents Are Graphs
+:type: lesson
+:order: 1
+:duration: 6
+
+
+[.slide.discrete]
+== Introduction
+
+Dani's manual portal returned 40 keyword hits because it treats every document as a bag of words.
+But a service manual is not a bag of words - it has chapters, sections, and references to specific parts and codes.
+
+In this lesson, you will learn how to model documents as a tree, and how shared keys turn separate documents into a connected graph.
+
+
+[.slide]
+== The tree shape
+
+Every structured document is already a tree: a manual contains chapters, chapters contain sections.
+In the graph, you keep that structure instead of flattening it away:
+
+[source,mermaid]
+----
+graph TD
+    M((Manual)) -->|HAS_SECTION| E((Section <br> Engine))
+    E -->|HAS_SECTION| I((Section <br> Ignition Coil <br> Replacement))
+    E -->|HAS_SECTION| D((Section <br> Misfire <br> Diagnosis))
+    M -->|HAS_SECTION| B((Section <br> Brakes))
+----
+
+The tree gives an agent something vector search never has: **a table of contents it can navigate**.
+"What does the Falcon manual say about ignition?" becomes a walk down the tree, not a similarity guess.
+
+This is the same structure for all three document types - manuals, bulletins, and recall notices are all `Document` nodes with `Section` children.
+Bulletins are just shallower trees: Condition, Cause, Repair Procedure.
+
+
+[.slide]
+== Shared keys connect the trees
+
+Sections mention part numbers and trouble codes in their text.
+At AutoFix, the parsing pipeline has already extracted those mentions, so each becomes a node and a relationship:
+
+[source,mermaid]
+----
+graph LR
+    S1((Section <br> Ignition Coil <br> Replacement)) -->|REFERENCES_PART| P((Part <br> IC-2042-A))
+    S2((Section <br> TSB-21-114 <br> Cause)) -->|REFERENCES_PART| P
+    S1 -->|REFERENCES_CODE| C((DTC <br> P0301))
+    S3((Section <br> TSB-21-114 <br> Condition)) -->|REFERENCES_CODE| C
+----
+
+The manual section and the bulletin section now meet at the same `Part` and `DTC` nodes.
+Two documents that never cite each other are connected - because they talk about the same thing.
+
+
+[.slide]
+== Deriving LINKS_TO
+
+From the shared keys, you can derive a direct relationship between related sections: wherever two sections in _different_ documents reference the same part or code, create `LINKS_TO` between them.
+
+The result is a web of cross-document links with real meaning - each link can name the keys that justify it:
+
+----
+(Ignition Coil Replacement)-[:LINKS_TO {sharedKeys: ['IC-2042-A']}]->(TSB-21-114 Cause)
+----
+
+Compare that to vector search: similarity can tell you two passages _sound_ alike, but it cannot tell you _why_ they are related, and it returns disconnected paragraphs.
+`LINKS_TO` is explicit, explainable, and traversable - and in Module 3 it becomes the input for theme detection.
+
+
+read::Continue to the challenge[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned the first shape:
+
+* **Trees** - `Document -[:HAS_SECTION*]-> Section` keeps the structure keyword search throws away
+* **Shared keys** - sections reference `Part` and `DTC` nodes extracted from their text
+* **LINKS_TO** - derived relationships between sections in different documents that share a key, with the keys recorded on the relationship
+
+In the next challenge, you will load AutoFix's ten documents and build this graph yourself.

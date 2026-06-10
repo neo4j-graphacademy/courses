@@ -1,0 +1,138 @@
+= Load the Warehouse
+:type: challenge
+:order: 2
+:duration: 7
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+You will merge the Delta table exports into the document graph - and verify that the shared keys joined the two halves instead of duplicating them.
+
+This completes **Building Block 3**: "One graph spans documents and tables" ✓
+
+
+[.slide]
+== Step 1 - Constraints and reference data
+
+Create constraints for the new entity types, then load the two reference tables.
+Watch the `MERGE` clauses - `Part` and `DTC` match the nodes the PDFs already created:
+
+[source,cypher]
+.Constraints, parts, and codes
+----
+CREATE CONSTRAINT vehicle_vin IF NOT EXISTS FOR (v:Vehicle) REQUIRE v.vin IS UNIQUE;
+CREATE CONSTRAINT work_order_id IF NOT EXISTS FOR (w:WorkOrder) REQUIRE w.id IS UNIQUE;
+CREATE CONSTRAINT procedure_id IF NOT EXISTS FOR (p:Procedure) REQUIRE p.id IS UNIQUE;
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/parts.csv' AS row
+MERGE (p:Part {partNumber: row.part_number})
+SET p.name = row.name;
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/parts.csv' AS row
+WITH row WHERE row.superseded_by IS NOT NULL AND row.superseded_by <> ''
+MATCH (old:Part {partNumber: row.part_number})
+MATCH (new:Part {partNumber: row.superseded_by})
+MERGE (old)-[:SUPERSEDED_BY]->(new);
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/dtc_codes.csv' AS row
+MERGE (c:DTC {code: row.code})
+SET c.description = row.description;
+----
+
+The parts catalog had 11 rows and the graph still has 11 `Part` nodes - no duplicates.
+The nodes the documents reference now also carry warehouse names, and the codes carry descriptions.
+
+
+[.slide]
+== Step 2 - Vehicles, procedures, and work orders
+
+[source,cypher]
+.Load the operational tables
+----
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/procedures.csv' AS row
+MERGE (p:Procedure {id: row.procedure_id})
+SET p.name = row.name,
+    p.laborHours = toFloat(row.labor_hours);
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/vehicles.csv' AS row
+MERGE (v:Vehicle {vin: row.vin})
+SET v.make = row.make,
+    v.model = row.model,
+    v.year = toInteger(row.year),
+    v.engine = row.engine;
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/work_orders.csv' AS row
+MERGE (w:WorkOrder {id: row.wo_id})
+SET w.opened = date(row.opened),
+    w.odometer = toInteger(row.odometer),
+    w.complaint = row.complaint,
+    w.comeback = toBoolean(row.comeback)
+WITH w, row
+MATCH (v:Vehicle {vin: row.vin})
+MERGE (v)-[:HAS_WORK_ORDER]->(w)
+WITH w, row
+MATCH (p:Procedure {id: row.procedure_id})
+MERGE (w)-[:PERFORMED]->(p);
+----
+
+30 vehicles, 13 procedures, and 39 work orders - each work order already connected to its vehicle and procedure.
+The `comeback` flag records whether the vehicle returned with the same problem.
+
+
+[.slide]
+== Step 3 - Cross the boundary
+
+Two more loads connect work orders to the shared-key nodes:
+
+[source,cypher]
+.Diagnosed codes and replaced parts
+----
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/work_orders.csv' AS row
+WITH row WHERE row.dtc_code IS NOT NULL AND row.dtc_code <> ''
+MATCH (w:WorkOrder {id: row.wo_id})
+MATCH (c:DTC {code: row.dtc_code})
+MERGE (w)-[:DIAGNOSED]->(c);
+
+LOAD CSV WITH HEADERS FROM 'https://data.neo4j.com/genai-workshop-lakehouse/work_order_parts.csv' AS row
+MATCH (w:WorkOrder {id: row.wo_id})
+MATCH (p:Part {partNumber: row.part_number})
+MERGE (w)-[r:REPLACED]->(p)
+SET r.qty = toInteger(row.qty);
+----
+
+This is the boundary crossing: the `DTC` node a work order diagnoses is the same node a bulletin section references.
+
+
+[.slide]
+== See the join
+
+Run this to see a single `Part` node bridging both halves:
+
+[source,cypher]
+.One part, both worlds
+----
+MATCH (s:Section)-[:REFERENCES_PART]->(p:Part {partNumber: 'IC-2042-B'})
+      <-[:REPLACED]-(w:WorkOrder)
+RETURN p.partNumber AS part, p.name AS name,
+       count(DISTINCT s) AS documentSections,
+       count(DISTINCT w) AS workOrders
+----
+
+The revised coil is referenced by document sections on one side and replaced on work orders on the other - one node, one graph, no glue code.
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You merged the warehouse into the document graph:
+
+* 30 `Vehicle`, 39 `WorkOrder`, and 13 `Procedure` nodes with their relationships
+* `Part` and `DTC` nodes enriched - not duplicated - by `MERGE` on the shared keys
+* `SUPERSEDED_BY` recorded between the original and revised coil
+* **Building Block 3**: "One graph spans documents and tables" ✓
+
+In the next challenge, you will write the multi-hop queries this graph was built for.

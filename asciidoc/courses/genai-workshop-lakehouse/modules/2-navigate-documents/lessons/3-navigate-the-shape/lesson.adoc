@@ -1,0 +1,94 @@
+= Navigate the Shape
+:type: challenge
+:order: 3
+:duration: 8
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+The document graph exists - now use it.
+You will answer three questions Dani's keyword portal could not, by navigating the tree and following the shared-key links.
+
+
+[.slide]
+== Walk a table of contents
+
+An agent's first question about any document estate is "what's here?".
+The tree answers it directly:
+
+[source,cypher]
+.Table of contents for the Falcon manual
+----
+MATCH path = (d:Manual {id: 'MAN-FAL-3'})-[:HAS_SECTION*]->(s:Section)
+RETURN reduce(indent = '', _ IN range(2, length(path)) | indent + '  ')
+       + s.title AS tableOfContents
+ORDER BY [n IN nodes(path) | n.seq]
+----
+
+The variable-length pattern `[:HAS_SECTION*]` walks the whole tree in one clause, and the path length drives the indentation.
+You should see the manual's three chapters - Engine, Electrical, Brakes - with their sections nested beneath.
+
+Keyword search cannot produce this view at all: it has no concept of "contains".
+
+
+[.slide]
+== Find every document about a part
+
+Dani's real question: the recall mentioned coil `IC-2042-A` - what else covers it?
+
+[source,cypher]
+.All documents that reference a part
+----
+MATCH (d:Document)-[:HAS_SECTION*]->(s:Section)
+      -[:REFERENCES_PART]->(p:Part {partNumber: 'IC-2042-A'})
+RETURN d.docType AS type, d.title AS document,
+       collect(s.title) AS sections
+----
+
+Three documents - of three different types - reference this part: the service manual, a bulletin, and a safety recall.
+That cross-document view is exactly what 40 keyword hits buried.
+
+**Try experimenting:**
+
+* Change the part number to `BP-7720` to map the brake-pad documents
+* Match on `(:DTC {code: 'P0301'})` with `REFERENCES_CODE` to do the same for a trouble code
+
+
+[.slide]
+== Follow the links
+
+From the misfire bulletin, what related guidance exists - and why is it related?
+
+[source,cypher]
+.What does TSB-21-114 link to?
+----
+MATCH (b:Bulletin {id: 'TSB-21-114'})-[:HAS_SECTION*]->(s:Section)
+      -[l:LINKS_TO]-(other:Section)<-[:HAS_SECTION*]-(d:Document)
+RETURN DISTINCT d.title AS linkedDocument,
+       other.title AS section,
+       l.sharedKeys AS via
+ORDER BY linkedDocument
+----
+
+Every row is explainable: the bulletin links to the Falcon manual's coil sections _via_ `IC-2042-A`, and to the recall _via_ the coil part numbers.
+An agent following these links retrieves a **connected set** - the right meaning in the right shape.
+
+Now answer the questions below from your query results.
+
+include::questions/1-coil-documents.adoc[leveloffset=+1]
+
+include::questions/2-brake-bulletin.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You navigated the document graph:
+
+* **Tree walks** - `[:HAS_SECTION*]` produces a table of contents keyword search cannot
+* **Part-centred views** - one query collects every document type covering a part
+* **Explainable links** - `LINKS_TO` traversals return connected, justified context
+
+In the next module, you will run community detection over these links to surface the themes nobody named.
