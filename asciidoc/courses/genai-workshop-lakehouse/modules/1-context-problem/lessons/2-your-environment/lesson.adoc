@@ -1,7 +1,7 @@
 = Your Environment
 :type: lesson
 :order: 2
-:duration: 4
+:duration: 6
 :sandbox: true
 
 
@@ -9,69 +9,100 @@
 == Introduction
 
 You saw the three-layer wall in the previous lesson.
-Before you start building, you need to know what data you have and where it came from.
+You will break through it the way you would on the job: by building a **service-advisor agent** - a skill your coding agent runs to decide and act on AutoFix work orders.
 
-In this lesson, you will tour the workshop sandbox and the two halves of the AutoFix lakehouse.
-
-
-[.slide]
-== Your sandbox
-
-This workshop uses an integrated Neo4j sandbox - no setup required.
-The sandbox window is on the right of the screen, and it includes the Graph Data Science library you will use in Module 3.
-
-The database starts **empty**.
-That is deliberate: building each shape yourself - load, link, detect, merge - is the workshop.
-
-Run this query in the sandbox to confirm you are connected:
-
-[source,cypher]
-.Confirm your sandbox is ready
-----
-RETURN gds.version() AS gdsVersion
-----
-
-You should see a version number, confirming Graph Data Science is available.
+In this lesson, you will open your workshop environment, connect it to Neo4j, and load the lakehouse.
 
 
 [.slide]
-== The two halves of the lakehouse
+== Open your Codespace
 
-In production, AutoFix's data lives in Databricks:
+The workshop environment runs in a GitHub Codespace - a cloud development environment in your browser with everything preinstalled: Python, the Neo4j CLI with its agent skills, and the Claude Code coding agent.
 
-[cols="1,2,2", options="header"]
+// TODO: repoint to neo4j-graphacademy/genai-workshop-lakehouse once the org repo exists
+link:https://github.com/codespaces/new/zach-blumenfeld/genai-workshop-lakehouse[Open in GitHub Codespace^,role="btn"]
+
+While it builds (a few minutes), look at what is inside:
+
+[cols="1,2", options="header"]
 |===
-| Half | Where it lives | What's in it
-| Documents
-| PDFs in cloud storage
-| 3 service manuals, 5 technical service bulletins, 2 recall notices
-| Warehouse
-| Delta tables under Unity Catalog (`autofix.service.*`)
-| 30 vehicles, 39 work orders, 11 parts, 13 procedures, 6 trouble codes
+| Folder | What
+| `sources/` | The lakehouse: real PDF manuals, bulletins, and recall notices, plus CSV exports of the Delta tables
+| `load/` | The pipeline that parses the PDFs and merges the warehouse into one graph
+| `skill/` | **What you build** - the service-advisor playbook and its tool scripts
+| `api/` | A mock parts-ordering API your agent will act through
+| `events/` | Incoming work orders for the finale
+| `solutions/` | Complete scripts if you need to catch up
 |===
-
-For this workshop, both halves are published as CSV exports, so you can load them with `LOAD CSV` and spend the time on graph value, not connector plumbing.
-The PDFs have already been parsed: each document's sections, and the part numbers and trouble codes mentioned in each section, are extracted into tables.
 
 [NOTE]
-.Production import paths
+.Prefer your own setup?
 ====
-In production you would not export CSVs by hand.
-The take-home repository includes the Databricks workflow for this import - Spark connector for Delta tables, a parsing pipeline for the PDFs - plus adapters for Snowflake and BigQuery.
-Module 4 shows where it slots in.
+Everything runs locally too: clone the repository, `pip install -r requirements.txt`, install link:https://github.com/neo4j-labs/neo4j-cli[neo4j-cli^], and run `neo4j-cli skill install` for the agent of your choice.
 ====
 
 
 [.slide]
-== The shared keys
+== Connect to your database
 
-Two identifier types appear on _both_ halves:
+GraphAcademy has provisioned a Neo4j sandbox for you, with the Graph Data Science library you will use in Module 3.
+Paste these credentials into the `.env` file in your Codespace:
 
-* **Part numbers** - `IC-2042-A` appears in the Falcon manual, in bulletin TSB-21-114, in recall RC-2021-04, _and_ in the warehouse's parts catalog and work order line items
-* **Diagnostic trouble codes (DTCs)** - `P0301` appears in manual diagnosis sections, in bulletins, _and_ on diagnosed work orders
+[source,subs="verbatim,attributes"]
+.Your database credentials (.env)
+----
+NEO4J_URI={instance-scheme}://{instance-ip}:{instance-boltPort}
+NEO4J_USERNAME={instance-username}
+NEO4J_PASSWORD={instance-password}
+NEO4J_DATABASE={instance-database}
+----
 
-Nothing in the lakehouse treats these as links.
-Everything you build in the next three modules does.
+[NOTE]
+.Claude access
+====
+If you are signed in to Claude Code, you are done.
+Otherwise set `ANTHROPIC_API_KEY` in the same `.env` file - use the key provided in the workshop, or create your own at link:https://console.anthropic.com[console.anthropic.com^].
+====
+
+
+[.slide]
+== Load the lakehouse
+
+One command builds the workshop's starting graph:
+
+[source,shell]
+.Parse the PDFs, merge the warehouse
+----
+python load/load_graph.py
+----
+
+You should see the pipeline parse 10 PDFs into 37 sections, merge the six warehouse tables, and finish with one connected graph.
+Worth noticing while it runs: the document half comes from **real PDFs** and the warehouse half from CSV exports - and `load/warehouse_source.py` swaps those CSVs for a live Databricks connection by changing one environment variable.
+The graph, and everything you build on it, never knows the difference.
+
+Then start the parts API in a second terminal - your agent acts through it in Module 4:
+
+[source,shell]
+.Start the mock dealer-management API
+----
+uvicorn api.parts_api:app --port 8800
+----
+
+
+[.slide]
+== Meet your agent
+
+Start your coding agent in the repository root and ask it something only the graph can answer:
+
+[source,shell]
+.Smoke test
+----
+claude
+> What is in the Neo4j database described by .env? Give me counts by label.
+----
+
+The agent uses the Neo4j skills to inspect the graph: 10 documents, 37 sections, 30 vehicles, 39 work orders - both halves of the lakehouse, one graph.
+The sandbox window on the right is your inspection surface throughout: when a tool returns ids, look at them there as a graph.
 
 read::Continue[]
 
@@ -79,11 +110,11 @@ read::Continue[]
 [.summary]
 == Summary
 
-In this lesson, you toured your environment:
+In this lesson, you set up your environment:
 
-* **Sandbox** - empty Neo4j database with Graph Data Science, integrated in the browser
-* **Document half** - 10 parsed PDFs: manuals, bulletins, recall notices
-* **Warehouse half** - Delta table exports: vehicles, work orders, parts, procedures
-* **Shared keys** - part numbers and trouble codes appear on both halves
+* **Codespace** - Python, neo4j-cli with agent skills, and Claude Code, preinstalled
+* **One-command load** - PDFs parsed, warehouse merged, sources swappable for live Databricks
+* **Parts API** - the external system your agent will act through
+* **Smoke test** - your agent can already see both halves of the lakehouse
 
-In the next module, you will load the documents and build the first shape: a navigable tree.
+In the next module, you will build your skill's first tools and navigate the document tree.

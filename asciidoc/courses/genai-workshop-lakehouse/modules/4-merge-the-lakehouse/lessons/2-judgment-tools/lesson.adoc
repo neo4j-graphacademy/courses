@@ -1,0 +1,73 @@
+= Build the Judgment Tools
+:type: challenge
+:order: 2
+:duration: 9
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+The navigation and theme tools tell the agent what the documents _say_.
+The judgment tools tell it what actually _worked_ - by crossing the boundary into the warehouse half.
+
+These two are written from specification, the way you would build them on the job: the spec is the contract, your coding agent is the pair programmer, and the data tells you if you got it right.
+
+
+[.slide]
+== The specs
+
+Open `skill/SKILL.md` and find the **Judgment and actions** section.
+Two of its four specs are this challenge:
+
+* **`what_fixed_this.py <vin> <code>`** - for vehicles with the same model and engine, every (document, part) pair where the document covers the code and the part was replaced on a work order diagnosed with it; with `timesUsed` and `comebacks`, ordered so the first row is the evidence-backed fix
+* **`recall_exposure.py <vin>`** - every recall in scope for the vehicle's model whose remedy part this vehicle has never received
+
+These scripts **do not exist yet** - creating them is the challenge.
+Hand each spec to your coding agent, review the Cypher it writes, and test against the questions below.
+`skill/scripts/db.py` has the connection helper; the graph schema is at the top of SKILL.md.
+
+
+[.slide]
+== Why this query needed the merged graph
+
+Whichever way your agent writes `what_fixed_this`, the traversal must cross the boundary: it starts in document trees (which documents cover this code, which parts do they name) and ends in warehouse history (which work orders replaced that part, did the vehicle come back).
+The `Part` and `DTC` nodes joining the two halves exist because the load pipeline merged the warehouse **onto the same keys the PDF sections reference** - one `MERGE` on `partNumber`, one on `code`.
+
+No vector index can return this, and Text2SQL fails silently on the five joins it implies.
+This shape is why the graph exists.
+
+
+[.slide]
+== Test against Dani's bay
+
+[source,shell]
+----
+python skill/scripts/what_fixed_this.py CM-FAL-2020-0451 P0301
+python skill/scripts/recall_exposure.py CM-FAL-2020-0451
+----
+
+Read the first tool's top row, then the second tool's only row - then answer the questions below.
+Worth pausing on what just happened: the second result means the misfire in the bay and an open safety recall are the **same story**, discoverable only because both halves of the lakehouse live in one graph.
+
+[TIP]
+.Stuck or out of sync?
+====
+Complete versions are in `solutions/scripts/` - compare or copy, then keep moving.
+====
+
+include::questions/1-zero-comebacks.adoc[leveloffset=+1]
+
+include::questions/2-recall-exposure.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You built the judgment tools:
+
+* **what_fixed_this.py** - guidance ranked by real outcomes; the revised coil wins with five repairs and zero comebacks
+* **recall_exposure.py** - the car in the bay is the one vehicle with open recall exposure
+* The cross-boundary traversal works because the warehouse merged onto the keys the PDFs already reference
+
+In the final challenge, your agent puts judgment and action together - on a live work order.

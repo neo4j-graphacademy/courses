@@ -1,0 +1,91 @@
+= Build the Navigation Tools
+:type: challenge
+:order: 2
+:duration: 9
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+Your skill's first two tools give the agent grounded navigation: a table of contents for any document, and every document that covers a trouble code.
+Both scripts exist in `skill/scripts/` with their Cypher left blank - you will fill them in.
+
+This completes **Building Block 1**: "The agent can navigate what's there" ✓
+
+
+[.slide]
+== How the document graph got there
+
+The load pipeline already built the first shape from the PDFs.
+Open `sources/pdfs/MAN-FAL-3.pdf` and compare it to what is in the graph:
+
+* Every PDF became a `Document` node (`:Manual`, `:Bulletin`, or `:RecallNotice`)
+* Its headings became a `Section` tree: `(Document)-[:HAS_SECTION*]->(Section)`
+* Part numbers and trouble codes mentioned in section text became `(Section)-[:REFERENCES_PART]->(Part)` and `(Section)-[:REFERENCES_CODE]->(DTC)` - extracted against the parts catalog, the way a real pipeline uses a known vocabulary
+* Sections in _different_ documents sharing a key got `(Section)-[:LINKS_TO {sharedKeys, strength}]->(Section)`
+
+Verify the load below before building on it.
+
+
+[.slide]
+== Fill in doc_toc.py
+
+Open `skill/scripts/doc_toc.py`.
+The scaffold is complete - it needs the tree-walking Cypher:
+
+[source,cypher]
+.The pattern to complete it with
+----
+MATCH path = (d:Document {id: $doc_id})-[:HAS_SECTION*]->(s:Section)
+RETURN s.id AS id, s.title AS section, length(path) - 1 AS depth
+ORDER BY [n IN nodes(path) | n.seq]
+----
+
+The variable-length pattern `[:HAS_SECTION*]` walks the whole tree in one clause - this is what keyword search can never do, because search has no concept of "contains".
+
+Test it:
+
+[source,shell]
+----
+python skill/scripts/doc_toc.py MAN-FAL-3
+----
+
+You should see the Falcon manual's three chapters - Engine, Electrical, Brakes - with their sections at depth 1.
+
+
+[.slide]
+== Fill in applicable_docs.py
+
+Now `skill/scripts/applicable_docs.py` - the grounding tool.
+Work with your coding agent on this one: describe the pattern you need (documents whose tree contains a section referencing the code, with the matching section titles collected) and review what it writes against the hints in the file.
+
+Test it with Dani's code:
+
+[source,shell]
+----
+python skill/scripts/applicable_docs.py P0301
+----
+
+Two documents should come back: the Falcon Service Manual and bulletin TSB-21-114 - with the exact sections that mention the code.
+That section list is what makes the agent's answers _grounded_: every recommendation in Module 4 will cite sections returned by this tool.
+
+[TIP]
+.Stuck or out of sync?
+====
+Complete versions of every script are in `solutions/scripts/` - copy one over and keep moving.
+====
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You built the navigation tools:
+
+* **doc_toc.py** - the tree walk that gives an agent a table of contents
+* **applicable_docs.py** - every document covering a code, with the grounding sections
+* **Building Block 1**: "The agent can navigate what's there" ✓
+
+In the next challenge, you will put the tools and the shared-key links to work on Dani's questions.

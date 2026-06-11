@@ -8,19 +8,20 @@
 [.slide.discrete]
 == Challenge
 
-You will project the document links into Graph Data Science, run the Leiden algorithm, tune its resolution, and write each section's theme back to the graph.
+Your skill's theme tools surface the patterns nobody named.
+Two more scripts to complete: `run_leiden.py` detects the themes; `theme_cards.py` turns them into the view your agent reasons over.
 
 This completes **Building Block 2**: "Themes nobody named exist as data" ✓
 
 
 [.slide]
-== Step 1 - Project the graph
+== Fill in run_leiden.py
 
-Graph Data Science algorithms run on an in-memory projection.
-Project the `Section` nodes and the `LINKS_TO` relationships, treating links as undirected (sharing a key has no direction) and carrying `strength` as a weight:
+Open `skill/scripts/run_leiden.py`.
+The blank is the graph projection - Graph Data Science algorithms run on an in-memory projection of just the parts of the graph they need:
 
 [source,cypher]
-.Project sections and links
+.The projection to complete it with
 ----
 CALL gds.graph.project(
   'doc-links',
@@ -29,80 +30,55 @@ CALL gds.graph.project(
 )
 ----
 
-You should see a projection with 37 nodes and 84 relationships - each undirected link counts twice.
+`UNDIRECTED` because sharing a key has no direction, and `strength` - how many keys two sections share - becomes the algorithm's edge weight.
+
+Run it at the default resolution first, in stream-and-look mode:
+
+[source,shell]
+----
+python skill/scripts/run_leiden.py 1.0
+python skill/scripts/theme_cards.py
+----
+
+(Fill in `theme_cards.py` first if you want the cards - or peek at the raw assignments with `neo4j-cli query "MATCH (s:Section) RETURN s.communityId, collect(s.id)"`.)
 
 
 [.slide]
-== Step 2 - Run Leiden in stream mode
+== Look closely, then tune
 
-Stream mode shows results without writing anything - run it first to see what the algorithm finds:
+At the default resolution, around seven multi-member themes appear - and the ignition story is split: the coil-part sections and the misfire-code sections landed in separate communities.
+Structurally defensible; a technician would call it one topic.
 
-[source,cypher]
-.Stream Leiden communities
+Leiden's `gamma` parameter is the granularity dial - lower favors fewer, larger communities:
+
+[source,shell]
 ----
-CALL gds.leiden.stream('doc-links', {relationshipWeightProperty: 'strength'})
-YIELD nodeId, communityId
-WITH communityId, collect(gds.util.asNode(nodeId).id) AS sections
-WHERE size(sections) > 1
-RETURN communityId, size(sections) AS members, sections
-ORDER BY members DESC
+python skill/scripts/run_leiden.py 0.5
 ----
 
-You should see around seven multi-member communities.
-Look closely at the top two: the ignition story is split - the coil-part sections and the misfire-code sections landed in separate communities.
-Structurally defensible, but a technician would call it one topic.
+Now six themes - and the largest unites all nine ignition sections across the Falcon manual, the Osprey manual, bulletin TSB-21-114, and recall RC-2021-04.
+There is no single correct resolution; it depends on the questions you will ask.
+For AutoFix's repair themes, 0.5 matches how technicians think - and it is the default the script ships with.
 
 
 [.slide]
-== Step 3 - Tune the resolution
+== Fill in theme_cards.py
 
-Leiden's `gamma` parameter controls granularity: lower values favor fewer, larger communities.
-Re-run with `gamma: 0.5`:
+Complete `skill/scripts/theme_cards.py` with your coding agent - the hints in the file describe the aggregation: group sections by `communityId`, collect the documents and the shared keys per theme.
 
-[source,cypher]
-.Stream Leiden with lower resolution
+[source,shell]
 ----
-CALL gds.leiden.stream('doc-links', {
-  relationshipWeightProperty: 'strength',
-  gamma: 0.5
-})
-YIELD nodeId, communityId
-WITH communityId, collect(gds.util.asNode(nodeId).id) AS sections
-WHERE size(sections) > 1
-RETURN communityId, size(sections) AS members, sections
-ORDER BY members DESC
+python skill/scripts/theme_cards.py
 ----
 
-Now six communities - and the largest one unites all nine ignition sections: Falcon manual, Osprey manual, bulletin TSB-21-114, and recall RC-2021-04.
-The other five map cleanly to charging, wheel-speed sensors, brake judder, catalyst, and the brake hose recall.
-
-There is no single correct resolution - it is a dial between fine-grained and broad themes, and the right setting depends on the questions you will ask.
-
-
-[.slide]
-== Step 4 - Write the themes back
-
-Make the themes part of the graph so any later query - or agent tool - can use them:
-
-[source,cypher]
-.Write communityId onto each Section
-----
-CALL gds.leiden.write('doc-links', {
-  writeProperty: 'communityId',
-  relationshipWeightProperty: 'strength',
-  gamma: 0.5
-})
-YIELD communityCount, nodeCount
-RETURN communityCount, nodeCount
-----
-
-Every `Section` node now has a `communityId` property.
+Six cards summarize the entire document estate - small enough for one prompt, and every line traces back to explicit links.
+The largest card is the ignition misfire theme, assembled by the algorithm from document types that never cite each other.
 
 [NOTE]
 .Community IDs are labels, not constants
 ====
-Leiden assigns arbitrary ID numbers, and they can differ between runs.
-Never hard-code a community ID - find a theme by its members or its keys, as you will in the next lesson.
+Leiden assigns arbitrary id numbers that can differ between runs.
+Tools should find a theme by its members or keys - never hard-code a community id.
 ====
 
 include::questions/verify.adoc[leveloffset=+1]
@@ -111,11 +87,10 @@ include::questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You surfaced the themes:
+You built the theme tools:
 
-* **Projection** - sections and weighted, undirected links in memory
-* **Leiden stream** - default resolution found seven fine themes; `gamma: 0.5` found six that match how technicians think
-* **Write back** - `communityId` is now a property any query can use
+* **run_leiden.py** - projection + Leiden, with `gamma` as the granularity dial; 0.5 matches how technicians think
+* **theme_cards.py** - the compact, grounded view an agent reasons over
 * **Building Block 2**: "Themes nobody named exist as data" ✓
 
-In the next lesson, you will turn the IDs into theme cards an agent can reason over.
+In the next lesson, you will see what the cards unlock for an agent - and for Morgan's ops questions.
