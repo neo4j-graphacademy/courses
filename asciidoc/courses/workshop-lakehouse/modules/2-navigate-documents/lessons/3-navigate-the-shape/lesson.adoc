@@ -8,8 +8,8 @@
 [.slide.discrete]
 == Challenge
 
-Your navigation tools exist - now stretch them.
-You will answer three questions Dani's keyword portal could not, running the queries in the sandbox to see what your tools traverse - and asking your agent the same questions to watch it choose them.
+Your navigation tools exist - now stretch them on three questions Dani's keyword portal could not answer.
+Use the tools first; each slide also shows the Cypher underneath, to run in the sandbox and see what the tool traverses.
 
 
 [.slide]
@@ -18,17 +18,14 @@ You will answer three questions Dani's keyword portal could not, running the que
 An agent's first question about any document estate is "what's here?".
 The tree answers it directly:
 
-[source,cypher]
+[source,shell]
 .Table of contents for the Falcon manual
 ----
-MATCH path = (d:Manual {id: 'MAN-FAL-3'})-[:HAS_SECTION*]->(s:Section)
-RETURN reduce(indent = '', _ IN range(2, length(path)) | indent + '  ')
-       + s.title AS tableOfContents
-ORDER BY [n IN nodes(path) | n.seq]
+python skill/scripts/outline.py technical-library/manuals/man-fal-3.pdf
 ----
 
-The variable-length pattern `[:HAS_SECTION*]` walks the whole tree in one clause, and the path length drives the indentation.
-You should see the manual's three chapters - Engine, Electrical, Brakes - with their sections nested beneath.
+You should see the manual's three chapters - Engine, Electrical, Brakes - sections in reading order, and `→` rows where its sections link out.
+Underneath, the tool runs one variable-length walk - `MATCH path = (root)-[:HAS*0..25]->(n)` - and the renderer turns path lengths into indentation.
 
 Keyword search cannot produce this view at all: it has no concept of "contains".
 
@@ -41,10 +38,10 @@ Dani's real question: the recall mentioned coil `IC-2042-A` - what else covers i
 [source,cypher]
 .All documents that reference a part
 ----
-MATCH (d:Document)-[:HAS_SECTION*]->(s:Section)
+MATCH (d:Document)-[:HAS*]->(s:Section)
       -[:REFERENCES_PART]->(p:Part {partNumber: 'IC-2042-A'})
 RETURN d.docType AS type, d.title AS document,
-       collect(s.title) AS sections
+       collect(s.displayName) AS sections
 ----
 
 Three documents - of three different types - reference this part: the service manual, a bulletin, and a safety recall.
@@ -53,7 +50,7 @@ That cross-document view is exactly what 40 keyword hits buried.
 **Try experimenting:**
 
 * Change the part number to `BP-7720` to map the brake-pad documents
-* Match on `(:DTC {code: 'P0301'})` with `REFERENCES_CODE` to do the same for a trouble code
+* Try the same question through search: `python skill/scripts/search.py 'IC-2042-A'`
 
 
 [.slide]

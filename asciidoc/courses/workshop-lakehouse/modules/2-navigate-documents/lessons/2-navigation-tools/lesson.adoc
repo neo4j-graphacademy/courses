@@ -1,79 +1,83 @@
-= Build the Navigation Tools
+= Build the Outline and Search Tools
 :type: challenge
 :order: 2
-:duration: 9
+:duration: 11
 :sandbox: true
 
 
 [.slide.discrete]
 == Challenge
 
-Your skill's first two tools give the agent grounded navigation: a table of contents for any document, and every document that covers a trouble code.
-Both scripts exist in `skill/scripts/` with their Cypher left blank - you will fill them in.
+Two tools give your agent grounded navigation: `outline.py` renders the ToC shape, `search.py` adds ranked full-text entry points.
+Both ship with their plumbing complete and their **shape-materializing queries left to you** - the spec is the contract, your coding agent is the pair programmer.
 
 This completes **Building Block 1**: "The agent can navigate what's there" ✓
 
 
 [.slide]
-== How the document graph got there
+== Build the outline query
 
-The load pipeline already built the first shape from the PDFs.
-Open `sources/pdfs/MAN-FAL-3.pdf` and compare it to what is in the graph:
-
-* Every PDF became a `Document` node (`:Manual`, `:Bulletin`, or `:RecallNotice`)
-* Its headings became a `Section` tree: `(Document)-[:HAS_SECTION*]->(Section)`
-* Part numbers and trouble codes mentioned in section text became `(Section)-[:REFERENCES_PART]->(Part)` and `(Section)-[:REFERENCES_CODE]->(DTC)` - extracted against the parts catalog, the way a real pipeline uses a known vocabulary
-* Sections in _different_ documents sharing a key got `(Section)-[:LINKS_TO {sharedKeys, strength}]->(Section)`
-
-Verify the load below before building on it.
-
-
-[.slide]
-== Fill in doc_toc.py
-
-Open `skill/scripts/doc_toc.py`.
-The scaffold is complete - it needs the tree-walking Cypher:
+Open `skill/scripts/outline.py`.
+The renderer - grouping, sibling sorting, dotted rows - is given; the `WIRE` query is marked `BUILD FROM SPEC`.
+Hand your agent the wire contract from `docs/outline-format.md` and review what it writes.
+The reasoning it must land on:
 
 [source,cypher]
-.The pattern to complete it with
+.The walk that materializes a tree of unknown depth
 ----
-MATCH path = (d:Document {id: $doc_id})-[:HAS_SECTION*]->(s:Section)
-RETURN s.id AS id, s.title AS section, length(path) - 1 AS depth
-ORDER BY [n IN nodes(path) | n.seq]
+MATCH path = (root)-[:HAS*0..25]->(n)
 ----
 
-The variable-length pattern `[:HAS_SECTION*]` walks the whole tree in one clause - this is what keyword search can never do, because search has no concept of "contains".
+One variable-length pattern reaches every descendant; `length(path)` is the depth; the second-to-last node on the path is the parent.
 
 Test it:
 
 [source,shell]
 ----
-python skill/scripts/doc_toc.py MAN-FAL-3
+python skill/scripts/outline.py
+python skill/scripts/outline.py technical-library/bulletins/tsb-21-114.pdf
 ----
 
-You should see the Falcon manual's three chapters - Engine, Electrical, Brakes - with their sections at depth 1.
+You should see the full library ToC, then the bulletin's subtree - with `→` rows showing its citations into the recall and its derived links into the manuals.
+Copy any URI from the output and drill into it: that round-trip is the shape doing its job.
 
 
 [.slide]
-== Fill in applicable_docs.py
+== Build the search query
 
-Now `skill/scripts/applicable_docs.py` - the grounding tool.
-Work with your coding agent on this one: describe the pattern you need (documents whose tree contains a section referencing the code, with the matching section titles collected) and review what it writes against the hints in the file.
+Open `skill/scripts/search.py` - same deal, the fulltext call is marked `BUILD FROM SPEC`.
+The index already exists (the pipeline created `content_search` over `Document|Section`); the query calls it, then **scopes by subtree**:
 
-Test it with Dani's code:
+[source,cypher]
+.The index ranks, the graph scopes
+----
+CALL db.index.fulltext.queryNodes('content_search', $lucene)
+YIELD node, score
+WHERE $under IS NULL OR node.uri STARTS WITH $under
+----
+
+The hierarchical URIs earn their keep here: one `STARTS WITH` turns any subtree into a search scope.
+
+Test it:
 
 [source,shell]
 ----
-python skill/scripts/applicable_docs.py P0301
+python skill/scripts/search.py 'misfire OR "rough idle"' -k 4
+python skill/scripts/search.py 'coil' --under technical-library/recalls
 ----
 
-Two documents should come back: the Falcon Service Manual and bulletin TSB-21-114 - with the exact sections that mention the code.
-That section list is what makes the agent's answers _grounded_: every recommendation in Module 4 will cite sections returned by this tool.
+[NOTE]
+.Semantic expansion is the agent's job
+====
+The index is lexical - "stumble" never matches "misfire".
+The skill instructs your agent to rewrite thin queries with OR-alternates it knows.
+Try asking your agent: "search the library for anything about engines shaking" - and watch what query it actually runs.
+====
 
 [TIP]
 .Stuck or out of sync?
 ====
-Complete versions of every script are in `solutions/scripts/` - copy one over and keep moving.
+Complete versions are in `solutions/scripts/` - compare or copy, then keep moving.
 ====
 
 include::questions/verify.adoc[leveloffset=+1]
@@ -82,10 +86,10 @@ include::questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You built the navigation tools:
+You built the navigation shapes:
 
-* **doc_toc.py** - the tree walk that gives an agent a table of contents
-* **applicable_docs.py** - every document covering a code, with the grounding sections
+* **outline.py** - a variable-length `HAS` walk rendered as a ToC with copy-pasteable URIs
+* **search.py** - fulltext ranking scoped by URI prefix, with semantic expansion left to the agent
 * **Building Block 1**: "The agent can navigate what's there" ✓
 
-In the next challenge, you will put the tools and the shared-key links to work on Dani's questions.
+In the next challenge, you will put both tools to work on Dani's questions.

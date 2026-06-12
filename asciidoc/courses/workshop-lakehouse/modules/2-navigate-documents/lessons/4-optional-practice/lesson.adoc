@@ -1,4 +1,4 @@
-= Optional Document Graph Practice
+= Optional Library Practice
 :type: lesson
 :order: 4
 :duration: 10
@@ -9,12 +9,12 @@
 [.slide.discrete]
 == Optional Practice
 
-You built and navigated the document graph.
-In this lesson, you will practice tree and shared-key queries with three more questions from the AutoFix shop floor.
+You built the outline and search tools.
+In this lesson, you will practice the model underneath them - the `HAS` tree, the URIs, and the link types - with four more questions from the AutoFix shop floor.
 
 **Advanced learners:** Skip to Module 3.
 
-**Beginners:** These exercises build the traversal fluency you will use when themes and work orders join the graph.
+**Beginners:** These exercises build the traversal fluency the themes and judgment tools rely on.
 
 
 [.slide]
@@ -27,8 +27,8 @@ Which document has the most sections, and how deep does each tree go?
 [source,cypher]
 .Sections per document
 ----
-MATCH path = (d:Document)-[:HAS_SECTION*]->(s:Section)
-RETURN d.title AS document,
+MATCH path = (d:Document)-[:HAS*]->(s:Section)
+RETURN d.displayName AS document,
        count(s) AS sections,
        max(length(path)) AS maxDepth
 ORDER BY sections DESC
@@ -39,65 +39,88 @@ Counting over the variable-length pattern gives the size of each tree, and the l
 **Try experimenting:**
 
 * Add `WHERE d:Bulletin` to size up only the bulletins
-* Return `d.published` to see how the estate grew over time
+* Start the walk from a `Folder` instead, and watch the depths shift by one
 ====
 
 
 [.slide]
-== Exercise 2: The most-talked-about parts
+== Exercise 2: Read around a section
 
-Which parts and codes are referenced by the most sections?
-An agent can use this as a quick "what matters most here" signal.
+A technician is reading the Falcon manual's misfire diagnosis.
+What comes immediately before and after it, in reading order?
 
 [%collapsible]
 ====
 [source,cypher]
-.Most-referenced shared keys
+.The reading-order window
 ----
-MATCH (s:Section)-[:REFERENCES_PART|REFERENCES_CODE]->(k)
-RETURN coalesce(k.partNumber, k.code) AS key,
-       count(s) AS mentions
-ORDER BY mentions DESC
-LIMIT 5
+MATCH (s:Section {uri: 'technical-library/manuals/man-fal-3.pdf#engine/misfire-diagnosis'})
+OPTIONAL MATCH (prev)-[:NEXT_SECTION]->(s)
+OPTIONAL MATCH (s)-[:NEXT_SECTION]->(next)
+RETURN prev.displayName AS before, s.displayName AS here, next.displayName AS after
 ----
 
-The original ignition coil `IC-2042-A` tops the list with five mentions - a hint of the story you will uncover in Module 4.
+`NEXT_SECTION` threads the document the way a human reads it - so an agent can widen its context window around any hit by one hop in each direction, without re-deriving order from the tree.
 
 **Try experimenting:**
 
-* Add `labels(k) AS kind` to the `RETURN` to separate parts from codes
-* Change `LIMIT 5` to see the full distribution
+* Chain two hops: `(s)-[:NEXT_SECTION*1..2]->(n)` for a wider window
 ====
 
 
 [.slide]
-== Exercise 3: Hub sections
+== Exercise 3: Citations versus derived links
 
-Which sections have the most cross-document links?
-These hubs are where an agent should look first when exploring a topic.
+The library has two kinds of cross-document connections.
+How many of each, and which sections explicitly cite another document?
 
 [%collapsible]
 ====
 [source,cypher]
-.Most-connected sections
+.The two link kinds
 ----
-MATCH (s:Section)-[:LINKS_TO]-(other)
-RETURN s.id AS section, s.title AS title,
-       count(other) AS degree
-ORDER BY degree DESC
-LIMIT 5
+MATCH (s:Section)-[l:LINKS_TO]->(t)
+RETURN CASE WHEN l.citation THEN 'citation' ELSE 'derived' END AS kind,
+       count(*) AS links
 ----
 
-The repair procedure of bulletin TSB-21-114 is the best-connected section in the estate, with six links - it names both coil part numbers and sits at the centre of the misfire story.
+[source,cypher]
+.Who cites whom
+----
+MATCH (s:Section)-[l:LINKS_TO {citation: true}]->(d:Document)
+RETURN s.uri AS fromSection, d.id AS citesDocument
+----
 
-Note the undirected pattern `-[:LINKS_TO]-`: links count whichever way they were stored.
+Citations exist because a section's text names another document; derived links exist because two sections reference the same part or code - and carry `sharedKeys` saying exactly which.
 
 **Try experimenting:**
 
-* Return `collect(other.title)` to see what each hub connects to
-* Filter with `WHERE s.id STARTS WITH 'S-FAL'` to find hubs within the Falcon manual
+* Return `l.sharedKeys` for the derived links and find the strongest one (`l.strength`)
 ====
 
+
+[.slide]
+== Exercise 4: Subtree scoping with URIs
+
+Count the sections under each folder - without touching the tree.
+
+[%collapsible]
+====
+[source,cypher]
+.Prefix matching replaces a traversal
+----
+MATCH (f:Folder)
+MATCH (s:Section) WHERE s.uri STARTS WITH f.uri + '/'
+RETURN f.name AS folder, count(s) AS sections
+ORDER BY sections DESC
+----
+
+Because URIs encode the hierarchy, subtree questions can be answered by string prefix alone - the same trick your search tool's `--under` scope and the theme tool's document collapse use.
+
+**Try experimenting:**
+
+* Compare with the traversal form `(f)-[:HAS*]->(s:Section)` - same counts, two different reasoning styles
+====
 
 read::Complete practice[]
 
@@ -105,10 +128,11 @@ read::Complete practice[]
 [.summary]
 == Summary
 
-In this optional practice, you reinforced the document graph patterns:
+In this optional practice, you exercised the model:
 
-* **Tree aggregation** - counting and measuring depth over `[:HAS_SECTION*]`
-* **Key frequency** - ranking shared keys by mentions
-* **Hub detection** - finding the best-connected sections with undirected `LINKS_TO` patterns
+* **Tree aggregation** - counting and depth over `[:HAS*]`
+* **Reading order** - `NEXT_SECTION` windows around any section
+* **Link kinds** - explicit citations versus derived shared-key links
+* **URI scoping** - subtree questions as string prefixes
 
-The hub and frequency signals you just queried are exactly what community detection formalizes - which is Module 3.
+Module 3 builds the themes shape on exactly these pieces.

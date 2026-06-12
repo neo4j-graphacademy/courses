@@ -18,5 +18,5 @@ WITH r
 MATCH (rc:RecallNotice {id: 'RC-2021-04'})
 MERGE (r)-[:BUNDLES_RECALL]->(rc)
 WITH r
-MATCH (s:Section) WHERE s.id IN ['S-TSB21114-3', 'S-RC202104-2']
+MATCH (s:Section) WHERE s.uri IN ['technical-library/bulletins/tsb-21-114.pdf#repair-procedure', 'technical-library/recalls/rc-2021-04.pdf#remedy']
 MERGE (r)-[:GROUNDED_IN]->(s);
