@@ -1,79 +1,59 @@
-= A Themes View for Agents
+= Reading Themes Like an Agent
 :type: lesson
 :order: 3
-:duration: 8
+:duration: 7
 :sandbox: true
 
 
 [.slide.discrete]
 == Introduction
 
-Every section now carries a `communityId`.
-On their own, the IDs are just numbers - the value comes from what you aggregate around them.
+Your themes tool prints evidence blocks, not answers.
+That is deliberate - and it is the part of the shape that makes agent decisions trustworthy.
 
-In this lesson, you will build a themes view an agent can reason over, and see the operational insights it unlocks.
-
-
-[.slide]
-== Theme cards
-
-For each community, collect the member sections, the documents involved, and the keys that hold the theme together:
-
-This is exactly what your `theme_cards.py` tool runs - here is its Cypher, to run in the sandbox and see as a table:
-
-[source,cypher]
-.The query inside theme_cards.py
-----
-MATCH (s:Section)
-WITH s.communityId AS theme, collect(s) AS members
-WHERE size(members) > 1
-UNWIND members AS s
-MATCH (d:Document)-[:HAS_SECTION*]->(s)
-OPTIONAL MATCH (s)-[:REFERENCES_PART|REFERENCES_CODE]->(k)
-WITH theme, count(DISTINCT s) AS sections,
-     collect(DISTINCT d.title) AS documents,
-     collect(DISTINCT coalesce(k.partNumber, k.code)) AS sharedKeys
-RETURN theme, sections, documents, sharedKeys
-ORDER BY sections DESC
-----
-
-The largest theme spans nine sections across four documents - two manuals, the misfire bulletin, and the coil recall - held together by `IC-2042-A`, `IC-2042-B`, `SP-1108`, `P0300`, and `P0301`.
-You are looking at the ignition misfire theme, assembled by the algorithm from documents that never cite each other.
+In this lesson, you will read the blocks the way an agent does, name the themes yourself, and see what the view unlocks for Morgan's operations questions.
 
 
 [.slide]
-== Hand it to the agent
+== The tool never names a theme
 
-Each row is a compact, grounded context block.
-Serialized for a prompt, the largest one reads:
+Run `python skill/scripts/themes.py --gamma 2.0` and look at one block:
 
 ----
-Theme: ignition misfire
-Defined by: IC-2042-A, IC-2042-B, SP-1108, P0300, P0301
-Documents: Falcon Service Manual (3rd Edition); Osprey Service Manual
-  (1st Edition); Revised Ignition Coil for Repeated Misfire (TSB-21-114);
-  Safety Recall - Ignition Coil Connector Overheating (RC-2021-04)
-Sections: 9
+T2  3 docs (30%) · moderately interlinked
+    top shared targets   [IC-2042-A] in 3 docs · [IC-2042-B] in 2 docs · [P0301] in 2 docs
+    most-linked docs     Revised Ignition Coil for Repeated Misfire .. D   technical-library/bulletins/tsb-21-114.pdf
+                         Falcon Service Manual (3rd Edition) ........ D   technical-library/manuals/man-fal-3.pdf
 ----
 
-Six of these cards describe AutoFix's entire document estate - small enough for one prompt, and every line traces back to explicit links.
-An agent can answer "what topics do our bulletins cluster around?" from this view alone, then drill into any theme by traversing its sections.
-
-Note what the theme _name_ is: a label you (or an LLM) attach to the card afterwards.
-The algorithm finds the structure; naming it is cheap once the structure exists.
+A generated label like "Theme: coils" would anchor you to whatever the tool guessed.
+Instead the block carries **naming evidence**: the shared parts and codes, and the member titles.
+You - or the agent - name it: _ignition misfire_.
+Bad labels anchor worse than no labels; evidence travels.
 
 
 [.slide]
-== Insights nobody asked the data for
+== Every line defends itself
 
-Morgan's team can now ask questions that were invisible when documents lived in a portal:
+Notice the format's honesty rules, straight from the spec:
 
-* **Where are issues concentrated?** The misfire theme touches 4 of 10 documents, including a safety recall - that is the shop's highest-stakes topic
-* **What training is needed?** A theme spanning a bulletin and a recall but only one manual section suggests technicians have thin reference material for a high-activity topic
-* **What does a new bulletin belong to?** When the next bulletin arrives, its shared keys connect it to an existing theme automatically - no manual tagging
+* The header reconciles: `10 docs · 9 grouped into 4 themes · 1 ungrouped` - an agent can never claim "the library is about these 4 things" when one document sits outside them
+* Counts carry units inline (`in 3 docs`), cohesion is a word backed by conductance, never a float to misread
+* Every document row ends in a full URI - the drill handle. Follow one with `python skill/scripts/outline.py <uri>` and you are inside that document's tree
 
-In the next module, work orders join the graph, and themes stop being about documents only - "which theme generates the most comebacks?" becomes answerable with one more hop.
+This is what "a view the agent can reason over" means: small enough for one prompt, and every claim traceable one tool-call deeper.
 
+
+[.slide]
+== Morgan's questions
+
+With themes as data, operations questions become one look:
+
+* **Where are issues concentrated?** The ignition theme spans a manual, a bulletin, and a recall - the shop's highest-stakes topic by document gravity
+* **Where is documentation thin?** A theme held together by strong shared targets but few member documents is a training-material gap
+* **Where does a new bulletin belong?** Its part and code references connect it to an existing theme the moment it is loaded - no manual tagging
+
+And next module, the warehouse joins the reasoning: "which theme generates the most comebacks?" becomes one more hop.
 
 read::Continue[]
 
@@ -81,10 +61,10 @@ read::Continue[]
 [.summary]
 == Summary
 
-In this lesson, you turned community IDs into an agent-ready view:
+In this lesson, you read the themes shape like an agent:
 
-* **Theme cards** - one row per community: member sections, documents, defining keys
-* **Grounded context** - six cards summarize the whole document estate and every claim traces to explicit links
-* **Operational insight** - concentration of issues, training gaps, and automatic placement of new documents
+* **Evidence, not labels** - shared targets + member titles are the naming signal; the agent does the naming
+* **Honest accounting** - headers reconcile, ungrouped is always visible, URIs make every claim drillable
+* **Operations view** - concentration, gaps, and automatic placement of new documents
 
-In the next module, you will merge the warehouse into the graph and cross the document-to-table boundary.
+In the next module, you build the judgment tools that cross into the warehouse.

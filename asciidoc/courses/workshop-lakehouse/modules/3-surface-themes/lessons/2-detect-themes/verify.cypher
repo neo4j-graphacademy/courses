@@ -1,12 +1,15 @@
-WITH COUNT { (s:Section) WHERE s.communityId IS NOT NULL } AS tagged,
-     COUNT { (:Section) } AS total
-RETURN total > 0 AND tagged = total AS outcome,
+WITH COUNT { (d:Document) WHERE d.themeId IS NOT NULL } AS grouped,
+     COUNT { (:Document) } AS total
+WITH grouped, total,
+     COUNT { MATCH (d:Document) WHERE d.themeId IS NOT NULL
+             RETURN DISTINCT d.themeId } AS themes
+RETURN total > 0 AND grouped >= 6 AND themes >= 2 AS outcome,
        CASE
            WHEN total = 0
-           THEN 'No Section nodes found. Complete the Module 2 challenges first.'
-           WHEN tagged = 0
-           THEN 'No Section nodes have a communityId property. Run Step 4 (gds.leiden.write).'
-           WHEN tagged < total
-           THEN 'Only ' + toString(tagged) + ' of ' + toString(total) + ' sections have a communityId. Re-run Step 4.'
-           ELSE 'Success! All ' + toString(total) + ' sections carry a communityId.'
+           THEN 'No Document nodes found. Run the load pipeline first: python load/load_graph.py'
+           WHEN grouped = 0
+           THEN 'No Document carries a themeId. Run the themes tool: python skill/scripts/themes.py'
+           WHEN grouped < 6 OR themes < 2
+           THEN 'Only ' + toString(grouped) + ' documents in ' + toString(themes) + ' themes. Re-run python skill/scripts/themes.py with default gamma - most documents should group.'
+           ELSE 'Success! ' + toString(grouped) + ' of ' + toString(total) + ' documents grouped into ' + toString(themes) + ' themes.'
        END AS reason

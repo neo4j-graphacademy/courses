@@ -1,73 +1,76 @@
-= Documents Are Graphs
+= Shapes Before Queries
 :type: lesson
 :order: 1
-:duration: 6
+:duration: 7
 
 
 [.slide.discrete]
 == Introduction
 
-Dani's manual portal returned 40 keyword hits because it treats every document as a bag of words.
-But a service manual is not a bag of words - it has chapters, sections, and references to specific parts and codes.
+Most people start with "what is my money query?" - and end up thinking in SQL: tables, joins, one result set.
+This workshop trains the opposite reflex: **decide what shape the context needs first**, write a spec for that shape, and only then derive the query logic that materializes it.
 
-In this lesson, you will learn how to model documents as a tree, and how shared keys turn separate documents into a connected graph.
+In this lesson, you will learn the containment model the library is built on, and read the spec for the first shape you will build: the outline.
 
 
 [.slide]
-== The tree shape
+== One containment relationship
 
-Every structured document is already a tree: a manual contains chapters, chapters contain sections.
-In the graph, you keep that structure instead of flattening it away:
+The load pipeline parsed the PDF library into a tree with a single relationship type, `HAS`:
 
 [source,mermaid]
 ----
 graph TD
-    M((Manual)) -->|HAS_SECTION| E((Section <br> Engine))
-    E -->|HAS_SECTION| I((Section <br> Ignition Coil <br> Replacement))
-    E -->|HAS_SECTION| D((Section <br> Misfire <br> Diagnosis))
-    M -->|HAS_SECTION| B((Section <br> Brakes))
+    L((Library)) -->|HAS| F((Folder <br> bulletins/))
+    F -->|HAS| D((Document <br> TSB-21-114))
+    D -->|HAS| S1((Section <br> Condition))
+    D -->|HAS| S2((Section <br> Repair <br> Procedure))
 ----
 
-The tree gives an agent something vector search never has: **a table of contents it can navigate**.
-"What does the Falcon manual say about ignition?" becomes a walk down the tree, not a similarity guess.
+Why one type instead of `HAS_FOLDER` / `HAS_DOCUMENT` / `HAS_SECTION`?
+Every containment edge means the same thing - "parent in the tree" - and the node labels already say what kind of child it is.
+One type lets every tree walk be written as `[:HAS*]`, whatever it passes through.
 
-This is the same structure for all three document types - manuals, bulletins, and recall notices are all `Document` nodes with `Section` children.
-Bulletins are just shallower trees: Condition, Cause, Repair Procedure.
+Two more structural relationships complete the document half:
+
+* `(Section)-[:NEXT_SECTION]->(Section)` threads every document's sections in reading order
+* `(Section)-[:LINKS_TO]->(...)` crosses trees: `{citation: true}` where a section explicitly cites another document ("per safety recall RC-2021-04"), `{derived: true, sharedKeys, strength}` where sections in different documents reference the same part or code
 
 
 [.slide]
-== Shared keys connect the trees
+== URIs carry the hierarchy
 
-Sections mention part numbers and trouble codes in their text.
-At AutoFix, the parsing pipeline has already extracted those mentions, so each becomes a node and a relationship:
+Every node has a `uri` - a hierarchical slug that encodes its place in the tree:
 
-[source,mermaid]
 ----
-graph LR
-    S1((Section <br> Ignition Coil <br> Replacement)) -->|REFERENCES_PART| P((Part <br> IC-2042-A))
-    S2((Section <br> TSB-21-114 <br> Cause)) -->|REFERENCES_PART| P
-    S1 -->|REFERENCES_CODE| C((DTC <br> P0301))
-    S3((Section <br> TSB-21-114 <br> Condition)) -->|REFERENCES_CODE| C
+technical-library
+technical-library/bulletins
+technical-library/bulletins/tsb-21-114.pdf
+technical-library/bulletins/tsb-21-114.pdf#condition
+technical-library/manuals/man-fal-3.pdf#engine/ignition-coil-replacement
 ----
 
-The manual section and the bulletin section now meet at the same `Part` and `DTC` nodes.
-Two documents that never cite each other are connected - because they talk about the same thing.
+Because URIs sort hierarchically, **any subtree is a string prefix** - scoping a search to the bulletins is `STARTS WITH 'technical-library/bulletins'`.
+Section fragments carry the full heading path, so a URI is always copy-pasteable back into any tool.
+
+One more rule worth knowing: a section's `content` holds only its _own_ body text, followed by `uri:` pointer lines for its children.
+Wherever an agent sees a `uri:` line, deeper content exists - retrievable by exactly one more lookup, never duplicated upward.
 
 
 [.slide]
-== Deriving LINKS_TO
+== Read the spec first
 
-From the shared keys, you can derive a direct relationship between related sections: wherever two sections in _different_ documents reference the same part or code, create `LINKS_TO` between them.
+Open `docs/outline-format.md` in your Codespace.
+That document is not documentation of something that exists - **it is the spec you are about to build against.**
+It pins down the shape an agent's navigation context must take:
 
-The result is a web of cross-document links with real meaning - each link can name the keys that justify it:
+* a ToC with display names on the left and full, verbatim URIs on the right
+* `→` rows for outbound links that never expand their target
+* sibling order: folders and documents alphabetical, sections in reading order
 
-----
-(Ignition Coil Replacement)-[:LINKS_TO {sharedKeys: ['IC-2042-A']}]->(TSB-21-114 Cause)
-----
-
-Compare that to vector search: similarity can tell you two passages _sound_ alike, but it cannot tell you _why_ they are related, and it returns disconnected paragraphs.
-`LINKS_TO` is explicit, explainable, and traversable - and in Module 3 it becomes the input for theme detection.
-
+Read it and ask the shape-first question: _what graph reasoning materializes this?_
+The answer - one variable-length `[:HAS*]` walk emitting flat rows the renderer assembles - is the heart of the next challenge.
+Notice what is impossible here in fixed-join thinking: the tree's depth is not known in advance, so no fixed number of joins can walk it.
 
 read::Continue to the challenge[]
 
@@ -75,10 +78,11 @@ read::Continue to the challenge[]
 [.summary]
 == Summary
 
-In this lesson, you learned the first shape:
+In this lesson, you learned the model behind the shapes:
 
-* **Trees** - `Document -[:HAS_SECTION*]-> Section` keeps the structure keyword search throws away
-* **Shared keys** - sections reference `Part` and `DTC` nodes extracted from their text
-* **LINKS_TO** - derived relationships between sections in different documents that share a key, with the keys recorded on the relationship
+* **One `HAS` type** - every containment edge means the same thing; trees walk as `[:HAS*]`
+* **Hierarchical URIs** - any subtree is a prefix; fragments carry the full heading path
+* **Shallow content with `uri:` pointers** - deeper content is one lookup away, never duplicated
+* **Shape-first** - the spec (`docs/outline-format.md`) comes before any Cypher
 
-In the next challenge, your agent builds this graph from AutoFix's ten documents - and you check its work.
+In the next challenge, you and your agent build the outline and search tools from their specs.
