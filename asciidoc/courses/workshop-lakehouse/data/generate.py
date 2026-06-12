@@ -1,6 +1,6 @@
 """Generate the AutoFix Group sample dataset.
 
-Deterministic generator for the genai-workshop-lakehouse course data.
+Deterministic generator for the workshop-lakehouse course data.
 The CSVs model two halves of a lakehouse:
 
 - Document side (parsed PDFs): documents, sections, section_refs
