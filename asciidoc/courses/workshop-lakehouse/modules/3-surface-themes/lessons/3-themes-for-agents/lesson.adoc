@@ -1,0 +1,90 @@
+= A Themes View for Agents
+:type: lesson
+:order: 3
+:duration: 8
+:sandbox: true
+
+
+[.slide.discrete]
+== Introduction
+
+Every section now carries a `communityId`.
+On their own, the IDs are just numbers - the value comes from what you aggregate around them.
+
+In this lesson, you will build a themes view an agent can reason over, and see the operational insights it unlocks.
+
+
+[.slide]
+== Theme cards
+
+For each community, collect the member sections, the documents involved, and the keys that hold the theme together:
+
+This is exactly what your `theme_cards.py` tool runs - here is its Cypher, to run in the sandbox and see as a table:
+
+[source,cypher]
+.The query inside theme_cards.py
+----
+MATCH (s:Section)
+WITH s.communityId AS theme, collect(s) AS members
+WHERE size(members) > 1
+UNWIND members AS s
+MATCH (d:Document)-[:HAS_SECTION*]->(s)
+OPTIONAL MATCH (s)-[:REFERENCES_PART|REFERENCES_CODE]->(k)
+WITH theme, count(DISTINCT s) AS sections,
+     collect(DISTINCT d.title) AS documents,
+     collect(DISTINCT coalesce(k.partNumber, k.code)) AS sharedKeys
+RETURN theme, sections, documents, sharedKeys
+ORDER BY sections DESC
+----
+
+The largest theme spans nine sections across four documents - two manuals, the misfire bulletin, and the coil recall - held together by `IC-2042-A`, `IC-2042-B`, `SP-1108`, `P0300`, and `P0301`.
+You are looking at the ignition misfire theme, assembled by the algorithm from documents that never cite each other.
+
+
+[.slide]
+== Hand it to the agent
+
+Each row is a compact, grounded context block.
+Serialized for a prompt, the largest one reads:
+
+----
+Theme: ignition misfire
+Defined by: IC-2042-A, IC-2042-B, SP-1108, P0300, P0301
+Documents: Falcon Service Manual (3rd Edition); Osprey Service Manual
+  (1st Edition); Revised Ignition Coil for Repeated Misfire (TSB-21-114);
+  Safety Recall - Ignition Coil Connector Overheating (RC-2021-04)
+Sections: 9
+----
+
+Six of these cards describe AutoFix's entire document estate - small enough for one prompt, and every line traces back to explicit links.
+An agent can answer "what topics do our bulletins cluster around?" from this view alone, then drill into any theme by traversing its sections.
+
+Note what the theme _name_ is: a label you (or an LLM) attach to the card afterwards.
+The algorithm finds the structure; naming it is cheap once the structure exists.
+
+
+[.slide]
+== Insights nobody asked the data for
+
+Morgan's team can now ask questions that were invisible when documents lived in a portal:
+
+* **Where are issues concentrated?** The misfire theme touches 4 of 10 documents, including a safety recall - that is the shop's highest-stakes topic
+* **What training is needed?** A theme spanning a bulletin and a recall but only one manual section suggests technicians have thin reference material for a high-activity topic
+* **What does a new bulletin belong to?** When the next bulletin arrives, its shared keys connect it to an existing theme automatically - no manual tagging
+
+In the next module, work orders join the graph, and themes stop being about documents only - "which theme generates the most comebacks?" becomes answerable with one more hop.
+
+
+read::Continue[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you turned community IDs into an agent-ready view:
+
+* **Theme cards** - one row per community: member sections, documents, defining keys
+* **Grounded context** - six cards summarize the whole document estate and every claim traces to explicit links
+* **Operational insight** - concentration of issues, training gaps, and automatic placement of new documents
+
+In the next module, you will merge the warehouse into the graph and cross the document-to-table boundary.

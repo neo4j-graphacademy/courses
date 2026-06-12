@@ -1,0 +1,82 @@
+= Merge on Shared Keys
+:type: lesson
+:order: 1
+:duration: 6
+
+
+[.slide.discrete]
+== Introduction
+
+Your tools so far read the document half.
+The judgment tools you build next need the other half: what actually happened in the shop.
+
+The load pipeline already merged the warehouse in - in this lesson, you will learn what it did and why merging on a shared key is the move that crosses the document-to-table boundary.
+
+
+[.slide]
+== Tables become nodes and relationships
+
+Each Delta table maps naturally onto the graph:
+
+[cols="1,2", options="header"]
+|===
+| Delta table | Becomes
+| `autofix.service.vehicle` | `Vehicle` nodes
+| `autofix.service.work_order` | `WorkOrder` nodes, plus `HAS_WORK_ORDER`, `DIAGNOSED`, and `PERFORMED` relationships
+| `autofix.service.work_order_part` | `REPLACED` relationships with a `qty` property
+| `autofix.service.part` | `Part` nodes and `SUPERSEDED_BY` relationships
+| `autofix.service.dtc_code` | `DTC` nodes
+| `autofix.service.procedure` | `Procedure` nodes
+|===
+
+Foreign keys become relationships: the `vin` column on a work order row becomes `(Vehicle)-[:HAS_WORK_ORDER]->(WorkOrder)`.
+So far, that is standard warehouse-to-graph import.
+
+
+[.slide]
+== The boundary crossing is one MERGE
+
+Look again at two of those tables.
+`Part` and `DTC` nodes **already exist in your graph** - Module 2 created them from part numbers and trouble codes mentioned in PDF sections.
+
+When the pipeline loaded the warehouse with `MERGE` on the same key, Cypher did not create duplicates - it found the existing nodes and enriched them:
+
+[source,cypher]
+.The line that joins documents to tables (from load/load_graph.py)
+----
+MERGE (p:Part {partNumber: row.part_number})
+SET p.name = row.name
+----
+
+Because of this line, the `Part` node for `IC-2042-B` is referenced by bulletin sections on one side and replaced on work orders on the other.
+The document half and the warehouse half are now **one graph**, joined exactly where they always overlapped.
+
+No new pipeline, no entity resolution model - the IDs were already shared.
+The lakehouse just never treated that as a link.
+
+
+[.slide]
+== The production import path
+
+In this workshop the pipeline reads CSV exports to keep the focus on the graph - and its source adapter swaps to a live Databricks connection with one environment variable.
+In production, the same mapping runs through tooling:
+
+* **Neo4j Data Importer** - visual mapping of files to nodes and relationships
+* **Spark connector** - Databricks notebooks that write Delta tables to Neo4j as a scheduled job, with the same `MERGE`-on-key semantics
+
+Either way, the modeling decisions in the next challenge - which columns are keys, which become relationships - are the part that transfers.
+
+
+read::Continue to the challenge[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned the merge pattern:
+
+* **Tables map to the graph** - rows become nodes, foreign keys become relationships
+* **MERGE on a shared key** - `Part` and `DTC` nodes from the PDFs are enriched, not duplicated, joining both halves into one graph
+* **Production paths** - Data Importer or the Spark connector run the same mapping at scale
+
+In the next challenge, you will build the judgment tools that traverse this merged graph.

@@ -1,0 +1,115 @@
+= Optional Theme Practice
+:type: lesson
+:order: 4
+:duration: 10
+:optional: true
+:sandbox: true
+
+
+[.slide.discrete]
+== Optional Practice
+
+You detected themes with Leiden and built theme cards.
+In this lesson, you will compare algorithms and put the themes to work on two more shop-floor questions.
+
+**Advanced learners:** Skip to Module 4.
+
+**Beginners:** These exercises deepen your feel for what the themes mean before work orders join the graph.
+
+
+[.slide]
+== Exercise 1: Compare with Louvain
+
+Louvain is the other widely used community detection algorithm.
+Run it in stream mode on the same projection - how do its themes compare to Leiden's?
+
+[%collapsible]
+====
+[source,cypher]
+.Louvain on the same projection
+----
+CALL gds.louvain.stream('doc-links', {relationshipWeightProperty: 'strength'})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).id) AS sections
+WHERE size(sections) > 1
+RETURN communityId, size(sections) AS members, sections
+ORDER BY members DESC
+----
+
+On this graph, Louvain's default resolution finds six multi-member communities - the same themes Leiden found at `gamma: 0.5`.
+On larger graphs the algorithms can diverge; Leiden guarantees well-connected communities and is generally the better default.
+
+**Try experimenting:**
+
+* Compare the member lists side by side with your Leiden results from the challenge
+====
+
+
+[.slide]
+== Exercise 2: Which themes carry a safety recall?
+
+Recalls are the highest-stakes documents.
+Use the written `communityId` to find which themes contain one - and how much supporting material surrounds it.
+
+[%collapsible]
+====
+[source,cypher]
+.Themes containing a recall
+----
+MATCH (r:RecallNotice)-[:HAS_SECTION*]->(s:Section)
+MATCH (member:Section {communityId: s.communityId})
+      <-[:HAS_SECTION*]-(d:Document)
+RETURN s.communityId AS theme, r.title AS recall,
+       count(DISTINCT d) AS documentsInTheme
+----
+
+The coil recall sits in a theme with four documents of supporting material; the brake hose recall has only two.
+For Morgan's team, that gap is a finding: the hose recall theme is thin on reference documentation.
+
+**Try experimenting:**
+
+* Return `collect(DISTINCT d.title)` to name the supporting documents
+====
+
+
+[.slide]
+== Exercise 3: Route a trouble code to its theme
+
+A technician scans code `P0562`.
+Which theme does it belong to, and what should the agent read?
+
+[%collapsible]
+====
+[source,cypher]
+.Theme lookup by trouble code
+----
+MATCH (s:Section)-[:REFERENCES_CODE]->(:DTC {code: 'P0562'})
+MATCH (member:Section {communityId: s.communityId})
+      <-[:HAS_SECTION*]-(d:Document)
+RETURN DISTINCT s.communityId AS theme,
+       collect(DISTINCT d.title) AS documents
+----
+
+One hop from the code to its sections, then the `communityId` expands to the full charging-system theme: three manuals plus bulletin TSB-23-052.
+This is the routing step an agent runs before reading anything - find the theme, then read only its members.
+
+**Try experimenting:**
+
+* Try `C0035` - the wheel speed sensor code routes to a different theme
+* Combine with the theme card query from the previous lesson to return the keys too
+====
+
+
+read::Complete practice[]
+
+
+[.summary]
+== Summary
+
+In this optional practice, you put the themes to work:
+
+* **Louvain vs Leiden** - both find the same six themes here; Leiden guarantees well-connected communities
+* **Risk concentration** - themes containing recalls, ranked by supporting material
+* **Code routing** - from a scanned trouble code to its theme's reading list in two hops
+
+In Module 4, work orders join the graph - and theme questions gain an outcomes dimension.
