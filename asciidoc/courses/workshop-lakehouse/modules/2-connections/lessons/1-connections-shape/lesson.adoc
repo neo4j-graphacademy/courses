@@ -1,0 +1,91 @@
+= The Connections Shape
+:type: lesson
+:order: 1
+:duration: 7
+
+
+[.slide.discrete]
+== Introduction
+
+The warehouse holds the answer to "what did we do last time on cars like this?" - across vehicles, work orders, and parts. The obvious tool, Text2SQL, can write the query, but on a multi-table join it is _quietly wrong_: it guesses which columns join, and a plausible-looking join on the wrong key returns plausible-looking nonsense.
+
+In this lesson, you will learn the shape that fixes it - the connections graph - and the rule for where it should live.
+
+
+[.slide]
+== The join paths are the missing context
+
+A warehouse is a set of tables wired together by foreign keys: a work order's `vin` points at a vehicle, its `dtc_code` at a trouble code, a parts line at both a work order and a part. Those foreign keys _are_ the legal joins.
+
+Text2SQL does not see them as a structure - it infers joins from column names and hopes. The **connections shape** makes them explicit and traversable: an agent that can read "`work_orders` joins to `vehicles` on `vin`" writes the right join instead of guessing it.
+
+[source,mermaid]
+----
+graph LR
+    WOP((work_order_parts)) -->|wo_id| WO((work_orders))
+    WOP -->|part_number| P((parts))
+    WO -->|vin| V((vehicles))
+    WO -->|dtc_code| D((dtc_codes))
+    WO -->|procedure_id| PR((procedures))
+----
+
+
+[.slide]
+== neocarta reads it from the warehouse
+
+You do not hand-build this graph. link:https://github.com/neo4j-labs/neocarta[neocarta^] - a Neo4j Labs library - reads a warehouse's information schema and writes the metadata graph for you:
+
+----
+(:Database)-[:HAS_SCHEMA]->(:Schema)-[:HAS_TABLE]->(:Table)-[:HAS_COLUMN]->(:Column)
+(:Column)-[:REFERENCES]->(:Column)     // one per foreign key — the join paths
+----
+
+The AutoFix warehouse lives in BigQuery with its primary and foreign keys declared. neocarta turns each foreign key into a `REFERENCES` edge - the connections shape, ready to query.
+
+
+[.slide]
+== Migrate the map, not the territory
+
+Here is the rule this module teaches, the second axis of the whole workshop: **context comes in shapes - and each shape has a place it should live.**
+
+neocarta copies the warehouse's _metadata_ - table and column names, the foreign-key graph. It does **not** copy the rows. That is deliberate. Run any migration through the four-pains test:
+
+[cols="1,3", options="header"]
+|===
+| Pain | Warehouse rows vs. metadata
+| Sync | rows change constantly (resync forever); schema barely changes
+| Performance | millions of rows vs. a few dozen columns
+| Modeling | rows are already modeled in the warehouse; metadata models the _connections_
+| Security | rows are the sensitive layer; names and keys are not
+|===
+
+Rows fail all four - so they **stay in BigQuery**, and the finale queries them live with SQL. Metadata wins all four - so it migrates. That is what neocarta is _for_: you get the connections shape without the migration.
+
+[NOTE]
+.The security knob
+====
+neocarta also pulls sample column values by default - handy for routing ("model is `Falcon`, `Heron`, or `Osprey`"), but it is the one place metadata brushes the security pain. Naming that trade-off is part of using it honestly.
+====
+
+
+[.slide]
+== Read the spec first
+
+Open `docs/connections-format.md` in your Codespace - the spec for the tool you will build next, `join_paths.py`. It defines the shape an agent needs: given a table, which tables it joins to and on which key.
+
+Ask the shape-first question: _what graph reasoning produces that?_ A foreign key is the pattern `(Table)-[:HAS_COLUMN]->(Column)-[:REFERENCES]->(Column)<-[:HAS_COLUMN]-(Table)` - and a table's neighbors are that pattern in both directions. That traversal is the next challenge.
+
+read::Continue to the challenge[]
+
+
+[.summary]
+== Summary
+
+In this lesson, you learned the connections shape:
+
+* **Join paths** - foreign keys made explicit, so the agent routes instead of guessing
+* **neocarta** - reads the warehouse information schema into a Neo4j metadata graph
+* **Migrate vs. federate** - the four-pains test; metadata migrates, rows stay in BigQuery
+* **Shape-first** - the spec (`docs/connections-format.md`) before the query
+
+In the next challenge, you run neocarta and build the join_paths tool from its spec.

@@ -1,0 +1,95 @@
+= Build the Connections Graph
+:type: challenge
+:order: 2
+:duration: 13
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+Two steps: run neocarta to build the connections graph from BigQuery, then build the `join_paths` tool that reads it. This is the first shape your service-advisor skill gains - and the one the finale's SQL depends on.
+
+This completes **Building Block 1**: "The agent knows how the warehouse joins" ✓
+
+
+[.slide]
+== Run neocarta
+
+neocarta is a real tool - here you reach for it rather than build it. The connector reads the AutoFix warehouse's information schema from BigQuery and writes the metadata graph into your Neo4j sandbox:
+
+[source,shell]
+.Build the connections graph
+----
+python connections/build_connections.py
+----
+
+It connects to BigQuery using the read access provided for the workshop, reads `neo4jeventdemos.autofix_service`, and reports the result:
+
+----
+Connections graph ready: 6 tables, 5 REFERENCES (join paths).
+----
+
+Look at what it built, in the sandbox window:
+
+[source,cypher]
+.The metadata graph
+----
+MATCH (t:Table)-[:HAS_COLUMN]->(c1:Column)-[:REFERENCES]->(c2:Column)<-[:HAS_COLUMN]-(t2:Table)
+RETURN t.name, c1.name, t2.name, c2.name
+----
+
+Five rows - the five foreign keys. The warehouse rows are not here; they stayed in BigQuery. Only the join-path map crossed over.
+
+
+[.slide]
+== Fill in join_paths.py
+
+Open `skill/scripts/join_paths.py`. The scaffold is complete; the query is marked `BUILD FROM SPEC`.
+
+Work from `docs/connections-format.md`: a table's join neighbors are the foreign-key pattern in both directions - keys on this table that reference others (`out`), and other tables whose keys reference this one (`in`). Hand the spec to your agent and review what it writes; the shape is a `UNION` of the two patterns:
+
+[source,cypher]
+.The pattern to complete it with
+----
+MATCH (t:Table {name: $table})-[:HAS_COLUMN]->(c)-[:REFERENCES]->(c2)<-[:HAS_COLUMN]-(o:Table)
+RETURN t.name AS from_table, c.name AS join_key, o.name AS to_table, 'out' AS direction
+UNION
+MATCH (t:Table {name: $table})-[:HAS_COLUMN]->(c)<-[:REFERENCES]-(c2)<-[:HAS_COLUMN]-(o:Table)
+RETURN o.name AS from_table, c2.name AS join_key, t.name AS to_table, 'in' AS direction
+----
+
+Test it:
+
+[source,shell]
+----
+python skill/scripts/join_paths.py work_orders
+----
+
+`work_orders` joins out to `procedures`, `dtc_codes`, and `vehicles`, and in from `work_order_parts`. Chain those neighbors and you have the path from any table to any other - the grounding the agent turns into a correct SQL join in the finale.
+
+[NOTE]
+.Why a graph, not a SELECT
+====
+A table's direct neighbors are one hop. But "how do I join two tables that aren't directly related?" is a variable-length walk over `REFERENCES` - a traversal, not a join. The connections live in a graph for the same reason the document tree does.
+====
+
+[TIP]
+.Stuck or out of sync?
+====
+The complete tool is in `solutions/scripts/join_paths.py`.
+====
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You built the connections shape:
+
+* **neocarta** - read the warehouse foreign keys from BigQuery into a metadata graph, rows untouched
+* **join_paths.py** - the foreign-key traversal that tells the agent how to join
+* **Building Block 1**: "The agent knows how the warehouse joins" ✓
+
+In the next module, you turn to the documents and build the table-of-contents shape.
