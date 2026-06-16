@@ -9,7 +9,7 @@
 == Challenge
 
 The navigation and theme tools tell the agent what the documents _say_.
-The judgment tools tell it what actually _worked_ - by crossing the boundary into the warehouse half.
+The judgment tools tell it what actually _worked_ - by federating: grounding in the document graph, then reading the repair history from live BigQuery.
 
 These two are written from specification, the way you would build them on the job: the spec is the contract, your coding agent is the pair programmer, and the data tells you if you got it right.
 
@@ -20,22 +20,21 @@ These two are written from specification, the way you would build them on the jo
 Open `skill/SKILL.md` and find the **Judgment and actions** section.
 Two of its four specs are this challenge:
 
-* **`what_fixed_this.py <vin> <code>`** - for vehicles with the same model and engine, every (document, part) pair where the document covers the code and the part was replaced on a work order diagnosed with it; with `timesUsed` and `comebacks`, ordered so the first row is the evidence-backed fix
-* **`recall_exposure.py <vin>`** - every recall in scope for the vehicle's model whose remedy part this vehicle has never received
+* **`what_fixed_this.py <vin> <code>`** - ground in Neo4j (documents covering the code and the parts they name), then read outcomes from BigQuery (uses and comebacks for those parts on similar vehicles), join and rank; the first row is the evidence-backed fix
+* **`recall_exposure.py <vin>`** - recalls in scope for the vehicle's model (Neo4j) whose remedy part is current and this vehicle has never received (BigQuery)
 
 These scripts **do not exist yet** - creating them is the challenge.
-Hand each spec to your coding agent, review the Cypher it writes, and test against the questions below.
-`skill/scripts/db.py` has the connection helper; the graph schema is at the top of SKILL.md.
+Hand each spec to your coding agent, review what it writes, and test against the questions below.
+`skill/scripts/db.py` runs Neo4j, `skill/scripts/bq.py` runs BigQuery; the full specs and the graph schema are at the top of SKILL.md.
 
 
 [.slide]
 == Why this query needed the merged graph
 
-Whichever way your agent writes `what_fixed_this`, the traversal must cross the boundary: it starts in document trees (which documents cover this code, which parts do they name) and ends in warehouse history (which work orders replaced that part, did the vehicle come back).
-The `Part` and `DTC` nodes joining the two halves exist because the load pipeline merged the warehouse **onto the same keys the PDF sections reference** - one `MERGE` on `partNumber`, one on `code`.
+Whichever way your agent writes `what_fixed_this`, it must cross the boundary: it starts in document trees (which documents cover this code, which parts do they name) and ends in warehouse history (which work orders replaced that part, did the vehicle come back) - and those two halves live in different stores.
+The bridge is the **shared key**: the part number the document names is the same string the BigQuery rows use. And the BigQuery join itself - work orders to vehicles to parts - is grounded by the connections graph from Module 2, so the SQL is right.
 
-No vector index can return this, and Text2SQL fails silently on the five joins it implies.
-This shape is why the graph exists.
+No vector index can return this, and Text2SQL guesses the joins. Federation on the key, grounded by the connections shape, is why this works.
 
 
 [.slide]
@@ -48,7 +47,7 @@ python skill/scripts/recall_exposure.py CM-FAL-2020-0451
 ----
 
 Read the first tool's top row, then the second tool's only row - then answer the questions below.
-Worth pausing on what just happened: the second result means the misfire in the bay and an open safety recall are the **same story**, discoverable only because both halves of the lakehouse live in one graph.
+Worth pausing on what just happened: the second result means the misfire in the bay and an open safety recall are the **same story** - and the agent crossed from the document graph to the live warehouse to find it, without either store moving into the other.
 
 [TIP]
 .Stuck or out of sync?

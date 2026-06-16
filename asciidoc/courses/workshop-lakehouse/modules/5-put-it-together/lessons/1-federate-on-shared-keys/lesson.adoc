@@ -1,4 +1,4 @@
-= Merge on Shared Keys
+= Federate on the Shared Key
 :type: lesson
 :order: 1
 :duration: 6
@@ -7,65 +7,43 @@
 [.slide.discrete]
 == Introduction
 
-Your tools so far read the document half.
-The judgment tools you build next need the other half: what actually happened in the shop.
+Your tools so far read the document half. The judgment tools you build next need the other half: what actually happened in the shop - which is in the BigQuery warehouse, and which is staying there.
 
-The load pipeline already merged the warehouse in - in this lesson, you will learn what it did and why merging on a shared key is the move that crosses the document-to-table boundary.
-
-
-[.slide]
-== Tables become nodes and relationships
-
-Each Delta table maps naturally onto the graph:
-
-[cols="1,2", options="header"]
-|===
-| Delta table | Becomes
-| `autofix.service.vehicle` | `Vehicle` nodes
-| `autofix.service.work_order` | `WorkOrder` nodes, plus `HAS_WORK_ORDER`, `DIAGNOSED`, and `PERFORMED` relationships
-| `autofix.service.work_order_part` | `REPLACED` relationships with a `qty` property
-| `autofix.service.part` | `Part` nodes and `SUPERSEDED_BY` relationships
-| `autofix.service.dtc_code` | `DTC` nodes
-| `autofix.service.procedure` | `Procedure` nodes
-|===
-
-Foreign keys become relationships: the `vin` column on a work order row becomes `(Vehicle)-[:HAS_WORK_ORDER]->(WorkOrder)`.
-So far, that is standard warehouse-to-graph import.
+In this lesson, you will learn the move that crosses the boundary without moving the data: **federate on the shared key.**
 
 
 [.slide]
-== The boundary crossing is one MERGE
+== The key is in both halves
 
-Look again at two of those tables.
-`Part` and `DTC` nodes **already exist in your graph** - Module 3 created them from part numbers and trouble codes mentioned in PDF sections.
+A part number like `IC-2042-B` appears in a bulletin section (the document graph, in Neo4j) _and_ on hundreds of work-order line items (the warehouse, in BigQuery). The same is true of a trouble code. Those shared keys are the link the lakehouse never made.
 
-When the pipeline loaded the warehouse with `MERGE` on the same key, Cypher did not create duplicates - it found the existing nodes and enriched them:
+You could copy the warehouse into Neo4j and traverse one graph - the original instinct. But run it through the four-pains test from Module 2 and the rows fail every one: they churn constantly, there are millions of them, they are already modeled in the warehouse, and they are the sensitive layer. So you **do not** move them.
 
-[source,cypher]
-.The line that joins documents to tables (from load/load_graph.py)
+Instead, the agent crosses the boundary at query time:
+
+[source,mermaid]
 ----
-MERGE (p:Part {partNumber: row.part_number})
-SET p.name = row.name
+graph LR
+    Q((work order <br> P0301 on this vin)) --> N[Neo4j: which docs cover P0301, which parts they name + grounding]
+    N -->|candidate parts| B[BigQuery SQL: outcomes for those parts on similar vehicles]
+    B -->|joined in Python| R((evidence-backed fix))
 ----
 
-Because of this line, the `Part` node for `IC-2042-B` is referenced by bulletin sections on one side and replaced on work orders on the other.
-The document half and the warehouse half are now **one graph**, joined exactly where they always overlapped.
 
-No new pipeline, no entity resolution model - the IDs were already shared.
-The lakehouse just never treated that as a link.
+[.slide]
+== Why the connections graph matters here
+
+The BigQuery step is a multi-table join - work orders to vehicles to parts. Text2SQL guesses those joins and is quietly wrong. Your agent does not guess: it reads the join paths from the **connections graph** you built in Module 2 (`join_paths.py`), and writes the SQL correctly.
+
+That is the whole thesis closing. The document shapes ground the _what_; the connections shape grounds the _how to join_; federation crosses the boundary on the key - no migration, no guessing.
 
 
 [.slide]
-== The production import path
+== The trail stays a graph
 
-In this workshop the pipeline reads CSV exports to keep the focus on the graph - and its source adapter swaps to a live Databricks connection with one environment variable.
-In production, the same mapping runs through tooling:
+One thing does get written to Neo4j: the agent's **decision**. A `Recommendation` - the part it chose, the recall it bundled, the sections it cited, the order it placed - is a small graph, and it belongs in one: it is the audit trail, and every claim in it points at evidence.
 
-* **Neo4j Data Importer** - visual mapping of files to nodes and relationships
-* **Spark connector** - Databricks notebooks that write Delta tables to Neo4j as a scheduled job, with the same `MERGE`-on-key semantics
-
-Either way, the modeling decisions in the next challenge - which columns are keys, which become relationships - are the part that transfers.
-
+So the split is clean. Documents and the decision trail live in the graph (you own their structure); the warehouse rows stay in BigQuery (it owns them); the agent federates across the key.
 
 read::Continue to the challenge[]
 
@@ -73,10 +51,11 @@ read::Continue to the challenge[]
 [.summary]
 == Summary
 
-In this lesson, you learned the merge pattern:
+In this lesson, you learned the boundary crossing:
 
-* **Tables map to the graph** - rows become nodes, foreign keys become relationships
-* **MERGE on a shared key** - `Part` and `DTC` nodes from the PDFs are enriched, not duplicated, joining both halves into one graph
-* **Production paths** - Data Importer or the Spark connector run the same mapping at scale
+* **Federate, don't migrate** - the warehouse rows fail the four-pains test, so they stay in BigQuery
+* **Cross on the shared key** - Neo4j grounds the candidates, BigQuery returns the facts, Python joins them
+* **The connections graph grounds the SQL** - the join paths from Module 2 keep Text2SQL honest
+* **The decision trail is a graph** - the `Recommendation` is auditable, so it lives in Neo4j
 
-In the next challenge, you will build the judgment tools that traverse this merged graph.
+In the next challenge, you build the federated judgment tools.

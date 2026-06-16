@@ -1,30 +1,29 @@
 [.question]
 = The Boundary Crossing
 
-In the load pipeline, what joined the document half and the warehouse half into one graph?
+The finale answers a question that spans the documents and the warehouse. How does the agent cross that boundary?
 
-- [ ] A. An entity resolution model matched document text to table rows
-- [ ] B. A LINKS_TO relationship was created between every section and every work order
-- [x] C. MERGE on part number and trouble code attached warehouse data to the same Part and DTC nodes the PDF sections already referenced
-- [ ] D. The Delta tables were exported into the PDF parsing pipeline
+- [ ] A. It merges the warehouse rows into Neo4j and traverses one graph
+- [x] B. It grounds candidates in the Neo4j document graph, then reads the live warehouse rows from BigQuery on the shared key, and joins the two
+- [ ] C. It hands the whole question to Text2SQL to write one query over everything
+- [ ] D. Vector search retrieves both the documents and the warehouse rows
 
 [TIP,role=hint]
 .Hint
 ====
-Which `MERGE` key appeared in both `section_refs.csv` and the warehouse exports?
+Where do the warehouse rows live in this workshop - and did they ever move?
 ====
 
 [TIP,role=solution]
 .Solution
 ====
-**C is correct:** `MERGE (p:Part {partNumber: ...})` and `MERGE (c:DTC {code: ...})` matched the nodes the PDF parsing created from section mentions, enriching them instead of duplicating them.
-After that, one `Part` node is referenced by sections on one side and replaced on work orders on the other.
+**B is correct:** the warehouse rows stay in BigQuery - they fail the four-pains test for migration. The agent grounds in the document graph (which documents cover the code, which parts they name), reads the real outcomes from BigQuery on the shared part number, and joins the two in Python. The connections graph from Module 2 hands it the correct join paths.
 
 **Why others are wrong:**
 
-* A: No model was needed - the identifiers were already shared; the lakehouse just never treated that as a link
-* B: `LINKS_TO` connects sections to sections; the boundary crossing happens at the shared-key nodes
-* D: The two halves stayed in their own pipelines - they meet in the graph
+* A: that was the original instinct; copying the rows fails sync, performance, modeling, and security
+* C: Text2SQL alone is layer two of the wall - quietly wrong on the multi-hop join chain
+* D: vector search returns passages, not a connected, computed answer
 
-**Recall Module 4:** "The boundary crossing is one MERGE."
+**Recall Module 5:** "Federate on the shared key."
 ====
