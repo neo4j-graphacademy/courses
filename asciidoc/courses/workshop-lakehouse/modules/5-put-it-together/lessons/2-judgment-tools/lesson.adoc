@@ -1,4 +1,4 @@
-= Build the Judgment Tools
+= Judge with Live Text2SQL
 :type: challenge
 :order: 2
 :duration: 9
@@ -8,51 +8,54 @@
 [.slide.discrete]
 == Challenge
 
-The navigation and theme tools tell the agent what the documents _say_.
-The judgment tools tell it what actually _worked_ - by federating: grounding in the document graph, then reading the repair history from live BigQuery.
+The navigation and theme tools tell the agent what the documents _say_. Judgment tells it what actually _worked_ - by federating: grounding in the document graph, then reading the repair history from live BigQuery.
 
-These two are written from specification, the way you would build them on the job: the spec is the contract, your coding agent is the pair programmer, and the data tells you if you got it right.
-
-
-[.slide]
-== The specs
-
-Open `skill/SKILL.md` and find the **Judgment and actions** section.
-Two of its four specs are this challenge:
-
-* **`what_fixed_this.py <vin> <code>`** - ground in Neo4j (documents covering the code and the parts they name), then read outcomes from BigQuery (uses and comebacks for those parts on similar vehicles), join and rank; the first row is the evidence-backed fix
-* **`recall_exposure.py <vin>`** - recalls in scope for the vehicle's model (Neo4j) whose remedy part is current and this vehicle has never received (BigQuery)
-
-These scripts **do not exist yet** - creating them is the challenge.
-Hand each spec to your coding agent, review what it writes, and test against the questions below.
-`skill/scripts/db.py` runs Neo4j, `skill/scripts/bq.py` runs BigQuery; the full specs and the graph schema are at the top of SKILL.md.
+This is where neocarta earns its place. The agent does not run a hand-written query - it **retrieves the warehouse schema from the connections graph and writes the SQL itself**. That is Text2SQL grounded by the foreign keys, so the joins are correct.
 
 
 [.slide]
-== Why this query needed the merged graph
+== How the agent judges
 
-Whichever way your agent writes `what_fixed_this`, it must cross the boundary: it starts in document trees (which documents cover this code, which parts do they name) and ends in warehouse history (which work orders replaced that part, did the vehicle come back) - and those two halves live in different stores.
-The bridge is the **shared key**: the part number the document names is the same string the BigQuery rows use. And the BigQuery join itself - work orders to vehicles to parts - is grounded by the connections graph from Module 2, so the SQL is right.
+Open `skill/SKILL.md` and find the **Judgment** section. It is a policy, not a script. For any warehouse fact, the agent:
 
-No vector index can return this, and Text2SQL guesses the joins. Federation on the key, grounded by the connections shape, is why this works.
+. **Retrieves schema** from the `connections` MCP server with `get_full_metadata_schema` - every table with its columns and foreign-key references, the join paths from Module 2.
+. **Grounds in Neo4j** - which documents cover the code, which parts they name, with grounding section URIs.
+. **Writes and runs the SQL** with `run_sql.py`, joining along those foreign keys.
+. **Ranks** the result - evidence beats guidance, zero comebacks wins.
+
+Two judgment questions close the case for Dani's misfire:
+
+* _What fixed `P0301` on vehicles like `CM-FAL-2020-0451`?_ - candidate parts from the documents, ranked by real outcomes on similar vehicles.
+* _What open recall has `CM-FAL-2020-0451` never had?_ - recalls in scope for the model whose remedy part is current and was never applied to this vehicle.
 
 
 [.slide]
-== Test against Dani's bay
+== Why this needs the connections graph
 
-[source,shell]
+The fix question crosses the boundary: it starts in document trees (which documents cover this code, which parts do they name) and ends in warehouse history (which work orders replaced that part, did the vehicle come back) - two different stores. The bridge is the **shared key**: the part number the document names is the same string the BigQuery rows use.
+
+And the warehouse join - work orders to vehicles to parts - is four tables. Text2SQL gets queries on four or more tables wrong roughly 79% of the time when it guesses the joins (Falcon, 2025). The agent does not guess: it reads the foreign-key references from the `connections` MCP and writes the join correctly. No vector index can return this answer; federation on the key, grounded by the connections shape, is why it works.
+
+
+[.slide]
+== Run it on Dani's bay
+
+Ask your agent to answer both questions, and tell it to use the connections graph for schema and `run_sql.py` to run the SQL:
+
+[source,text]
+.A prompt for your coding agent
 ----
-python skill/scripts/what_fixed_this.py CM-FAL-2020-0451 P0301
-python skill/scripts/recall_exposure.py CM-FAL-2020-0451
+For VIN CM-FAL-2020-0451 with code P0301: what fixed this on similar
+vehicles, and what open recall has this vehicle never had? Use the
+connections MCP for the warehouse schema and run_sql.py to run the SQL.
 ----
 
-Read the first tool's top row, then the second tool's only row - then answer the questions below.
-Worth pausing on what just happened: the second result means the misfire in the bay and an open safety recall are the **same story** - and the agent crossed from the document graph to the live warehouse to find it, without either store moving into the other.
+Watch it call the `connections` tools, write the SQL from the foreign keys, and run it. Read the evidence - the top fix and the one open recall - then answer the questions below. The recall result means the misfire in the bay and an open safety recall are the **same story**, found by crossing from the document graph to the live warehouse without either store moving into the other.
 
 [TIP]
-.Stuck or out of sync?
+.Want to see it as code?
 ====
-Complete versions are in `solutions/scripts/` - compare or copy, then keep moving.
+Deterministic Python versions are in `solutions/scripts/what_fixed_this.py` and `solutions/scripts/recall_exposure.py`. Run them to check the agent's answer, or read them to follow the federation step by step.
 ====
 
 include::questions/1-zero-comebacks.adoc[leveloffset=+1]
@@ -63,10 +66,11 @@ include::questions/2-recall-exposure.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You built the judgment tools:
+The agent judged by federating, live:
 
-* **what_fixed_this.py** - guidance ranked by real outcomes; the revised coil wins with five repairs and zero comebacks
-* **recall_exposure.py** - the car in the bay is the one vehicle with open recall exposure
-* The cross-boundary traversal works because the warehouse merged onto the keys the PDFs already reference
+* **Schema from the connections MCP** - the foreign-key join paths, so the Text2SQL is correct, not guessed
+* **What fixed this** - guidance ranked by real outcomes; the revised coil wins with five repairs and zero comebacks
+* **Recall exposure** - the car in the bay is the one vehicle with open recall exposure
+* The cross-boundary answer works because the document graph and the warehouse meet on the shared key
 
-In the final challenge, your agent puts judgment and action together - on a live work order.
+In the final challenge, your agent puts judgment and action together on a live work order.
