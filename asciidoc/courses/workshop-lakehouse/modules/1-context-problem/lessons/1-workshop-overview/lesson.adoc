@@ -14,10 +14,10 @@ In this workshop, you will fix that by building three reusable graph shapes from
 [.slide]
 == The scenario - AutoFix Group
 
-AutoFix Group is a national auto-repair chain running on a Databricks lakehouse:
+AutoFix Group is a national auto-repair chain running on a cloud lakehouse:
 
 * **Repair manuals, service bulletins, and recall notices** live as PDFs in cloud storage
-* **Every repair, part, and vehicle** lives in Delta tables (`Vehicle`, `WorkOrder`, `Part`, `Procedure`) under Unity Catalog
+* **Every repair, part, and vehicle** lives in BigQuery tables (`vehicles`, `work_orders`, `parts`, `procedures`)
 
 Dani Reyes, a master technician, has a 2020 Falcon in the bay throwing misfire code `P0301`.
 There was a bulletin about a revised ignition coil - but which model years?
@@ -36,7 +36,7 @@ Sam Okafor, the AI engineer, builds the obvious solution - and hits three walls:
 
 . **Vector search returns the right meaning in the wrong shape.** It finds passages similar to the question, but the answer needs a _connected set_ of bulletins, parts, work orders, and vehicles - not a pile of paragraphs.
 . **Text2SQL is quietly wrong.** It works on one table, but on multi-table, multi-hop joins ("prior repairs on similar vehicles where this part fixed this code") it fails silently - plausible but subtly wrong.
-. **Neither tool crosses the boundary.** The bulletin is in a PDF; the vehicle is in a Delta table. The part number and trouble code that connect them appear in _both_ - but nothing treats that as a link.
+. **Neither tool crosses the boundary.** The bulletin is in a PDF; the vehicle is in a BigQuery table. The part number and trouble code that connect them appear in _both_ - but nothing treats that as a link.
 
 That is not a model problem or a query problem.
 It is a context problem.
@@ -45,54 +45,42 @@ It is a context problem.
 [.slide]
 == Context comes in shapes
 
-The fix is to put a graph on top of the lakehouse, so the shape the answer needs exists as data.
+The fix is to give the agent the shapes its answers need.
 You will build three reusable shapes:
 
-* **Table of Contents (Trees)** - navigate what is there, in Module 2 - spec first, then the walk
-* **Themes (Communities)** - surface patterns nobody named, in Module 3
-* **Connections (Paths)** - trace how documents, parts, and vehicles relate, in Module 4
+* **Connections (Paths)** - how the warehouse tables join, in Module 2 - neocarta reads the foreign keys from BigQuery
+* **Table of Contents (Trees)** - navigate the documents, in Module 3
+* **Themes (Communities)** - surface patterns nobody named, in Module 4
 
-Documents and tables become nodes in one connected structure, joined on the keys they already share: part numbers and trouble codes.
+And you learn a second axis: _where_ each shape should live. The documents and the warehouse's connections become graphs in Neo4j; the warehouse rows stay in BigQuery; and the agent crosses between them on the keys they already share - part numbers and trouble codes.
 
 
 [.slide]
 == The goal
 
-By the end of this workshop, a work order will open for Dani's Falcon and your agent will handle it: pick the evidence-backed fix, catch an open recall on the vehicle, order the part, and leave an auditable trail in the graph.
-At the heart of its judgment is one multi-hop traversal:
+By the end of this workshop, a work order opens for Dani's Falcon and your agent handles it end to end: ground the symptom in the documents, read the real repair history from the warehouse, pick the evidence-backed fix, catch an open recall, order the part, and leave an auditable trail.
 
-[source,cypher]
-.Given this symptom on this vehicle, what fixed it on cars like this one?
-----
-MATCH (v:Vehicle {vin: 'CM-FAL-2020-0451'}), (code:DTC {code: 'P0301'})
-MATCH (doc:Document)-[:HAS*]->(:Section)-[:REFERENCES_CODE]->(code)
-MATCH (doc)-[:HAS*]->(:Section)-[:REFERENCES_PART]->(part:Part)
-MATCH (other:Vehicle {model: v.model, engine: v.engine})
-      -[:HAS_WORK_ORDER]->(wo:WorkOrder)-[:DIAGNOSED]->(code)
-MATCH (wo)-[:REPLACED]->(part)
-WITH doc, part, collect(DISTINCT wo) AS orders
-RETURN doc.title, part.partNumber, part.name,
-       size(orders) AS timesUsed,
-       size([o IN orders WHERE o.comeback]) AS comebacks
-ORDER BY comebacks, timesUsed DESC
-----
+The hard question at its heart - _"what fixed this code on cars like this one?"_ - is the one Text2SQL gets quietly wrong. Your agent answers it by **federating**, never migrating:
 
-It starts on the PDF side, in a service bulletin, and ends on the Delta table side, at repair outcomes on similar vehicles - the top row names the revised part with five successful repairs and zero comebacks.
-You will not run it by hand: it becomes a tool inside the *service-advisor skill* you build, module by module.
+. **Neo4j** - which documents cover `P0301`, and which parts they name
+. **BigQuery** - for those parts, the real outcomes on similar vehicles: how often used, how often the car came back
+. **join them** - the top answer is the revised coil: five repairs, zero comebacks
+
+The documents are a graph, the warehouse stays in BigQuery, and the agent crosses the boundary on the shared part number. You build it as a *service-advisor skill*, shape by shape.
 
 
 [.slide]
 == Prerequisites and duration
 
 You should be able to read and run basic Cypher queries.
-No Graph Data Science experience is required - you will learn what you need in Module 3.
+No Graph Data Science experience is required - you will learn what you need in Module 4.
 
 Bring the coding agent you already use - Claude Code, Cursor, Codex, or similar.
 In each hands-on module, you and your agent build the skill's tools together, and every query is also runnable by hand in the sandbox if you prefer.
 
 The core path takes 90 minutes, with around 20 more minutes of optional practice - ideal for revisiting after a live session.
 
-The patterns are Databricks-first but portable - Module 5 shows how to swap the connector for Snowflake, BigQuery, or anywhere your data lives.
+The patterns are Databricks-first but portable - Module 6 shows how to swap the connector for Snowflake, BigQuery, or anywhere your data lives.
 
 read::Let's go![]
 
@@ -104,7 +92,7 @@ In this workshop, you will:
 
 * Build **navigation tools** over a document tree parsed from real PDFs
 * Build **theme tools** with community detection - patterns nobody named
-* Build **judgment tools** that cross the document-to-table boundary
+* Watch the agent **judge** across the document-to-table boundary with live Text2SQL it grounds in the connections graph
 * Watch your agent **decide and act** on a live work order, leaving an auditable trail
 
 In the next lesson, you will open your workshop environment and load the AutoFix lakehouse.

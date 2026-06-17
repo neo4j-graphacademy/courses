@@ -1,0 +1,96 @@
+= Build the Connections Graph
+:type: challenge
+:order: 2
+:duration: 12
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+Build the connections graph from BigQuery with neocarta, then watch your agent _use_ it - retrieve the warehouse schema and write correct Text2SQL. This is the same pattern the finale runs on, in miniature.
+
+This completes **Building Block 1**: "The agent knows how the warehouse joins" ✓
+
+
+[.slide]
+== Run neocarta
+
+neocarta is a real tool - you reach for it rather than rebuild it. The connector reads the AutoFix warehouse's information schema from BigQuery and writes the metadata graph - tables, columns, and a `REFERENCES` edge per foreign key - into your Neo4j sandbox:
+
+[source,shell]
+.Build the connections graph
+----
+python connections/build_connections.py
+----
+
+It reports the result:
+
+----
+Connections graph ready: 6 tables, 5 REFERENCES (join paths).
+----
+
+Click **Check Database** at the bottom of this lesson to verify the graph is in place.
+
+
+[.slide]
+== Hand the graph to your agent
+
+neocarta does not stop at the graph - it ships an **MCP server** that exposes it to your agent as tools. It is already wired in `.mcp.json` as the `connections` server. Reload your agent so it picks the server up, and approve it when prompted.
+
+The server gives your agent five tools - no embeddings, no API key, no setup:
+
+* `get_full_metadata_schema` - every table with its columns, types, example values, and **foreign-key references**
+* `list_schemas` and `list_tables_by_schema` - the catalog
+* `get_context_by_table_full_text_search` and the column variant - find the right tables by keyword
+
+This is how the agent reads the connections shape at runtime. You never hand-write a join map - the graph is the map, and the MCP hands it over.
+
+
+[.slide]
+== Ask a question that needs a four-table join
+
+In your agent, ask for something the warehouse only answers across several tables:
+
+[source,text]
+.A prompt for your coding agent
+----
+Which vehicles received part IC-2042-B? Use the connections MCP to get
+the warehouse schema, then write the SQL and run it with
+python skill/scripts/run_sql.py.
+----
+
+Watch what it does:
+
+. calls `get_full_metadata_schema` on the `connections` server - and reads that `work_order_parts` references both `parts` and `work_orders`, and `work_orders` references `vehicles`
+. writes the join along those foreign keys: `parts → work_order_parts → work_orders → vehicles`
+. runs it and reports the rows - seven Falcon 2.0T vehicles, every one a misfire code
+
+The agent never guessed a join. It read the foreign keys from the graph and wrote the SQL from them - Text2SQL grounded by the connections shape.
+
+[NOTE]
+.Why this matters
+====
+That four-table join is the shape Text2SQL gets wrong roughly 79% of the time when it guesses the joins (Falcon, 2025). With the connections graph, the agent does not guess - it reads the join paths and writes the SQL correctly, every time. That is the difference between a demo and something you would deploy.
+====
+
+[TIP]
+.Prefer to see it as code?
+====
+`solutions/scripts/path_query.py` does the same path-to-SQL deterministically in Python, if you want to read the mechanism step by step.
+====
+
+include::questions/verify.adoc[leveloffset=+1]
+
+
+[.summary]
+== Summary
+
+You built the connections shape and put it to work:
+
+* **neocarta** - read the warehouse foreign keys from BigQuery into a metadata graph, rows untouched
+* **The connections MCP** - exposes that graph to your agent as schema-retrieval tools, no embeddings
+* **Agentic Text2SQL** - the agent reads the foreign keys and writes the multi-table join itself, grounded, not guessed
+* **Building Block 1**: "The agent knows how the warehouse joins" ✓
+
+In the next module, you turn to the documents and build the table-of-contents shape.
