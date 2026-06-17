@@ -1,14 +1,14 @@
 = Build the Connections Graph
 :type: challenge
 :order: 2
-:duration: 13
+:duration: 12
 :sandbox: true
 
 
 [.slide.discrete]
 == Challenge
 
-Two steps: run neocarta to build the connections graph from BigQuery, then build the `join_paths` tool that reads it. This is the first shape your service-advisor skill gains - and the one the finale's SQL depends on.
+Build the connections graph from BigQuery with neocarta, then watch your agent _use_ it - retrieve the warehouse schema and write correct Text2SQL. This is the same pattern the finale runs on, in miniature.
 
 This completes **Building Block 1**: "The agent knows how the warehouse joins" ✓
 
@@ -16,7 +16,7 @@ This completes **Building Block 1**: "The agent knows how the warehouse joins" �
 [.slide]
 == Run neocarta
 
-neocarta is a real tool - here you reach for it rather than build it. The connector reads the AutoFix warehouse's information schema from BigQuery and writes the metadata graph into your Neo4j sandbox:
+neocarta is a real tool - you reach for it rather than rebuild it. The connector reads the AutoFix warehouse's information schema from BigQuery and writes the metadata graph - tables, columns, and a `REFERENCES` edge per foreign key - into your Neo4j sandbox:
 
 [source,shell]
 .Build the connections graph
@@ -24,84 +24,60 @@ neocarta is a real tool - here you reach for it rather than build it. The connec
 python connections/build_connections.py
 ----
 
-It connects to BigQuery using the read access provided for the workshop, reads `neo4jeventdemos.autofix_service`, and reports the result:
+It reports the result:
 
 ----
 Connections graph ready: 6 tables, 5 REFERENCES (join paths).
 ----
 
-Look at what it built, in the sandbox window:
-
-[source,cypher]
-.The metadata graph
-----
-MATCH (t:Table)-[:HAS_COLUMN]->(c1:Column)-[:REFERENCES]->(c2:Column)<-[:HAS_COLUMN]-(t2:Table)
-RETURN t.name, c1.name, t2.name, c2.name
-----
-
-Five rows - the five foreign keys. The warehouse rows are not here; they stayed in BigQuery. Only the join-path map crossed over.
+Click **Check Database** at the bottom of this lesson to verify the graph is in place.
 
 
 [.slide]
-== Fill in join_paths.py
+== Hand the graph to your agent
 
-Open `skill/scripts/join_paths.py`. The scaffold is complete; the query is marked `BUILD FROM SPEC`.
+neocarta does not stop at the graph - it ships an **MCP server** that exposes it to your agent as tools. It is already wired in `.mcp.json` as the `connections` server. Reload your agent so it picks the server up, and approve it when prompted.
 
-Work from `docs/connections-format.md`: a table's join neighbors are the foreign-key pattern in both directions - keys on this table that reference others (`out`), and other tables whose keys reference this one (`in`). Hand the spec to your agent and review what it writes; the shape is a `UNION` of the two patterns:
+The server gives your agent five tools - no embeddings, no API key, no setup:
 
-[source,cypher]
-.The pattern to complete it with
-----
-MATCH (t:Table {name: $table})-[:HAS_COLUMN]->(c)-[:REFERENCES]->(c2)<-[:HAS_COLUMN]-(o:Table)
-RETURN t.name AS from_table, c.name AS join_key, o.name AS to_table, 'out' AS direction
-UNION
-MATCH (t:Table {name: $table})-[:HAS_COLUMN]->(c)<-[:REFERENCES]-(c2)<-[:HAS_COLUMN]-(o:Table)
-RETURN o.name AS from_table, c2.name AS join_key, t.name AS to_table, 'in' AS direction
-----
+* `get_full_metadata_schema` - every table with its columns, types, example values, and **foreign-key references**
+* `list_schemas` and `list_tables_by_schema` - the catalog
+* `get_context_by_table_full_text_search` and the column variant - find the right tables by keyword
 
-Test it:
-
-[source,shell]
-----
-python skill/scripts/join_paths.py work_orders
-----
-
-`work_orders` joins out to `procedures`, `dtc_codes`, and `vehicles`, and in from `work_order_parts`. Chain those neighbors and you have the path from any table to any other - the grounding the agent turns into a correct SQL join in the finale.
-
-[TIP]
-.Stuck or out of sync?
-====
-The complete tool is in `solutions/scripts/join_paths.py`.
-====
+This is how the agent reads the connections shape at runtime. You never hand-write a join map - the graph is the map, and the MCP hands it over.
 
 
 [.slide]
-== See the path answer a question
+== Ask a question that needs a four-table join
 
-`join_paths` gives one hop. Chain those hops and you have the path between two tables that share no foreign key - the grounding an agent turns into a correct multi-table join. `path_query.py` does exactly that: it walks the connections graph for the path, builds the SQL along it, and runs it live on BigQuery.
+In your agent, ask for something the warehouse only answers across several tables:
 
-[source,shell]
-.A question that needs a four-table join
+[source,text]
+.A prompt for your coding agent
 ----
-python skill/scripts/path_query.py parts vehicles \
-  --where "parts.part_number = 'IC-2042-B'" \
-  --select "DISTINCT vehicles.vin, vehicles.model, work_orders.wo_id, work_orders.dtc_code"
-----
-
-It prints the path it found, the SQL it built from that path, and the rows BigQuery returns:
-
-----
-PATH : parts -> work_order_parts -> work_orders -> vehicles
-SQL  : SELECT DISTINCT vehicles.vin, ... FROM parts JOIN work_order_parts ... JOIN work_orders ... JOIN vehicles ...
-RESULT: 7 rows   (7 Falcon 2.0T vehicles, all misfire codes)
+Which vehicles received part IC-2042-B? Use the connections MCP to get
+the warehouse schema, then write the SQL and run it with
+python skill/scripts/run_sql.py.
 ----
 
-The graph supplied the path, the SQL is correct by construction, and the rows never left BigQuery.
+Watch what it does:
+
+. calls `get_full_metadata_schema` on the `connections` server - and reads that `work_order_parts` references both `parts` and `work_orders`, and `work_orders` references `vehicles`
+. writes the join along those foreign keys: `parts → work_order_parts → work_orders → vehicles`
+. runs it and reports the rows - seven Falcon 2.0T vehicles, every one a misfire code
+
+The agent never guessed a join. It read the foreign keys from the graph and wrote the SQL from them - Text2SQL grounded by the connections shape.
 
 [NOTE]
-.Determinism, not "the tool can't"
+.Why this matters
 ====
-A capable Text2SQL system - including Databricks Genie - can also write this join. The edge is not possibility, it is reliability: on an independent enterprise benchmark, models hit a *78.57% error rate on queries touching four or more tables* (Falcon, 2025), exactly this join's shape. The connections graph pins the path - modeled once, traversed deterministically, and auditable - so the agent gets the same correct join every time. That is the edge at scale, where a warehouse has thousands of tables and many plausible-but-wrong paths between any two.
+That four-table join is the shape Text2SQL gets wrong roughly 79% of the time when it guesses the joins (Falcon, 2025). With the connections graph, the agent does not guess - it reads the join paths and writes the SQL correctly, every time. That is the difference between a demo and something you would deploy.
+====
+
+[TIP]
+.Prefer to see it as code?
+====
+`solutions/scripts/path_query.py` does the same path-to-SQL deterministically in Python, if you want to read the mechanism step by step.
 ====
 
 include::questions/verify.adoc[leveloffset=+1]
@@ -110,11 +86,11 @@ include::questions/verify.adoc[leveloffset=+1]
 [.summary]
 == Summary
 
-You built the connections shape:
+You built the connections shape and put it to work:
 
 * **neocarta** - read the warehouse foreign keys from BigQuery into a metadata graph, rows untouched
-* **join_paths.py** - the foreign-key traversal that tells the agent how to join
-* **path_query.py** - chains the path into a live multi-table SQL join, deterministic and auditable
+* **The connections MCP** - exposes that graph to your agent as schema-retrieval tools, no embeddings
+* **Agentic Text2SQL** - the agent reads the foreign keys and writes the multi-table join itself, grounded, not guessed
 * **Building Block 1**: "The agent knows how the warehouse joins" ✓
 
 In the next module, you turn to the documents and build the table-of-contents shape.
