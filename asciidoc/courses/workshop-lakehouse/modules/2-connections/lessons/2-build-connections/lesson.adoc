@@ -68,16 +68,40 @@ python skill/scripts/join_paths.py work_orders
 
 `work_orders` joins out to `procedures`, `dtc_codes`, and `vehicles`, and in from `work_order_parts`. Chain those neighbors and you have the path from any table to any other - the grounding the agent turns into a correct SQL join in the finale.
 
-[NOTE]
-.Why a graph, not a SELECT
-====
-A table's direct neighbors are one hop. But "how do I join two tables that aren't directly related?" is a variable-length walk over `REFERENCES` - a traversal, not a join. The connections live in a graph for the same reason the document tree does.
-====
-
 [TIP]
 .Stuck or out of sync?
 ====
 The complete tool is in `solutions/scripts/join_paths.py`.
+====
+
+
+[.slide]
+== See the path answer a question
+
+`join_paths` gives one hop. Chain those hops and you have the path between two tables that share no foreign key - the grounding an agent turns into a correct multi-table join. `path_query.py` does exactly that: it walks the connections graph for the path, builds the SQL along it, and runs it live on BigQuery.
+
+[source,shell]
+.A question that needs a four-table join
+----
+python skill/scripts/path_query.py parts vehicles \
+  --where "parts.part_number = 'IC-2042-B'" \
+  --select "DISTINCT vehicles.vin, vehicles.model, work_orders.wo_id, work_orders.dtc_code"
+----
+
+It prints the path it found, the SQL it built from that path, and the rows BigQuery returns:
+
+----
+PATH : parts -> work_order_parts -> work_orders -> vehicles
+SQL  : SELECT DISTINCT vehicles.vin, ... FROM parts JOIN work_order_parts ... JOIN work_orders ... JOIN vehicles ...
+RESULT: 7 rows   (7 Falcon 2.0T vehicles, all misfire codes)
+----
+
+The graph supplied the path, the SQL is correct by construction, and the rows never left BigQuery.
+
+[NOTE]
+.Determinism, not "the tool can't"
+====
+A capable Text2SQL system - including Databricks Genie - can also write this join. The edge is not possibility, it is reliability: on an independent enterprise benchmark, models hit a *78.57% error rate on queries touching four or more tables* (Falcon, 2025), exactly this join's shape. The connections graph pins the path - modeled once, traversed deterministically, and auditable - so the agent gets the same correct join every time. That is the edge at scale, where a warehouse has thousands of tables and many plausible-but-wrong paths between any two.
 ====
 
 include::questions/verify.adoc[leveloffset=+1]
@@ -90,6 +114,7 @@ You built the connections shape:
 
 * **neocarta** - read the warehouse foreign keys from BigQuery into a metadata graph, rows untouched
 * **join_paths.py** - the foreign-key traversal that tells the agent how to join
+* **path_query.py** - chains the path into a live multi-table SQL join, deterministic and auditable
 * **Building Block 1**: "The agent knows how the warehouse joins" ✓
 
 In the next module, you turn to the documents and build the table-of-contents shape.
