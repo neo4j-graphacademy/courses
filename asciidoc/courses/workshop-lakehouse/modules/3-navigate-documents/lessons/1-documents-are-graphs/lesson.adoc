@@ -1,4 +1,4 @@
-= Shapes Before Queries
+= The Outline Shape
 :type: lesson
 :order: 1
 :duration: 7
@@ -7,34 +7,62 @@
 [.slide.discrete]
 == Introduction
 
-Most people start with "what is my money query?" - and end up thinking in SQL: tables, joins, one result set.
-This workshop trains the opposite reflex: **decide what shape the context needs first**, write a spec for that shape, and only then derive the query logic that materializes it.
+AutoFix has a library of documents - service manuals, technical bulletins, and recall notices - and your agent needs to find its way around them.
 
-In this lesson, you will learn the containment model the library is built on, and read the spec for the first shape you will build: the outline.
+The reflex move is to chunk every document, embed the chunks, and search by similarity. That hands the agent a slice that _reads_ like the query. But a slice has no address: the agent can't tell which document it came from, which section it sits in, or what comes before and after it. And the cut itself is lossy - a fixed-size chunk boundary can fall mid-procedure, and once a fact is split across two chunks at ingest, no reranker or bigger context window puts it back together.footnote:[Fixed-size chunking destroys structure _before retrieval ever runs_ - see link:https://pageindex.ai/blog/pageindex-intro[PageIndex^] on the "chunking floor."]
+
+To _navigate_ a library, an agent needs something a pile of chunks can't give it: **structure**. So before writing a single query, we decide the shape that structure should take. The first shape is the one every well-organized document already has - a **table of contents**.
 
 
 [.slide]
-== One containment relationship
+== Give the agent a table of contents
 
-The load pipeline parsed the PDF library into a tree with a single relationship type, `HAS`:
+A table of contents is a map: it shows what's in the library and where, and it lets you jump straight to the part you need. Hand that same map to an agent and it can do the same thing - read the outline, reason about which entry answers the question, and open only that section. **Navigation instead of similarity.**
+
+This is a proven pattern, not a hunch. link:https://pageindex.ai/blog/pageindex-intro[PageIndex^] builds a hierarchical table of contents over a document and has an LLM reason _down the tree_ to the right section - no embeddings, no chunking. On FinanceBench (question-answering over real SEC filings) the approach reports **98.7% accuracy, against roughly 50% for naive vector RAG**.footnote:[The conceptual precursor is Prompt-RAG (Kang et al., link:https://arxiv.org/abs/2401.11246[arXiv:2401.11246^]): let the LLM pick headings from a document's ToC and pass those sections as context.]
+
+Here is the shape you are about to give your agent - AutoFix's library rendered as a navigable outline:
+
+----
+NAME                                                 T   URI
+AutoFix Technical Library .......................... L   technical-library
+  bulletins/ ....................................... F   technical-library/bulletins
+    Revised Ignition Coil for Repeated Misfire ..... D   technical-library/bulletins/tsb-21-114.pdf
+      Condition .................................... S   technical-library/bulletins/tsb-21-114.pdf#condition
+        → Misfire Diagnosis ...................... →   technical-library/manuals/man-fal-3.pdf#engine/misfire-diagnosis
+      Cause ........................................ S   technical-library/bulletins/tsb-21-114.pdf#cause
+----
+
+Names on the left for a human to read; full URIs on the right that the agent copies back into a tool to drill in or pull the text. The agent never has to guess where a passage lives - the address travels with it.
+
+
+[.slide]
+== One tree per document - and links across the library
+
+A single document's table of contents is a **tree**: the library contains folders, folders contain documents, documents contain sections, sections nest into sub-sections. One containment relationship, `HAS`, walks the whole thing top-down.
+
+But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above is the tell: that bulletin's _Condition_ section points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: a recall is cited by the bulletin that supersedes a fix, and two documents that never mention each other still both touch the same part number or trouble code. Those cross-references are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
+
+That is the reason - and the _only_ reason that matters - to reach for a graph: keep the tree for navigation, and add the cross-document links the tree can't express.
 
 [source,mermaid]
 ----
 graph TD
-    L((Library)) -->|HAS| F((Folder <br> bulletins/))
-    F -->|HAS| D((Document <br> TSB-21-114))
-    D -->|HAS| S1((Section <br> Condition))
-    D -->|HAS| S2((Section <br> Repair <br> Procedure))
+    L((Library)) -->|HAS| FB([bulletins/])
+    L -->|HAS| FM([manuals/])
+    FB -->|HAS| D1((TSB-21-114))
+    FM -->|HAS| D2((MAN-FAL-3))
+    D1 -->|HAS| S1((Condition))
+    D1 -->|HAS| S2((Repair<br/>Procedure))
+    D2 -->|HAS| S3((Misfire<br/>Diagnosis))
+    S1 -.->|LINKS_TO| S3
 ----
 
-Why one type instead of `HAS_FOLDER` / `HAS_DOCUMENT` / `HAS_SECTION`?
-Every containment edge means the same thing - "parent in the tree" - and the node labels already say what kind of child it is.
-One type lets every tree walk be written as `[:HAS*]`, whatever it passes through.
+So the document half of the graph is three relationships:
 
-Two more structural relationships complete the document half:
-
-* `(Section)-[:NEXT_SECTION]->(Section)` threads every document's sections in reading order
-* `(Section)-[:LINKS_TO]->(...)` crosses trees: `{citation: true}` where a section explicitly cites another document ("per safety recall RC-2021-04"), `{derived: true, sharedKeys, strength}` where sections in different documents reference the same part or code
+* `(parent)-[:HAS]->(child)` - containment, the tree. Every edge means the same thing ("parent in the tree"), and the node label (Library / Folder / Document / Section) says what kind of child it is - so any walk is just `[:HAS*]`, however deep.
+* `(Section)-[:NEXT_SECTION]->(Section)` - reading order, so the agent can read a section _in context_ instead of in isolation.
+* `(Section)-[:LINKS_TO]->(...)` - the cross-references: `{citation: true}` where a section explicitly cites another document ("per safety recall RC-2021-04"), `{derived: true, sharedKeys, strength}` where two sections reference the same part or code. These are the `→` rows.
 
 
 [.slide]
@@ -50,19 +78,22 @@ technical-library/bulletins/tsb-21-114.pdf#condition
 technical-library/manuals/man-fal-3.pdf#engine/ignition-coil-replacement
 ----
 
-Because URIs sort hierarchically, **any subtree is a string prefix** - scoping a search to the bulletins is `STARTS WITH 'technical-library/bulletins'`.
-Section fragments carry the full heading path, so a URI is always copy-pasteable back into any tool.
+Because URIs sort hierarchically, **any subtree is a string prefix** - scoping anything to the bulletins is `STARTS WITH 'technical-library/bulletins'`. Section fragments carry the full heading path, so a URI is always copy-pasteable back into any tool.
 
-One more rule worth knowing: a section's `content` holds only its _own_ body text, followed by `uri:` pointer lines for its children.
-Wherever an agent sees a `uri:` line, deeper content exists - retrievable by exactly one more lookup, never duplicated upward.
+One more rule: a section's `content` holds only its _own_ body text, followed by `uri:` pointer lines for its children. Wherever the agent sees a `uri:` line, deeper content exists - one more lookup away, never duplicated upward. The outline shows the _shape_; the agent pulls the _text_ only for the sections it actually needs.
+
+[NOTE]
+.Full-text now, vectors later - the shape is what matters
+====
+The search tool you build next ranks entry points with full-text search - chosen here for convenience (no embedding pipeline to stand up in a workshop). You could swap in vector search and the outline shape is unchanged: this lesson is about giving the agent a navigable _structure_, not about which engine ranks the text inside it.
+====
 
 
 [.slide]
 == Read the spec first
 
 Open `docs/outline-format.md` in your Codespace.
-That document is not documentation of something that exists - **it is the spec you are about to build against.**
-It pins down the shape an agent's navigation context must take:
+That file is not documentation of something that exists - **it is the spec you are about to build against.** It pins down the shape the agent's navigation context must take:
 
 * a ToC with display names on the left and full, verbatim URIs on the right
 * `→` rows for outbound links that never expand their target
@@ -70,7 +101,7 @@ It pins down the shape an agent's navigation context must take:
 
 Read it and ask the shape-first question: _what graph reasoning materializes this?_
 The answer - one variable-length `[:HAS*]` walk emitting flat rows the renderer assembles - is the heart of the next challenge.
-Notice what is impossible here in fixed-join thinking: the tree's depth is not known in advance, so no fixed number of joins can walk it.
+Notice what is impossible in fixed-join thinking: the tree's depth is not known in advance, so no fixed number of joins can walk it.
 
 read::Continue to the challenge[]
 
@@ -78,11 +109,12 @@ read::Continue to the challenge[]
 [.summary]
 == Summary
 
-In this lesson, you learned the model behind the shapes:
+In this lesson, you learned the first shape and the model behind it:
 
-* **One `HAS` type** - every containment edge means the same thing; trees walk as `[:HAS*]`
-* **Hierarchical URIs** - any subtree is a prefix; fragments carry the full heading path
-* **Shallow content with `uri:` pointers** - deeper content is one lookup away, never duplicated
+* **The outline shape** - a table of contents the agent navigates top-down, finding the right section by reasoning instead of similarity
+* **One `HAS` type** - containment is a tree; every edge means the same thing, so trees walk as `[:HAS*]`
+* **`LINKS_TO` makes it a graph** - cross-document citations and shared-key links a tree can't hold (the `→` rows)
+* **Hierarchical URIs** - any subtree is a prefix; fragments carry the full heading path, so every address is copy-pasteable
 * **Shape-first** - the spec (`docs/outline-format.md`) comes before any Cypher
 
 In the next challenge, you and your agent build the outline and search tools from their specs.
