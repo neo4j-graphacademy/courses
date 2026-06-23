@@ -8,7 +8,7 @@
 [.slide.discrete]
 == Challenge
 
-A work order just opened: `events/wo-2026-0117.json` - a 2020 Falcon, VIN `CM-FAL-2020-0451`, flashing check-engine light, code `P0301`.
+A work order just opened: `events/wo-2026-0117.json` - a Falcon 2.0T, VIN `FAL20T20220002`, flashing check-engine light, code `P0301`.
 Dani's bay.
 
 Your agent handles it end to end: decide the repair, catch the recall, order the part, and leave an auditable trail in the graph.
@@ -21,7 +21,7 @@ Nobody asks it a question.
 Judgment is agentic - the agent writes the SQL. The two _actions_ have fixed contracts, so they ship as tools in `skill/scripts/` (your agent calls them):
 
 * **`order_part.py <wo_id> <part_number> [qty]`** - places the order through the AutoFix parts API (the one running on port 8800); a `409` response means the part is superseded, and the API names the replacement
-* **`write_recommendation.py`** - records the decision: the work order from the event, a `Recommendation` node with its action and summary, and relationships to the recommended `Part`, any bundled `RecallNotice`, the `GROUNDED_IN` sections, and the placed `PartsOrder`
+* **`write_recommendation.py`** - records the decision: the work order from the event, a `Recommendation` node with its action and summary that stores the recommended part and `dtc_code` as properties, plus a `BUNDLES_RECALL` edge to the recall `Document`, `GROUNDED_IN` edges to the cited `Section` nodes, and a `PLACED_ORDER` edge to the `PartsOrder`
 
 The recommendation is the agent's signature on its decision - every claim in it points at graph evidence. Open either file if you want to see the contract; the agent runs them as the playbook directs.
 
@@ -38,7 +38,7 @@ Tell your agent:
 Work order event: events/wo-2026-0117.json. Handle it per the skill.
 ----
 
-Watch the policy fire in order: ground (applicable docs for P0301), judge (the revised coil, five repairs, zero comebacks), check exposure (this VIN has the open coil recall - bundle it), act (order `IC-2042-B`, write the recommendation).
+Watch the policy fire in order: ground (full-text P0301, read the candidate parts from the sections that mention it), judge (the revised coil, 18 repairs, zero comebacks), check exposure (independent of the misfire, this VIN is exposed to an open recall it never received - bundle it), act (order `IC-2042-B`, write the recommendation).
 
 One thing worth trying before or after: order the _original_ coil yourself -
 
@@ -79,8 +79,8 @@ Now the trust test - the second event:
 Work order event: events/wo-2026-0118.json. Handle it per the skill.
 ----
 
-A Heron with `U0121`. Check it yourself with `python solutions/scripts/what_fixed_this.py CM-HER-2024-1450 U0121`: no part has comeback-free evidence.
-Policy rule 5 says do not guess - the agent should write an **escalate** recommendation citing TSB-20-087's "do not replace the ABS module" guidance, and order nothing.
+A Harrier 3.0 TD, VIN `HAR30T20200600`, with `U0121`. Check it yourself with `python solutions/scripts/what_fixed_this.py HAR30T20200600 U0121`: the result is empty - no part has any comeback-free evidence for this model and code.
+Policy rule 5 says do not guess - the agent should write an **escalate** recommendation grounded in the Harrier ABS service manual's module-communication diagnostics, and order nothing.
 
 An agent that knows when _not_ to act is the difference between a demo and something Morgan can deploy.
 (There is a third event - a brake judder with no trouble code at all - if you finish early.)

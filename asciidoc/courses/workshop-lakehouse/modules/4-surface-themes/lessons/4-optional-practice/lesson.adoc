@@ -58,9 +58,10 @@ Which theme does each recall sit in, and how much supporting material surrounds 
 [source,cypher]
 .Recall placement
 ----
-MATCH (r:RecallNotice) WHERE r.themeId IS NOT NULL
+MATCH (r:Document)
+WHERE r.uri STARTS WITH 'technical-library/recalls/' AND r.themeId IS NOT NULL
 MATCH (member:Document {themeId: r.themeId})
-RETURN r.themeId AS theme, r.title AS recall,
+RETURN r.themeId AS theme, r.displayName AS recall,
        count(member) AS documentsInTheme,
        collect(member.id) AS members
 ----
@@ -79,25 +80,36 @@ For Morgan's team, a recall in a well-documented theme is routine; a recall in a
 A technician scans `P0562`.
 Which theme should the agent read - and what is in it?
 
+A trouble code is _not_ a graph node - it lives in section text and in BigQuery, so there is no graph edge from a code to a theme.
+The route is: full-text search the code, take the matched section's owning document, read its `themeId`.
+
 [%collapsible]
 ====
-[source,cypher]
-.Code to theme to reading list
+First, find the code in the library text:
+
+[source,shell]
 ----
-MATCH (s:Section)-[:REFERENCES_CODE]->(:DTC {code: 'P0562'})
-MATCH (d:Document {uri: split(s.uri, '#')[0]})
+python skill/scripts/search.py "P0562"
+----
+
+The top hit is a section URI like `technical-library/manuals/man-falcon-charging.pdf#diagnostic-trouble-codes/system-voltage-codes`.
+Collapse it to the owning document (`split(uri, '#')[0]`) and read that document's theme and reading list:
+
+[source,cypher]
+.Owning document to theme to reading list
+----
+MATCH (d:Document {uri: 'technical-library/manuals/man-falcon-charging.pdf'})
 WHERE d.themeId IS NOT NULL
 MATCH (member:Document {themeId: d.themeId})
-RETURN DISTINCT d.themeId AS theme,
+RETURN d.themeId AS theme,
        collect(DISTINCT member.displayName) AS readingList
 ----
 
-Two hops from a scanned code to a theme's full reading list - and note the middle hop: ownership by URI prefix, the same collapse your projection used.
-At gamma 1.0 this code routes to _two_ themes - the code itself sits on a theme boundary, and that is information: a symptom that two clusters of documentation care about.
+Search, then one collapse to the owning document, then the theme's full reading list - the same `split(uri,'#')[0]` ownership your projection used.
 
 **Try experimenting:**
 
-* Try `C0035` - does it route to a different theme?
+* Try `C0035` - search it, take its owning document, and see whether it routes to a different theme
 * Append the outline drill: pick a member document and `python skill/scripts/outline.py <its uri>`
 ====
 

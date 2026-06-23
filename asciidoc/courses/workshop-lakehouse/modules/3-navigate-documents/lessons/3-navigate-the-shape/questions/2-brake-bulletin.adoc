@@ -1,31 +1,36 @@
 [.question]
 = Brake Guidance
 
-Adapt the part-centred query to part `BP-7720` (the front brake pad kit).
-Which bulletin references it?
+Adapt the full-text query to part `BP-7720` (the front brake pad kit), scoped to the bulletins folder.
+Which of these bulletins references it?
 
-* [ ] TSB-21-114
-* [x] TSB-22-031
-* [ ] TSB-20-087
-* [ ] TSB-23-052
+* [x] tsb-21-207
+* [ ] tsb-20-501
+* [ ] tsb-22-301
+* [ ] tsb-30-999
 
 [TIP,role=hint]
 .Hint
 ====
-Change the `partNumber` value in the query to `BP-7720` and look for the row with type `Bulletin`.
+Change the search term to `"BP-7720"` and keep only the hits whose owning document is in `technical-library/bulletins`.
 ====
 
 [TIP,role=solution]
 .Solution
 ====
-The correct answer is **TSB-22-031** - "Front Brake Judder After Pad Replacement".
+The correct answer is **tsb-21-207** - "Marlin EV premature front brake pad and rotor wear".
 
 [source,cypher]
 ----
-MATCH (d:Document)-[:HAS*]->(s:Section)
-      -[:REFERENCES_PART]->(p:Part {partNumber: 'BP-7720'})
-RETURN d.docType AS type, d.title AS document, collect(s.displayName) AS sections
+CALL db.index.fulltext.queryNodes('content_search', '"BP-7720"')
+YIELD node, score
+WHERE node:Section
+MATCH (doc:Document)-[:HAS*]->(node)
+WHERE doc.uri STARTS WITH 'technical-library/bulletins'
+RETURN DISTINCT doc.id AS bulletin, doc.title AS title
+ORDER BY bulletin
 ----
 
-The part also appears in the Falcon and Heron service manuals - three documents in total.
+`BP-7720` shows up in several brake bulletins (`tsb-20-506`, `tsb-21-207`, `tsb-23-218`, `tsb-24-111`, and more) - the front-pad part is the thread tying them together.
+The misfire bulletins `tsb-20-501` and `tsb-22-301` are about ignition coils, so they never appear; `tsb-30-999` does not exist.
 ====

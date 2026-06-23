@@ -27,10 +27,10 @@ Here is the shape you are about to give your agent - AutoFix's library rendered 
 NAME                                                 T   URI
 AutoFix Technical Library .......................... L   technical-library
   bulletins/ ....................................... F   technical-library/bulletins
-    Revised Ignition Coil for Repeated Misfire ..... D   technical-library/bulletins/tsb-21-114.pdf
-      Condition .................................... S   technical-library/bulletins/tsb-21-114.pdf#condition
-        → Misfire Diagnosis ...................... →   technical-library/manuals/man-fal-3.pdf#engine/misfire-diagnosis
-      Cause ........................................ S   technical-library/bulletins/tsb-21-114.pdf#cause
+    Falcon 2.0T: Cylinder misfire under load ....... D   technical-library/bulletins/tsb-20-501.pdf
+      Condition .................................... S   technical-library/bulletins/tsb-20-501.pdf#condition
+        → Misfire Diagnosis ...................... →   technical-library/manuals/man-falcon-engine.pdf#misfire-diagnosis
+      Cause ........................................ S   technical-library/bulletins/tsb-20-501.pdf#cause
 ----
 
 Names on the left for a human to read; full URIs on the right that the agent copies back into a tool to drill in or pull the text. The agent never has to guess where a passage lives - the address travels with it.
@@ -41,7 +41,7 @@ Names on the left for a human to read; full URIs on the right that the agent cop
 
 A single document's table of contents is a **tree**: the library contains folders, folders contain documents, documents contain sections, sections nest into sub-sections. One containment relationship, `HAS`, walks the whole thing top-down.
 
-But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above is the tell: that bulletin's _Condition_ section points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: a recall is cited by the bulletin that supersedes a fix, and two documents that never mention each other still both touch the same part number or trouble code. Those cross-references are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
+But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above is the tell: that bulletin's _Condition_ section points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: the bulletin's author writes a cross-reference into a manual's diagnostic procedure, another section points at the related safety recall, an outbound URL becomes a stub document. Those are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
 
 That is the reason - and the _only_ reason that matters - to reach for a graph: keep the tree for navigation, and add the cross-document links the tree can't express.
 
@@ -50,8 +50,8 @@ That is the reason - and the _only_ reason that matters - to reach for a graph: 
 graph TD
     L((Library)) -->|HAS| FB([bulletins/])
     L -->|HAS| FM([manuals/])
-    FB -->|HAS| D1((TSB-21-114))
-    FM -->|HAS| D2((MAN-FAL-3))
+    FB -->|HAS| D1((tsb-20-501))
+    FM -->|HAS| D2((man-falcon-<br/>engine))
     D1 -->|HAS| S1((Condition))
     D1 -->|HAS| S2((Repair<br/>Procedure))
     D2 -->|HAS| S3((Misfire<br/>Diagnosis))
@@ -62,7 +62,7 @@ So the document half of the graph is three relationships:
 
 * `(parent)-[:HAS]->(child)` - containment, the tree. Every edge means the same thing ("parent in the tree"), and the node label (Library / Folder / Document / Section) says what kind of child it is - so any walk is just `[:HAS*]`, however deep.
 * `(Section)-[:NEXT_SECTION]->(Section)` - reading order, so the agent can read a section _in context_ instead of in isolation.
-* `(Section)-[:LINKS_TO]->(...)` - the cross-references: `{citation: true}` where a section explicitly cites another document ("per safety recall RC-2021-04"), `{derived: true, sharedKeys, strength}` where two sections reference the same part or code. These are the `→` rows.
+* `(Section)-[:LINKS_TO]->(...)` - the cross-references the document's author actually wrote: a bulletin section pointing into a manual procedure, a recall, an external URL. These are the `→` rows. There are no part/code entity nodes - identifiers live in the section text, and you find them by search.
 
 
 [.slide]
@@ -73,9 +73,9 @@ Every node has a `uri` - a hierarchical slug that encodes its place in the tree:
 ----
 technical-library
 technical-library/bulletins
-technical-library/bulletins/tsb-21-114.pdf
-technical-library/bulletins/tsb-21-114.pdf#condition
-technical-library/manuals/man-fal-3.pdf#engine/ignition-coil-replacement
+technical-library/bulletins/tsb-20-501.pdf
+technical-library/bulletins/tsb-20-501.pdf#condition
+technical-library/manuals/man-falcon-engine.pdf#misfire-diagnosis
 ----
 
 Because URIs sort hierarchically, **any subtree is a string prefix** - scoping anything to the bulletins is `STARTS WITH 'technical-library/bulletins'`. Section fragments carry the full heading path, so a URI is always copy-pasteable back into any tool.
@@ -113,7 +113,7 @@ In this lesson, you learned the first shape and the model behind it:
 
 * **The outline shape** - a table of contents the agent navigates top-down, finding the right section by reasoning instead of similarity
 * **One `HAS` type** - containment is a tree; every edge means the same thing, so trees walk as `[:HAS*]`
-* **`LINKS_TO` makes it a graph** - cross-document citations and shared-key links a tree can't hold (the `→` rows)
+* **`LINKS_TO` makes it a graph** - the cross-references the author actually wrote, jumping between branches a tree can't hold (the `→` rows)
 * **Hierarchical URIs** - any subtree is a prefix; fragments carry the full heading path, so every address is copy-pasteable
 * **Shape-first** - the spec (`docs/outline-format.md`) comes before any Cypher
 

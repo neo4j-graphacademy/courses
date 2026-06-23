@@ -17,10 +17,10 @@ This completes **Building Block 2**: "Themes nobody named exist as data" ✓
 [.slide]
 == The reasoning before the query
 
-Documents rarely link each other directly.
-But the Falcon manual and bulletin TSB-21-114 both reference coil `IC-2042-A` - they are about the same thing.
-The spec's key move: **parts and codes are glue nodes**.
-Project a document-level graph of documents _plus_ glue, and two documents that co-cite the same part sit two hops apart - close enough to cluster, even with no link between them.
+The library has no part or code entity nodes - documents are tied together purely by their cross-reference links.
+The Falcon electrical manual and the BCM communication bulletin both link to the CAN-bus diagnosis procedure - they are about the same thing.
+The spec's key move: **collapse every section link to its owning document**.
+Project a document-level graph, and two documents that converge on the same targets land in the same neighborhood - close enough to cluster.
 
 Collapsing section-level edges to their owning documents needs no tree walk - the URIs already encode ownership:
 
@@ -30,7 +30,7 @@ Collapsing section-level edges to their owning documents needs no tree walk - th
 MATCH (d:Document {uri: split(s.uri, '#')[0]})
 ----
 
-Hand the projection spec to your agent and review the Cypher: sections' `REFERENCES_PART`, `REFERENCES_CODE`, and `LINKS_TO` edges, collapsed to document pairs and document-glue pairs, undirected, weighted by mention count.
+Hand the projection spec to your agent and review the Cypher: sections' `LINKS_TO` edges, both ends collapsed to their owning `Document`, undirected, weighted by link count.
 
 
 [.slide]
@@ -44,8 +44,8 @@ Mutate-before-write matters: the conductance metric reads `themeId` from the in-
 python skill/scripts/themes.py
 ----
 
-Two broad themes appear - electrical-and-brakes and ignition-and-catalyst.
-Structurally defensible, but coarser than how technicians think.
+At the default resolution, thirteen themes appear - electrical / CAN-bus, front brakes, high-pressure fuel, and more.
+Every one of the 183 documents lands in a theme, and the header reconciles the totals.
 
 
 [.slide]
@@ -58,7 +58,7 @@ Leiden's `gamma` is the granularity dial - higher favors more, finer themes:
 python skill/scripts/themes.py --gamma 2.0
 ----
 
-Four themes now - sensors and hoses, ignition, brakes, charging - and the header still reconciles: every document is grouped or honestly `ungrouped`.
+Raising `gamma` splits the broad themes into more, finer ones - and the header still reconciles: every document is grouped or honestly `ungrouped`.
 There is no single correct resolution; it depends on the questions you will ask.
 Note the spec's stability contract: theme numbers are assigned per run - **store URIs, never `T<id>`**.
 
@@ -76,7 +76,7 @@ include::questions/verify.adoc[leveloffset=+1]
 
 You built the themes shape:
 
-* **Glue-node projection** - documents + parts/codes, co-citation as clustering signal, ownership by URI prefix
+* **Shared cross-reference projection** - section `LINKS_TO` edges collapsed to owning documents, shared link targets as clustering signal, ownership by URI prefix
 * **Leiden mutate → conductance → write** - granularity on the `gamma` dial, cohesion as words not scores
 * **Building Block 2**: "Themes nobody named exist as data" ✓
 

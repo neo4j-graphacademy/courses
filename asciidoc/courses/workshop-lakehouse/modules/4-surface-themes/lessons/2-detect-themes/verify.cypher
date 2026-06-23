@@ -6,7 +6,7 @@ WITH grouped, total,
 RETURN total > 0 AND grouped >= 6 AND themes >= 2 AS outcome,
        CASE
            WHEN total = 0
-           THEN 'No Document nodes found. Run the load pipeline first: python load/load_graph.py'
+           THEN 'No Document nodes found. Run the load pipeline first: python load/load_documents.py'
            WHEN grouped = 0
            THEN 'No Document carries a themeId. Run the themes tool: python skill/scripts/themes.py'
            WHEN grouped < 6 OR themes < 2
