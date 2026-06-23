@@ -1,4 +1,4 @@
-// Minimal passing graph — the real path is: python connections/build_connections.py
+// Minimal passing graph — the real path is: python load/build_connections.py
 MERGE (s:Schema {name: 'autofix_service'})
 WITH s
 UNWIND ['vehicles','dtc_codes','procedures','parts','work_orders','work_order_parts'] AS tn

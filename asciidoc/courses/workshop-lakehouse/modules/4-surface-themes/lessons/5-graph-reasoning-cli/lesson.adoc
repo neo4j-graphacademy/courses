@@ -23,10 +23,10 @@ The Codespace ships `neo4j-cli` (the agent installed its skills in setup). It re
 [source,shell]
 .Ask the graph directly
 ----
-neo4j-cli query "MATCH (s:Section)-[:REFERENCES_PART]->(p:Part) RETURN p.partNumber, count(s) AS mentions ORDER BY mentions DESC LIMIT 5"
+neo4j-cli query "MATCH (s:Section)-[:LINKS_TO]->(tgt) RETURN coalesce(tgt.displayName, tgt.uri) AS target, count(*) AS links ORDER BY links DESC LIMIT 5"
 ----
 
-This is what your agent runs under the hood when you ask it an open question. Try asking your agent _"which part is referenced by the most document sections?"_ and watch the `neo4j-cli` call it makes.
+This is what your agent runs under the hood when you ask it an open question. Try asking your agent _"which section or document is linked to by the most other sections?"_ and watch the `neo4j-cli` call it makes.
 
 
 [.slide]
@@ -46,12 +46,20 @@ You will see both graphs at once: the document containment (`Library`, `Folder`,
 [.slide]
 == Reason across both graphs
 
-Because both graphs live in the same Neo4j, one query can span them - for example, every part a document references that is also a real column-level key in the warehouse:
+Because both graphs live in the same Neo4j, one query can span them.
+A part number is not a graph node - it lives in section _text_ on the document side and as a `part_number` _column_ on the warehouse side.
+So one query can find both at once: the warehouse tables that carry a `part_number` key, plus the library sections whose text mentions a given part string.
 
 [source,shell]
-.Where documents and the warehouse metadata agree
+.The document graph and the warehouse metadata, side by side
 ----
-neo4j-cli query "MATCH (p:Part) WHERE EXISTS { (:Section)-[:REFERENCES_PART]->(p) } RETURN p.partNumber ORDER BY p.partNumber"
+neo4j-cli query "MATCH (t:Table)-[:HAS_COLUMN]->(c:Column {name: 'part_number'}) RETURN t.name AS warehouseTable ORDER BY warehouseTable"
+----
+
+[source,shell]
+.Find a part string in the library text (it is text, not a node)
+----
+neo4j-cli query "CALL db.index.fulltext.queryNodes('content_search', 'IC-2042') YIELD node, score RETURN node.uri AS section ORDER BY score DESC LIMIT 5"
 ----
 
 Ad-hoc reasoning like this is the connective tissue between the shaped tools - the move an agent makes when a question does not fit a pre-built script.

@@ -19,12 +19,13 @@ An agent's first question about any document estate is "what's here?".
 The tree answers it directly:
 
 [source,shell]
-.Table of contents for the Falcon manual
+.Table of contents for the Falcon engine manual
 ----
-python skill/scripts/outline.py technical-library/manuals/man-fal-3.pdf
+python skill/scripts/outline.py technical-library/manuals/man-falcon-engine.pdf
 ----
+// TODO - Depth Needed and not currently working
 
-You should see the manual's three chapters - Engine, Electrical, Brakes - sections in reading order, and `→` rows where its sections link out.
+You should see the manual's sections in reading order, nested sub-sections, and `→` rows where its sections link out.
 Underneath, the tool runs one variable-length walk - `MATCH path = (root)-[:HAS*0..25]->(n)` - and the renderer turns path lengths into indentation.
 
 Keyword search cannot produce this view at all: it has no concept of "contains".
@@ -35,41 +36,47 @@ Keyword search cannot produce this view at all: it has no concept of "contains".
 
 Dani's real question: the recall mentioned coil `IC-2042-A` - what else covers it?
 
+Part numbers and trouble codes are not entity nodes - they live in the section text.
+So you find every document about a part with **full-text search**, then walk up the `HAS` tree to the document that owns each matching section:
+
 [source,cypher]
-.All documents that reference a part
+.All documents that mention a part
 ----
-MATCH (d:Document)-[:HAS*]->(s:Section)
-      -[:REFERENCES_PART]->(p:Part {partNumber: 'IC-2042-A'})
-RETURN d.docType AS type, d.title AS document,
-       collect(s.displayName) AS sections
+CALL db.index.fulltext.queryNodes('content_search', '"IC-2042-A"')
+YIELD node, score
+WHERE node:Section
+MATCH (doc:Document)-[:HAS*]->(node)
+RETURN DISTINCT doc.area AS type, doc.title AS document,
+       collect(node.displayName) AS sections
 ----
 
-Three documents - of three different types - reference this part: the service manual, a bulletin, and a safety recall.
+The hits span all three folders - `bulletins`, `manuals`, and `recalls`: the misfire bulletins (`tsb-20-501`, `tsb-22-301`), the coil recall (`rc-2021-01`), and the ignition manuals all mention the same coil.
 That cross-document view is exactly what 40 keyword hits buried.
 
 **Try experimenting:**
 
-* Change the part number to `BP-7720` to map the brake-pad documents
-* Try the same question through search: `python skill/scripts/search.py 'IC-2042-A'`
+* Change the term to `"BP-7720"` to map the brake-pad documents
+* Run the same question through the tool: `python skill/scripts/search.py '"IC-2042-A"'`
 
 
 [.slide]
 == Follow the links
 
-From the misfire bulletin, what related guidance exists - and why is it related?
+From the misfire bulletin, what related guidance did its author point to?
 
 [source,cypher]
-.What does TSB-21-114 link to?
+.What does tsb-20-501 link to?
 ----
-MATCH (b:Bulletin {id: 'TSB-21-114'})-[:HAS_SECTION*]->(s:Section)
-      -[l:LINKS_TO]-(other:Section)<-[:HAS_SECTION*]-(d:Document)
+MATCH (b:Document {id: 'tsb-20-501'})-[:HAS*]->(:Section)
+      -[:LINKS_TO]->(tgt)
+MATCH (d:Document)-[:HAS*0..]->(tgt)
 RETURN DISTINCT d.title AS linkedDocument,
-       other.title AS section,
-       l.sharedKeys AS via
+       tgt.displayName AS section
 ORDER BY linkedDocument
 ----
 
-Every row is explainable: the bulletin links to the Falcon manual's coil sections _via_ `IC-2042-A`, and to the recall _via_ the coil part numbers.
+The first `[:HAS*]` walks down into the bulletin's own sections; `LINKS_TO` jumps to whatever each one references; the second `[:HAS*0..]` walks back up to the document that owns the target (length `0` handles a link that lands on a document directly).
+The bulletin points into the Falcon misfire-diagnosis procedure and into the Heron ignition manual's coil-identification, coil-replacement, and spark-plug sections.
 An agent following these links retrieves a **connected set** - the right meaning in the right shape.
 
 Now answer the questions below from your query results.
@@ -84,8 +91,8 @@ include::questions/2-brake-bulletin.adoc[leveloffset=+1]
 
 You navigated the document graph:
 
-* **Tree walks** - `[:HAS_SECTION*]` produces a table of contents keyword search cannot
-* **Part-centred views** - one query collects every document type covering a part
+* **Tree walks** - `[:HAS*]` produces a table of contents keyword search cannot
+* **Part-centred views** - one full-text query collects every document covering a part
 * **Explainable links** - `LINKS_TO` traversals return connected, justified context
 
 In the next module, you will run community detection over these links to surface the themes nobody named.

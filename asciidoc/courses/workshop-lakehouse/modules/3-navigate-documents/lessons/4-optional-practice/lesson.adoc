@@ -34,11 +34,11 @@ RETURN d.displayName AS document,
 ORDER BY sections DESC
 ----
 
-Counting over the variable-length pattern gives the size of each tree, and the longest path gives its depth - manuals reach depth 2, bulletins and recalls stay at depth 1.
+Counting over the variable-length pattern gives the size of each tree, and the longest path gives its depth - manuals nest deepest (reaching depth 3 below the document), while bulletins and recalls stay at depth 1.
 
 **Try experimenting:**
 
-* Add `WHERE d:Bulletin` to size up only the bulletins
+* Add `WHERE d.uri STARTS WITH 'technical-library/bulletins'` to size up only the bulletins
 * Start the walk from a `Folder` instead, and watch the depths shift by one
 ====
 
@@ -54,7 +54,7 @@ What comes immediately before and after it, in reading order?
 [source,cypher]
 .The reading-order window
 ----
-MATCH (s:Section {uri: 'technical-library/manuals/man-fal-3.pdf#engine/misfire-diagnosis'})
+MATCH (s:Section {uri: 'technical-library/manuals/man-falcon-engine.pdf#misfire-diagnosis'})
 OPTIONAL MATCH (prev)-[:NEXT_SECTION]->(s)
 OPTIONAL MATCH (s)-[:NEXT_SECTION]->(next)
 RETURN prev.displayName AS before, s.displayName AS here, next.displayName AS after
@@ -69,33 +69,29 @@ RETURN prev.displayName AS before, s.displayName AS here, next.displayName AS af
 
 
 [.slide]
-== Exercise 3: Citations versus derived links
+== Exercise 3: Where the links land
 
-The library has two kinds of cross-document connections.
-How many of each, and which sections explicitly cite another document?
+`LINKS_TO` is the cross-reference the author actually wrote.
+A link can land on a specific `Section` (most do - "see this exact procedure") or on a whole `Document` ("see the Heron manual").
+How many of each kind are there?
 
 [%collapsible]
 ====
 [source,cypher]
-.The two link kinds
+.What do links point at?
 ----
-MATCH (s:Section)-[l:LINKS_TO]->(t)
-RETURN CASE WHEN l.citation THEN 'citation' ELSE 'derived' END AS kind,
+MATCH (:Section)-[:LINKS_TO]->(t)
+RETURN CASE WHEN t:Section THEN 'section' ELSE 'document' END AS target,
        count(*) AS links
+ORDER BY links DESC
 ----
 
-[source,cypher]
-.Who cites whom
-----
-MATCH (s:Section)-[l:LINKS_TO {citation: true}]->(d:Document)
-RETURN s.uri AS fromSection, d.id AS citesDocument
-----
-
-Citations exist because a section's text names another document; derived links exist because two sections reference the same part or code - and carry `sharedKeys` saying exactly which.
+Most links target a precise section; the rest point at a document as a whole.
+An outbound URL the author wrote becomes a stub `Document {external: true}`, so a link to the outside world looks like any other document target.
 
 **Try experimenting:**
 
-* Return `l.sharedKeys` for the derived links and find the strongest one (`l.strength`)
+* List the documents one bulletin links to: `MATCH (:Document {id:'tsb-20-501'})-[:HAS*]->(:Section)-[:LINKS_TO]->(t) MATCH (d:Document)-[:HAS*0..]->(t) RETURN DISTINCT d.title, t.displayName`
 ====
 
 
@@ -132,7 +128,7 @@ In this optional practice, you exercised the model:
 
 * **Tree aggregation** - counting and depth over `[:HAS*]`
 * **Reading order** - `NEXT_SECTION` windows around any section
-* **Link kinds** - explicit citations versus derived shared-key links
+* **Link targets** - `LINKS_TO` landing on a section versus a whole document
 * **URI scoping** - subtree questions as string prefixes
 
 Module 4 builds the themes shape on exactly these pieces.
