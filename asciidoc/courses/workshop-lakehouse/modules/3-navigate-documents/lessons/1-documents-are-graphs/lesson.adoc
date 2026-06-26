@@ -2,6 +2,7 @@
 :type: lesson
 :order: 1
 :duration: 7
+:sandbox: true
 
 
 [.slide.discrete]
@@ -17,7 +18,7 @@ To _navigate_ a library, an agent needs something a pile of chunks can't give it
 [.slide]
 == Give the agent a table of contents
 
-A table of contents is a map: it shows what's in the library and where, and it lets you jump straight to the part you need. Hand that same map to an agent and it can do the same thing - read the outline, reason about which entry answers the question, and open only that section. **Navigation instead of similarity.**
+A table of contents is a map: it shows what's in the library and where, and it lets you jump straight to the part you need. It's is how humans navigate large documents and libraries. Hand that same map to an agent and it can do the same thing - read the outline, reason about which entry answers the question, and open only that section. **Navigation instead of similarity.**
 
 This is a proven pattern, not a hunch. link:https://pageindex.ai/blog/pageindex-intro[PageIndex^] builds a hierarchical table of contents over a document and has an LLM reason _down the tree_ to the right section - no embeddings, no chunking. On FinanceBench (question-answering over real SEC filings) the approach reports **98.7% accuracy, against roughly 50% for naive vector RAG**.footnote:[The conceptual precursor is Prompt-RAG (Kang et al., link:https://arxiv.org/abs/2401.11246[arXiv:2401.11246^]): let the LLM pick headings from a document's ToC and pass those sections as context.]
 
@@ -33,7 +34,7 @@ AutoFix Technical Library .......................... L   technical-library
       Cause ........................................ S   technical-library/bulletins/tsb-20-501.pdf#cause
 ----
 
-Names on the left for a human to read; full URIs on the right that the agent copies back into a tool to drill in or pull the text. The agent never has to guess where a passage lives - the address travels with it.
+Names on the left for a human to read; full URIs on the right that the agent copies back into a tool to drill in or pull the text.
 
 
 [.slide]
@@ -41,9 +42,9 @@ Names on the left for a human to read; full URIs on the right that the agent cop
 
 A single document's table of contents is a **tree**: the library contains folders, folders contain documents, documents contain sections, sections nest into sub-sections. One containment relationship, `HAS`, walks the whole thing top-down.
 
-But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above is the tell: that bulletin's _Condition_ section points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: the bulletin's author writes a cross-reference into a manual's diagnostic procedure, another section points at the related safety recall, an outbound URL becomes a stub document. Those are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
+But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: the bulletin's author writes a cross-reference into a manual's diagnostic procedure, another section points at the related safety recall, an outbound URL becomes a stub document. Those are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
 
-That is the reason - and the _only_ reason that matters - to reach for a graph: keep the tree for navigation, and add the cross-document links the tree can't express.
+That is a good reason to reach for a graph: keep the tree for navigation, and add the cross-document links the tree can't express.
 
 [source,mermaid]
 ----
@@ -54,6 +55,7 @@ graph TD
     FM -->|HAS| D2((man-falcon-<br/>engine))
     D1 -->|HAS| S1((Condition))
     D1 -->|HAS| S2((Repair<br/>Procedure))
+    S1 -.-> |NEXT-SECTION| S2
     D2 -->|HAS| S3((Misfire<br/>Diagnosis))
     S1 -.->|LINKS_TO| S3
 ----
@@ -90,6 +92,29 @@ The search tool you build next ranks entry points with full-text search - chosen
 
 
 [.slide]
+== Load the library and see the shape
+
+That model is what one command builds. It loads **documents only** - the warehouse rows stay in BigQuery (you wired them up in Module 2); only the PDF library crosses into the graph here:
+
+[source,shell]
+.Parse the PDFs into the document graph
+----
+python load/load_documents.py
+----
+
+It parses the PDF library into one Library tree - 3 folders, 183 documents, 985 sections, threaded by reading order (`NEXT_SECTION`) and the documents' own cross-references (`LINKS_TO`). The document half comes from **real PDFs**; the parser is the same shape a production pipeline would run over cloud storage. It writes alongside the connections graph from Module 2 - the two halves share the sandbox without touching each other.
+
+Now look at the shape you just loaded. Run this in the sandbox on the right to walk the top of the tree - the Library, its folders, the documents inside, and their first sections:
+
+[source,cypher]
+----
+MATCH p=(:Library)-[*0..4]->() RETURN p LIMIT 10
+----
+
+That is the containment tree from the diagram, live. Part numbers and trouble codes are **not** nodes here - they live in the section text (and in BigQuery); you find them by search, next.
+
+
+[.slide]
 == Read the spec first
 
 Open `docs/outline-format.md` in your Codespace.
@@ -101,7 +126,7 @@ That file is not documentation of something that exists - **it is the spec you a
 
 Read it and ask the shape-first question: _what graph reasoning materializes this?_
 The answer - one variable-length `[:HAS*]` walk emitting flat rows the renderer assembles - is the heart of the next challenge.
-Notice what is impossible in fixed-join thinking: the tree's depth is not known in advance, so no fixed number of joins can walk it.
+The tree's depth is not known in advance, so no fixed number of joins can walk it.
 
 read::Continue to the challenge[]
 
@@ -115,6 +140,7 @@ In this lesson, you learned the first shape and the model behind it:
 * **One `HAS` type** - containment is a tree; every edge means the same thing, so trees walk as `[:HAS*]`
 * **`LINKS_TO` makes it a graph** - the cross-references the author actually wrote, jumping between branches a tree can't hold (the `→` rows)
 * **Hierarchical URIs** - any subtree is a prefix; fragments carry the full heading path, so every address is copy-pasteable
+* **The library is loaded** - `load/load_documents.py` built the document tree (183 docs, 985 sections) alongside Module 2's connections graph; you saw it live in the sandbox
 * **Shape-first** - the spec (`docs/outline-format.md`) comes before any Cypher
 
 In the next challenge, you and your agent build the outline and search tools from their specs.
