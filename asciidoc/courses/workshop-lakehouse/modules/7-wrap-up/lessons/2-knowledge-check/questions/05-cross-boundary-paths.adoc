@@ -1,32 +1,33 @@
 [.question]
-= Why the Money Query Needed a Graph
+= Why the Joins Needed a Graph
 
-The final query ranked candidate fixes by real repair outcomes on similar vehicles.
-Why was Text2SQL the wrong tool for this question?
+To connect records on a real warehouse, the agent joins across many tables.
+Why is Text2SQL alone the wrong tool at that scale, and what makes the connections shape reliable?
 
 - [ ] A. SQL cannot express multi-table joins
-- [ ] B. The data was too large for a SQL engine
-- [x] C. The question implies a long chain of joins across both halves, where generated SQL tends to fail silently - plausible but subtly wrong
+- [ ] B. The data is too large for a SQL engine
+- [x] C. As the join chain grows across many look-alike tables, generated SQL guesses the wrong joins and fails silently; the connections graph hands the agent the exact foreign-key join paths, so the SQL is grounded, not guessed
 - [ ] D. Text2SQL cannot read part numbers
 
 [TIP,role=hint]
 .Hint
 ====
-Layer two of Sam's wall: what happens to generated SQL as the join chain grows - and how would you know?
+What happens to generated SQL as the schema grows large and the tables look alike - and how would you even know the answer was wrong?
 ====
 
 [TIP,role=solution]
 .Solution
 ====
-**C is correct:** The question spans documents, sections, references, parts, work orders, and vehicles - five or more joins, half of them against tables derived from PDFs.
-Text2SQL is nondeterministic on chains like this and fails silently: the query runs and returns plausible rows that are subtly wrong.
-The connections graph hands the agent the exact join paths, so the SQL it writes against the warehouse is grounded, not guessed.
+**C is correct:** On a production warehouse with hundreds of wide, near-identical tables, the schema does not fit in a prompt. Text2SQL brute-forces metadata, picks a wrong-but-plausible join, and returns rows that are subtly wrong - on independent benchmarks, a 78.57% error rate on queries touching four or more tablesfootnote:falcon[Independent Text2SQL benchmarks: _Falcon: A Comprehensive Chinese Text-to-SQL Benchmark for Enterprise-Grade Evaluation_ (Luo et al., arXiv:2510.24762, 2025) reports 78.57% error on queries touching four or more tables - https://arxiv.org/abs/2510.24762; _Spider 2.0: Evaluating Language Models on Real-World Enterprise Text-to-SQL Workflows_ (arXiv:2411.07763, ICLR 2025) reports frontier models at 10-17% on real enterprise schemas - https://arxiv.org/abs/2411.07763.].
+The connections graph retrieves the right tables and join paths *by meaning* before any SQL is generated, so the agent follows the foreign keys instead of guessing them.
 
 **Why others are wrong:**
 
 * A: SQL can express the joins - the problem is reliably _generating_ the right ones from natural language; the connections graph is what makes them reliable
-* B: This dataset is tiny; scale was never the issue
+* B: The number of rows was never the issue; the breadth of the schema is
 * D: Part numbers are ordinary strings to any tool
 
-**Recall Modules 1 and 5:** "Text2SQL is quietly wrong" and the federated finale.
+(AutoFix's six-table warehouse is small enough that Text2SQL copes - this failure shows up at production scale, which is exactly where the connections shape earns its keep.)
+
+**Recall Modules 2 and 6:** the connections shape and the finale's estate questions.
 ====

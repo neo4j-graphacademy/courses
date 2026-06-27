@@ -1,55 +1,44 @@
-= Federate on the Shared Key
+= It Takes More Than One Shape
 :type: lesson
 :order: 1
-:duration: 6
+:duration: 5
 
 
 [.slide.discrete]
 == Introduction
 
-Your tools so far read the document half. The agent's judgment needs the other half: what actually happened in the shop - which is in the BigQuery warehouse, and which is staying there.
+You have built all three shapes - trees and themes over the documents, connections over the warehouse. The finale is the point of all of it: answering the questions you set out to answer back in Module 1.
 
-In this lesson, you will learn the move that crosses the boundary without moving the data: **federate on the shared key.**
+Those questions do not fall to a single shape. This short lesson is the warm-up - Dani's own question - where you see why, before the estate questions in the next challenge.
 
 
 [.slide]
-== The key is in both halves
+== One shape is never the whole answer
 
-A part number like `IC-2042-B` appears in a bulletin section (the document graph, in Neo4j) _and_ on hundreds of work-order line items (the warehouse, in BigQuery). The same is true of a trouble code. Those shared keys are the link the lakehouse never made.
+Take Dani's question: _what fixed `P0301` on cars like this?_ No single shape gets you there:
 
-You could copy the warehouse into Neo4j and traverse one graph - the original instinct. But run it through the four-pains test from Module 2 and the rows fail every one: they churn constantly, there are millions of them, they are already modeled in the warehouse, and they are the sensitive layer. So you **do not** move them.
+* the **documents** name the candidates - the bulletins that mention the code, and the parts they call out (your trees and search tools)
+* the **warehouse** says which of those candidates actually held up - how often each was used, how often the car came back (the connections shape and the Text2SQL it grounds)
 
-Instead, the agent crosses the boundary at query time:
+The agent reaches for both and the answer falls out: the parts the documents name, ranked by what the warehouse shows really worked.
 
 [source,mermaid]
 ----
 graph LR
-    Q((work order <br> P0301 on this vin)) --> N[Neo4j: which docs cover P0301, which parts they name + grounding]
-    N -->|candidate parts| B[BigQuery SQL: outcomes for those parts on similar vehicles]
-    B -->|joined in Python| R((evidence-backed fix))
+    Q((what fixed <br> P0301 on cars like this?)) --> D[documents shape:<br/>which bulletins name the code,<br/>and the parts they call out]
+    D -->|candidate parts| W[warehouse shape:<br/>how each part performed<br/>on similar vehicles]
+    W --> A((evidence-backed answer))
 ----
 
-
-[.slide]
-== Why the connections graph matters here
-
-The BigQuery step is a multi-table join - work orders to vehicles to parts. Text2SQL guesses those joins and is quietly wrong on four-plus tables. Your agent does not guess: it reads the schema and foreign keys from the **connections MCP** you built in Module 2, and writes the SQL correctly every time.
-
-That is the whole thesis closing. The document shapes ground the _what_; the connections shape grounds the _how to join_; federation crosses the boundary on the key - no migration, no guessing.
-
-[NOTE]
-.But can a Databricks agent not orchestrate this too?
-====
-Yes - a Mosaic AI agent with managed MCP can bind vector search and SQL and cross the boundary. The graph's edge is not capability, it is _trust_. The cross-boundary path is one deterministic traversal you can audit, not a tool-chain that re-derives the join on every call and is roughly 70-80% reliable. And the part of the answer that is _not a column_ - which bulletin applies, and why - lives as a traversable edge, modeled once, instead of being re-inferred per query. You win on determinism and auditability, not on "the other tool cannot."
-====
+That read from Neo4j and BigQuery in the same pass - but that is just what reaching for two shapes looks like. The stores are an implementation detail; the answer is the point.
 
 
 [.slide]
-== The trail stays a graph
+== The connections shape keeps the warehouse half honest
 
-One thing does get written to Neo4j: the agent's **decision**. A `Recommendation` - the part it chose, the recall it bundled, the sections it cited, the order it placed - is a small graph, and it belongs in one: it is the audit trail, and every claim in it points at evidence.
+The warehouse step is a multi-table join - work orders to vehicles to parts. Left to guess, Text2SQL is quietly wrong as the chain grows. The agent does not guess: it reads the foreign keys from the connections MCP you built in Module 2 and writes the SQL along the real join paths.
 
-So the split is clean. Documents and the decision trail live in the graph (you own their structure); the warehouse rows stay in BigQuery (it owns them); the agent federates across the key.
+And nothing here is new plumbing - the documents are already a graph, the warehouse rows already stay in BigQuery (that was Module 2). The finale just puts the shapes to work together.
 
 read::Continue to the challenge[]
 
@@ -57,11 +46,11 @@ read::Continue to the challenge[]
 [.summary]
 == Summary
 
-In this lesson, you learned the boundary crossing:
+In this lesson, you saw the finale's move - answering with more than one shape:
 
-* **Federate, don't migrate** - the warehouse rows fail the four-pains test, so they stay in BigQuery
-* **Cross on the shared key** - Neo4j grounds the candidates, BigQuery returns the facts, Python joins them
-* **The connections graph grounds the SQL** - the join paths from Module 2 keep Text2SQL honest
-* **The decision trail is a graph** - the `Recommendation` is auditable, so it lives in Neo4j
+* **One shape is never the whole answer** - Dani's question needs the documents *and* the warehouse
+* **Documents name the candidates; the warehouse says which held up** - the agent reaches for both and the answer falls out
+* **The connections shape keeps the warehouse query honest** - the join paths from Module 2, not guesses
+* **Touching both stores is a byproduct** of reaching for both shapes - not the achievement
 
-In the next challenge, you watch the agent federate its judgment live - retrieving the warehouse schema and writing the Text2SQL itself.
+In the next challenge, you answer the estate questions, where the shapes cover and connect the whole set - not just one car.
