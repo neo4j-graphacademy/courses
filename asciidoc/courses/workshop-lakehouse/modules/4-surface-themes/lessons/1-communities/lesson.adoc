@@ -1,7 +1,8 @@
 = Patterns Nobody Named
 :type: lesson
 :order: 1
-:duration: 6
+:duration: 7
+:sandbox: true
 
 
 [.slide.discrete]
@@ -21,10 +22,19 @@ A **community** is a group of nodes more densely connected to each other than to
 In the AutoFix library, the electrical manuals, the communication bulletins, and the wiring recalls all keep linking to the same diagnostic sections - the CAN-bus diagnosis procedure, the lost-communication writeups.
 The brake documents converge on a different set of targets - pad-and-rotor service procedures and specs.
 Almost nothing connects an electrical document to a brake document.
-Those shared link targets pull documents together: two documents that both link to the same section are drawn into the same neighborhood, the strongest theme signal in any real corpus.
+
+You can visualize this in sandbox using the below query:
+
+[source,cypher]
+----
+MATCH p=()-[:LINKS_TO]->() RETURN p LIMIT 1000
+----
+
+
+Those shared link targets pull documents together: two documents that both link to the same section are drawn into the same neighborhood, a strong theme signal in any real corpus.
 
 **Community detection** algorithms find those clusters automatically.
-You will use **Leiden**, a Graph Data Science algorithm that assigns each node a community ID so that links inside communities are dense and links between them are sparse.
+You will use **Leiden**, a link:https://neo4j.com/docs/graph-data-science/current/[Graph Data Science (GDS)^] algorithm that assigns each node a community ID so that links inside communities are dense and links between them are sparse.
 
 
 [.slide]
@@ -45,10 +55,46 @@ That is the second shape: **patterns nobody named**.
 [.slide]
 == Why an agent needs themes
 
-Without themes, an agent answering "where are we seeing repeat problems?" has to read everything - and blows past its context window.
+Without themes, an agent answering _"what are the common patterns across our bulletins and recalls?"_ has to read everything - and blows past its context window.
 
 With themes, the agent gets a small, structured view: a handful of evidence blocks, each with its member documents and the shared link targets that define it.
 That fits in one prompt, and every claim in it traces back to real edges.
+
+Here is the shape your themes tool produces - the whole library clustered into themes nobody named (one evidence block per theme; three of thirteen shown):
+
+----
+THEMES  AutoFix Technical Library   183 docs · 183 grouped into 13 themes by shared cross-references · 0 ungrouped
+
+T1  20 docs (11%) · tightly interlinked
+    top shared targets   [CAN Bus Communication Diagnosis Procedure] in 11 docs · [Lost Communication with BCM and Cluster] in 11 docs · [Body Control Module Configuration Procedure] in 10 docs
+    most-linked docs     Kestrel Body Service Manual ................ D   technical-library/manuals/man-kestrel-body.pdf
+                         Vega Electrical Service Manual ............. D   technical-library/manuals/man-vega-electrical.pdf
+                         Kestrel Electrical Service Manual .......... D   technical-library/manuals/man-kestrel-electrical.pdf
+                         (+17 more docs)
+    links into T5 via    Kestrel headlamp assembly condensation and … .. D   technical-library/bulletins/tsb-21-225.pdf
+    links into T2 via    Vega Electrical Service Manual ............. D   technical-library/manuals/man-vega-electrical.pdf
+    links into T10 via   Ridgeline HD Body Service Manual ........... D   technical-library/manuals/man-ridgeline-hd-body.pdf
+
+T2  16 docs (9%) · tightly interlinked
+    top shared targets   [Front Brake Pad and Rotor Service Procedure] in 8 docs · [Front Pad and Rotor Specifications] in 7 docs · [Hydraulic Lines and Fluid] in 7 docs
+    most-linked docs     Kestrel Brakes Service Manual .............. D   technical-library/manuals/man-kestrel-brakes.pdf
+                         Vega Brakes Service Manual ................. D   technical-library/manuals/man-vega-brakes.pdf
+                         Marlin EV Brakes Service Manual ............ D   technical-library/manuals/man-marlin-ev-brakes.pdf
+                         (+13 more docs)
+    links into T4 via    Marlin EV Brakes Service Manual ............ D   technical-library/manuals/man-marlin-ev-brakes.pdf
+    links into T5 via    Kestrel Brakes Service Manual .............. D   technical-library/manuals/man-kestrel-brakes.pdf
+
+T3  16 docs (9%) · tightly interlinked
+    top shared targets   [Fuel Pressure and Sensor Faults] in 13 docs · [High-Pressure Fuel Pump (GDI)] in 13 docs · [Fuel Delivery] in 12 docs
+    most-linked docs     Summit Fuel Service Manual ................. D   technical-library/manuals/man-summit-fuel.pdf
+                         Falcon Fuel Service Manual ................. D   technical-library/manuals/man-falcon-fuel.pdf
+                         Osprey Fuel Service Manual ................. D   technical-library/manuals/man-osprey-fuel.pdf
+                         (+13 more docs)
+    links into T9 via    Falcon Fuel Service Manual ................. D   technical-library/manuals/man-falcon-fuel.pdf
+    links into T13 via   Osprey Fuel Service Manual ................. D   technical-library/manuals/man-osprey-fuel.pdf
+----
+
+Read it as evidence, not labels: the `top shared targets` and member titles are what name each theme - _electrical / CAN-bus_, _front brakes_, _high-pressure fuel_ - and each `links into T<j>` row is a handle into how two themes connect.
 
 The spec for that view is `docs/theme-format.md` - read it before the challenge, the same way you read the outline spec.
 
@@ -62,7 +108,7 @@ read::Continue to the challenge[]
 In this lesson, you learned the second shape:
 
 * **Community** - a group of nodes more densely connected internally than externally
-* **Leiden** - the Graph Data Science algorithm you will run to assign community IDs
+* **Leiden** - the Graph Data Science (GDS) algorithm you will run to assign community IDs
 * **Why it works here** - shared cross-reference links make clusters correspond to real repair themes, not noise
 
 In the next challenge, you will project the document graph and run Leiden yourself.
