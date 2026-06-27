@@ -1,0 +1,104 @@
+= The Estate Questions
+:type: challenge
+:order: 2
+:duration: 10
+:sandbox: true
+
+
+[.slide.discrete]
+== Challenge
+
+You have a shape for each of Module 1's three questions. Now you put them to work on the questions that run the shop.
+
+You will warm up on Dani's car - where one shape is not enough - then zoom out to the estate: the patterns across *all* the bulletins and recalls, and the field codes the library never documented.
+
+
+[.slide]
+== Warm-up: Dani's car takes two shapes
+
+The navigation and theme tools tell the agent what the documents _say_. The connections shape and a live warehouse query tell it what actually _worked_ - the agent grounds the candidates in the documents, then reads the repair history from the warehouse.
+
+The agent does not run a hand-written query. It retrieves the warehouse schema from the `connections` MCP (`get_full_metadata_schema` - every table with its foreign-key references, the join paths from Module 2), grounds the code in Neo4j, then writes and runs the SQL with `run_sql.py`, joining along those foreign keys.
+
+[source,text]
+.A prompt for your coding agent
+----
+For VIN FAL20T20220002 with code P0301: what fixed this on similar
+vehicles?
+----
+
+Watch it call the `connections` tools, write the SQL from the foreign keys, and run it. The candidate parts come from the bulletin sections that name the code; the warehouse says which of them actually held up.
+
+include::questions/1-zero-comebacks.adoc[leveloffset=+1]
+
+
+[.slide]
+== The estate: proving a negative
+
+That was one car. The estate questions ask about the *whole* library at once - and the sharpest is the one a similarity tool can never answer. Documentation gaps:
+
+[source,text]
+.A prompt for your coding agent
+----
+Are there mismatches between our documented procedures
+and the actual problems in the field? What documentation is missing, and what
+documentation isn't used?
+----
+
+A similarity tool _cannot_ answer this honestly. Asked what is undocumented, it returns the nearest-looking sections and concludes the codes are "documented, just buried" - a confident, wrong claim, because similarity always returns *something* and can never prove absence. The tree shape enumerates: it walks every document and reports the codes with zero hits.
+
+[TIP]
+.Verify it in the sandbox - the query is the proof
+====
+The check _is_ the shape doing its job. Run this against the document graph; both codes return zero library hits:
+
+[source,cypher]
+----
+UNWIND ['P0335', 'P0340'] AS code
+OPTIONAL MATCH (s:Section)
+  WHERE toLower(s.content) CONTAINS toLower(code)
+RETURN code, count(s) AS library_hits
+----
+
+`P0335` (crankshaft position sensor) and `P0340` (camshaft position sensor) are high-comeback codes out in the field - and the library never documents them. That zero is the answer.
+====
+
+include::questions/2-undocumented-codes.adoc[leveloffset=+1]
+
+
+[.slide]
+== The estate: coverage, not sampling
+
+The other estate question - Morgan wants the common patterns across the whole library:
+
+[source,text]
+.A prompt for your coding agent
+----
+What are the common patterns across our bulletins and recalls? How
+many of our cars does each affect?
+----
+
+This is a **coverage** question, and it is where similarity retrieval breaks. Ask a top-k retriever for "patterns across all our notices" and it hands back the nearest handful - it samples, and it cannot tell you what it skipped. That is not a vendor flaw; it is what similarity retrieval _is_, and it is the engine under every lakehouse AI-search feature.
+
+To feel the difference, run a plain keyword search for a broad theme first - your `search.py` over `content_search` returns the top matching sections, not the whole set. Then run `themes.py`: it clusters *all* 112 bulletins and recalls into the dozen-or-so recurring failure modes they actually represent. The shape covers the structure; the search samples it. Only then does the warehouse count make sense - the agent reads the warehouse on each pattern's parts and codes to size the fleet exposure.
+
+
+[.slide]
+== Connections at scale
+
+The third Module 1 question - "how do these records relate?" - is the connections shape at scale. On AutoFix's six-table warehouse, Text2SQL handles the joins fine; the failure only appears on a real warehouse with hundreds of look-alike, very wide tables, where the schema does not fit in a prompt and the model brute-forces metadata, picks the wrong table, and loops.
+
+On independent enterprise benchmarks, models hit a *78.57% error rate on queries touching four or more tables*footnote:falcon[Independent Text2SQL benchmarks: _Falcon: A Comprehensive Chinese Text-to-SQL Benchmark for Enterprise-Grade Evaluation_ (Luo et al., arXiv:2510.24762, 2025) reports 78.57% error on queries touching four or more tables - https://arxiv.org/abs/2510.24762; _Spider 2.0: Evaluating Language Models on Real-World Enterprise Text-to-SQL Workflows_ (arXiv:2411.07763, ICLR 2025) reports frontier models at 10-17% on real enterprise schemas - https://arxiv.org/abs/2411.07763.]. The connections shape retrieves the right table and the join paths by meaning before generating SQL, so the agent never scans the haystack. You built that shape in Module 2; at production scale, it is what keeps Text2SQL reliable _and_ cheap.
+
+
+[.summary]
+== Summary
+
+The agent answered the estate questions by putting the shapes together:
+
+* **Warm-up** - two shapes, one answer: grounded the candidates in the documents, then read the warehouse for what held up
+* **Absence** - the document graph proved `P0335`/`P0340` have zero documentation, a negative similarity cannot prove
+* **Coverage** - themes clustered *all* 112 notices into their recurring failure modes; similarity would have sampled a handful and missed the rest
+* **Connection at scale** - the connections shape keeps Text2SQL honest on warehouses too large to fit in a prompt
+
+In the final module: what it takes to run this pattern on your own lakehouse.
