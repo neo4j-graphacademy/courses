@@ -24,8 +24,7 @@ The agent does not run a hand-written query. It retrieves the warehouse schema f
 .A prompt for your coding agent
 ----
 For VIN FAL20T20220002 with code P0301: what fixed this on similar
-vehicles? Ground the candidate parts in the documents, use the
-connections MCP for the warehouse schema, and run_sql.py to run the SQL.
+vehicles?
 ----
 
 Watch it call the `connections` tools, write the SQL from the foreign keys, and run it. The candidate parts come from the bulletin sections that name the code; the warehouse says which of them actually held up.
@@ -41,9 +40,9 @@ That was one car. The estate questions ask about the *whole* library at once - a
 [source,text]
 .A prompt for your coding agent
 ----
-Which fault codes are failing in the field but have no documentation
-in our library at all? Enumerate the codes in the warehouse work
-orders, then check each against the document library.
+Are there mismatches between our documented procedures
+and the actual problems in the field? What documentation is missing, and what
+documentation isn't used?
 ----
 
 A similarity tool _cannot_ answer this honestly. Asked what is undocumented, it returns the nearest-looking sections and concludes the codes are "documented, just buried" - a confident, wrong claim, because similarity always returns *something* and can never prove absence. The tree shape enumerates: it walks every document and reports the codes with zero hits.
@@ -64,8 +63,6 @@ RETURN code, count(s) AS library_hits
 `P0335` (crankshaft position sensor) and `P0340` (camshaft position sensor) are high-comeback codes out in the field - and the library never documents them. That zero is the answer.
 ====
 
-// CO-WORK: the field-side half (these codes are high-comeback in the warehouse) is a warehouse query the agent runs; the sandbox Cypher above only proves the documentation-absence half. Decide whether the Check-Database verifier covers both halves or just the doc side.
-
 include::questions/2-undocumented-codes.adoc[leveloffset=+1]
 
 
@@ -77,20 +74,17 @@ The other estate question - Morgan wants the common patterns across the whole li
 [source,text]
 .A prompt for your coding agent
 ----
-What are the common patterns across all our bulletins and recalls,
-and roughly how many cars does each affect? Use the themes shape over
-the whole library, then read the warehouse for the fleet counts.
+What are the common patterns across our bulletins and recalls? How
+many of our cars does each affect?
 ----
 
 This is a **coverage** question, and it is where similarity retrieval breaks. Ask a top-k retriever for "patterns across all our notices" and it hands back the nearest handful - it samples, and it cannot tell you what it skipped. That is not a vendor flaw; it is what similarity retrieval _is_, and it is the engine under every lakehouse AI-search feature.
-
-// CO-WORK: confirm the local similarity-contrast mechanism the learner runs to *feel* the sampling failure (plain search.py / content_search over the broad query -> handful of hits), vs themes covering all 112. Wording below is a draft.
 
 To feel the difference, run a plain keyword search for a broad theme first - your `search.py` over `content_search` returns the top matching sections, not the whole set. Then run `themes.py`: it clusters *all* 112 bulletins and recalls into the dozen-or-so recurring failure modes they actually represent. The shape covers the structure; the search samples it. Only then does the warehouse count make sense - the agent reads the warehouse on each pattern's parts and codes to size the fleet exposure.
 
 
 [.slide]
-== The one we tell, not show
+== Connections at scale
 
 The third Module 1 question - "how do these records relate?" - is the connections shape at scale. On AutoFix's six-table warehouse, Text2SQL handles the joins fine; the failure only appears on a real warehouse with hundreds of look-alike, very wide tables, where the schema does not fit in a prompt and the model brute-forces metadata, picks the wrong table, and loops.
 
