@@ -19,18 +19,26 @@ This completes **Building Block 2**: "Themes nobody named exist as data" ✓
 
 The library has no part or code entity nodes - documents are tied together purely by their cross-reference links.
 The Falcon electrical manual and the BCM communication bulletin both link to the CAN-bus diagnosis procedure - they are about the same thing.
-The spec's key move: **collapse every section link to its owning document**.
-Project a document-level graph, and two documents that converge on the same targets land in the same neighborhood - close enough to cluster.
+The spec's key move: **replace every section-level link with a link between the documents that own those sections** - in graph terms, this is called _collapsing_ edges up to a parent node.
+Build that document-level graph, and two documents that both point at the same targets become neighbors - close enough for the clustering algorithm to group them into a theme.
 
-Collapsing section-level edges to their owning documents needs no tree walk - the URIs already encode ownership:
+Collapsing section-level edges to their owning documents needs no tree walk - the URIs already encode ownership.
+Section URIs use a `#` fragment identifier to separate the document path from the section anchor.
+For example, `technical-library/manuals/falcon-electrical#can-bus-diagnosis` belongs to the document `technical-library/manuals/falcon-electrical`.
+Splitting on `#` and taking the first element is all the lookup needs:
 
 [source,cypher]
-.Ownership is a string operation on hierarchical URIs
+.Example fragment - `s` is a Section node already matched in the outer query
 ----
+// s is a :Section node already in scope
 MATCH (d:Document {uri: split(s.uri, '#')[0]})
 ----
 
-Hand the projection spec to your agent and review the Cypher: sections' `LINKS_TO` edges, both ends collapsed to their owning `Document`, undirected, weighted by link count. Same loop as the navigation tools - drive it from the spec.  In this case, we also include the `neo4j-gds-skill` as Leiden is a Graph Data Science (GDS) algorithm.
+Hand the projection spec to your agent and review the Cypher it generates.
+The query takes every `LINKS_TO` relationship between sections and lifts both endpoints to their owning `Document` - the same collapse you just saw with the URI split.
+The resulting graph is **undirected** (only the connection matters, not which document linked first) and **weighted** by how many links two documents share - the more shared targets, the stronger the edge between them.
+Same loop as the navigation tools - drive it from the spec.
+In this case, we also include the `neo4j-gds-skill` as Leiden is a Graph Data Science (GDS) algorithm.
 
 [source,text]
 .Wire the themes projection from its spec

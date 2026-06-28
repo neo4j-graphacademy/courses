@@ -12,17 +12,28 @@ AutoFix has a library of documents - service manuals, technical bulletins, and r
 
 The reflex move is to chunk every document, embed the chunks, and search by similarity. That hands the agent a slice that _reads_ like the query. But a slice has no address: the agent can't tell which document it came from, which section it sits in, or what comes before and after it. And the cut itself is lossy - a fixed-size chunk boundary can fall mid-procedure, and once a fact is split across two chunks at ingest, no reranker or bigger context window puts it back together.footnote:[Fixed-size chunking destroys structure _before retrieval ever runs_ - see link:https://pageindex.ai/blog/pageindex-intro[PageIndex^] on the "chunking floor."]
 
-To _navigate_ a library, an agent needs something a pile of chunks can't give it: **structure**. So before writing a single query, we decide the shape that structure should take. The first shape is the one every well-organized document already has - a **table of contents**.
+To _navigate_ a library, an agent needs something a pile of chunks can't give it: **structure**. That structure is an **outline shape** stored in a **graph** - an index of every document in the library and how they link to each other. It is built in two steps:
+
+* **Table of contents** - the outline of a single document, so the agent can read it and jump straight to the section it needs.
+* **Library index** - how those individual documents are organized and linked into one navigable map of the whole library.
+
+We build them in that order, starting with the table of contents.
 
 
 [.slide]
 == Give the agent a table of contents
 
-A table of contents is a map: it shows what's in the library and where, and it lets you jump straight to the part you need. It's is how humans navigate large documents and libraries. Hand that same map to an agent and it can do the same thing - read the outline, reason about which entry answers the question, and open only that section. **Navigation instead of similarity.**
+A table of contents is a map of a single document: it shows what's in the document and where, and it lets you jump straight to the part you need. Its shape is a **tree** - sections nesting into sub-sections. It's how humans navigate large documents. Hand that same map to an agent and it can do the same thing - read the outline, reason about which entry answers the question, and open only that section. **Navigation instead of similarity.**
 
 This is a proven pattern, not a hunch. link:https://pageindex.ai/blog/pageindex-intro[PageIndex^] builds a hierarchical table of contents over a document and has an LLM reason _down the tree_ to the right section - no embeddings, no chunking. On FinanceBench (question-answering over real SEC filings) the approach reports **98.7% accuracy, against roughly 50% for naive vector RAG**.footnote:[The conceptual precursor is Prompt-RAG (Kang et al., link:https://arxiv.org/abs/2401.11246[arXiv:2401.11246^]): let the LLM pick headings from a document's ToC and pass those sections as context.]
 
-Here is the shape you are about to give your agent - AutoFix's library rendered as a navigable outline:
+
+[.slide]
+== Build the library from trees
+
+One document is one tree. A library is many trees. Nest them - the library contains folders, folders contain documents, documents contain sections, sections nest into sub-sections - and one containment relationship, `HAS`, walks the whole thing top-down.
+
+Here is that shape: AutoFix's entire library rendered as a single navigable outline.
 
 ----
 NAME                                                 T   URI
@@ -35,12 +46,6 @@ AutoFix Technical Library .......................... L   technical-library
 ----
 
 Names on the left for a human to read; full URIs on the right that the agent copies back into a tool to drill in or pull the text.
-
-
-[.slide]
-== One tree per document - and links across the library
-
-A single document's table of contents is a **tree**: the library contains folders, folders contain documents, documents contain sections, sections nest into sub-sections. One containment relationship, `HAS`, walks the whole thing top-down.
 
 But a real library is not a stack of independent documents, and this is where a plain tree runs out. The `→` row in the outline above points into a **different document** - the misfire-diagnosis procedure in a manual. AutoFix's documents reference each other constantly: the bulletin's author writes a cross-reference into a manual's diagnostic procedure, another section points at the related safety recall, an outbound URL becomes a stub document. Those are exactly the "what else applies here?" links a service advisor follows - and a tree can't hold them, because they jump between branches.
 
@@ -60,7 +65,7 @@ graph TD
     S1 -.->|LINKS_TO| S3
 ----
 
-So the document half of the graph is three relationships:
+So the document side of the graph is three relationships:
 
 * `(parent)-[:HAS]->(child)` - containment, the tree. Every edge means the same thing ("parent in the tree"), and the node label (Library / Folder / Document / Section) says what kind of child it is - so any walk is just `[:HAS*]`, however deep.
 * `(Section)-[:NEXT_SECTION]->(Section)` - reading order, so the agent can read a section _in context_ instead of in isolation.
@@ -102,7 +107,7 @@ That model is what one command builds. It loads **documents only** - the warehou
 python load/load_documents.py
 ----
 
-It parses the PDF library into one Library tree - 3 folders, 183 documents, 985 sections, threaded by reading order (`NEXT_SECTION`) and the documents' own cross-references (`LINKS_TO`). The document half comes from **real PDFs**; the parser is the same shape a production pipeline would run over cloud storage. It writes alongside the connections graph from Module 2 - the two halves share the sandbox without touching each other.
+It parses the PDF library into one Library tree - 3 folders, 183 documents, 985 sections, threaded by reading order (`NEXT_SECTION`) and the documents' own cross-references (`LINKS_TO`). The document half comes from **real PDFs**; the parser is the same shape a production pipeline would run over cloud storage. It writes alongside the connections graph from Module 2 - the two sides share the sandbox without touching each other.
 
 Now look at the shape you just loaded. Run this in the sandbox on the right to walk the top of the tree - the Library, its folders, the documents inside, and their first sections:
 

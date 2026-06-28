@@ -22,7 +22,7 @@ A warehouse is a set of tables wired together by foreign keys: a work order's `v
 Text2SQL does not see them as a structure - it infers joins from column names and hopes. The **connections shape** makes them explicit and traversable: an agent that can read "`work_orders` joins to `vehicles` on `vin`" writes the right join instead of guessing it.
 
 [NOTE]
-.Not "the tool can't" - "the tool guesses"
+.Why Text2SQL guesses joins
 ====
 A modern Text2SQL system _can_ write this join. The problem is reliability: on independent enterprise benchmarks, models hit a *78.57% error rate on queries touching four or more tables*footnote:falcon[Independent Text2SQL benchmarks: _Falcon: A Comprehensive Chinese Text-to-SQL Benchmark for Enterprise-Grade Evaluation_ (Luo et al., arXiv:2510.24762, 2025) reports 78.57% error on queries touching four or more tables - https://arxiv.org/abs/2510.24762; _Spider 2.0: Evaluating Language Models on Real-World Enterprise Text-to-SQL Workflows_ (arXiv:2411.07763, ICLR 2025) reports frontier models at 10-17% on real enterprise schemas - https://arxiv.org/abs/2411.07763.] - the shape of joins on any real, many-table warehouse. The connections graph does not make the join _possible_; it makes it _deterministic and auditable_ - the same correct path every time, one you can inspect.
 ====
@@ -39,24 +39,9 @@ graph LR
 //TODO: Replace above with an ERD diagram reflecting how it would normally be visualized for RDBMS.  If Metmaid isn't the right visual fit lets use another tool and place img here if we have to.
 
 [.slide]
-== neocarta reads it from the warehouse
+== Building the semantic layer
 
-You do not hand-build this graph. link:https://github.com/neo4j-labs/neocarta[neocarta^] - a Neo4j Labs library - reads a warehouse's information schema and writes the metadata graph for you:
-
-----
-(:Database)-[:HAS_SCHEMA]->(:Schema)-[:HAS_TABLE]->(:Table)-[:HAS_COLUMN]->(:Column)
-(:Column)-[:REFERENCES]->(:Column)     // one per foreign key — the join paths
-----
-
-The AutoFix warehouse lives in BigQuery with its primary and foreign keys declared. neocarta turns each foreign key into a `REFERENCES` edge - the connections shape, ready to query.
-//TODO - Note that even with out FK meta data you can infer from schema log or other info (OSI?)
-
-//TODO: Note We are using BQ now but this is soon to be integrated with DBX - reference?
-
-[.slide]
-== Migrate the map, not the territory
-
-Getting our agent to understand what shapes to use doesn't require data migration — just another layer.footnote:[This doesn't address graph query performance, which is sometimes required and does necessitate migration.]
+To solve the problem of the missing context, we need a way to give the agent these join paths, and to do it without copying the entire warehouse into Neo4j. That is what our connections graph does: it is a **semantic layer graph** that holds the join paths. Getting the agent to understand what shapes to use does not require data migration, just another layer.footnote:[This doesn't address graph query performance, which is sometimes required and does necessitate migration.]
 
 [cols="1,2,2", options="header"]
 |===
@@ -75,14 +60,29 @@ Getting our agent to understand what shapes to use doesn't require data migratio
 | Enable the agent to _query data using graph traversals and algorithms_ for *_multi-hop reasoning at the query execution level_*.
 |===
 
-For now, we just need our agent to **understand** what shapes to use and how to query it with Text2SQL. Neocarta fills this job as a semantic layer and is therfore sufficient for our learning here. For more info on Virtual Graph, see link:https://neo4j.com/product/virtual-graph/[Neo4j Virtual Graph^].
+For now, we just need our agent to **understand** what shapes to use and how to query it with Text2SQL. A **semantic layer** fills this job and is therefore sufficient for our learning here. For more info on Virtual Graph, see link:https://neo4j.com/product/virtual-graph/[Neo4j Virtual Graph^].
 
-Neocarta copies the warehouse's _metadata_ - table and column names, the foreign-key graph. It does **not** copy the rows.
+[.slide]
+== neocarta builds the semantic layer graph
+
+You do not hand-build this graph. link:https://github.com/neo4j-labs/neocarta[neocarta^] - a Neo4j Labs library - reads a warehouse's information schema and builds the semantic layer graph for you:
+
+----
+(:Database)-[:HAS_SCHEMA]->(:Schema)-[:HAS_TABLE]->(:Table)-[:HAS_COLUMN]->(:Column)
+(:Column)-[:REFERENCES]->(:Column)     // one per foreign key, the join paths
+----
+
+The AutoFix warehouse lives in BigQuery with its primary and foreign keys declared. neocarta turns each foreign key into a `REFERENCES` edge - the connections shape, ready to query.
+//TODO - Note that even with out FK meta data you can infer from schema log or other info (OSI?)
+
+//TODO: Note We are using BQ now but this is soon to be integrated with DBX - reference?
+
+neocarta copies the warehouse's _metadata_ - table and column names, the foreign-key graph - to create the semantic layer graph. It does **not** copy the rows.
 
 [NOTE]
-.The security knob
+.Sample values are pulled by default
 ====
-neocarta does pulls sample column values by default - handy for routing ("model is `Falcon`, `Heron`, or `Osprey`")
+neocarta pulls sample column values by default - handy for routing ("vehicle model is `Falcon`, `Heron`, or `Osprey`")
 ====
 //TODO: See if this can be turned off in neocarta, if not jusst be aware
 
@@ -104,8 +104,8 @@ read::Continue to the challenge[]
 In this lesson, you learned the connections shape:
 
 * **Join paths** - foreign keys made explicit, so the agent routes instead of guessing
-* **neocarta** - reads the warehouse information schema into a Neo4j metadata graph
-* **Layer vs. migrate** - the agent only needs to *understand* the shape to query with Text2SQL, so use neocarta as the semantic layer; data stays in BigQuery
+* **Semantic layer** - the connections graph is a semantic layer focused on join paths; the agent only needs to *understand* the shape to query with Text2SQL, so data stays in BigQuery
+* **neocarta** - reads the warehouse information schema and builds the semantic layer graph in Neo4j
 * **The connections MCP** - neocarta exposes the graph to your agent as schema tools
 
 In the next challenge, you run neocarta and watch your agent query the connections graph through the MCP.
