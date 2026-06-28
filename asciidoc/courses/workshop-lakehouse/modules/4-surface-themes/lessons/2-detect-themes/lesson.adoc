@@ -51,8 +51,17 @@ anything in solutions/ for this exercise.
 [.slide]
 == Run the pipeline
 
-The rest of the script is given and runs the spec's pipeline: Leiden **mutate** → per-community conductance (the cohesion words) → write `themeId` back → renderer queries → drop the projection.
-Mutate-before-write matters: the conductance metric reads `themeId` from the in-memory projection, which never sees database writes.
+The rest of the script is given. It runs the spec's pipeline as a chain of GDS steps:
+
+. **Leiden (mutate mode)** - finds the communities and tags each document with a `themeId`, written into the *in-memory projection* (GDS's working copy of the graph), not the database.
+. **Per-community conductance** - measures how cohesive each theme is; the renderer turns this into the cohesion words you see in the output (for example, `tightly interlinked`), not a raw number.
+. **Write `themeId` back** - copies the tag from the projection into the Neo4j database so ordinary queries can read it.
+. **Renderer queries** - read the themes back from the database to build the output.
+. **Drop the projection** - release the in-memory working copy.
+
+GDS can put an algorithm's results in two separate places: the in-memory projection or the database.
+Conductance reads `themeId` from the projection, so Leiden has to run in **mutate** mode - which fills the projection - *before* the write step.
+A plain write would only update the database, which the projection never sees.
 
 [source,shell]
 ----
